@@ -119,3 +119,31 @@ function pendingRunYak(array $taskAttributes = [], ?FakeSandboxManager $shell = 
 
     return ['task' => $task->refresh(), 'thread' => $thread, 'shell' => $shell, 'sent' => &$sent];
 }
+
+/**
+ * Ends a turn for an existing task and runs its finisher over the given shell.
+ *
+ * @param  class-string  $job
+ * @param  string|array<string, mixed>  $result  a summary, or a full result event
+ */
+function finishTaskTurn(string $job, YakTask $task, FakeSandboxManager $shell, string|array $result, TaskRunKind $kind = TaskRunKind::FollowUp, TurnState $state = TurnState::Completed): TaskRun
+{
+    fakeAfterTurnCollaborators(shell: $shell);
+    $thread = Thread::factory()->create(['repo' => $task->repo, 'sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'yak-thread-test']);
+    YakTask::query()->whereKey($task->id)->update(['thread_id' => $thread->id, 'status' => TaskStatus::Running->value]);
+    $task->refresh();
+
+    $run = TaskRun::factory()->create([
+        'yak_task_id' => $task->id,
+        'thread_id' => $thread->id,
+        'kind' => $kind,
+        'turn_state' => $state,
+        'last_result_event' => is_array($result) ? $result : resultEvent($result),
+        'assistant_turns' => 2,
+        'recorded_cost_usd' => 0.01,
+    ]);
+
+    runFinisher($run, $job);
+
+    return $run;
+}

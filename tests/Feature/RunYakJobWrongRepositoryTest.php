@@ -1,20 +1,17 @@
 <?php
 
-use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
-use App\Jobs\RetryYakJob;
+use App\Jobs\AfterTurn\FinishRetryTurnJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
 use App\Services\RepoClarificationResolver;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
-use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
 
 require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
@@ -121,14 +118,8 @@ test('an unknown suggested repository is ignored and the others stay alphabetica
 test('a retry that reports the wrong repository asks for a repo and starts over', function () {
     Queue::fake();
 
-    $fake = (new FakeAgentRunner)->queueResult(wrongRepositoryResult('acme/billing'));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, dirtySandbox());
-    Process::fake(['*' => Process::result('')]);
-
     Repository::factory()->create(['slug' => 'acme/atlas', 'path' => '/home/yak/repos/atlas']);
     Repository::factory()->create(['slug' => 'acme/billing']);
-
     $task = YakTask::factory()->retrying()->create([
         'repo' => 'acme/atlas',
         'source' => 'linear',
@@ -136,7 +127,7 @@ test('a retry that reports the wrong repository asks for a repo and starts over'
         'branch_name' => 'yak/old-branch',
     ]);
 
-    (new RetryYakJob($task, 'ci output'))->handle($fake);
+    finishTaskTurn(FinishRetryTurnJob::class, $task, dirtySandbox(), wrongRepositoryEvent('acme/billing'), TaskRunKind::Retry);
 
     $task->refresh();
 
@@ -182,14 +173,8 @@ test('a clarification turn that reports the wrong repository asks for a repo and
 test('a task that already has a pull request ignores the wrong repository verdict', function () {
     Queue::fake();
 
-    $fake = (new FakeAgentRunner)->queueResult(wrongRepositoryResult('acme/api'));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-    Process::fake(['*' => Process::result('')]);
-
     Repository::factory()->create(['slug' => 'acme/atlas', 'path' => '/home/yak/repos/atlas']);
     Repository::factory()->create(['slug' => 'acme/api']);
-
     $task = YakTask::factory()->retrying()->create([
         'repo' => 'acme/atlas',
         'source' => 'linear',
@@ -197,7 +182,7 @@ test('a task that already has a pull request ignores the wrong repository verdic
         'pr_url' => 'https://github.com/acme/atlas/pull/3',
     ]);
 
-    (new RetryYakJob($task, 'ci output'))->handle($fake);
+    finishTaskTurn(FinishRetryTurnJob::class, $task, new FakeSandboxManager, wrongRepositoryEvent('acme/api'), TaskRunKind::Retry);
 
     expect($task->refresh()->repo)->toBe('acme/atlas')
         ->and(RepoClarificationResolver::awaitingRepoChoice($task))->toBeFalse();

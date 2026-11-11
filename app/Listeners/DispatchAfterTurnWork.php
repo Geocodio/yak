@@ -2,9 +2,14 @@
 
 namespace App\Listeners;
 
+use App\Enums\TaskMode;
 use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
+use App\Jobs\AfterTurn\FinishFollowUpTurnJob;
+use App\Jobs\AfterTurn\FinishResearchFollowUpTurnJob;
+use App\Jobs\AfterTurn\FinishResearchTurnJob;
+use App\Jobs\AfterTurn\FinishRetryTurnJob;
 use App\Jobs\AfterTurn\FinishRunYakTurnJob;
 use App\Jobs\AfterTurn\FinishThreadTurnJob;
 use App\Models\TaskRun;
@@ -21,12 +26,19 @@ class DispatchAfterTurnWork
     private const array FINISHERS = [
         'initial' => FinishRunYakTurnJob::class,
         'clarification' => FinishRunYakTurnJob::class,
+        'follow_up' => FinishFollowUpTurnJob::class,
+        'retry' => FinishRetryTurnJob::class,
+        'research' => FinishResearchTurnJob::class,
     ];
 
     public function handle(TurnCompleted|TurnFailed $event): void
     {
         $run = $event->run;
         $finisher = self::FINISHERS[$run->kind->value] ?? null;
+
+        if ($finisher === FinishFollowUpTurnJob::class && $run->task?->mode === TaskMode::Research) {
+            $finisher = FinishResearchFollowUpTurnJob::class;
+        }
 
         if ($finisher === null || in_array($run->turn_state, [TurnState::StoppedByGuard, TurnState::Interrupted], true)) {
             return;

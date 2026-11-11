@@ -51,6 +51,7 @@ class FollowUpTaskFactory
                 'mode' => $head->mode,
                 'branch_name' => $isResearch ? null : $head->branch_name,
                 'session_id' => $head->session_id,
+                'thread_id' => $head->thread_id,
                 'pr_url' => $isResearch ? null : $head->pr_url,
                 'pr_number' => $isResearch ? null : $head->pr_number,
                 'linear_agent_session_id' => $head->linear_agent_session_id,

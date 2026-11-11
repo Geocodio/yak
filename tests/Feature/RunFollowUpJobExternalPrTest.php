@@ -1,24 +1,20 @@
 <?php
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunRequest;
-use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Exceptions\ClaudeAuthException;
+use App\Jobs\AfterTurn\FinishFollowUpTurnJob;
 use App\Jobs\ProcessCIResultJob;
-use App\Jobs\RunFollowUpJob;
-use App\Jobs\SendNotificationJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
-use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
+
+require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
 
 beforeEach(function () {
     Queue::fake();
@@ -40,16 +36,12 @@ function externalTask(): YakTask
     ]);
 }
 
-function runExternal(YakTask $task, FakeSandboxManager $sandbox, string $summary): void
+/**
+ * @param  string|array<string, mixed>  $result
+ */
+function runExternal(YakTask $task, FakeSandboxManager $sandbox, string|array $result): void
 {
-    $agent = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess', resultSummary: $summary, costUsd: 0.01, numTurns: 1, durationMs: 1000,
-        isError: false, rawOutput: '{}',
-    ));
-    app()->instance(AgentRunner::class, $agent);
-    app()->instance(IncusSandboxManager::class, $sandbox);
-
-    (new RunFollowUpJob($task))->handle($agent);
+    finishTaskTurn(FinishFollowUpTurnJob::class, $task, $sandbox, $result);
 }
 
 it('pushes without force or rebase when the branch has not moved, and links the commit', function () {
@@ -113,9 +105,13 @@ it('fails with a crafted reply when the push is rejected', function () {
 it('keeps raw exception text off the PR', function () {
     $sandbox = new class extends FakeSandboxManager
     {
-        public function injectGitCredentials(string $containerName): void
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
         {
-            throw new RuntimeException('git config credential.helper password=secret');
+            if (str_contains($command, 'rev-parse --abbrev-ref')) {
+                throw new RuntimeException('git config credential.helper password=secret');
+            }
+
+            return parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
         }
     };
     $task = externalTask();
@@ -126,25 +122,6 @@ it('keeps raw exception text off the PR', function () {
         ->and($task->fresh()->error_log)->toContain('password=secret');
     Http::assertSent(fn (Request $request): bool => str_starts_with((string) $request['body'], "I couldn't finish this. The details are on the task page."));
     Http::assertNotSent(fn (Request $request): bool => str_contains((string) $request['body'], 'secret'));
-});
-
-it('does not send a second error notification on a Claude auth failure', function () {
-    $agent = new class extends FakeAgentRunner
-    {
-        public function run(AgentRunRequest $request): AgentRunResult
-        {
-            throw new ClaudeAuthException('Claude is signed out');
-        }
-    };
-    app()->instance(AgentRunner::class, $agent);
-    app()->instance(IncusSandboxManager::class, new FakeSandboxManager);
-    $task = externalTask();
-
-    (new RunFollowUpJob($task))->handle($agent);
-
-    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
-    Queue::assertNotPushed(SendNotificationJob::class);
-    Http::assertSentCount(1);
 });
 
 it('replies with the answer when the agent made no commits', function () {
@@ -205,14 +182,9 @@ it('still succeeds without a second reply when the summary reply cannot be poste
 it('parks instead of replying when the agent asks a question', function () {
     $sandbox = new FakeSandboxManager;
     $task = externalTask();
-    $agent = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess', resultSummary: 'Need a call', costUsd: 0.01, numTurns: 1, durationMs: 1000,
-        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
-    ));
-    app()->instance(AgentRunner::class, $agent);
-    app()->instance(IncusSandboxManager::class, $sandbox);
+    $block = "```clarification\n" . json_encode(['questions' => [sampleQuestion('scope')->toArray()]]) . "\n```";
 
-    (new RunFollowUpJob($task))->handle($agent);
+    runExternal($task, $sandbox, "Need a call\n\n{$block}");
 
     expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($sandbox->commandsMatching('git push'))->toBe([]);

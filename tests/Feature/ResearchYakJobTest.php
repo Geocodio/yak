@@ -1,306 +1,136 @@
 <?php
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Jobs\RenderWalkthroughJob;
+use App\Enums\TurnState;
+use App\Jobs\AfterTurn\FinishResearchTurnJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
-use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\RiskProfile;
+use App\Models\TaskRun;
 use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
 use App\Services\RepositoryConfigParser;
 use App\Services\RepositoryRiskProfiles;
 use App\Services\YakConfigFiles;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
 
-test('risk profile research saves a draft tied to the checked out revision without activating it', function () {
-    Storage::fake('local');
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_profile',
-        resultSummary: json_encode([
-            'areas' => [[
-                'name' => 'Documentation', 'paths' => ['docs/*'], 'symbols' => [],
-                'risk' => 'low', 'rationale' => 'Prose only.', 'evidence' => ['docs/readme.md:1'],
-            ]],
-            'unknowns' => [],
-        ]),
-        costUsd: 0.25, numTurns: 1, durationMs: 1000,
-        isError: false, rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
+require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
+
+/**
+ * A shell that answers `git rev-parse HEAD` with a fixed revision.
+ */
+function revisionShell(string $revision): FakeSandboxManager
+{
+    return new class($revision) extends FakeSandboxManager
     {
+        public function __construct(private string $revision) {}
+
         public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
         {
             if (str_contains($command, 'git rev-parse HEAD')) {
-                return Process::result(str_repeat('a', 40));
+                return Process::result($this->revision);
             }
 
             return parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
         }
-    });
-    Repository::factory()->create(['slug' => 'profile-repo']);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'profile-repo', 'source' => 'cli', 'mode' => 'research',
-        'context' => json_encode(['risk_profile_draft' => true]),
+    };
+}
+
+/**
+ * Writes a research turn for a task and finishes it with the given answer.
+ *
+ * @param  array<string, mixed>  $taskAttributes
+ * @param  array<string, mixed>  $repositoryAttributes
+ */
+function researchTurn(string $summary, array $taskAttributes = [], array $repositoryAttributes = [], ?FakeSandboxManager $shell = null): YakTask
+{
+    $context = pendingRunYak(['mode' => TaskMode::Research, ...$taskAttributes], $shell);
+    Repository::query()->where('slug', 'test-repo')->update($repositoryAttributes);
+    $slug = (string) ($repositoryAttributes['slug'] ?? 'test-repo');
+    $context['task']->update(['repo' => $slug]);
+
+    (new ResearchYakJob($context['task']->refresh()))->handle();
+
+    $run = TaskRun::query()->where('yak_task_id', $context['task']->id)->sole();
+    $run->forceFill(['turn_state' => TurnState::Completed, 'last_result_event' => resultEvent($summary), 'assistant_turns' => 1])->save();
+    runFinisher($run, FinishResearchTurnJob::class);
+
+    return $context['task']->fresh();
+}
+
+beforeEach(function () {
+    Storage::fake('local');
+    Storage::fake('artifacts');
+    Queue::fake();
+});
+
+test('risk profile research saves a draft tied to the checked out revision without activating it', function () {
+    $summary = json_encode([
+        'areas' => [[
+            'name' => 'Documentation', 'paths' => ['docs/*'], 'symbols' => [],
+            'risk' => 'low', 'rationale' => 'Prose only.', 'evidence' => ['docs/readme.md:1'],
+        ]],
+        'unknowns' => [],
     ]);
 
-    (new ResearchYakJob($task))->handle($fake);
+    $task = researchTurn($summary, ['context' => json_encode(['risk_profile_draft' => true])], ['slug' => 'profile-repo'], revisionShell(str_repeat('a', 40)));
 
-    $profiles = app(RepositoryRiskProfiles::class);
-    expect($task->fresh()->status)->toBe(TaskStatus::Success)
-        ->and(json_decode($task->fresh()->context, true)['risk_profile_source_sha'])->toBe(str_repeat('a', 40))
-        ->and($profiles->active('profile-repo'))->toBeNull();
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and(json_decode($task->context, true)['risk_profile_source_sha'])->toBe(str_repeat('a', 40))
+        ->and(app(RepositoryRiskProfiles::class)->active('profile-repo'))->toBeNull();
     $rows = RiskProfile::where('repo', 'profile-repo')->get();
-    expect($rows)->toHaveCount(1);
-    $draft = $rows[0]->profile;
-    expect($draft['source_sha'])->toBe(str_repeat('a', 40))
-        ->and($draft)->not->toHaveKey('approved_by');
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]->profile['source_sha'])->toBe(str_repeat('a', 40))
+        ->and($rows[0]->profile)->not->toHaveKey('approved_by');
 });
 
 test('a rejected risk profile draft keeps the research output for a human to correct', function () {
-    Storage::fake('local');
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_profile_bad',
-        resultSummary: "Here is the profile:\n```json\n{\"areas\": []}\n```",
-        costUsd: 0.25, numTurns: 1, durationMs: 1000,
-        isError: false, rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
-    {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
-        {
-            if (str_contains($command, 'git rev-parse HEAD')) {
-                return Process::result(str_repeat('a', 40));
-            }
-
-            return parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
-        }
-    });
-    Repository::factory()->create(['slug' => 'profile-repo']);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'profile-repo', 'source' => 'cli', 'mode' => 'research',
-        'context' => json_encode(['risk_profile_draft' => true]),
-    ]);
-
-    (new ResearchYakJob($task))->handle($fake);
-
-    $profiles = app(RepositoryRiskProfiles::class);
-    expect($task->fresh()->status)->toBe(TaskStatus::Success)
-        ->and($task->fresh()->result_summary)->toContain('"areas": []')
-        ->and($task->fresh()->result_summary)->toContain('No draft risk profile was saved')
-        ->and(RiskProfile::where('repo', 'profile-repo')->count())->toBe(0)
-        ->and($profiles->active('profile-repo'))->toBeNull();
-});
-
-/*
-|--------------------------------------------------------------------------
-| Successful Research
-|--------------------------------------------------------------------------
-*/
-
-test('successful research transitions task to success with result_summary and completed_at', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_research_1',
-        resultSummary: 'Found 3 key areas for improvement',
-        costUsd: 1.25,
-        numTurns: 10,
-        durationMs: 90000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
-    Http::fake();
-
-    $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'test-repo',
-        'source' => 'slack',
-        'mode' => 'research',
-    ]);
-
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
+    $task = researchTurn("Here is the profile:\n```json\n{\"areas\": []}\n```", ['context' => json_encode(['risk_profile_draft' => true])], ['slug' => 'profile-repo'], revisionShell(str_repeat('a', 40)));
 
     expect($task->status)->toBe(TaskStatus::Success)
-        ->and($task->result_summary)->toBe('Found 3 key areas for improvement')
-        ->and((float) $task->cost_usd)->toBe(1.25)
-        ->and($task->session_id)->toBe('sess_research_1')
-        ->and($task->num_turns)->toBe(10)
-        ->and($task->duration_ms)->toBe(90000)
-        ->and($task->completed_at)->not->toBeNull();
+        ->and($task->result_summary)->toContain('"areas": []')
+        ->and($task->result_summary)->toContain('No draft risk profile was saved')
+        ->and(RiskProfile::where('repo', 'profile-repo')->count())->toBe(0)
+        ->and(app(RepositoryRiskProfiles::class)->active('profile-repo'))->toBeNull();
 });
 
-test('research creates sandbox and completes successfully', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_1',
-        resultSummary: 'Done',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
+test('research completes with the answer, no branch and no push', function () {
+    $shell = new FakeSandboxManager;
 
-    $fakeSandbox = new FakeSandboxManager;
-    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+    $task = researchTurn('The middleware is idempotent.', ['source' => 'manual'], [], $shell);
 
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-
-    $repository = Repository::factory()->create([
-        'slug' => 'test-repo',
-        'path' => '/home/yak/repos/test-repo',
-        'default_branch' => 'main',
-    ]);
-    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
-
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-    expect($task->status)->toBe(TaskStatus::Success);
-
-    // Sandbox was created and destroyed
-    expect($fakeSandbox->createdContainers)->toHaveCount(1)
-        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and($task->result_summary)->toBe('The middleware is idempotent.')
+        ->and($task->completed_at)->not->toBeNull()
+        ->and($task->branch_name)->toBeNull()
+        ->and($shell->commandsMatching('git push'))->toBe([])
+        ->and($shell->commandsMatching('git checkout -b'))->toBe([]);
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Result);
 });
 
-test('research does not create any branch', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_1',
-        resultSummary: 'Done',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+test('research fetches and resets the default branch before the turn', function () {
+    $shell = new FakeSandboxManager;
 
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
-    Http::fake();
+    researchTurn('Done', ['source' => 'manual'], ['default_branch' => 'develop'], $shell);
 
-    $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
-
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-    expect($task->branch_name)->toBeNull();
-
-    Process::assertNotRan(fn ($process) => str_contains($process->command, 'git checkout -b'));
+    $commands = $shell->commands;
+    $fetch = collect($commands)->search(fn ($command) => str_contains($command, 'git fetch origin develop'));
+    $reset = collect($commands)->search(fn ($command) => str_contains($command, 'git reset --hard origin/develop'));
+    expect($fetch)->not->toBeFalse()->and($reset)->toBeGreaterThan($fetch);
 });
 
-test('research fetches and resets default branch to origin before agent runs', function () {
-    // Regression for task 4998: the sandbox snapshot can be weeks old,
-    // so without `git fetch origin <default>` + `git reset --hard
-    // origin/<default>` the agent reads stale source and reports that
-    // recently-added files do not exist.
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_fetch',
-        resultSummary: 'Done',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
-    $recorder = new FakeSandboxManager;
-    $this->app->instance(IncusSandboxManager::class, $recorder);
-
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-
-    Repository::factory()->create([
-        'slug' => 'test-repo',
-        'path' => '/home/yak/repos/test-repo',
-        'default_branch' => 'main',
-    ]);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'test-repo',
-        'source' => 'manual',
-        'mode' => 'research',
-    ]);
-
-    (new ResearchYakJob($task))->handle($fake);
-
-    $fetchIndex = null;
-    $checkoutIndex = null;
-    $resetIndex = null;
-    foreach ($recorder->commands as $i => $cmd) {
-        if ($fetchIndex === null && str_contains($cmd, 'git fetch origin main')) {
-            $fetchIndex = $i;
-        }
-        if ($checkoutIndex === null && str_contains($cmd, 'git checkout main')) {
-            $checkoutIndex = $i;
-        }
-        if ($resetIndex === null && str_contains($cmd, 'git reset --hard origin/main')) {
-            $resetIndex = $i;
-        }
-    }
-
-    expect($fetchIndex)->not->toBeNull('expected `git fetch origin main` to be run')
-        ->and($checkoutIndex)->not->toBeNull('expected `git checkout main` to be run')
-        ->and($resetIndex)->not->toBeNull('expected `git reset --hard origin/main` to be run')
-        ->and($fetchIndex)->toBeLessThan($checkoutIndex, 'fetch must run before checkout')
-        ->and($checkoutIndex)->toBeLessThan($resetIndex, 'checkout must run before reset');
-});
-
-/*
-|--------------------------------------------------------------------------
-| HTML Artifact Collection
-|--------------------------------------------------------------------------
-*/
-
-test('collects HTML artifact from sandbox when present', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_artifact',
-        resultSummary: 'Research complete',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
-    // Create a sandbox fake that reports the artifact exists and writes a real file on pull
-    $fakeSandbox = new class extends FakeSandboxManager
+function reportShell(): FakeSandboxManager
+{
+    return new class extends FakeSandboxManager
     {
         public function fileExists(string $containerName, string $path): bool
         {
@@ -309,453 +139,51 @@ test('collects HTML artifact from sandbox when present', function () {
 
         public function pullFile(string $containerName, string $remotePath, string $localPath): void
         {
-            $dir = dirname($localPath);
-            if (! is_dir($dir)) {
-                mkdir($dir, 0755, true);
+            if (! is_dir(dirname($localPath))) {
+                mkdir(dirname($localPath), 0755, true);
             }
             file_put_contents($localPath, '<html>research</html>');
         }
     };
-    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+}
 
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-    Storage::fake('artifacts');
-
-    $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
-
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
+test('research collects the HTML report from the sandbox when present', function () {
+    $task = researchTurn('Research complete', ['source' => 'manual'], [], reportShell());
 
     $artifact = Artifact::where('yak_task_id', $task->id)->first();
-
     expect($artifact)->not->toBeNull()
         ->and($artifact->type)->toBe('research')
         ->and($artifact->filename)->toBe('research.html')
         ->and($artifact->disk_path)->toBe("{$task->id}/research.html");
 });
 
-test('handles missing HTML artifact gracefully', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_no_artifact',
-        resultSummary: 'Research complete',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+test('research without a report completes with no artifact', function () {
+    $task = researchTurn('Research complete', ['source' => 'manual']);
 
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
-    Http::fake();
-    Storage::fake('artifacts');
-
-    $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
-
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-    expect($task->status)->toBe(TaskStatus::Success);
-    expect(Artifact::where('yak_task_id', $task->id)->count())->toBe(0);
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and(Artifact::where('yak_task_id', $task->id)->exists())->toBeFalse();
 });
 
-test('a recorded walkthrough is kept, rendered and linked from the reply', function () {
-    Queue::fake([SendNotificationJob::class, RenderWalkthroughJob::class]);
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_walkthrough',
-        resultSummary: 'I recorded the walkthrough video',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
-    $fakeSandbox = new class extends FakeSandboxManager
-    {
-        public function fileExists(string $containerName, string $path): bool
-        {
-            return str_ends_with($path, '.yak-artifacts');
-        }
-
-        public function pullDirectory(string $containerName, string $remotePath, string $localPath): void
-        {
-            $dir = "{$localPath}/.yak-artifacts";
-            File::ensureDirectoryExists("{$dir}/shots");
-            File::put("{$dir}/manifest.json", json_encode(['version' => 3, 'shots' => [
-                ['id' => 'signup', 'clip' => 'shots/signup.webm', 'start' => 0, 'end' => 4, 'rect' => null, 'url' => 'https://x/'],
-            ]]));
-            File::put("{$dir}/shots/signup.webm", 'clip');
-        }
-    };
-    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
-
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-    Storage::fake('artifacts');
-
-    Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'slack']);
-
-    (new ResearchYakJob($task))->handle($fake);
-
-    expect(Artifact::where('yak_task_id', $task->id)->where('role', 'shot')->count())->toBe(1);
-    Queue::assertPushed(RenderWalkthroughJob::class);
-
-    $result = Queue::pushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Result)->first();
-    expect($result->message)->toContain(route('tasks.show', $task));
-});
-
-/*
-|--------------------------------------------------------------------------
-| Linear Notification
-|--------------------------------------------------------------------------
-*/
-
-test('posts summary and findings URL as Linear comment', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_linear',
-        resultSummary: 'Codebase audit complete',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
-    // Sandbox that reports artifact exists and writes file on pull
-    $fakeSandbox = new class extends FakeSandboxManager
-    {
-        public function fileExists(string $containerName, string $path): bool
-        {
-            return str_contains($path, 'research.html');
-        }
-
-        public function pullFile(string $containerName, string $remotePath, string $localPath): void
-        {
-            $dir = dirname($localPath);
-            if (! is_dir($dir)) {
-                mkdir($dir, 0755, true);
-            }
-            file_put_contents($localPath, '<html>research</html>');
-        }
-    };
-    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
-
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-    Storage::fake('artifacts');
-
-    LinearOauthConnection::factory()->create();
-    config()->set('yak.channels.linear.webhook_secret', 'linear-secret');
-
-    $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'test-repo',
-        'source' => 'linear',
-        'external_id' => 'LIN-123',
-        'linear_agent_session_id' => 'session-research-1',
-    ]);
-
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
-
-    Http::assertSent(function ($request) {
-        if ($request->url() !== 'https://api.linear.app/graphql') {
-            return false;
-        }
-
-        $body = $request->data();
-
-        if (! str_contains($body['query'] ?? '', 'agentActivityCreate')) {
-            return false;
-        }
-
-        $input = $body['variables']['input'] ?? [];
-
-        $body = $input['content']['body'] ?? '';
-
-        return ($input['agentSessionId'] ?? null) === 'session-research-1'
-            && ($input['content']['type'] ?? null) === 'response'
-            && str_contains($body, 'Codebase audit complete')
-            && str_contains($body, '/artifacts/')
-            // Explicit findings link must always be present, not left
-            // to the personality agent to preserve.
-            && str_contains($body, 'View research report');
-    });
-
-    // The attachment makes the report stick to the issue itself, so
-    // it stays findable after the agent session ends.
-    Http::assertSent(function ($request) {
-        if ($request->url() !== 'https://api.linear.app/graphql') {
-            return false;
-        }
-
-        $body = $request->data();
-        if (! str_contains($body['query'] ?? '', 'attachmentCreate')) {
-            return false;
-        }
-
-        $input = $body['variables']['input'] ?? [];
-
-        return ($input['title'] ?? null) === 'Research report'
-            && str_contains($input['url'] ?? '', '/artifacts/')
-            && str_contains($input['url'] ?? '', '/viewer/');
-    });
-});
-
-test('moves Linear issue to Done state', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_linear_done',
-        resultSummary: 'Done',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
-    Http::fake();
-
-    LinearOauthConnection::factory()->create();
-    config()->set('yak.channels.linear.webhook_secret', 'linear-secret');
-    config()->set('yak.channels.linear.done_state_id', 'done-state-uuid');
-
-    $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'test-repo',
-        'source' => 'linear',
-        'external_id' => 'LIN-456',
-    ]);
-
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
-
-    Http::assertSent(function ($request) {
-        if ($request->url() !== 'https://api.linear.app/graphql') {
-            return false;
-        }
-
-        $body = $request->data();
-
-        return str_contains($body['query'] ?? '', 'issueUpdate')
-            && ($body['variables']['stateId'] ?? '') === 'done-state-uuid'
-            && ($body['variables']['issueId'] ?? '') === 'LIN-456';
-    });
-});
-
-/*
-|--------------------------------------------------------------------------
-| Slack Notification
-|--------------------------------------------------------------------------
-*/
-
-test('posts summary and findings URL as Slack thread reply', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_slack',
-        resultSummary: 'Analysis shows three bottlenecks',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
-    // Sandbox that reports artifact exists and writes file on pull
-    $fakeSandbox = new class extends FakeSandboxManager
-    {
-        public function fileExists(string $containerName, string $path): bool
-        {
-            return str_contains($path, 'research.html');
-        }
-
-        public function pullFile(string $containerName, string $remotePath, string $localPath): void
-        {
-            $dir = dirname($localPath);
-            if (! is_dir($dir)) {
-                mkdir($dir, 0755, true);
-            }
-            file_put_contents($localPath, '<html>research</html>');
-        }
-    };
-    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
-
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-    Storage::fake('artifacts');
-
+test('research posts the summary and the report link as a Slack thread reply', function () {
     config(['yak.channels.slack.bot_token' => 'xoxb-test-token', 'yak.channels.slack.signing_secret' => 'slack-secret']);
 
-    $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'test-repo',
-        'source' => 'slack',
-        'slack_channel' => 'C12345',
-        'slack_thread_ts' => '1234567890.123456',
-    ]);
+    $task = researchTurn('Analysis shows three bottlenecks', ['source' => 'slack', 'slack_channel' => 'C12345', 'slack_thread_ts' => '1234567890.123456'], [], reportShell());
 
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
-
-    Http::assertSent(function ($request) use ($task) {
-        if ($request->url() !== 'https://slack.com/api/chat.postMessage') {
-            return false;
-        }
-
-        $body = $request->data();
-        $text = (string) ($body['text'] ?? '');
-
-        return ($body['channel'] ?? '') === 'C12345'
-            && ($body['thread_ts'] ?? '') === '1234567890.123456'
-            && str_contains($text, 'Analysis shows three bottlenecks')
-            // Auth-gated viewer URL — the previous custom-signed URL
-            // 404'd because it embedded artifact_id rather than task_id
-            // and the signature didn't match Laravel's scheme.
-            && str_contains($text, "/artifacts/{$task->id}/viewer/research.html")
-            // Slack mrkdwn — the previous output leaked Markdown
-            // (`**[View research report](...)**`) which Slack rendered
-            // as raw text. mrkdwn collapses to `*…*` and `<url|label>`.
-            && str_contains($text, '|View research report>')
-            && ! str_contains($text, '[View research report]');
-    });
-});
-
-/*
-|--------------------------------------------------------------------------
-| Error Handling
-|--------------------------------------------------------------------------
-*/
-
-test('Claude error response marks task as failed', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: '',
-        resultSummary: 'Rate limited by API',
-        costUsd: 0.0,
-        numTurns: 0,
-        durationMs: 0,
-        isError: true,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
-    Http::fake();
-
-    $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo']);
-
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-
-    expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->error_log)->toBe('Rate limited by API')
-        ->and($task->completed_at)->not->toBeNull();
-});
-
-/*
-|--------------------------------------------------------------------------
-| Job Queue Configuration
-|--------------------------------------------------------------------------
-*/
-
-test('ResearchYakJob dispatches to yak-claude queue', function () {
-    $task = YakTask::factory()->pending()->make();
-    $job = new ResearchYakJob($task);
-
-    expect($job->queue)->toBe('yak-claude');
-});
-
-test('the research answer is sent once through SendNotificationJob without a second rewrite', function () {
-    Queue::fake([SendNotificationJob::class]);
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_job',
-        resultSummary: 'Three bottlenecks found',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-
-    Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'dashboard']);
-
-    (new ResearchYakJob($task))->handle($fake);
-
-    $results = Queue::pushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Result);
-
-    expect($results)->toHaveCount(1)
-        ->and($results->first()->personalize)->toBeFalse()
-        ->and($results->first()->message)->toContain('Three bottlenecks found');
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => str_contains($job->message, 'Analysis shows three bottlenecks')
+        && str_contains($job->message, "/artifacts/{$task->id}/viewer/research.html"));
 });
 
 test('research that asks parks the task and collects no artifact', function () {
-    Queue::fake();
-    Storage::fake('artifacts');
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_rq', resultSummary: 'Need a call', costUsd: 0.1, numTurns: 1, durationMs: 10,
-        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-    Repository::factory()->create(['slug' => 'rq-repo', 'path' => '/home/yak/repos/rq-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'rq-repo', 'source' => 'slack', 'mode' => 'research']);
+    $block = "```clarification\n" . json_encode(['questions' => [sampleQuestion('scope')->toArray()]]) . "\n```";
 
-    (new ResearchYakJob($task))->handle($fake);
+    $task = researchTurn("One thing.\n\n{$block}", ['source' => 'manual'], [], reportShell());
 
-    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
-        ->and(Artifact::where('yak_task_id', $task->id)->count())->toBe(0);
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and(Artifact::where('yak_task_id', $task->id)->exists())->toBeFalse();
 });
 
-test('research resumed with answers resumes the session with the answers prompt', function () {
-    Queue::fake();
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_rr', resultSummary: 'Done', costUsd: 0.1, numTurns: 1, durationMs: 10, isError: false, rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $sandbox = new FakeSandboxManager;
-    $this->app->instance(IncusSandboxManager::class, $sandbox);
-    Repository::factory()->create(['slug' => 'rr-repo', 'path' => '/home/yak/repos/rr-repo']);
-    $task = YakTask::factory()->withClarificationQuestions()->create(['repo' => 'rr-repo', 'source' => 'slack', 'mode' => 'research', 'session_id' => 'sess_first']);
-    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
-    $task->update(['status' => TaskStatus::Pending]);
-
-    (new ResearchYakJob($task->fresh()))->handle($fake);
-
-    expect($fake->lastCall()->resumeSessionId)->toBe('sess_first')
-        ->and($fake->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small")
-        ->and($sandbox->pushedTranscripts)->toBe(['sess_first']);
+test('a research job runs on the yak-claude queue', function () {
+    expect((new ResearchYakJob(YakTask::factory()->make()))->queue)->toBe('yak-claude');
 });
 
 function runRiskProfileResearch(string $areaName = 'billing'): YakTask
@@ -764,34 +192,14 @@ function runRiskProfileResearch(string $areaName = 'billing'): YakTask
         'name' => $name, 'paths' => ['src/**'], 'symbols' => [],
         'risk' => $risk, 'rationale' => 'Because.', 'evidence' => ["{$name}/a.php:1"],
     ];
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_profile_pr',
-        resultSummary: json_encode(['areas' => [$area($areaName, 'high'), $area('docs', 'low')], 'unknowns' => ['Who owns cron?']]),
-        costUsd: 0.25, numTurns: 1, durationMs: 1000, isError: false, rawOutput: '{}',
-    ));
-    app()->instance(AgentRunner::class, $fake);
-    app()->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
-    {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
-        {
-            if (str_contains($command, 'git rev-parse HEAD')) {
-                return Process::result(str_repeat('b', 40));
-            }
+    $summary = json_encode(['areas' => [$area($areaName, 'high'), $area('docs', 'low')], 'unknowns' => ['Who owns cron?']]);
 
-            return parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
-        }
-    });
-    Storage::fake('local');
-    Process::fake(['*' => Process::result('')]);
-    Repository::factory()->create(['slug' => 'pr-profile', 'github_full_name' => 'acme/api', 'default_branch' => 'main']);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'pr-profile', 'source' => 'cli', 'mode' => 'research',
-        'context' => json_encode(['risk_profile_draft' => true]),
-    ]);
-
-    (new ResearchYakJob($task))->handle($fake);
-
-    return $task->fresh();
+    return researchTurn(
+        $summary,
+        ['source' => 'cli', 'context' => json_encode(['risk_profile_draft' => true])],
+        ['slug' => 'pr-profile', 'github_full_name' => 'acme/api', 'default_branch' => 'main'],
+        revisionShell(str_repeat('b', 40)),
+    );
 }
 
 test('risk profile research opens a PR listing new, changed and removed areas', function () {

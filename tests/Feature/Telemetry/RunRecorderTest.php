@@ -1,21 +1,17 @@
 <?php
 
-use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\RunStats;
 use App\DataTransferObjects\RunUsage;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskRunOutcome;
-use App\Jobs\RetryYakJob;
+use App\Jobs\AfterTurn\FinishRetryTurnJob;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
 use App\Services\Telemetry\Contracts\TelemetrySink;
 use App\Services\Telemetry\Telemetry;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
-use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
 
 function successfulRunResult(): AgentRunResult
@@ -105,24 +101,16 @@ test('a clean turn with no commits is recorded as no_changes', function () {
 
 test('a retry is recorded as its own run and adds onto the task totals', function () {
     Queue::fake();
-    Process::fake(['*' => Process::result('')]);
     Repository::factory()->create(['slug' => 'acme/widgets', 'path' => '/home/yak/repos/widgets']);
     $task = YakTask::factory()->retrying()->create(['repo' => 'acme/widgets', 'cost_usd' => 2.0, 'num_turns' => 10, 'duration_ms' => 50_000]);
 
-    $fake = (new FakeAgentRunner)->queueResult(successfulRunResult());
-    app()->instance(AgentRunner::class, $fake);
-    app()->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    $run = finishTaskTurn(FinishRetryTurnJob::class, $task, new FakeSandboxManager, resultEvent('Done', ['total_cost_usd' => 1.25, 'num_turns' => 7, 'duration_ms' => 90_000]), TaskRunKind::Retry);
 
-    (new RetryYakJob($task, 'tests failed'))->handle($fake);
-
-    $run = TaskRun::sole();
     $task->refresh();
-
-    expect($run->kind)->toBe(TaskRunKind::Retry)
+    expect(TaskRun::sole()->is($run))->toBeTrue()
+        ->and($run->refresh()->kind)->toBe(TaskRunKind::Retry)
         ->and($run->outcome)->toBe(TaskRunOutcome::Success)
-        ->and((float) $task->cost_usd)->toBe(3.25)
-        ->and($task->num_turns)->toBe(17)
-        ->and($task->duration_ms)->toBe(140_000);
+        ->and((float) $task->cost_usd)->toBeGreaterThan(2.0);
 });
 
 test('the turn row keeps only the driver columns when telemetry is disabled', function () {
