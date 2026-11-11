@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Deployments;
 
+use App\Models\BranchDeployment;
+use App\Services\PreviewAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -12,13 +14,16 @@ use Illuminate\Http\Request;
  * (Fortify's RedirectIfAuthenticated would ignore url.intended and send
  * already-authed users to the dashboard home). This controller sits on
  * the dashboard and explicitly:
- *   - already authed: redirects straight to the preview URL.
+ *   - already authed: mints a single-use ticket and redirects to the
+ *     preview host's /_yak/auth, which trades it for a host-only cookie.
  *   - anonymous: stores the preview URL as url.intended and redirects
  *     to /login so the Google OAuth callback's redirect()->intended()
  *     drops them on the preview after sign-in.
  */
 class AuthBounceController
 {
+    public function __construct(private readonly PreviewAccess $previewAccess) {}
+
     public function __invoke(Request $request): RedirectResponse
     {
         $to = (string) $request->query('to', '');
@@ -27,19 +32,32 @@ class AuthBounceController
             abort(400, 'Invalid preview URL.');
         }
 
-        // Expire any legacy apex-scoped copies of the session/CSRF
-        // cookies. Before SESSION_DOMAIN was widened to .{yak_domain},
-        // these were set with Domain=<apex>; two cookies with the same
-        // name but different Domain attributes coexist in the browser
-        // and PHP picks between them unpredictably, which caused a
-        // redirect loop on the very first bounce after the rollout.
+        // Expire domain-wide copies of the session/CSRF cookies left over
+        // from when SESSION_DOMAIN was .{yak_domain}. The session cookie is
+        // host-only now; a leftover Domain cookie of the same name would
+        // coexist in the browser and be picked unpredictably.
         $suffix = (string) config('yak.deployments.hostname_suffix');
-        foreach ([(string) config('session.cookie'), 'XSRF-TOKEN'] as $name) {
+        foreach (array_unique([(string) config('session.cookie'), 'yak-session', 'XSRF-TOKEN']) as $name) {
             cookie()->queue(cookie()->forget($name, '/', $suffix));
         }
 
-        if ($request->user() !== null) {
-            return redirect()->to($to);
+        $user = $request->user();
+        if ($user !== null) {
+            $parts = parse_url($to);
+            $host = strtolower((string) $parts['host']);
+
+            // Authorization: the preview must belong to a real deployment.
+            // Every signed-in dashboard user may open any deployment.
+            if (! BranchDeployment::where('hostname', $host)->exists()) {
+                abort(404, 'No preview for this host.');
+            }
+
+            $path = ($parts['path'] ?? '/') . (isset($parts['query']) ? '?' . $parts['query'] : '');
+
+            return redirect()->to('https://' . $host . '/_yak/auth?' . http_build_query([
+                'ticket' => $this->previewAccess->mintTicket($host, $user),
+                'to' => $path,
+            ]));
         }
 
         $request->session()->put('url.intended', $to);

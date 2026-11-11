@@ -13,6 +13,7 @@ use App\Http\Controllers\Deployments\ShareLinkController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
+use App\Http\Controllers\Internal\PreviewAuthController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\ObservationController;
 use App\Http\Controllers\PromptController;
@@ -255,6 +256,12 @@ Route::get('artifacts/{task}/{filename}', [ArtifactController::class, 'show'])
 Route::middleware(['restrict-to-ingress'])
     ->get('/internal/deployments/wake', DeploymentWakeController::class)
     ->name('deployments.wake');
+
+// Ticket exchange for a preview host. Caddy rewrites
+// https://<preview>/_yak/auth here; it sets the host-only preview cookie.
+Route::middleware(['restrict-to-ingress'])
+    ->get('/internal/deployments/preview-auth', PreviewAuthController::class)
+    ->name('deployments.preview-auth');
 
 // Public bounce endpoint on the dashboard. The wake endpoint redirects
 // unauthenticated preview visits here; this controller either forwards

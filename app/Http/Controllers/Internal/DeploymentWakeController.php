@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Internal;
 use App\Models\BranchDeployment;
 use App\Services\DeploymentShareTokens;
 use App\Services\DeploymentWaker;
+use App\Services\PreviewAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,6 +17,7 @@ class DeploymentWakeController
     public function __construct(
         private readonly DeploymentWaker $waker,
         private readonly DeploymentShareTokens $tokens,
+        private readonly PreviewAccess $previewAccess,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -58,17 +60,21 @@ class DeploymentWakeController
                 ));
         }
 
-        // Branch 2: share-session cookie → honor like OAuth.
+        // Branch 2: share-session cookie.
         $cookieIn = $request->cookie(self::SHARE_COOKIE_NAME);
         $cookieOk = is_string($cookieIn) && $this->tokens->verifyCookie($deployment, $cookieIn);
 
-        // Branch 3: OAuth. Redirect to the dashboard's auth-bounce
+        // Branch 3: per-preview, host-only cookie issued by /_yak/auth.
+        $previewCookie = $request->cookie(PreviewAccess::COOKIE_NAME);
+        $previewOk = is_string($previewCookie) && $this->previewAccess->verifyCookie($hostname, $previewCookie);
+
+        // Branch 4: no valid credential. Redirect to the dashboard's auth-bounce
         // endpoint which runs in the dashboard's own session context —
         // it can tell whether the user is already authed (redirect to
         // the preview) or needs to sign in (store the preview URL as
         // url.intended, then the Google OAuth callback's
         // redirect()->intended() drops them back on the preview).
-        if ($request->user() === null && ! $cookieOk) {
+        if (! $previewOk && ! $cookieOk) {
             $returnTo = 'https://' . $hostname . $forwardedUri;
             // Pin the URL generator to the dashboard apex + https.
             // Without this Laravel would build the signed URL against

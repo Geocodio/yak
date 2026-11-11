@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:22
+* @see app/Http/Controllers/Deployments/AuthBounceController.php:27
 * @route '/deployments/auth-bounce'
 */
 const AuthBounceController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ AuthBounceController.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:22
+* @see app/Http/Controllers/Deployments/AuthBounceController.php:27
 * @route '/deployments/auth-bounce'
 */
 AuthBounceController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ AuthBounceController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:22
+* @see app/Http/Controllers/Deployments/AuthBounceController.php:27
 * @route '/deployments/auth-bounce'
 */
 AuthBounceController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ AuthBounceController.get = (options?: RouteQueryOptions): RouteDefinition<'get'>
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:22
+* @see app/Http/Controllers/Deployments/AuthBounceController.php:27
 * @route '/deployments/auth-bounce'
 */
 AuthBounceController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

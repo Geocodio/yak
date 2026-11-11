@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:21
+* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 const DeploymentWakeController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ DeploymentWakeController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:21
+* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 DeploymentWakeController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ DeploymentWakeController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:21
+* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 DeploymentWakeController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ DeploymentWakeController.get = (options?: RouteQueryOptions): RouteDefinition<'g
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:21
+* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 DeploymentWakeController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

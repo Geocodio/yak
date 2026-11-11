@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\BranchDeployment;
 use App\Models\User;
+use App\Services\PreviewAccess;
 use Illuminate\Support\Facades\URL;
 
 beforeEach(function () {
@@ -19,13 +21,26 @@ function bounceUrl(string $to): string
     );
 }
 
-it('sends already-authed users straight to the preview URL', function () {
+it('sends already-authed users to the preview ticket exchange with a single-use ticket', function () {
+    BranchDeployment::factory()->running()->create(['hostname' => 'foo.yak.example.com']);
+
+    $response = $this->actingAs(User::factory()->create())
+        ->get(bounceUrl('https://foo.yak.example.com/path?x=1'));
+
+    $response->assertRedirectContains('https://foo.yak.example.com/_yak/auth?ticket=');
+    parse_str((string) parse_url($response->headers->get('Location'), PHP_URL_QUERY), $query);
+    expect($query['to'])->toBe('/path?x=1');
+    expect(app(PreviewAccess::class)->redeemTicket('foo.yak.example.com', $query['ticket']))->not->toBeNull();
+});
+
+it('refuses to mint a ticket for a host with no deployment', function () {
     $this->actingAs(User::factory()->create())
-        ->get(bounceUrl('https://foo.yak.example.com/path'))
-        ->assertRedirect('https://foo.yak.example.com/path');
+        ->get(bounceUrl('https://ghost.yak.example.com/path'))
+        ->assertNotFound();
 });
 
 it('expires legacy apex-scoped session cookies on bounce', function () {
+    BranchDeployment::factory()->running()->create(['hostname' => 'foo.yak.example.com']);
     config()->set('session.cookie', 'yak-session');
 
     $response = $this->actingAs(User::factory()->create())
@@ -83,9 +98,11 @@ it('rejects the apex dashboard host itself (no bounce needed there)', function (
 });
 
 it('accepts mixed-case preview hosts (DNS is case-insensitive)', function () {
+    BranchDeployment::factory()->running()->create(['hostname' => 'foo.yak.example.com']);
+
     $this->actingAs(User::factory()->create())
         ->get(bounceUrl('https://Foo.Yak.Example.Com/path'))
-        ->assertRedirect('https://Foo.Yak.Example.Com/path');
+        ->assertRedirectContains('https://foo.yak.example.com/_yak/auth?ticket=');
 });
 
 it('rejects classic userinfo-bypass payloads', function () {

@@ -1,9 +1,9 @@
 <?php
 
 use App\Models\BranchDeployment;
-use App\Models\User;
 use App\Services\DeploymentShareTokens;
 use App\Services\DeploymentWaker;
+use App\Services\PreviewAccess;
 
 beforeEach(function () {
     config()->set('yak.deployments.internal.ingress_ip_cidr', '0.0.0.0/0');
@@ -75,7 +75,7 @@ it('still allows authenticated OAuth users (backwards compatible)', function () 
     $this->app->instance(DeploymentWaker::class, $waker);
     $waker->shouldReceive('ensureReady')->andReturn(['state' => 'ready', 'host' => '10.0.0.1', 'port' => 80]);
 
-    $this->actingAs(User::factory()->create())
+    $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('share.yak.example.com'))
         ->withHeaders([
             'X-Forwarded-Host' => 'share.yak.example.com',
             'X-Forwarded-Uri' => '/',
