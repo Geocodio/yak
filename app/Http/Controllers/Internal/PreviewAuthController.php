@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Internal;
 
-use App\Models\BranchDeployment;
 use App\Services\PreviewAccess;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,7 +18,7 @@ class PreviewAuthController
     {
         $hostname = strtolower((string) ($request->header('X-Forwarded-Host') ?? $request->getHost()));
 
-        $userId = BranchDeployment::where('hostname', $hostname)->exists()
+        $userId = $this->previewAccess->targetKind($hostname) !== null
             ? $this->previewAccess->redeemTicket($hostname, (string) $request->query('ticket', ''))
             : null;
 
