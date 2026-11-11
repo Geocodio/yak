@@ -8,6 +8,7 @@ use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Services\PullRequestBodySections;
+use App\Services\Threads\PullRequests\SiblingBlock;
 use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Services\Threads\ThreadPublishGuard;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -51,7 +52,7 @@ class OpenRepositoryPullRequestJob implements ShouldQueue
                 'title' => $title,
                 'head' => $row->branch,
                 'base' => $repository?->default_branch ?: 'main',
-                'body' => mb_convert_encoding($this->body($summary), 'UTF-8', 'UTF-8'),
+                'body' => mb_convert_encoding($this->body($summary, $thread, $row), 'UTF-8', 'UTF-8'),
             ]);
 
         if (! isset($pull['number'], $pull['html_url'])) {
@@ -59,7 +60,6 @@ class OpenRepositoryPullRequestJob implements ShouldQueue
         }
 
         $sync->recordOpened($row, (int) $pull['number'], (string) $pull['html_url'], (string) ($pull['title'] ?? $title));
-        RefreshSiblingBlocksJob::dispatch($thread->id);
     }
 
     /**
@@ -86,8 +86,10 @@ class OpenRepositoryPullRequestJob implements ShouldQueue
         return $firstLine !== '' ? $firstLine : $thread->title;
     }
 
-    private function body(?string $summary): string
+    private function body(?string $summary, Thread $thread, ThreadRepository $row): string
     {
-        return trim((string) $summary) . "\n\n" . PullRequestBodySections::wrap(PullRequestBodySections::SIBLINGS, '');
+        $siblings = app(SiblingBlock::class)->render($thread, $row) ?? '';
+
+        return trim((string) $summary) . "\n\n" . PullRequestBodySections::wrap(PullRequestBodySections::SIBLINGS, $siblings);
     }
 }

@@ -418,6 +418,11 @@ class CreatePullRequestJob implements ShouldQueue
             $this->task->result_summary ?? '_No summary available._',
         );
 
+        if ($this->task->thread_id !== null) {
+            $parts[] = '';
+            $parts[] = PullRequestBodySections::wrap(PullRequestBodySections::SIBLINGS, '');
+        }
+
         return implode("\n", $parts);
     }
 

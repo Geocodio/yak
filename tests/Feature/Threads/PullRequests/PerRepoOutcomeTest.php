@@ -6,6 +6,9 @@ use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadSandbox;
+use Illuminate\Support\Facades\Queue;
+
+beforeEach(fn () => Queue::fake());
 
 const API_PR = 'https://github.com/acme/api/pull/7';
 const WEB_PR = 'https://github.com/acme/web/pull/7';

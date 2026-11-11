@@ -3,6 +3,7 @@
 namespace App\Services\Threads\PullRequests;
 
 use App\Enums\RepositoryRole;
+use App\Jobs\Threads\RefreshSiblingBlocksJob;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
@@ -26,6 +27,8 @@ class ThreadPullRequestSync
             'pull_request_state' => 'open',
             'pull_request_closed_at' => null,
         ])->save();
+
+        RefreshSiblingBlocksJob::dispatch($row->thread_id);
     }
 
     /**
@@ -49,6 +52,8 @@ class ThreadPullRequestSync
             'pull_request_state' => $merged ? 'merged' : 'closed',
             'pull_request_closed_at' => $row->pull_request_closed_at ?? $at ?? now(),
         ])->save();
+
+        RefreshSiblingBlocksJob::dispatch($row->thread_id);
     }
 
     /**
