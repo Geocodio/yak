@@ -151,7 +151,7 @@ See the [Architecture](architecture.md) page for the full system design. For con
 
 - **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `RunFollowUpJob`, `ResearchFollowUpJob`, `ProcessCIResultJob`, `CreatePullRequestJob`, `SendNotificationJob`, `ProcessWebhookJob`, `CleanupJob`. Each agent job creates an Incus sandbox at the start and destroys it in a `finally` block.
 - **`app/Jobs/Middleware/`** — `EnsureDailyBudget`. Cross-cutting concerns as Laravel job middleware.
-- **`app/Agents/`** — `BrokerAgentRunner` (the `AgentRunner` implementation for PR review and setup), `ClaudeCodeOutputParser`, `StreamEventHandler`. One-shot runs go through the pipe broker into the job's Incus sandbox.
+- **`app/Agents/`** -- `BrokerAgentRunner` (the `AgentRunner` implementation for PR review and setup), `ClaudeCodeOutputParser`, `StreamEventHandler`. One-shot runs go through the pipe broker into the job's Incus sandbox.
 - **`app/Services/IncusSandboxManager.php`** — sandbox lifecycle: clone from snapshot, configure resource limits, push Claude/MCP config, snapshot, promote-to-template, destroy.
 - **`app/Services/SandboxArtifactCollector.php`** — pulls `.yak-artifacts/` from the sandbox before destruction.
 - **`app/Drivers/`** — channel driver implementations. Each channel has an input driver, a notification driver, or both.
