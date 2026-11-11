@@ -17,6 +17,9 @@ import PromptVersionController from './PromptVersionController'
 import PrReviews from './PrReviews'
 import Deployments from './Deployments'
 import Threads from './Threads'
+import Devices from './Devices'
+import Cli from './Cli'
+import Api from './Api'
 import Internal from './Internal'
 import ArtifactController from './ArtifactController'
 import VideoThemeAssetController from './VideoThemeAssetController'
@@ -41,6 +44,9 @@ const Controllers = {
     PrReviews: Object.assign(PrReviews, PrReviews),
     Deployments: Object.assign(Deployments, Deployments),
     Threads: Object.assign(Threads, Threads),
+    Devices: Object.assign(Devices, Devices),
+    Cli: Object.assign(Cli, Cli),
+    Api: Object.assign(Api, Api),
     Internal: Object.assign(Internal, Internal),
     ArtifactController: Object.assign(ArtifactController, ArtifactController),
     VideoThemeAssetController: Object.assign(VideoThemeAssetController, VideoThemeAssetController),

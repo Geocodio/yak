@@ -1,7 +1,14 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
+import diff from './diff'
+import environment from './environment'
+import events from './events'
+import teleportRequest from './teleport-request'
+import messages from './messages'
+import restore from './restore'
+import share from './share'
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:18
 * @route '/threads/{thread}'
 */
 export const show = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +23,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:18
 * @route '/threads/{thread}'
 */
 show.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +56,7 @@ show.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:18
 * @route '/threads/{thread}'
 */
 show.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +66,7 @@ show.get = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:18
 * @route '/threads/{thread}'
 */
 show.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -169,10 +176,215 @@ seen.post = (args: { thread: number | { id: number } } | [thread: number | { id:
     method: 'post',
 })
 
+/**
+* @see \App\Http\Controllers\Threads\ThreadMessageController::stop
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:57
+* @route '/threads/{thread}/stop'
+*/
+export const stop = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: stop.url(args, options),
+    method: 'post',
+})
+
+stop.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/stop',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadMessageController::stop
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:57
+* @route '/threads/{thread}/stop'
+*/
+stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { thread: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.id
+        : args.thread,
+    }
+
+    return stop.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadMessageController::stop
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:57
+* @route '/threads/{thread}/stop'
+*/
+stop.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: stop.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
+* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @route '/threads/{thread}/continue'
+*/
+export const continueMethod = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: continueMethod.url(args, options),
+    method: 'post',
+})
+
+continueMethod.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/continue',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
+* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @route '/threads/{thread}/continue'
+*/
+continueMethod.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { thread: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.id
+        : args.thread,
+    }
+
+    return continueMethod.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
+* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @route '/threads/{thread}/continue'
+*/
+continueMethod.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: continueMethod.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\NewThreadController::__invoke
+* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @route '/threads/new'
+*/
+export const newMethod = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: newMethod.url(options),
+    method: 'get',
+})
+
+newMethod.definition = {
+    methods: ["get","head"],
+    url: '/threads/new',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Threads\NewThreadController::__invoke
+* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @route '/threads/new'
+*/
+newMethod.url = (options?: RouteQueryOptions) => {
+    return newMethod.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\NewThreadController::__invoke
+* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @route '/threads/new'
+*/
+newMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: newMethod.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\NewThreadController::__invoke
+* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @route '/threads/new'
+*/
+newMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: newMethod.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
+* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @route '/threads'
+*/
+export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(options),
+    method: 'post',
+})
+
+store.definition = {
+    methods: ["post"],
+    url: '/threads',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
+* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @route '/threads'
+*/
+store.url = (options?: RouteQueryOptions) => {
+    return store.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
+* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @route '/threads'
+*/
+store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(options),
+    method: 'post',
+})
+
 const threads = {
     show: Object.assign(show, show),
     list: Object.assign(list, list),
     seen: Object.assign(seen, seen),
+    diff: Object.assign(diff, diff),
+    environment: Object.assign(environment, environment),
+    events: Object.assign(events, events),
+    teleportRequest: Object.assign(teleportRequest, teleportRequest),
+    messages: Object.assign(messages, messages),
+    stop: Object.assign(stop, stop),
+    continue: Object.assign(continueMethod, continueMethod),
+    restore: Object.assign(restore, restore),
+    new: Object.assign(newMethod, newMethod),
+    store: Object.assign(store, store),
+    share: Object.assign(share, share),
 }
 
 export default threads

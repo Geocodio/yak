@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
 import claudeAccounts97a877 from './claude-accounts'
+import devices95ecd0 from './devices'
 import github from './github'
 import linearCc9558 from './linear'
 import video6ca361 from './video'
@@ -44,6 +45,50 @@ claudeAccounts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 */
 claudeAccounts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: claudeAccounts.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\Settings\DeviceController::devices
+* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @route '/settings/devices'
+*/
+export const devices = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: devices.url(options),
+    method: 'get',
+})
+
+devices.definition = {
+    methods: ["get","head"],
+    url: '/settings/devices',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Settings\DeviceController::devices
+* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @route '/settings/devices'
+*/
+devices.url = (options?: RouteQueryOptions) => {
+    return devices.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Settings\DeviceController::devices
+* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @route '/settings/devices'
+*/
+devices.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: devices.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Settings\DeviceController::devices
+* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @route '/settings/devices'
+*/
+devices.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: devices.url(options),
     method: 'head',
 })
 
@@ -137,6 +182,7 @@ video.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 const settings = {
     claudeAccounts: Object.assign(claudeAccounts, claudeAccounts97a877),
+    devices: Object.assign(devices, devices95ecd0),
     github: Object.assign(github, github),
     linear: Object.assign(linear, linearCc9558),
     video: Object.assign(video, video6ca361),

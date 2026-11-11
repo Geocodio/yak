@@ -343,11 +343,6 @@ class YakTask extends Model
             && $this->pr_closed_at === null;
     }
 
-    public function isTeleport(): bool
-    {
-        return $this->source === self::SOURCE_TELEPORT;
-    }
-
     /**
      * Whether a reply from the user can start a follow-up run: an open PR
      * still takes commits, a held change takes feedback, and a finished
