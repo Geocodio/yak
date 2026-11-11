@@ -73,3 +73,10 @@ it('keeps token files private and never touches the main sshd config', function 
 it('is not wired into the playbook yet', function () {
     expect(file_get_contents(base_path('ansible/playbook.yml')))->not->toContain('yak-ssh');
 });
+
+it('names the termbridge origin allowlist variable the bridge reads', function () use ($rolePath) {
+    $env = file_get_contents($rolePath('templates/yak-ssh.env.j2'));
+
+    expect($env)->toContain('YAK_TERMBRIDGE_ORIGINS={{ yak_ssh_allowed_origins }}')
+        ->not->toContain('YAK_TERMBRIDGE_ALLOWED_ORIGINS');
+});
