@@ -54,6 +54,7 @@ func NewAuthProxy(source CredentialSource, upstream *url.URL, logger *slog.Logge
 		Rewrite:        proxy.rewrite,
 		Transport:      transport,
 		FlushInterval:  -1,
+		ErrorLog:       slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 		ModifyResponse: proxy.afterResponse,
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			logger.Warn("upstream request failed")
@@ -200,6 +201,9 @@ func (p *AuthProxy) rewrite(r *httputil.ProxyRequest) {
 // afterResponse forgets a credential the API rejected, so a rotated secret is
 // read on the next request.
 func (p *AuthProxy) afterResponse(response *http.Response) error {
+	if response.StatusCode != http.StatusOK {
+		logNonOKResponse(p.logger, response)
+	}
 	if response.StatusCode == http.StatusUnauthorized {
 		if info, ok := response.Request.Context().Value(forwardKey{}).(forwardInfo); ok {
 			p.Revoke(info.placeholder)
