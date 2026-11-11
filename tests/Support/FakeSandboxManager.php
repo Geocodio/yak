@@ -62,6 +62,8 @@ class FakeSandboxManager extends IncusSandboxManager
      */
     private int $commitCount = 1;
 
+    public string $containerIp = '10.0.0.7';
+
     public function setHasSnapshot(bool $value): self
     {
         $this->hasSnapshotResult = $value;
@@ -122,6 +124,10 @@ class FakeSandboxManager extends IncusSandboxManager
             if (str_contains($command, $substring)) {
                 return Process::result('', $errorOutput, $exitCode);
             }
+        }
+
+        if ($command === 'hostname -I') {
+            return Process::result($this->containerIp . ' fd00::1');
         }
 
         if (str_contains($command, 'git rev-list --count origin/')) {
