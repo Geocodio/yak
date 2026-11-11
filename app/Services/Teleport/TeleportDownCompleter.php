@@ -48,7 +48,7 @@ class TeleportDownCompleter
         $this->assertPrimaryApplied($thread, $validated['applied']);
         $this->assertSessionDownloaded($teleport, $validated['downloaded']);
 
-        $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'applied' => $validated['applied'], 'local_session_backup' => $validated['local_session_backup'] ?? null]])->save();
+        $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'applied' => $this->sanitizedApplied($validated['applied']), 'local_session_backup' => $validated['local_session_backup'] ?? null]])->save();
 
         DB::transaction(function () use ($thread, $device, $teleport): void {
             if ($teleport->visibility_choice === 'private') {
@@ -61,6 +61,23 @@ class TeleportDownCompleter
         $this->sandbox->touch($thread->refresh());
 
         return $this->respond($teleport->refresh());
+    }
+
+    /**
+     * Reasons come from the device: URLs are stripped and the text is capped.
+     *
+     * @param  list<array<string, mixed>>  $applied
+     * @return list<array<string, mixed>>
+     */
+    private function sanitizedApplied(array $applied): array
+    {
+        return array_map(function (array $entry): array {
+            if (isset($entry['reason']) && is_string($entry['reason'])) {
+                $entry['reason'] = mb_substr((string) preg_replace('#[a-z][a-z0-9+.-]*://\S+#i', '[url]', $entry['reason']), 0, 500);
+            }
+
+            return $entry;
+        }, $applied);
     }
 
     /**

@@ -119,3 +119,21 @@ it('returns the same body when completed again', function () {
 
     expect($second['marker'])->toBe($first['marker'])->and($second['ownership'])->toBe('device');
 });
+
+it('accepts a failed extra and keeps its reason without urls', function () {
+    $applied = [
+        ...completeDownBody()['applied'],
+        ['repo' => 'acme/lib', 'status' => 'failed', 'reason' => 'clone of https://x:secret@github.com/acme/lib.git failed'],
+    ];
+
+    completeDown($this, ['applied' => $applied])->assertOk();
+
+    $entry = $this->teleport->refresh()->payload['applied'][1];
+    expect($entry['status'])->toBe('failed')
+        ->and($entry['reason'])->toBe('clone of [url] failed');
+});
+
+it('still rejects a failed primary', function () {
+    completeDown($this, ['applied' => [['repo' => 'acme/widgets', 'status' => 'failed', 'reason' => 'dirty'], ['repo' => 'acme/lib', 'status' => 'applied']]])
+        ->assertStatus(422)->assertJsonPath('error', 'validation_failed');
+});

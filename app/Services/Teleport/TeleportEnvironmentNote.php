@@ -5,8 +5,10 @@ namespace App\Services\Teleport;
 use App\Enums\RepositoryRole;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Services\SessionStore\SessionStore;
 use App\Services\Threads\Contracts\SandboxManager;
+use Illuminate\Database\Eloquent\Collection;
 use Throwable;
 
 /**
@@ -84,13 +86,38 @@ class TeleportEnvironmentNote
             $sections['Paths'] = "Earlier messages mention {$workspace}. That is {$localPath} here.";
         }
 
-        $extras = $this->extras($thread);
+        $commandsByRepo = [];
+
+        foreach ($teleport->manifest['repos'] ?? [] as $entry) {
+            $commandsByRepo[(string) $entry['repo']] = array_column($entry['refresh'] ?? [], 'command');
+        }
+
+        $extras = [];
+
+        foreach ($this->extrasOfRole($thread, RepositoryRole::Changes) as $repository) {
+            $commands = $commandsByRepo[$repository->repo] ?? [];
+            $extras[] = "{$repository->repo} at {$repository->sandbox_path}" . ($commands === [] ? '' : ' (refresh: ' . implode(', ', $commands) . ')');
+        }
 
         if ($extras !== []) {
             $sections['Extra repositories'] = $extras;
         }
 
+        $context = $this->extrasOfRole($thread, RepositoryRole::Context)->pluck('repo')->all();
+
+        if ($context !== []) {
+            $sections['Context repositories'] = implode(', ', $context) . ' were not brought down. They stay in the sandbox only.';
+        }
+
         return $sections;
+    }
+
+    /**
+     * @return Collection<int, ThreadRepository>
+     */
+    private function extrasOfRole(Thread $thread, RepositoryRole $role): Collection
+    {
+        return $thread->repositories()->where('role', $role->value)->get();
     }
 
     /**

@@ -18,9 +18,12 @@ class TeleportRefreshMaps
      */
     public function forRepository(Thread $thread, ThreadRepository $repository): array
     {
-        return collect($this->refresh->configFor($thread, $repository->sandbox_path))
-            ->map(fn (string $command, string $glob): array => ['glob' => $glob, 'command' => $command])
-            ->values()
-            ->all();
+        $maps = [];
+
+        foreach ($this->refresh->configFor($thread, $repository->sandbox_path) as $glob => $command) {
+            $maps[] = ['glob' => (string) $glob, 'command' => $command];
+        }
+
+        return $maps;
     }
 }

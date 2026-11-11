@@ -69,3 +69,24 @@ it('maps the sandbox path to the local path going down', function () {
 
     expect($sections['Machine switch'])->toContain('darwin arm64')->and($sections['Paths'])->toContain('That is /Users/ada/widgets');
 });
+
+it('lists each repo refresh commands as suggested commands going down', function () {
+    Repository::factory()->create(['slug' => 'acme/lib', 'github_full_name' => 'acme/lib']);
+    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'sandbox_path' => '/extras/lib']);
+    $teleport = Teleport::factory()->down()->create(['thread_id' => $this->thread->id, 'device_id' => $this->device->id, 'manifest' => ['repos' => [
+        ['repo' => 'acme/lib', 'refresh' => [['glob' => 'composer.lock', 'command' => 'composer install'], ['glob' => 'package-lock.json', 'command' => 'npm ci']]],
+    ]]]);
+
+    expect(app(TeleportEnvironmentNote::class)->forDown($this->thread, $teleport)['Extra repositories'])->toBe(['acme/lib at /extras/lib (refresh: composer install, npm ci)']);
+});
+
+it('says context repos were not brought down', function () {
+    Repository::factory()->create(['slug' => 'acme/docs', 'github_full_name' => 'acme/docs']);
+    ThreadRepository::factory()->role(RepositoryRole::Context)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs']);
+    $teleport = Teleport::factory()->down()->create(['thread_id' => $this->thread->id, 'device_id' => $this->device->id]);
+
+    $sections = app(TeleportEnvironmentNote::class)->forDown($this->thread, $teleport);
+
+    expect($sections['Context repositories'])->toContain('acme/docs')->toContain('were not brought down')
+        ->and($sections)->not->toHaveKey('Extra repositories');
+});
