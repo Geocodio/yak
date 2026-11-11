@@ -23,6 +23,7 @@ use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
+use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Services\YakPersonality;
 use Illuminate\Support\Facades\Log;
 
@@ -232,6 +233,7 @@ trait FinishesAgentRuns
         // misleading "awaiting_ci" state on a repo with no CI.
         if ($repository->settings()->ciSystem() !== 'none') {
             $update['status'] = TaskStatus::AwaitingCi;
+            app(ThreadPullRequestSync::class)->recordPrimaryCiStatus($this->task, 'running');
         }
 
         return $update;

@@ -2,8 +2,10 @@
 
 namespace App\Services\Threads\PullRequests;
 
+use App\Enums\RepositoryRole;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
+use App\Models\YakTask;
 use App\Services\Threads\ThreadCloser;
 use Carbon\CarbonInterface;
 
@@ -24,6 +26,21 @@ class ThreadPullRequestSync
             'pull_request_state' => 'open',
             'pull_request_closed_at' => null,
         ])->save();
+    }
+
+    /**
+     * Mirrors a task chain's CI status onto its thread's primary repo row.
+     */
+    public function recordPrimaryCiStatus(YakTask $task, string $status): void
+    {
+        if ($task->thread_id === null) {
+            return;
+        }
+
+        ThreadRepository::query()
+            ->where('thread_id', $task->thread_id)
+            ->where('role', RepositoryRole::Primary->value)
+            ->update(['ci_status' => $status]);
     }
 
     public function recordOutcome(ThreadRepository $row, bool $merged, ?CarbonInterface $at = null): void

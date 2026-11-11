@@ -15,6 +15,7 @@ use App\Services\PullRequestFinisher;
 use App\Services\Push\PullRequestPush;
 use App\Services\TaskLogger;
 use App\Services\Teleport\HeldEvents;
+use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Support\TaskContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -133,6 +134,7 @@ class ProcessCIResultJob implements ShouldQueue
             TaskLogger::info($this->task, self::RESULT_LOG_MESSAGE, ['passed' => $this->passed]);
 
             $this->recordCiResult();
+            app(ThreadPullRequestSync::class)->recordPrimaryCiStatus($this->task, $this->passed ? 'passing' : 'failing');
             $this->pushCiResult();
 
             if ($this->passed) {
