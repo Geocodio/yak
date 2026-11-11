@@ -203,14 +203,19 @@ class ThreadTurns
 
     /**
      * Retries the account slot and sandbox wake for turns that could not start,
-     * oldest first. A failing turn does not hold up the others.
+     * oldest first. A pending turn counts once its thread is unblocked and
+     * start() has had ten seconds to advance it. A failing turn does not hold
+     * up the others.
      */
     public function resumeWaiting(): void
     {
-        foreach ([TurnState::WaitingForAccount, TurnState::WaitingForSandbox] as $state) {
+        foreach ([TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox] as $state) {
             TaskRun::query()
                 ->whereNotNull('thread_id')
                 ->where('turn_state', $state)
+                ->when($state === TurnState::Pending, fn ($query) => $query
+                    ->where('started_at', '<=', now()->subSeconds(10))
+                    ->whereHas('thread', fn ($thread) => $thread->whereNull('blocked_reason')))
                 ->oldest('id')
                 ->get()
                 ->each(function (TaskRun $waiting): void {
