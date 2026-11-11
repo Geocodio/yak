@@ -286,6 +286,20 @@ func TestNonInteractiveSecretNeedsIncludeFlag(t *testing.T) {
 	}
 }
 
+func TestNonInteractiveUntrackedSecretAddPathNeedsIncludeFlag(t *testing.T) {
+	t.Parallel()
+	r := repoWith(t)
+	r.Write(".env.local", "SECRET=2\n")
+	_, err := PrepareUp(ui.NewNonInteractive(), r.Repo, PrepareOptions{AddPaths: []string{".env.local"}})
+	var refusal *Refusal
+	if !errors.As(err, &refusal) || refusal.Kind != "secret_excluded" || refusal.Paths[0] != ".env.local" {
+		t.Fatal(err)
+	}
+	if _, err := PrepareUp(ui.NewNonInteractive(), r.Repo, PrepareOptions{AddPaths: []string{".env.local"}, IncludeSecrets: true}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestNonInteractiveUnknownAddPathRefuses(t *testing.T) {
 	t.Parallel()
 	r := repoWith(t)

@@ -202,6 +202,15 @@ func pickUntracked(p ui.Prompter, opts PrepareOptions, untracked []string) ([]st
 		if len(bad) > 0 {
 			return nil, &Refusal{Kind: "unknown_path", Detail: "not an untracked file", Paths: bad}
 		}
+		var secret []string
+		for _, path := range opts.AddPaths {
+			if hit, _ := secrets.IsSecretFile(path); hit && !opts.IncludeSecrets {
+				secret = append(secret, path)
+			}
+		}
+		if len(secret) > 0 {
+			return nil, &Refusal{Kind: "secret_excluded", Detail: "files that look like secrets need --include-secrets", Paths: secret}
+		}
 		return append([]string(nil), opts.AddPaths...), nil
 	}
 	if len(untracked) == 0 {
