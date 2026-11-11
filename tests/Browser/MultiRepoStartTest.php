@@ -55,7 +55,10 @@ it('adds a context repo, shows the note and count, and shows progress after star
         ->assertSeeIn('[data-testid="repo-note"]', 'acme/docs is throwaway')
         ->click('[data-testid="start-thread-submit"]')
         ->assertVisible('[data-testid="repo-progress"]')
-        ->assertSee('acme/docs');
+        ->assertSee('acme/docs')
+        ->assertDontSee('Queued')
+        ->assertDontSee('Running setup')
+        ->assertCount('[data-testid="repo-progress-row"]', 2);
 
     $thread = Thread::query()->latest('id')->firstOrFail();
     expect($thread->repositories()->where('repo', 'acme/docs')->value('role'))->toBe(RepositoryRole::Context);

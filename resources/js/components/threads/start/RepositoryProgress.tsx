@@ -1,5 +1,7 @@
+import { cn } from '@geocodio/console-ui';
 import { Check, Loader2, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { RepositoryAvatar } from '@/components/threads/RepositoryAvatar';
 import { progress } from '@/routes/threads/repositories';
 import type { RepositoryProgressData } from '@/types/threads';
 
@@ -41,17 +43,24 @@ export function RepositoryProgress({ threadId, onReady }: { threadId: number; on
     }, [threadId, onReady]);
 
     return (
-        <div data-testid="repo-progress" className="flex flex-col gap-1.5 text-[12.5px]">
-            <p className="text-muted">Cloning and setting up. The first start takes longer with several repos.</p>
+        <div data-testid="repo-progress" className="flex flex-wrap items-center gap-2 text-[12.5px]">
+            <span className="font-medium text-muted">Repositories</span>
+            <span className="text-muted">Cloning and setting up. The first start takes longer with several repos.</span>
             {(data?.repositories ?? []).map(({ repo, role, status }) => (
-                <div key={repo} className="flex items-center gap-2" data-testid="repo-progress-row" data-status={status}>
-                    <span className="font-medium text-body">{repo}</span>
-                    <span className="text-faint">{role}</span>
-                    <span className="ml-auto inline-flex items-center gap-1 text-muted">
-                        {status === 'ready' ? <Check size={13} aria-hidden="true" /> : status === 'failed' ? <TriangleAlert size={13} aria-hidden="true" /> : <Loader2 size={13} className="animate-spin" aria-hidden="true" />}
-                        {LABELS[status]}
-                    </span>
-                </div>
+                <span
+                    key={repo}
+                    className={cn('inline-flex h-8 items-center gap-1.5 rounded-control border px-2.5 font-medium text-body', status === 'failed' ? 'border-fail' : 'border-hair')}
+                    title={LABELS[status]}
+                    aria-label={`${repo}, ${role}: ${LABELS[status]}`}
+                    data-testid="repo-progress-row"
+                    data-status={status}
+                >
+                    <RepositoryAvatar repo={repo} />
+                    {repo}
+                    <span className="text-[11px] text-faint">{role}</span>
+                    {status === 'ready' ? <Check size={13} aria-hidden="true" /> : status === 'failed' ? <TriangleAlert size={13} className="text-fail" aria-hidden="true" /> : <Loader2 size={13} className="animate-spin" aria-hidden="true" />}
+                    {status === 'failed' && <span className="text-[11px] text-fail">{LABELS.failed}</span>}
+                </span>
             ))}
         </div>
     );
