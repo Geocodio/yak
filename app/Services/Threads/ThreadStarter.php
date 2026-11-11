@@ -67,7 +67,7 @@ class ThreadStarter
                 'model' => $resolved->model,
             ]);
 
-            ThreadRepository::query()->create(['thread_id' => $thread->id, 'repo' => $repo, 'role' => RepositoryRole::Primary, 'sandbox_path' => '/workspace/' . Str::afterLast($repo, '/')]);
+            ThreadRepository::query()->create(['thread_id' => $thread->id, 'repo' => $repo, 'role' => RepositoryRole::Primary, 'sandbox_path' => ThreadRepository::sandboxPathFor($repo, RepositoryRole::Primary)]);
 
             $task = YakTask::query()->create([
                 'source' => 'dashboard',
