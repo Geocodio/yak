@@ -40,11 +40,14 @@ class OneShotRuns
 
     private const POLL_MILLISECONDS = 100;
 
+    private const HEARTBEAT_SECONDS = 30;
+
     public function __construct(
         private readonly BrokerStreams $streams,
         private readonly AuthProxyPlaceholders $placeholders,
         private readonly AccountConcurrency $concurrency,
         private readonly IncusSandboxManager $sandbox,
+        private readonly RunawayGuard $guard,
     ) {}
 
     /**
@@ -60,6 +63,13 @@ class OneShotRuns
             throw new AccountSlotUnavailable("No free turn slot on Claude account {$account->id}");
         }
 
+        $now = CarbonImmutable::now();
+        $run->forceFill([
+            'agent_started_at' => $now,
+            'oneshot_heartbeat_at' => $now,
+            'oneshot_deadline_at' => $now->addSeconds($request->timeoutSeconds),
+        ])->save();
+
         $subject = 'run:' . $run->id;
         $channel = 'runs:' . $run->id;
 
@@ -69,7 +79,7 @@ class OneShotRuns
             $this->streams->command($channel, $this->startRunner($request, $placeholder));
             $this->streams->command($channel, ['type' => 'turn', 'uuid' => (string) Str::uuid(), 'text' => $request->prompt]);
 
-            return $this->await($request, $account, $channel, 'oneshot-' . $run->id);
+            return $this->await($request, $run, $account, $channel, 'oneshot-' . $run->id);
         } finally {
             $this->streams->command($channel, ['type' => 'end']);
             $this->placeholders->revoke($subject);
@@ -79,7 +89,7 @@ class OneShotRuns
         }
     }
 
-    private function await(AgentRunRequest $request, ClaudeAccount $account, string $channel, string $consumer): AgentRunResult
+    private function await(AgentRunRequest $request, TaskRun $run, ClaudeAccount $account, string $channel, string $consumer): AgentRunResult
     {
         $startedAt = CarbonImmutable::now();
         $deadline = $startedAt->addSeconds($request->timeoutSeconds);
@@ -88,12 +98,18 @@ class OneShotRuns
         $failure = $resultEvent = $exitCode = null;
         $assistantMessages = 0;
         $ended = false;
+        $lastHeartbeat = $startedAt;
 
         while (! $ended) {
             if (CarbonImmutable::now() >= $deadline) {
                 $this->streams->command($channel, ['type' => 'kill']);
 
                 return AgentRunResult::failure("The agent run timed out after {$request->timeoutSeconds} seconds", '{}');
+            }
+
+            if (CarbonImmutable::now() >= $lastHeartbeat->addSeconds(self::HEARTBEAT_SECONDS)) {
+                $lastHeartbeat = CarbonImmutable::now();
+                $run->forceFill(['oneshot_heartbeat_at' => $lastHeartbeat])->save();
             }
 
             $entries = $this->streams->read([$channel], $consumer, 1000, 100);
@@ -119,6 +135,13 @@ class OneShotRuns
             }
 
             $ended = $tracker->tick(CarbonImmutable::now())->ended || $ended;
+
+            if (! $ended && ($reason = $this->guard->check($run, CarbonImmutable::now(), $assistantMessages)) !== null) {
+                $this->streams->command($channel, ['type' => 'interrupt']);
+                $this->streams->command($channel, ['type' => 'kill']);
+
+                return AgentRunResult::failure($this->guard->message($reason, $assistantMessages), '{}');
+            }
 
             if (! $ended && $entries === []) {
                 Sleep::for(self::POLL_MILLISECONDS)->milliseconds();
