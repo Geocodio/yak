@@ -1,6 +1,8 @@
 <?php
 
 use App\Channels\Drone\PollCommand;
+use App\Http\Middleware\AuthenticateDevice;
+use App\Http\Middleware\CliProtocol;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
 use App\Http\Middleware\VerifySessionStoreToken;
@@ -8,8 +10,11 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -26,7 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'restrict-to-ingress' => RestrictToIngress::class,
             'session-store-token' => VerifySessionStoreToken::class,
+            'cli.protocol' => CliProtocol::class,
+            'auth.device' => AuthenticateDevice::class,
         ]);
+        $middleware->validateCsrfTokens(except: ['api/cli/*']);
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
@@ -40,6 +48,40 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response('Unauthenticated.', 401);
             }
 
+            if ($request->is('api/cli/*')) {
+                return response()->json(['error' => 'unauthenticated', 'message' => 'Sign in with yak login.'], 401);
+            }
+
             return null;
+        });
+
+        // The CLI API answers every error as {"error", "message", "details"?}.
+        $exceptions->render(function (ValidationException $e, Request $request) {
+            if (! $request->is('api/cli/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'error' => 'validation_failed',
+                'message' => 'The request is not valid.',
+                'details' => ['errors' => $e->errors()],
+            ], 422);
+        });
+        $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
+            if (! $request->is('api/cli/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'error' => 'rate_limited',
+                'message' => 'Too many requests. Try again shortly.',
+            ], 429, $e->getHeaders());
+        });
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if (! $request->is('api/cli/*')) {
+                return null;
+            }
+
+            return response()->json(['error' => 'not_found', 'message' => 'Not found.'], 404);
         });
     })->create();
