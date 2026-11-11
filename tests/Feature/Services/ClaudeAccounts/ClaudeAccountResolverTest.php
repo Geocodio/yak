@@ -92,3 +92,15 @@ it('does not apply the repo setting model when another account is used', functio
 
     expect(resolveAccount($this->user, $chosen->id)->model)->toBe('sonnet');
 });
+
+it('applies the repo setting model whenever the setting account is the account used', function (string $via) {
+    $account = ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id, 'default_model' => 'sonnet']);
+    if ($via === 'default') {
+        $account->markDefaultFor($this->user);
+    }
+    UserRepositorySetting::factory()->create(['user_id' => $this->user->id, 'repo' => 'acme/widgets', 'claude_account_id' => $account->id, 'model' => 'haiku']);
+
+    $chosenId = $via === 'chosen' ? $account->id : null;
+
+    expect(resolveAccount($this->user, $chosenId)->model)->toBe('haiku');
+})->with(['chosen', 'default']);

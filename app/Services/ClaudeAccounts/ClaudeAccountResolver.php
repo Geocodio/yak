@@ -23,7 +23,6 @@ class ClaudeAccountResolver
             ->where('user_id', $starter->id)->where('repo', $repo)->first();
 
         $account = null;
-        $viaSetting = false;
 
         if ($chosenAccountId !== null) {
             $candidate = ClaudeAccount::query()->find($chosenAccountId);
@@ -36,7 +35,6 @@ class ClaudeAccountResolver
             $candidate = $this->usableOwnedBy($starter, $setting->claude_account_id);
             if ($candidate !== null) {
                 $account = $candidate;
-                $viaSetting = true;
             }
         }
 
@@ -50,7 +48,7 @@ class ClaudeAccountResolver
         }
 
         $accountModel = $account === null ? null : $account->default_model;
-        $settingModel = $viaSetting && $account !== null && $account->id === $setting?->claude_account_id ? $setting->model : null;
+        $settingModel = $account !== null && $account->id === $setting?->claude_account_id ? $setting->model : null;
         $model = $chosenModel ?? $settingModel ?? $accountModel ?? (string) config('yak.default_model');
 
         return new ResolvedAccount($account, $model);
