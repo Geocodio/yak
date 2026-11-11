@@ -5,7 +5,8 @@ import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { TeleportConversationNotices } from '@/components/threads/teleport/TeleportConversationNotices';
 import { AppLayout } from '@/layouts/AppLayout';
-import { sidebarPanelsFor } from '@/threads/panels';
+import { DockHost } from '@/threads/DockHost';
+import { dockPanelsFor, sidebarPanelsFor } from '@/threads/panels';
 import '@/threads/panels/index';
 import { PrivateThreadBanner } from '@/components/threads/share/PrivateThreadBanner';
 import { ShareButton } from '@/components/threads/share/ShareButton';
@@ -18,6 +19,8 @@ type Props = PageProps<ThreadPageData>;
 export default function Show({ thread, canDrive, messages, notice, composer, teleport }: Props) {
     const panels = sidebarPanelsFor(thread);
     const [activeId, setActiveId] = useState<string | null>(null);
+    const dockPanels = dockPanelsFor(thread);
+    const [dockId, setDockId] = useState<string | null>(null);
     const active = panels.find((panel) => panel.id === activeId) ?? panels[0] ?? null;
 
     return (
@@ -33,7 +36,21 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                         </div>
                         <p className="text-[12px] text-muted">{thread.repo}</p>
                     </div>
-                    <ShareButton thread={thread} />
+                    <div className="flex items-center gap-2">
+                        {dockPanels.map((panel) => (
+                            <button
+                                key={panel.id}
+                                type="button"
+                                aria-pressed={panel.id === dockId}
+                                data-testid={`thread-dock-toggle-${panel.id}`}
+                                onClick={() => setDockId(panel.id === dockId ? null : panel.id)}
+                                className={cn('hidden h-8 items-center rounded-md px-2.5 text-[13px] lg:flex', panel.id === dockId ? 'bg-hover font-medium text-body' : 'text-muted')}
+                            >
+                                {panel.label}
+                            </button>
+                        ))}
+                        <ShareButton thread={thread} />
+                    </div>
                 </div>
             </header>
             <PrivateThreadBanner thread={thread} />
@@ -67,6 +84,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                         </div>
                     </aside>
                 )}
+                <DockHost thread={thread} canDrive={canDrive} activeId={dockId} />
             </div>
         </>
     );
