@@ -110,6 +110,9 @@ The secret is never written to disk or logged. The proxy may keep a reply in mem
 | `YAK_BROKER_CREDENTIALS_FILE` | Credentials file to check when a `start_runner` has no `credentials_path`. |
 | `YAK_BROKER_SHARED_CLAUDE_REFRESH_SHA256` | Comma list of sha256 hex digests of the refresh tokens of the shared Yak Claude account(s) that may appear as `claudeAiOauth`. |
 | `YAK_BROKER_CREDENTIAL_SOCKET` | Unix socket the auth proxy listens on, default `/var/lib/yak/credentials/redeem.sock`. |
+| `YAK_BROKER_PROXY_ADDR` | TCP address the auth proxy listens on. Required: unset is a startup error. |
+| `YAK_BROKER_PROXY_HOST_CIDRS` | Comma list of CIDRs allowed to connect besides the sandbox bridge subnet. A bad entry is a startup error. |
+| `YAK_BROKER_PROXY_UPSTREAM` | Upstream base URL, default `https://api.anthropic.com`. |
 
 ## 7. Auth proxy
 
@@ -133,7 +136,7 @@ Status mapping: 401 unknown or missing placeholder, 404 path not allowed, 502 up
 
 Logging: every non-200 upstream response is logged with its status, safe headers and body shape (JSON key names, `error.type`, length). Body values, the secret and the placeholder are never logged.
 
-Wiring: `NewAuthProxy(SocketCredentialSource{Path: socketPath}, upstreamURL, logger)`, then `Serve(ctx, listener)` on the bridge address. `Serve` shuts down gracefully on `ctx.Done` (10 s drain), uses a 10 s `ReadHeaderTimeout` and has no write timeout.
+Wiring: `NewAuthProxy(SocketCredentialSource{Path: socketPath}, upstreamURL, logger)`, then `Serve(ctx, listener)` on `YAK_BROKER_PROXY_ADDR` (`startProxy`, called from `runProxy` in `main`). The listener is wrapped in a peer filter that closes any connection whose peer is outside `YAK_BROKER_PROXY_HOST_CIDRS` and outside the subnet of the interface owning the listen IP, before HTTP runs. The validator's placeholder is bound by the app to the configured validation CIDRs. `Serve` shuts down gracefully on `ctx.Done` (10 s drain), uses a 10 s `ReadHeaderTimeout` and has no write timeout.
 
 ## 8. Wake proxy and SSH lookup
 
