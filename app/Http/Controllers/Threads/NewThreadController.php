@@ -15,10 +15,12 @@ class NewThreadController extends Controller
     {
         $repositories = Repository::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('slug')->get();
 
+        $defaultRepo = $repositories->firstWhere('is_default', true) ?? ($repositories->count() === 1 ? $repositories->first() : null);
+
         return Inertia::render('Threads/New', [
             'repos' => $repositories->map(fn (Repository $repository): array => ['slug' => $repository->slug, 'name' => $repository->name])->values()->all(),
             'picker' => AccountPickerData::forUser($request->user()),
-            'defaultRepo' => $repositories->firstWhere('is_default', true)->slug ?? ($repositories->count() === 1 ? $repositories->first()->slug : null),
+            'defaultRepo' => $defaultRepo?->slug,
         ]);
     }
 }
