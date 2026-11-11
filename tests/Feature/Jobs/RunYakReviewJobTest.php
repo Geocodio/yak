@@ -3,6 +3,7 @@
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\IssueFetcher as LinearIssueFetcher;
 use App\Contracts\AgentRunner;
+use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\ParsedReview;
 use App\Enums\NotificationType;
@@ -62,7 +63,12 @@ it('runs a full-scope review end to end', function () {
     app()->instance(IncusSandboxManager::class, $sandbox);
 
     $agent = mock(AgentRunner::class);
-    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
+    $agent->shouldReceive('run')->once()->withArgs(function (AgentRunRequest $request) {
+        // The await deadline leaves a 180s buffer for cleanup inside the job timeout.
+        expect($request->timeoutSeconds)->toBeLessThanOrEqual((new RunYakReviewJob(YakTask::factory()->make()))->timeout - 180);
+
+        return true;
+    })->andReturn(new AgentRunResult(
         sessionId: 's-1',
         resultSummary: 'Prose review from the sandboxed agent.',
         costUsd: 0.12,
