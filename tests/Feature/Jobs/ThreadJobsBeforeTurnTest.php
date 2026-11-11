@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\RunnerState;
 use App\Enums\TaskMode;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadSessionKind;
 use App\Enums\TurnState;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\ResearchYakJob;
@@ -60,6 +62,18 @@ it('writes a follow-up turn on the parent thread and checks out the branch', fun
         ->and($context['sent'][1]['text'])->toContain('rename the helper')
         ->and($context['shell']->commandsMatching('git checkout yak/ISSUE-1'))->not->toBe([])
         ->and($context['shell']->commandsMatching('git push'))->toBe([]);
+});
+
+it('a follow-up resumed with answers sends the answers prompt', function () {
+    Queue::fake();
+    $context = pendingRunYak();
+    $task = followUpOn($context);
+    $task->recordClarificationRound([sampleQuestion('scope')], 'Summary');
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Option A'], 'other' => null]], null, 'Michele');
+
+    (new RunFollowUpJob($task->refresh()))->handle();
+
+    expect(collect($context['sent'])->firstWhere('command', 'turn')['text'])->toContain('Option A');
 });
 
 it('fails a follow-up that has no branch', function () {
@@ -126,6 +140,7 @@ it('research on a thread that already ran leaves the tree alone', function () {
 it('a CI retry fetches, resets to the pushed head and cleans, in that order', function () {
     Queue::fake();
     $context = retryingRunYak(['branch_name' => 'yak/ISSUE-1', 'pr_opened_at' => now()]);
+    $session = $context['thread']->sessions()->create(['session_id' => 'sess_active', 'kind' => ThreadSessionKind::Main]);
 
     (new RetryYakJob($context['task'], 'CI failed: test X'))->handle();
 
@@ -141,6 +156,7 @@ it('a CI retry fetches, resets to the pushed head and cleans, in that order', fu
         ->and($run->kind)->toBe(TaskRunKind::Retry)
         ->and($run->thread_id)->toBe($context['thread']->id)
         ->and(array_column($context['sent'], 'command'))->toBe(['start_runner', 'turn'])
+        ->and($context['sent'][0]['resume'])->toBe($session->session_id)
         ->and($context['sent'][1]['text'])->toContain('CI failed: test X');
 });
 
@@ -148,6 +164,8 @@ it('a retry of a never-pushed branch only cleans and resumes the same session', 
     Queue::fake();
     $context = retryingRunYak(['branch_name' => 'yak/ISSUE-1', 'pr_opened_at' => null]);
     $context['shell']->failCommand('git ls-remote', '', 2);
+    $context['thread']->sessions()->create(['session_id' => 'sess_active', 'kind' => ThreadSessionKind::Main]);
+    $context['thread']->forceFill(['runner_state' => RunnerState::Idle, 'runner_model' => 'sonnet'])->save();
     $sessionsBefore = $context['thread']->sessions()->count();
 
     (new RetryYakJob($context['task'], 'CI failed'))->handle();
@@ -155,6 +173,7 @@ it('a retry of a never-pushed branch only cleans and resumes the same session', 
     expect($context['shell']->commandsMatching('git fetch'))->toBe([])
         ->and($context['shell']->commandsMatching('git reset'))->toBe([])
         ->and($context['shell']->commandsMatching('git clean -fd'))->toHaveCount(1)
+        ->and(array_column($context['sent'], 'command'))->not->toContain('start_runner')
         ->and($context['thread']->sessions()->count())->toBe($sessionsBefore)
         ->and(TaskRun::query()->where('thread_id', $context['thread']->id)->sole()->kind)->toBe(TaskRunKind::Retry);
 });

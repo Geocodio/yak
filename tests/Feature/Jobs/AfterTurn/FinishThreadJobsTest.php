@@ -61,6 +61,41 @@ it('the follow-up finisher consumes the answers it was started with', function (
     expect($task->fresh()->clarificationAnswersAwaitingResume())->toBeNull();
 });
 
+/**
+ * @return array<string, mixed>
+ */
+function askingResult(string $summary = 'One thing.'): array
+{
+    $block = "```clarification\n" . json_encode(['questions' => [sampleQuestion('scope')->toArray()]]) . "\n```";
+
+    return resultEvent("{$summary}\n\n{$block}");
+}
+
+it('a follow-up that asks parks the child task and pushes nothing', function () {
+    [$task, $run] = endedTurn(askingResult('Need a call'), kind: TaskRunKind::FollowUp);
+
+    runFinisher($run, FinishFollowUpTurnJob::class);
+
+    expect($task->refresh()->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($this->shell->commandsMatching('git push'))->toBe([]);
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+});
+
+it('a follow-up on its third round does not park and drops the clarification block', function () {
+    [$task, $run] = endedTurn(askingResult("## What changed in this run\n\nDid it."), kind: TaskRunKind::FollowUp);
+    foreach (range(1, 3) as $round) {
+        $task->recordClarificationRound([sampleQuestion("q{$round}")], 'Summary');
+        $task->recordClarificationAnswers(["q{$round}" => ['choices' => ['Option A'], 'other' => null]], null, 'Michele');
+        $task->markClarificationAnswersConsumed();
+    }
+
+    runFinisher($run, FinishFollowUpTurnJob::class);
+
+    $task->refresh();
+    expect($task->status)->not->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->result_summary)->not->toContain('```clarification');
+});
+
 it('the retry finisher force-pushes and waits for CI', function () {
     [$task, $run] = endedTurn(resultEvent('Fixed the test'), kind: TaskRunKind::Retry);
 

@@ -96,14 +96,14 @@ function runFinisher(TaskRun $run, string $job = FinishRunYakTurnJob::class): vo
  * A pending task on a thread, with the thread's shell and runner faked.
  *
  * @param  array<string, mixed>  $taskAttributes
- * @return array{task: YakTask, thread: Thread, shell: FakeSandboxManager, sent: array<int, array<string, string>>}
+ * @return array{task: YakTask, thread: Thread, shell: FakeSandboxManager, sent: array<int, array<string, string|null>>}
  */
 function pendingRunYak(array $taskAttributes = [], ?FakeSandboxManager $shell = null): array
 {
     $fakes = fakeTurnCollaborators();
     $sent = [];
-    $fakes['commands']->shouldReceive('startRunner')->andReturnUsing(function () use (&$sent) {
-        $sent[] = ['command' => 'start_runner'];
+    $fakes['commands']->shouldReceive('startRunner')->andReturnUsing(function ($thread, $account, $resume) use (&$sent) {
+        $sent[] = ['command' => 'start_runner', 'resume' => $resume];
     });
     $fakes['commands']->shouldReceive('turn')->andReturnUsing(function ($thread, $uuid, $text) use (&$sent) {
         $sent[] = ['command' => 'turn', 'text' => $text];
