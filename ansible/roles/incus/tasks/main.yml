@@ -198,6 +198,26 @@
     - { port: "53", proto: "udp" }  # DNS
     - { port: "53", proto: "tcp" }  # DNS (large responses)
 
+# Sandboxes reach the Anthropic API only through the auth proxy in yak-broker, and the Yak
+# container calls it to validate pasted accounts. UFW drops INPUT by default.
+- name: Allow the sandbox bridge to reach the auth proxy
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: yak-sandbox
+    to_port: "{{ yak_auth_proxy_address.split(':')[1] }}"
+    proto: tcp
+    comment: "Yak auth proxy (sandboxes)"
+
+- name: Allow the Yak container to reach the auth proxy
+  community.general.ufw:
+    rule: allow
+    direction: in
+    from_ip: "{{ yak_auth_proxy_host_cidrs }}"
+    to_port: "{{ yak_auth_proxy_address.split(':')[1] }}"
+    proto: tcp
+    comment: "Yak auth proxy (account validation)"
+
 - name: Increase inotify limits for container density
   ansible.posix.sysctl:
     name: "{{ item.key }}"
