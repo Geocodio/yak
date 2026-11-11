@@ -4,6 +4,7 @@ use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
+use App\Models\ThreadRepository;
 use App\Models\User;
 
 beforeEach(function (): void {
@@ -49,4 +50,19 @@ test('it shows the changed file count on the Changes tab', function () {
 
     visit(route('threads.show', $thread))
         ->assertSeeIn('[data-testid="thread-panel-count-changes"]', '2');
+});
+
+test('the header shows diff totals and the pull request, and a sub-thread shows its brief', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create(['title' => 'Ship the importer']);
+    $child = Thread::factory()->child($parent)->create(['title' => 'Build the client', 'brief' => 'Build the API client.', 'branch' => 'yak/imp/client']);
+    ThreadDiff::factory()->create(['thread_id' => $child->id, 'files_count' => 1, 'additions' => 7, 'deletions' => 2]);
+    ThreadRepository::factory()->create(['thread_id' => $child->id, 'pull_request_url' => 'https://github.com/acme/app/pull/9', 'pull_request_number' => 9]);
+
+    visit(route('threads.show', $child))
+        ->assertSeeIn('[data-testid="thread-header-diff"]', '+7')
+        ->assertSeeIn('[data-testid="thread-header-pr"]', 'PR #9')
+        ->assertSeeIn('[data-testid="thread-breadcrumb-parent"]', 'Ship the importer')
+        ->assertSeeIn('[data-testid="child-brief"]', 'Brief from Ship the importer')
+        ->assertSeeIn('[data-testid="child-brief"]', 'Works on yak/imp/client');
 });

@@ -50,6 +50,9 @@ final class ThreadPageData
      *         preview: array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: int, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string},
      *     },
      *     canDrive: bool,
+     *     diffTotals: ?array{additions: int, deletions: int},
+     *     pullRequest: ?array{number: int, url: string},
+     *     brief: ?array{text: string, kind: string, model: ?string, startedAt: string, branch: ?string},
      *     publishWarning: bool,
      *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, accountName: ?string, continuedFromThreadId: ?int, canTeleport: bool},
      * }
@@ -93,8 +96,53 @@ final class ThreadPageData
                 'preview' => app(ThreadPreviewPanelState::class)->build($thread, $viewer),
             ],
             'canDrive' => $access->canDrive($viewer, $thread),
+            'diffTotals' => self::diffTotals($thread),
+            'pullRequest' => self::pullRequest($thread),
+            'brief' => self::brief($thread),
             'publishWarning' => $thread->effectiveVisibility() !== ThreadVisibility::Team,
             'teleport' => app(TeleportPageState::class)->for($thread, $viewer),
+        ];
+    }
+
+    /**
+     * @return ?array{additions: int, deletions: int}
+     */
+    private static function diffTotals(Thread $thread): ?array
+    {
+        $diff = $thread->diff;
+
+        return $diff === null ? null : ['additions' => $diff->additions, 'deletions' => $diff->deletions];
+    }
+
+    /**
+     * @return ?array{number: int, url: string}
+     */
+    private static function pullRequest(Thread $thread): ?array
+    {
+        foreach ($thread->repositories as $repository) {
+            if ($repository->role !== RepositoryRole::Context && $repository->pull_request_url !== null && $repository->pull_request_number !== null) {
+                return ['number' => $repository->pull_request_number, 'url' => $repository->pull_request_url];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return ?array{text: string, kind: string, model: ?string, startedAt: string, branch: ?string}
+     */
+    private static function brief(Thread $thread): ?array
+    {
+        if ($thread->parent_thread_id === null || $thread->brief === null) {
+            return null;
+        }
+
+        return [
+            'text' => $thread->brief,
+            'kind' => $thread->kind->value,
+            'model' => $thread->model,
+            'startedAt' => ($thread->created_at ?? now())->toIso8601String(),
+            'branch' => $thread->branch,
         ];
     }
 }
