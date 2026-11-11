@@ -180,14 +180,14 @@ class VisibilityRoutes
     }
 
     /**
-     * Preview host endpoints that resolve a deployment by hostname, swept in
-     * VisibilityPreviewHostsTest.
+     * Preview host endpoints that resolve a deployment or thread by hostname,
+     * swept in VisibilityPreviewHostsTest and ThreadPreviewVisibilityTest.
      *
      * @return list<string>
      */
     public static function hosts(): array
     {
-        return ['deployments.preview-auth', 'deployments.status', 'deployments.wake'];
+        return ['deployments.preview-auth', 'deployments.status', 'deployments.wake', 'threads.preview.wake'];
     }
 
     /**

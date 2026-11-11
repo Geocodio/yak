@@ -31,3 +31,12 @@ function queueSandboxResults(int $times, string $output = '', int $exitCode = 0)
         queueSandboxOutput($output, $exitCode);
     }
 }
+
+/** Queues a manifest read followed by a healthy probe, the exec pair one ensureStarted makes. */
+function queueHealthyPreview(int $times = 1): void
+{
+    for ($index = 0; $index < $times; $index++) {
+        queueSandboxOutput("port: 3000\nhealth_probe_path: /up\ncold_start: bin/serve\n");
+        queueSandboxOutput('');
+    }
+}

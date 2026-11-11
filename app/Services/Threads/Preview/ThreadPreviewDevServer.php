@@ -20,6 +20,8 @@ class ThreadPreviewDevServer
 {
     private const STATE_TTL_SECONDS = 3600;
 
+    private const READY_SECONDS = 30;
+
     private const LOG_PATH = '/tmp/yak-preview.log';
 
     private const LOG_LINES = 40;
@@ -45,11 +47,11 @@ class ThreadPreviewDevServer
         $result = $this->reader->read($thread);
 
         if ($result->manifest === null) {
-            return $this->remember($thread, $result->status === 'invalid' ? 'invalid_manifest' : 'no_manifest');
+            return $this->remember($thread, $result->status === 'invalid' ? 'invalid_manifest' : 'no_manifest', $result->error);
         }
 
         if ($this->probe($thread, $result->manifest)) {
-            return $this->remember($thread, 'ready');
+            return $this->remember($thread, 'ready', port: $result->manifest->port);
         }
 
         if ($result->manifest->coldStart === '') {
@@ -117,7 +119,7 @@ class ThreadPreviewDevServer
             $probe = $this->runProbe($thread, $manifest);
 
             if ($probe->successful()) {
-                $this->remember($thread, 'ready');
+                $this->remember($thread, 'ready', port: $manifest->port);
                 $this->captureLog($thread);
 
                 return;
@@ -146,9 +148,30 @@ class ThreadPreviewDevServer
         Cache::put($this->key('log', $thread), $lines, self::STATE_TTL_SECONDS);
     }
 
-    private function remember(Thread $thread, string $state, ?string $error = null): string
+    /**
+     * The port of a dev server that answered its probe within the last
+     * READY_SECONDS and has not been stopped or paused since, so a burst of
+     * requests skips the probe.
+     */
+    public function readyPort(Thread $thread): ?int
+    {
+        $ready = Cache::get($this->key('ready', $thread));
+
+        if (! is_array($ready) || ($thread->sandbox_state_changed_at !== null && $ready['at'] < $thread->sandbox_state_changed_at->getTimestamp())) {
+            return null;
+        }
+
+        return $ready['port'];
+    }
+
+    private function remember(Thread $thread, string $state, ?string $error = null, ?int $port = null): string
     {
         Cache::put($this->key('state', $thread), $state, self::STATE_TTL_SECONDS);
+
+        if ($port !== null) {
+            Cache::put($this->key('ready', $thread), ['port' => $port, 'at' => now()->getTimestamp()], self::READY_SECONDS);
+        }
+
         $error === null ? Cache::forget($this->key('error', $thread)) : Cache::put($this->key('error', $thread), SecretRedactor::redact($error), self::STATE_TTL_SECONDS);
 
         return $state;
