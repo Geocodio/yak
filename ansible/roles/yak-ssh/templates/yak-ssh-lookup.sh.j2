@@ -1,0 +1,5 @@
+#!/bin/sh
+# sshd runs AuthorizedKeysCommand with an empty environment, so the settings live here.
+export YAK_SSH_URL='{{ yak_ssh_url }}'
+export YAK_SSH_TOKEN_FILE=/etc/yak/ssh-token-lookup
+exec {{ yak_ssh_bin_dir }}/yak-ssh-lookup "$@"

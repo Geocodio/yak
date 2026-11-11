@@ -1,11 +1,11 @@
 import type { SettingsNavSection } from '@geocodio/console-ui';
-import { Activity, Bell, Inbox, Monitor, Puzzle, Server, Type, User, UserRound, Video as VideoIcon, Zap } from 'lucide-react';
+import { Activity, Bell, Inbox, KeyRound, Monitor, Puzzle, Server, Type, User, UserRound, Video as VideoIcon, Zap } from 'lucide-react';
 import { createElement } from 'react';
 import { channels, mcp, prompts, skills, system } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
 import { linear, notifications, video } from '@/routes/settings';
 
-export type SettingsSlug = 'profile' | 'claude-accounts' | 'devices' | 'notifications' | 'prompts' | 'skills' | 'mcp' | 'linear' | 'video' | 'channels' | 'system';
+export type SettingsSlug = 'profile' | 'claude-accounts' | 'devices' | 'ssh-keys' | 'notifications' | 'prompts' | 'skills' | 'mcp' | 'linear' | 'video' | 'channels' | 'system';
 
 const icon = (component: typeof User) => createElement(component, { size: 15 });
 
@@ -47,6 +47,15 @@ export const SETTINGS_SECTIONS: SettingsNavSection[] = [
                 icon: icon(Bell),
                 description: 'Choose what Yak pushes to your devices.',
                 keywords: ['push', 'install', 'phone'],
+            },
+            {
+                slug: 'ssh-keys',
+                // Route owned by W3-SSH, so the href is a literal rather than a Wayfinder import.
+                href: '/settings/ssh-keys',
+                label: 'SSH keys',
+                icon: icon(KeyRound),
+                description: 'The keys that can open a shell in the sandboxes of threads you drive.',
+                keywords: ['ssh', 'github', 'terminal', 'public key'],
             },
         ],
     },

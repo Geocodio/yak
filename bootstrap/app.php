@@ -7,6 +7,7 @@ use App\Http\Middleware\CliProtocol;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
 use App\Http\Middleware\VerifySessionStoreToken;
+use App\Http\Middleware\VerifySshInternalToken;
 use App\Http\Responses\CliError;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -35,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'restrict-to-ingress' => RestrictToIngress::class,
             'session-store-token' => VerifySessionStoreToken::class,
+            'ssh-internal-token' => VerifySshInternalToken::class,
             'cli.protocol' => CliProtocol::class,
             'auth.device' => AuthenticateDevice::class,
         ]);

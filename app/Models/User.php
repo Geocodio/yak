@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Log;
@@ -150,5 +151,21 @@ class User extends Authenticatable
         $this->forceFill([
             'push_event_preferences' => array_map('boolval', array_merge($this->push_event_preferences ?? [], array_intersect_key($preferences, array_flip($known)))),
         ])->save();
+    }
+
+    /**
+     * @return HasMany<SshKey, $this>
+     */
+    public function sshKeys(): HasMany
+    {
+        return $this->hasMany(SshKey::class);
+    }
+
+    /**
+     * @return HasOne<GithubKeySync, $this>
+     */
+    public function githubKeySync(): HasOne
+    {
+        return $this->hasOne(GithubKeySync::class);
     }
 }
