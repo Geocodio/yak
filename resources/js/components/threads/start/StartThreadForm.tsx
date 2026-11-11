@@ -25,7 +25,7 @@ const MODES: { mode: Mode; label: string; icon: typeof Wrench; hint: string }[] 
  * model pickers. Changing the repo re-resolves the defaults from
  * `picker.defaultsByRepo`.
  */
-export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFocus }: NewThreadPageData & { onStarted?: () => void; autoFocus?: boolean }) {
+export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFocus }: Omit<NewThreadPageData, 'emailToYakAddress'> & { onStarted?: () => void; autoFocus?: boolean }) {
     const { docs } = usePage<SharedProps>().props;
     const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[] }>({
         repo: defaultRepo ?? '',
