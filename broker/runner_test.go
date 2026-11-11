@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -579,6 +580,9 @@ func TestLateExitOfOldGenerationDoesNotRevokeNewPlaceholder(t *testing.T) {
 func startDecoy(t *testing.T, channel, sleepMarker string) {
 	t.Helper()
 	decoy := exec.Command("perl", "-e", `use POSIX; if (!fork) { POSIX::setsid(); exec "sleep", "`+sleepMarker+`" } sleep 300;`, "/opt/yak-runner/runner.mjs", "--channel", channel)
+	// The real runner leads its own session (setsid). The kill script kills the runner's whole
+	// session, so a decoy sharing the test process's session would take the test run down with it.
+	decoy.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := decoy.Start(); err != nil {
 		t.Fatal(err)
 	}

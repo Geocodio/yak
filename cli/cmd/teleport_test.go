@@ -126,6 +126,8 @@ func TestNonTTYDirtyRefuses(t *testing.T) {
 
 func TestExitCode3OnClash(t *testing.T) {
 	r := newTeleportRig(t)
+	// Case clashes are only refused where the checkout ignores case, as on macOS.
+	r.local.Git("config", "core.ignorecase", "true")
 	yak := testrepo.Clone(t, r.origin)
 	tip := yak.Tip([]testrepo.Entry{{Path: "A.txt", Content: "a"}, {Path: "a.txt", Content: "b"}}, "")
 	yak.Git("push", "-q", "origin", tip+":refs/heads/yak/fix")
