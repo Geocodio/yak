@@ -1,6 +1,8 @@
 <?php
 
 use App\Channels\GitHub\AppService;
+use App\Models\ThreadDiff;
+use App\Models\ThreadDiffFile;
 use App\Services\Threads\ThreadEventWindow;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
@@ -87,3 +89,17 @@ it('lets a teammate through when the thread is team visible', function (string $
 
     $expected === null ? expect($status)->not->toBe(404)->and($status)->toBeLessThan(500) : expect($status)->toBe($expected);
 })->with('probes');
+
+it('owner reads a diff file and an event with 200', function (string $name) {
+    $probe = VisibilityRoutes::probes($world = VisibilityWorld::build())[$name];
+
+    sweepRequest($this->actingAs($world->owner), $probe, $probe['uri'])->assertOk();
+})->with(['threads.diff.files.show', 'threads.events.show']);
+
+it('does not serve a diff file that belongs to another thread', function () {
+    $world = VisibilityWorld::build();
+    $otherDiff = ThreadDiff::factory()->create(['thread_id' => $world->child->id, 'files_count' => 1]);
+    $foreignFile = ThreadDiffFile::factory()->create(['thread_diff_id' => $otherDiff->id]);
+
+    $this->actingAs($world->owner)->get("/threads/{$world->thread->id}/diff/files/{$foreignFile->id}")->assertNotFound();
+});

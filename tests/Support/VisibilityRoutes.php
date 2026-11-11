@@ -20,10 +20,10 @@ class VisibilityRoutes
         'threads.share.show' => ['GET', '/threads/{thread}/share'],
         'threads.share.update' => ['PUT', '/threads/{thread}/share', ['mode' => 'only_me']],
         'threads.diff.show' => ['GET', '/threads/{thread}/diff'],
-        'threads.diff.files.show' => ['GET', '/threads/{thread}/diff/files/1', [], 404],
+        'threads.diff.files.show' => ['GET', '/threads/{thread}/diff/files/{file}'],
         'threads.environment.show' => ['GET', '/threads/{thread}/environment'],
         'threads.events.index' => ['GET', '/threads/{thread}/events'],
-        'threads.events.show' => ['GET', '/threads/{thread}/events/1', [], 404],
+        'threads.events.show' => ['GET', '/threads/{thread}/events/{sequence}'],
         'threads.pull-request.store' => ['POST', '/threads/{thread}/pull-request', ['acknowledged_private_publish' => true], 302],
         'threads.teleport-request.store' => ['POST', '/threads/{thread}/teleport-request', ['acknowledged_private_publish' => true]],
         'threads.teleport-request.destroy' => ['DELETE', '/threads/{thread}/teleport-request'],
@@ -87,6 +87,8 @@ class VisibilityRoutes
                 '{task}' => (string) ($id === $missing ? $missing : $task),
                 '{deployment}' => (string) ($id === $missing ? $missing : $deployment),
                 '{attachment}' => (string) ($id === $missing ? $missing : $world->attachment->id),
+                '{file}' => (string) ($id === $missing ? $missing : $world->diffFile->id),
+                '{sequence}' => (string) ($id === $missing ? $missing : $world->event->sequence),
                 '{pr}' => (string) ($id === $missing ? $missing : $world->prReview->pr_number),
             ]);
 
