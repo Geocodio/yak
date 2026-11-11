@@ -3,64 +3,63 @@
 namespace App\Http\Middleware;
 
 use App\Models\Device;
+use App\Services\Devices\DeviceTokens;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Authenticates a CLI request by its bearer device token and applies the cli-device limiter.
+ * Authenticates a CLI request by its bearer device token, for this request only (no session, no cookie).
  */
 class AuthenticateDevice
 {
-    public function handle(Request $request, Closure $next): Response
-    {
-        $bearer = $request->bearerToken();
-
-        if ($bearer === null) {
-            return $this->error('unauthenticated', 'Sign in with yak login.', 401);
-        }
-
-        $device = str_starts_with($bearer, 'yakdev_')
-            ? Device::query()->where('token_hash', hash('sha256', $bearer))->first()
-            : null;
-
-        if ($device === null) {
-            return $this->error('invalid_token', 'This device token is not recognised. Run yak login.', 401);
-        }
-
-        if ($device->isRevoked()) {
-            return $this->error('device_revoked', 'This device was revoked. Run yak login.', 401);
-        }
-
-        $request->attributes->set('device', $device);
-        $request->setUserResolver(fn () => $device->user);
-
-        $key = 'cli-device:' . $device->id;
-
-        if (RateLimiter::tooManyAttempts($key, 120)) {
-            return response()->json([
-                'error' => 'rate_limited',
-                'message' => 'Too many requests. Try again shortly.',
-            ], 429, ['Retry-After' => (string) RateLimiter::availableIn($key)]);
-        }
-
-        RateLimiter::hit($key, 60);
-        $device->forceFill(['last_seen_at' => now()])->save();
-
-        return $next($request);
-    }
+    public function __construct(private DeviceTokens $deviceTokens, private ThrottleRequests $throttle) {}
 
     public static function device(Request $request): Device
     {
-        $device = $request->attributes->get('device');
-        abort_unless($device instanceof Device, 401);
-
-        return $device;
+        /** @var Device */
+        return $request->attributes->get('device');
     }
 
-    private function error(string $code, string $message, int $status): Response
+    public function handle(Request $request, Closure $next): Response
     {
-        return response()->json(['error' => $code, 'message' => $message], $status);
+        $token = $request->bearerToken();
+
+        if ($token === null || $token === '') {
+            return $this->reject('unauthenticated', 'Sign in with yak login.');
+        }
+
+        $device = $this->deviceTokens->resolve($token);
+
+        if ($device === null) {
+            return $this->reject('invalid_token', 'This device token is not recognized. Run yak login.');
+        }
+
+        if ($device->isRevoked()) {
+            return $this->reject('device_revoked', 'This computer was removed in Yak. Run yak login to connect it again.');
+        }
+
+        $user = $device->user;
+
+        if ($user === null) {
+            return $this->reject('invalid_token', 'This device token is not recognized. Run yak login.');
+        }
+
+        if ($device->last_seen_at === null || $device->last_seen_at->lt(now()->subSeconds(60))) {
+            $device->forceFill(['last_seen_at' => now()])->saveQuietly();
+        }
+
+        $request->attributes->set('device', $device);
+        $request->setUserResolver(fn () => $user);
+        Auth::guard('web')->setUser($user);
+
+        return $this->throttle->handle($request, $next, 'cli-device');
+    }
+
+    private function reject(string $error, string $message): Response
+    {
+        return response()->json(['error' => $error, 'message' => $message], 401);
     }
 }
