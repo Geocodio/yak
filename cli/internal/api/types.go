@@ -235,9 +235,18 @@ type Marker struct {
 	StackMessagesURL string `json:"stack_messages_url,omitempty"`
 }
 
+// SandboxRepo is how one repo fared when Yak prepared the sandbox. Reason is empty unless Status is failed.
+type SandboxRepo struct {
+	Repo   string `json:"repo"`
+	Role   string `json:"role"`
+	Status string `json:"status"`
+	Reason string `json:"reason"`
+}
+
 type Sandbox struct {
-	State   string  `json:"state"`
-	Message *string `json:"message"`
+	State   string        `json:"state"`
+	Message *string       `json:"message"`
+	Repos   []SandboxRepo `json:"repos,omitempty"`
 }
 
 type CompleteUpResponse struct {
@@ -272,6 +281,16 @@ type ManifestRepo struct {
 	SandboxPath        string `json:"sandbox_path"`
 	WIPCommitMade      bool   `json:"wip_commit_made"`
 	Pushed             bool   `json:"pushed"`
+	// Status is "ready" or "failed"; empty counts as ready.
+	Status  string        `json:"status,omitempty"`
+	Failure *Failure      `json:"failure,omitempty"`
+	Refresh []RefreshRule `json:"refresh,omitempty"`
+}
+
+// RefreshRule is one entry of a repo's refresh map.
+type RefreshRule struct {
+	Glob    string `json:"glob"`
+	Command string `json:"command"`
 }
 
 type MemoryFile struct {
@@ -298,9 +317,11 @@ type DownManifest struct {
 		Visibility    string        `json:"visibility"`
 		ClaudeAccount ClaudeAccount `json:"claude_account"`
 	} `json:"thread"`
-	Repos   []ManifestRepo `json:"repos"`
-	LastUp  *DownLastUp    `json:"last_up"`
-	Session struct {
+	Repos []ManifestRepo `json:"repos"`
+	// ContextRepos are the slugs of context repos that were not brought down.
+	ContextRepos []string    `json:"context_repos,omitempty"`
+	LastUp       *DownLastUp `json:"last_up"`
+	Session      struct {
 		SessionID       string        `json:"session_id"`
 		Files           []SessionFile `json:"files"`
 		OtherSessionIDs []string      `json:"other_session_ids"`

@@ -80,6 +80,18 @@ func (s *Server) AddRepoWithOrigin(t testing.TB, slug string) string {
 	return dir
 }
 
+// UpRepos returns the repos the CLI sent when it began the teleport up with that id.
+func (s *Server) UpRepos(t testing.TB, id string) []api.BeginRepo {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, ok := s.tele.rows[id]
+	if !ok {
+		t.Fatalf("no teleport %s", id)
+	}
+	return append([]api.BeginRepo(nil), row.upRepos...)
+}
+
 // ScriptDownStates scripts what GET /teleports/{id} answers for the next down teleport of the thread: each poll
 // moves one state along (waiting_for_turn, preparing, ready, failed) and the last state repeats. The manifest is
 // served once the state is ready.

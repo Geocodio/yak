@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -134,5 +135,26 @@ func TestRawReturnsBytesAndQuery(t *testing.T) {
 	b, _, err := c.Raw(context.Background(), "GET", "/threads/1/session/read", map[string][]string{"offset": {"5"}})
 	if err != nil || string(b) != "abc" {
 		t.Fatalf("%q %v", b, err)
+	}
+}
+
+func TestManifestDecodesMultiRepoFields(t *testing.T) {
+	raw := `{"repos":[{"repo":"acme/api","role":"changes","status":"failed","pushed":false,"head_sha":null,
+		"failure":{"code":"push_failed","message":"push rejected"},"refresh":[{"glob":"composer.lock","command":"composer install"}]}],
+		"context_repos":["acme/docs"]}`
+	var m DownManifest
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		t.Fatal(err)
+	}
+	r := m.Repos[0]
+	if r.Status != "failed" || r.Failure == nil || r.Failure.Code != "push_failed" || r.Refresh[0].Command != "composer install" || m.ContextRepos[0] != "acme/docs" {
+		t.Fatalf("%+v", m)
+	}
+	var done CompleteUpResponse
+	if err := json.Unmarshal([]byte(`{"sandbox":{"state":"ready","repos":[{"repo":"acme/api","role":"context","status":"failed","reason":"clone failed"}]}}`), &done); err != nil {
+		t.Fatal(err)
+	}
+	if done.Sandbox.Repos[0].Reason != "clone failed" {
+		t.Fatalf("%+v", done)
 	}
 }
