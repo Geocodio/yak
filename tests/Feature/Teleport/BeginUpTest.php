@@ -10,6 +10,7 @@ use App\Models\Teleport;
 use App\Models\Thread;
 use App\Models\ThreadSession;
 use App\Models\YakTask;
+use App\Services\Teleport\TeleportThreadCreator;
 
 const BEGIN_SESSION = 'c2c2c2c2-0000-4000-8000-000000000003';
 
@@ -210,4 +211,18 @@ it('localPathOf returns the local path of an added repo and null for unknown', f
     expect($teleport->localPathOf('ACME/lib'))->toBe('/Users/ada/lib')
         ->and($teleport->localPathOf('acme/ctx'))->toBeNull()
         ->and($teleport->localPathOf('nope/x'))->toBeNull();
+});
+
+it('syncRepositories gives extras with the same short name distinct sandbox paths', function () {
+    $acme = Repository::factory()->create(['slug' => 'acme/lib']);
+    $other = Repository::factory()->create(['slug' => 'other/lib']);
+    $thread = Thread::factory()->create();
+
+    app(TeleportThreadCreator::class)->syncRepositories(
+        $thread,
+        [['role' => 'changes'], ['role' => 'context']],
+        [$acme, $other],
+    );
+
+    expect($thread->repositories()->orderBy('id')->pluck('sandbox_path')->all())->toBe(['/extras/lib', '/extras/other-lib']);
 });

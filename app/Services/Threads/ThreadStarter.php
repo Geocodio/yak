@@ -77,13 +77,16 @@ class ThreadStarter
 
             ThreadRepository::query()->create(['thread_id' => $thread->id, 'repo' => $repo, 'role' => RepositoryRole::Primary, 'sandbox_path' => ThreadRepository::sandboxPathFor($repo, RepositoryRole::Primary)]);
 
+            $takenPaths = [];
+
             foreach ($extraRepositories as $extra) {
                 $role = $mode === TaskMode::Research ? RepositoryRole::Context : RepositoryRole::from($extra['role']);
+                $takenPaths[] = $sandboxPath = ThreadRepository::sandboxPathFor($extra['repo'], $role, $takenPaths);
                 ThreadRepository::query()->create([
                     'thread_id' => $thread->id,
                     'repo' => $extra['repo'],
                     'role' => $role,
-                    'sandbox_path' => ThreadRepository::sandboxPathFor($extra['repo'], $role),
+                    'sandbox_path' => $sandboxPath,
                     'added_by' => 'start',
                 ]);
             }

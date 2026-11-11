@@ -13,6 +13,7 @@ use App\Models\Device;
 use App\Models\Repository;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\ThreadSession;
 use App\Services\Threads\ThreadAccess;
 use Illuminate\Support\Facades\Cache;
@@ -311,6 +312,7 @@ class Teleports
     private function repoPlan(Thread $thread, array $requested, array $repositories, bool $isNew): array
     {
         $plan = [];
+        $takenPaths = [];
         $slug = $thread->branch !== null ? null : $this->namer->slug($thread->name);
 
         foreach ($requested as $index => $entry) {
@@ -324,13 +326,15 @@ class Teleports
                 default => $entry['branch'] ?? null,
             };
 
+            $takenPaths[] = $sandboxPath = ThreadRepository::sandboxPathFor($repository->slug, $role, $takenPaths);
+
             $plan[] = [
                 'repo' => $entry['repo'],
                 'role' => $role->value,
                 'branch' => $branch,
                 'create_branch' => $createBranch,
                 'clone_url' => $repository->git_url,
-                'sandbox_path' => $role === RepositoryRole::Primary ? '/workspace' : '/extras/' . basename($repository->slug),
+                'sandbox_path' => $sandboxPath,
             ];
         }
 

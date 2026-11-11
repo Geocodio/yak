@@ -53,6 +53,17 @@ it('creates a primary, a changes and a context row', function () {
         ->and($rows[1]->setup_status)->toBe(RepositorySetupStatus::Pending);
 });
 
+it('gives extras with the same short name distinct sandbox paths', function () {
+    Repository::factory()->create(['slug' => 'other/web']);
+    $this->actingAs($this->user)->post(route('threads.store'), startPayload([
+        'repositories' => [['repo' => 'acme/web', 'role' => 'changes'], ['repo' => 'other/web', 'role' => 'changes']],
+    ]));
+
+    $thread = Thread::query()->latest('id')->firstOrFail();
+
+    expect($thread->repositories()->orderBy('id')->pluck('sandbox_path')->all())->toBe(['/workspace', '/extras/web', '/extras/other-web']);
+});
+
 it('rejects an extra Yak cannot reach and creates nothing', function () {
     $this->actingAs($this->user)->post(route('threads.store'), startPayload([
         'repositories' => [['repo' => 'acme/web', 'role' => 'changes'], ['repo' => 'acme/hidden', 'role' => 'context']],

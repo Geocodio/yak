@@ -762,3 +762,19 @@ func TestDownWritesNoteWithExtrasAndContextRepos(t *testing.T) {
 		}
 	}
 }
+
+func TestExtraFolderFollowsSandboxPath(t *testing.T) {
+	cases := []struct {
+		repo api.ManifestRepo
+		want string
+	}{
+		{api.ManifestRepo{Repo: "other/lib", SandboxPath: "/extras/other-lib"}, "other-lib"},
+		{api.ManifestRepo{Repo: "acme/lib", SandboxPath: "/extras/lib"}, "lib"},
+		{api.ManifestRepo{Repo: "acme/lib"}, "lib"},
+	}
+	for _, c := range cases {
+		if got := extraFolder(c.repo); got != c.want {
+			t.Errorf("extraFolder(%+v) = %q, want %q", c.repo, got, c.want)
+		}
+	}
+}

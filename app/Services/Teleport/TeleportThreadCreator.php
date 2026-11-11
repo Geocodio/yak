@@ -78,13 +78,16 @@ class TeleportThreadCreator
      */
     public function syncRepositories(Thread $thread, array $requested, array $repositories): void
     {
+        $takenPaths = [];
+
         foreach ($requested as $index => $entry) {
             $role = RepositoryRole::from($entry['role']);
             $slug = $repositories[$index]->slug;
+            $takenPaths[] = $sandboxPath = ThreadRepository::sandboxPathFor($slug, $role, $takenPaths);
 
             ThreadRepository::query()->updateOrCreate(
                 ['thread_id' => $thread->id, 'repo' => $slug],
-                ['role' => $role, 'sandbox_path' => $role === RepositoryRole::Primary ? '/workspace' : '/extras/' . basename($slug)],
+                ['role' => $role, 'sandbox_path' => $sandboxPath],
             );
         }
     }
