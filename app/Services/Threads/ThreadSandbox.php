@@ -34,6 +34,7 @@ class ThreadSandbox
         private SessionFileSync $sessions,
         private WipPreserver $wip,
         private SandboxRestorer $restorer,
+        private AuthProxyPlaceholders $placeholders,
     ) {}
 
     public function touch(Thread $thread): void
@@ -110,6 +111,7 @@ class ThreadSandbox
 
             $this->sandboxes->destroy($thread);
             $this->record($thread, ThreadSandboxState::Destroyed);
+            $this->revokeSharedPlaceholders($thread);
         } finally {
             $lock->release();
         }
@@ -319,6 +321,17 @@ class ThreadSandbox
     private function exists(Thread $thread): bool
     {
         return ! in_array($thread->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroyed], true);
+    }
+
+    private function revokeSharedPlaceholders(Thread $thread): void
+    {
+        $sharing = $thread->sandbox_container === null
+            ? collect([$thread])
+            : Thread::withoutGlobalScopes()->where('sandbox_container', $thread->sandbox_container)->get();
+
+        foreach ($sharing as $sharer) {
+            $this->placeholders->revoke($sharer);
+        }
     }
 
     private function record(Thread $thread, ThreadSandboxState $state): void

@@ -2,6 +2,7 @@
 
 namespace App\Services\Threads;
 
+use App\Enums\ThreadSandboxState;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use Illuminate\Contracts\Cache\Repository;
@@ -10,7 +11,10 @@ use Illuminate\Support\Facades\Cache;
 /**
  * Placeholders for the auth proxy. A sandbox only ever holds a placeholder
  * (`yakph-` plus 32 random bytes). It is bound to one subject (a thread or a
- * run id), one account and one container ip. The proxy redeems it over the
+ * run id), one account and one container ip. A thread placeholder is also
+ * bound to the runner generation and the sandbox container it was issued for,
+ * and stops resolving when either changes, the thread closes or the sandbox is
+ * destroyed. The proxy redeems it over the
  * credential socket. Only the sha256 of the placeholder is stored, never the
  * placeholder or the account secret.
  */
@@ -18,13 +22,22 @@ class AuthProxyPlaceholders
 {
     public const PREFIX = 'yakph-';
 
-    /** Longer than any runner lives. */
-    private const TTL_SECONDS = 172_800;
+    /** Backstop for thread placeholders; revocation and the generation check are the real controls. */
+    private const THREAD_TTL_SECONDS = 604_800;
 
-    public function issue(Thread|string $subject, ClaudeAccount $account, string $containerIp): string
+    /** Extra minutes beyond one turn's wall clock for placeholders of one-shot runs. */
+    private const RUN_GRACE_MINUTES = 10;
+
+    public function issue(Thread|string $subject, ClaudeAccount $account, string $containerIp, ?string $containerName = null): string
     {
         $subjectKey = $this->subjectKey($subject);
         $this->revoke($subject);
+
+        // ponytail: one-shot runs have no record to check yet, so they live for one turn plus a grace period.
+        $ttl = $subject instanceof Thread
+            ? self::THREAD_TTL_SECONDS
+            : ((int) config('yak.threads.turn_wall_clock_minutes') + self::RUN_GRACE_MINUTES) * 60;
+        $containerName ??= $subject instanceof Thread ? $subject->sandbox_container : null;
 
         $placeholder = self::PREFIX . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         $hash = hash('sha256', $placeholder);
@@ -33,8 +46,10 @@ class AuthProxyPlaceholders
             'account_id' => $account->id,
             'container_ip' => $containerIp,
             'subject' => $subjectKey,
-        ], self::TTL_SECONDS);
-        $this->store()->put('auth-proxy-subject:' . $subjectKey, $hash, self::TTL_SECONDS);
+            'generation' => $subject instanceof Thread ? $subject->runner_generation : null,
+            'container' => $containerName,
+        ], $ttl);
+        $this->store()->put('auth-proxy-subject:' . $subjectKey, $hash, $ttl);
 
         return $placeholder;
     }
@@ -45,6 +60,22 @@ class AuthProxyPlaceholders
 
         if (is_string($hash)) {
             $this->store()->forget('auth-proxy-placeholder:' . $hash);
+        }
+    }
+
+    /**
+     * Follows the thread's runner generation once the broker reports the new
+     * runner started, so the placeholder issued for that runner keeps resolving.
+     */
+    public function rebindGeneration(Thread $thread): void
+    {
+        $subjectKey = $this->subjectKey($thread);
+        $hash = $this->store()->get('auth-proxy-subject:' . $subjectKey);
+        $binding = is_string($hash) ? $this->store()->get('auth-proxy-placeholder:' . $hash) : null;
+
+        if (is_array($binding)) {
+            $binding['generation'] = $thread->runner_generation;
+            $this->store()->put('auth-proxy-placeholder:' . $hash, $binding, self::THREAD_TTL_SECONDS);
         }
     }
 
@@ -68,11 +99,25 @@ class AuthProxyPlaceholders
 
         $subject = (string) $binding['subject'];
 
-        if (str_starts_with($subject, 'thread:') && Thread::query()->find((int) substr($subject, 7))?->isOpen() !== true) {
+        if (str_starts_with($subject, 'thread:') && ! $this->threadMatches((int) substr($subject, 7), $binding)) {
             return null;
         }
 
         return ClaudeAccount::query()->find((int) $binding['account_id']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $binding
+     */
+    private function threadMatches(int $threadId, array $binding): bool
+    {
+        $thread = Thread::query()->find($threadId);
+
+        return $thread !== null
+            && $thread->isOpen()
+            && $thread->runner_generation === ($binding['generation'] ?? null)
+            && ! in_array($thread->sandbox_state, [ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed], true)
+            && $thread->sandbox_container === ($binding['container'] ?? null);
     }
 
     private function subjectKey(Thread|string $subject): string

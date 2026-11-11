@@ -246,6 +246,7 @@ class ThreadDriver
                 'runner_generation' => $entry->generation,
                 'runner_started_at' => now(),
             ]);
+            $this->commands->rebindPlaceholderGeneration($thread);
         }
 
         $line = json_decode($this->redactor::redact(json_encode($line, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)), true) ?? [];

@@ -124,3 +124,13 @@ it('ignores a no_runner for a uuid the turn is not waiting on', function () {
 
     expect($run->refresh()->restart_count)->toBe(0);
 });
+
+it('rebinds the placeholder to the generation of a started runner', function () {
+    $thread = generationThread(1);
+    $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
+    $placeholders->shouldReceive('rebindGeneration')->once()->with(Mockery::on(fn ($given) => $given->runner_generation === 2));
+    app()->instance(AuthProxyPlaceholders::class, $placeholders);
+    $entry = app(BrokerStreams::class)->pushOut('threads:' . $thread->id, 2, 1, ['type' => 'runner', 'event' => 'started']);
+
+    app(ThreadDriver::class)->handle($entry);
+});
