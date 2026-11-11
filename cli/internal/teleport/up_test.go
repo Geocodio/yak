@@ -502,3 +502,57 @@ func TestUpListsMissingDirectoriesAtTheEnd(t *testing.T) {
 		t.Fatalf("%s", out)
 	}
 }
+
+func TestUpDirtyOnMainLeavesLocalMainUntouched(t *testing.T) {
+	h := newHarness(t)
+	originMain := h.originRef("refs/heads/main")
+	h.local.Write("README.md", "changed\n")
+	h.writeTranscript(firstLine)
+	res, err := h.up(PrepareOptions{CommitTracked: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := h.local.Git("rev-parse", "main"); got != originMain {
+		t.Fatalf("local main moved to %s", got)
+	}
+	if branch, _, _ := h.local.CurrentBranch(); branch != res.Branch || !strings.HasPrefix(res.Branch, "yak/") {
+		t.Fatalf("checkout is on %s", branch)
+	}
+	if h.local.Git("rev-parse", "HEAD^") != originMain || !strings.HasPrefix(h.local.Git("log", "-1", "--format=%s"), "WIP") {
+		t.Fatal("branch tip is not a WIP commit on origin main")
+	}
+	if b, _ := os.ReadFile(filepath.Join(h.cwd, "README.md")); string(b) != "changed\n" {
+		t.Fatalf("content %q", b)
+	}
+}
+
+func TestUpDirtyOnMainBeginFailureChangesNothing(t *testing.T) {
+	h := newHarness(t)
+	originMain := h.originRef("refs/heads/main")
+	h.local.Write("README.md", "changed\n")
+	h.writeTranscript(firstLine)
+	h.srv.FailNextBegin("thread_owned_by_yak", "on yak")
+	if _, err := h.up(PrepareOptions{CommitTracked: true}); err == nil {
+		t.Fatal("expected failure")
+	}
+	if h.local.Git("rev-parse", "main") != originMain {
+		t.Fatal("main moved")
+	}
+	if status := h.local.Git("status", "--porcelain"); status != " M README.md" {
+		t.Fatalf("status %q", status)
+	}
+}
+
+func TestUpDirtyOnFeatureBranchStillCommitsInPlace(t *testing.T) {
+	h := newHarness(t)
+	h.local.Git("switch", "-q", "-c", "feat")
+	before := h.local.Git("rev-parse", "HEAD")
+	h.local.Write("README.md", "changed\n")
+	h.writeTranscript(firstLine)
+	if _, err := h.up(PrepareOptions{CommitTracked: true}); err != nil {
+		t.Fatal(err)
+	}
+	if h.local.Git("rev-parse", "feat^") != before {
+		t.Fatal("WIP commit is not on feat")
+	}
+}
