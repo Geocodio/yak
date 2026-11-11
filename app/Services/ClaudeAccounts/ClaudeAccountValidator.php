@@ -38,7 +38,7 @@ class ClaudeAccountValidator
         $subject = 'validation-' . $account->id;
 
         try {
-            $placeholder = $this->placeholders->issue($subject, $account, '127.0.0.1');
+            $placeholder = $this->placeholders->issue($subject, $account, AuthProxyPlaceholders::VALIDATION_BINDING);
 
             $result = Process::timeout(120)
                 ->env($this->environment($placeholder, $homeDirectory, $configDirectory))

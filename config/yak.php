@@ -628,6 +628,7 @@ return [
     */
 
     'threads' => [
+        'auth_proxy_validation_cidrs' => array_values(array_filter(array_map('trim', explode(',', (string) env('YAK_THREADS_AUTH_PROXY_VALIDATION_CIDRS', ''))))),
         'turn_grace_seconds' => (int) env('YAK_THREADS_TURN_GRACE_SECONDS', 30),
         'turn_wall_clock_minutes' => (int) env('YAK_THREADS_TURN_WALL_CLOCK_MINUTES', 240),
         'pause_to_stop_minutes' => (int) env('YAK_THREADS_PAUSE_TO_STOP_MINUTES', 30),

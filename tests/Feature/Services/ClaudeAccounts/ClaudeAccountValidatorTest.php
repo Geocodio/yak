@@ -34,7 +34,7 @@ it('accepts a credential when the Haiku turn succeeds', function () {
     Process::fake(['*' => Process::result('{"is_error":false,"result":"OK"}')]);
 
     expect(validate()->valid)->toBeTrue();
-    expect($this->issued['ip'])->toBe('127.0.0.1')
+    expect($this->issued['ip'])->toBe(AuthProxyPlaceholders::VALIDATION_BINDING)
         ->and($this->issued['rowExists'])->toBeTrue()
         ->and($this->revoked)->toBe($this->issued['subject']);
     expect(ClaudeAccount::query()->count())->toBe(0);

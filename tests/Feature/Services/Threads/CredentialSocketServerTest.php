@@ -37,10 +37,11 @@ function redeemRequest(string $placeholder, string $containerIp): string
     return json_encode(['placeholder' => $placeholder, 'container_ip' => $containerIp]);
 }
 
-function allowedServer(string $path, ?int $reportedUid = 4242): CredentialSocketServer
+function allowedServer(string $path, ?int $reportedUid = -1): CredentialSocketServer
 {
-    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => $reportedUid);
-    $server->listen($path, 4242);
+    // The allowed uid is the test process's own so the socket chown succeeds without root.
+    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => $reportedUid === -1 ? posix_geteuid() : $reportedUid);
+    $server->listen($path, posix_geteuid());
 
     return $server;
 }
@@ -153,3 +154,57 @@ it('never logs the secret and a forbidden reply carries none', function () {
     Log::shouldNotHaveReceived('error');
     Log::shouldNotHaveReceived('warning');
 });
+
+it('serves a validation placeholder to a validation cidr peer and refuses other peers', function () {
+    config(['yak.threads.auth_proxy_validation_cidrs' => ['172.16.0.0/12']]);
+    $server = allowedServer($this->path);
+    $placeholder = $this->placeholders->issue('validation-' . $this->account->id, $this->account, AuthProxyPlaceholders::VALIDATION_BINDING);
+
+    expect(redeemOverSocket($server, $this->path, redeemRequest($placeholder, '172.18.0.5'))['secret'])->toBe('sk-ant-secret-value')
+        ->and(redeemOverSocket($server, $this->path, redeemRequest($placeholder, '10.100.0.7')))->toBe(['error' => 'unknown']);
+
+    $server->close();
+});
+
+it('chowns the socket to the allowed uid with mode 0660', function () {
+    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class));
+    $server->listen($this->path, posix_geteuid());
+
+    expect(fileowner($this->path))->toBe(posix_geteuid())
+        ->and(fileperms($this->path) & 0777)->toBe(0660);
+
+    $server->close();
+});
+
+it('fails loudly when it cannot chown the socket to the allowed uid', function () {
+    (new CredentialSocketServer(app(AuthProxyPlaceholders::class)))->listen($this->path, 991);
+})->skip(fn () => posix_geteuid() === 0, 'root can chown')
+    ->throws(RuntimeException::class, 'Cannot chown the credential socket to uid 991: not running as root');
+
+it('lets the allowed uid connect and refuses another uid', function () {
+    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class));
+    $server->listen($this->path, 991);
+    expect(fileowner($this->path))->toBe(991);
+    // The forked children keep root's supplementary group, so move the socket to a group nobody holds.
+    chgrp($this->path, 7777);
+
+    $connectAs = function (int $uid): int {
+        $pid = pcntl_fork();
+
+        if ($pid === 0) {
+            posix_setuid($uid);
+            $client = socket_create(AF_UNIX, SOCK_STREAM, 0);
+            $connected = @socket_connect($client, $this->path);
+            exit($connected ? 0 : socket_last_error($client));
+        }
+
+        pcntl_waitpid($pid, $status);
+
+        return pcntl_wexitstatus($status);
+    };
+
+    expect($connectAs(991))->toBe(0)
+        ->and($connectAs(12345))->toBe(13);
+
+    $server->close();
+})->skip(fn () => posix_geteuid() !== 0, 'needs root to chown and setuid');

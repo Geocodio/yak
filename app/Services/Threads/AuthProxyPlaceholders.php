@@ -7,6 +7,7 @@ use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
+use Symfony\Component\HttpFoundation\IpUtils;
 
 /**
  * Placeholders for the auth proxy. A sandbox only ever holds a placeholder
@@ -21,6 +22,9 @@ use Illuminate\Support\Facades\Cache;
 class AuthProxyPlaceholders
 {
     public const PREFIX = 'yakph-';
+
+    /** Binding of an account validation placeholder: resolves from the configured validation CIDRs, not one ip. */
+    public const VALIDATION_BINDING = 'validation';
 
     /** Backstop for thread placeholders; revocation and the one-live-placeholder rule are the real controls. */
     private const THREAD_TTL_SECONDS = 604_800;
@@ -76,17 +80,31 @@ class AuthProxyPlaceholders
 
         $binding = $this->store()->get('auth-proxy-placeholder:' . hash('sha256', $placeholder));
 
-        if (! is_array($binding) || ! hash_equals((string) $binding['container_ip'], $containerIp)) {
+        if (! is_array($binding)) {
             return null;
         }
 
         $subject = (string) $binding['subject'];
+
+        if (! $this->peerMatches($subject, (string) $binding['container_ip'], $containerIp)) {
+            return null;
+        }
 
         if (str_starts_with($subject, 'thread:') && ! $this->threadMatches((int) substr($subject, 7), $binding)) {
             return null;
         }
 
         return ClaudeAccount::query()->find((int) $binding['account_id']);
+    }
+
+    private function peerMatches(string $subject, string $boundIp, string $peerIp): bool
+    {
+        if ($boundIp !== self::VALIDATION_BINDING) {
+            return hash_equals($boundIp, $peerIp);
+        }
+
+        return str_starts_with($subject, 'validation-')
+            && IpUtils::checkIp($peerIp, (array) config('yak.threads.auth_proxy_validation_cidrs', []));
     }
 
     /**
