@@ -19,6 +19,8 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\Teleport\ThreadNotOwnedByYak;
+use App\Services\Teleport\ThreadOwnership;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -91,11 +93,13 @@ class ThreadTurns
      * the caller reads blocked_reason; a thread never moves to another account.
      *
      * @throws ThreadBusy when the thread already runs a turn
+     * @throws ThreadNotOwnedByYak when a device owns the thread or a teleport is open
      */
     public function start(YakTask $task, string $prompt, ?User $driver, ?string $model): TaskRun
     {
         [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
+            app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
 
             if ($thread->lock_holder !== ThreadLockHolder::None || self::activeTurn($thread) !== null) {
                 throw new ThreadBusy("Thread {$thread->id} already runs a turn.");
@@ -212,6 +216,8 @@ class ThreadTurns
      */
     public function steer(Thread $thread, string $text, ?User $sender, ?string $model): PendingSteeringMessage
     {
+        app(ThreadOwnership::class)->assertYakMayRunTurns($thread->fresh() ?? $thread);
+
         $root = $thread->tasks()->oldest()->firstOrFail();
 
         $message = PendingSteeringMessage::query()->create([
