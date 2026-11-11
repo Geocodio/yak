@@ -3,10 +3,13 @@
 namespace App\Services\Threads;
 
 use App\DataTransferObjects\WipResult;
+use App\Enums\RepositoryRole;
 use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
+use App\Services\Teleport\RepositoryWip;
 use App\Services\Threads\Contracts\SandboxManager;
 use Illuminate\Contracts\Process\ProcessResult;
+use Throwable;
 
 /**
  * Commits and pushes whatever is in the sandbox workspace to the thread
@@ -18,7 +21,7 @@ class WipPreserver
 
     private const YAK_TRAILER = 'Co-authored-by: Yak <yak@geocod.io>';
 
-    public function __construct(private SandboxManager $sandboxes) {}
+    public function __construct(private SandboxManager $sandboxes, private RepositoryWip $repositoryWip) {}
 
     private const TELEPORT_SUBJECT = 'WIP: teleport to local machine';
 
@@ -30,6 +33,35 @@ class WipPreserver
     /**
      * The same commit and push for a teleport down, always signed with the Yak trailer.
      */
+    /**
+     * Preserves the primary workspace and every Changes extra. Every repository is attempted;
+     * the first failure is rethrown afterwards so no push hides another.
+     */
+    public function preserveAll(Thread $thread): void
+    {
+        $failure = null;
+
+        try {
+            $this->preserve($thread);
+        } catch (Throwable $exception) {
+            $failure = $exception;
+        }
+
+        $rows = $thread->repositories()->where('role', RepositoryRole::Changes)->whereNotNull('branch')->get();
+
+        foreach ($rows as $row) {
+            try {
+                $this->repositoryWip->preserve($thread, $row);
+            } catch (Throwable $exception) {
+                $failure ??= $exception;
+            }
+        }
+
+        if ($failure !== null) {
+            throw $failure;
+        }
+    }
+
     public function preserveForTeleport(Thread $thread): WipResult
     {
         return $this->run($thread, self::TELEPORT_SUBJECT . "\n\n" . self::YAK_TRAILER);

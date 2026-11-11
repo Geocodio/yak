@@ -158,7 +158,7 @@ class ChildOutcomeRecorder
                 return false;
             }
 
-            $this->wip->preserve($child);
+            $this->wip->preserveAll($child);
 
             return true;
         } catch (Throwable $exception) {
