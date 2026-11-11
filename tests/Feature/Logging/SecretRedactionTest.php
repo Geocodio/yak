@@ -52,16 +52,21 @@ it('a real account secret never reaches the task log, the log record or a socket
     expect(json_encode(TaskLog::find($log->id)->getAttributes()))->not->toContain($secret)
         ->and($record->message . json_encode($record->context))->not->toContain($secret);
 
-    $path = sys_get_temp_dir() . '/yk' . getmypid() . '-' . Str::random(6) . '.sock';
-    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => 1);
-    $server->listen($path, 2);
+    $directory = sys_get_temp_dir() . '/yk' . getmypid() . '-' . Str::random(6);
+    mkdir($directory, 0700);
+    chgrp($directory, posix_getegid());
+    chmod($directory, 02770);
+    $path = $directory . '/redeem.sock';
+    $uid = posix_geteuid();
+    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => $uid + 1);
+    $server->listen($path, $uid, $uid, posix_getegid());
     $placeholder = app(AuthProxyPlaceholders::class)->issue('run:1', $account, '172.20.0.5');
 
     $replies = [];
     foreach ([[$placeholder, '172.20.0.5'], ['yakph-' . str_repeat('A', 43), '172.20.0.5']] as $index => [$candidate, $ip]) {
-        $server = $index === 0 ? $server : new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => 2);
+        $server = $index === 0 ? $server : new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => $uid);
         if ($index === 1) {
-            $server->listen($path, 2);
+            $server->listen($path, $uid, $uid, posix_getegid());
         }
         $client = stream_socket_client('unix://' . $path, $code, $message, 2);
         fwrite($client, json_encode(['placeholder' => $candidate, 'container_ip' => $ip]) . "\n");
@@ -71,6 +76,7 @@ it('a real account secret never reaches the task log, the log record or a socket
         $server->close();
     }
     @unlink($path);
+    @rmdir($directory);
 
     expect($replies[0])->toContain('forbidden')->not->toContain($secret)
         ->and($replies[1])->toContain('unknown')->not->toContain($secret);

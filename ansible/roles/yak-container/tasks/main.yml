@@ -79,6 +79,12 @@
   # a broken image.
   failed_when: false
 
+- name: Ensure the Yak app network exists
+  community.docker.docker_network:
+    name: "{{ yak_app_network_name }}"
+    ipam_config:
+      - subnet: "{{ yak_app_network_subnet }}"
+
 - name: Run Yak container
   community.docker.docker_container:
     name: "{{ yak_container_name }}"
@@ -136,6 +142,11 @@
       start_period: 30s
     networks:
       - name: yak
+      # Highest gw_priority wins the default route, so egress (including the
+      # auth proxy on the host) leaves from the fixed yak-app address.
+      - name: "{{ yak_app_network_name }}"
+        ipv4_address: "{{ yak_container_address }}"
+        gw_priority: 10
 
 # Wait for php-fpm / workers to be ready inside the fresh container
 # before clearing the drain flag. Artisan runs through Laravel's
@@ -147,6 +158,14 @@
   retries: 12
   delay: 5
   until: yak_post_start.exists and yak_post_start.container.State.Running | default(false)
+
+- name: Assert the Yak container reaches the auth proxy from its yak-app address
+  community.docker.docker_container_exec:
+    container: "{{ yak_container_name }}"
+    command: "ip -4 route get {{ yak_auth_proxy_address.split(':')[0] }}"
+  register: yak_proxy_route
+  changed_when: false
+  failed_when: "('src ' ~ yak_container_address) not in yak_proxy_route.stdout"
 
 - name: Clear drain flag so workers resume
   community.docker.docker_container_exec:

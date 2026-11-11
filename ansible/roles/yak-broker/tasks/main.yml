@@ -35,15 +35,15 @@
     group: root
 
 # The app (www-data in its container) creates the credential socket in here.
-# The directory is traversable so the broker uid can reach the socket; the
-# socket file itself is chowned to the broker uid with mode 0660 by the app,
-# so no other uid can connect.
+# root owns the directory; www-data in the Yak container joins the broker group
+# through entrypoint.sh, so only root, the broker and the app can touch it. The
+# socket is created 0660 in the broker group through the setgid bit.
 - name: Create the credential socket directory
   ansible.builtin.file:
     path: "{{ yak_credentials_path }}"
     state: directory
-    mode: "0755"
-    owner: "{{ yak_container_www_data_uid }}"
+    mode: "2770"
+    owner: root
     group: "{{ yak_broker_user }}"
 
 # CI can supply broker/dist/yak-broker; the controller builds it only when absent.

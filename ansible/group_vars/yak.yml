@@ -35,6 +35,10 @@ yak_broker_gid: 991
 yak_credentials_path: /var/lib/yak/credentials
 yak_auth_proxy_address: 10.100.0.1:8787
 yak_auth_proxy_host_cidrs: 172.16.0.0/12
+# The Yak container is the only member of this network and is its egress network, so the auth proxy sees this source address.
+yak_app_network_name: yak-app
+yak_app_network_subnet: 172.30.0.0/29
+yak_container_address: 172.30.0.2
 # uid of www-data inside the Yak container, the peer allowed on the credential socket.
 yak_container_www_data_uid: 33
 telemetryd_container_name: yak-telemetryd

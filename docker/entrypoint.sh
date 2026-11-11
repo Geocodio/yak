@@ -32,6 +32,21 @@ if [ -S /var/lib/incus/unix.socket ]; then
     usermod -aG incus-admin www-data 2>/dev/null || true
 fi
 
+# The credential socket directory is owned by root, mode 2770, in the broker's group. The group id comes
+# from the mounted directory; www-data joins it so the app can bind the socket inside. The directory is
+# fixed once here as root, before any www-data process runs. The socket itself is never chowned or chmodded.
+CRED_DIR=$(dirname "${YAK_THREADS_CREDENTIAL_SOCKET:-/var/lib/yak/credentials/redeem.sock}")
+if [ -d "$CRED_DIR" ]; then
+    CRED_GID=$(stat -c '%g' "$CRED_DIR")
+    if ! getent group "$CRED_GID" > /dev/null 2>&1; then
+        groupadd -g "$CRED_GID" yak-broker
+    fi
+    usermod -aG "$CRED_GID" www-data 2>/dev/null || true
+    chown root:"$CRED_GID" "$CRED_DIR"
+    chmod 2770 "$CRED_DIR"
+    export YAK_THREADS_CREDENTIAL_SOCKET_DIRECTORY_GID="$CRED_GID"
+fi
+
 # Pre-create log files so supervisor doesn't create them as root
 touch /app/storage/logs/yak-claude-worker.log \
       /app/storage/logs/yak-claude-worker-error.log \

@@ -7,6 +7,7 @@ use App\Services\Threads\CredentialSocketServer;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use RuntimeException;
 
 #[Signature('yak:credential-socket')]
 #[Description('Serve auth proxy placeholders to the broker over the credential Unix socket')]
@@ -31,7 +32,15 @@ class CredentialSocketCommand extends Command
 
         // Its own process: a slow turn end in the thread driver never delays a runner's credentials.
         $server = new CredentialSocketServer($placeholders);
-        $server->listen($path, $uid);
+
+        try {
+            $directoryGid = config('yak.threads.credential_socket_directory_gid');
+            $server->listen($path, $uid, 0, is_int($directoryGid) ? $directoryGid : null);
+        } catch (RuntimeException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
 
         while (! $this->shouldStop) {
             $server->serve(500_000);

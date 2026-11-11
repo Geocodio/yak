@@ -91,7 +91,7 @@ The runner exposes in-process MCP tools to Claude: `spawn_thread`, `send_message
 
 ## 5. Credential socket
 
-`yak:credential-socket` serves the real credential behind an auth proxy placeholder to the broker's auth proxy. The Unix socket path is `yak.threads.credential_socket` (default `/run/yak/credentials.sock`), file mode 0660. Every connection is also checked against `yak.threads.credential_socket_uid` (the broker system user) with the kernel's peer credentials (SCM_CREDENTIALS), so a peer with another uid gets `{"error":"forbidden"}` and nothing else.
+`yak:credential-socket` serves the real credential behind an auth proxy placeholder to the broker's auth proxy. The Unix socket path is `yak.threads.credential_socket` (default `/run/yak/credentials.sock`). The directory holding it is owned by root, group `yak-broker`, mode 2770 with the setgid bit, and the app refuses to bind unless it finds exactly that. The app binds under umask 0117, so the socket is 0660 in the broker group, and never chowns or chmods it by path. Every connection is also checked against `yak.threads.credential_socket_uid` (the broker system user) with the kernel's peer credentials (SCM_CREDENTIALS), so a peer with another uid gets `{"error":"forbidden"}` and nothing else.
 
 One JSON line request, one JSON line reply:
 
@@ -118,13 +118,13 @@ The secret is never written to disk or logged. The proxy may keep a reply in mem
 
 The broker runs an auth proxy for the sandboxes. A sandbox's Claude process talks to the proxy with a placeholder token and never holds a real credential. The proxy asks the Yak app for the real one over a Unix socket and swaps it in.
 
-Credential socket: path from `yak.threads.credential_socket` (default `/run/yak/credentials.sock`), owner-only. The PHP side checks the peer credentials of every connection. One request line, one reply line, then the connection closes.
+Credential socket: path from `yak.threads.credential_socket` (default `/run/yak/credentials.sock`), inside that root-owned directory. The PHP side checks the peer credentials of every connection. One request line, one reply line, then the connection closes.
 
 Request: `{"placeholder": "...", "container_ip": "..."}`
 
 Reply: `{"kind": "setup_token"|"api_key", "secret": "...", "account_id": N}`, or `{"error": "unknown"}` when the placeholder is unknown, revoked or not bound to that address.
 
-The IP binding is enforced by the app, never by the proxy. The proxy sends the TCP peer address of the incoming connection as `container_ip` and ignores `X-Forwarded-For`, `Forwarded` and every other client-supplied address header. Placeholders used for host-side validation are bound by the app to the address the host connects from (loopback or the bridge address).
+The IP binding is enforced by the app, never by the proxy. The proxy sends the TCP peer address of the incoming connection as `container_ip` and ignores `X-Forwarded-For`, `Forwarded` and every other client-supplied address header. Placeholders used for account validation are bound by the app to the Yak container's fixed address on the `yak-app` network (config `yak.threads.auth_proxy_validation_address`) and live five minutes. The check is a single-address comparison in the app; there is no CIDR list for validation.
 
 Allowlist: `POST /v1/messages`, `POST /v1/messages/count_tokens`, and `HEAD /api/hello` (the CLI startup probe, forwarded without a credential). Every other method and path gets 404.
 
@@ -136,7 +136,7 @@ Status mapping: 401 unknown or missing placeholder, 404 path not allowed, 502 up
 
 Logging: every non-200 upstream response is logged with its status, safe headers and body shape (JSON key names, `error.type`, length). Body values, the secret and the placeholder are never logged.
 
-Wiring: `NewAuthProxy(SocketCredentialSource{Path: socketPath}, upstreamURL, logger)`, then `Serve(ctx, listener)` on `YAK_BROKER_PROXY_ADDR` (`startProxy`, called from `runProxy` in `main`). The listener is wrapped in a peer filter that closes any connection whose peer is outside `YAK_BROKER_PROXY_HOST_CIDRS` and outside the subnet of the interface owning the listen IP, before HTTP runs. The validator's placeholder is bound by the app to the configured validation CIDRs. `Serve` shuts down gracefully on `ctx.Done` (10 s drain), uses a 10 s `ReadHeaderTimeout` and has no write timeout.
+Wiring: `NewAuthProxy(SocketCredentialSource{Path: socketPath}, upstreamURL, logger)`, then `Serve(ctx, listener)` on `YAK_BROKER_PROXY_ADDR` (`startProxy`, called from `runProxy` in `main`). The listener is wrapped in a peer filter that closes any connection whose peer is outside `YAK_BROKER_PROXY_HOST_CIDRS` and outside the subnet of the interface owning the listen IP, before HTTP runs. The peer filter keeps admitting `yak_auth_proxy_host_cidrs`; the validator's placeholder is bound by the app to the single validation address. `Serve` shuts down gracefully on `ctx.Done` (10 s drain), uses a 10 s `ReadHeaderTimeout` and has no write timeout.
 
 ## 8. Wake proxy and SSH lookup
 

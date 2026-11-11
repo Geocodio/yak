@@ -630,7 +630,7 @@ return [
     */
 
     'threads' => [
-        'auth_proxy_validation_cidrs' => array_values(array_filter(array_map('trim', explode(',', (string) env('YAK_THREADS_AUTH_PROXY_VALIDATION_CIDRS', ''))))),
+        'auth_proxy_validation_address' => env('YAK_THREADS_AUTH_PROXY_VALIDATION_ADDRESS'),
         'usage_limit_fallback_minutes' => (int) env('YAK_THREADS_USAGE_LIMIT_FALLBACK_MINUTES', 60),
         'terminal_close_hours' => (int) env('YAK_THREADS_TERMINAL_CLOSE_HOURS', 24),
         'turn_grace_seconds' => (int) env('YAK_THREADS_TURN_GRACE_SECONDS', 30),
@@ -667,6 +667,7 @@ return [
 
         // Uid of the broker system user, the only peer allowed on the credential socket.
         'credential_socket_uid' => env('YAK_THREADS_CREDENTIAL_SOCKET_UID') === null ? null : (int) env('YAK_THREADS_CREDENTIAL_SOCKET_UID'),
+        'credential_socket_directory_gid' => env('YAK_THREADS_CREDENTIAL_SOCKET_DIRECTORY_GID') === null ? null : (int) env('YAK_THREADS_CREDENTIAL_SOCKET_DIRECTORY_GID'),
 
         // Cache store holding placeholder bindings (sha256 only). Keep it off Redis.
         'placeholder_store' => env('YAK_THREADS_PLACEHOLDER_STORE', 'database'),
