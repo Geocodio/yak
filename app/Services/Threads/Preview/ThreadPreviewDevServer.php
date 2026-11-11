@@ -46,6 +46,10 @@ class ThreadPreviewDevServer
     {
         $result = $this->reader->read($thread);
 
+        if ($result->manifest !== null) {
+            Cache::put($this->key('manifest', $thread), ['port' => $result->manifest->port, 'coldStart' => $result->manifest->coldStart], self::STATE_TTL_SECONDS);
+        }
+
         if ($result->manifest === null) {
             return $this->remember($thread, $result->status === 'invalid' ? 'invalid_manifest' : 'no_manifest', $result->error);
         }
@@ -66,6 +70,18 @@ class ThreadPreviewDevServer
         }
 
         return $this->state($thread);
+    }
+
+    /**
+     * The port and cold_start the last manifest read found, for the waking card. Nulls until a read happened.
+     *
+     * @return array{port: ?int, coldStart: ?string}
+     */
+    public function manifestHint(Thread $thread): array
+    {
+        $hint = Cache::get($this->key('manifest', $thread));
+
+        return ['port' => $hint['port'] ?? null, 'coldStart' => ($hint['coldStart'] ?? '') !== '' ? $hint['coldStart'] : null];
     }
 
     public function state(Thread $thread): string

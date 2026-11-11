@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import type { PanelProps } from '@/threads/panels';
 import type { SharedProps } from '@/types/shared';
@@ -11,16 +11,30 @@ import { addressFor, isDesktopSafari, type DeviceWidth } from './previewState';
 import { usePreviewStatus } from './usePreviewStatus';
 import type { ThreadPreviewState } from '@/types/threads';
 
+const LIVE_PILL_MILLISECONDS = 4_000;
+
 export function PreviewPanel({ thread, canDrive }: PanelProps) {
     const preview = thread.preview;
     const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
     const [selectedId, setSelectedId] = useState(thread.id);
     const target = preview.targets.find((candidate) => candidate.threadId === selectedId) ?? preview.targets[0];
     const initial = useMemo(() => ({ state: target.state as ThreadPreviewState, url: target.url }), [target.state, target.url]);
-    const { status, restoring, requestRestore } = usePreviewStatus(target.threadId, initial);
+    const { status, restoring, requestRestore, requestRetry } = usePreviewStatus(target.threadId, initial);
     const [path, setPath] = useState('/');
     const [device, setDevice] = useState<DeviceWidth>('desktop');
     const [reloadKey, setReloadKey] = useState(0);
+    const [isLiveShown, setIsLiveShown] = useState(false);
+
+    useEffect(() => {
+        if (reloadKey === 0) {
+            return;
+        }
+
+        setIsLiveShown(true);
+        const timer = setTimeout(() => setIsLiveShown(false), LIVE_PILL_MILLISECONDS);
+
+        return () => clearTimeout(timer);
+    }, [reloadKey]);
 
     const baseUrl = status.url ?? target.url;
     const host = baseUrl === null ? null : new URL(baseUrl).host;
@@ -46,11 +60,24 @@ export function PreviewPanel({ thread, canDrive }: PanelProps) {
                 useFallback ? (
                     <SafariFallback url={address} host={host} />
                 ) : (
-                    <PreviewFrame src={address} device={device} reloadKey={reloadKey} title={`Preview of ${target.title}`} />
+                    <div className="relative flex min-h-0 flex-1 flex-col">
+                        <PreviewFrame src={address} device={device} reloadKey={reloadKey} title={`Preview of ${target.title}`} />
+                        {isLiveShown && (
+                            <span
+                                className="pointer-events-none absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-pill border border-hair bg-panel px-3 py-1 text-[12px] text-body shadow-sm"
+                                role="status"
+                                data-testid="preview-live-pill"
+                            >
+                                <span className="size-1.5 rounded-pill bg-ok" aria-hidden="true" />
+                                Live, just reloaded
+                            </span>
+                        )}
+                    </div>
                 )
             ) : (
                 <PreviewStateCard
                     state={status.state}
+                    threadId={target.threadId}
                     preview={preview}
                     canDrive={canDrive}
                     canRestore={target.canRestore}
@@ -58,6 +85,7 @@ export function PreviewPanel({ thread, canDrive }: PanelProps) {
                     error={status.error}
                     isRestoring={restoring}
                     onRestore={requestRestore}
+                    onRetry={requestRetry}
                 />
             )}
 

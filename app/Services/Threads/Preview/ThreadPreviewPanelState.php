@@ -18,18 +18,20 @@ class ThreadPreviewPanelState
 {
     public function __construct(
         private ThreadPreviewStatus $status,
+        private ThreadPreviewDevServer $devServer,
         private ThreadPreviewHosts $hosts,
         private ThreadAccess $access,
     ) {}
 
     /**
-     * @return array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: int, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string}
+     * @return array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: int, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string, port: ?int, coldStartCommand: ?string}
      */
     public function build(Thread $thread, ?User $viewer): array
     {
         $state = $this->stateFor($thread);
         $url = $this->urlFor($thread, $state);
 
+        $hint = $this->devServer->manifestHint($thread);
         $targets = [$this->target($thread, $viewer)];
         $children = $thread->children()
             ->whereIn('kind', [ThreadKind::Implement, ThreadKind::Mockup])
@@ -51,6 +53,8 @@ class ThreadPreviewPanelState
             'targets' => $targets,
             'awakeCap' => (int) config('yak.threads.awake_cap'),
             'personAwakeCap' => (int) config('yak.threads.person_awake_cap'),
+            'port' => $hint['port'],
+            'coldStartCommand' => $hint['coldStart'],
             'teleportCommand' => $state === 'local_machine' ? (app(TeleportPageState::class)->for($thread, $viewer)['command'] ?: null) : null,
         ];
     }

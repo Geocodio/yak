@@ -63,6 +63,8 @@ export type ThreadPreviewData = {
     awakeCap: number;
     personAwakeCap: number;
     teleportCommand: string | null;
+    port: number | null;
+    coldStartCommand: string | null;
 };
 
 export type HeldEventData = {

@@ -100,3 +100,13 @@ it('builds preview data only for people who may see the thread', function () {
 
     $this->withoutVite()->actingAs(User::factory()->create())->get("/threads/{$thread->id}")->assertNotFound();
 });
+
+it('carries the manifest port and cold start command once the dev server has read them', function () {
+    $thread = previewRunningThread();
+
+    expect(panelState($thread))->toMatchArray(['port' => null, 'coldStartCommand' => null]);
+
+    Cache::put("thread-preview:manifest:{$thread->id}", ['port' => 5173, 'coldStart' => 'pnpm dev']);
+
+    expect(panelState($thread))->toMatchArray(['port' => 5173, 'coldStartCommand' => 'pnpm dev']);
+});

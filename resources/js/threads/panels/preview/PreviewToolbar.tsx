@@ -3,7 +3,11 @@ import { ExternalLink, Lock, Monitor, RefreshCw, Smartphone, Tablet } from 'luci
 import { useEffect, useState, type ComponentType } from 'react';
 import type { DeviceWidth } from './previewState';
 
-const DEVICES: { id: DeviceWidth; label: string; icon: ComponentType<{ size?: number }> }[] = [
+const DEVICES: {
+    id: DeviceWidth;
+    label: string;
+    icon: ComponentType<{ size?: number }>;
+}[] = [
     { id: 'phone', label: 'Phone width, 390 px', icon: Smartphone },
     { id: 'tablet', label: 'Tablet width, 768 px', icon: Tablet },
     { id: 'desktop', label: 'Full width', icon: Monitor },
@@ -50,7 +54,7 @@ export function PreviewToolbar({ host, path, onPathChange, onReload, device, onD
                         <Lock size={12} />
                     </span>
                 </Tooltip>
-                <span className="hidden min-w-0 truncate font-mono text-[12px] text-muted sm:inline" data-testid="preview-host">
+                <span className="min-w-0 max-w-[45%] shrink truncate font-mono text-[12px] text-muted" data-testid="preview-host">
                     {host ?? 'preview'}
                 </span>
                 <input
