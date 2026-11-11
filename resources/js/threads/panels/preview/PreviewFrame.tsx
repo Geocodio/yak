@@ -1,5 +1,5 @@
 import { cn } from '@geocodio/console-ui';
-import { widthFor, type DeviceWidth } from './previewState';
+import { previewReferrerPolicy, previewSandbox, widthFor, type DeviceWidth } from './previewState';
 
 type Props = { src: string; device: DeviceWidth; reloadKey: number; title: string };
 
@@ -13,7 +13,8 @@ export function PreviewFrame({ src, device, reloadKey, title }: Props) {
                 title={title}
                 style={{ width: widthFor(device) }}
                 className={cn('h-full max-w-full border-0 bg-white', device !== 'desktop' && 'rounded-card border border-hair')}
-                referrerPolicy="no-referrer-when-downgrade"
+                sandbox={previewSandbox}
+                referrerPolicy={previewReferrerPolicy}
                 data-testid="preview-frame"
             />
         </div>

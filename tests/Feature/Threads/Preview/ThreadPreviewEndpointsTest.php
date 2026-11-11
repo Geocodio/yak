@@ -1,11 +1,13 @@
 <?php
 
+use App\DataTransferObjects\PreviewWakeOutcome;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
 use App\Jobs\Threads\RestoreThreadPreviewJob;
 use App\Models\ThreadShare;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Preview\ThreadPreviewDevServer;
+use App\Services\Threads\Preview\ThreadPreviewWaker;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
@@ -27,6 +29,7 @@ it('answers 404 to a stranger on every preview endpoint of a private thread', fu
     $this->actingAs($user)->getJson("{$base}/status")->assertNotFound();
     $this->actingAs($user)->postJson("{$base}/heartbeat")->assertNotFound();
     $this->actingAs($user)->postJson("{$base}/restore")->assertNotFound();
+    $this->actingAs($user)->postJson("{$base}/warm")->assertNotFound();
 })->with('strangers');
 
 it('reports a ready dev server with the preview url', function () {
@@ -101,3 +104,16 @@ it('starts the dev server after a restore', function () {
 
     (new RestoreThreadPreviewJob($this->thread))->handle($sandbox, $devServer);
 });
+
+it('wakes the preview for the owner and throttles repeat requests', function () {
+    $this->mock(ThreadPreviewWaker::class)->shouldReceive('wake')->once()->withArgs(fn ($thread, $hold) => $thread->is($this->thread) && $hold === 0)->andReturn(PreviewWakeOutcome::waking());
+
+    $this->actingAs($this->world->owner)->postJson("/threads/{$this->thread->id}/preview/warm")->assertOk()->assertJsonPath('state', 'waking');
+    $this->actingAs($this->world->owner)->postJson("/threads/{$this->thread->id}/preview/warm")->assertOk();
+});
+
+it('starts no wake for a stranger', function (string $stranger) {
+    $this->mock(ThreadPreviewWaker::class)->shouldNotReceive('wake');
+
+    $this->actingAs($this->world->{$stranger})->postJson("/threads/{$this->thread->id}/preview/warm")->assertNotFound();
+})->with('strangers');

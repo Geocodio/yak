@@ -4,6 +4,7 @@ use App\Models\BranchDeployment;
 use App\Services\DeploymentShareTokens;
 use App\Services\DeploymentWaker;
 use App\Services\PreviewAccess;
+use Tests\Support\VisibilityWorld;
 
 beforeEach(function () {
     config()->set('yak.deployments.internal.ingress_ip_cidr', '0.0.0.0/0');
@@ -81,4 +82,27 @@ it('still allows authenticated OAuth users (backwards compatible)', function () 
             'X-Forwarded-Uri' => '/',
         ])->get('/internal/deployments/wake')
         ->assertOk();
+});
+
+it('refuses share tokens and share cookies on a deployment of a private thread', function () {
+    $world = VisibilityWorld::build();
+    $tokens = app(DeploymentShareTokens::class);
+    $token = $tokens->mint($world->deployment, expiresInDays: 7);
+    $world->deployment->refresh();
+    $headers = ['X-Forwarded-Host' => VisibilityWorld::HOSTNAME];
+
+    $this->withHeaders($headers + ['X-Forwarded-Uri' => "/_share/{$token}/x"])
+        ->get('/internal/deployments/wake')->assertNotFound();
+
+    $this->withHeaders($headers + ['X-Forwarded-Uri' => '/x'])
+        ->withCookie('yak_share_session', $tokens->cookieValue($world->deployment))
+        ->get('/internal/deployments/wake')->assertStatus(302);
+});
+
+it('still honours share tokens on a team thread deployment', function () {
+    $world = VisibilityWorld::forTeamControl();
+    $token = app(DeploymentShareTokens::class)->mint($world->deployment, expiresInDays: 7);
+
+    $this->withHeaders(['X-Forwarded-Host' => VisibilityWorld::HOSTNAME, 'X-Forwarded-Uri' => "/_share/{$token}/x"])
+        ->get('/internal/deployments/wake')->assertStatus(302)->assertHeader('Location', '/x');
 });
