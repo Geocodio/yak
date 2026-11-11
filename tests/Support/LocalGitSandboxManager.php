@@ -21,7 +21,7 @@ class LocalGitSandboxManager extends FakeSandboxManager
 
     public static function withRepository(string $tempDir): self
     {
-        $manager = new static;
+        $manager = new self;
         $manager->bare = "{$tempDir}/origin.git";
         $manager->workspace = "{$tempDir}/workspace";
         $seed = "{$tempDir}/seed";
