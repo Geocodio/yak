@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\Log;
  */
 trait FinishesAgentRuns
 {
+    use CompletesTeleportTurns;
     use GuardsTerminalTaskStatus;
 
     /**
@@ -90,6 +91,12 @@ trait FinishesAgentRuns
     {
         TaskMetricsAccumulator::record($this->task, $result);
         DailyCost::accumulate($result->costUsd);
+
+        if ($this->isUnpublishedTeleportTask()) {
+            $this->completeTeleportTurn($result, $recorder);
+
+            return;
+        }
 
         $workspacePath = IncusSandboxManager::workspacePath();
 

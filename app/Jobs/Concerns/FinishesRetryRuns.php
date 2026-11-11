@@ -21,6 +21,8 @@ use App\Services\YakPersonality;
 
 trait FinishesRetryRuns
 {
+    use CompletesTeleportTurns;
+
     private function finishRetryResult(Repository $repository, AgentRunResult $result, SandboxShell $sandbox, string $containerName, RunRecorder $recorder): void
     {
         if ($result->isError) {
@@ -45,6 +47,12 @@ trait FinishesRetryRuns
         TaskMetricsAccumulator::record($this->task, $result);
         // The task was counted the day its first run finished.
         DailyCost::accumulate($result->costUsd, newTask: false);
+
+        if ($this->isUnpublishedTeleportTask()) {
+            $this->completeTeleportTurn($result, $recorder);
+
+            return;
+        }
 
         $workspacePath = IncusSandboxManager::workspacePath();
 

@@ -27,6 +27,8 @@ use Illuminate\Support\Facades\Log;
 
 trait FinishesFollowUpRuns
 {
+    use CompletesTeleportTurns;
+
     private function finishFollowUpResult(Repository $repository, AgentRunResult $result, SandboxShell $sandbox, string $containerName, RunRecorder $recorder): void
     {
         if ($result->isError) {
@@ -56,6 +58,12 @@ trait FinishesFollowUpRuns
         $parsed = app(FollowUpSummaryParser::class)->parse($result->resultSummary);
 
         DailyCost::accumulate($result->costUsd);
+
+        if ($this->isUnpublishedTeleportTask()) {
+            $this->completeTeleportTurn($result, $recorder);
+
+            return;
+        }
 
         $branchName = $this->task->branch_name;
 
