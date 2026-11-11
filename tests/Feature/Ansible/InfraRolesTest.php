@@ -81,7 +81,38 @@ it('points the app at the credential socket and auth proxy', function () {
     expect($env)->toContain('YAK_THREADS_CREDENTIAL_SOCKET={{ yak_credentials_path }}/redeem.sock')
         ->toContain('YAK_THREADS_AUTH_PROXY_URL=http://{{ yak_auth_proxy_address }}')
         ->toContain('YAK_THREADS_CREDENTIAL_SOCKET_UID={{ yak_broker_uid }}')
-        ->toContain('YAK_THREADS_AUTH_PROXY_VALIDATION_CIDRS={{ yak_auth_proxy_host_cidrs }}');
+        ->toContain('YAK_THREADS_AUTH_PROXY_VALIDATION_ADDRESS={{ yak_container_address }}')
+        ->not->toContain('VALIDATION_CIDRS');
+});
+
+it('gives the Yak container a fixed address on a dedicated egress network', function () use ($ansibleYaml, $roleTask) {
+    $vars = $ansibleYaml('ansible/group_vars/yak.yml');
+    [$network, $prefix] = explode('/', $vars['yak_app_network_subnet']);
+    $mask = ~((1 << (32 - (int) $prefix)) - 1) & 0xFFFFFFFF;
+
+    expect($vars['yak_app_network_name'])->toBe('yak-app')
+        ->and($prefix)->toBe('29')
+        ->and(ip2long($vars['yak_container_address']) & $mask)->toBe(ip2long($network) & $mask)
+        ->and($vars['yak_auth_proxy_host_cidrs'])->toBe('172.16.0.0/12');
+
+    $ipam = $roleTask('yak-container', 'Ensure the Yak app network exists')['community.docker.docker_network'];
+    expect($ipam['name'])->toBe('{{ yak_app_network_name }}')
+        ->and($ipam['ipam_config'][0]['subnet'])->toBe('{{ yak_app_network_subnet }}');
+
+    $networks = collect($roleTask('yak-container', 'Run Yak container')['community.docker.docker_container']['networks']);
+    $app = $networks->firstWhere('name', '{{ yak_app_network_name }}');
+
+    expect($networks->pluck('name'))->toContain('yak')
+        ->and($app['ipv4_address'])->toBe('{{ yak_container_address }}')
+        ->and($app['gw_priority'])->toBeGreaterThan(0);
+});
+
+it('fails the deploy when the container does not reach the auth proxy from its yak-app address', function () use ($roleTask) {
+    $check = $roleTask('yak-container', 'Assert the Yak container reaches the auth proxy from its yak-app address');
+    $names = collect(Yaml::parseFile(base_path('ansible/roles/yak-container/tasks/main.yml')))->pluck('name');
+
+    expect(json_encode($check))->toContain('ip -4 route get')->toContain('yak_container_address')
+        ->and($names->search($check['name']))->toBeGreaterThan($names->search('Wait for Yak container health'));
 });
 
 it('configures Reverb behind Caddy on the in-container port', function () {

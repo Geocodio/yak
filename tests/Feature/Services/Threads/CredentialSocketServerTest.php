@@ -150,13 +150,13 @@ it('never logs the secret and a forbidden reply carries none', function () {
     Log::shouldNotHaveReceived('warning');
 });
 
-it('serves a validation placeholder to a validation cidr peer and refuses other peers', function () {
-    config(['yak.threads.auth_proxy_validation_cidrs' => ['172.16.0.0/12']]);
+it('serves a validation placeholder to the validation address and refuses other peers', function () {
+    config(['yak.threads.auth_proxy_validation_address' => '172.30.0.2']);
     $server = allowedServer($this->path);
     $placeholder = $this->placeholders->issue('validation-' . $this->account->id, $this->account, AuthProxyPlaceholders::VALIDATION_BINDING);
 
-    expect(redeemOverSocket($server, $this->path, redeemRequest($placeholder, '172.18.0.5'))['secret'])->toBe('sk-ant-secret-value')
-        ->and(redeemOverSocket($server, $this->path, redeemRequest($placeholder, '10.100.0.7')))->toBe(['error' => 'unknown']);
+    expect(redeemOverSocket($server, $this->path, redeemRequest($placeholder, '172.30.0.2'))['secret'])->toBe('sk-ant-secret-value')
+        ->and(redeemOverSocket($server, $this->path, redeemRequest($placeholder, '172.18.0.5')))->toBe(['error' => 'unknown']);
 
     $server->close();
 });

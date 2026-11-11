@@ -7,15 +7,16 @@ use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
-use Symfony\Component\HttpFoundation\IpUtils;
 
 /**
  * Placeholders for the auth proxy. A sandbox only ever holds a placeholder
  * (`yakph-` plus 32 random bytes). It is bound to one subject (a thread or a
  * run id), one account and one container ip. A thread placeholder is also
  * bound to the sandbox container it was issued for, and only the newest
- * placeholder of a subject is live. It stops resolving when the container changes, the thread closes or the sandbox is
- * destroyed. The proxy redeems it over the
+ * placeholder of a subject is live. It stops resolving when the container
+ * changes, the thread closes or the sandbox is destroyed. An account
+ * validation placeholder is bound to the Yak container's single configured
+ * address and lives five minutes. The proxy redeems it over the
  * credential socket. Only the sha256 of the placeholder is stored, never the
  * placeholder or the account secret.
  */
@@ -23,11 +24,14 @@ class AuthProxyPlaceholders
 {
     public const PREFIX = 'yakph-';
 
-    /** Binding of an account validation placeholder: resolves from the configured validation CIDRs, not one ip. */
+    /** Binding of an account validation placeholder: resolves only from the configured validation address. */
     public const VALIDATION_BINDING = 'validation';
 
     /** Backstop for thread placeholders; revocation and the one-live-placeholder rule are the real controls. */
     private const THREAD_TTL_SECONDS = 604_800;
+
+    /** Validation placeholders only need to outlive one `claude` probe. */
+    private const VALIDATION_TTL_SECONDS = 300;
 
     /** Extra minutes beyond one turn's wall clock for placeholders of one-shot runs. */
     private const RUN_GRACE_MINUTES = 10;
@@ -38,9 +42,11 @@ class AuthProxyPlaceholders
         $this->revoke($subject);
 
         // ponytail: one-shot runs have no record to check yet, so they live for one turn plus a grace period.
-        $ttl = $subject instanceof Thread
-            ? self::THREAD_TTL_SECONDS
-            : ((int) config('yak.threads.turn_wall_clock_minutes') + self::RUN_GRACE_MINUTES) * 60;
+        $ttl = match (true) {
+            $subject instanceof Thread => self::THREAD_TTL_SECONDS,
+            $containerIp === self::VALIDATION_BINDING => self::VALIDATION_TTL_SECONDS,
+            default => ((int) config('yak.threads.turn_wall_clock_minutes') + self::RUN_GRACE_MINUTES) * 60,
+        };
         $containerName ??= $subject instanceof Thread ? $subject->sandbox_container : null;
 
         $placeholder = self::PREFIX . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
@@ -103,8 +109,12 @@ class AuthProxyPlaceholders
             return hash_equals($boundIp, $peerIp);
         }
 
-        return str_starts_with($subject, 'validation-')
-            && IpUtils::checkIp($peerIp, (array) config('yak.threads.auth_proxy_validation_cidrs', []));
+        $address = config('yak.threads.auth_proxy_validation_address');
+
+        return is_string($address)
+            && $address !== ''
+            && str_starts_with($subject, 'validation-')
+            && hash_equals($address, $peerIp);
     }
 
     /**
