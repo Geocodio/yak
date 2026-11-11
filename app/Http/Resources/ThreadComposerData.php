@@ -21,6 +21,7 @@ final class ThreadComposerData
         ThreadBlockReason::AccountInvalid,
         ThreadBlockReason::AccountExpired,
         ThreadBlockReason::CredentialExposure,
+        ThreadBlockReason::RestoreFailed,
     ];
 
     /**

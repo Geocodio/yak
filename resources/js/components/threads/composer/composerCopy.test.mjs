@@ -14,12 +14,11 @@ test('working', () => {
     assert.deepEqual(composerCopy(null, 'working', 'none'), { ...DEFAULT, placeholder: 'Add a message. Claude reads it as soon as it can.' });
 });
 
-test('restoring and restore failed', () => {
+test('restoring', () => {
     assert.deepEqual(composerCopy(notice('restoring'), 'idle', 'none'), {
         placeholder: 'Message Claude. It reads this once the sandbox is back.',
         hint: 'Enter to send. Claude reads it once the sandbox is back.',
     });
-    assert.equal(composerCopy(notice('restore_failed'), 'idle', 'none').hint, 'Enter to send. Claude reads it after you retry.');
 });
 
 test('waiting for the account and for a sandbox', () => {

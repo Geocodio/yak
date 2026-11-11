@@ -40,7 +40,7 @@ it('maps thread conditions to composer states', function (array $attributes, str
     'closed' => [['status' => 'closed'], 'disabled_closed'],
     'computer owns it' => [['owner_side' => ThreadOwnerSide::Device], 'disabled_computer'],
     'invalid account' => [['blocked_reason' => ThreadBlockReason::AccountInvalid], 'disabled_blocked'],
-    'composer stays idle while the restore failed' => [['blocked_reason' => ThreadBlockReason::RestoreFailed], 'idle'],
+    'restore failed disables the composer so Retry stays the only way back' => [['blocked_reason' => ThreadBlockReason::RestoreFailed], 'disabled_blocked'],
     'usage limit keeps typing open' => [['blocked_reason' => ThreadBlockReason::UsageLimit], 'idle'],
     'waiting for a sandbox keeps typing open' => [['blocked_reason' => ThreadBlockReason::WaitingForSandbox], 'idle'],
 ]);

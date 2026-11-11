@@ -24,8 +24,6 @@ export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer[
     switch (notice?.kind) {
         case 'restoring':
             return savedFor('once the sandbox is back');
-        case 'restore_failed':
-            return { placeholder: 'Message Claude. It reads this after you retry.', hint: 'Enter to send. Claude reads it after you retry.' };
         case 'waiting_for_account':
             return savedFor('when its turn starts');
         case 'waiting_for_sandbox':
