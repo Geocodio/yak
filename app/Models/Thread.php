@@ -62,6 +62,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonImmutable|null $waiting_for_computer_at
  * @property string|null $teleport_requested_running_turn
  * @property CarbonImmutable|null $owner_changed_at
+ * @property string|null $preview_hostname
+ * @property CarbonImmutable|null $preview_last_request_at
  */
 #[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
@@ -108,6 +110,7 @@ class Thread extends Model
             'first_teleported_at' => 'immutable_datetime',
             'waiting_for_computer_at' => 'immutable_datetime',
             'owner_changed_at' => 'immutable_datetime',
+            'preview_last_request_at' => 'immutable_datetime',
         ];
     }
 
