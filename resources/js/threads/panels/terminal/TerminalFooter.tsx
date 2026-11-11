@@ -21,7 +21,7 @@ export function TerminalFooter({ threadName }: { threadName: string }) {
                 {command}
                 <Copy size={11} />
             </button>
-            <span className="max-lg:hidden">Closing this tab keeps your shell for 30 minutes.</span>
+            <span className="max-lg:hidden">Closing a tab ends its shell.</span>
             <Link href={sshKeys().url} className="ml-auto underline" data-testid="terminal-keys-link">
                 SSH keys
             </Link>

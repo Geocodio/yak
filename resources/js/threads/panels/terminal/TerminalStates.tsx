@@ -113,7 +113,7 @@ export function LostBanner({ onReconnect }: { onReconnect: () => void }) {
             <WifiOff size={14} className="shrink-0 text-fail" aria-hidden="true" />
             <div className="min-w-0 flex-1 basis-60">
                 <p className="text-[13px] font-medium text-body">The terminal lost its connection</p>
-                <p className="text-[12.5px] text-muted">Your shell is still running. Anything you typed while disconnected was not sent.</p>
+                <p className="text-[12.5px] text-muted">Reconnect to open a new shell. Anything you typed while disconnected was not sent.</p>
             </div>
             <Button variant="primary" icon={<RefreshCw size={14} />} onClick={onReconnect} data-testid="terminal-reconnect">
                 Reconnect
