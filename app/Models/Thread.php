@@ -97,6 +97,11 @@ class Thread extends Model
         ];
     }
 
+    public function sessionStoreToken(): string
+    {
+        return hash_hmac('sha256', 'session-store:' . $this->getKey(), (string) config('app.key'));
+    }
+
     /**
      * Drops only the visibility scope, for internal code that must see hidden rows.
      *
