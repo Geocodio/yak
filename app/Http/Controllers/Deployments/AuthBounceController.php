@@ -44,7 +44,10 @@ class AuthBounceController
         $user = $request->user();
         if ($user !== null) {
             $parts = parse_url($to);
-            $host = strtolower((string) $parts['host']);
+            if (! is_array($parts) || ! isset($parts['host'])) {
+                abort(400, 'Invalid preview URL.');
+            }
+            $host = strtolower($parts['host']);
 
             // Authorization: the preview must belong to a real deployment.
             // Every signed-in dashboard user may open any deployment.

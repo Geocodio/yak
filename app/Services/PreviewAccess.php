@@ -25,7 +25,7 @@ class PreviewAccess
 
     public function mintTicket(string $host, User $user): string
     {
-        return $this->seal('ticket', [Str::random(24), strtolower($host), $user->id, now()->timestamp + self::TICKET_TTL_SECONDS]);
+        return $this->seal('ticket', [Str::random(24), strtolower($host), $user->id, now()->getTimestamp() + self::TICKET_TTL_SECONDS]);
     }
 
     /**
@@ -40,7 +40,7 @@ class PreviewAccess
         }
 
         [$nonce, $ticketHost, $userId, $expiresAt] = $parts;
-        if ($ticketHost !== strtolower($host) || (int) $expiresAt < now()->timestamp) {
+        if ($ticketHost !== strtolower($host) || (int) $expiresAt < now()->getTimestamp()) {
             return null;
         }
 
@@ -62,7 +62,7 @@ class PreviewAccess
         [$cookieHost, $userId, $expiresAt] = $parts;
 
         return $cookieHost === strtolower($host)
-            && (int) $expiresAt >= now()->timestamp
+            && (int) $expiresAt >= now()->getTimestamp()
             && User::whereKey((int) $userId)->exists();
     }
 
@@ -72,7 +72,7 @@ class PreviewAccess
      */
     public function setCookieHeader(string $host, int $userId): string
     {
-        $value = $this->seal('cookie', [strtolower($host), $userId, now()->timestamp + self::COOKIE_TTL_SECONDS]);
+        $value = $this->seal('cookie', [strtolower($host), $userId, now()->getTimestamp() + self::COOKIE_TTL_SECONDS]);
 
         return sprintf(
             '%s=%s; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=%d',
