@@ -57,7 +57,7 @@ it('opens a file, edits it and saves with Cmd+S', function () {
         ->click('[data-testid="file-editor"] .cm-content')
         ->keys('[data-testid="file-editor"] .cm-content', 'x')
         ->assertSeeIn('[data-testid="file-save-state"]', 'Unsaved')
-        ->keys('[data-testid="file-editor"] .cm-content', ['Meta', 's'])
+        ->keys('[data-testid="file-editor"] .cm-content', 'ControlOrMeta+s')
         ->assertSeeIn('[data-testid="file-save-state"]', 'Saved');
 });
 
@@ -76,14 +76,13 @@ it('shows a conflict banner and a read-only compare after an external change', f
     $thread = filesEditorThread();
     queueTree($this);
     queueFileRead($this, 'old');
-    queueFileRead($this, 'old');
     queueFileRead($this, 'changed by claude');
 
     $page = openFilesPanel($this, $thread);
 
     $page->click('[data-testid="file-editor"] .cm-content')
         ->keys('[data-testid="file-editor"] .cm-content', 'x')
-        ->keys('[data-testid="file-editor"] .cm-content', ['Meta', 's'])
+        ->keys('[data-testid="file-editor"] .cm-content', 'ControlOrMeta+s')
         ->assertPresent('[data-testid="editor-conflict-banner"]')
         ->click('[data-testid="conflict-compare-btn"]')
         ->assertPresent('[data-testid="conflict-compare-view"]')
