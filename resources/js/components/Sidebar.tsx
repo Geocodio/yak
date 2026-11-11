@@ -1,10 +1,9 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { BrandMarkIcon, Kbd, Menu, Tooltip, cn } from '@geocodio/console-ui';
+import { cn } from '@geocodio/console-ui';
 import {
     Activity,
     BarChart3,
     BookOpen,
-    ChevronDown,
     ClipboardList,
     Code2,
     DollarSign,
@@ -14,18 +13,16 @@ import {
     Inbox,
     LogOut,
     MessageSquare,
-    Plus,
     Puzzle,
     Rocket,
-    Search,
     Server,
     Settings as SettingsIcon,
     Type,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
-import { YAK_MARK } from '@/lib/brand';
 import { analytics, channels, costs, deployments, health, logout, mcp, observations, prReviews, prompts, repos, skills, system, tasks } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
+import { ShellSidebar } from '@/components/shell/ShellSidebar';
 import type { SharedProps } from '@/types/shared';
 
 export type NavItem = {
@@ -153,67 +150,7 @@ export function SidebarNav({ touch = false, onNavigate }: { touch?: boolean; onN
     );
 }
 
-/** The desktop sidebar; hidden below `lg`, where `AppLayout` swaps in a top bar and drawer. */
+/** The desktop sidebar: icon rail plus thread list or section panel. */
 export function Sidebar() {
-    const { props } = usePage<SharedProps>();
-
-    return (
-        <aside className="hidden w-[220px] shrink-0 flex-col border-r border-hair bg-sidebar lg:flex" data-testid="sidebar">
-            <div className="flex h-12 items-center justify-between px-3">
-                <Menu
-                    trigger={
-                        <span className="flex items-center gap-2 text-[13.5px]" data-testid="app-brand">
-                            <BrandMarkIcon mark={YAK_MARK} size={20} />
-                            <span className="font-semibold tracking-tight text-body">Yak</span>
-                            <ChevronDown size={12} className="text-faint" />
-                        </span>
-                    }
-                    className="h-7 border-0 bg-transparent px-1.5 shadow-none hover:bg-panel-2"
-                    items={[
-                        {
-                            key: 'settings',
-                            label: 'Settings',
-                            icon: <SettingsIcon size={14} />,
-                            onSelect: () => router.visit(SETTINGS_ITEM.url),
-                        },
-                        {
-                            key: 'help',
-                            label: 'Help & docs',
-                            icon: <BookOpen size={14} />,
-                            onSelect: () => window.open(props.docs.baseUrl, '_blank', 'noopener'),
-                        },
-                        {
-                            key: 'logout',
-                            label: 'Log out',
-                            icon: <LogOut size={14} />,
-                            dividerAbove: true,
-                            onSelect: () => router.post(logout.url()),
-                        },
-                    ]}
-                />
-                <Tooltip label="New task">
-                    <button
-                        type="button"
-                        onClick={openNewTask}
-                        aria-label="New task"
-                        className="flex h-6 w-6 items-center justify-center rounded-control text-muted hover:bg-panel-2 hover:text-body"
-                    >
-                        <Plus size={14} />
-                    </button>
-                </Tooltip>
-            </div>
-
-            <button
-                type="button"
-                onClick={openPalette}
-                className="mx-3 mb-3 flex h-7 items-center gap-2 rounded-control border border-hair bg-panel px-2 text-[12px] text-muted shadow-card hover:border-hair-strong"
-            >
-                <Search size={13} />
-                <span className="flex-1 text-left">Search…</span>
-                <Kbd keys={['⌘', 'K']} />
-            </button>
-
-            <SidebarNav />
-        </aside>
-    );
+    return <ShellSidebar />;
 }

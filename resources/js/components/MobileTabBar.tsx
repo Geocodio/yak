@@ -6,9 +6,16 @@ import type { SharedProps } from '@/types/shared';
 
 const BAR_LABELS = ['Tasks', 'PR Reviews', 'Repositories'] as const;
 const SHORT_LABELS: Record<(typeof BAR_LABELS)[number], string> = {
-    Tasks: 'Tasks',
+    Tasks: 'Threads',
     'PR Reviews': 'Reviews',
     Repositories: 'Repos',
+};
+
+// Stable test ids, independent of the visible label.
+const TAB_TEST_IDS: Record<(typeof BAR_LABELS)[number], string> = {
+    Tasks: 'tasks',
+    'PR Reviews': 'reviews',
+    Repositories: 'repos',
 };
 
 /**
@@ -22,9 +29,9 @@ function PrefetchingTabLink(props: TabBarLinkProps) {
 }
 
 /**
- * The floating bar shown below `lg`: the three pages used every day, a
+ * The floating bar shown below `lg`: the three pages used every day (Tasks is labelled Threads and points at /tasks until the jobs track lands), a
  * More slot that opens the navigation drawer for the rest, and the round
- * New task button. The slots come from the same `NAV_ITEMS` the sidebar
+ * New thread button. The slots come from the same `NAV_ITEMS` the sidebar
  * uses, so a renamed page or a moved route changes both at once.
  */
 export function MobileTabBar() {
@@ -43,7 +50,7 @@ export function MobileTabBar() {
             href: item.url,
             active: isActive(url, item.url),
             badge: label === 'Tasks' ? props.nav.activeTaskCount : null,
-            testId: `mobile-tab-${SHORT_LABELS[label].toLowerCase()}`,
+            testId: `mobile-tab-${TAB_TEST_IDS[label]}`,
         };
     });
 
@@ -60,7 +67,7 @@ export function MobileTabBar() {
             className="lg:hidden"
             LinkComponent={PrefetchingTabLink}
             items={items}
-            action={{ label: 'New task', icon: <Plus size={24} />, onSelect: openNewTask, testId: 'tab-new-task' }}
+            action={{ label: 'New thread', icon: <Plus size={24} />, onSelect: openNewTask, testId: 'tab-new-task' }}
             data-testid="mobile-tab-bar"
         />
     );
