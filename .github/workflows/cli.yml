@@ -1,0 +1,42 @@
+name: cli
+
+on:
+  pull_request:
+    paths:
+      - 'cli/**'
+      - 'plugin/**'
+      - '.github/workflows/cli.yml'
+  push:
+    branches:
+      - develop
+      - main
+      - master
+    paths:
+      - 'cli/**'
+      - 'plugin/**'
+      - '.github/workflows/cli.yml'
+
+jobs:
+  cli:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: cli/go.mod
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Format check
+        run: test -z "$(gofmt -l .)"
+
+      - name: Test
+        run: go test -race ./...
