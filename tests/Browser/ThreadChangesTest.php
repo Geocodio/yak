@@ -4,6 +4,7 @@ use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
+use App\Models\ThreadDiffFile;
 use App\Models\ThreadRepository;
 use App\Models\User;
 
@@ -82,4 +83,40 @@ test('the file list leads with a status tile and shows viewed progress and the f
 
     $page->script("window.dispatchEvent(new KeyboardEvent('keydown', { key: '/' }))");
     $page->assertScript('document.activeElement.getAttribute("aria-label")', 'Filter files');
+});
+
+test('an opened file shows the stepper and a renamed banner only when the old path is known', function () {
+    $thread = Thread::factory()->create();
+    $diff = ThreadDiff::factory()->for($thread)->create(['files_count' => 2]);
+    $renamed = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id, 'path' => 'src/new-name.php', 'old_path' => 'src/old-name.php', 'status' => 'renamed']);
+    $unknown = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id, 'path' => 'src/other.php', 'old_path' => null, 'status' => 'renamed']);
+
+    $page = visit(route('threads.show', $thread));
+
+    $page->click('[data-testid="thread-panel-tab-changes"]')
+        ->click('[data-testid="changes-file-' . $renamed->path . '"] button')
+        ->assertSeeIn('[data-testid="changes-file-header"]', 'src/new-name.php')
+        ->assertSeeIn('[data-testid="changes-renamed-banner"]', 'Renamed from src/old-name.php')
+        ->assertSee('1/2')
+        ->click('button[aria-label="Next file"]')
+        ->assertSeeIn('[data-testid="changes-file-header"]', 'src/other.php')
+        ->assertMissing('[data-testid="changes-renamed-banner"]')
+        ->assertDontSee('Renamed from null');
+});
+
+test('the stack select is labelled and counts each sub-thread files, leaving the count off when unknown', function () {
+    $parent = Thread::factory()->create();
+    $counted = Thread::factory()->child($parent)->create(['name' => 'scout', 'title' => 'Scout the API']);
+    Thread::factory()->child($parent)->create(['name' => 'builder', 'title' => 'Build the client']);
+    ThreadDiff::factory()->for($counted)->withFiles(3)->create();
+
+    $page = visit(route('threads.show', $parent));
+
+    $page->click('[data-testid="thread-panel-tab-changes"]')
+        ->assertSee('Showing')
+        ->click('[data-testid="changes-child-switch"]')
+        ->assertSee('This thread')
+        ->assertSee('scout (3 files)')
+        ->assertDontSee('builder (')
+        ->assertSee('builder');
 });
