@@ -22,12 +22,12 @@ function sendSiblingGitHub(string $event, array $payload): TestResponse
     ]);
 }
 
-function siblingFeedbackPayload(string $shape, string $repo = 'acme/web', string $body = '/yak rename the field', string $login = 'sam', string $type = 'User'): array
+function siblingFeedbackPayload(string $shape, string $repo = 'acme/web', string $body = '/yak rename the field', string $login = 'sam', string $type = 'User', int $userId = 1001): array
 {
-    $user = ['login' => $login, 'type' => $type];
+    $user = ['login' => $login, 'id' => $userId, 'type' => $type];
     $repository = ['full_name' => $repo];
 
-    return match ($shape) {
+    return ['sender' => ['id' => $userId, 'login' => $login]] + match ($shape) {
         'comment' => [
             'action' => 'created',
             'issue' => ['number' => 188, 'pull_request' => ['html_url' => "https://github.com/{$repo}/pull/188"]],
@@ -159,6 +159,29 @@ it('makes no permission request for an unprefixed outsider comment', function ()
     fakeSiblingPermission('sam', 200, ['role_name' => 'read']);
 
     sendSiblingGitHub('issue_comment', siblingFeedbackPayload('comment', body: 'looks good'))->assertOk()->assertJson(['skipped' => 'no yak prefix']);
+
+    expect(siblingPermissionRequests())->toBe(0);
+});
+
+it('checks again when the same login has a different user id', function () {
+    Http::fake([
+        'api.github.com/app/installations/42/access_tokens' => Http::response(['token' => 'ghs_x', 'expires_at' => now()->addHour()->toIso8601String()], 201),
+        'api.github.com/repos/acme/web/collaborators/sam/permission' => Http::sequence()->push(['role_name' => 'write'], 200)->push(['role_name' => 'read', 'user' => ['permissions' => ['push' => false]]], 200),
+        'api.github.com/*' => Http::response([], 200),
+    ]);
+
+    sendSiblingGitHub('issue_comment', siblingFeedbackPayload('comment', userId: 1001))->assertOk()->assertJson(['dispatched' => true]);
+    sendSiblingGitHub('issue_comment', siblingFeedbackPayload('comment', userId: 2002))->assertOk()->assertJson(['skipped' => 'commenter lacks write access']);
+
+    expect(siblingPermissionRequests())->toBe(2);
+});
+
+it('is false without a numeric user id', function () {
+    fakeSiblingPermission('sam', 200, ['role_name' => 'write']);
+
+    $payload = siblingFeedbackPayload('comment', userId: 0);
+
+    sendSiblingGitHub('issue_comment', $payload)->assertOk()->assertJson(['skipped' => 'commenter lacks write access']);
 
     expect(siblingPermissionRequests())->toBe(0);
 });
