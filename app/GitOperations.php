@@ -2,7 +2,7 @@
 
 namespace App;
 
-use App\Services\IncusSandboxManager;
+use App\Contracts\SandboxShell;
 use RuntimeException;
 
 /**
@@ -85,7 +85,7 @@ class GitOperations
      * actually wrote code" from "Claude answered without changing files".
      */
     public static function hasNewCommits(
-        IncusSandboxManager $sandbox,
+        SandboxShell $sandbox,
         string $containerName,
         string $workspacePath,
         string $defaultBranch,
@@ -113,7 +113,7 @@ class GitOperations
      * @return array{commits: int, files: int, insertions: int, deletions: int}
      */
     public static function changeStats(
-        IncusSandboxManager $sandbox,
+        SandboxShell $sandbox,
         string $containerName,
         string $workspacePath,
         string $baseRef,
@@ -165,7 +165,7 @@ class GitOperations
      * .yak-artifacts/, so capture files never show up here.
      */
     public static function hasUncommittedChanges(
-        IncusSandboxManager $sandbox,
+        SandboxShell $sandbox,
         string $containerName,
         string $workspacePath,
     ): bool {

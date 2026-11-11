@@ -417,6 +417,10 @@ class ThreadDriver
             $run->setAttribute('assistant_turns', (int) $run->getAttribute('assistant_turns') + 1);
         }
 
+        if ($type === 'result') {
+            $run->setAttribute('last_result_event', $line);
+        }
+
         if ($type === 'system' && ($line['subtype'] ?? null) === 'init' && isset($line['session_id'])) {
             $run->setAttribute('session_id', (string) $line['session_id']);
             ThreadSession::query()->firstOrCreate(

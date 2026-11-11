@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Concerns;
 
+use App\Contracts\SandboxShell;
 use App\Exceptions\ExternalBranchPushException;
 use App\Models\Repository;
 use App\Services\IncusSandboxManager;
@@ -9,19 +10,35 @@ use App\Services\IncusSandboxManager;
 trait ResumesAgentOnExistingBranch
 {
     /**
+     * A task sandbox gets its git identity and credential helper here. A
+     * thread sandbox has both from its restore and the after-turn job.
+     */
+    private function configureGitAccess(SandboxShell $sandbox, string $containerName, bool $withIdentity = false): void
+    {
+        if (! $sandbox instanceof IncusSandboxManager) {
+            return;
+        }
+
+        if ($withIdentity) {
+            $sandbox->configureGitIdentity($containerName);
+        }
+
+        $sandbox->injectGitCredentials($containerName);
+    }
+
+    /**
      * Configure git, refresh the default branch, then check out the task
      * branch, creating it from the default branch when it was never pushed.
      */
     protected function prepareExistingBranch(
-        IncusSandboxManager $sandbox,
+        SandboxShell $sandbox,
         string $containerName,
         Repository $repository,
         string $branchName,
     ): void {
         $workspacePath = IncusSandboxManager::workspacePath();
 
-        $sandbox->configureGitIdentity($containerName);
-        $sandbox->injectGitCredentials($containerName);
+        $this->configureGitAccess($sandbox, $containerName, withIdentity: true);
 
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
         $escapedBranch = escapeshellarg($branchName);
@@ -46,7 +63,7 @@ trait ResumesAgentOnExistingBranch
      * with lease.
      */
     protected function pushExistingBranch(
-        IncusSandboxManager $sandbox,
+        SandboxShell $sandbox,
         string $containerName,
         Repository $repository,
         string $branchName,
@@ -60,7 +77,7 @@ trait ResumesAgentOnExistingBranch
             throw new \RuntimeException("Sandbox is on the default branch '{$currentBranch}'. Refusing to push.");
         }
 
-        $sandbox->injectGitCredentials($containerName);
+        $this->configureGitAccess($sandbox, $containerName);
 
         $pushResult = $sandbox->run($containerName, "cd {$workspacePath} && git push --force-with-lease origin {$branchName}", timeout: 60);
 
@@ -78,7 +95,7 @@ trait ResumesAgentOnExistingBranch
      * @throws ExternalBranchPushException
      */
     protected function pushOntoExternalBranch(
-        IncusSandboxManager $sandbox,
+        SandboxShell $sandbox,
         string $containerName,
         Repository $repository,
         string $branchName,
@@ -93,7 +110,7 @@ trait ResumesAgentOnExistingBranch
             throw new \RuntimeException("Sandbox is on the default branch '{$currentBranch}'. Refusing to push.");
         }
 
-        $sandbox->injectGitCredentials($containerName);
+        $this->configureGitAccess($sandbox, $containerName);
 
         if ($sandbox->run($containerName, "cd {$workspacePath} && git reset --hard HEAD && git clean -fd", timeout: 60)->exitCode() !== 0) {
             throw $cannotUpdate;

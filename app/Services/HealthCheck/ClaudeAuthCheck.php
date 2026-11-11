@@ -131,7 +131,7 @@ class ClaudeAuthCheck implements HealthCheck
     /**
      * Classifies this probe's own failure as an auth error.
      *
-     * Unlike SandboxedAgentRunner, which runs ClaudeAuthDetector::isAuthError()
+     * Unlike a caller that runs ClaudeAuthDetector::isAuthError()
      * over an entire agent's multi-KB stream-JSON output, this probe's output
      * is a single short CLI invocation with no session UUIDs, cost/duration
      * fields, or agent prose to false-positive on. It is safe to also match

@@ -7,7 +7,7 @@ use Illuminate\Contracts\Process\ProcessResult;
 /**
  * Classifies a failed CLI run as an auth error from ProcessResult output.
  *
- * SandboxedAgentRunner::run() applies isAuthError() to the ENTIRE
+ * Callers apply isAuthError() to the ENTIRE
  * stream-JSON of a failed agent run -- session UUIDs, `duration_ms`,
  * `total_cost_usd`, tool output, and the agent's own prose -- so every
  * pattern here must be specific enough not to fire on that noise. Bare

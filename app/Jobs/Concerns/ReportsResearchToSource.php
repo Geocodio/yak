@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Concerns;
 
+use App\Contracts\SandboxShell;
 use App\Enums\NotificationType;
 use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
  */
 trait ReportsResearchToSource
 {
-    protected function collectHtmlArtifact(IncusSandboxManager $sandbox, string $containerName): ?Artifact
+    protected function collectHtmlArtifact(SandboxShell $sandbox, string $containerName): ?Artifact
     {
         $workspacePath = IncusSandboxManager::workspacePath();
         $remotePath = "{$workspacePath}/.yak-artifacts/research.html";

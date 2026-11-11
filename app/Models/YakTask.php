@@ -70,6 +70,9 @@ class YakTask extends Model
 
     public const MAX_CLARIFICATION_ROUNDS = 3;
 
+    /** Source of a task that carries a laptop's work onto Yak. */
+    public const string SOURCE_TELEPORT = 'teleport';
+
     protected $table = 'tasks';
 
     protected $guarded = [];
@@ -333,6 +336,11 @@ class YakTask extends Model
         return $this->pr_url !== null
             && $this->pr_merged_at === null
             && $this->pr_closed_at === null;
+    }
+
+    public function isTeleport(): bool
+    {
+        return $this->source === self::SOURCE_TELEPORT;
     }
 
     /**

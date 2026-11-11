@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Agents\SandboxedAgentRunner;
+use App\Agents\BrokerAgentRunner;
 use App\Contracts\AgentRunner;
 use App\Models\User;
 use App\Services\AppDiskUsage;
@@ -41,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(IncusSandboxManager::class);
         $this->app->singleton(BrokerStreams::class, RedisBrokerStreams::class);
 
-        $this->app->bind(AgentRunner::class, fn () => new SandboxedAgentRunner(app(IncusSandboxManager::class)));
+        $this->app->bind(AgentRunner::class, BrokerAgentRunner::class);
 
         // VideoRenderer's constructor takes a primitive `string $videoDir`
         // which Laravel's container can't auto-resolve; without a binding,

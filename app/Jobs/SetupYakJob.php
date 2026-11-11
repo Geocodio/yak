@@ -10,13 +10,12 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
+use App\Exceptions\AccountSlotUnavailable;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
-use App\Jobs\Middleware\EnsureDailyBudget;
-use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\Repository;
@@ -37,6 +36,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
 class SetupYakJob implements ShouldBeUnique, ShouldQueue
@@ -45,6 +45,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
     use HandlesAgentJobFailure {
         failed as handleAgentJobFailure;
     }
+    use InteractsWithQueue;
     use NotifiesSourceOfFailure;
     use Queueable;
 
@@ -65,14 +66,14 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
     public int $tries = 1;
 
     /**
-     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * Releases from PausesDuringDrain and from a busy Claude account
      * increment the attempt counter, so the worker's --tries=3 would fail a
      * held job after three minutes. This method takes precedence over tries
      * and lets a job wait out a drain or a re-authentication.
      *
      * retryUntil() and $tries=1 only actually collide on the hard-kill path
      * (worker timeout / SIGKILL / OOM): a release from PausesDuringDrain or
-     * HoldsForClaudeAuth never reaches handle(), so it costs nothing but a
+     * a busy account never reaches the agent, so it costs nothing but a
      * queue row and isn't a "retry" in the budget-spending sense $tries=1
      * guards against. A hard kill after the agent has already started is a
      * real retry, and with a 3600s+ timeout on this job that path is the
@@ -119,9 +120,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
     {
         return [
             new PausesDuringDrain,
-            new HoldsForClaudeAuth,
             new ClaimsTaskAtomically,
-            new EnsureDailyBudget,
         ];
     }
 
@@ -239,6 +238,11 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
 
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
             $recorder->mark('post_agent');
+        } catch (AccountSlotUnavailable) {
+            // Every turn slot of the account is taken: back to Pending, so the retry claims the task again.
+            $this->task->update(['status' => TaskStatus::Pending]);
+            TaskLog::query()->where('yak_task_id', $this->task->id)->where('message', 'Starting Claude agent')->delete();
+            $this->release(30);
         } catch (ClaudeAuthException $e) {
             Log::error('SetupYakJob auth failure', [
                 'task_id' => $this->task->id,

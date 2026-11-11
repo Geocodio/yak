@@ -26,7 +26,6 @@ use App\YakPromptBuilder;
  * accepted only in that status, so a resume never races the teardown.
  *
  * @property YakTask $task
- * @property ?string $staleSessionFallbackPrompt
  */
 trait AsksClarifyingQuestions
 {
@@ -107,7 +106,7 @@ trait AsksClarifyingQuestions
     protected function resumingWithAnswers(): bool
     {
         return $this->task->clarificationAnswersAwaitingResume() !== null
-            && $this->task->session_id !== null;
+            && ($this->task->session_id !== null || $this->task->thread_id !== null);
     }
 
     /**
@@ -117,16 +116,7 @@ trait AsksClarifyingQuestions
      */
     protected function promptFor(callable $firstRunPrompt): string
     {
-        if (! $this->resumingWithAnswers()) {
-            return $firstRunPrompt();
-        }
-
-        $answersPrompt = YakPromptBuilder::clarificationAnswersPrompt($this->task);
-
-        // Without the old session the agent needs the task itself, then the answers.
-        $this->staleSessionFallbackPrompt = $firstRunPrompt() . "\n\n" . $answersPrompt;
-
-        return $answersPrompt;
+        return $this->resumingWithAnswers() ? YakPromptBuilder::clarificationAnswersPrompt($this->task) : $firstRunPrompt();
     }
 
     /**

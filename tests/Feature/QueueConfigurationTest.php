@@ -45,12 +45,13 @@ test('yak-claude jobs dispatch to yak-claude queue', function () {
     }
 });
 
-test('per-task yak-claude jobs share a 3600 second timeout', function () {
+test('the before-turn job has a short timeout and the agent jobs share 3600 seconds', function () {
+    expect((new RunYakJob(YakTask::factory()->pending()->make()))->timeout)->toBe(900);
+
     // Laravel enforces $timeout via pcntl_alarm → posix_kill(getmypid(), SIGKILL).
     // Agent sessions with browser capture regularly exceed 10 minutes; a lower
     // cap silently murders the worker mid-stream (tasks 4406/4407/4408 hit this).
     $jobs = [
-        new RunYakJob(YakTask::factory()->pending()->make()),
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob(YakTask::factory()->pending()->make()),
     ];
