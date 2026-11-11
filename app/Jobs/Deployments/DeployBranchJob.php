@@ -31,7 +31,7 @@ class DeployBranchJob implements ShouldQueue
         // unless the PR was closed again or deployments were turned off.
         $isTornDown = in_array($deployment->status, [DeploymentStatus::Destroying, DeploymentStatus::Destroyed], true);
 
-        if ($isTornDown && ! $this->shouldRedeploy($deployment)) {
+        if ($isTornDown && ! $deployment->isRedeployable()) {
             return;
         }
 
@@ -69,11 +69,6 @@ class DeployBranchJob implements ShouldQueue
 
             throw $e;
         }
-    }
-
-    private function shouldRedeploy(BranchDeployment $deployment): bool
-    {
-        return $deployment->pr_state === 'open' && $deployment->repository->deployments_enabled;
     }
 
     /**
