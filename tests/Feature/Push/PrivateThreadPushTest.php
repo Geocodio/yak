@@ -1,10 +1,13 @@
 <?php
 
+use App\Enums\HeldEventKind;
 use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Services\Push\PushEvent;
 use App\Services\Push\ThreadPresence;
 use App\Services\Push\ThreadPush;
+use App\Services\Teleport\HeldEvents;
 use Tests\Support\FakePushEndpoint;
 
 it('never pushes a private thread to anyone but its owner', function () {
@@ -43,6 +46,30 @@ it('only reaches the owner of a private thread for every event kind and never as
     expect($sent)->toBe(1)->and($push->requests())->toHaveCount(1);
     expect((string) $push->requests()[0]->getBody())->not->toContain('Secret');
 })->with(PushEvent::cases());
+
+it('only reaches the owner of a private device-owned thread for a held event and a child escalation', function (string $path) {
+    $push = FakePushEndpoint::install();
+    $owner = User::factory()->create();
+    $teammate = User::factory()->create();
+    $admin = User::factory()->create();
+    $root = Thread::factory()->ownedByDevice()->private($owner)->create(['title' => 'Secret migration plan']);
+    $device = $push->subscription($owner);
+    $push->subscription($teammate);
+    $push->subscription($admin);
+    $push->respondWith();
+
+    if ($path === 'held') {
+        $task = YakTask::factory()->create(['thread_id' => $root->id]);
+        app(HeldEvents::class)->holdIfDeviceOwned($task, HeldEventKind::CiFailed, 'CI failed on Secret migration plan', 'Secret detail');
+    } else {
+        $child = Thread::factory()->child($root)->create(['title' => 'Secret child']);
+        app(HeldEvents::class)->holdChildQuestion($child, 'Secret question?');
+    }
+
+    expect($push->requests())->toHaveCount(1);
+    $push->assertSentTo($device->endpoint);
+    expect((string) $push->requests()[0]->getBody())->not->toContain('Secret');
+})->with(['held event' => 'held', 'child escalation' => 'child']);
 
 it('keeps the webpush channel behind app/Services/Push', function () {
     $offenders = [];
