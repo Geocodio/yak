@@ -149,6 +149,16 @@ class Thread extends Model
     }
 
     /**
+     * The latest captured diff of the sandbox's working tree.
+     *
+     * @return HasOne<ThreadDiff, $this>
+     */
+    public function diff(): HasOne
+    {
+        return $this->hasOne(ThreadDiff::class);
+    }
+
+    /**
      * @return BelongsTo<Thread, $this>
      */
     public function parent(): BelongsTo
