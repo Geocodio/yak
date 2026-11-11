@@ -12,7 +12,7 @@ use Carbon\CarbonImmutable;
  */
 function runnerStreamLines(string $name): array
 {
-    $rows = file(__DIR__ . "/../fixtures/runner-streams/{$name}.jsonl", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+    $rows = file(__DIR__ . "/../Fixtures/runner-streams/{$name}.jsonl", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
     array_shift($rows);
 
     $previousMs = 0;
