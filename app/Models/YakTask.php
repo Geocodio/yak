@@ -70,6 +70,8 @@ class YakTask extends Model
 
     public const MAX_CLARIFICATION_ROUNDS = 3;
 
+    public const string SOURCE_TELEPORT = 'teleport';
+
     protected $table = 'tasks';
 
     protected $guarded = [];
@@ -118,6 +120,11 @@ class YakTask extends Model
             'pr_opened_at' => 'datetime',
             'pr_state_checked_at' => 'datetime',
         ];
+    }
+
+    public function isTeleport(): bool
+    {
+        return $this->source === self::SOURCE_TELEPORT;
     }
 
     protected static function booted(): void
