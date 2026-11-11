@@ -710,7 +710,16 @@ func (s *Server) threadExtraRoute(w http.ResponseWriter, r *http.Request, device
 		return
 	}
 	if call == "ssh" {
-		writeErr(w, 501, "not_implemented", "yak ssh is not available yet.", nil)
+		switch {
+		case thread.OwnerSide == "device":
+			writeErr(w, 409, "thread_owned_by_device", "Teleport it up first.", nil)
+		case s.SSHNoKeySettingsURL != "":
+			writeErr(w, 409, "no_ssh_key", "Add an SSH key first.", map[string]any{"settings_url": s.SSHNoKeySettingsURL})
+		case s.SSHBody != nil:
+			writeJSON(w, 200, s.SSHBody)
+		default:
+			writeErr(w, 501, "not_implemented", "yak ssh is not available yet.", nil)
+		}
 		return
 	}
 	if thread.OwnerSide != "device" || thread.OwnerDevice == nil || thread.OwnerDevice.ID != device.ID {

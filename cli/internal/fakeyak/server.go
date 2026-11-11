@@ -51,6 +51,10 @@ type Server struct {
 	OnRequest    func(*http.Request)
 	// ReadLimit caps the bytes one session read returns, so clients must resume with an offset (0 means no cap).
 	ReadLimit int
+	// SSHBody, when set, is the 200 body of GET /threads/{id}/ssh; SSHNoKeySettingsURL makes it answer 409 no_ssh_key.
+	// With neither set the route answers 501 like the server before the ssh feature ships.
+	SSHBody             map[string]any
+	SSHNoKeySettingsURL string
 
 	codes    map[string]*pendingCode // by device_code
 	requests []RequestLog

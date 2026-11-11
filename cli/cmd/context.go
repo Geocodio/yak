@@ -40,21 +40,10 @@ type command func(ctx *Context, args []string) int
 
 var commands = map[string]command{}
 
-// futureCommands are dispatched names whose implementation lands in a later chunk.
-var futureCommands = []string{"ssh"}
-
 func init() {
 	commands["version"] = func(ctx *Context, _ []string) int {
 		fmt.Fprintf(ctx.Stdout, "yak %s\n", version.Version)
 		return 0
-	}
-	for _, name := range futureCommands {
-		if _, ok := commands[name]; !ok {
-			commands[name] = func(ctx *Context, _ []string) int {
-				fmt.Fprintln(ctx.Stderr, "This command is not available yet.")
-				return 1
-			}
-		}
 	}
 }
 
