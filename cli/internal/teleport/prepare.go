@@ -92,7 +92,7 @@ func PrepareUp(p ui.Prompter, repo gitx.Repo, opts PrepareOptions) (Prepared, er
 	}
 
 	if len(tracked) > 0 && !opts.Interactive && !opts.CommitTracked {
-		return Prepared{}, &Refusal{Kind: "tracked_changes", Detail: "uncommitted changes to tracked files, commit them or pass --commit", Paths: tracked}
+		return Prepared{}, &Refusal{Kind: "tracked_changes", Detail: "uncommitted changes to tracked files, commit them or pass --wip", Paths: tracked}
 	}
 	if len(tracked) > 0 && opts.Interactive {
 		ok, err := p.Confirm(fmt.Sprintf("Commit %d changed tracked file(s) as a WIP commit so they travel with the thread?", len(tracked)), true)
