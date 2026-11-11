@@ -30,8 +30,6 @@ redis_container_gid: 1000
 redis_config_path: /home/yak/redis.conf
 redis_maxmemory: 1gb
 yak_broker_user: yak-broker
-yak_broker_uid: 991
-yak_broker_gid: 991
 yak_credentials_path: /var/lib/yak/credentials
 yak_auth_proxy_address: 10.100.0.1:8787
 # The Incus sandbox bridge (yak-sandbox); the auth proxy listens on its gateway address.

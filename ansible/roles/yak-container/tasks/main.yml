@@ -7,6 +7,18 @@
     owner: root
     group: root
 
+# The broker user is a system user with OS-assigned ids (a fixed id collided with
+# systemd-timesync on Debian 13). The app checks credential socket peers against them.
+- name: Read the broker user's ids
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ yak_broker_user }}"
+
+- name: Use the broker user's ids for the credential socket
+  ansible.builtin.set_fact:
+    yak_broker_uid: "{{ ansible_facts.getent_passwd[yak_broker_user][1] }}"
+    yak_broker_gid: "{{ ansible_facts.getent_passwd[yak_broker_user][2] }}"
+
 - name: Template env file
   ansible.builtin.template:
     src: env.j2

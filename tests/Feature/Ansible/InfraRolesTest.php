@@ -12,8 +12,6 @@ it('defines the broker and redis variables in group_vars', function () use ($ans
 
     expect($vars)->toMatchArray([
         'yak_broker_user' => 'yak-broker',
-        'yak_broker_uid' => 991,
-        'yak_broker_gid' => 991,
         'yak_credentials_path' => '/var/lib/yak/credentials',
         'yak_auth_proxy_address' => '10.100.0.1:8787',
         'yak_auth_proxy_host_cidrs' => '172.16.0.0/12',
@@ -159,8 +157,7 @@ it('runs the broker as an unprivileged user in incus-admin', function () use ($r
         'groups' => 'incus-admin',
         'system' => true,
         'shell' => '/usr/sbin/nologin',
-        'uid' => '{{ yak_broker_uid }}',
-    ]);
+    ])->and($user)->not->toHaveKey('uid');
 });
 
 it('makes the credential socket directory root-owned, setgid, in the broker group', function () use ($roleTask) {
@@ -409,4 +406,18 @@ it('lets only the sandbox bridge and the Yak container reach the auth proxy thro
         ->and(collect($task['loop'])->pluck('from')->all())->toBe(['{{ yak_sandbox_subnet }}', '{{ yak_container_address }}'])
         ->and($vars['yak_sandbox_subnet'])->toBe('10.100.0.0/24')
         ->and($vars['yak_auth_proxy_address'])->toStartWith('10.100.0.1:');
+});
+
+it('reads the broker ids from the host before writing the app env', function () use ($ansibleYaml) {
+    $tasks = collect($ansibleYaml('ansible/roles/yak-container/tasks/main.yml'));
+    $names = $tasks->pluck('name')->values();
+    $facts = $tasks->firstWhere('name', 'Use the broker user\'s ids for the credential socket')['ansible.builtin.set_fact'];
+
+    expect($tasks->firstWhere('name', 'Read the broker user\'s ids')['ansible.builtin.getent'])->toBe(['database' => 'passwd', 'key' => '{{ yak_broker_user }}'])
+        ->and($facts)->toBe([
+            'yak_broker_uid' => '{{ ansible_facts.getent_passwd[yak_broker_user][1] }}',
+            'yak_broker_gid' => '{{ ansible_facts.getent_passwd[yak_broker_user][2] }}',
+        ])
+        ->and($names->search('Template env file'))->toBeGreaterThan($names->search('Use the broker user\'s ids for the credential socket'))
+        ->and($ansibleYaml('ansible/group_vars/yak.yml'))->not->toHaveKey('yak_broker_uid');
 });

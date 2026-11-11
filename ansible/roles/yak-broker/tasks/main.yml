@@ -10,14 +10,12 @@
 - name: Create the broker group
   ansible.builtin.group:
     name: "{{ yak_broker_user }}"
-    gid: "{{ yak_broker_gid }}"
     system: true
 
 # incus-admin lets the broker run `incus exec`; it needs no other privilege.
 - name: Create the broker user
   ansible.builtin.user:
     name: "{{ yak_broker_user }}"
-    uid: "{{ yak_broker_uid }}"
     group: "{{ yak_broker_user }}"
     groups: incus-admin
     append: true
