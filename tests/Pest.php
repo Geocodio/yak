@@ -9,6 +9,10 @@ use App\Providers\ChannelServiceProvider;
 use App\Services\PreviewAccess;
 use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
+use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\FakeBrokerStreams;
+use App\Services\Threads\FakeSandboxManager;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -31,6 +35,11 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function () {
+        // Thread tests never reach Incus or the pipe broker. Tests that need
+        // the real Redis streams construct RedisBrokerStreams themselves.
+        app()->singleton(SandboxManager::class, FakeSandboxManager::class);
+        app()->singleton(BrokerStreams::class, FakeBrokerStreams::class);
+
         // Slack webhook tests post as arbitrary user IDs. The sender policy
         // tests swap the real SenderPolicy back in with faked Slack lookups.
         app()->instance(SenderPolicy::class, new class extends SenderPolicy

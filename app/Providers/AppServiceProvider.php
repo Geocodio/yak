@@ -12,6 +12,8 @@ use App\Services\Telemetry\Contracts\TelemetrySink;
 use App\Services\Telemetry\Sinks\DatabaseSink;
 use App\Services\Telemetry\Sinks\NullSink;
 use App\Services\Telemetry\Telemetry;
+use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\RedisBrokerStreams;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
 use Carbon\CarbonImmutable;
@@ -37,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
         config(['prometheus.enabled' => false]);
 
         $this->app->singleton(IncusSandboxManager::class);
+        $this->app->singleton(BrokerStreams::class, RedisBrokerStreams::class);
 
         $this->app->bind(AgentRunner::class, fn () => new SandboxedAgentRunner(app(IncusSandboxManager::class)));
 
