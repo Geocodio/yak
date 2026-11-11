@@ -26,6 +26,17 @@ class ThreadController extends Controller
             'messages' => ThreadMessagesData::for($thread),
             'composer' => ThreadComposerData::for($thread, $viewer),
             'notice' => ThreadNoticeData::for($thread, $viewer),
+            'stackParent' => $this->stackParent($thread),
         ]));
+    }
+
+    /**
+     * @return array{id: int, name: string, title: string}|null
+     */
+    private function stackParent(Thread $thread): ?array
+    {
+        $parent = $thread->parent_thread_id === null ? null : Thread::query()->withoutGlobalScopes()->find($thread->parent_thread_id);
+
+        return $parent === null ? null : ['id' => $parent->id, 'name' => $parent->name, 'title' => $parent->title];
     }
 }

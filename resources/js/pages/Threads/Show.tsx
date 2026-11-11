@@ -7,6 +7,7 @@ import { TeleportConversationNotices } from '@/components/threads/teleport/Telep
 import { AppLayout } from '@/layouts/AppLayout';
 import { sidebarPanelsFor } from '@/threads/panels';
 import '@/threads/panels/index';
+import { ChildParentBanner } from '@/components/threads/stack/ChildParentBanner';
 import { PrivateThreadBanner } from '@/components/threads/share/PrivateThreadBanner';
 import { ShareButton } from '@/components/threads/share/ShareButton';
 import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
@@ -15,7 +16,7 @@ import type { ThreadPageData } from '@/types/threads';
 
 type Props = PageProps<ThreadPageData>;
 
-export default function Show({ thread, canDrive, messages, notice, composer, teleport }: Props) {
+export default function Show({ thread, canDrive, messages, notice, composer, teleport, stackParent }: Props) {
     const panels = sidebarPanelsFor(thread);
     const [activeId, setActiveId] = useState<string | null>(null);
     const active = panels.find((panel) => panel.id === activeId) ?? panels[0] ?? null;
@@ -37,6 +38,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                 </div>
             </header>
             <PrivateThreadBanner thread={thread} />
+            <ChildParentBanner thread={thread} parent={stackParent} />
 
             <div className="flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col" data-testid="thread-conversation">
