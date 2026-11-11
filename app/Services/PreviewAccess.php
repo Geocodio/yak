@@ -2,7 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\BranchDeployment;
+use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
+use App\Services\Threads\ThreadAccess;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -44,6 +48,10 @@ class PreviewAccess
             return null;
         }
 
+        if (! $this->mayEnter($ticketHost, (int) $userId)) {
+            return null;
+        }
+
         // Cache::add is atomic: only the first redemption of a nonce wins.
         if (! Cache::add('preview-ticket:' . $nonce, 1, self::TICKET_TTL_SECONDS)) {
             return null;
@@ -54,16 +62,51 @@ class PreviewAccess
 
     public function verifyCookie(string $host, string $value): bool
     {
+        $userId = $this->cookieUserId($host, $value);
+
+        return $userId !== null && $this->mayEnter($host, $userId);
+    }
+
+    /**
+     * True for a genuine preview cookie whose user may not see the preview's
+     * thread: the caller answers it exactly like an unknown host.
+     */
+    public function cookieIsHidden(string $host, string $value): bool
+    {
+        $userId = $this->cookieUserId($host, $value);
+
+        return $userId !== null && ! $this->mayEnter($host, $userId);
+    }
+
+    /**
+     * Whether the user may open the preview of this host: the user exists and
+     * may see the thread the preview's task belongs to. A host with no
+     * deployment, or a deployment outside any thread, has nothing to hide.
+     */
+    public function mayEnter(string $host, int $userId): bool
+    {
+        $user = User::find($userId);
+        if ($user === null) {
+            return false;
+        }
+
+        $taskId = BranchDeployment::withoutGlobalScopes()->where('hostname', strtolower($host))->value('yak_task_id');
+        $threadId = $taskId === null ? null : YakTask::withoutGlobalScopes()->whereKey($taskId)->value('thread_id');
+        $thread = $threadId === null ? null : Thread::withoutGlobalScopes()->find($threadId);
+
+        return $thread === null || app(ThreadAccess::class)->canSee($user, $thread);
+    }
+
+    private function cookieUserId(string $host, string $value): ?int
+    {
         $parts = $this->open('cookie', $value);
         if ($parts === null || count($parts) !== 3) {
-            return false;
+            return null;
         }
 
         [$cookieHost, $userId, $expiresAt] = $parts;
 
-        return $cookieHost === strtolower($host)
-            && (int) $expiresAt >= now()->getTimestamp()
-            && User::whereKey((int) $userId)->exists();
+        return $cookieHost === strtolower($host) && (int) $expiresAt >= now()->getTimestamp() ? (int) $userId : null;
     }
 
     /**
