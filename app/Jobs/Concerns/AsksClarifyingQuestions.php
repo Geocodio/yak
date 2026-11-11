@@ -13,7 +13,6 @@ use App\Models\YakTask;
 use App\Services\ClarificationMessage;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
-use App\YakPromptBuilder;
 
 /**
  * Lets an agent job stop and ask structured questions. The job calls
@@ -26,7 +25,6 @@ use App\YakPromptBuilder;
  * accepted only in that status, so a resume never races the teardown.
  *
  * @property YakTask $task
- * @property ?string $staleSessionFallbackPrompt
  */
 trait AsksClarifyingQuestions
 {
@@ -107,26 +105,7 @@ trait AsksClarifyingQuestions
     protected function resumingWithAnswers(): bool
     {
         return $this->task->clarificationAnswersAwaitingResume() !== null
-            && $this->task->session_id !== null;
-    }
-
-    /**
-     * The answers prompt when resuming, otherwise the job's first-run prompt.
-     *
-     * @param  callable(): string  $firstRunPrompt
-     */
-    protected function promptFor(callable $firstRunPrompt): string
-    {
-        if (! $this->resumingWithAnswers()) {
-            return $firstRunPrompt();
-        }
-
-        $answersPrompt = YakPromptBuilder::clarificationAnswersPrompt($this->task);
-
-        // Without the old session the agent needs the task itself, then the answers.
-        $this->staleSessionFallbackPrompt = $firstRunPrompt() . "\n\n" . $answersPrompt;
-
-        return $answersPrompt;
+            && ($this->task->session_id !== null || $this->task->thread_id !== null);
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 
 require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
 
@@ -55,6 +56,7 @@ it('keeps the streams when the runner dies mid-turn', function () {
 });
 
 it('syncs the session and pauses the sandbox after a turn', function () {
+    Queue::fake();
     $sessions = Mockery::mock(SessionFileSync::class);
     $sessions->shouldReceive('syncFromSandbox')->once();
     $sandbox = Mockery::mock(ThreadSandbox::class);

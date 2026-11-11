@@ -20,9 +20,9 @@ class ThreadShell implements SandboxShell
 {
     public function __construct(private readonly Thread $thread, private readonly SandboxManager $sandboxes) {}
 
-    public static function for(Thread $thread): self
+    public static function for(Thread $thread): SandboxShell
     {
-        return new self($thread, app(SandboxManager::class));
+        return app()->make(self::class, ['thread' => $thread, 'sandboxes' => app(SandboxManager::class)]);
     }
 
     public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult

@@ -6,6 +6,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Services\TaskLogger;
+use App\YakPromptBuilder;
 
 trait RetriesWithoutStaleSession
 {
@@ -41,5 +42,24 @@ trait RetriesWithoutStaleSession
         }
 
         return $agent->run($request->withoutResume($this->staleSessionFallbackPrompt))->withStaleSessionRetry();
+    }
+
+    /**
+     * The answers prompt when resuming, otherwise the job's first-run prompt.
+     *
+     * @param  callable(): string  $firstRunPrompt
+     */
+    protected function promptFor(callable $firstRunPrompt): string
+    {
+        if (! $this->resumingWithAnswers()) {
+            return $firstRunPrompt();
+        }
+
+        $answersPrompt = YakPromptBuilder::clarificationAnswersPrompt($this->task);
+
+        // Without the old session the agent needs the task itself, then the answers.
+        $this->staleSessionFallbackPrompt = $firstRunPrompt() . "\n\n" . $answersPrompt;
+
+        return $answersPrompt;
     }
 }
