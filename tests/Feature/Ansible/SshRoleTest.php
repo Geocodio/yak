@@ -91,3 +91,14 @@ it('passes the bridge subnet and session cap to the wake proxy', function () use
     expect($env)->toContain('YAK_INCUS_BRIDGE={{ yak_ssh_incus_bridge }}')
         ->toContain('YAK_WAKE_MAX_SESSION={{ yak_ssh_wake_max_session }}');
 });
+
+it('derives the bridge urls from yak_domain and hard-codes no host', function () use ($rolePath) {
+    $defaults = Yaml::parseFile($rolePath('defaults/main.yml'));
+
+    expect($defaults['yak_ssh_url'])->toBe('https://{{ yak_domain }}')
+        ->and($defaults['yak_ssh_allowed_origins'])->toBe('https://{{ yak_domain }}');
+
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path('ansible'), FilesystemIterator::SKIP_DOTS)) as $file) {
+        expect(file_get_contents($file->getPathname()))->not->toContain('geocodio.yak.build');
+    }
+});

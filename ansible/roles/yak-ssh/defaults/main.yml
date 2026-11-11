@@ -1,10 +1,10 @@
 ---
 yak_ssh_jump_port: 2222
 yak_ssh_bridge_listen: 127.0.0.1:8090
-yak_ssh_url: "https://geocodio.yak.build"
+yak_ssh_url: "https://{{ yak_domain }}"
 # From the vault. An empty token locks every internal ssh route on the Yak side.
 yak_ssh_internal_token: ""
-yak_ssh_allowed_origins: "https://geocodio.yak.build"
+yak_ssh_allowed_origins: "https://{{ yak_domain }}"
 yak_ssh_wake_timeout: 90s
 # Incus bridge gateway and subnet; the wake proxy only trusts a sandbox address inside it.
 yak_ssh_incus_bridge: 10.100.0.1/24
