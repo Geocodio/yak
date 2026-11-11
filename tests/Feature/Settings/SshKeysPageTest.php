@@ -56,6 +56,8 @@ it('shows the empty state without a GitHub link or keys', function () {
             ->where('github.linked', false)
             ->where('github.login', null)
             ->where('github.profileUrl', null)
+            ->where('github.status', 'unknown_account')
+            ->where('github.isStale', false)
             ->etc());
 });
 
