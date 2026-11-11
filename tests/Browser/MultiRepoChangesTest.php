@@ -61,3 +61,14 @@ test('repo tabs show an avatar and a count pill', function () {
         ->assertPresent('[data-testid="changes-tab-acme/web"] [data-testid="repo-avatar"]')
         ->assertSeeIn('[data-testid="changes-tab-acme/web"] [data-testid="changes-tab-count"]', '1');
 });
+
+test('the all repos view shows one card per repo with badge and footer', function () {
+    visit(route('threads.show', $this->thread))
+        ->click('[data-testid="thread-panel-tab-changes"]')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/app"]', 'Primary')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/web"]', 'Changes')
+        ->assertPresent('[data-testid="changes-repo-card-acme/web"] [data-testid="changes-file-web.php"]')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/docs"]', 'Context')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/docs"]', 'No pull request')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/docs"]', 'Review');
+});

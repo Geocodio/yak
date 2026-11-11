@@ -8,6 +8,7 @@ import { DiffViewer } from './DiffViewer';
 import { OpenPullRequestButton } from './OpenPullRequestButton';
 import { ContextRepoCallout } from './ContextRepoCallout';
 import { FileTree } from './FileTree';
+import { RepositoryChangeCard } from './RepositoryChangeCard';
 import { RepositoryTabs } from './RepositoryTabs';
 import { buildFileTree, fileKey } from './buildFileTree';
 import { useStack } from '../stack/useStack';
@@ -186,7 +187,24 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                 <>
                     <TextInput ref={filterInput} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter files (press /)" aria-label="Filter files" />
                     <p className="text-[12px] text-muted">{viewedCount} of {files.length} viewed</p>
-                    <FileTree nodes={tree} viewed={viewed} onToggleViewed={toggleViewed} onOpen={setOpenPath} />
+                    {isAllReposView ? (
+                        <div className="flex flex-col gap-3">
+                            {repositories.map((repository) => (
+                                <RepositoryChangeCard
+                                    key={repository.repo}
+                                    repository={repository}
+                                    files={visibleFiles.filter((file) => file.repo === repository.repo)}
+                                    primaryRepo={primaryRepo}
+                                    viewed={viewed}
+                                    onToggleViewed={toggleViewed}
+                                    onOpen={setOpenPath}
+                                    onReview={selectRepository}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <FileTree nodes={tree} viewed={viewed} onToggleViewed={toggleViewed} onOpen={setOpenPath} />
+                    )}
                 </>
             ) : (
                 <>

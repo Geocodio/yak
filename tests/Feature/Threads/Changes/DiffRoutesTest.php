@@ -5,6 +5,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
 use App\Models\ThreadDiffFile;
+use App\Models\ThreadRepository;
 use App\Models\User;
 
 it('returns null diff before any turn ended', function () {
@@ -91,3 +92,18 @@ it('hides a private thread from everyone but its owner', function (bool $isAdmin
     'second user' => false,
     'admin' => true,
 ])->with(['diff', 'file', 'environment']);
+
+it('reports each repository branch and pull request url', function () {
+    $thread = Thread::factory()->create(['repo' => 'acme/app', 'branch' => 'yak/main-branch']);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app', 'branch' => 'yak/app', 'pull_request_url' => 'https://github.com/acme/app/pull/1']);
+    ThreadRepository::factory()->context()->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs']);
+    $diff = ThreadDiff::factory()->for($thread)->create();
+    $diff->repositories()->create(['repo' => 'acme/docs', 'role' => 'context', 'base_sha' => 'a', 'head_sha' => 'b', 'files_count' => 0, 'is_throwaway' => true]);
+
+    $this->actingAs(User::factory()->create())->getJson(route('threads.diff.show', $thread))
+        ->assertOk()
+        ->assertJsonPath('diff.repositories.0.branch', 'yak/app')
+        ->assertJsonPath('diff.repositories.0.pullRequestUrl', 'https://github.com/acme/app/pull/1')
+        ->assertJsonPath('diff.repositories.1.branch', null)
+        ->assertJsonPath('diff.repositories.1.pullRequestUrl', null);
+});

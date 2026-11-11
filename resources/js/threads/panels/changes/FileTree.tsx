@@ -13,14 +13,15 @@ type Props = {
     onToggleViewed: (path: string) => void;
     onOpen: (path: string) => void;
     depth?: number;
+    showStatusBadge?: boolean;
 };
 
-export function FileTree({ nodes, viewed, onToggleViewed, onOpen, depth = 0 }: Props) {
+export function FileTree({ nodes, viewed, onToggleViewed, onOpen, depth = 0, showStatusBadge = false }: Props) {
     return (
         <ul>
             {nodes.map((node) =>
                 node.kind === 'directory' ? (
-                    <DirectoryRow key={node.path} node={node} viewed={viewed} onToggleViewed={onToggleViewed} onOpen={onOpen} depth={depth} />
+                    <DirectoryRow key={node.path} node={node} viewed={viewed} onToggleViewed={onToggleViewed} onOpen={onOpen} depth={depth} showStatusBadge={showStatusBadge} />
                 ) : (
                     <li key={node.key} className="flex items-center gap-2 py-1" style={{ paddingLeft: depth * 12 }} data-testid={`changes-file-${node.path}`}>
                         <input type="checkbox" checked={viewed.has(node.key)} onChange={() => onToggleViewed(node.key)} aria-label={`Mark ${node.path} viewed`} className="shrink-0" />
@@ -37,7 +38,7 @@ export function FileTree({ nodes, viewed, onToggleViewed, onOpen, depth = 0 }: P
                                 </>
                             )}
                         </span>
-                        <span className={cn('w-3 shrink-0 text-[11px] font-medium', STATUS_TONE[node.file.status])}>{STATUS_LETTER[node.file.status]}</span>
+                        <span className={cn('shrink-0 text-[11px] font-medium', showStatusBadge ? 'rounded-chip bg-panel-2 px-1.5' : 'w-3', STATUS_TONE[node.file.status])}>{STATUS_LETTER[node.file.status]}</span>
                     </li>
                 ),
             )}
@@ -45,7 +46,7 @@ export function FileTree({ nodes, viewed, onToggleViewed, onOpen, depth = 0 }: P
     );
 }
 
-function DirectoryRow({ node, viewed, onToggleViewed, onOpen, depth }: Omit<Props, 'nodes' | 'depth'> & { depth: number; node: Extract<TreeNode, { kind: 'directory' }> }) {
+function DirectoryRow({ node, viewed, onToggleViewed, onOpen, depth, showStatusBadge }: Omit<Props, 'nodes' | 'depth'> & { depth: number; node: Extract<TreeNode, { kind: 'directory' }> }) {
     const [isOpen, setIsOpen] = useState(true);
 
     return (
@@ -55,7 +56,7 @@ function DirectoryRow({ node, viewed, onToggleViewed, onOpen, depth }: Omit<Prop
                 <Folder size={13} />
                 {node.name}
             </button>
-            {isOpen && <FileTree nodes={node.children} viewed={viewed} onToggleViewed={onToggleViewed} onOpen={onOpen} depth={depth + 1} />}
+            {isOpen && <FileTree nodes={node.children} viewed={viewed} onToggleViewed={onToggleViewed} onOpen={onOpen} depth={depth + 1} showStatusBadge={showStatusBadge} />}
         </li>
     );
 }
