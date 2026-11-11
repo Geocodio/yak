@@ -69,7 +69,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                     data-testid="thread-conversation"
                 >
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation threadId={thread.id} messages={messages} notice={notice} readonly={composer.state === 'readonly'} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
+                    <Conversation threadId={thread.id} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
                     <ThreadComposer thread={thread} composer={composer} />
                 </div>
 

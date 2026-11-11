@@ -34,7 +34,7 @@ function EventRow({ item, canDrive }: { item: ConversationItem; canDrive: boolea
     return item.kind === 'edits' ? <EditsBlock item={item} /> : <ClaudeMessage item={item} />;
 }
 
-export function Conversation({ threadId, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null }: { threadId: number; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null }: { threadId: number; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection } = useConversation(threadId, messages);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -74,7 +74,7 @@ export function Conversation({ threadId, messages, notice, readonly, pullRequest
                     data-status={connection}
                     data-item-keys={entries.flatMap((entry) => (entry.type === 'event' ? [entry.item.key] : [])).join(',')}
                 />
-                {notice && <ThreadNotice notice={notice} threadId={threadId} readonly={readonly} />}
+                {notice && <ThreadNotice notice={notice} threadId={threadId} repo={repo} branch={branch} readonly={readonly} />}
             </div>
             <MediaLightbox media={lightboxMedia} index={lightboxIndex} onOpenChange={(open) => !open && setLightboxMedia(null)} onIndexChange={setLightboxIndex} />
         </div>
