@@ -3,14 +3,17 @@
 namespace App\Console\Commands;
 
 use App\Enums\RunnerState;
+use App\Enums\ThreadStatus;
 use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Threads\AuthProxyPlaceholders;
+use App\Services\Threads\ThreadTurns;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
+use Throwable;
 
 #[Signature('yak:reap-account-slots')]
 #[Description('Free account slots and auth proxy placeholders leaked by workers that died mid-run')]
@@ -47,6 +50,27 @@ class ReapAccountSlotsCommand extends Command
             });
 
         $this->info("Reaped {$reaped} account slot(s).");
+
+        $cleared = 0;
+
+        TaskRun::query()
+            ->where('turn_state', TurnState::WaitingForAccount)
+            ->whereNotNull('thread_id')
+            ->where(fn ($query) => $query
+                ->whereDoesntHave('thread', fn ($thread) => $thread->withoutGlobalScopes())
+                ->orWhereHas('thread', fn ($thread) => $thread->withoutGlobalScopes()->where('status', '!=', ThreadStatus::Open)))
+            ->oldest('id')
+            ->get()
+            ->each(function (TaskRun $run) use (&$cleared): void {
+                try {
+                    app(ThreadTurns::class)->failWaiter($run);
+                    $cleared++;
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            });
+
+        $this->info("Cleared {$cleared} stale waiter(s).");
 
         return self::SUCCESS;
     }
