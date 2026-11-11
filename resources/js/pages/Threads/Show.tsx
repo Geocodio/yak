@@ -23,7 +23,7 @@ import type { ThreadPageData } from '@/types/threads';
 
 type Props = PageProps<ThreadPageData>;
 
-export default function Show({ thread, canDrive, messages, notice, composer, teleport, stackParent }: Props) {
+export default function Show({ thread, canDrive, messages, notice, composer, capacity, teleport, stackParent }: Props) {
     const panels = sidebarPanelsFor(thread);
     const [activeId, setActiveId] = useState<string | null>(null);
     const active = panels.find((panel) => panel.id === activeId) ?? panels[0] ?? null;
@@ -99,7 +99,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                             ))}
                         </div>
                         <div className="min-h-0 flex-1 overflow-auto px-4 py-5">
-                            <active.component thread={thread} canDrive={canDrive} notice={notice} composerState={composer.state} />
+                            <active.component thread={thread} canDrive={canDrive} notice={notice} composerState={composer.state} capacity={capacity} accountName={composer.accountName} />
                         </div>
                     </aside>
                 )}

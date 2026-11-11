@@ -194,3 +194,20 @@ it('shows the share waiting card with the viewer own sandboxes', function () {
         ->assertSeeIn('[data-testid="waiting-own-threads"]', 'Paused, idle 2m')
         ->assertNoJavaScriptErrors();
 });
+
+it('shows the sidebar capacity block while waiting and nothing without capacity values', function () {
+    config(['yak.threads.awake_cap' => 2, 'yak.threads.person_awake_cap' => 3]);
+    $user = User::factory()->create();
+    $account = ClaudeAccount::factory()->create(['name' => 'Work', 'max_concurrent_turns' => 2]);
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
+    $bare = Thread::factory()->create(['created_by_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->id}")
+        ->click('[data-testid="thread-panel-tab-environment"]')
+        ->assertSeeIn('[data-testid="capacity-block"]', 'Turns on Work')
+        ->assertSeeIn('[data-testid="capacity-block"]', 'Awake sandboxes')
+        ->assertSeeIn('[data-testid="capacity-block"]', 'Your share')
+        ->assertNoJavaScriptErrors();
+    visit("/threads/{$bare->id}")->click('[data-testid="thread-panel-tab-environment"]')->wait(1)->assertMissing('[data-testid="capacity-block"]')->assertNoJavaScriptErrors();
+});

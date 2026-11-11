@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
-import type { ThreadComposer, ThreadData, ThreadNotice } from '@/types/threads';
+import type { ThreadCapacity, ThreadComposer, ThreadData, ThreadNotice } from '@/types/threads';
 
-export type PanelProps = { thread: ThreadData; canDrive: boolean; notice?: ThreadNotice | null; composerState?: ThreadComposer['state'] };
+export type PanelProps = { thread: ThreadData; canDrive: boolean; notice?: ThreadNotice | null; composerState?: ThreadComposer['state']; capacity?: ThreadCapacity | null; accountName?: string | null };
 
 export type Panel = {
     id: string;

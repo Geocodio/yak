@@ -3,6 +3,7 @@ import { Copy, ExternalLink } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadEnvironment } from '@/types/thread-changes';
+import { CapacityBlock } from './CapacityBlock';
 import { RepositoryRows } from './RepositoryRows';
 import { StatusCard } from './StatusCard';
 import { useThreadEnvironment } from './useThreadEnvironment';
@@ -77,7 +78,7 @@ function formatStartedAt(iso: string): string {
     return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export function EnvironmentPanel({ thread, canDrive, notice, composerState }: PanelProps) {
+export function EnvironmentPanel({ thread, canDrive, notice, composerState, capacity = null, accountName = null }: PanelProps) {
     const { environment, isLoading, error, reload } = useThreadEnvironment(thread);
     const isSettingUp = environment?.repositories.some((repository) => ['pending', 'cloning', 'setup'].includes(repository.setupStatus)) ?? false;
 
@@ -89,10 +90,14 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState }: Pa
         return () => window.clearInterval(timer);
     }, [isSettingUp, reload]);
 
+    const isWaiting = notice?.kind === 'waiting_for_account' || notice?.kind === 'waiting_for_sandbox';
+    const capacityBlock = isWaiting || composerState === 'working' ? <CapacityBlock capacity={capacity} accountName={accountName} /> : null;
+
     if (environment === null) {
         return (
             <div className="flex flex-col gap-4" data-testid="environment-panel">
                 <StatusCard thread={thread} notice={notice} composerState={composerState} />
+            {capacityBlock}
                 {isLoading ? (
                     <div className="flex flex-col gap-3" data-testid="environment-loading">
                         <Skeleton className="h-20 w-full" />
@@ -113,6 +118,7 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState }: Pa
     return (
         <div className="flex flex-col gap-4" data-testid="environment-panel">
             <StatusCard thread={thread} notice={notice} composerState={composerState} />
+            {capacityBlock}
             <section className="rounded-card border border-hair bg-app p-3" data-testid="environment-sandbox-state">
                 <div className="flex items-center gap-2 text-[13px] font-medium text-body">
                     <span className={cn('inline-block h-2 w-2 rounded-pill', DOT[sandbox.state])} />
