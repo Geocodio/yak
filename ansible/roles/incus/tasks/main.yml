@@ -242,8 +242,9 @@
 - name: Restart running sandboxes after an ACL or profile change
   ansible.builtin.shell: |
     set -euo pipefail
-    incus list -f csv -c n,s </dev/null | grep ',RUNNING$' | cut -d, -f1 \
-      | grep -v -e '^yak-base$' -e '^yak-tpl-' \
+    # awk, not grep: a host with no running sandboxes matches nothing, which is fine.
+    incus list -f csv -c n,s </dev/null \
+      | awk -F, '$2 == "RUNNING" && $1 != "yak-base" && $1 !~ /^yak-tpl-/ { print $1 }' \
       | xargs -r -n1 incus restart
   when: sandbox_acl_file.changed or sandbox_acl_create.changed or sandbox_acl_profile.changed
   changed_when: true

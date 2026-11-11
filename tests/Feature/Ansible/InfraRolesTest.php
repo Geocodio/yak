@@ -358,3 +358,23 @@ it('nginx proxies the Reverb paths with websocket upgrade', function () {
         expect(strpos($nginx, "location $path {"))->toBeLessThan(strpos($nginx, 'location / {'));
     }
 });
+
+it('restarts only running sandboxes, and succeeds when none are running', function () use ($ansibleYaml) {
+    $tasks = $ansibleYaml('ansible/roles/incus/tasks/main.yml');
+    $script = collect($tasks)->firstWhere('name', 'Restart running sandboxes after an ACL or profile change')['ansible.builtin.shell'];
+
+    $run = function (string $listing) use ($script): array {
+        $bin = sys_get_temp_dir() . '/incus-stub-' . bin2hex(random_bytes(6));
+        mkdir($bin);
+        $log = $bin . '/restarted';
+        file_put_contents($bin . '/incus', "#!/usr/bin/env bash\nif [ \"\$1\" = list ]; then printf '%s' " . escapeshellarg($listing) . '; else echo "$2" >> ' . escapeshellarg($log) . "; fi\n");
+        chmod($bin . '/incus', 0755);
+        $result = Process::env(['PATH' => $bin . ':' . getenv('PATH')])->run(['bash', '-c', $script]);
+
+        return [$result->exitCode(), is_file($log) ? trim((string) file_get_contents($log)) : ''];
+    };
+
+    expect($run(''))->toBe([0, '']);
+    expect($run("yak-base,RUNNING\nyak-tpl-acme,RUNNING\nthread-7,RUNNING\nthread-8,STOPPED\nthread-9,RUNNING\n"))
+        ->toBe([0, "thread-7\nthread-9"]);
+});
