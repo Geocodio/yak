@@ -103,4 +103,4 @@ it('the returned token authenticates GET /me', function () {
     $token = $this->postJson('/api/cli/v1/device/token', ['device_code' => $started['device_code']], $this->headers)->json('token');
 
     $this->getJson('/api/cli/v1/me', $this->headers + ['Authorization' => "Bearer {$token}"])->assertOk();
-})->skip('enabled with GET /me');
+});
