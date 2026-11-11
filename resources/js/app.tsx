@@ -3,6 +3,7 @@ import { toast } from '@geocodio/console-ui';
 import { createRoot } from 'react-dom/client';
 import { ComponentType, StrictMode } from 'react';
 import { healStandaloneViewport } from '@/lib/healStandaloneViewport';
+import { registerServiceWorker } from '@/pwa/registerServiceWorker';
 
 const appName = 'Yak';
 
@@ -62,6 +63,12 @@ router.on('error', (event) => {
 });
 
 healStandaloneViewport();
+
+if (document.readyState === 'complete') {
+    void registerServiceWorker();
+} else {
+    window.addEventListener('load', () => void registerServiceWorker(), { once: true });
+}
 
 createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),

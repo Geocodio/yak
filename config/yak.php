@@ -641,4 +641,18 @@ return [
         'preview_activity_minutes' => (int) env('YAK_THREADS_PREVIEW_ACTIVITY_MINUTES', 5),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Web push
+    |--------------------------------------------------------------------------
+    |
+    | VAPID keys live in config/webpush.php. ios_supported hides the iOS
+    | install steps on the settings page when push is not offered there.
+    |
+    */
+
+    'push' => [
+        'ios_supported' => (bool) env('YAK_PUSH_IOS_SUPPORTED', true),
+    ],
+
 ];
