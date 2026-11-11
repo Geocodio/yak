@@ -56,7 +56,7 @@ class ThreadBlockClearer
      */
     private function blockedAccountIds(array $reasons): array
     {
-        return Thread::query()->whereIn('blocked_reason', $reasons)->distinct()->pluck('claude_account_id')->filter()->values()->all();
+        return Thread::query()->whereIn('blocked_reason', $reasons)->distinct()->pluck('claude_account_id')->filter()->map(fn ($id): int => (int) $id)->values()->all();
     }
 
     /**
