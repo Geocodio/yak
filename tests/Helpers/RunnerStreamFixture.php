@@ -12,7 +12,7 @@ use Carbon\CarbonImmutable;
  */
 function runnerStreamLines(string $name): array
 {
-    $rows = file(__DIR__ . "/../fixtures/runner-streams/{$name}.jsonl", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $rows = file(__DIR__ . "/../fixtures/runner-streams/{$name}.jsonl", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
     array_shift($rows);
 
     $previousMs = 0;
@@ -51,10 +51,12 @@ function replayRunnerStream(string $name, int $graceSeconds = 30, array $trackUu
         $tracker->track($uuid);
     }
 
-    $tick = function (CarbonImmutable $at) use ($tracker, &$changes, &$endedAt): void {
+    $tick = function (CarbonImmutable $at) use ($tracker, &$changes, &$endedAt): bool {
         $change = $tracker->tick($at);
         $changes[] = $change;
         $endedAt ??= $change->ended ? $at : null;
+
+        return $change->ended;
     };
 
     $boundaries = array_map(fn (CarbonImmutable $time) => $time->addSeconds($graceSeconds), $times);
@@ -75,11 +77,11 @@ function replayRunnerStream(string $name, int $graceSeconds = 30, array $trackUu
     }
 
     if ($endedAt === null) {
-        $lastAt = $times[array_key_last($times)];
+        $lastAt = end($times) ?: $base;
 
         foreach ([...$boundaries, $lastAt->addSeconds($graceSeconds + 1)] as $boundary) {
-            if ($endedAt === null) {
-                $tick($boundary);
+            if ($tick($boundary)) {
+                break;
             }
         }
     }
