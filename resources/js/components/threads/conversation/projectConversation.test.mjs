@@ -123,3 +123,28 @@ test('keeps one card per child', () => {
 
     assert.deepEqual(items.map((item) => item.key), ['child:7', 'child:8']);
 });
+
+const repositoryEvent = (sequence, repo, state, extra = {}) => ({
+    sequence,
+    type: 'repository',
+    createdAt: at,
+    data: { repo, role: 'changes', state, path: '/extras/docs', reason: null, cloneSeconds: null, setupSeconds: null, output: null, error: null, ...extra },
+});
+
+test('a later repository event replaces the earlier card at its first position', () => {
+    const { items } = project(
+        feedOf(assistant(1, 'm1', [{ type: 'text', text: 'hi' }]), repositoryEvent(2, 'acme/docs', 'running'), assistant(3, 'm2', [{ type: 'text', text: 'later' }]), repositoryEvent(4, 'acme/docs', 'done')),
+    );
+
+    const ordered = mergeConversation([], [], items).map((entry) => entry.item);
+    assert.deepEqual(ordered.map((item) => item.key), ['m1:0', 'repository:acme/docs', 'm2:0']);
+    const card = items.find((item) => item.kind === 'repository');
+    assert.equal(card.sequence, 2);
+    assert.equal(card.repository.state, 'done');
+});
+
+test('keeps one card per repository', () => {
+    const { items } = project(feedOf(repositoryEvent(1, 'acme/docs', 'running'), repositoryEvent(2, 'acme/lib', 'no_access')));
+
+    assert.deepEqual(items.map((item) => item.key), ['repository:acme/docs', 'repository:acme/lib']);
+});

@@ -47,7 +47,22 @@ export type ChildCardData = {
     messagesPaused: boolean;
 };
 
-export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child';
+export type RepositoryCardState = 'running' | 'setup' | 'done' | 'setup_failed' | 'no_access';
+
+/** The latest state of one repository Claude added, as the conversation shows it. */
+export type RepositoryCardData = {
+    repo: string;
+    role: 'changes' | 'context';
+    state: RepositoryCardState;
+    path: string | null;
+    reason: string | null;
+    cloneSeconds: number | null;
+    setupSeconds: number | null;
+    output: string | null;
+    error: string | null;
+};
+
+export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child' | 'repository';
 
 export type ThreadEventDataMap = {
     entry: TranscriptEntry;
@@ -58,6 +73,7 @@ export type ThreadEventDataMap = {
     'message.state': { uuid: string; state: 'sent' | 'queued' | 'started' | 'completed' | 'cancelled' };
     'diff.updated': Record<string, never>;
     child: ChildCardData;
+    repository: RepositoryCardData;
 };
 
 export type ThreadEventEnvelope<T extends ThreadEventType = ThreadEventType> = {
@@ -79,6 +95,8 @@ export type ThreadEventState = {
     thread: ThreadEventDataMap['thread'] | null;
     /** Latest event per sub-thread, with the sequence of its first event. */
     children: Record<number, { sequence: number; data: ChildCardData }>;
+    /** Latest event per added repository, keyed by slug, with the sequence of its first event. */
+    repositories: Record<string, { sequence: number; data: RepositoryCardData }>;
     viewers: Viewer[];
     connection: 'connecting' | 'live' | 'catching-up' | 'offline';
     lastSequence: number;

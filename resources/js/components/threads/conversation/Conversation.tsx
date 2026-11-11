@@ -3,6 +3,7 @@ import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage, ThreadNotice as ThreadNoticeData } from '@/types/threads';
 import { ChildCard } from './ChildCard';
+import { RepositoryCard } from './RepositoryCard';
 import { ClaudeMessage } from './ClaudeMessage';
 import { DayDivider } from './DayDivider';
 import { EditsBlock } from './EditsBlock';
@@ -19,6 +20,10 @@ Object.assign(window, { __mergeConversation: mergeConversation, __createReadTrac
 function EventRow({ item, canDrive }: { item: ConversationItem; canDrive: boolean }) {
     if (item.kind === 'child') {
         return <ChildCard item={item} canDrive={canDrive} />;
+    }
+
+    if (item.kind === 'repository') {
+        return <RepositoryCard item={item} />;
     }
 
     if (item.kind === 'tools') {

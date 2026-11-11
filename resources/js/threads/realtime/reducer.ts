@@ -18,6 +18,7 @@ export function initialEventState(): ThreadEventState {
         turn: null,
         thread: null,
         children: {},
+        repositories: {},
         viewers: [],
         connection: 'connecting',
         lastSequence: 0,
@@ -64,6 +65,11 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
             const data = event.data as ThreadEventEnvelope<'child'>['data'];
 
             return { ...next, children: { ...state.children, [data.childThreadId]: { sequence: state.children[data.childThreadId]?.sequence ?? event.sequence, data } } };
+        }
+        case 'repository': {
+            const data = event.data as ThreadEventEnvelope<'repository'>['data'];
+
+            return { ...next, repositories: { ...state.repositories, [data.repo]: { sequence: state.repositories[data.repo]?.sequence ?? event.sequence, data } } };
         }
         default:
             return next;
