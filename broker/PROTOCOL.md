@@ -78,3 +78,15 @@ The runner exposes in-process MCP tools to Claude: `spawn_thread`, `send_message
 3. A call PHP never answers times out inside the runner after 120 s with an error result for Claude.
 
 `call_id` is a fresh UUID per call. PHP handles a `yak.tool_call` once per `call_id` (the entry may be redelivered), and answers a call from a stale generation with nothing.
+
+## 5. Credential socket
+
+`yak:credential-socket` serves the real credential behind an auth proxy placeholder to the broker's auth proxy. The Unix socket path is `yak.threads.credential_socket` (default `/run/yak/credentials.sock`), file mode 0660. Every connection is also checked against `yak.threads.credential_socket_uid` (the broker system user) with the kernel's peer credentials (SCM_CREDENTIALS), so a peer with another uid gets `{"error":"forbidden"}` and nothing else.
+
+One JSON line request, one JSON line reply:
+
+- Request: `{"placeholder": "yakph-...", "container_ip": "172.20.0.5"}`. The request is capped at 4096 bytes.
+- Reply on success: `{"kind": "setup_token"|"api_key", "secret": "...", "account_id": 12}`.
+- Reply otherwise: `{"error": "unknown"}` for an unknown, revoked or expired placeholder, a container ip that is not the one the placeholder was issued for, and malformed JSON. All cases look the same on purpose. `{"error": "forbidden"}` is for a peer with the wrong uid.
+
+The secret is never written to disk or logged. The proxy may keep a reply in memory for a short time; the proxy track owns that client and its cache.
