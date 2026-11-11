@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Process;
 use Symfony\Component\Yaml\Yaml;
 
 $ansibleYaml = fn (string $path): array => Yaml::parseFile(base_path($path));
@@ -182,4 +183,109 @@ it('lets the Yak container reach the auth proxy', function () use ($roleTask) {
 
     expect($rule['from_ip'])->toBe('{{ yak_auth_proxy_host_cidrs }}')
         ->and($rule['to_port'])->toContain('yak_auth_proxy_address');
+});
+
+$privateRanges = function (string $host): array {
+    $result = Process::run(['python3', base_path('ansible/roles/incus/files/private_ranges.py'), $host]);
+    expect($result->successful())->toBeTrue();
+
+    return explode(',', trim($result->output()));
+};
+
+$cidrContains = function (string $cidr, string $ip): bool {
+    [$base, $bits] = explode('/', $cidr);
+    $mask = $bits === '0' ? 0 : (~0 << (32 - (int) $bits)) & 0xFFFFFFFF;
+
+    return (ip2long($ip) & $mask) === (ip2long($base) & $mask);
+};
+
+it('private ranges exclude the bridge host address but cover the rest', function () use ($privateRanges, $cidrContains) {
+    $cidrs = $privateRanges('10.100.0.1');
+
+    foreach ($cidrs as $cidr) {
+        expect($cidrContains($cidr, '10.100.0.1'))->toBeFalse();
+    }
+    foreach (['10.100.0.2', '10.0.0.1', '192.168.1.1', '100.64.0.1'] as $ip) {
+        expect(collect($cidrs)->filter(fn ($cidr) => $cidrContains($cidr, $ip)))->toHaveCount(1);
+    }
+});
+
+it('private ranges print a range whole when it does not contain the host', function () use ($privateRanges) {
+    expect($privateRanges('10.100.0.1'))->toContain('192.168.0.0/16');
+});
+
+it('private ranges reject a bad address', function () {
+    expect(Process::run(['python3', base_path('ansible/roles/incus/files/private_ranges.py'), 'nope'])->exitCode())->toBe(2);
+});
+
+$incusTasks = fn (): string => file_get_contents(base_path('ansible/roles/incus/tasks/main.yml'));
+
+it('acl template has the spec rules in the spec order', function () {
+    $template = file_get_contents(base_path('ansible/roles/incus/templates/yak-sandbox-acl.yaml.j2'));
+    $positions = array_map(fn ($needle) => strpos($template, $needle), [
+        'ingress:',
+        'source: {{ yak_sandbox_bridge_host }}/32',
+        'egress:',
+        "destination_port: \"{{ yak_auth_proxy_address.split(':')[1] }}\"",
+        'destination_port: "53,67"',
+        'destination_port: "53"',
+        'protocol: icmp4',
+        'destination: {{ yak_host_public_cidrs }}',
+        'destination: {{ yak_private_ranges }}',
+    ]);
+
+    expect($positions)->not->toContain(false)
+        ->and($positions)->toBe(collect($positions)->sort()->values()->all());
+
+    $lastRule = array_slice(explode('  - action:', $template), -1)[0];
+    expect($lastRule)->toContain('allow')->not->toContain('destination')
+        ->and(substr($template, 0, strpos($template, 'egress:')))->not->toContain('action: drop');
+});
+
+it('acl is created with stdin from /dev/null', function () use ($roleTask) {
+    expect($roleTask('incus', 'Create sandbox network ACL')['ansible.builtin.shell'])->toContain('incus network acl create yak-sandbox-acl')->toContain('</dev/null');
+});
+
+it('acl is applied by incus network acl edit from the rendered file', function () use ($incusTasks) {
+    expect($incusTasks())->toContain('incus network acl edit yak-sandbox-acl <')
+        ->and($incusTasks())->toContain('yak-sandbox-acl.yaml.j2')
+        ->and($incusTasks())->toContain('register: sandbox_acl_file');
+});
+
+it('profile sets the acl and the three security keys', function () use ($roleTask) {
+    $command = $roleTask('incus', 'Apply the sandbox ACL to the yak-sandbox-acl and default profiles')['ansible.builtin.shell'];
+
+    foreach (['security.acls=yak-sandbox-acl', 'security.acls.default.ingress.action=drop', 'security.acls.default.egress.action=allow', 'security.mac_filtering=true', 'security.ipv4_filtering=true', 'security.port_isolation=true', 'network=yak-sandbox'] as $key) {
+        expect($command)->toContain($key);
+    }
+    expect($command)->toContain('default');
+});
+
+it('sandboxes restart only when the acl or profile changed', function () use ($roleTask) {
+    $task = $roleTask('incus', 'Restart running sandboxes after an ACL or profile change');
+
+    expect($task['when'])->toContain('sandbox_acl_file.changed')->toContain('sandbox_acl_create.changed')->toContain('sandbox_acl_profile.changed')
+        ->and($task['ansible.builtin.shell'])->toContain('incus restart')->toContain('yak-base')->toContain('yak-tpl-');
+});
+
+it('inotify limits are raised', function () use ($roleTask) {
+    $loop = json_encode($roleTask('incus', 'Increase inotify limits for container density')['loop']);
+
+    expect($loop)->toContain('"8192"')->toContain('"1048576"');
+});
+
+it('incus is pinned to 7.x before it is installed', function () use ($roleTask) {
+    $pin = $roleTask('incus', 'Pin Incus to the 7.x series')['ansible.builtin.copy'];
+    $names = array_column(Yaml::parseFile(base_path('ansible/roles/incus/tasks/main.yml')), 'name');
+
+    expect($pin['dest'])->toBe('/etc/apt/preferences.d/incus')
+        ->and($pin['content'])->toContain('Pin: version 1:{{ incus_version_pin }}*')->toContain('Pin-Priority: 1001')
+        ->and(array_search('Pin Incus to the 7.x series', $names))->toBeLessThan(array_search('Install Incus', $names));
+});
+
+it('base template starts docker.socket, gives yak the docker group and runs sshd', function () use ($incusTasks) {
+    expect($incusTasks())->toContain('systemctl enable --now docker.socket')
+        ->toContain('usermod -aG docker yak')
+        ->toContain('openssh-server')
+        ->toContain('systemctl enable ssh');
 });
