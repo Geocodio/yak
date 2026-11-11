@@ -1,6 +1,6 @@
-import { Button, Select, TextInput, cn } from '@geocodio/console-ui';
+import { Button, Select, Tooltip, cn } from '@geocodio/console-ui';
 import { usePage } from '@inertiajs/react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Keyboard, Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadDiffFile } from '@/types/thread-changes';
@@ -8,6 +8,8 @@ import { DiffViewer } from './DiffViewer';
 import { OpenPullRequestButton } from './OpenPullRequestButton';
 import { ContextRepoCallout } from './ContextRepoCallout';
 import { FileTree } from './FileTree';
+import { FilterInput } from './FilterInput';
+import { ViewedProgress } from './ViewedProgress';
 import { RepositoryTabs } from './RepositoryTabs';
 import { buildFileTree, fileKey } from './buildFileTree';
 import { useStack } from '../stack/useStack';
@@ -153,6 +155,11 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                 </p>
                 <div className="flex items-center gap-2">
                     {canDrive && childId === null && <OpenPullRequestButton thread={thread} publishWarning={publishWarning} />}
+                    <Tooltip label="/ filter, j k next file">
+                        <button type="button" aria-label="Keyboard shortcuts" className="cursor-pointer text-muted hover:text-body">
+                            <Keyboard size={14} />
+                        </button>
+                    </Tooltip>
                     <button type="button" onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? 'Shrink to sidebar width' : 'Expand to full width'} className="cursor-pointer text-muted hover:text-body">
                         {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                     </button>
@@ -173,9 +180,11 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
 
             {openFile === null ? (
                 <>
-                    <TextInput ref={filterInput} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter files (press /)" aria-label="Filter files" />
-                    <p className="text-[12px] text-muted">{viewedCount} of {files.length} viewed</p>
-                    <FileTree nodes={tree} viewed={viewed} onToggleViewed={toggleViewed} onOpen={setOpenPath} />
+                    <div className="flex items-center gap-3">
+                        <FilterInput ref={filterInput} value={filter} onChange={setFilter} />
+                        <ViewedProgress viewed={viewedCount} total={files.length} />
+                    </div>
+                    <FileTree nodes={tree} viewed={viewed} onOpen={setOpenPath} />
                 </>
             ) : (
                 <>

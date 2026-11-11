@@ -66,3 +66,20 @@ test('the header shows diff totals and the pull request, and a sub-thread shows 
         ->assertSeeIn('[data-testid="child-brief"]', 'Brief from Ship the importer')
         ->assertSeeIn('[data-testid="child-brief"]', 'Works on yak/imp/client');
 });
+
+test('the file list leads with a status tile and shows viewed progress and the filter hint', function () {
+    $thread = Thread::factory()->create();
+    $diff = ThreadDiff::factory()->for($thread)->withFiles(2)->create();
+    $file = $diff->files()->first();
+
+    $page = visit(route('threads.show', $thread));
+
+    $page->click('[data-testid="thread-panel-tab-changes"]')
+        ->assertPresent('[data-testid="changes-file-' . $file->path . '"] [data-testid="changes-status-tile"]')
+        ->assertSeeIn('[data-testid="changes-viewed-progress"]', '0 of 2 viewed')
+        ->assertPresent('[data-testid="changes-filter-hint"]')
+        ->assertPresent('button[aria-label="Keyboard shortcuts"]');
+
+    $page->script("window.dispatchEvent(new KeyboardEvent('keydown', { key: '/' }))");
+    $page->assertScript('document.activeElement.getAttribute("aria-label")', 'Filter files');
+});
