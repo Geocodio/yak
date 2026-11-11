@@ -32,7 +32,7 @@ class HeldEvents
      *
      * @param  array<string, mixed>  $payload
      */
-    public function holdIfDeviceOwned(YakTask $task, HeldEventKind $kind, string $title, string $summary, array $payload = []): bool
+    public function holdIfDeviceOwned(YakTask $task, HeldEventKind $kind, string $title, string $summary, array $payload = [], ?string $pullRequestUrl = null): bool
     {
         $thread = $task->thread;
 
@@ -40,7 +40,7 @@ class HeldEvents
             return false;
         }
 
-        $event = $this->record($thread, $kind, $title, $summary, $task->pr_url, $payload, $task->id);
+        $event = $this->record($thread, $kind, $title, $summary, $pullRequestUrl ?? $task->pr_url, $payload, $task->id);
         $this->notify($thread, $event);
         $this->push($thread, $event, app(PushRecipients::class)->forHeldEvent($thread));
 
