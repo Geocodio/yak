@@ -54,6 +54,7 @@ Broker lines are objects whose `type` starts with `broker.`. Trust the `origin` 
 | `broker.no_runner` | `uuid` or `call_id` | A `turn`, `steer` or `tool_result` found no live runner. |
 | `broker.start_refused` | `reason`, `generation` | The broker refused to start the runner. No process was started and the generation still increments. `reason` is `credential_exposure` (the credentials file holds a Claude login that is not an allowed shared account, or cannot be read or parsed: fail closed; a missing file or one without `claudeAiOauth` is allowed) or `restart_cap` (more than 5 starts of this channel within 5 minutes). |
 | `broker.kill_done` | `generation` | A `kill` command's script returned. |
+| `broker.line_dropped` | `bytes` | A runner stdout line longer than 8 MiB was discarded without being forwarded; `bytes` is its size. Consumers log a warning and continue. |
 
 A restarted broker reads the last `:out` entry of each channel to continue its generation and sequence, so the driver never trims that entry. The driver acknowledges an entry only after handling it, retries a failing entry a few times, then moves it to `:dead`. Entries left pending by a crashed consumer are claimed again after 60 s. After acknowledging, the driver trims `:out` to the last `yak.threads.stream_catchup_minutes` and deletes all three keys when the runner ends for good.
 

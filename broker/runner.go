@@ -127,14 +127,33 @@ func (IncusSpawner) KillAllRunners(ctx context.Context, container string) error 
 	return incusKill(ctx, container, killAllRunnersScript)
 }
 
-// readLines calls emit for every newline-terminated line, with no size limit.
-// A final line without a newline is emitted too.
-func readLines(reader io.Reader, emit func(line []byte)) {
+// maxLineBytes is the longest runner stdout line the broker forwards. A longer line is
+// consumed and dropped, never held whole in memory.
+const maxLineBytes = 8 << 20
+
+// readLines calls emit for every newline-terminated line of at most maxLineBytes. A longer
+// line is read in chunks and discarded, and onDropped gets its full size instead.
+// A final line without a newline is handled the same way.
+func readLines(reader io.Reader, emit func(line []byte), onDropped func(bytes int)) {
 	buffered := bufio.NewReaderSize(reader, 64*1024)
+	var line []byte
+	dropped, isDropping := 0, false
 	for {
-		line, err := buffered.ReadBytes('\n')
-		if trimmed := strings.TrimRight(string(line), "\r\n"); trimmed != "" {
-			emit([]byte(trimmed))
+		chunk, isPrefix, err := buffered.ReadLine()
+		if isDropping {
+			dropped += len(chunk)
+		} else if len(line)+len(chunk) > maxLineBytes {
+			isDropping, dropped, line = true, len(line)+len(chunk), nil
+		} else {
+			line = append(line, chunk...)
+		}
+		if !isPrefix {
+			if isDropping {
+				onDropped(dropped)
+			} else if len(line) > 0 {
+				emit(line)
+			}
+			line, dropped, isDropping = nil, 0, false
 		}
 		if err != nil {
 			return

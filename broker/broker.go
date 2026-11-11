@@ -65,6 +65,8 @@ type channelState struct {
 	generation  int
 	sequence    int
 	process     Process
+	// forgetting is set under Broker.mu while forget cleans the channel up; refresh skips it.
+	forgetting bool
 }
 
 type Broker struct {
@@ -267,22 +269,38 @@ func (b *Broker) readCommands(ctx context.Context, state *channelState) {
 
 // forget drops a channel that PHP removed from the live set. Once its runner has
 // exited, the channel's streams are deleted: a finished channel keeps no transcript in Redis.
+// The state stays in b.channels, marked forgetting, until cleanup ends, so refresh cannot start
+// a second state for the name and the deletes below never hit a newer state's streams. A channel
+// PHP registers again meanwhile is picked up by the next refresh after cleanup.
 func (b *Broker) forget(ctx context.Context, state *channelState) {
-	b.kill(ctx, state)
 	b.mu.Lock()
-	delete(b.channels, state.name)
+	state.forgetting = true
 	b.mu.Unlock()
+	defer func() {
+		b.mu.Lock()
+		delete(b.channels, state.name)
+		b.mu.Unlock()
+	}()
+
+	b.kill(ctx, state)
 	b.capMu.Lock()
 	delete(b.cap.starts, state.name)
 	b.capMu.Unlock()
 
-	for deadline := time.Now().Add(forgetWait); time.Now().Before(deadline) && ctx.Err() == nil; time.Sleep(50 * time.Millisecond) {
+	isRunning := func() bool {
 		state.mu.Lock()
-		running := state.process != nil
-		state.mu.Unlock()
-		if !running {
-			break
-		}
+		defer state.mu.Unlock()
+		return state.process != nil
+	}
+	for deadline := time.Now().Add(forgetWait); time.Now().Before(deadline) && ctx.Err() == nil && isRunning(); time.Sleep(50 * time.Millisecond) {
+	}
+	if isRunning() {
+		b.logger.Warn("runner still running after forget wait, keeping channel streams", "channel", state.name)
+		b.kill(context.Background(), state)
+		return
+	}
+	if member, err := b.redis.SIsMember(context.Background(), channelsKey, state.name).Result(); err != nil || member {
+		return
 	}
 	if err := b.redis.Del(context.Background(), state.name+":in", state.name+":out", state.name+":dead").Err(); err != nil {
 		b.logger.Warn("delete channel streams failed", "channel", state.name, "error", err)
@@ -388,7 +406,11 @@ func (b *Broker) revoke(state *channelState) {
 
 // pump copies runner stdout to the out stream, then reports the exit.
 func (b *Broker) pump(state *channelState, process Process, generation int) {
-	readLines(process.Stdout(), func(line []byte) { b.emitLine(state, generation, string(line), false) })
+	readLines(process.Stdout(),
+		func(line []byte) { b.emitLine(state, generation, string(line), false) },
+		func(bytes int) {
+			b.emitLine(state, generation, `{"type":"broker.line_dropped","bytes":`+strconv.Itoa(bytes)+`}`, true)
+		})
 	code, _ := process.Wait()
 	b.emitBroker(state, "broker.runner_exited", map[string]any{"generation": generation, "exit_code": code})
 	state.mu.Lock()

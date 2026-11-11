@@ -279,6 +279,14 @@ class ThreadDriver
             $this->recoverLostRunner($thread, $entry, $line, $events);
         }
 
+        if ($event === 'line_dropped') {
+            $task = ThreadTurns::activeTurn($thread)?->task;
+
+            if ($task !== null) {
+                TaskLogger::warning($task, 'runner_line_dropped', ['bytes' => (int) ($line['bytes'] ?? 0)]);
+            }
+        }
+
         if ($event === 'runner_exited') {
             $generation = (int) ($line['generation'] ?? $entry->generation);
 

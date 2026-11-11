@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -65,6 +66,8 @@ type fakeSpawner struct {
 	started         []*fakeProcess
 	killedAll       []string
 	killedRunners   []string
+	killDelay       time.Duration
+	killsBegun      int
 	startedChannels []string
 }
 
@@ -87,6 +90,11 @@ func (s *fakeSpawner) KillAllRunners(_ context.Context, container string) error 
 }
 
 func (s *fakeSpawner) KillRunner(_ context.Context, container, channel string) error {
+	s.mu.Lock()
+	delay := s.killDelay
+	s.killsBegun++
+	s.mu.Unlock()
+	time.Sleep(delay)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.killedRunners = append(s.killedRunners, container+"|"+channel)
@@ -122,6 +130,12 @@ func (s *fakeSpawner) channels() []string {
 	return append([]string(nil), s.startedChannels...)
 }
 
+func (s *fakeSpawner) killBegunCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.killsBegun
+}
+
 func (s *fakeSpawner) startCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -140,13 +154,39 @@ func (s *fakeSpawner) killRunnerCalls() []string {
 	return append([]string(nil), s.killedRunners...)
 }
 
-func TestReadLinesHasNoSizeLimitAndEmitsFinalPartialLine(t *testing.T) {
-	long := strings.Repeat("x", 1<<20)
+func TestReadLinesDropsOversizedLinesAndKeepsTheRest(t *testing.T) {
+	huge := strings.Repeat("x", maxLineBytes+1)
+	long := strings.Repeat("y", maxLineBytes)
 	var got []string
-	readLines(strings.NewReader(long+"\nshort\r\n\npartial"), func(line []byte) { got = append(got, string(line)) })
+	var dropped []int
+	readLines(strings.NewReader(huge+"\n"+long+"\nshort\r\n\n"+huge+"\npartial"),
+		func(line []byte) { got = append(got, string(line)) },
+		func(bytes int) { dropped = append(dropped, bytes) })
 	if len(got) != 3 || got[0] != long || got[1] != "short" || got[2] != "partial" {
 		t.Fatalf("lines = %d entries", len(got))
 	}
+	if len(dropped) != 2 || dropped[0] != maxLineBytes+1 || dropped[1] != maxLineBytes+1 {
+		t.Fatalf("dropped = %v", dropped)
+	}
+}
+
+func TestOversizedRunnerLineBecomesABrokerLineDropped(t *testing.T) {
+	h := newHarness(t)
+	h.command("oneshot:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	process := h.spawner.process(0)
+	process.Emit(strings.Repeat("x", maxLineBytes+10))
+	process.Emit(`{"type":"assistant"}`)
+	entries := h.out("oneshot:1", func(entries []map[string]any) bool { return countLines(entries, "assistant") == 1 })
+	for _, entry := range entries {
+		if line, _ := entry["line"].(string); strings.Contains(line, "line_dropped") {
+			if line != `{"type":"broker.line_dropped","bytes":`+strconv.Itoa(maxLineBytes+10)+`}` || entry["origin"] != "broker" {
+				t.Fatalf("entry = %v", entry)
+			}
+			return
+		}
+	}
+	t.Fatal("no broker.line_dropped entry")
 }
 
 func TestFirstGlobalIPv4PicksEth0NotDockerBridge(t *testing.T) {
