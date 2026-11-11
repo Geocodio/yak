@@ -51,6 +51,12 @@ class LocalGitSandboxManager extends FakeSandboxManager
         chmod($hook, 0755);
     }
 
+    /** Checks out a new branch at origin/main in the workspace; nothing is pushed. */
+    public function useBranchFromDefault(string $branch): void
+    {
+        $this->run($this->workspace, ['git', 'checkout', '-B', $branch, 'origin/main']);
+    }
+
     /** Pushes a commit to the thread branch from a second clone. */
     public function pushFromElsewhere(string $file, string $contents): void
     {

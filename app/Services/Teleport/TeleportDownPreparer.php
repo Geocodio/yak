@@ -17,6 +17,7 @@ use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadTurns;
 use App\Services\Threads\WipPreserver;
+use Illuminate\Support\Str;
 
 /**
  * Yak's side of a teleport down: let the turn finish or stop it, commit and push, sync the session, build the manifest.
@@ -34,6 +35,8 @@ class TeleportDownPreparer
         private readonly SessionStore $store,
         private readonly BranchHeadVerifier $heads,
         private readonly DownManifestBuilder $manifests,
+        private readonly EnsurePushedBranch $pushedBranches,
+        private readonly BranchNamer $namer,
     ) {}
 
     /**
@@ -120,6 +123,7 @@ class TeleportDownPreparer
         $this->markDone($teleport, TeleportStep::WaitTurn);
         $teleport->forceFill(['state' => TeleportState::Preparing])->save();
         $teleport->progressStep(TeleportStep::CommitWip, 'running');
+        $this->assignBranchIfMissing($thread);
         $made = [$thread->repo => $this->wip->preserveForTeleport($thread)->committed];
         $failures = [];
         $heads = [];
@@ -132,6 +136,7 @@ class TeleportDownPreparer
             }
 
             if ($repository->role === RepositoryRole::Primary) {
+                $this->pushedBranches->ensure($thread, $repository->sandbox_path, (string) $repository->branch);
                 $head = trim($this->sandboxes->exec($thread, ['git', '-C', $repository->sandbox_path, 'rev-parse', 'HEAD'])->output());
 
                 if ($head === '') {
@@ -145,6 +150,7 @@ class TeleportDownPreparer
 
             try {
                 $made[$repository->repo] = $this->repositoryWip->preserve($thread, $repository)->committed;
+                $this->pushedBranches->ensure($thread, $repository->sandbox_path, (string) $repository->branch);
             } catch (SandboxCommandFailed $exception) {
                 $made[$repository->repo] = false;
                 $failures[$repository->repo] = ['code' => str_starts_with($exception->getMessage(), 'WIP push') ? 'push_failed' : 'wip_failed', 'message' => $exception->getMessage()];
@@ -167,6 +173,33 @@ class TeleportDownPreparer
         $teleport->progressStep(TeleportStep::Push, 'done');
 
         return $heads;
+    }
+
+    /**
+     * A thread that never got a branch works on a fresh Yak branch from now on, so its work has somewhere to be pushed.
+     */
+    private function assignBranchIfMissing(Thread $thread): void
+    {
+        if (filled($thread->branch)) {
+            return;
+        }
+
+        $path = $thread->repositories()->where('role', RepositoryRole::Primary)->value('sandbox_path') ?? '/workspace';
+        $slug = $this->namer->slug((string) $thread->title);
+        $branch = $this->namer->branchFor($slug);
+
+        if ($this->pushedBranches->existsOnRemote($thread, $path, $branch)) {
+            $branch .= '-' . Str::lower(Str::random(4));
+        }
+
+        $checkout = $this->sandboxes->exec($thread, ['git', '-C', $path, 'checkout', '-B', $branch]);
+
+        if ($checkout->failed()) {
+            throw new TeleportError('teleport_failed', 'Yak could not create a branch for this thread.');
+        }
+
+        $thread->forceFill(['branch' => $branch])->save();
+        $thread->repositories()->where('role', RepositoryRole::Primary)->update(['branch' => $branch]);
     }
 
     private function syncSession(Teleport $teleport, Thread $thread): void
