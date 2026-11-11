@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\BranchDeployment;
+use App\Models\Repository;
 use App\Models\ThreadShare;
+use App\Services\BranchDeploymentProvisioner;
 use App\Services\DeploymentShareTokens;
 use App\Services\DeploymentWaker;
 use App\Services\PreviewAccess;
@@ -181,4 +184,23 @@ it('sweeps every preview host route for a deployment linked to a private thread'
         expect($hidden->getStatusCode())->toBe($missing->getStatusCode(), $name)
             ->and(hostMasked($hidden, $hiddenHost))->toBe(hostMasked($missing, $missingHost), $name);
     }
+})->with(['other', 'admin']);
+
+it('keeps a provisioner-created preview host private to the thread owner', function (string $stranger) {
+    BranchDeployment::withoutGlobalScopes()->delete();
+    $deployment = app(BranchDeploymentProvisioner::class)->provision(
+        Repository::where('slug', VisibilityWorld::REPO)->firstOrFail(),
+        VisibilityWorld::BRANCH,
+    );
+    $deployment->update(['hostname' => 'webhook-preview.test']);
+    $access = app(PreviewAccess::class);
+
+    expect($deployment->yak_task_id)->toBe($this->world->task->id)
+        ->and($access->mayEnter('webhook-preview.test', $this->world->owner->id))->toBeTrue()
+        ->and($access->mayEnter('webhook-preview.test', $this->world->{$stranger}->id))->toBeFalse();
+
+    $hidden = wakeAs($this, 'webhook-preview.test', $this->world->{$stranger}->id);
+    $missing = wakeAs($this, $this->unknown, $this->world->{$stranger}->id);
+    expect($hidden->getStatusCode())->toBe(404)
+        ->and(hostMasked($hidden, 'webhook-preview.test'))->toBe(hostMasked($missing, $this->unknown));
 })->with(['other', 'admin']);

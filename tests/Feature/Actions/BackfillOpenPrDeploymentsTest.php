@@ -6,6 +6,8 @@ use App\Enums\DeploymentStatus;
 use App\Jobs\Deployments\DeployBranchJob;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
+use App\Models\Thread;
+use App\Models\YakTask;
 use Illuminate\Support\Facades\Bus;
 
 beforeEach(function () {
@@ -110,4 +112,18 @@ it('staggers boots past the running cap', function () {
         ->filter(fn ($job) => $job->delay !== null)
         ->count();
     expect($delayed)->toBe(2);
+});
+
+it('links a created deployment to the thread task carrying its branch', function () {
+    $repo = eligibleRepo();
+    $task = YakTask::factory()->create([
+        'thread_id' => Thread::factory()->create()->id,
+        'repo' => $repo->slug,
+        'branch_name' => 'feature-linked',
+    ]);
+    fakeGitHubReturning([pr('feature-linked', 'abc123', 8)]);
+
+    app(BackfillOpenPrDeployments::class)($repo);
+
+    expect(BranchDeployment::withoutGlobalScopes()->where('branch_name', 'feature-linked')->value('yak_task_id'))->toBe($task->id);
 });
