@@ -8,6 +8,7 @@ use App\Enums\RestoreStepStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
+use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\SandboxCapacity;
+use App\Support\SecretRedactor;
 use Illuminate\Support\Str;
 
 /**
@@ -132,6 +134,12 @@ final class ThreadNoticeData
     private static function restoreSteps(Thread $thread): array
     {
         $steps = [];
+        $slugs = [$thread->repo, ...$thread->repositories->pluck('repo')->all()];
+        $secrets = [];
+
+        foreach (Repository::query()->whereIn('slug', $slugs)->get() as $repository) {
+            array_push($secrets, ...array_map('strval', array_values($repository->build_credentials ?? [])));
+        }
 
         foreach ($thread->restoreSteps as $step) {
             if ($step->step === RestoreStepName::SetUpExtraRepositories && $step->status === RestoreStepStatus::Skipped) {
@@ -139,7 +147,9 @@ final class ThreadNoticeData
             }
 
             $copy = self::stepCopy($step->step);
-            $lines = $step->output === null ? [] : array_values(array_filter(preg_split('/\R/', rtrim($step->output)) ?: [], fn (string $line): bool => $line !== ''));
+            $error = $step->error === null ? null : SecretRedactor::redactExact($step->error, $secrets);
+            $output = $step->output === null ? null : SecretRedactor::redactExact($step->output, $secrets);
+            $lines = $output === null ? [] : array_values(array_filter(preg_split('/\R/', rtrim($output)) ?: [], fn (string $line): bool => $line !== ''));
 
             $steps[] = [
                 'key' => $step->step->value,
@@ -151,10 +161,10 @@ final class ThreadNoticeData
                     RestoreStepStatus::Succeeded, RestoreStepStatus::Skipped => 'done',
                     RestoreStepStatus::Failed => 'failed',
                 },
-                'error' => $step->error,
+                'error' => $error,
                 'durationSeconds' => $step->started_at !== null && $step->finished_at !== null ? (float) $step->started_at->diffInSeconds($step->finished_at, true) : null,
                 'outputTail' => array_slice($lines, -5),
-                'exitCode' => $step->error !== null && preg_match('/exit code (\d+)/i', $step->error, $match) === 1 ? (int) $match[1] : null,
+                'exitCode' => $error !== null && preg_match('/exit code (\d+)/i', $error, $match) === 1 ? (int) $match[1] : null,
             ];
         }
 
