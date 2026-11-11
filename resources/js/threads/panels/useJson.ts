@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
 
 /** Fetches a JSON endpoint and exposes a `reload` that refetches without clearing the shown data. */
 export function useJson<T>(url: string): { data: T | null; isLoading: boolean; error: string | null; reload: () => void } {
@@ -9,13 +10,7 @@ export function useJson<T>(url: string): { data: T | null; isLoading: boolean; e
 
     useEffect(() => {
         const controller = new AbortController();
-        fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: controller.signal })
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(`Request failed (${response.status})`);
-                }
-                return response.json() as Promise<T>;
-            })
+        fetchJsonWithRetry<T>(url, { signal: controller.signal })
             .then((body) => {
                 setData(body);
                 setError(null);

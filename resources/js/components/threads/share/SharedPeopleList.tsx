@@ -1,6 +1,7 @@
 import { Button } from '@geocodio/console-ui';
 import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useState } from 'react';
+import { fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
 import { csrfToken } from '@/lib/csrfToken';
 import { show, update } from '@/routes/threads/share';
 import type { ThreadShareState } from '@/types/thread-share';
@@ -16,8 +17,7 @@ export function SharedPeopleList({ thread }: { thread: ThreadData }) {
     const [hasRemoveFailed, setHasRemoveFailed] = useState(false);
 
     const load = useCallback(() => {
-        fetch(show.url(thread.id), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
-            .then((response) => (response.ok ? (response.json() as Promise<ThreadShareState>) : Promise.reject(new Error(String(response.status)))))
+        fetchJsonWithRetry<ThreadShareState>(show.url(thread.id))
             .then(setState)
             .catch(() => setState(null));
     }, [thread.id]);

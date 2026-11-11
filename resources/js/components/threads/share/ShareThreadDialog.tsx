@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { Button, Checkbox, Dialog } from '@geocodio/console-ui';
 import { AlertCircle, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
 import { csrfToken } from '@/lib/csrfToken';
 import { show, update } from '@/routes/threads/share';
 import type { ThreadShareMode, ThreadShareState } from '@/types/thread-share';
@@ -23,8 +24,7 @@ export function ShareThreadDialog({ thread, onClose }: { thread: ThreadData; onC
 
     const load = useCallback(() => {
         setHasLoadFailed(false);
-        fetch(show.url(thread.id), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
-            .then((response) => (response.ok ? (response.json() as Promise<ThreadShareState>) : Promise.reject(new Error(String(response.status)))))
+        fetchJsonWithRetry<ThreadShareState>(show.url(thread.id))
             .then((loaded) => { setState(loaded); setMode(loaded.mode); setUserIds(loaded.userIds); })
             .catch(() => setHasLoadFailed(true));
     }, [thread.id]);
