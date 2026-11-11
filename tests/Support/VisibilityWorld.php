@@ -3,12 +3,15 @@
 namespace Tests\Support;
 
 use App\Enums\ThreadVisibility;
+use App\Models\Artifact;
 use App\Models\BranchDeployment;
+use App\Models\PrReview;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * One private thread with a child, tasks, a run, a preview deployment and an
@@ -44,6 +47,10 @@ class VisibilityWorld
     public BranchDeployment $deployment;
 
     public TaskAttachment $attachment;
+
+    public Artifact $artifact;
+
+    public PrReview $prReview;
 
     public int $missingId = 999_999;
 
@@ -94,6 +101,12 @@ class VisibilityWorld
             'branch_name' => self::BRANCH,
         ]);
         $world->attachment = TaskAttachment::factory()->create(['yak_task_id' => $world->task->id]);
+        $world->artifact = Artifact::factory()->create(['yak_task_id' => $world->task->id, 'filename' => 'shot.png', 'disk_path' => 'private/shot.png']);
+        $world->prReview = PrReview::factory()->create(['yak_task_id' => $world->task->id, 'repo' => self::REPO, 'pr_number' => 77]);
+
+        Storage::fake('artifacts');
+        Storage::disk('artifacts')->put($world->artifact->disk_path, 'png');
+        Storage::disk('artifacts')->put($world->attachment->disk_path, 'png');
 
         return $world;
     }
