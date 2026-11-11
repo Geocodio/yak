@@ -48,6 +48,15 @@ class ThreadDriversCommand extends Command
         return self::SUCCESS;
     }
 
+    private function trim(StreamEntry $entry, ThreadDriver $driver): void
+    {
+        try {
+            $driver->trimAfterAck($entry);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+    }
+
     /**
      * One entry never blocks the others: a failure is reported and counted,
      * and the third failure fails the thread's turn and dead-letters the entry.
@@ -57,6 +66,7 @@ class ThreadDriversCommand extends Command
         try {
             $driver->handle($entry);
             $streams->ack($entry);
+            $this->trim($entry, $driver);
         } catch (Throwable $exception) {
             report($exception);
 

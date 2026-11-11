@@ -50,6 +50,7 @@ it('retries a failing entry then dead letters it and keeps going', function () {
         $failed[] = $entry->id;
     });
     $driver->shouldReceive('tick');
+    $driver->shouldReceive('trimAfterAck');
     app()->instance(ThreadDriver::class, $driver);
 
     foreach (range(1, 3) as $pass) {
@@ -78,6 +79,7 @@ it('isolates one thread from another', function () {
         $handled[] = $entry->id;
     });
     $driver->shouldReceive('tick');
+    $driver->shouldReceive('trimAfterAck');
     app()->instance(ThreadDriver::class, $driver);
 
     $this->artisan('yak:thread-drivers --once')->assertSuccessful();

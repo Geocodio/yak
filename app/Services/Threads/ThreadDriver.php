@@ -4,12 +4,34 @@ namespace App\Services\Threads;
 
 use App\Agents\StreamEventHandler;
 use App\DataTransferObjects\StreamEntry;
+use App\DataTransferObjects\TurnTrackerChange;
+use App\Enums\AccountFailure;
+use App\Enums\ClaudeAccountStatus;
 use App\Enums\RunnerState;
+use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadLockHolder;
+use App\Enums\ThreadSessionKind;
+use App\Enums\ThreadStatus;
+use App\Enums\TurnMessageState;
+use App\Enums\TurnState;
 use App\Events\RunnerExited;
 use App\Events\ThreadActivity;
+use App\Events\TurnCompleted;
+use App\Events\TurnFailed;
+use App\Events\TurnStarted;
+use App\Models\PendingSteeringMessage;
+use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadSession;
+use App\Models\ThreadTurnMessage;
+use App\Services\ClaudeAccounts\AccountConcurrency;
+use App\Services\TaskLogger;
+use App\Services\Threads\Contracts\BrokerStreams;
 use App\Support\SecretRedactor;
+use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Applies broker stream entries to threads. Each entry runs in one transaction
@@ -29,6 +51,11 @@ class ThreadDriver
         private readonly ThreadCommands $commands,
         private readonly YakToolRouter $tools, // @phpstan-ignore property.onlyWritten
         private readonly SecretRedactor $redactor,
+        private readonly BrokerStreams $streams,
+        private readonly AccountConcurrency $concurrency,
+        private readonly RunawayGuard $guard,
+        private readonly ThreadSandbox $sandbox,
+        private readonly SessionSync $sessions,
     ) {}
 
     public function handle(StreamEntry $entry): void
@@ -62,12 +89,122 @@ class ThreadDriver
     /**
      * Fails the running turn of the thread an entry belongs to.
      */
-    public function failTurnOf(StreamEntry $entry): void {}
+    public function failTurnOf(StreamEntry $entry): void
+    {
+        if (! str_starts_with($entry->channel, 'threads:')) {
+            return;
+        }
+
+        $this->withLockedThread((int) substr($entry->channel, strlen('threads:')), function (Thread $thread, array &$events): void {
+            $run = ThreadTurns::runningTurn($thread);
+
+            if ($run !== null) {
+                $this->finishTurn($thread, $run, TurnState::Failed, $events);
+            }
+        });
+    }
 
     /**
-     * Periodic work between reads.
+     * Periodic work between reads: re-announces turn ends whose event was never
+     * dispatched, ends turns whose grace window closed and stops runaway turns.
+     * Each step is isolated so one bad turn cannot starve the rest.
      */
-    public function tick(): void {}
+    public function tick(): void
+    {
+        TaskRun::query()
+            ->whereNotNull('thread_id')
+            ->whereIn('turn_state', [TurnState::Completed, TurnState::Failed, TurnState::StoppedByGuard])
+            ->whereNull('completion_event_emitted_at')
+            ->get()
+            ->each(fn (TaskRun $run) => $this->isolated(fn () => $this->dispatchAll([$this->endEventFor($run)])));
+
+        TaskRun::query()
+            ->whereNotNull('thread_id')
+            ->where('turn_state', TurnState::Running)
+            ->get()
+            ->each(fn (TaskRun $run) => $this->isolated(fn () => $this->tickTurn($run)));
+    }
+
+    /**
+     * Trims the channel's outbound stream to the catch-up window, never past
+     * the entry that was just acknowledged.
+     */
+    public function trimAfterAck(StreamEntry $entry): void
+    {
+        $cutoff = now()->subMinutes((int) config('yak.threads.stream_catchup_minutes'))->getTimestampMs() . '-0';
+
+        [$cutoffMs, $cutoffSequence] = array_map('intval', explode('-', $cutoff));
+        [$entryMs, $entrySequence] = array_map('intval', explode('-', $entry->id) + [1 => 0]);
+
+        $this->streams->trimBefore($entry->channel, [$cutoffMs, $cutoffSequence] > [$entryMs, $entrySequence] ? $entry->id : $cutoff);
+    }
+
+    private function tickTurn(TaskRun $run): void
+    {
+        $this->withLockedThread((int) $run->thread_id, function (Thread $thread, array &$events) use ($run): void {
+            $run = ThreadTurns::runningTurn($thread);
+
+            if ($run === null) {
+                return;
+            }
+
+            $tracker = $this->trackerFor($run);
+            $this->isolated(function () use ($thread, $run, $tracker, &$events): void {
+                $this->applyChange($thread, $run, $tracker, $tracker->tick(CarbonImmutable::now()), $events);
+            });
+
+            $reason = $run->refresh()->getAttribute('turn_state') === TurnState::Running
+                ? $this->guard->check($run, CarbonImmutable::now(), (int) $run->getAttribute('assistant_turns'))
+                : null;
+
+            if ($reason !== null) {
+                $this->commands->interrupt($thread);
+
+                if ($run->task !== null) {
+                    TaskLogger::warning($run->task, 'turn_stopped_by_guard', ['reason' => $reason]);
+                }
+
+                $this->finishTurn($thread, $run, TurnState::StoppedByGuard, $events);
+            }
+        });
+    }
+
+    /**
+     * Runs the work in one transaction with the thread row locked, then fires
+     * the collected events.
+     *
+     * @param  Closure(Thread, list<object>): void  $work
+     */
+    private function withLockedThread(int $threadId, Closure $work): void
+    {
+        /** @var list<object> $events */
+        $events = [];
+
+        DB::transaction(function () use ($threadId, $work, &$events): void {
+            $thread = Thread::query()->lockForUpdate()->find($threadId);
+
+            if ($thread === null) {
+                return;
+            }
+
+            $work($thread, $events);
+            $thread->save();
+        });
+
+        $this->dispatchAll($events);
+    }
+
+    /**
+     * @param  Closure(): void  $step
+     */
+    private function isolated(Closure $step): void
+    {
+        try {
+            $step();
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+    }
 
     private function isNew(Thread $thread, StreamEntry $entry): bool
     {
@@ -114,6 +251,10 @@ class ThreadDriver
             ($this->handlers[$run->id] ??= new StreamEventHandler($run->task))->handle($line);
         }
 
+        if ($run !== null) {
+            $this->applyToTurn($thread, $run, $line, CarbonImmutable::now(), $events);
+        }
+
         $events[] = new ThreadActivity($thread, $entry->generation, $entry->sequence, $line);
     }
 
@@ -131,8 +272,18 @@ class ThreadDriver
                 return;
             }
 
+            $endedForGood = ThreadTurns::activeTurn($thread) === null
+                && ($thread->runner_state === RunnerState::Stopping || $thread->status === ThreadStatus::Closed);
+
             $thread->forceFill(['runner_state' => RunnerState::None]);
             $this->commands->revokePlaceholder($thread);
+
+            if ($endedForGood) {
+                $events[] = function () use ($entry): void {
+                    $this->streams->delete($entry->channel);
+                    $this->streams->unregister($entry->channel);
+                };
+            }
             $events[] = new RunnerExited($thread, $generation, isset($line['exit_code']) ? (int) $line['exit_code'] : null);
         }
 
@@ -140,12 +291,183 @@ class ThreadDriver
     }
 
     /**
+     * Fires events after the commit. A turn end is marked emitted only once its
+     * event went out, so a crash in between re-dispatches it from tick(); a
+     * closure is follow-up work that must not break the dispatch.
+     *
      * @param  list<object>  $events
      */
     private function dispatchAll(array $events): void
     {
         foreach ($events as $event) {
+            if ($event instanceof Closure) {
+                $this->isolated($event);
+
+                continue;
+            }
+
             event($event);
+
+            if ($event instanceof TurnCompleted || $event instanceof TurnFailed) {
+                TaskRun::query()->whereKey($event->run->id)->whereNull('completion_event_emitted_at')->update(['completion_event_emitted_at' => now()]);
+            }
         }
+    }
+
+    private function endEventFor(TaskRun $run): object
+    {
+        return $run->getAttribute('turn_state') === TurnState::Completed ? new TurnCompleted($run) : new TurnFailed($run);
+    }
+
+    /**
+     * Feeds one runner line to the turn's tracker and applies what it reports.
+     *
+     * @param  array<string, mixed>  $line
+     * @param  list<object>  $events
+     */
+    private function applyToTurn(Thread $thread, TaskRun $run, array $line, CarbonImmutable $at, array &$events): void
+    {
+        $tracker = $this->trackerFor($run);
+        $type = $line['type'] ?? null;
+
+        if ($type === 'assistant') {
+            $run->setAttribute('assistant_turns', (int) $run->getAttribute('assistant_turns') + 1);
+        }
+
+        if ($type === 'system' && ($line['subtype'] ?? null) === 'init' && isset($line['session_id'])) {
+            $run->setAttribute('session_id', (string) $line['session_id']);
+            ThreadSession::query()->firstOrCreate(
+                ['thread_id' => $thread->id, 'session_id' => (string) $line['session_id']],
+                ['kind' => ThreadSessionKind::Main],
+            );
+        }
+
+        $this->applyChange($thread, $run, $tracker, $tracker->apply($line, $at), $events);
+    }
+
+    private function trackerFor(TaskRun $run): TurnTracker
+    {
+        $stored = $run->getAttribute('tracker_state');
+        $state = is_string($stored) ? json_decode($stored, true) : null;
+
+        return is_array($state) && $state !== []
+            ? TurnTracker::fromState($state)
+            : app()->make(TurnTracker::class, ['graceSeconds' => (int) config('yak.threads.turn_grace_seconds')]);
+    }
+
+    /**
+     * @param  list<object>  $events
+     */
+    private function applyChange(Thread $thread, TaskRun $run, TurnTracker $tracker, TurnTrackerChange $change, array &$events): void
+    {
+        $run->setAttribute('tracker_state', json_encode($tracker->state(), JSON_THROW_ON_ERROR));
+        $run->setAttribute('recorded_cost_usd', round((float) $run->getAttribute('recorded_cost_usd') + $change->costDeltaUsd, 4));
+
+        foreach ($change->uuidStates as $uuid => $state) {
+            $this->moveMessage($run, (string) $uuid, $state);
+
+            if ($state === TurnMessageState::Started && (string) $uuid === (string) $run->getAttribute('prompt_uuid') && $run->agent_started_at === null) {
+                $run->forceFill(['agent_started_at' => now(), 'turn_state' => TurnState::Running]);
+                $thread->forceFill(['runner_state' => RunnerState::Busy]);
+                $events[] = new TurnStarted($run);
+            }
+        }
+
+        $run->save();
+
+        $reason = $change->failure === null ? null : $this->blockReasonFor($change->failure);
+
+        if ($reason !== null) {
+            $thread->forceFill(['blocked_reason' => $reason, 'blocked_at' => now()]);
+
+            if ($change->failure === AccountFailure::AuthFailed) {
+                $thread->claudeAccount?->forceFill(['status' => ClaudeAccountStatus::Invalid])->save();
+            }
+
+            $this->commands->interrupt($thread);
+            $this->finishTurn($thread, $run, TurnState::Failed, $events);
+
+            return;
+        }
+
+        if ($change->ended && ! $change->waitingOnBackgroundTask) {
+            $this->finishTurn($thread, $run, TurnState::Completed, $events);
+        }
+    }
+
+    private function moveMessage(TaskRun $run, string $uuid, TurnMessageState $state): void
+    {
+        $message = ThreadTurnMessage::query()->where('task_run_id', $run->id)->where('uuid', $uuid)->first();
+
+        if ($message === null) {
+            return;
+        }
+
+        $message->forceFill(['state' => $state])->save();
+
+        $column = match ($state) {
+            TurnMessageState::Queued => 'delivered_at',
+            TurnMessageState::Started => 'absorbed_at',
+            default => null,
+        };
+
+        if ($column !== null && $message->pending_steering_message_id !== null) {
+            PendingSteeringMessage::query()->whereKey($message->pending_steering_message_id)->whereNull($column)->update([$column => now()]);
+        }
+    }
+
+    /**
+     * The one place an account failure becomes a thread block reason; null
+     * means the failure is transient and the turn carries on.
+     */
+    private function blockReasonFor(AccountFailure $failure): ?ThreadBlockReason
+    {
+        return match ($failure) {
+            AccountFailure::AuthFailed => ThreadBlockReason::AccountInvalid,
+            AccountFailure::UsageLimit => ThreadBlockReason::UsageLimit,
+            AccountFailure::TransientRateLimit => null,
+        };
+    }
+
+    /**
+     * Ends the running turn exactly once: only the call that wins the
+     * conditional transition releases the lock and the account slot and
+     * announces the end.
+     *
+     * @param  list<object>  $events
+     */
+    private function finishTurn(Thread $thread, TaskRun $run, TurnState $to, array &$events): bool
+    {
+        $changed = TaskRun::query()
+            ->whereKey($run->id)
+            ->where('turn_state', TurnState::Running)
+            ->update(['turn_state' => $to, 'finished_at' => now()]);
+
+        if ($changed !== 1) {
+            return false;
+        }
+
+        $run->refresh();
+        $account = $run->claudeAccount;
+
+        if ($account !== null) {
+            $this->concurrency->release($account, $run);
+        }
+
+        $thread->forceFill([
+            'lock_holder' => ThreadLockHolder::None,
+            'lock_turn_id' => null,
+            'runner_state' => RunnerState::Idle,
+            'last_activity_at' => now(),
+        ]);
+        unset($this->handlers[$run->id]);
+
+        $events[] = $to === TurnState::Completed ? new TurnCompleted($run) : new TurnFailed($run);
+        $events[] = function () use ($thread): void {
+            $this->isolated(fn () => $this->sessions->syncFromSandbox($thread));
+            $this->isolated(fn () => $this->sandbox->pauseIfIdle($thread));
+        };
+
+        return true;
     }
 }
