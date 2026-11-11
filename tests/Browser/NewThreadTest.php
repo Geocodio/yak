@@ -13,7 +13,8 @@ it('starts a thread with the account and model pickers', function () {
     $this->actingAs($user);
 
     visit(route('threads.new'))
-        ->assertSee('What should Yak work on?')
+        ->assertAttribute('[data-testid="start-thread-description"]', 'placeholder', 'What should Yak do? Say what is wrong or what you want, and where to look if you know.')
+        ->assertDontSee('What should Yak work on?')
         ->type('[data-testid="start-thread-description"]', 'Fix the flaky checkout test')
         ->click('[aria-label="Claude account"]')
         ->click('Spare')

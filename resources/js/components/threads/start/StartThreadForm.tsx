@@ -1,5 +1,5 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { Button, Kbd, Menu, cn } from '@geocodio/console-ui';
+import { BrandMarkIcon, Button, Kbd, Menu, cn } from '@geocodio/console-ui';
 import { ChevronDown, Search, Wrench } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
@@ -10,6 +10,7 @@ import { RunsOnStrip } from './RunsOnStrip';
 import { StartHints } from './StartHints';
 import { RepositoryPicker } from './RepositoryPicker';
 import { RepositoryProgress } from './RepositoryProgress';
+import { YAK_MARK } from '@/lib/brand';
 import { show, store } from '@/routes/threads';
 import { claudeAccounts } from '@/routes/settings';
 import type { SharedProps } from '@/types/shared';
@@ -98,22 +99,26 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
         <div data-testid="start-thread-form">
             <div className="relative overflow-hidden rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
                 <AttachmentDropOverlay draft={draft} />
-                <AttachmentTextarea
-                    ref={editorRef}
-                    draft={draft}
-                    rows={5}
-                    autoFocus={autoFocus}
-                    placeholder="What should Yak do? Say what is wrong or what you want, and where to look if you know."
-                    value={form.data.description}
-                    onValueChange={(value) => form.setData('description', value)}
-                    onKeyDown={onKeyDown}
-                    onPaste={draft.onPaste}
-                    aria-invalid={errors.description ? true : undefined}
-                    className="w-full resize-none border-0 shadow-none focus:ring-0"
-                    data-testid="start-thread-description"
-                />
+                <div className="flex items-start gap-3 px-[18px] pb-2 pt-4">
+                    <BrandMarkIcon mark={YAK_MARK} size={26} className="mt-[3px] shrink-0" />
+                    <AttachmentTextarea
+                        ref={editorRef}
+                        draft={draft}
+                        rows={5}
+                        autoFocus={autoFocus}
+                        placeholder="What should Yak do? Say what is wrong or what you want, and where to look if you know."
+                        value={form.data.description}
+                        onValueChange={(value) => form.setData('description', value)}
+                        onKeyDown={onKeyDown}
+                        onPaste={draft.onPaste}
+                        aria-invalid={errors.description ? true : undefined}
+                        wrapperClassName="min-w-0 flex-1"
+                        className="min-h-24 w-full resize-none rounded-none border-0 bg-transparent px-0 py-0 text-[16px] leading-[1.55] shadow-none outline-none hover:border-0 focus:shadow-none focus:ring-0"
+                        data-testid="start-thread-description"
+                    />
+                </div>
                 <DraftAttachments draft={draft} errors={errors} progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null} onOpenMedia={() => {}} />
-                <div className="flex flex-wrap items-center gap-2 border-t border-hair px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2 border-t border-hair py-2.5 pl-[18px] pr-3">
                     <Menu
                         aria-label="Repository"
                         disabled={noRepos}

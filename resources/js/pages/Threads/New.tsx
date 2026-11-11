@@ -9,8 +9,7 @@ export default function New({ repos, picker, defaultRepo }: PageProps<NewThreadP
     return (
         <>
             <Head title="New thread" />
-            <div className="mx-auto w-full max-w-[720px] px-4 py-12 sm:px-8" data-testid="new-thread-page">
-                <h1 className="mb-6 text-[22px] font-semibold text-body">What should Yak work on?</h1>
+            <div className="mx-auto w-full max-w-[660px] px-4 py-12 sm:px-8" data-testid="new-thread-page">
                 <StartThreadForm repos={repos} picker={picker} defaultRepo={defaultRepo} autoFocus />
             </div>
         </>
