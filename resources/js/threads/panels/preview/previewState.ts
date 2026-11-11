@@ -44,3 +44,8 @@ export function addressFor(baseUrl: string, path: string): string {
 
     return new URL(normalized, baseUrl).toString();
 }
+
+/** No `allow-top-navigation*`: the framed app and its popups cannot navigate the dashboard. */
+export const previewSandbox = 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads';
+
+export const previewReferrerPolicy = 'no-referrer';

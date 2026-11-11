@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { csrfToken } from '@/lib/csrfToken';
-import { heartbeat, restore, status as statusRoute } from '@/routes/threads/preview';
+import { heartbeat, restore, status as statusRoute, warm } from '@/routes/threads/preview';
 import type { ThreadPreviewState } from '@/types/threads';
 import { isTransitional } from './previewState';
 
 const POLL_MILLISECONDS = 2_000;
 const HEARTBEAT_MILLISECONDS = 60_000;
+const WARM_MILLISECONDS = 10_000;
 
 export type PreviewStatus = {
     state: ThreadPreviewState;
@@ -58,6 +59,22 @@ export function usePreviewStatus(threadId: number, initial: Initial): { status: 
             clearInterval(interval);
         };
     }, [threadId, shouldPoll, restoring]);
+
+    const isWaking = isTransitional(status.state);
+
+    useEffect(() => {
+        if (!isWaking) {
+            return;
+        }
+
+        const requestWarm = () => {
+            void fetch(warm.url(threadId), { method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': csrfToken(), Accept: 'application/json' } }).catch(() => undefined);
+        };
+        requestWarm();
+        const interval = setInterval(requestWarm, WARM_MILLISECONDS);
+
+        return () => clearInterval(interval);
+    }, [threadId, isWaking]);
 
     const isReady = status.state === 'ready';
 

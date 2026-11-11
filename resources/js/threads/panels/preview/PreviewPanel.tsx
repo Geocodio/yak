@@ -7,7 +7,7 @@ import { PreviewStateCard } from './PreviewStateCard';
 import { PreviewToolbar } from './PreviewToolbar';
 import { SafariFallback } from './SafariFallback';
 import { TargetSwitcher } from './TargetSwitcher';
-import { addressFor, isDesktopSafari, isTransitional, type DeviceWidth } from './previewState';
+import { addressFor, isDesktopSafari, type DeviceWidth } from './previewState';
 import { usePreviewStatus } from './usePreviewStatus';
 import type { ThreadPreviewState } from '@/types/threads';
 
@@ -49,22 +49,16 @@ export function PreviewPanel({ thread, canDrive }: PanelProps) {
                     <PreviewFrame src={address} device={device} reloadKey={reloadKey} title={`Preview of ${target.title}`} />
                 )
             ) : (
-                <>
-                    <PreviewStateCard
-                        state={status.state}
-                        preview={preview}
-                        canDrive={canDrive}
-                        canRestore={target.canRestore}
-                        log={status.log}
-                        error={status.error}
-                        isRestoring={restoring}
-                        onRestore={requestRestore}
-                    />
-                    {isTransitional(status.state) && baseUrl !== null && (
-                        // Loading the address is what wakes the sandbox; the card above shows progress meanwhile.
-                        <iframe src={baseUrl} title="Waking the preview" aria-hidden="true" tabIndex={-1} className="hidden" data-testid="preview-wake-probe" />
-                    )}
-                </>
+                <PreviewStateCard
+                    state={status.state}
+                    preview={preview}
+                    canDrive={canDrive}
+                    canRestore={target.canRestore}
+                    log={status.log}
+                    error={status.error}
+                    isRestoring={restoring}
+                    onRestore={requestRestore}
+                />
             )}
 
             <p className="flex shrink-0 items-center justify-between gap-3 border-t border-hair px-3 py-2 text-[11.5px] text-muted">

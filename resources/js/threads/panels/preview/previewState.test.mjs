@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { addressFor, isDesktopSafari, isTransitional, stepStatuses, widthFor } from './previewState.ts';
+import { readFileSync } from 'node:fs';
+import { addressFor, previewReferrerPolicy, previewSandbox, isDesktopSafari, isTransitional, stepStatuses, widthFor } from './previewState.ts';
 
 const macSafari = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
 const macChrome = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -38,4 +39,19 @@ test('the address keeps the host and takes the typed path', () => {
     assert.equal(addressFor('https://t-abc.yak.example.com/', '/orders/1042?x=1'), 'https://t-abc.yak.example.com/orders/1042?x=1');
     assert.equal(addressFor('https://t-abc.yak.example.com/', 'orders'), 'https://t-abc.yak.example.com/orders');
     assert.equal(addressFor('https://t-abc.yak.example.com/', '//evil.test/x'), 'https://t-abc.yak.example.com/evil.test/x');
+});
+
+test('the sandbox keeps the app working but blocks top navigation', () => {
+    assert.equal(previewSandbox, 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads');
+    assert.equal(previewSandbox.includes('allow-top-navigation'), false);
+    assert.equal(previewReferrerPolicy, 'no-referrer');
+});
+
+test('the frame applies the sandbox and the panel has no probe frame', () => {
+    const frame = readFileSync(new URL('./PreviewFrame.tsx', import.meta.url), 'utf8');
+    const panel = readFileSync(new URL('./PreviewPanel.tsx', import.meta.url), 'utf8');
+    assert.ok(frame.includes('sandbox={previewSandbox}'));
+    assert.ok(frame.includes('referrerPolicy={previewReferrerPolicy}'));
+    assert.equal(panel.includes('<iframe'), false);
+    assert.equal(panel.includes('preview-wake-probe'), false);
 });
