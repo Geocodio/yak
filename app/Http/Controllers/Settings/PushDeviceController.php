@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StorePushDeviceRequest;
 use App\Models\PushDevice;
 use App\Models\User;
-use App\Notifications\PushTestNotification;
+use App\Services\Push\PushTestNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;

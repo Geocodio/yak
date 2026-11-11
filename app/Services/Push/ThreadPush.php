@@ -4,7 +4,6 @@ namespace App\Services\Push;
 
 use App\Models\Thread;
 use App\Models\User;
-use App\Notifications\ThreadPushNotification;
 use App\Services\Threads\ThreadNotificationGuard;
 use Throwable;
 

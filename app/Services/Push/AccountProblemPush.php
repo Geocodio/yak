@@ -3,7 +3,6 @@
 namespace App\Services\Push;
 
 use App\Models\ClaudeAccount;
-use App\Notifications\ThreadPushNotification;
 use Throwable;
 
 /**

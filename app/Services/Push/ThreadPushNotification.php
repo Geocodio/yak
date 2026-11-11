@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Notifications;
+namespace App\Services\Push;
 
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
