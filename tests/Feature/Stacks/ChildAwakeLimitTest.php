@@ -2,6 +2,9 @@
 
 use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
+use App\Events\ThreadSandboxSlotFreed;
+use App\Events\TurnCompleted;
+use App\Events\TurnFailed;
 use App\Models\ClaudeAccount;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -101,3 +104,22 @@ it('requires drive access', function () {
 
     expect($root->fresh()->child_awake_limit)->toBe(3);
 });
+
+it('starts the oldest queued child when a slot frees through the listener events', function (string $eventClass) {
+    awakeChildren($this->parent, 3);
+    $oldest = spawnAndStart($this->parent, 'fourth', ThreadKind::Implement);
+    $newest = spawnAndStart($this->parent, 'fifth', ThreadKind::Implement);
+    $oldest->update(['queued_for_slot_at' => now()->subMinute()]);
+
+    $finished = Thread::query()->where('parent_thread_id', $this->parent->id)->where('sandbox_state', ThreadSandboxState::Running)->first();
+    $finished->update(['sandbox_state' => ThreadSandboxState::Destroyed]);
+
+    $event = $eventClass === ThreadSandboxSlotFreed::class
+        ? new ThreadSandboxSlotFreed($finished)
+        : new $eventClass(TaskRun::factory()->create(['thread_id' => $finished->id]));
+    event($event);
+
+    expect($oldest->fresh()->queued_for_slot_at)->toBeNull()
+        ->and(TaskRun::query()->where('thread_id', $oldest->id)->exists())->toBeTrue()
+        ->and($newest->fresh()->queued_for_slot_at)->not->toBeNull();
+})->with([ThreadSandboxSlotFreed::class, TurnCompleted::class, TurnFailed::class]);
