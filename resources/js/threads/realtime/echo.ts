@@ -13,14 +13,14 @@ function xsrfToken(): string {
 export function getEcho(): Echo<'reverb'> {
     if (instance === null) {
         const isSecure = window.location.protocol === 'https:';
-        const port = Number(window.location.port) || (isSecure ? 443 : 80);
+        const port = Number(import.meta.env.VITE_REVERB_PORT) || Number(window.location.port) || (isSecure ? 443 : 80);
 
         (window as unknown as { Pusher: typeof Pusher }).Pusher = Pusher;
 
         instance = new Echo({
             broadcaster: 'reverb',
             key: import.meta.env.VITE_REVERB_APP_KEY,
-            wsHost: window.location.hostname,
+            wsHost: import.meta.env.VITE_REVERB_HOST || window.location.hostname,
             wsPort: port,
             wssPort: port,
             forceTLS: isSecure,
@@ -28,6 +28,8 @@ export function getEcho(): Echo<'reverb'> {
             authEndpoint: '/broadcasting/auth',
             auth: { headers: { 'X-XSRF-TOKEN': xsrfToken(), Accept: 'application/json' } },
         });
+        // Conventional global handle; browser tests drive the connection through it.
+        (window as unknown as { Echo: unknown }).Echo = instance;
     }
 
     return instance;

@@ -1,5 +1,5 @@
 import type { ThreadMessage } from '@/types/threads';
-import type { ConversationItem } from './realtimeStub';
+import type { ConversationItem } from './conversationItem';
 
 export type ConversationEntry = { type: 'person'; message: ThreadMessage; pending: boolean } | { type: 'event'; item: ConversationItem };
 
@@ -23,20 +23,21 @@ function sameTime(a: ThreadMessage, b: ThreadMessage): number {
  * - messages and items are de-duplicated (by uuid or id, and by item key);
  * - an unread message is greyed and sits at the end;
  * - a read message with `readAfterSequence` follows the last event up to that sequence;
- * - a message read live (no sequence yet) follows the answer, at the end of the events;
+ * - a message read live follows the event at its `readSequences` entry, or the answer when none is known, at the end of the events;
  * - a message the server already marks read without a sequence is earlier history and keeps send order at the top.
  */
-export function mergeConversation(messages: ThreadMessage[], readUuids: string[], items: ConversationItem[]): ConversationEntry[] {
+export function mergeConversation(messages: ThreadMessage[], readUuids: string[], items: ConversationItem[], readSequences: Record<string, number> = {}): ConversationEntry[] {
     const live = new Set(readUuids);
     const unique = new Map<string, ThreadMessage>();
     messages.forEach((message) => unique.set(message.uuid ?? message.id, message));
 
     const visible = [...unique.values()].filter((message) => message.state !== 'cancelled').sort(sameTime);
     const isRead = (message: ThreadMessage) => message.state === 'read' || (message.uuid !== null && live.has(message.uuid));
+    const anchorOf = (message: ThreadMessage): number | null => message.readAfterSequence ?? (message.uuid === null ? null : (readSequences[message.uuid] ?? null));
 
     const history = visible.filter((message) => message.state === 'read' && message.readAfterSequence === null);
-    const anchored = visible.filter((message) => isRead(message) && message.readAfterSequence !== null).sort((a, b) => a.readAfterSequence! - b.readAfterSequence!);
-    const justRead = visible.filter((message) => isRead(message) && message.state !== 'read' && message.readAfterSequence === null);
+    const anchored = visible.filter((message) => isRead(message) && anchorOf(message) !== null).sort((a, b) => anchorOf(a)! - anchorOf(b)!);
+    const justRead = visible.filter((message) => isRead(message) && message.state !== 'read' && anchorOf(message) === null);
     const pending = visible.filter((message) => !isRead(message));
 
     const events = new Map<string, ConversationItem>();
@@ -49,7 +50,7 @@ export function mergeConversation(messages: ThreadMessage[], readUuids: string[]
 
     ordered.forEach((item) => {
         entries.push({ type: 'event', item });
-        while (next < anchored.length && anchored[next].readAfterSequence! <= item.sequence) {
+        while (next < anchored.length && anchorOf(anchored[next])! <= item.sequence) {
             entries.push(person(anchored[next++], false));
         }
     });

@@ -10,7 +10,7 @@ import { mergeConversation, useConversation } from './useConversation';
 import { PersonMessage } from './PersonMessage';
 import { ThreadNotice } from './ThreadNotice';
 import { ToolActivity } from './ToolActivity';
-import type { ConversationItem } from './realtimeStub';
+import type { ConversationItem } from './conversationItem';
 
 // Browser tests drive the pure merge through this hook.
 Object.assign(window, { __mergeConversation: mergeConversation, __createReadTracker: createReadTracker });
@@ -24,7 +24,7 @@ function EventRow({ item }: { item: ConversationItem }) {
 }
 
 export function Conversation({ threadId, messages, notice, readonly }: { threadId: number; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean }) {
-    const { entries } = useConversation(threadId, messages);
+    const { entries, lastSequence, connection } = useConversation(threadId, messages);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     let previousDay = '';
@@ -55,6 +55,13 @@ export function Conversation({ threadId, messages, notice, readonly }: { threadI
                         </Fragment>
                     );
                 })}
+                <span
+                    hidden
+                    data-testid="thread-event-state"
+                    data-last-sequence={lastSequence}
+                    data-status={connection}
+                    data-item-keys={entries.flatMap((entry) => (entry.type === 'event' ? [entry.item.key] : [])).join(',')}
+                />
                 {notice && <ThreadNotice notice={notice} threadId={threadId} readonly={readonly} />}
             </div>
             <MediaLightbox media={lightboxMedia} index={lightboxIndex} onOpenChange={(open) => !open && setLightboxMedia(null)} onIndexChange={setLightboxIndex} />

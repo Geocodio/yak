@@ -10,9 +10,9 @@ use App\Models\YakTask;
 /**
  * The pure merge is exposed as window.__mergeConversation for these checks.
  */
-function threadMergeScript(string $messages, string $readUuids, string $items): string
+function threadMergeScript(string $messages, string $readUuids, string $items, string $readSequences = '{}'): string
 {
-    return "JSON.stringify(window.__mergeConversation({$messages}, {$readUuids}, {$items}).map(e => e.type === 'person' ? e.message.uuid + (e.pending ? '?' : '') : e.item.key))";
+    return "JSON.stringify(window.__mergeConversation({$messages}, {$readUuids}, {$items}, {$readSequences}).map(e => e.type === 'person' ? e.message.uuid + (e.pending ? '?' : '') : e.item.key))";
 }
 
 function threadMergePage(): mixed
@@ -45,6 +45,16 @@ it('places a read message at readAfterSequence and a live read one after the ans
     $live = str_replace(["'a'", "'m-a'"], ["'b'", "'m-b'"], $person);
     $items = '[' . implode(',', array_map($event, [1, 2, 3])) . ']';
     threadMergePage()->assertScript(threadMergeScript("[{$anchored},{$live}]", "['b']", $items), '["i1","i2","a","i3","b"]');
+});
+
+it('places a live read message where Claude read it', function () use ($person, $event) {
+    $items = '[' . implode(',', array_map($event, [1, 2, 3])) . ']';
+    threadMergePage()->assertScript(threadMergeScript("[{$person}]", "['a']", $items, '{a: 2}'), '["i1","i2","a","i3"]');
+});
+
+it('keeps a second result in the same turn', function () {
+    $results = "[{kind:'result', key:'result:4', sequence:4, role:'assistant', text:'one'}, {kind:'result', key:'result:7', sequence:7, role:'assistant', text:'two'}]";
+    threadMergePage()->assertScript(threadMergeScript('[]', '[]', $results), '["result:4","result:7"]');
 });
 
 it('keeps an unread message greyed at the end', function () use ($person, $event) {

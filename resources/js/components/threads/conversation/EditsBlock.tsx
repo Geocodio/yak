@@ -1,4 +1,4 @@
-import type { ConversationItem } from './realtimeStub';
+import type { ConversationItem } from './conversationItem';
 
 export function EditsBlock({ item }: { item: ConversationItem }) {
     const files = item.files ?? [];
