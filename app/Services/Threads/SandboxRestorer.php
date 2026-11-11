@@ -9,6 +9,7 @@ use App\Enums\ThreadSandboxState;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\ThreadRestoreStep;
+use App\Services\Datasets\DatasetAvailability;
 use App\Services\Datasets\DatasetClones;
 use App\Services\IncusSandboxManager;
 use App\Services\Threads\Contracts\SandboxManager;
@@ -205,7 +206,7 @@ class SandboxRestorer
         preg_match_all('/^\$ (.+)$/m', $refreshOutput, $matches);
         $setupRan = ($steps[RestoreStepName::RunSetupScript->value]->status ?? null) === RestoreStepStatus::Succeeded;
 
-        $this->note->write($thread, $this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha));
+        $this->note->write($thread, $this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha, DatasetAvailability::forThread($thread)));
 
         return true;
     }
