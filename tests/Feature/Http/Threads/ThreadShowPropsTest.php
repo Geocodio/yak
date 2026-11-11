@@ -11,7 +11,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 it('exposes messages, composer and notice props', function () {
     $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]);
     $task = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Fix the bug']);
-    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id]);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => 'completed']);
     ThreadTurnMessage::factory()->create(['task_run_id' => $run->id]);
 
     $this->actingAs(User::factory()->create())->get("/threads/{$thread->id}")->assertOk()->assertInertia(fn (Assert $page) => $page
