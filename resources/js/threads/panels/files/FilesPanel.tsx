@@ -1,8 +1,10 @@
-import { cn } from '@geocodio/console-ui';
-import { FileCode2 } from 'lucide-react';
+import { Button, cn } from '@geocodio/console-ui';
+import { usePage } from '@inertiajs/react';
+import { ChevronRight, FileCode2, X } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { csrfToken } from '@/lib/csrfToken';
 import type { PanelProps } from '@/threads/panels';
+import type { SharedProps } from '@/types/shared';
 import type { FileContentData, FileEntryData, FileScope } from '@/types/thread-files';
 import { ConflictCompare } from './ConflictCompare';
 import { EditorNotices } from './EditorNotices';
@@ -29,6 +31,9 @@ export default function FilesPanel({ thread, canDrive }: PanelProps) {
     const [savingPath, setSavingPath] = useState<string | null>(null);
     const scopes = canDrive ? SCOPES : SCOPES.filter((entry) => entry.id === 'repo');
     const working = thread.runnerState === 'busy';
+    const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
+    const [isNoticeDismissed, setIsNoticeDismissed] = useState(false);
+    const [savedNote, setSavedNote] = useState<string | null>(null);
 
     const save = async (path: string, overwrite = false) => {
         const file = files.openFiles.find((entry) => entry.path === path);
@@ -47,6 +52,7 @@ export default function FilesPanel({ thread, canDrive }: PanelProps) {
             const body = (await response.json().catch(() => ({}))) as { state?: string; file?: FileContentData };
             if (response.status === 200 && body.file) {
                 files.rebase(path, { ...body.file, content });
+                setSavedNote(working ? `You edited ${path}. Claude reads the change at its next step.` : null);
                 setConflicts(({ [path]: _cleared, ...rest }) => rest);
                 setComparing((current) => ({ ...current, [path]: false }));
             } else if (response.status === 409 && body.state === 'conflict' && body.file) {
@@ -88,7 +94,7 @@ export default function FilesPanel({ thread, canDrive }: PanelProps) {
                         </button>
                     ))}
                 </div>
-                {unavailable === null && <FileBrowser tree={tree} activePath={files.activePath} onOpen={(entry: FileEntryData) => files.open(scope, entry.path)} />}
+                {unavailable === null && <FileBrowser repoName={thread.repo.split('/').pop() ?? thread.repo} tree={tree} activePath={files.activePath} onOpen={(entry: FileEntryData) => files.open(scope, entry.path)} />}
                 {scope === 'sandbox' && unavailable === null && (
                     <p className="border-t border-hair px-3 py-2 text-[12px] text-muted">System folders are read only. You can change anything under your home folder and the workspace.</p>
                 )}
@@ -105,47 +111,75 @@ export default function FilesPanel({ thread, canDrive }: PanelProps) {
                         <p className="max-w-sm text-[13px] text-muted">
                             The browser shows the whole sandbox, not only the repository. Files Claude changed in this thread have a dot. Edits you save are shown to Claude at its next step.
                         </p>
+                        <a href={docsUrl} target="_blank" rel="noreferrer" className="text-[12.5px] underline" data-testid="files-docs-link">
+                            What you can do here
+                        </a>
                     </div>
                 ) : (
                     <>
                         {!canDrive && <FileStates state="read_only_viewer" canDrive={canDrive} thread={thread} />}
                         {active.isTooLarge ? (
-                            <FileStates state="too_large" canDrive={canDrive} thread={thread} />
+                            <FileStates state="too_large" canDrive={canDrive} thread={thread} file={{ name: active.path.split('/').pop() ?? active.path, size: active.size }} />
                         ) : active.isBinary ? (
                             <FileStates state="binary" canDrive={canDrive} thread={thread} />
                         ) : (
                             <>
-                                <p className="truncate border-b border-hair px-4 py-2 font-mono text-[12px] text-muted" data-testid="files-open-path">
-                                    {active.path}
-                                </p>
+                                <div className="flex items-center gap-3 border-b border-hair px-4 py-2">
+                                    <p className="flex min-w-0 flex-1 items-center gap-1 truncate font-mono text-[12px] text-muted" data-testid="files-open-path">
+                                        {active.path.split('/').map((segment, index) => (
+                                            <span key={index} className="flex items-center gap-1">
+                                                {index > 0 && <ChevronRight size={11} aria-hidden />}
+                                                {segment}
+                                            </span>
+                                        ))}
+                                    </p>
+                                    {active.canEdit && (
+                                        <>
+                                            <span className="text-[12px] text-muted">Cmd+S</span>
+                                            <Button
+                                                variant="primary"
+                                                data-testid="file-save"
+                                                disabled={(drafts[active.path] ?? active.content) === active.content || savingPath === active.path}
+                                                onClick={() => save(active.path)}
+                                            >
+                                                {savingPath === active.path ? 'Saving' : 'Save'}
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
                                 <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-hair px-2 pt-2" data-testid="files-open-tabs">
                                     {files.openFiles.map((file) => (
-                                        <button
-                                            key={file.path}
-                                            type="button"
-                                            role="tab"
-                                            aria-selected={file.path === active.path}
-                                            onClick={() => files.setActive(file.path)}
-                                            className={cn('flex h-7 items-center gap-1.5 rounded-t-md px-2.5 text-[12px]', file.path === active.path ? 'bg-sidebar font-medium text-body' : 'text-muted')}
-                                        >
-                                            {file.path.split('/').pop()}
-                                            {(drafts[file.path] ?? file.content) !== file.content && <span className="size-1.5 rounded-full bg-primary" data-testid="file-unsaved-dot" />}
-                                        </button>
+                                        <div key={file.path} className={cn('flex h-7 items-center rounded-t-md text-[12px]', file.path === active.path ? 'bg-sidebar font-medium text-body' : 'text-muted')}>
+                                            <button type="button" role="tab" aria-selected={file.path === active.path} onClick={() => files.setActive(file.path)} className="flex h-7 items-center gap-1.5 pr-1 pl-2.5">
+                                                {file.path.split('/').pop()}
+                                                {(drafts[file.path] ?? file.content) !== file.content && <span className="size-1.5 rounded-full bg-primary" data-testid="file-unsaved-dot" />}
+                                            </button>
+                                            <button type="button" aria-label={`Close ${file.path}`} data-testid="file-tab-close" onClick={() => files.close(file.path)} className="flex size-5 items-center justify-center rounded text-muted">
+                                                <X size={11} />
+                                            </button>
+                                        </div>
                                     ))}
                                 </div>
-                                <EditorNotices working={working} hasConflict={conflicts[active.path] !== undefined} />
+                                {!isNoticeDismissed && <EditorNotices working={working} hasConflict={conflicts[active.path] !== undefined} onDismiss={() => setIsNoticeDismissed(true)} />}
+                                {savedNote !== null && (
+                                    <p className="border-b border-hair bg-sidebar px-4 py-2 text-[12px] text-muted" data-testid="editor-saved-note">
+                                        {savedNote}
+                                    </p>
+                                )}
                                 {conflicts[active.path] && (
-                                    <div className="flex flex-wrap items-center gap-2 border-b border-hair bg-sidebar px-4 py-2 text-[12px]" role="alert" data-testid="editor-conflict-banner">
-                                        <span className="mr-auto font-medium text-body">Claude changed this file while you were editing</span>
-                                        <button type="button" className="h-7 rounded-md border border-hair px-2.5" onClick={() => save(active.path, true)}>
+                                    <div className="flex flex-wrap items-center gap-2 border-b border-hair bg-warn-soft px-4 py-3 text-[12px]" role="alert" data-testid="editor-conflict-banner">
+                                        <span className="mr-auto min-w-0 text-body">
+                                            Claude saved {active.path.split('/').pop()} after you opened it. Your edit is still here, nothing was overwritten. Saving yours replaces Claude's change.
+                                        </span>
+                                        <Button variant="primary" onClick={() => save(active.path, true)}>
                                             Save mine anyway
-                                        </button>
-                                        <button type="button" data-testid="conflict-compare-btn" className="h-7 rounded-md border border-hair px-2.5" onClick={() => setComparing((current) => ({ ...current, [active.path]: !current[active.path] }))}>
+                                        </Button>
+                                        <Button variant="secondary" data-testid="conflict-compare-btn" onClick={() => setComparing((current) => ({ ...current, [active.path]: !current[active.path] }))}>
                                             Compare the two
-                                        </button>
-                                        <button type="button" className="h-7 rounded-md border border-hair px-2.5" onClick={() => loadTheirs(active.path)}>
+                                        </Button>
+                                        <Button variant="secondary" onClick={() => loadTheirs(active.path)}>
                                             Load Claude's version
-                                        </button>
+                                        </Button>
                                     </div>
                                 )}
                                 {comparing[active.path] && conflicts[active.path] ? (
@@ -156,7 +190,6 @@ export default function FilesPanel({ thread, canDrive }: PanelProps) {
                                             file={active}
                                             draft={drafts[active.path] ?? active.content ?? ''}
                                             canEdit={active.canEdit}
-                                            isSaving={savingPath === active.path}
                                             onDraftChange={(content) => setDrafts((current) => ({ ...current, [active.path]: content }))}
                                             onSave={() => save(active.path)}
                                         />

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Threads;
 
+use App\Enums\DiffFileStatus;
 use App\Enums\FileScope;
 use App\Enums\RunnerState;
 use App\Enums\ThreadLockHolder;
@@ -44,10 +45,15 @@ class ThreadFileController extends Controller
         $this->sandbox->touch($thread);
 
         $changedPaths = [];
+        $addedPaths = [];
 
         foreach (ThreadDiffData::build($thread)['diff']['files'] ?? [] as $file) {
             if ($file['repo'] === $thread->repo) {
                 $changedPaths[] = $file['path'];
+
+                if ($file['status'] === DiffFileStatus::Added->value) {
+                    $addedPaths[] = $file['path'];
+                }
             }
         }
 
@@ -56,6 +62,7 @@ class ThreadFileController extends Controller
             'entries' => array_map(fn ($entry) => $entry->toArray(), $entries),
             'root' => SandboxPath::resolveDirectory($thread, $scope, $directory),
             'changedPaths' => $scope === FileScope::Repository ? $changedPaths : [],
+            'addedPaths' => $scope === FileScope::Repository ? $addedPaths : [],
         ]);
     }
 

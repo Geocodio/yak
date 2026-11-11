@@ -54,6 +54,9 @@ it('opens a file, edits it and saves with Cmd+S', function () {
     $page = openFilesPanel($this, $thread);
 
     $page->assertPresent('[data-testid="file-editor"]')
+        ->assertPresent('[data-testid="files-status-bar"]')
+        ->assertSeeIn('[data-testid="file-language"]', 'Plain text')
+        ->assertPresent('[data-testid="file-tab-close"]')
         ->click('[data-testid="file-editor"] .cm-content')
         ->keys('[data-testid="file-editor"] .cm-content', 'x')
         ->assertSeeIn('[data-testid="file-save-state"]', 'Unsaved')
@@ -69,7 +72,10 @@ it('tells the person Claude is told about their edits while Claude works', funct
     $page = openFilesPanel($this, $thread);
 
     $page->assertPresent('[data-testid="editor-working-notice"]')
-        ->assertSeeIn('[data-testid="editor-told-line"]', 'Claude is told about your edits');
+        ->assertSeeIn('[data-testid="editor-told-line"]', 'Claude gets a note listing the files you save')
+        ->assertPresent('[data-testid="editor-notice-dismiss"]')
+        ->click('[data-testid="editor-notice-dismiss"]')
+        ->assertMissing('[data-testid="editor-working-notice"]');
 });
 
 it('shows a conflict banner and a read-only compare after an external change', function () {

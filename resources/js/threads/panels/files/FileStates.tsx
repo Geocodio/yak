@@ -3,6 +3,8 @@ import { router } from '@inertiajs/react';
 import { FileWarning, Lock, MonitorSmartphone, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { CommandBlock } from '@/components/threads/teleport/CommandBlock';
+import { formatBytes } from '@/lib/format';
+import { dockHashFor } from '@/threads/dock/dockState';
 import type { ThreadData } from '@/types/threads';
 
 export type FileStateKind = 'on_device' | 'destroyed' | 'closed_destroyed' | 'waking' | 'too_large' | 'binary' | 'read_only_viewer';
@@ -17,9 +19,9 @@ function Frame({ kind, icon, title, children }: { kind: FileStateKind; icon: Rea
     );
 }
 
-type Props = { state: FileStateKind; canDrive: boolean; thread: ThreadData; canRestore?: boolean; restoring?: boolean; waitingForSlot?: boolean };
+type Props = { state: FileStateKind; canDrive: boolean; thread: ThreadData; canRestore?: boolean; restoring?: boolean; waitingForSlot?: boolean; file?: { name: string; size: number } };
 
-export function FileStates({ state, canDrive, thread, canRestore, restoring, waitingForSlot }: Props) {
+export function FileStates({ state, canDrive, thread, canRestore, restoring, waitingForSlot, file }: Props) {
     switch (state) {
         case 'on_device':
             return (
@@ -56,8 +58,19 @@ export function FileStates({ state, canDrive, thread, canRestore, restoring, wai
             );
         case 'too_large':
             return (
-                <Frame kind="too_large" icon={<FileWarning size={20} />} title="This file is too large to edit">
-                    <p>Files over 1 MB open in the terminal, not here.</p>
+                <Frame kind="too_large" icon={<FileWarning size={20} />} title="Too large to edit in the browser">
+                    <p className="mb-3">
+                        {file ? `${file.name} is ${formatBytes(file.size)}. ` : ''}The editor opens files up to 1 MB.
+                    </p>
+                    <Button
+                        variant="secondary"
+                        onClick={() => {
+                            window.location.hash = dockHashFor('terminal');
+                        }}
+                        data-testid="files-open-in-terminal"
+                    >
+                        Open in the terminal
+                    </Button>
                 </Frame>
             );
         case 'binary':

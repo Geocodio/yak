@@ -34,6 +34,7 @@ it('lists a folder for a person who can drive and marks changed files', function
     $thread = filesThread();
     $diff = ThreadDiff::factory()->for($thread)->create(['files_count' => 1]);
     ThreadDiffFile::factory()->for($diff, 'diff')->create(['path' => 'src/a.ts']);
+    ThreadDiffFile::factory()->for($diff, 'diff')->create(['path' => 'src/new.ts', 'status' => 'added']);
     $this->sandboxes->queueExecResult(Process::result("d\t0\tsrc\0f\t5\ta.txt\0"));
 
     $this->actingAs($this->owner)->getJson(route('threads.files.tree', [$thread, 'scope' => 'repo']))
@@ -41,7 +42,8 @@ it('lists a folder for a person who can drive and marks changed files', function
         ->assertJsonPath('state', 'ready')
         ->assertJsonPath('root', '/workspace/widgets')
         ->assertJsonPath('entries.0.name', 'src')
-        ->assertJsonPath('changedPaths', ['src/a.ts']);
+        ->assertJsonPath('changedPaths', ['src/a.ts', 'src/new.ts'])
+        ->assertJsonPath('addedPaths', ['src/new.ts']);
 });
 
 it('lets a viewer read the repository tree and a file but not edit or browse the sandbox', function () {

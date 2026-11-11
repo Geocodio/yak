@@ -2,6 +2,7 @@ import { TextInput } from '@geocodio/console-ui';
 import { Search } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import type { FileEntryData } from '@/types/thread-files';
+import { changeLetterFor } from './changeLetter';
 import { FileTreeNode } from './FileTreeNode';
 import type { FileTree } from './useFileTree';
 
@@ -9,9 +10,11 @@ type Props = {
     tree: FileTree;
     activePath: string | null;
     onOpen: (entry: FileEntryData) => void;
+    /** Folder name of the thread's repository, tagged in the whole-sandbox tree. */
+    repoName: string;
 };
 
-export function FileBrowser({ tree, activePath, onOpen }: Props) {
+export function FileBrowser({ tree, activePath, onOpen, repoName }: Props) {
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
     const [filter, setFilter] = useState('');
 
@@ -44,7 +47,8 @@ export function FileBrowser({ tree, activePath, onOpen }: Props) {
                     depth={depth}
                     isExpanded={isOpen}
                     isActive={entry.path === activePath}
-                    changeLetter={tree.changedPaths.includes(entry.path) ? 'M' : null}
+                    changeLetter={changeLetterFor(entry.path, tree)}
+                    isRepository={entry.isDirectory && entry.path.endsWith(`/workspace/${repoName}`)}
                     onToggle={toggle}
                     onOpen={onOpen}
                 />,

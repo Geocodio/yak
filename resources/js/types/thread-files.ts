@@ -27,6 +27,7 @@ export type FileTreeResponse = {
     entries?: FileEntryData[];
     root?: string;
     changedPaths?: string[];
+    addedPaths?: string[];
     canRestore?: boolean;
     waitingForSlot?: boolean;
     restoring?: boolean;
