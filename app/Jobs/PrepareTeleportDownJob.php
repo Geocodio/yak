@@ -37,7 +37,7 @@ class PrepareTeleportDownJob implements ShouldQueue
             }
         } catch (Throwable $exception) {
             $isKnown = $exception instanceof TeleportError || $exception instanceof SandboxCommandFailed;
-            $teleports->fail($teleport->refresh(), 'teleport_failed', $isKnown ? $exception->getMessage() : 'Preparing the thread for your computer failed.');
+            $teleports->fail($teleport->refresh(), $exception instanceof TeleportError ? $exception->errorCode : 'teleport_failed', $isKnown ? $exception->getMessage() : 'Preparing the thread for your computer failed.');
             report($exception);
         }
     }

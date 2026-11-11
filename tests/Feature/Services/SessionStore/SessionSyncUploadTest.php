@@ -160,3 +160,15 @@ it('keeps the root thread on the -workspace project directory', function () {
 
     expect($this->store->length($this->thread, $this->sid, $this->rel))->toBe(4);
 });
+
+it('reports a checkpoint mismatch instead of passing silently', function () {
+    $this->sandboxes->disks[$this->thread->id] = ["{$this->dir}/{$this->rel}" => "one\n"];
+    app(SessionSync::class)->syncFromSandbox($this->thread);
+    $this->sandboxes->disks[$this->thread->id]["{$this->dir}/{$this->rel}"] .= "two\n";
+
+    expect(app(SessionSync::class)->checkpointMatches($this->thread, $this->sid, $this->rel))->toBeFalse();
+
+    app(SessionSync::class)->syncFromSandbox($this->thread);
+
+    expect(app(SessionSync::class)->checkpointMatches($this->thread, $this->sid, $this->rel))->toBeTrue();
+});

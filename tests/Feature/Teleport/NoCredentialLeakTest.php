@@ -9,6 +9,7 @@ use App\Models\Repository;
 use App\Models\Teleport;
 use App\Models\Thread;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\SessionStore\SessionStore;
 use App\Services\Teleport\BranchHeadVerifier;
 use App\Services\Teleport\Teleports;
 use App\Services\Threads\Contracts\SandboxManager;
@@ -39,6 +40,7 @@ class LeakScriptedSandbox extends FakeSandboxManager
         return match (true) {
             str_contains($line, 'status --porcelain') => Process::result(output: " M app.php\n"),
             str_contains($line, 'rev-list') => Process::result(output: "0\n"),
+            str_contains($line, 'sha256sum') => Process::result(output: hash('sha256', app(SessionStore::class)->read($thread, LEAK_SESSION, LEAK_SESSION . '.jsonl')) . "  file\n"),
             str_contains($line, 'rev-parse HEAD') => Process::result(output: LEAK_HEAD . "\n"),
             default => Process::result(),
         };

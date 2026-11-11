@@ -66,8 +66,21 @@ class SessionSync
         }
 
         foreach ($appended as $relativePath => $sessionId) {
-            $this->checkpoint($thread, $directory, $sessionId, $relativePath);
+            $this->checkpointMatches($thread, $sessionId, $relativePath);
         }
+    }
+
+    /**
+     * True only when the sandbox file's sha256 is readable and equals the
+     * stored file, which the store then records as checkpointed.
+     */
+    public function checkpointMatches(Thread $thread, string $sessionId, string $relativePath): bool
+    {
+        $directory = $this->projectDirectory($thread);
+        $result = $this->sandboxes->exec($thread, ['bash', '-c', 'sha256sum ' . escapeshellarg("{$directory}/{$relativePath}")]);
+        $hash = strtok(trim($result->output()), ' ');
+
+        return $result->successful() && $hash !== false && $this->store->checkpoint($thread, $sessionId, $relativePath, $hash);
     }
 
     /**
@@ -219,16 +232,6 @@ class SessionSync
 
         if (! $known) {
             $this->store->putImmutable($thread, $sessionId, $relativePath, $this->readFrom($thread, "{$directory}/{$relativePath}", 0, $size));
-        }
-    }
-
-    private function checkpoint(Thread $thread, string $directory, string $sessionId, string $relativePath): void
-    {
-        $result = $this->sandboxes->exec($thread, ['bash', '-c', 'sha256sum ' . escapeshellarg("{$directory}/{$relativePath}")]);
-        $hash = strtok(trim($result->output()), ' ');
-
-        if ($result->successful() && $hash !== false) {
-            $this->store->checkpoint($thread, $sessionId, $relativePath, $hash);
         }
     }
 
