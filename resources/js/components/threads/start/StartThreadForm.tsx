@@ -2,12 +2,12 @@ import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { Button, Kbd, Menu, cn } from '@geocodio/console-ui';
 import { ChevronDown, Search, Wrench } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
-import { AccountPicker } from '@/components/accounts/AccountPicker';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
-import { ModelPicker } from '@/components/threads/composer/ModelPicker';
 import { repoInitials } from './repoInitials';
+import { RunsOnStrip } from './RunsOnStrip';
+import { StartHints } from './StartHints';
 import { RepositoryPicker } from './RepositoryPicker';
 import { RepositoryProgress } from './RepositoryProgress';
 import { show, store } from '@/routes/threads';
@@ -96,7 +96,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
 
     return (
         <div data-testid="start-thread-form">
-            <div className="relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
+            <div className="relative overflow-hidden rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
                 <AttachmentDropOverlay draft={draft} />
                 <AttachmentTextarea
                     ref={editorRef}
@@ -167,6 +167,18 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                         </Button>
                     </div>
                 </div>
+                <RunsOnStrip
+                    picker={picker}
+                    accountId={form.data.claude_account_id}
+                    onAccountChange={(id) => form.setData('claude_account_id', id)}
+                    model={effectiveModel}
+                    onModelChange={(model) => form.setData('model', model)}
+                    disabled={noAccounts || form.processing}
+                    accountsHelpUrl={`${docs.baseUrl.replace(/\/$/, '')}/claude-accounts/`}
+                    defaultLabel={defaultAccount ? `${defaultAccount.name} (default)` : 'Default account'}
+                    defaultAccount={defaultAccount}
+                />
+                <StartHints isResearch={isResearch} />
             </div>
 
             {startedThreadId !== null ? (
@@ -201,22 +213,6 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                 )
             )}
 
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted" data-testid="start-thread-runs-on">
-                <span>Runs on</span>
-                <AccountPicker
-                    label="Claude account"
-                    value={form.data.claude_account_id}
-                    accounts={picker.accounts}
-                    onChange={(id) => form.setData('claude_account_id', id)}
-                    disabled={noAccounts || form.processing}
-                    defaultLabel={defaultAccount ? `${defaultAccount.name} (default)` : 'Default account'}
-                    defaultAccount={defaultAccount}
-                    className="h-7 min-w-[160px]"
-                />
-                <span>with</span>
-                <ModelPicker models={picker.models} value={effectiveModel} onChange={(model) => form.setData('model', model)} disabled={noAccounts || form.processing} />
-            </div>
-
             {noAccounts && (
                 <p className="mt-3 text-[12.5px] text-fail" role="alert" data-testid="start-thread-no-accounts">
                     No usable Claude account. <Link href={claudeAccounts.url()} className="underline">Connect one in Settings</Link>, or ask an admin to set up a shared account.
@@ -232,12 +228,6 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                     {error}
                 </p>
             )}
-
-            <p className="mt-4 text-[12px] text-muted">
-                <a href={docs.baseUrl} target="_blank" rel="noreferrer" className="underline">
-                    How threads work
-                </a>
-            </p>
         </div>
     );
 }

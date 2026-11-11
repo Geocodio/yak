@@ -64,3 +64,17 @@ it('still submits with Cmd/Ctrl+Enter', function (string $chord) {
         ->keys('[data-testid="start-thread-description"]', $chord)
         ->assertPathBeginsWith('/threads/');
 })->with(['Meta+Enter', 'Control+Enter']);
+
+it('shows How accounts work and the mode hint', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->assertSee('How accounts work')
+        ->assertSee('Yak makes the change and opens a pull request for you to review.')
+        ->assertSee('Type @ to pick a repo.')
+        ->click('[data-testid="start-mode-research"]')
+        ->assertSee('No pull request.');
+});
