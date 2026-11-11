@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskRunOutcome;
 use App\Enums\TurnState;
+use App\Models\Scopes\VisibleTaskRunScope;
 use Carbon\CarbonImmutable;
 use Database\Factories\TaskRunFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,6 +34,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<string, array{calls: int, errors: int, ms: int}>|null $tool_breakdown
  * @property array<string, int>|null $api_retry_breakdown
  */
+#[ScopedBy(VisibleTaskRunScope::class)]
 class TaskRun extends Model
 {
     /** @use HasFactory<TaskRunFactory> */
