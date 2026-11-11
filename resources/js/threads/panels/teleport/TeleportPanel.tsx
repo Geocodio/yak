@@ -47,13 +47,13 @@ export function TeleportPanel({ thread }: PanelProps) {
             )}
 
             {teleport.canTeleport && teleport.state !== 'teleporting' && (
-                <Button variant="secondary" icon={<Laptop size={14} />} onClick={() => setOpen(true)} data-testid="teleport-button">
+                <Button variant="secondary" icon={<Laptop size={14} />} onClick={() => setOpen(true)} data-testid={onDevice ? 'teleport-up' : 'teleport-button'}>
                     {onDevice ? 'Teleport to Yak' : 'Teleport to your computer'}
                 </Button>
             )}
 
             {onDevice ? (
-                <TeleportToYakDialog teleport={teleport} open={open} onClose={() => setOpen(false)} />
+                <TeleportToYakDialog thread={thread} teleport={teleport} open={open} onClose={() => setOpen(false)} />
             ) : (
                 <TeleportToComputerDialog thread={thread} teleport={teleport} open={open} onClose={() => setOpen(false)} />
             )}
