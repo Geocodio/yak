@@ -12,11 +12,13 @@ use App\Models\YakTask;
 /**
  * Maps a pull request event (repo full name, PR number, branch) to the
  * thread repository row it belongs to. A repo's PR numbers are only unique
- * within that repo, so the repo is always part of the match.
+ * within that repo, so the repo is always part of the match. A branch name
+ * alone never routes: the head commit must be the one Yak pushed, or the head
+ * repository must be the base repository (a fork can reuse a yak/ branch name).
  */
 class ThreadPullRequestRouter
 {
-    public function route(string $repoFullName, ?int $prNumber, ?string $branch): ?RoutedPullRequest
+    public function route(string $repoFullName, ?int $prNumber, ?string $branch, ?string $headSha = null, ?string $headRepositoryFullName = null): ?RoutedPullRequest
     {
         $slug = Repository::resolveFromGitHub(null, $repoFullName)?->slug;
 
@@ -33,10 +35,15 @@ class ThreadPullRequestRouter
                 ?? (clone $rows)->where('pull_request_url', 'like', '%/pull/' . $prNumber)->latest('id')->first();
         }
 
-        if ($row === null && $branch !== null && $branch !== '') {
-            $row = (clone $rows)
+        $isBaseRepositoryHead = $headRepositoryFullName !== null && strcasecmp($headRepositoryFullName, $repoFullName) === 0;
+        $hasPushedHead = $headSha !== null && $headSha !== '';
+
+        if ($row === null && $branch !== null && $branch !== '' && ($hasPushedHead || $isBaseRepositoryHead)) {
+            $branchRows = (clone $rows)
                 ->where('role', '!=', RepositoryRole::Context->value)
-                ->where('branch', $branch)
+                ->where('branch', $branch);
+
+            $row = ($isBaseRepositoryHead ? $branchRows : $branchRows->where('last_pushed_sha', $headSha))
                 ->whereIn('thread_id', Thread::query()->withoutGlobalScopes()->where('status', ThreadStatus::Open)->select('id'))
                 ->latest('id')
                 ->first();

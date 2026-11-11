@@ -6,6 +6,7 @@ use App\Http\Controllers\Threads\ThreadRepositoryProgressController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('threads/new/repository-access', RepositoryAccessController::class)
+    ->middleware('throttle:30,1')
     ->name('threads.repository-access');
 
 Route::get('threads/{thread}/repositories', ThreadRepositoryProgressController::class)

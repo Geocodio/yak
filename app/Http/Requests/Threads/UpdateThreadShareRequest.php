@@ -3,17 +3,25 @@
 namespace App\Http\Requests\Threads;
 
 use App\Enums\ThreadShareMode;
+use App\Models\Thread;
+use App\Services\Threads\ThreadAccess;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class UpdateThreadShareRequest extends FormRequest
 {
     /**
-     * Ownership is decided in the controller, after the visibility check.
+     * A hidden thread answers like a missing one; a visible thread the user
+     * does not own is refused.
      */
     public function authorize(): bool
     {
-        return true;
+        $thread = $this->route('thread');
+
+        abort_unless($thread instanceof Thread && Gate::allows('view', $thread), 404);
+
+        return app(ThreadAccess::class)->isOwner($this->user(), $thread);
     }
 
     /**

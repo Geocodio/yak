@@ -30,6 +30,7 @@ use App\Services\Threads\PullRequests\CiCheckDetails;
 use App\Services\Threads\PullRequests\RepositoryCiRetry;
 use App\Services\Threads\PullRequests\RepositoryTurnPrompts;
 use App\Services\Threads\PullRequests\RoutedPullRequest;
+use App\Services\Threads\PullRequests\SiblingFeedbackGate;
 use App\Services\Threads\PullRequests\ThreadPullRequestRouter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -149,7 +150,13 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'not a yak branch']);
         }
 
-        $routed = $this->routeSiblingEvent($request, $this->checkSuitePullRequestNumbers($request), $branch);
+        $routed = $this->routeSiblingEvent(
+            $request,
+            $this->checkSuitePullRequestNumbers($request),
+            $branch,
+            (string) $request->input('check_suite.head_sha', ''),
+            (string) $request->input('check_suite.head_repository.full_name', ''),
+        );
 
         if ($routed !== null) {
             return $this->handleSiblingCheckSuite($request, $github, $routed);
@@ -208,7 +215,7 @@ class WebhookController extends Controller
      *
      * @param  list<int>  $prNumbers
      */
-    private function routeSiblingEvent(Request $request, array $prNumbers, ?string $branch = null): ?RoutedPullRequest
+    private function routeSiblingEvent(Request $request, array $prNumbers, ?string $branch = null, ?string $headSha = null, ?string $headRepositoryFullName = null): ?RoutedPullRequest
     {
         $repoFullName = (string) $request->input('repository.full_name', '');
 
@@ -219,7 +226,7 @@ class WebhookController extends Controller
         $router = app(ThreadPullRequestRouter::class);
 
         foreach ($prNumbers !== [] ? $prNumbers : [null] as $number) {
-            $routed = $router->route($repoFullName, $number, $branch);
+            $routed = $router->route($repoFullName, $number, $branch, $headSha, $headRepositoryFullName);
 
             if ($routed !== null) {
                 return $routed->isPrimary ? null : $routed;
@@ -328,8 +335,13 @@ class WebhookController extends Controller
             );
         }
 
-        $installationId = (int) config('yak.channels.github.installation_id');
         $repoFullName = (string) $request->input('repository.full_name');
+
+        if (! app(SiblingFeedbackGate::class)->permits($repoFullName, $author)) {
+            return response()->json(['ok' => true, 'skipped' => 'commenter lacks write access']);
+        }
+
+        $installationId = (int) config('yak.channels.github.installation_id');
 
         if ($installationId > 0 && $id > 0 && ! $isReview) {
             $github->addReaction($installationId, $repoFullName, $id, 'eyes', isReviewComment: $isReviewComment);

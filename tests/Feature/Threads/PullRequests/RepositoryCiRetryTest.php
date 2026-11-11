@@ -41,7 +41,8 @@ it('counts failures per repo and dispatches a retry until the limit', function (
     $retry->handleResult($extra, false, 'boom', 'abe');
     $retry->handleResult($other, false, 'boom', 'def');
 
-    Queue::assertPushed(RetryRepositoryCiJob::class, 3);
+    // The second retry of the same row is absorbed by the unique lock.
+    Queue::assertPushed(RetryRepositoryCiJob::class, 2);
     Queue::assertPushed(SendNotificationJob::class, 1);
     expect($extra->refresh()->ci_retry_count)->toBe(2)->and($extra->ci_status)->toBe('failing')
         ->and($other->refresh()->ci_retry_count)->toBe(1);

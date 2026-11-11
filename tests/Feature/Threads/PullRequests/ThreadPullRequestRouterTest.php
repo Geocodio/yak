@@ -41,24 +41,38 @@ it('falls back to the url when the number column is empty', function () {
     expect($this->router->route('acme/api', 12, null)->row->is($row))->toBeTrue();
 });
 
-it('falls back to the branch when the number is unknown', function () {
+it('falls back to the branch when the head commit is the one Yak pushed', function () {
+    $row = ThreadRepository::factory()->for($this->thread)->create(['repo' => 'acme-api', 'branch' => 'yak/fix-it', 'last_pushed_sha' => 'abc123']);
+
+    expect($this->router->route('acme/api', 99, 'yak/fix-it', 'abc123')->row->is($row))->toBeTrue()
+        ->and($this->router->route('acme/api', null, 'yak/fix-it', 'abc123')->row->is($row))->toBeTrue();
+});
+
+it('falls back to the branch when the head repository is the base repository', function () {
     $row = ThreadRepository::factory()->for($this->thread)->create(['repo' => 'acme-api', 'branch' => 'yak/fix-it']);
 
-    expect($this->router->route('acme/api', 99, 'yak/fix-it')->row->is($row))->toBeTrue()
-        ->and($this->router->route('acme/api', null, 'yak/fix-it')->row->is($row))->toBeTrue();
+    expect($this->router->route('acme/api', null, 'yak/fix-it', 'other', 'Acme/API')->row->is($row))->toBeTrue();
+});
+
+it('never routes by branch name alone', function () {
+    ThreadRepository::factory()->for($this->thread)->create(['repo' => 'acme-api', 'branch' => 'yak/fix-it', 'last_pushed_sha' => 'abc123']);
+
+    expect($this->router->route('acme/api', null, 'yak/fix-it'))->toBeNull()
+        ->and($this->router->route('acme/api', null, 'yak/fix-it', 'different'))->toBeNull()
+        ->and($this->router->route('acme/api', null, 'yak/fix-it', 'different', 'evil/api'))->toBeNull();
 });
 
 it('never matches a context row by branch', function () {
     ThreadRepository::factory()->for($this->thread)->context()->create(['repo' => 'acme-web', 'branch' => 'yak/fix-it']);
 
-    expect($this->router->route('acme/web', 5, 'yak/fix-it'))->toBeNull();
+    expect($this->router->route('acme/web', 5, 'yak/fix-it', 'abc', 'acme/web'))->toBeNull();
 });
 
 it('does not branch match a closed thread', function () {
     $closed = Thread::factory()->create(['status' => ThreadStatus::Closed]);
-    ThreadRepository::factory()->for($closed)->create(['repo' => 'acme-api', 'branch' => 'yak/old']);
+    ThreadRepository::factory()->for($closed)->create(['repo' => 'acme-api', 'branch' => 'yak/old', 'last_pushed_sha' => 'abc']);
 
-    expect($this->router->route('acme/api', null, 'yak/old'))->toBeNull();
+    expect($this->router->route('acme/api', null, 'yak/old', 'abc', 'acme/api'))->toBeNull();
 });
 
 it('returns null for an unknown repo', function () {

@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\Repository;
+use App\Models\User;
 use App\Services\Threads\Repos\RepositoryAccess;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\RateLimiter;
 
 beforeEach(function () {
     $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
@@ -52,4 +54,42 @@ it('allows a known repository the installation can reach', function () {
     $result = app(RepositoryAccess::class)->check('acme/docs');
 
     expect($result->allowed)->toBeTrue()->and($result->reason)->toBeNull();
+});
+
+it('answers an unknown and an unreachable slug with the same body and status', function () {
+    Repository::factory()->create(['slug' => 'acme/docs']);
+    Http::fake([
+        'api.github.com/app/installations/42/access_tokens' => Http::response(['token' => 'ghs_x', 'expires_at' => now()->addHour()->toIso8601String()], 201),
+        'api.github.com/repos/acme/docs' => Http::response([], 404),
+    ]);
+    $user = User::factory()->create();
+
+    $unreachable = $this->actingAs($user)->getJson('/threads/new/repository-access?repo=acme/docs');
+    Http::assertSentCount(2);
+    $unknown = $this->actingAs($user)->getJson('/threads/new/repository-access?repo=acme/ghost');
+
+    Http::assertSentCount(2);
+    expect($unknown->status())->toBe($unreachable->status())
+        ->and($unknown->json('allowed'))->toBeFalse()
+        ->and(array_keys($unknown->json()))->toBe(array_keys($unreachable->json()));
+});
+
+it('rejects a malformed repo', function (string $repo) {
+    Http::fake();
+
+    $this->actingAs(User::factory()->create())->getJson('/threads/new/repository-access?repo=' . urlencode($repo))->assertUnprocessable();
+
+    Http::assertNothingSent();
+})->with(['no-slash', 'a/b/c', 'a/b c', '../etc/passwd/x', 'acme/']);
+
+it('throttles repository probing', function () {
+    Http::fake();
+    RateLimiter::clear('x');
+    $user = User::factory()->create();
+
+    foreach (range(1, 30) as $ignored) {
+        $this->actingAs($user)->getJson('/threads/new/repository-access?repo=acme/ghost')->assertOk();
+    }
+
+    $this->actingAs($user)->getJson('/threads/new/repository-access?repo=acme/ghost')->assertStatus(429);
 });

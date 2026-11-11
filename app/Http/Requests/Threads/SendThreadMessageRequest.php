@@ -2,16 +2,14 @@
 
 namespace App\Http\Requests\Threads;
 
+use App\Http\Requests\Concerns\AuthorizesThreadDriving;
 use App\Models\TaskAttachment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class SendThreadMessageRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
+    use AuthorizesThreadDriving;
 
     /** @return array<string, array<int, mixed>> */
     public function rules(): array

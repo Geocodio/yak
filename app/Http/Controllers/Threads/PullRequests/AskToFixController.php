@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Threads\PullRequests;
 
+use App\Enums\ThreadOwnerSide;
 use App\Http\Controllers\Controller;
 use App\Jobs\Threads\RetryRepositoryCiJob;
 use App\Models\Thread;
@@ -24,6 +25,9 @@ class AskToFixController extends Controller
         $row = ThreadRepository::query()->where('thread_id', $thread->id)->whereKey($repository)->first();
 
         abort_if($row === null || ! $row->isChangesRepo() || ! $row->hasOpenPullRequest(), 404);
+        abort_if($thread->owner_side === ThreadOwnerSide::Device, 409, 'Your computer is working on this thread. Hand it back to Yak before asking for a fix.');
+        abort_unless($thread->isOpen(), 409, 'This thread is closed.');
+        abort_unless($row->ci_status === 'failing', 409, 'CI is not failing on this pull request.');
 
         RetryRepositoryCiJob::dispatch($row->id, $this->failureOutput($row));
 
