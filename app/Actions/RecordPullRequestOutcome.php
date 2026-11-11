@@ -6,8 +6,10 @@ use App\Facades\Telemetry;
 use App\Jobs\Deployments\ResolvePreviewRepairJob;
 use App\Models\PreviewRepair;
 use App\Models\PrReview;
+use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\PreviewRepair\PreviewFailureReporter;
+use App\Services\Threads\ThreadCloser;
 use DateTimeInterface;
 
 /**
@@ -65,6 +67,12 @@ class RecordPullRequestOutcome
             }
             $review->update($updates);
         }
+
+        $reason = $merged ? 'pr_merged' : 'pr_closed';
+        $closer = app(ThreadCloser::class);
+
+        Thread::withoutGlobalScopes()->whereIn('id', $tasks->pluck('thread_id')->filter()->unique())
+            ->get()->each(fn (Thread $thread) => $closer->close($thread, $reason));
 
         $root = $tasks->first();
 
