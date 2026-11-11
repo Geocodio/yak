@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\Cli\SessionFileController;
+use App\Http\Controllers\Api\Cli\SshLookupController;
+use App\Http\Controllers\Api\Cli\StackMessageController;
 use App\Http\Controllers\Api\Cli\TeleportController;
 use App\Http\Controllers\Api\Cli\ThreadLookupController;
 use App\Http\Middleware\CliProtocol;
@@ -17,6 +19,10 @@ Route::prefix('api/cli/v1')
         Route::get('teleports/{teleport}', [TeleportController::class, 'show']);
         Route::post('teleports/{teleport}/complete', [TeleportController::class, 'complete']);
         Route::post('teleports/{teleport}/cancel', [TeleportController::class, 'cancel']);
+
+        Route::get('threads/{thread}/stack-messages', [StackMessageController::class, 'index'])->where('thread', '[0-9]+');
+        Route::post('threads/{thread}/stack-messages/ack', [StackMessageController::class, 'ack'])->where('thread', '[0-9]+');
+        Route::get('threads/{thread}/ssh', [SshLookupController::class, 'show'])->where('thread', '[0-9]+');
 
         Route::prefix('threads/{thread}/session')
             ->where(['thread' => '[0-9]+'])

@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Api\Cli;
 
 use App\Enums\TeleportDirection;
 use App\Enums\TeleportState;
-use App\Exceptions\TeleportError;
 use App\Http\Controllers\Api\Cli\Concerns\ResolvesCliThread;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Cli\BeginTeleportRequest;
 use App\Models\Thread;
+use App\Services\Teleport\TeleportDownCompleter;
 use App\Services\Teleport\Teleports;
 use App\Services\Teleport\TeleportUpCompleter;
 use Illuminate\Http\JsonResponse;
@@ -71,13 +71,30 @@ class TeleportController extends Controller
         return response()->json($cancelled->toApi());
     }
 
-    public function complete(Request $request, string $teleport, TeleportUpCompleter $completer): JsonResponse
+    public function complete(Request $request, string $teleport, TeleportUpCompleter $upCompleter, TeleportDownCompleter $downCompleter): JsonResponse
     {
         $device = $this->cliDevice($request);
         $teleportModel = $this->teleports->get($device, $teleport);
 
-        if ($teleportModel->direction !== TeleportDirection::Up) {
-            throw new TeleportError('direction_unavailable', 'Completing a teleport down is not available yet.', 422);
+        if ($teleportModel->direction === TeleportDirection::Down) {
+            $data = $request->validate([
+                'applied' => ['required', 'array', 'min:1', 'max:10'],
+                'applied.*.repo' => ['required', 'string', 'max:200'],
+                'applied.*.status' => ['required', 'in:applied,skipped,failed'],
+                'applied.*.mode' => ['nullable', 'in:fast_forward,stash,worktree,clone'],
+                'applied.*.head_sha' => ['nullable', 'string', 'max:64'],
+                'applied.*.branch' => ['nullable', 'string', 'max:255'],
+                'applied.*.path' => ['nullable', 'string', 'max:500'],
+                'applied.*.reason' => ['nullable', 'string', 'max:500'],
+                'downloaded' => ['present', 'array', 'max:2000'],
+                'downloaded.*.session_id' => ['required', 'string', 'max:64'],
+                'downloaded.*.rel_path' => ['required', 'string', 'max:500'],
+                'downloaded.*.sha256' => ['required', 'string', 'size:64'],
+                'local_session_backup' => ['nullable', 'string', 'max:255'],
+            ]);
+            $result = $downCompleter->complete($device, $teleportModel, $data);
+
+            return response()->json($result['body'], $result['status']);
         }
 
         $data = $request->validate([
@@ -88,7 +105,7 @@ class TeleportController extends Controller
             'message' => ['nullable', 'string', 'max:20000'],
         ]);
 
-        $result = $completer->complete($device, $teleportModel, $data);
+        $result = $upCompleter->complete($device, $teleportModel, $data);
 
         return response()->json($result['body'], $result['status']);
     }

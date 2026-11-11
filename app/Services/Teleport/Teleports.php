@@ -183,13 +183,23 @@ class Teleports
     private function close(Teleport $teleport, TeleportState $state, string $code, ?string $message): void
     {
         DB::transaction(function () use ($teleport, $state, $code, $message): void {
-            $teleport->forceFill(['state' => $state, 'failure_code' => $code, 'failure_message' => $message])->save();
+            $teleport->forceFill(['state' => $state, 'failure_code' => $code, 'failure_message' => $message === null ? null : $this->redact($message)])->save();
 
             Thread::query()->withoutGlobalScopes()->whereKey($teleport->thread_id)->update([
                 'waiting_for_computer_at' => null,
                 'teleport_requested_running_turn' => null,
             ]);
         });
+    }
+
+    /**
+     * Failure text may come from a device or a git error, so tokens and credentials in URLs never reach the row.
+     */
+    private function redact(string $message): string
+    {
+        $message = (string) preg_replace('#(://)[^/\s@]+@#', '$1[redacted]@', $message);
+
+        return (string) preg_replace('/\b(yakdev_|gh[pousr]_|github_pat_)[A-Za-z0-9_]+/', '[redacted]', $message);
     }
 
     /**
