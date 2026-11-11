@@ -13,9 +13,11 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\Threads\Repos\RepositoryAccess;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -27,11 +29,14 @@ class ThreadStarter
     public function __construct(
         private readonly ClaudeAccountResolver $resolver,
         private readonly AgentJobDispatcher $dispatcher,
+        private readonly RepositoryAccess $access,
     ) {}
 
     /**
      * @param  Collection<int, TaskAttachment>  $attachments  already stored, not yet tied to a task
+     * @param  list<array{repo: string, role: string}>  $extraRepositories  research mode treats every extra as context
      *
+     * @throws ValidationException when an extra is the primary, repeated, or not reachable by the GitHub App
      * @throws RuntimeException when no usable account exists, or the chosen one is not the starter's to use
      */
     public function start(
@@ -42,7 +47,10 @@ class ThreadStarter
         ?int $accountId,
         ?string $model,
         Collection $attachments = new Collection,
+        array $extraRepositories = [],
     ): Thread {
+        $this->assertExtrasAllowed($repo, $extraRepositories);
+
         $resolved = $this->resolver->forNewThread($starter, $repo, $accountId, $model);
 
         if ($resolved->account === null) {
@@ -55,7 +63,7 @@ class ThreadStarter
 
         $description = trim($description);
 
-        $task = DB::transaction(function () use ($starter, $repo, $mode, $description, $resolved, $attachments): YakTask {
+        $task = DB::transaction(function () use ($starter, $repo, $mode, $description, $resolved, $attachments, $extraRepositories): YakTask {
             $thread = Thread::query()->create([
                 'name' => Str::slug(Str::limit($description, 40, '')) . '-' . Str::lower(Str::random(6)),
                 'title' => Str::limit(trim((string) strtok($description, "\n")), 120, '...'),
@@ -68,6 +76,17 @@ class ThreadStarter
             ]);
 
             ThreadRepository::query()->create(['thread_id' => $thread->id, 'repo' => $repo, 'role' => RepositoryRole::Primary, 'sandbox_path' => ThreadRepository::sandboxPathFor($repo, RepositoryRole::Primary)]);
+
+            foreach ($extraRepositories as $extra) {
+                $role = $mode === TaskMode::Research ? RepositoryRole::Context : RepositoryRole::from($extra['role']);
+                ThreadRepository::query()->create([
+                    'thread_id' => $thread->id,
+                    'repo' => $extra['repo'],
+                    'role' => $role,
+                    'sandbox_path' => ThreadRepository::sandboxPathFor($extra['repo'], $role),
+                    'added_by' => 'start',
+                ]);
+            }
 
             $task = YakTask::query()->create([
                 'source' => 'dashboard',
@@ -89,5 +108,25 @@ class ThreadStarter
         $this->dispatcher->dispatch($task, RunYakJob::class);
 
         return $task->thread()->firstOrFail();
+    }
+
+    /**
+     * @param  list<array{repo: string, role: string}>  $extraRepositories
+     */
+    private function assertExtrasAllowed(string $primary, array $extraRepositories): void
+    {
+        $seen = [$primary];
+
+        foreach ($extraRepositories as $index => $extra) {
+            $reason = in_array($extra['repo'], $seen, true)
+                ? "{$extra['repo']} is already part of this thread."
+                : $this->access->check($extra['repo'])->reason;
+
+            if ($reason !== null) {
+                throw ValidationException::withMessages(["repositories.{$index}.repo" => $reason]);
+            }
+
+            $seen[] = $extra['repo'];
+        }
     }
 }
