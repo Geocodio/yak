@@ -123,6 +123,11 @@ class YakTask extends Model
         ];
     }
 
+    public function isTeleport(): bool
+    {
+        return $this->source === self::SOURCE_TELEPORT;
+    }
+
     protected static function booted(): void
     {
         static::created(function (YakTask $task): void {

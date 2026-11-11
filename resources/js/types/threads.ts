@@ -28,10 +28,41 @@ export type ThreadData = {
     startedOnDevice: boolean;
 };
 
+export type HeldEventData = {
+    id: number;
+    kind: string;
+    title: string;
+    summary: string;
+    pullRequestUrl: string | null;
+    createdAt: string;
+    isTinted: boolean;
+};
+
+export type TeleportData = {
+    state: 'none' | 'waiting' | 'teleporting' | 'on_device';
+    ownerDevice: { id: number; name: string } | null;
+    ownerName: string | null;
+    since: string | null;
+    viewerIsOwner: boolean;
+    command: string;
+    link: string;
+    hasDevices: boolean;
+    runningTurn: boolean;
+    requestedRunningTurn: 'wait' | 'stop' | null;
+    openTeleportState: string | null;
+    failure: { code: string; message: string } | null;
+    heldEvents: HeldEventData[];
+    environmentNote: string | null;
+    accountName: string | null;
+    continuedFromThreadId: number | null;
+    canTeleport: boolean;
+};
+
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
     canDrive: boolean;
+    teleport: TeleportData;
     publishWarning: boolean;
     messages: ThreadMessage[];
     composer: ThreadComposer;

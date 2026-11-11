@@ -1,11 +1,13 @@
 <?php
 
 use App\Channels\Drone\PollCommand;
+use App\Exceptions\TeleportError;
 use App\Http\Middleware\AuthenticateDevice;
 use App\Http\Middleware\CliProtocol;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
 use App\Http\Middleware\VerifySessionStoreToken;
+use App\Http\Responses\CliError;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -14,6 +16,7 @@ use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -35,6 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'cli.protocol' => CliProtocol::class,
             'auth.device' => AuthenticateDevice::class,
         ]);
+        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: CliProtocol::class);
+        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
         $middleware->validateCsrfTokens(except: ['api/cli/*']);
         $middleware->web(append: [
             HandleInertiaRequests::class,
@@ -77,6 +82,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 'error' => 'rate_limited',
                 'message' => 'Too many requests. Try again shortly.',
             ], 429, $e->getHeaders());
+        });
+        $exceptions->render(function (TeleportError $e, Request $request) {
+            if (! $request->is('api/cli/*')) {
+                return null;
+            }
+
+            return CliError::make($e->errorCode, $e->getMessage(), $e->status, $e->details);
         });
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if (! $request->is('api/cli/*')) {

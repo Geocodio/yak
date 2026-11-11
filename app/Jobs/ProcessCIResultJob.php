@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Console\Commands\TimeoutAwaitingCiCommand;
+use App\Enums\HeldEventKind;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Facades\Telemetry;
@@ -12,10 +13,12 @@ use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\PullRequestFinisher;
 use App\Services\TaskLogger;
+use App\Services\Teleport\HeldEvents;
 use App\Support\TaskContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ProcessCIResultJob implements ShouldQueue
 {
@@ -119,6 +122,10 @@ class ProcessCIResultJob implements ShouldQueue
                     'status' => $this->task->status->value,
                 ]);
 
+                return;
+            }
+
+            if (! $this->passed && app(HeldEvents::class)->holdIfDeviceOwned($this->task, HeldEventKind::CiFailed, 'CI failed on the pull request', Str::limit((string) $this->output, 500), ['commit_sha' => $this->commitSha])) {
                 return;
             }
 

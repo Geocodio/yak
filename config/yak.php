@@ -20,6 +20,12 @@ return [
         'min_protocol' => 1,
     ],
 
+    'teleport' => [
+        'expiry_minutes' => (int) env('YAK_TELEPORT_EXPIRY_MINUTES', 30),
+        'complete_wait_seconds' => (int) env('YAK_TELEPORT_COMPLETE_WAIT_SECONDS', 30),
+        'held_event_tint_hours' => (int) env('YAK_TELEPORT_HELD_EVENT_TINT_HOURS', 24),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Budget Configuration

@@ -20,7 +20,22 @@ class WipPreserver
 
     public function __construct(private SandboxManager $sandboxes) {}
 
+    private const TELEPORT_SUBJECT = 'WIP: teleport to local machine';
+
     public function preserve(Thread $thread): WipResult
+    {
+        return $this->run($thread, $this->message($thread));
+    }
+
+    /**
+     * The same commit and push for a teleport down, always signed with the Yak trailer.
+     */
+    public function preserveForTeleport(Thread $thread): WipResult
+    {
+        return $this->run($thread, self::TELEPORT_SUBJECT . "\n\n" . self::YAK_TRAILER);
+    }
+
+    private function run(Thread $thread, string $message): WipResult
     {
         // A thread without a branch has nowhere to push; nothing is preserved.
         if (blank($thread->branch)) {
@@ -36,7 +51,7 @@ class WipPreserver
 
         if ($isDirty) {
             $this->mustGit($thread, ['add', '-A'], 'add');
-            $this->mustGit($thread, [...$this->identityArguments($thread), 'commit', '-m', $this->message($thread)], 'commit');
+            $this->mustGit($thread, [...$this->identityArguments($thread), 'commit', '-m', $message], 'commit');
         }
 
         $this->push($thread);

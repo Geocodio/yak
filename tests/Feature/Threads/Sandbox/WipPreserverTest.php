@@ -82,6 +82,17 @@ test('teleport threads commit as the person with the co author trailer', functio
         ->and($this->git->git(['log', '-1', '--format=%B', $this->git->branch]))->toContain('Co-authored-by: Yak <yak@geocod.io>');
 });
 
+test('a teleport commit uses the teleport subject, the person and the Yak trailer', function () {
+    $thread = wipThread($this->git, ['git_author_name' => 'Ada Lovelace', 'git_author_email' => 'ada@example.com']);
+    file_put_contents("{$this->git->workspace}/work.txt", 'x');
+
+    app(WipPreserver::class)->preserveForTeleport($thread);
+
+    expect($this->git->git(['log', '-1', '--format=%an <%ae>', $this->git->branch]))->toBe('Ada Lovelace <ada@example.com>')
+        ->and($this->git->git(['log', '-1', '--format=%s', $this->git->branch]))->toBe('WIP: teleport to local machine')
+        ->and($this->git->git(['log', '-1', '--format=%B', $this->git->branch]))->toContain('Co-authored-by: Yak <yak@geocod.io>');
+});
+
 test('threads without a person commit as Yak', function () {
     $thread = wipThread($this->git);
     file_put_contents("{$this->git->workspace}/work.txt", 'x');

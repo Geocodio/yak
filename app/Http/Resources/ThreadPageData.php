@@ -14,6 +14,7 @@ use App\Enums\ThreadVisibility;
 use App\Models\Thread;
 use App\Models\ThreadShare;
 use App\Models\User;
+use App\Services\Teleport\TeleportPageState;
 use App\Services\Threads\ThreadAccess;
 
 /**
@@ -47,6 +48,7 @@ final class ThreadPageData
      *     },
      *     canDrive: bool,
      *     publishWarning: bool,
+     *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, accountName: ?string, continuedFromThreadId: ?int, canTeleport: bool},
      * }
      */
     public static function build(Thread $thread, ?User $viewer): array
@@ -87,6 +89,7 @@ final class ThreadPageData
             ],
             'canDrive' => $access->canDrive($viewer, $thread),
             'publishWarning' => $thread->effectiveVisibility() !== ThreadVisibility::Team,
+            'teleport' => app(TeleportPageState::class)->for($thread, $viewer),
         ];
     }
 }

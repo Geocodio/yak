@@ -15,5 +15,5 @@ class DeviceRevoked
     /**
      * @param  array<int, int>  $handedBackThreadIds
      */
-    public function __construct(public Device $device, public array $handedBackThreadIds) {}
+    public function __construct(public Device $device, public array $handedBackThreadIds = []) {}
 }

@@ -472,3 +472,5 @@ function parallelToken(): string
 
 pest()->group('browser')->in('Browser');
 pest()->group('contract')->in('Contract');
+
+require_once __DIR__ . '/Feature/Teleport/CliTestHelpers.php';
