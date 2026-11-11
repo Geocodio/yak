@@ -151,3 +151,17 @@ Internal endpoints (all JSON):
 Plain text before the SSH banner: while a sandbox is `waiting`, the wake proxy writes `yak: waiting for a free sandbox\r\n` once, then asks again every 2 s until the timeout. RFC 4253 section 4.2 lets a server send lines that do not start with `SSH-` before its version string, so clients show them and carry on. `destroyed`, `closed`, `no_sandbox`, a timeout or an unreachable Yak write one `yak: ...` line and close.
 
 When the state is `ready`, the proxy checks the container name against `^[a-z0-9][a-z0-9-]{0,62}$`, reads its global IPv4 address with `incus query /1.0/instances/<name>/state`, waits up to 20 s for port 22, then copies bytes both ways until either side closes.
+
+## 9. Terminal bridge
+
+`termbridge` (standard library only) serves `GET /terminal/ws?token=<one-time token>[&cols=N&rows=M]` on `YAK_TERMBRIDGE_LISTEN` and `GET /healthz`. It runs the real `ssh` client under a PTY with a fresh ed25519 key that never leaves a 0700 temp directory, and deletes the key when the session ends.
+
+Environment: `YAK_SSH_URL`, `YAK_SSH_TOKEN_FILE` (as in section 8), `YAK_TERMBRIDGE_LISTEN` (default `127.0.0.1:8765`), `YAK_TERMBRIDGE_ORIGINS` (comma list, exact match against the `Origin` header), `SSH_BIN` (ssh binary, default `ssh` from `PATH`).
+
+Gates, all before the upgrade and before any Yak call: method must be GET; the token must be 1 to 128 characters (400); `Origin` must be present and in the allowlist (403). After the upgrade the bridge generates the key and calls `POST /internal/ssh/terminal/redeem {token, public_key, origin}` with the bearer token; any non-200 closes with 4403.
+
+Frames: binary frames carry raw terminal bytes in both directions. Text frames from the browser are JSON control messages: `{"type":"resize","cols":N,"rows":M}` (1 to 500 each) and `{"type":"ping"}`. When ssh exits the bridge sends the text frame `{"type":"exit","code":N}` and then closes with 1000. Client frames must be masked and are capped at 64 KiB.
+
+Close codes: 1000 normal or ssh exited, 1001 absolute lifetime (12 hours) reached or bridge stopping, 1002 protocol error (unmasked frame, bad control frame), 1003 invalid control message, 1009 frame too large, 1011 bridge could not start the session, 4403 token denied, 4408 idle (30 minutes without frames), 4429 too many sessions (4 per thread, 64 overall).
+
+The sandbox is kept awake by the wake proxy's activity calls (section 8) while the ssh connection is open; the bridge makes no activity calls of its own.
