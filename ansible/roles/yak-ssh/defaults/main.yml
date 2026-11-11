@@ -13,6 +13,6 @@ yak_ssh_jump_user: yak-jump
 yak_ssh_lookup_user: yak-ssh-lookup
 yak_ssh_bridge_user: yak-termbridge
 yak_ssh_broker_user: "{{ yak_broker_user | default('yak-broker') }}"
-# CI builds the Go binaries and drops them here; the role never builds.
+# The role builds the Go binaries on the controller and installs them here.
 yak_ssh_bin_dir: /opt/yak/bin
 yak_ssh_config_dir: /etc/ssh/yak-jump

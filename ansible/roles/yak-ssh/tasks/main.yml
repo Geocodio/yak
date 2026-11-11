@@ -34,6 +34,58 @@
     - "{{ yak_ssh_lookup_user }}"
     - "{{ yak_ssh_bridge_user }}"
 
+# Always built on the controller (cached, so fast): a stale broker/dist binary is never installed.
+- name: Build the ssh binaries on the controller
+  ansible.builtin.command:
+    cmd: go build -o {{ playbook_dir }}/../broker/dist/{{ item.binary }} ./{{ item.package }}
+    chdir: "{{ playbook_dir }}/../broker"
+  environment:
+    CGO_ENABLED: "0"
+    GOOS: linux
+    GOARCH: amd64
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  run_once: true
+  loop:
+    - { binary: yak-wakeproxy, package: wakeproxy }
+    - { binary: yak-termbridge, package: termbridge }
+    - { binary: yak-ssh-lookup, package: sshlookup }
+
+- name: Create the ssh binary directory
+  ansible.builtin.file:
+    path: "{{ yak_ssh_bin_dir }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Install the wake proxy binary
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../broker/dist/yak-wakeproxy"
+    dest: "{{ yak_ssh_bin_dir }}/yak-wakeproxy"
+    mode: "0755"
+    owner: root
+    group: root
+  notify: Restart yak-wake
+
+- name: Install the terminal bridge binary
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../broker/dist/yak-termbridge"
+    dest: "{{ yak_ssh_bin_dir }}/yak-termbridge"
+    mode: "0755"
+    owner: root
+    group: root
+  notify: Restart yak-termbridge
+
+- name: Install the key lookup binary
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../broker/dist/yak-ssh-lookup"
+    dest: "{{ yak_ssh_bin_dir }}/yak-ssh-lookup"
+    mode: "0755"
+    owner: root
+    group: root
+
 # Each service reads its own copy, so no token file is shared between users.
 - name: Write the internal token files
   ansible.builtin.copy:

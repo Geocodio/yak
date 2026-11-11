@@ -124,11 +124,17 @@
     - role: redis
       tags: [redis, yak-container]
 
+    - role: yak-broker
+      tags: [yak-broker]
+
     - role: telemetryd
       tags: [telemetryd, yak-container]
 
     - role: yak-container
       tags: [yak-container, yak-app, secrets]
+
+    - role: yak-ssh
+      tags: [yak-ssh]
 
     # yak-container is included deliberately: the standard deploy runs
     # `--tags yak-container`, and this role installs /usr/local/bin/yak-claude-login,
