@@ -2,9 +2,12 @@
 package testrepo
 
 import (
+	"bytes"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -113,43 +116,84 @@ type Entry struct {
 }
 
 // Tip builds a commit holding exactly the entries, without touching the working tree or the index, so Linux
-// can hold names such as a case-only pair. It returns the commit SHA.
+// can hold names such as a case-only pair, a .git component or an NFD name. Trees are written raw. It returns
+// the commit SHA.
 func (r *Repo) Tip(entries []Entry, parent string) string {
 	r.t.Helper()
-	idx := filepath.Join(r.t.TempDir(), "index")
-	env := append(append([]string{}, r.Env...), "GIT_INDEX_FILE="+idx)
-	tmp := gitx.Repo{Dir: r.Dir, Env: env}
+	root := &node{children: map[string]*node{}}
 	for _, e := range entries {
+		n := root
+		parts := strings.Split(e.Path, "/")
+		for _, part := range parts[:len(parts)-1] {
+			c, ok := n.children[part]
+			if !ok {
+				c = &node{children: map[string]*node{}}
+				n.children[part] = c
+			}
+			n = c
+		}
 		mode := e.Mode
 		if mode == "" {
 			mode = "100644"
 		}
 		sha := e.Content
 		if mode != "160000" {
-			cmd := exec.Command("git", "-C", r.Dir, "hash-object", "-w", "--stdin")
-			cmd.Env = append(os.Environ(), r.Env...)
-			cmd.Stdin = strings.NewReader(e.Content)
-			out, err := cmd.Output()
-			if err != nil {
-				r.t.Fatal(err)
-			}
-			sha = strings.TrimSpace(string(out))
+			sha = r.hashObject("blob", []byte(e.Content))
 		}
-		if _, err := tmp.Run("update-index", "--add", "--cacheinfo", mode+","+sha+","+e.Path); err != nil {
-			r.t.Fatal(err)
-		}
+		n.children[parts[len(parts)-1]] = &node{mode: mode, sha: sha}
 	}
-	tree, err := tmp.Run("write-tree")
-	if err != nil {
-		r.t.Fatal(err)
-	}
+	tree := r.writeTree(root)
 	args := []string{"commit-tree", tree, "-m", "tip"}
 	if parent != "" {
 		args = append(args, "-p", parent)
 	}
-	out, err := r.Run(args...)
+	return r.Git(args...)
+}
+
+type node struct {
+	mode, sha string
+	children  map[string]*node
+}
+
+func (r *Repo) hashObject(kind string, content []byte) string {
+	r.t.Helper()
+	cmd := exec.Command("git", "-C", r.Dir, "hash-object", "-w", "--literally", "-t", kind, "--stdin")
+	cmd.Env = append(os.Environ(), r.Env...)
+	cmd.Stdin = bytes.NewReader(content)
+	out, err := cmd.Output()
 	if err != nil {
 		r.t.Fatal(err)
 	}
-	return out
+	return strings.TrimSpace(string(out))
+}
+
+func (r *Repo) writeTree(n *node) string {
+	r.t.Helper()
+	names := make([]string, 0, len(n.children))
+	for name := range n.children {
+		names = append(names, name)
+	}
+	sortKey := func(name string) string {
+		if n.children[name].children != nil {
+			return name + "/"
+		}
+		return name
+	}
+	sort.Slice(names, func(i, j int) bool { return sortKey(names[i]) < sortKey(names[j]) })
+	var buf bytes.Buffer
+	for _, name := range names {
+		c := n.children[name]
+		mode, sha := c.mode, c.sha
+		if c.children != nil {
+			mode, sha = "40000", r.writeTree(c)
+		}
+		raw, err := hex.DecodeString(sha)
+		if err != nil {
+			r.t.Fatal(err)
+		}
+		buf.WriteString(mode + " " + name)
+		buf.WriteByte(0)
+		buf.Write(raw)
+	}
+	return r.hashObject("tree", buf.Bytes())
 }
