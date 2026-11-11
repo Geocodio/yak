@@ -10,6 +10,7 @@ use App\Enums\ThreadListStatus;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadVisibility;
 use App\Enums\TurnState;
+use App\Models\Scopes\VisibleThreadScope;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadView;
@@ -49,13 +50,7 @@ class ThreadList
             ->addSelect(['latest_run_id' => self::latestRunId()])
             ->with([
                 'tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
-                'children' => fn (Relation $query) => $query
-                    ->withoutVisibilityScope()
-                    ->visibleTo($user)
-                    ->where('status', 'open')
-                    ->select('threads.*')
-                    ->addSelect(['latest_run_id' => self::latestRunId()])
-                    ->orderBy('id'),
+                'children' => fn (Relation $relation) => self::scopeChildren($relation, $user),
                 'children.tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
             ])
             ->orderByRaw('last_activity_at is null')
@@ -65,7 +60,7 @@ class ThreadList
 
         $all = $roots->concat($roots->flatMap(fn (Thread $root) => $root->children));
         $runs = TaskRun::query()
-            ->whereIn('id', $all->pluck('latest_run_id')->filter()->all())
+            ->whereIn('id', $all->map(fn (Thread $thread): mixed => $thread->getAttribute('latest_run_id'))->filter()->all())
             ->get(['id', 'thread_id', 'turn_state', 'finished_at', 'updated_at'])
             ->keyBy('id');
         $seen = ThreadView::query()
@@ -80,7 +75,7 @@ class ThreadList
 
         foreach ($roots as $root) {
             $isPrivate = $root->visibility === ThreadVisibility::Private;
-            $children = $root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $startOfDay, $startOfWeek, $isPrivate, []))->all();
+            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $startOfDay, $startOfWeek, $isPrivate, []))->all());
             $row = self::row($root, $runs, $seen, $startOfDay, $startOfWeek, $isPrivate, $children);
 
             $needyChildren = array_values(array_filter($children, fn (array $child): bool => $child['needsYouReason'] !== null));
@@ -99,6 +94,20 @@ class ThreadList
         }
 
         return ['needsYou' => $needsYou, 'threads' => $rest, 'needsYouCount' => count($needsYou)];
+    }
+
+    /**
+     * @param  Relation<Thread, Thread, mixed>  $relation
+     */
+    private static function scopeChildren(Relation $relation, User $user): void
+    {
+        $children = $relation->getQuery()->withoutGlobalScope(VisibleThreadScope::class);
+
+        app(ThreadAccess::class)->scopeVisibleTo($children, $user)
+            ->where('status', 'open')
+            ->select('threads.*')
+            ->addSelect(['latest_run_id' => self::latestRunId()])
+            ->orderBy('id');
     }
 
     /**
@@ -151,7 +160,7 @@ class ThreadList
      */
     private static function row(Thread $thread, Collection $runs, Collection $seen, CarbonInterface $startOfDay, CarbonInterface $startOfWeek, bool $isPrivate, array $children): array
     {
-        $run = $runs->get($thread->latest_run_id);
+        $run = $runs->get($thread->getAttribute('latest_run_id'));
         [$reason, $label] = self::needsYou($thread, $run, $seen->get($thread->id));
 
         return [
@@ -177,7 +186,7 @@ class ThreadList
     private static function status(Thread $thread, ?TaskRun $run): ThreadListStatus
     {
         return match (true) {
-            in_array($run?->turn_state, [TurnState::Running, TurnState::WaitingForAccount, TurnState::WaitingForSandbox], true) => ThreadListStatus::Running,
+            in_array($run?->getAttribute('turn_state'), [TurnState::Running, TurnState::WaitingForAccount, TurnState::WaitingForSandbox], true) => ThreadListStatus::Running,
             $thread->blocked_reason !== null => ThreadListStatus::Blocked,
             $thread->sandbox_state === ThreadSandboxState::Paused => ThreadListStatus::Paused,
             default => ThreadListStatus::Stopped,
@@ -199,7 +208,7 @@ class ThreadList
             return [NeedsYouReason::Blocked, $isTokenProblem ? 'Your token stopped working' : 'Blocked'];
         }
 
-        $isFinished = $run !== null && in_array($run->turn_state, [TurnState::Completed, TurnState::Failed, TurnState::StoppedByGuard], true);
+        $isFinished = $run !== null && in_array($run->getAttribute('turn_state'), [TurnState::Completed, TurnState::Failed, TurnState::StoppedByGuard], true);
 
         if ($isFinished) {
             $finishedAt = $run->finished_at ?? $run->updated_at;
