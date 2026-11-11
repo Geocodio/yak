@@ -12,6 +12,7 @@ use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Str;
 use Pest\Browser\Api\AwaitableWebpage;
 use Tests\TestCase;
@@ -443,4 +444,13 @@ function previewCookie(string $host, ?int $userId = null): string
     preg_match('/=([^;]+);/', app(PreviewAccess::class)->setCookieHeader($host, $userId), $matches);
 
     return $matches[1];
+}
+
+/**
+ * The ParaTest worker token ("1", "2", ... or "0" outside a parallel run),
+ * for prefixing Redis keys so parallel workers never share state.
+ */
+function parallelToken(): string
+{
+    return (string) (ParallelTesting::token() ?: '0');
 }
