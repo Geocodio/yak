@@ -99,7 +99,17 @@ class TeleportUpCompleter
             'sandbox_state' => $sandboxState,
             'turn_started' => $turnStarted,
             'held_events_delivered' => $delivered,
-        ]]])->save();
+        ], 'uploaded_files' => $this->uploadedFiles($thread, (string) $teleport->session_id)]])->save();
+    }
+
+    /**
+     * @return list<array{rel_path: string, length: int, sha256: ?string}>
+     */
+    private function uploadedFiles(Thread $thread, string $sessionId): array
+    {
+        return array_values(SessionFile::query()->where(['thread_id' => $thread->id, 'session_id' => $sessionId])->orderBy('rel_path')->get()
+            ->map(fn (SessionFile $file): array => ['rel_path' => $file->rel_path, 'length' => (int) $file->length, 'sha256' => $file->sha256])
+            ->all());
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Enums\ThreadSandboxState;
 use App\Exceptions\TeleportError;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Services\Teleport\TeleportEnvironmentNote;
 use App\Services\Teleport\Teleports;
 use App\Services\Teleport\TeleportUpCompleter;
 use App\Services\Threads\Contracts\SandboxManager;
@@ -170,6 +171,7 @@ class PrepareTeleportUpJob implements ShouldQueue
     {
         $teleport->progressStep(TeleportStep::Refresh, 'running');
         $results = $refresh->run($thread);
+        $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'refresh_ran' => array_map(fn ($result): string => $result->command, $results)]])->save();
         $last = end($results);
 
         if ($last !== false && ! $last->succeeded()) {
@@ -193,20 +195,7 @@ class PrepareTeleportUpJob implements ShouldQueue
 
     private function writeNote(Teleport $teleport, Thread $thread, EnvironmentNote $note): void
     {
-        $sections = [];
-        $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
-
-        if (filled($thread->local_repo_path)) {
-            $sections['Paths'] = "The project lives at {$workspace}. {$thread->local_repo_path} is a symlink to it, so paths from the person's computer resolve here.";
-        }
-
-        $missing = $teleport->payload['missing_directories'] ?? [];
-
-        if ($missing !== []) {
-            $sections['Directories that are not here'] = array_values($missing);
-        }
-
-        $note->write($thread, $sections);
+        $note->write($thread, app(TeleportEnvironmentNote::class)->forUp($thread, $teleport->refresh()));
     }
 
     public function failed(Throwable $exception): void

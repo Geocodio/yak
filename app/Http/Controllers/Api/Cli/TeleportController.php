@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Cli;
 
 use App\Enums\TeleportDirection;
+use App\Enums\TeleportState;
 use App\Exceptions\TeleportError;
 use App\Http\Controllers\Api\Cli\Concerns\ResolvesCliThread;
 use App\Http\Controllers\Controller;
@@ -47,7 +48,14 @@ class TeleportController extends Controller
 
     public function show(Request $request, string $teleport): JsonResponse
     {
-        return response()->json($this->teleports->get($this->cliDevice($request), $teleport)->toApi());
+        $found = $this->teleports->get($this->cliDevice($request), $teleport);
+        $body = $found->toApi();
+
+        if ($found->state === TeleportState::Ready && $found->manifest !== null) {
+            return response()->json(['teleport' => $body, ...$found->manifest]);
+        }
+
+        return response()->json($body);
     }
 
     public function cancel(Request $request, string $teleport): JsonResponse
