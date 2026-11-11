@@ -48,7 +48,8 @@ it('shows sub-threads as cards and in the Stack panel, and stops the stack', fun
         ->assertPresent('[data-testid="stack-child-' . $failed->id . '"]')
         ->click('[data-testid="stack-limit-increase"]')
         ->click('[data-testid="stack-stop"]')
-        ->click('[data-testid="stack-stop-confirm"]');
+        ->click('[data-testid="stack-stop-confirm"]')
+        ->assertMissing('[data-testid="stack-stop-confirm"]');
 
     expect($parent->fresh()->stack_stopped_at)->not->toBeNull();
 });

@@ -74,6 +74,10 @@ pest()->extend(TestCase::class)
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function (): void {
+        // Thread ids restart at 1 in every test while Redis outlives them, so each test gets its own event-window key space.
+        config(['yak.threads.realtime_key_prefix' => uniqid('browser-', true) . ':']);
+    })
     ->in('Browser');
 
 /*

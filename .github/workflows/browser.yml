@@ -32,6 +32,17 @@ jobs:
           --health-retries 10
     env:
       REDIS_HOST: 127.0.0.1
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_ID: yak-e2e
+      REVERB_APP_KEY: yak-e2e-key
+      REVERB_APP_SECRET: yak-e2e-secret
+      REVERB_HOST: 127.0.0.1
+      REVERB_PORT: "18080"
+      REVERB_SCHEME: http
+      VITE_REVERB_APP_KEY: yak-e2e-key
+      VITE_REVERB_HOST: 127.0.0.1
+      VITE_REVERB_PORT: "18080"
+      VITE_REVERB_SCHEME: http
 
     steps:
       - name: Checkout code
@@ -58,7 +69,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: public/build
-          key: assets-${{ hashFiles('resources/**', 'package-lock.json', 'vite.config.ts') }}
+          key: assets-${{ hashFiles('resources/**', 'package-lock.json', 'vite.config.ts', '.github/workflows/browser.yml') }}
 
       - name: Build assets
         if: steps.assets.outputs.cache-hit != 'true'
@@ -76,4 +87,4 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run browser tests
-        run: ./vendor/bin/pest --group=browser --shard=${{ matrix.shard }}/4
+        run: ./vendor/bin/pest tests/Browser --shard=${{ matrix.shard }}/4
