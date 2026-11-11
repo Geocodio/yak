@@ -5,6 +5,7 @@ namespace Tests\Support;
 use App\Enums\ThreadVisibility;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
+use App\Models\ClaudeAccount;
 use App\Models\CoOwnerRequest;
 use App\Models\PrReview;
 use App\Models\Repository;
@@ -86,7 +87,9 @@ class VisibilityWorld
         $world->admin = User::factory()->create();
         config(['claude-accounts.admin_user_ids' => [$world->admin->id]]);
 
+        $account = ClaudeAccount::factory()->create();
         $world->thread = Thread::factory()->create([
+            'claude_account_id' => $account->id,
             'title' => self::TITLE,
             'repo' => self::REPO,
             'visibility' => $visibility,
@@ -95,7 +98,7 @@ class VisibilityWorld
         $diff = ThreadDiff::factory()->create(['thread_id' => $world->thread->id, 'files_count' => 1]);
         $world->diffFile = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id]);
         $world->event = ThreadEvent::factory()->create(['thread_id' => $world->thread->id, 'sequence' => 1]);
-        $world->child = Thread::factory()->child($world->thread)->create(['title' => self::TITLE . ' child']);
+        $world->child = Thread::factory()->child($world->thread)->create(['title' => self::TITLE . ' child', 'claude_account_id' => $account->id]);
 
         $world->task = YakTask::factory()->create([
             'thread_id' => $world->thread->id,
