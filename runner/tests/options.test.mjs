@@ -38,3 +38,20 @@ test('it passes resume only when set', () => {
   assert.equal('resume' in buildOptions(start(), {}), false);
   assert.equal(buildOptions(start({ resume: 'sess-1' }), {}).resume, 'sess-1');
 });
+
+test('it registers a SessionStart command hook through options.settings', () => {
+  const hook = buildOptions(start(), {}).settings.hooks.SessionStart[0];
+  assert.equal(hook.matcher, 'resume');
+  assert.deepEqual(hook.hooks[0], { type: 'command', command: 'node /opt/yak-runner/hooks/environment-note.mjs' });
+  assert.equal(buildOptions(start({ environmentNoteHookCommand: 'node x.mjs' }), {}).settings.hooks.SessionStart[0].hooks[0].command, 'node x.mjs');
+});
+
+test('it merges caller settings with the hook instead of replacing them', () => {
+  const callerHook = { matcher: 'startup', hooks: [{ type: 'command', command: 'true' }] };
+  const { settings } = buildOptions(start({ settings: { effortLevel: 'low', hooks: { SessionStart: [callerHook], Stop: [] } } }), {});
+  assert.equal(settings.effortLevel, 'low');
+  assert.deepEqual(settings.hooks.Stop, []);
+  assert.equal(settings.hooks.SessionStart.length, 2);
+  assert.equal(settings.hooks.SessionStart[0].matcher, 'resume');
+  assert.deepEqual(settings.hooks.SessionStart[1], callerHook);
+});

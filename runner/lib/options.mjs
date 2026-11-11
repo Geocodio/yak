@@ -4,6 +4,8 @@ import { buildChildEnvironment } from './environment.mjs';
 // Wakeup and cron tools would outlive the sandbox turn, so the agent never gets them.
 export const DEFAULT_DISALLOWED_TOOLS = ['ScheduleWakeup', 'CronCreate', 'CronDelete', 'CronList'];
 
+export const ENVIRONMENT_NOTE_HOOK_COMMAND = 'node /opt/yak-runner/hooks/environment-note.mjs';
+
 export function buildOptions(start, environment, extraMcpServers = {}) {
   const options = {
     cwd: start.cwd || '/workspace',
@@ -13,6 +15,7 @@ export function buildOptions(start, environment, extraMcpServers = {}) {
     includePartialMessages: !!start.partial,
     settingSources: start.settingSources || ['user', 'project', 'local'],
     disallowedTools: [...new Set([...DEFAULT_DISALLOWED_TOOLS, ...(start.disallowedTools ?? [])])],
+    settings: buildSettings(start),
   };
   if (options.permissionMode === 'bypassPermissions') options.allowDangerouslySkipPermissions = true;
   if (start.appendSystemPrompt) {
@@ -25,4 +28,14 @@ export function buildOptions(start, environment, extraMcpServers = {}) {
   if (Object.keys(mcpServers).length) options.mcpServers = mcpServers;
   if (start.additionalDirectories) options.additionalDirectories = start.additionalDirectories;
   return options;
+}
+
+// The hook goes in through options.settings, not a file in the config directory, because that directory is synced to the session store.
+function buildSettings(start) {
+  const caller = start.settings ?? {};
+  const hook = {
+    matcher: 'resume',
+    hooks: [{ type: 'command', command: start.environmentNoteHookCommand || ENVIRONMENT_NOTE_HOOK_COMMAND }],
+  };
+  return { ...caller, hooks: { ...caller.hooks, SessionStart: [hook, ...(caller.hooks?.SessionStart ?? [])] } };
 }
