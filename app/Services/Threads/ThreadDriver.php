@@ -465,6 +465,12 @@ class ThreadDriver
                 $thread->claudeAccount?->markInvalid('The Claude API rejected the credential.');
             }
 
+            if ($change->failure->kind === AccountFailureKind::UsageLimit) {
+                $thread->claudeAccount?->forceFill([
+                    'usage_limit_resets_at' => $change->failure->resetsAt ?? now()->addMinutes((int) config('yak.threads.usage_limit_fallback_minutes')),
+                ])->save();
+            }
+
             $this->commands->interrupt($thread);
             $this->finishTurn($thread, $run, TurnState::Failed, $events);
 

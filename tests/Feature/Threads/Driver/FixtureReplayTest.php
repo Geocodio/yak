@@ -1,5 +1,6 @@
 <?php
 
+use App\DataTransferObjects\TurnTrackerChange;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\TurnState;
@@ -9,6 +10,8 @@ use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
+use App\Services\ClaudeAccounts\AccountFailure;
+use App\Services\ClaudeAccounts\AccountFailureKind;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadDriver;
@@ -56,9 +59,20 @@ it('fails a usage-limit turn and blocks the thread', function () {
     replayFixtureThroughConsumer($thread, 'usage-limit');
 
     expect($run->refresh()->turn_state)->toBe(TurnState::Failed)
-        ->and($thread->refresh()->blocked_reason)->toBe(ThreadBlockReason::UsageLimit);
+        ->and($thread->refresh()->blocked_reason)->toBe(ThreadBlockReason::UsageLimit)
+        ->and($thread->claudeAccount->refresh()->usage_limit_resets_at->getTimestamp())->toBe(1794136119);
     Event::assertDispatchedTimes(TurnFailed::class, 1);
     Event::assertNotDispatched(TurnCompleted::class);
+});
+
+it('falls back to a delay when the limit has no reset time', function () {
+    bindTrackerChanges([new TurnTrackerChange(ended: true, failure: new AccountFailure(AccountFailureKind::UsageLimit, null))]);
+    [$thread] = runningTurnFor();
+
+    pushRunnerLine($thread, 1, ['type' => 'assistant']);
+
+    expect($thread->refresh()->blocked_reason)->toBe(ThreadBlockReason::UsageLimit)
+        ->and($thread->claudeAccount->refresh()->usage_limit_resets_at->isFuture())->toBeTrue();
 });
 
 it('keeps an interrupted turn interrupted when the aborted result arrives', function () {
