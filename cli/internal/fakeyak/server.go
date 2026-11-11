@@ -2,7 +2,9 @@
 package fakeyak
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -29,6 +31,7 @@ type RequestLog struct {
 	Path   string
 	Query  string
 	Header http.Header
+	Body   []byte
 }
 
 // Server is the fake. Set the exported state before making requests; the mutex guards handler access.
@@ -47,6 +50,8 @@ type Server struct {
 	codes    map[string]*pendingCode // by device_code
 	requests []RequestLog
 	nextID   int
+
+	sessions sessionState
 }
 
 // New starts the server and stops it when the test ends.
@@ -87,7 +92,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.requests = append(s.requests, RequestLog{r.Method, r.URL.Path, r.URL.RawQuery, r.Header.Clone()})
+	body, _ := io.ReadAll(r.Body)
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	s.requests = append(s.requests, RequestLog{r.Method, r.URL.Path, r.URL.RawQuery, r.Header.Clone(), body})
 
 	w.Header().Set("X-Yak-Protocol", "1")
 	w.Header().Set("X-Yak-Min-Protocol", strconv.Itoa(s.MinProtocol))
@@ -124,6 +131,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 	case r.Method == "POST" && p == "/repos/resolve":
 		s.resolve(w, r)
+	case strings.HasPrefix(p, "/threads/") && strings.Contains(p, "/session/"):
+		s.sessionRoute(w, r, device, p)
 	case r.Method == "GET" && strings.HasPrefix(p, "/threads/by-session/"):
 		sid := strings.TrimPrefix(p, "/threads/by-session/")
 		for _, t := range s.Threads {

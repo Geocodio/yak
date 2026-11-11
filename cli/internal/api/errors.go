@@ -11,6 +11,8 @@ type Error struct {
 	Code    string
 	Message string
 	Details map[string]any
+	// Body is the whole decoded envelope, for routes that put fields such as reason or length beside error.
+	Body map[string]any
 }
 
 func (e *Error) Error() string {

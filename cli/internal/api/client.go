@@ -135,6 +135,7 @@ func parseError(status int, body []byte) *Error {
 		Message string          `json:"message"`
 		Details json.RawMessage `json:"details"`
 	}
+	_ = json.Unmarshal(body, &e.Body)
 	if json.Unmarshal(body, &env) == nil && env.Error != "" {
 		e.Code, e.Message = env.Error, env.Message
 		var d map[string]any
