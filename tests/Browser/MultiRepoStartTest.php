@@ -61,3 +61,25 @@ it('shows avatar chips, a Repositories label and a primary menu that switches th
         ->assertSeeIn('[data-testid="repo-avatar"]', 'DO')
         ->assertVisible('button[aria-label="Add repo"]');
 });
+
+it('labels the submit button by mode and shows the footer sentence, counter and note link', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/api', 'is_default' => true]);
+    Repository::factory()->create(['slug' => 'acme/docs']);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    config()->set('yak.channels.github.app_id', '999');
+    Http::fake(['*' => Http::response(['description' => null, 'topics' => []])]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->assertSeeIn('[data-testid="start-thread-submit"]', 'Start change')
+        ->assertSeeIn('[data-testid="start-thread-footer"]', 'one pull request per repo that changed')
+        ->click('[data-testid="add-repo"]')
+        ->click('acme/docs')
+        ->assertSeeIn('[data-testid="expected-pr-count"]', '2 pull requests expected')
+        ->assertSeeIn('[data-testid="repo-note"]', 'How multi-repo threads work')
+        ->click('[data-testid="start-mode-research"]')
+        ->assertSeeIn('[data-testid="start-thread-submit"]', 'Start research')
+        ->assertSeeIn('[data-testid="start-thread-footer"]', 'No pull request.')
+        ->assertMissing('[data-testid="expected-pr-count"]');
+});

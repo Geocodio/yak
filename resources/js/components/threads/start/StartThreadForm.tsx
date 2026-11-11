@@ -1,6 +1,6 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { Button, Menu, cn } from '@geocodio/console-ui';
-import { Search, Wrench } from 'lucide-react';
+import { CircleHelp, ExternalLink, Info, Search, Wrench } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import { AccountPicker } from '@/components/accounts/AccountPicker';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
@@ -17,8 +17,8 @@ import type { NewThreadPageData, StartRepository } from '@/types/threads';
 type Mode = 'fix' | 'research';
 
 const MODES: { mode: Mode; label: string; icon: typeof Wrench; hint: string }[] = [
-    { mode: 'fix', label: 'Change', icon: Wrench, hint: 'Yak makes the change and opens a PR for review.' },
-    { mode: 'research', label: 'Research', icon: Search, hint: 'Yak investigates and writes a report. No PR.' },
+    { mode: 'fix', label: 'Change', icon: Wrench, hint: 'Yak makes the change and opens a pull request for you to review. With several repos, one pull request per repo that changed.' },
+    { mode: 'research', label: 'Research', icon: Search, hint: 'Yak investigates and writes a report. No pull request.' },
 ];
 
 /**
@@ -56,6 +56,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
     const isResearch = form.data.mode === 'research';
     const contextRepos = extras.filter((extra) => isResearch || extra.role === 'context');
     const expectedPullRequests = 1 + extras.filter((extra) => extra.role === 'changes').length;
+    const isStarting = form.processing || startedThreadId !== null;
     const openThread = useCallback(() => {
         if (startedThreadId !== null) {
             router.visit(show.url(startedThreadId));
@@ -114,12 +115,11 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                 <DraftAttachments draft={draft} errors={errors} progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null} onOpenMedia={() => {}} />
                 <div className="flex flex-wrap items-center gap-2 border-t border-hair px-3 py-2">
                     <div className="inline-flex h-7 gap-0.5 rounded-control bg-panel-2 p-0.5" role="group" aria-label="Mode">
-                        {MODES.map(({ mode, label, icon: Icon, hint }) => (
+                        {MODES.map(({ mode, label, icon: Icon }) => (
                             <button
                                 key={mode}
                                 type="button"
                                 aria-pressed={form.data.mode === mode}
-                                title={hint}
                                 onClick={() => form.setData('mode', mode)}
                                 className={cn(
                                     'inline-flex items-center gap-1.5 rounded-[5px] px-2.5 text-[12.5px] font-medium transition-colors',
@@ -133,8 +133,8 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                         ))}
                     </div>
                     <AttachButton draft={draft} disabled={form.processing} />
-                    <Button variant="primary" className="ml-auto h-7" pending={form.processing || startedThreadId !== null} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
-                        Start thread
+                    <Button variant="primary" className="ml-auto h-7" pending={isStarting} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
+                        {isStarting ? 'Starting...' : isResearch ? 'Start research' : 'Start change'}
                     </Button>
                 </div>
             </div>
@@ -156,17 +156,16 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                             onChange={(next) => form.setData('repositories', next)}
                         />
                         {extras.length > 0 && (
-                            <div className="flex items-start gap-3 text-[12px] text-muted">
-                                <p data-testid="repo-note">
+                            <p className="flex items-start gap-1.5 text-[12px] text-muted" data-testid="repo-note">
+                                <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+                                <span>
                                     {contextRepos.length > 0 && <>{contextRepos.map((extra) => extra.repo).join(', ')} {contextRepos.length > 1 ? 'are' : 'is'} throwaway, with no pull request. </>}
-                                    Yak starts from {form.data.repo}'s template, then clones the others and runs their setup, so the first start takes longer.
-                                </p>
-                                {!isResearch && (
-                                    <span className="ml-auto shrink-0" data-testid="expected-pr-count">
-                                        {expectedPullRequests} pull {expectedPullRequests === 1 ? 'request' : 'requests'} expected
-                                    </span>
-                                )}
-                            </div>
+                                    Yak starts from {form.data.repo}'s template, then clones the others and runs their setup, so the first start takes longer.{' '}
+                                    <a href={docs.baseUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline">
+                                        How multi-repo threads work <ExternalLink size={11} aria-hidden="true" />
+                                    </a>
+                                </span>
+                            </p>
                         )}
                     </div>
                 )
@@ -186,6 +185,21 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                 />
                 <span>with</span>
                 <ModelPicker models={picker.models} value={effectiveModel} onChange={(model) => form.setData('model', model)} disabled={noAccounts || form.processing} />
+                <span title="Which Claude account and model run this thread" aria-label="Which Claude account and model run this thread" className="inline-flex text-faint">
+                    <CircleHelp size={13} aria-hidden="true" />
+                </span>
+                <a href={docs.baseUrl} target="_blank" rel="noreferrer" className="ml-auto underline">
+                    How accounts work
+                </a>
+            </div>
+
+            <div className="mt-2 flex items-center gap-3 text-[12px] text-muted" data-testid="start-thread-footer">
+                <p>{MODES.find((entry) => entry.mode === form.data.mode)?.hint}</p>
+                {!isResearch && extras.length > 0 && (
+                    <span className="ml-auto shrink-0" data-testid="expected-pr-count">
+                        {expectedPullRequests} pull {expectedPullRequests === 1 ? 'request' : 'requests'} expected
+                    </span>
+                )}
             </div>
 
             {noAccounts && (
