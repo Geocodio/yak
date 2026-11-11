@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/geocodio/yak/cli/internal/keychain"
+	"github.com/geocodio/yak/cli/internal/ui"
 	"github.com/geocodio/yak/cli/internal/version"
 )
 
@@ -16,9 +18,12 @@ type Context struct {
 	Stdout    io.Writer
 	Stderr    io.Writer
 	Env       func(string) string
+	Keychain  keychain.Store
 	HTTP      *http.Client
 	Now       func() time.Time
 	Sleep     func(time.Duration)
+	Prompter  ui.Prompter
+	OpenURL   func(string) error
 	Cwd       string
 	ConfigDir string
 }

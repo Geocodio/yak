@@ -117,3 +117,18 @@ func (s *Server) deviceToken(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, api.TokenResponse{Token: c.device.Token, Device: c.device.info(), User: s.User})
 	}
 }
+
+// LastUserCode returns the user code of the most recently issued device code.
+func (s *Server) LastUserCode() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	last, best := "", 0
+	for dc, c := range s.codes {
+		var n int
+		fmt.Sscanf(dc, "device-code-%d", &n)
+		if n > best {
+			best, last = n, c.userCode
+		}
+	}
+	return last
+}
