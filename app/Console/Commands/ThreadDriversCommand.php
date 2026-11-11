@@ -34,8 +34,16 @@ class ThreadDriversCommand extends Command
         do {
             $channels = $streams->channels('threads:');
 
+            $blockedChannels = [];
+
             foreach ($streams->read($channels, $consumer, 1000, 100) as $entry) {
-                $this->process($entry, $streams, $driver);
+                if (isset($blockedChannels[$entry->channel])) {
+                    continue;
+                }
+
+                if (! $this->process($entry, $streams, $driver)) {
+                    $blockedChannels[$entry->channel] = true;
+                }
             }
 
             try {
@@ -58,20 +66,23 @@ class ThreadDriversCommand extends Command
     }
 
     /**
-     * One entry never blocks the others: a failure is reported and counted,
-     * and the third failure fails the thread's turn and dead-letters the entry.
+     * A failing entry holds back only its own channel, in order: it is reported
+     * and counted and stays pending (false), and the third failure fails the
+     * thread's turn and dead-letters it so the channel moves on (true).
      */
-    private function process(StreamEntry $entry, BrokerStreams $streams, ThreadDriver $driver): void
+    private function process(StreamEntry $entry, BrokerStreams $streams, ThreadDriver $driver): bool
     {
         try {
             $driver->handle($entry);
             $streams->ack($entry);
             $this->trim($entry, $driver);
+
+            return true;
         } catch (Throwable $exception) {
             report($exception);
 
             if ($streams->recordFailure($entry) < self::MAX_ATTEMPTS) {
-                return;
+                return false;
             }
 
             try {
@@ -82,6 +93,8 @@ class ThreadDriversCommand extends Command
 
             $streams->deadLetter($entry, $exception->getMessage());
             $streams->ack($entry);
+
+            return true;
         }
     }
 }

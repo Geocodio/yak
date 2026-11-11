@@ -84,3 +84,78 @@ it('isolates one thread from another', function () {
 
     expect($handled)->toBe([$good->id]);
 });
+
+it('does not apply a later entry of a channel while an earlier one is still failing', function () {
+    $streams = app(BrokerStreams::class);
+    $thread = streamedThread($streams);
+    $a = $streams->pushOut('threads:' . $thread->id, 1, 1, ['type' => 'a']);
+    $b = $streams->pushOut('threads:' . $thread->id, 1, 2, ['type' => 'b']);
+    $handled = [];
+    $failedOnce = false;
+
+    $driver = Mockery::mock(ThreadDriver::class);
+    $driver->shouldReceive('handle')->andReturnUsing(function ($entry) use ($a, &$handled, &$failedOnce) {
+        if ($entry->id === $a->id && ! $failedOnce) {
+            $failedOnce = true;
+
+            throw new RuntimeException('boom');
+        }
+        $handled[] = $entry->id;
+    });
+    $driver->shouldReceive('tick');
+    $driver->shouldReceive('trimAfterAck');
+    app()->instance(ThreadDriver::class, $driver);
+
+    $this->artisan('yak:thread-drivers --once')->assertSuccessful();
+
+    expect($handled)->toBe([])
+        ->and($streams->read(['threads:' . $thread->id], gethostname() . '-' . getmypid(), 0, 10))->toHaveCount(2);
+
+    $this->artisan('yak:thread-drivers --once')->assertSuccessful();
+
+    expect($handled)->toBe([$a->id, $b->id])
+        ->and($streams->read(['threads:' . $thread->id], gethostname() . '-' . getmypid(), 0, 10))->toBe([]);
+});
+
+it('keeps entries of other channels flowing when one channel is blocked', function () {
+    $streams = app(BrokerStreams::class);
+    $blocked = streamedThread($streams);
+    $healthy = streamedThread($streams);
+    $streams->pushOut('threads:' . $blocked->id, 1, 1, ['type' => 'a']);
+    $streams->pushOut('threads:' . $blocked->id, 1, 2, ['type' => 'b']);
+    $c = $streams->pushOut('threads:' . $healthy->id, 1, 1, ['type' => 'c']);
+    $handled = [];
+
+    $driver = Mockery::mock(ThreadDriver::class);
+    $driver->shouldReceive('handle')->andReturnUsing(function ($entry) use ($blocked, &$handled) {
+        if ($entry->channel === 'threads:' . $blocked->id) {
+            throw new RuntimeException('boom');
+        }
+        $handled[] = $entry->id;
+    });
+    $driver->shouldReceive('tick');
+    $driver->shouldReceive('trimAfterAck');
+    app()->instance(ThreadDriver::class, $driver);
+
+    $this->artisan('yak:thread-drivers --once')->assertSuccessful();
+
+    expect($handled)->toBe([$c->id])
+        ->and($streams->read(['threads:' . $healthy->id], 'x', 0, 10))->toBe([]);
+});
+
+it('never trims past a failing entry', function () {
+    $streams = app(BrokerStreams::class);
+    $thread = streamedThread($streams);
+    $streams->pushOut('threads:' . $thread->id, 1, 1, ['type' => 'a']);
+    $streams->pushOut('threads:' . $thread->id, 1, 2, ['type' => 'b']);
+
+    $driver = Mockery::mock(ThreadDriver::class);
+    $driver->shouldReceive('handle')->andThrow(new RuntimeException('boom'));
+    $driver->shouldReceive('tick');
+    $driver->shouldNotReceive('trimAfterAck');
+    app()->instance(ThreadDriver::class, $driver);
+
+    $this->artisan('yak:thread-drivers --once')->assertSuccessful();
+
+    expect($streams->read(['threads:' . $thread->id], gethostname() . '-' . getmypid(), 0, 10))->toHaveCount(2);
+});
