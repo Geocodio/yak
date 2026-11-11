@@ -98,3 +98,25 @@ it('keeps accounts separate', function () {
 
     expect($this->queue->acquire($one, $a))->toBeTrue()->and($this->queue->acquire($two, $b))->toBeTrue();
 });
+
+it('releaseRun frees the slot and dispatches AccountSlotFreed once', function () {
+    Event::fake([AccountSlotFreed::class]);
+    $account = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    [$a] = runs(1);
+    $this->queue->acquire($account, $a);
+
+    $this->queue->releaseRun($a->fresh());
+    $this->queue->releaseRun($a->fresh());
+
+    Event::assertDispatchedTimes(AccountSlotFreed::class, 1);
+    expect($a->fresh()->account_slot_held_at)->toBeNull();
+});
+
+it('releaseRun is a no-op for a run with no account', function () {
+    Event::fake([AccountSlotFreed::class]);
+    [$a] = runs(1);
+
+    $this->queue->releaseRun($a);
+
+    Event::assertNotDispatched(AccountSlotFreed::class);
+});
