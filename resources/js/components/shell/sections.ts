@@ -1,6 +1,7 @@
-import { BarChart3, DollarSign, Eye, Heart, MessageSquare, Rocket, Code2 } from 'lucide-react';
+import { Activity, BarChart3, Code2, DollarSign, Eye, Heart, Inbox, MessageSquare, Puzzle, Rocket, Server, Type, UserRound } from 'lucide-react';
 import type { NavItem } from '@/components/Sidebar';
-import { analytics, costs, deployments, health, observations, prReviews, repos } from '@/routes';
+import { analytics, channels, costs, deployments, health, mcp, observations, prReviews, prompts, repos, skills, system } from '@/routes';
+import { edit as profileEdit } from '@/routes/profile';
 
 export type RailSection = 'threads' | 'operations' | 'insights' | 'settings';
 
@@ -41,3 +42,18 @@ export function sectionForUrl(url: string): RailSection {
 
     return 'threads';
 }
+
+export const SETTINGS_ITEMS: NavItem[] = [
+    { label: 'Profile', icon: UserRound, url: profileEdit.url() },
+    { label: 'Prompts', icon: Type, url: prompts.url() },
+    { label: 'Skills', icon: Puzzle, url: skills.url() },
+    { label: 'MCP servers', icon: Server, url: mcp.url() },
+    { label: 'Channels', icon: Inbox, url: channels.url() },
+    { label: 'System', icon: Activity, url: system.url() },
+];
+
+export const SECTION_COPY: Record<Exclude<RailSection, 'threads'>, { title: string; description: string; items: NavItem[] }> = {
+    operations: { title: 'Operations', description: 'The repositories, previews and reviews Yak works across.', items: OPERATIONS_ITEMS },
+    insights: { title: 'Insights', description: 'How Yak is performing, what it costs and whether it is healthy.', items: INSIGHTS_ITEMS },
+    settings: { title: 'Settings', description: 'Your profile, prompts, skills and integrations.', items: SETTINGS_ITEMS },
+};
