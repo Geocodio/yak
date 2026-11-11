@@ -1,0 +1,8 @@
+{
+  "name": "yak",
+  "version": "0.1.0",
+  "description": "Move Claude Code sessions between your computer and Yak.",
+  "author": {
+    "name": "Geocodio"
+  }
+}

@@ -1,0 +1,37 @@
+#!/bin/sh
+# Picks the yak binary built for this platform and runs it.
+self=$0
+while [ -L "$self" ]; do
+  target=$(readlink "$self")
+  case $target in
+    /*) self=$target ;;
+    *) self=$(dirname "$self")/$target ;;
+  esac
+done
+dir=$(cd "$(dirname "$self")" && pwd)
+
+case $(uname -s) in
+  Darwin) os=darwin ;;
+  Linux) os=linux ;;
+  *) os=$(uname -s) ;;
+esac
+case $(uname -m) in
+  arm64 | aarch64) arch=arm64 ;;
+  x86_64 | amd64) arch=x86_64 ;;
+  *) arch=$(uname -m) ;;
+esac
+
+case $os-$arch in
+  darwin-arm64 | darwin-x86_64 | linux-x86_64) ;;
+  *)
+    echo "yak does not support $os/$arch" >&2
+    exit 1
+    ;;
+esac
+
+bin=$dir/yak-$os-$arch
+if [ ! -x "$bin" ]; then
+  echo "The yak binary for $os/$arch is missing. Reinstall the Yak plugin." >&2
+  exit 1
+fi
+exec "$bin" "$@"

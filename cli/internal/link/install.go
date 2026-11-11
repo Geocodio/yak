@@ -1,0 +1,103 @@
+package link
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+)
+
+// Runner runs an external command.
+type Runner func(name string, args ...string) error
+
+// SystemRunner runs the command for real.
+func SystemRunner(name string, args ...string) error { return exec.Command(name, args...).Run() }
+
+// Install writes the yak:// handler for goos under home and registers it. It returns the handler path.
+func Install(goos, home, binary string, run Runner) (string, error) {
+	switch goos {
+	case "darwin":
+		app := filepath.Join(home, "Applications", "Yak Link.app")
+		for rel, content := range RenderMacApp(binary) {
+			mode := os.FileMode(0o644)
+			if filepath.Base(rel) == "yak-link" {
+				mode = 0o755
+			}
+			if err := writeFile(filepath.Join(app, rel), content, mode); err != nil {
+				return "", err
+			}
+		}
+		const lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+		return app, run(lsregister, "-f", app)
+	case "linux":
+		path := filepath.Join(home, ".local", "share", "applications", "yak-handler.desktop")
+		if err := writeFile(path, RenderDesktopEntry(binary), 0o644); err != nil {
+			return "", err
+		}
+		return path, run("xdg-mime", "default", "yak-handler.desktop", "x-scheme-handler/yak")
+	}
+	return "", fmt.Errorf("yak:// links are not supported on %s", goos)
+}
+
+func writeFile(path, content string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(content), mode)
+}
+
+// FindCheckouts lists folders one level below each root whose git remote is the given owner/name slug.
+func FindCheckouts(roots []string, slug string, remotes func(dir string) []string) []string {
+	var found []string
+	for _, root := range roots {
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			dir := filepath.Join(root, e.Name())
+			if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
+				continue
+			}
+			for _, r := range remotes(dir) {
+				if RepoSlug(r) == slug {
+					found = append(found, dir)
+					break
+				}
+			}
+		}
+	}
+	sort.Strings(found)
+	return found
+}
+
+// OpenTerminalSystem opens a terminal window running argv in dir (macOS Terminal, or the first Linux terminal found).
+func OpenTerminalSystem(goos string) func(dir string, argv []string) error {
+	return func(dir string, argv []string) error {
+		shell := ShellCommand(dir, argv)
+		if goos == "darwin" {
+			script := `tell application "Terminal"` + "\nactivate\ndo script \"" +
+				escapeAppleScript(shell) + "\"\nend tell"
+			return exec.Command("osascript", "-e", script).Run()
+		}
+		for _, term := range [][]string{{"x-terminal-emulator", "-e"}, {"gnome-terminal", "--"}, {"konsole", "-e"}} {
+			if path, err := exec.LookPath(term[0]); err == nil {
+				args := append(term[1:], "sh", "-c", shell)
+				return exec.Command(path, args...).Start()
+			}
+		}
+		return fmt.Errorf("no terminal program found")
+	}
+}
+
+func escapeAppleScript(s string) string {
+	out := make([]byte, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' || s[i] == '"' {
+			out = append(out, '\\')
+		}
+		out = append(out, s[i])
+	}
+	return string(out)
+}
