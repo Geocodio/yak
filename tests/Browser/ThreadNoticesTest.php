@@ -6,6 +6,7 @@ use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Jobs\RetryThreadRestoreJob;
+use App\Models\ClaudeAccount;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadRestoreStep;
@@ -148,5 +149,48 @@ it('keeps a failed rebuild in view on a phone without horizontal scroll', functi
     $page->assertSeeIn('[data-testid="failed-step-strip"]', 'Step 3 of 6 failed')
         ->assertVisible('[data-testid="strip-restore-retry"]')
         ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true)
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows the account waiting card with its turn meter and queue position', function () {
+    $user = User::factory()->create();
+    $account = ClaudeAccount::factory()->create(['name' => 'Work', 'max_concurrent_turns' => 2]);
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::WaitingForAccount]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'claude_account_id' => $account->id, 'turn_state' => TurnState::WaitingForAccount]);
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->id}")
+        ->assertSeeIn('[data-testid="thread-notice"]', 'Work is already running its 2 turns at once')
+        ->assertSeeIn('[data-testid="thread-notice"]', 'Turns on this account')
+        ->assertSeeIn('[data-testid="thread-notice"]', 'Only account admins can change this limit.')
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows the sandbox waiting card with a slot strip and no time estimate', function () {
+    config(['yak.threads.awake_cap' => 2, 'yak.threads.person_awake_cap' => 5]);
+    $user = User::factory()->create();
+    Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'c-1']);
+    Thread::factory()->paused()->create(['last_activity_at' => now()->subMinutes(3)]);
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
+    $this->actingAs($user);
+
+    $page = visit("/threads/{$thread->id}");
+    $page->assertSeeIn('[data-testid="thread-notice"]', 'Yak stops a paused one after 5 idle minutes. It starts this one soon. Your message is saved.')
+        ->assertDontSee('usually within a few minutes')
+        ->assertCount('[data-testid="waiting-slots"] li', 2)
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows the share waiting card with the viewer own sandboxes', function () {
+    config(['yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 1]);
+    $user = User::factory()->create();
+    Thread::factory()->paused()->create(['owner_user_id' => $user->id, 'last_activity_at' => now()->subMinutes(2)]);
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->id}")
+        ->assertSeeIn('[data-testid="thread-notice"]', 'Waiting for your share of sandboxes')
+        ->assertSeeIn('[data-testid="waiting-own-threads"]', 'Paused, idle 2m')
         ->assertNoJavaScriptErrors();
 });

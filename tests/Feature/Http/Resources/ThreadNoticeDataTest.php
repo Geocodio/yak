@@ -205,3 +205,9 @@ it('offers the viewer a paused sandbox to stop when their own share is full', fu
 it('has no waiting props for other notices', function () {
     expect(ThreadNoticeData::for(Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]))['waiting'])->toBeNull();
 });
+
+it('gives no time estimate for a thread waiting for a sandbox', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
+
+    expect(ThreadNoticeData::for($thread)['body'])->not->toContain('usually within a few minutes');
+});
