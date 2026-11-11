@@ -35,6 +35,19 @@ type sessionState struct {
 
 	failNextStatus int
 	dropNext       bool
+
+	failAfterArmed  bool
+	failAfterLeft   int
+	failAfterStatus int
+
+	checkpoints map[fileKey]string
+}
+
+// FailAppendsAfter lets the next n appends through, then fails one append with status and a server_error envelope.
+func (s *Server) FailAppendsAfter(n, status int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sessions.failAfterArmed, s.sessions.failAfterLeft, s.sessions.failAfterStatus = true, n, status
 }
 
 // OpenTeleport registers a non-terminal teleport so the session endpoints authorize the device.
@@ -254,6 +267,15 @@ func (s *Server) append(w http.ResponseWriter, r *http.Request, threadID int) {
 		writeErr(w, status, "server_error", "Injected failure.", nil)
 		return
 	}
+	if s.sessions.failAfterArmed {
+		if s.sessions.failAfterLeft > 0 {
+			s.sessions.failAfterLeft--
+		} else {
+			s.sessions.failAfterArmed = false
+			writeErr(w, s.sessions.failAfterStatus, "server_error", "Injected failure.", nil)
+			return
+		}
+	}
 	var b appendBody
 	if json.NewDecoder(r.Body).Decode(&b) != nil {
 		writeErr(w, 422, "validation_failed", "Invalid body.", nil)
@@ -327,8 +349,13 @@ func (s *Server) checkpoint(w http.ResponseWriter, r *http.Request, threadID int
 	if json.NewDecoder(r.Body).Decode(&b) != nil || !s.checkPath(w, b.SessionID, b.RelPath) {
 		return
 	}
-	data := s.sessions.files[fileKey{threadID, b.SessionID, b.RelPath}]
+	key := fileKey{threadID, b.SessionID, b.RelPath}
+	data := s.sessions.files[key]
 	if hexSum(data) == b.SHA256 {
+		if s.sessions.checkpoints == nil {
+			s.sessions.checkpoints = map[fileKey]string{}
+		}
+		s.sessions.checkpoints[key] = b.SHA256
 		writeJSON(w, 200, map[string]any{"matched": true, "length": len(data)})
 		return
 	}

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/geocodio/yak/cli/internal/api"
 )
@@ -20,6 +21,8 @@ type Repo struct {
 	Slug          string
 	DefaultBranch string
 	CloneURL      string
+	// BarePath is a bare git repository standing in for GitHub; when set, teleport-up verifies pushed heads in it.
+	BarePath string
 }
 
 // Thread is the contract thread object.
@@ -54,6 +57,9 @@ type Server struct {
 	nextID   int
 
 	sessions sessionState
+	tele     teleportState
+	// Clock drives teleport expiry; nil means time.Now.
+	Clock func() time.Time
 }
 
 // New starts the server and stops it when the test ends.
@@ -135,6 +141,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.resolve(w, r)
 	case strings.HasPrefix(p, "/threads/") && strings.Contains(p, "/session/"):
 		s.sessionRoute(w, r, device, p)
+	case strings.HasPrefix(p, "/teleports"):
+		s.teleportRoute(w, r, device, p)
+	case strings.HasPrefix(p, "/threads/") && (strings.HasSuffix(p, "/ssh") || strings.Contains(p, "/stack-messages")):
+		s.threadExtraRoute(w, r, device, p)
 	case r.Method == "GET" && strings.HasPrefix(p, "/threads/by-session/"):
 		sid := strings.TrimPrefix(p, "/threads/by-session/")
 		for _, t := range s.Threads {
