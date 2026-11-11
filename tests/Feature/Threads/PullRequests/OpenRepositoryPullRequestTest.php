@@ -22,7 +22,7 @@ function publishFixture(): array
     Repository::factory()->create(['slug' => 'acme/api', 'github_full_name' => 'acme/api', 'default_branch' => 'main']);
     Repository::factory()->create(['slug' => 'acme/web', 'github_full_name' => 'acme/web', 'default_branch' => 'main', 'ci_system' => 'github_actions']);
     Repository::factory()->create(['slug' => 'acme/docs', 'github_full_name' => 'acme/docs', 'default_branch' => 'main']);
-    $thread = Thread::factory()->create(['title' => 'Rename the widget', 'sandbox_state' => ThreadSandboxState::Running]);
+    $thread = Thread::factory()->create(['title' => 'Rename the widget', 'branch' => 'yak/rename', 'sandbox_state' => ThreadSandboxState::Running]);
     $primary = ThreadRepository::factory()->for($thread)->create(['repo' => 'acme/api', 'branch' => 'yak/rename']);
     $web = ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/web', 'sandbox_path' => '/workspace/web']);
     $docs = ThreadRepository::factory()->for($thread)->context()->create(['repo' => 'acme/docs', 'sandbox_path' => '/workspace/docs']);
@@ -60,10 +60,10 @@ it('pushes only changes repos that have commits and assigns a branch', function 
     app(ThreadRepositoryPullRequests::class)->publishChangedRepositories($thread);
 
     $commands = sandboxExecCommands($sandboxes);
-    expect($web->refresh()->branch)->toBe('yak/rename-web')->and($web->ci_status)->toBe('running')
+    expect($web->refresh()->branch)->toBe('yak/rename')->and($web->ci_status)->toBe('running')
         ->and($web->last_pushed_sha)->toBe('0123456789abcdef0123456789abcdef01234567')
         ->and($commands->first(fn ($command) => str_contains($command, ' add ')))->toContain('src/Widget.php')->not->toContain('.env')
-        ->and($commands->first(fn ($command) => str_contains($command, ' push ')))->toContain('-C /workspace/web push origin HEAD:refs/heads/yak/rename-web')
+        ->and($commands->first(fn ($command) => str_contains($command, ' push ')))->toContain('-C /workspace/web push origin HEAD:refs/heads/yak/rename')
         ->and($commands->filter(fn ($command) => str_contains($command, '/workspace/docs')))->toBeEmpty()
         ->and($docs->refresh()->branch)->toBeNull();
     Queue::assertNothingPushed();
@@ -96,14 +96,14 @@ function mockGitHub(?array $existing, int $creates): void
     $github = Mockery::mock(GitHubAppService::class);
     app()->instance(GitHubAppService::class, $github);
     $github->shouldReceive('findOpenPullRequestForBranch')->andReturn($existing);
-    $github->shouldReceive('createPullRequest')->times($creates)->withArgs(fn ($installation, $repo, $data) => $repo === 'acme/web' && $data['title'] === 'Renamed the widget everywhere.' && $data['base'] === 'main' && $data['head'] === 'yak/rename-web')
+    $github->shouldReceive('createPullRequest')->times($creates)->withArgs(fn ($installation, $repo, $data) => $repo === 'acme/web' && $data['title'] === 'Renamed the widget everywhere.' && $data['base'] === 'main' && $data['head'] === 'yak/rename')
         ->andReturn(['number' => 9, 'html_url' => 'https://github.com/acme/web/pull/9', 'title' => 'Renamed the widget everywhere.']);
 }
 
 it('opens the pull request once and records it on the row', function () {
     Queue::fake();
     [, , $web] = publishFixture();
-    $web->forceFill(['branch' => 'yak/rename-web', 'ci_status' => 'passing'])->save();
+    $web->forceFill(['branch' => 'yak/rename', 'ci_status' => 'passing'])->save();
     mockGitHub(null, 1);
 
     (new OpenRepositoryPullRequestJob($web->id))->handle(app(GitHubAppService::class), app(ThreadPullRequestSync::class));
@@ -116,7 +116,7 @@ it('opens the pull request once and records it on the row', function () {
 it('reuses a pull request that already exists for the branch', function () {
     Queue::fake();
     [, , $web] = publishFixture();
-    $web->forceFill(['branch' => 'yak/rename-web'])->save();
+    $web->forceFill(['branch' => 'yak/rename'])->save();
     mockGitHub(['number' => 5, 'html_url' => 'https://github.com/acme/web/pull/5', 'title' => 'x'], 0);
 
     (new OpenRepositoryPullRequestJob($web->id))->handle(app(GitHubAppService::class), app(ThreadPullRequestSync::class));
@@ -138,7 +138,7 @@ it('requires the primary pull request acknowledgement for a private thread', fun
     Queue::fake();
     [$thread, $primary, $web] = publishFixture();
     $thread->forceFill(['visibility' => ThreadVisibility::Private, 'owner_user_id' => User::factory()->create()->id])->save();
-    $web->forceFill(['branch' => 'yak/rename-web'])->save();
+    $web->forceFill(['branch' => 'yak/rename'])->save();
     mockGitHub(null, 1);
     $run = fn () => (new OpenRepositoryPullRequestJob($web->id))->handle(app(GitHubAppService::class), app(ThreadPullRequestSync::class));
 

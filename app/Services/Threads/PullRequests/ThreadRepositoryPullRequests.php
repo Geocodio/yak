@@ -12,7 +12,6 @@ use App\Services\Threads\Contracts\SandboxManager;
 use App\Support\SecretFilePatterns;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 /**
  * Publishes the extra changes repos of a thread after a turn: commits stray
@@ -71,7 +70,7 @@ class ThreadRepositoryPullRequests
         }
 
         if ($row->branch === null) {
-            $row->forceFill(['branch' => $this->branchFor($thread, $row)])->save();
+            $row->forceFill(['branch' => $thread->branch ?? 'thread-' . $thread->id])->save();
         }
 
         $push = $this->git($thread, $row, ['push', 'origin', "HEAD:refs/heads/{$row->branch}"]);
@@ -105,16 +104,6 @@ class ThreadRepositoryPullRequests
 
         $this->git($thread, $row, ['add', '--', ...$addable]);
         $this->git($thread, $row, ['commit', '-m', $thread->title]);
-    }
-
-    private function branchFor(Thread $thread, ThreadRepository $row): string
-    {
-        $primaryBranch = ThreadRepository::query()
-            ->where('thread_id', $thread->id)
-            ->where('role', RepositoryRole::Primary->value)
-            ->value('branch') ?? $thread->branch ?? 'thread-' . $thread->id;
-
-        return 'yak/' . Str::after((string) $primaryBranch, 'yak/') . '-' . Str::slug(Str::afterLast($row->repo, '/'));
     }
 
     /**

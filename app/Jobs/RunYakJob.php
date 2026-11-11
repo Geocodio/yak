@@ -23,6 +23,7 @@ use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
+use App\Services\Threads\Repos\ThreadRepositoryBranches;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
@@ -217,6 +218,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         $this->task->update(['branch_name' => $branchName]);
         $thread->forceFill(['branch' => $branchName])->save();
         $thread->repositories()->where('role', RepositoryRole::Primary)->update(['branch' => $branchName]);
+        app(ThreadRepositoryBranches::class)->assign($thread);
     }
 
     private function assemblePrompt(): string
