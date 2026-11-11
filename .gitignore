@@ -60,3 +60,5 @@ tests/Browser/Screenshots
 /resources/js/routes/telemetry/
 /resources/js/routes/telemetry-ui/
 broker/dist/
+/ansible/vault/next.yml
+/ansible/inventory/next.yml
