@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -336,5 +337,64 @@ func TestProxyReadsARotatedSecretAfterUpstream401(t *testing.T) {
 	sandboxRequest(h, nil)
 	if h.source.lookupCount() != 2 {
 		t.Fatalf("lookups %d", h.source.lookupCount())
+	}
+}
+
+func TestProxyServeStopsOnContextCancel(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := NewAuthProxy(&fakeSource{}, &url.URL{Scheme: "http", Host: "127.0.0.1:1"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- proxy.Serve(ctx, listener) }()
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Serve returned %v, want nil", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Serve did not return after context cancel")
+	}
+}
+
+func TestProxyServeEndToEnd(t *testing.T) {
+	var seenAuthorization string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenAuthorization = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(upstream.Close)
+	socketPath := serveSocket(t, func(request string) string {
+		if strings.Contains(request, `"yakph-e2e"`) && strings.Contains(request, `"127.0.0.1"`) {
+			return `{"kind":"setup_token","secret":"real-token","account_id":7}`
+		}
+		return `{"error":"unknown"}`
+	})
+	target, _ := url.Parse(upstream.URL)
+	proxy := NewAuthProxy(SocketCredentialSource{Path: socketPath}, target, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- proxy.Serve(ctx, listener) }()
+	t.Cleanup(func() { cancel(); <-done })
+
+	request, _ := http.NewRequest("POST", "http://"+listener.Addr().String()+"/v1/messages", strings.NewReader(`{}`))
+	request.Header.Set("Authorization", "Bearer yakph-e2e")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", response.StatusCode)
+	}
+	if seenAuthorization != "Bearer real-token" {
+		t.Fatalf("upstream saw %q", seenAuthorization)
 	}
 }

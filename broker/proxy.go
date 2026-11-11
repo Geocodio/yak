@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -236,4 +237,27 @@ func deny(w http.ResponseWriter, status int, message string) {
 	w.WriteHeader(status)
 	body, _ := json.Marshal(map[string]any{"type": "error", "error": map[string]string{"type": "permission_error", "message": message}})
 	_, _ = w.Write(body)
+}
+
+// Serve accepts sandbox connections on listener until ctx is cancelled, then
+// drains in-flight streams for up to 10 seconds before closing them. There is
+// no write timeout because responses stream for as long as the model runs.
+func (p *AuthProxy) Serve(ctx context.Context, listener net.Listener) error {
+	server := &http.Server{Handler: p, ReadHeaderTimeout: 10 * time.Second}
+	shutdownDone := make(chan struct{})
+	go func() {
+		defer close(shutdownDone)
+		<-ctx.Done()
+		drain, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if server.Shutdown(drain) != nil {
+			_ = server.Close()
+		}
+	}()
+	err := server.Serve(listener)
+	if errors.Is(err, http.ErrServerClosed) {
+		<-shutdownDone
+		return nil
+	}
+	return err
 }
