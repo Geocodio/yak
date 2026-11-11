@@ -744,3 +744,21 @@ func TestDownNeverUsesAnExistingCheckoutOfAnExtra(t *testing.T) {
 		t.Fatal("used the other checkout")
 	}
 }
+
+func TestDownWritesNoteWithExtrasAndContextRepos(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"}, api.RefreshRule{Glob: "composer.lock", Command: "composer install"})
+	s.manifest.ContextRepos = []string{"acme/docs"}
+	h.rescript(s)
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	note, _ := config.TakeNote(h.deps.ConfigDir, testSession)
+	root, _ := downFolders(h.cwd, "fix-cache")
+	for _, want := range []string{"In " + filepath.Join(root, "api") + ": composer install (fresh clone, nothing is installed)", "Context repos. acme/docs stayed on Yak"} {
+		if !strings.Contains(note, want) {
+			t.Fatalf("missing %q in:\n%s", want, note)
+		}
+	}
+}

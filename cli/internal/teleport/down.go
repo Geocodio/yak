@@ -614,11 +614,21 @@ func writeNote(d Deps, m api.DownManifest, applied []AppliedRepo, resumeDir, pro
 	for _, r := range env.Refresh {
 		in.Refresh = append(in.Refresh, RefreshRule{Glob: r.Glob, Command: r.Command})
 	}
+	in.ContextRepos = m.ContextRepos
 	for _, a := range applied[1:] {
-		if a.Status == "applied" {
-			name := a.Repo[strings.LastIndex(a.Repo, "/")+1:]
-			in.Extras = append(in.Extras, CheckoutMapping{SandboxPath: strings.ReplaceAll(firstNonEmpty(env.ExtrasPathPattern, "/extras/<repo>"), "<repo>", name), LocalPath: a.Path})
+		if a.Status != "applied" {
+			in.NotBroughtDown = append(in.NotBroughtDown, NotBroughtDown{Repo: a.Repo, Reason: a.Reason})
+			continue
 		}
+		mapping := CheckoutMapping{SandboxPath: strings.ReplaceAll(firstNonEmpty(env.ExtrasPathPattern, "/extras/<repo>"), "<repo>", repoName(a.Repo)), LocalPath: a.Path}
+		for _, r := range m.Repos {
+			if r.Repo == a.Repo {
+				for _, rule := range r.Refresh {
+					mapping.Refresh = append(mapping.Refresh, RefreshRule{Glob: rule.Glob, Command: rule.Command})
+				}
+			}
+		}
+		in.Extras = append(in.Extras, mapping)
 	}
 	if touched, err := TouchedPaths(filepath.Join(projectDir, m.Session.SessionID+".jsonl")); err == nil {
 		in.TouchedPaths = touched
