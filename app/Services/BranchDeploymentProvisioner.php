@@ -105,7 +105,7 @@ class BranchDeploymentProvisioner
             $threadIds = ($private->isNotEmpty() ? $private : $threads)->pluck('id')->all();
         }
 
-        $threadId = max($threadIds);
+        $threadId = (int) collect($threadIds)->max();
 
         $candidates = $tasks()->where('thread_id', $threadId)->latest('id')->get();
         $matching = $pullRequestNumber === null
