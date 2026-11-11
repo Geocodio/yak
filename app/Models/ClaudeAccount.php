@@ -33,6 +33,8 @@ use Illuminate\Support\Facades\DB;
  * @property CarbonImmutable|null $validated_at
  * @property CarbonImmutable|null $expires_at
  * @property CarbonImmutable|null $last_used_at
+ * @property CarbonImmutable|null $usage_limit_resets_at
+ * @property float|null $usage_utilisation
  */
 #[Hidden(['secret'])]
 class ClaudeAccount extends Model
@@ -67,6 +69,8 @@ class ClaudeAccount extends Model
             'validated_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',
             'last_used_at' => 'immutable_datetime',
+            'usage_limit_resets_at' => 'immutable_datetime',
+            'usage_utilisation' => 'float',
         ];
     }
 

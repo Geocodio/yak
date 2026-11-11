@@ -8,6 +8,7 @@ use App\Enums\ClaudeAccountKind;
 use App\Enums\ClaudeAccountStatus;
 use App\Models\ClaudeAccount;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -62,6 +63,11 @@ class ClaudeAccountFactory extends Factory
     public function expired(): static
     {
         return $this->state(['status' => ClaudeAccountStatus::Expired, 'expires_at' => now()->subDay()]);
+    }
+
+    public function usageLimited(?CarbonImmutable $resetsAt = null): static
+    {
+        return $this->state(['usage_limit_resets_at' => $resetsAt ?? now()->addHour()]);
     }
 
     public function default(): static
