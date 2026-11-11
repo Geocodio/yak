@@ -23,6 +23,7 @@ use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\Services\Teleport\ThreadOwnership;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -237,9 +238,12 @@ class ThreadTurns
 
     /**
      * Records a steering message and sends it when a turn is running.
-     * Otherwise it stays queued for the next prompt.
+     * Otherwise it stays queued for the next prompt. `$source` is `thread` for
+     * a person's message, which reaches the runner wrapped; any other source
+     * carries text Yak already framed. `$storeAttachments` runs before delivery
+     * so the files exist when the text is built.
      */
-    public function steer(Thread $thread, string $text, ?User $sender, ?string $model): PendingSteeringMessage
+    public function steer(Thread $thread, string $text, ?User $sender, ?string $model, ?Closure $storeAttachments = null, string $source = 'system'): PendingSteeringMessage
     {
         app(ThreadOwnership::class)->assertYakMayRunTurns($thread->fresh() ?? $thread);
 
@@ -248,12 +252,16 @@ class ThreadTurns
         $message = PendingSteeringMessage::query()->create([
             'root_task_id' => $root->rootTask()->id,
             'text' => $text,
-            'source' => 'thread',
+            'source' => $source,
             'mode' => SteeringMode::Steer,
             'author_name' => $sender?->name,
             'uuid' => (string) Str::uuid(),
             'model' => $model,
         ]);
+
+        if ($storeAttachments !== null) {
+            $storeAttachments($message);
+        }
 
         if (! app(SteeringDelivery::class)->deliver($thread, $message)) {
             $message->forceFill(['mode' => SteeringMode::Queue])->save();

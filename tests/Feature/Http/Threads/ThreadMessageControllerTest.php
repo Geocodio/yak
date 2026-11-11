@@ -1,5 +1,7 @@
 <?php
 
+use App\Contracts\SandboxShell;
+use App\Enums\RunnerState;
 use App\Enums\TurnState;
 use App\Models\Device;
 use App\Models\PendingSteeringMessage;
@@ -7,8 +9,14 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\SteeringText;
 use App\Services\Threads\ThreadBusy;
+use App\Services\Threads\ThreadCommands;
+use App\Services\Threads\ThreadShell;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
 
 function messageThread(array $state = []): array
@@ -38,7 +46,7 @@ it('steers when a turn is running', function () {
     [$thread, $task, $user] = messageThread();
     TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Running]);
     $turns = mockTurns();
-    $turns->shouldReceive('steer')->once()->withArgs(fn ($t, $text, $sender, $model) => $t->is($thread) && $text === 'more' && $model === 'haiku')->andReturn(new PendingSteeringMessage(['id' => 1]));
+    $turns->shouldReceive('steer')->once()->withArgs(fn ($t, $text, $sender, $model, $store, $source) => $t->is($thread) && $text === 'more' && $model === 'haiku' && $store instanceof Closure && $source === 'thread')->andReturn(new PendingSteeringMessage(['id' => 1]));
     $turns->shouldNotReceive('start');
 
     $this->actingAs($user)->post(route('threads.messages.store', $thread), ['message' => 'more', 'model' => 'haiku'])
@@ -122,4 +130,26 @@ it('stop interrupts via ThreadTurns::stop', function () {
     mockTurns()->shouldReceive('stop')->once()->withArgs(fn ($t) => $t->is($thread));
 
     $this->actingAs($user)->post(route('threads.stop', $thread))->assertRedirect();
+});
+
+it('stores a steer attachment before the runner receives the steer', function () {
+    Storage::fake('artifacts');
+    [$thread, $task, $user] = messageThread(['runner_state' => RunnerState::Busy, 'runner_model' => 'sonnet', 'model' => 'sonnet', 'sandbox_container' => 'box']);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Running]);
+
+    $result = Mockery::mock(ProcessResult::class);
+    $result->shouldReceive('failed')->andReturn(false);
+    $shell = Mockery::mock(SandboxShell::class);
+    $shell->shouldReceive('run')->andReturn($result);
+    $shell->shouldReceive('pushFile');
+    app()->bind(ThreadShell::class, fn () => $shell);
+
+    $commands = Mockery::mock(ThreadCommands::class);
+    $commands->shouldReceive('steer')->once()->withArgs(fn ($t, $uuid, $text) => str_starts_with($text, SteeringText::PREAMBLE . 'look') && str_contains($text, '## Attached files') && str_contains($text, 'shot.png'));
+    app()->instance(ThreadCommands::class, $commands);
+
+    $this->actingAs($user)->post(route('threads.messages.store', $thread), ['message' => 'look', 'attachments' => [UploadedFile::fake()->image('shot.png')]])
+        ->assertSessionHas('success');
+
+    expect(PendingSteeringMessage::query()->first()->attachments)->toHaveCount(1);
 });

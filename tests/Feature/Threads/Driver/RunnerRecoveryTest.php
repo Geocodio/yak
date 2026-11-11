@@ -13,6 +13,7 @@ use App\Models\ThreadSession;
 use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\Threads\RunnerRecovery;
+use App\Services\Threads\SteeringText;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadTurns;
@@ -73,14 +74,14 @@ it('re-sends unstarted steers with original uuids and skips started ones', funct
     $root = YakTask::factory()->create();
 
     foreach (['steer-sent' => TurnMessageState::Sent, 'steer-queued' => TurnMessageState::Queued, 'steer-started' => TurnMessageState::Started] as $uuid => $state) {
-        $pending = PendingSteeringMessage::create(['root_task_id' => $root->id, 'text' => "text of {$uuid}", 'source' => 'web', 'mode' => 'steer', 'uuid' => $uuid]);
+        $pending = PendingSteeringMessage::create(['root_task_id' => $root->id, 'text' => "text of {$uuid}", 'source' => 'thread', 'mode' => 'steer', 'uuid' => $uuid]);
         ThreadTurnMessage::factory()->steer()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'state' => $state, 'pending_steering_message_id' => $pending->id]);
     }
 
     $commands->shouldReceive('kill')->once();
     $commands->shouldReceive('startRunner')->once();
-    $commands->shouldReceive('steer')->once()->with(Mockery::any(), 'steer-sent', 'text of steer-sent');
-    $commands->shouldReceive('steer')->once()->with(Mockery::any(), 'steer-queued', 'text of steer-queued');
+    $commands->shouldReceive('steer')->once()->with(Mockery::any(), 'steer-sent', SteeringText::PREAMBLE . 'text of steer-sent');
+    $commands->shouldReceive('steer')->once()->with(Mockery::any(), 'steer-queued', SteeringText::PREAMBLE . 'text of steer-queued');
     $commands->shouldReceive('turn')->once();
 
     app(RunnerRecovery::class)->recover($thread);

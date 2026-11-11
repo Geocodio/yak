@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Threads;
 use App\Enums\ThreadOwnerSide;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\SendThreadMessageRequest;
+use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Services\Threads\ThreadAccess;
@@ -44,8 +45,14 @@ class ThreadMessageController extends Controller
                 $turns->start($task, $text, $user, $model);
                 TaskAttachment::storeFromRequest($request, ['yak_task_id' => $task->id]);
             } else {
-                $message = $turns->steer($thread, $text, $user, $model);
-                TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]);
+                $turns->steer(
+                    $thread,
+                    $text,
+                    $user,
+                    $model,
+                    fn (PendingSteeringMessage $message) => TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]),
+                    'thread',
+                );
             }
         } catch (ThreadBusy) {
             return back()->with('error', 'This thread is already starting a turn. Give it a moment.');

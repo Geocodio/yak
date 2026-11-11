@@ -7,6 +7,7 @@ use App\Enums\TurnMessageState;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\SteeringText;
 use App\Services\Threads\ThreadTurns;
 
 require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
@@ -24,9 +25,9 @@ function runningThreadWithTask(): array
 it('sends a steer to a running turn with a uuid', function () {
     [$thread, $run] = runningThreadWithTask();
     $fakes = fakeTurnCollaborators();
-    $fakes['commands']->shouldReceive('steer')->once()->with(Mockery::any(), Mockery::type('string'), 'also the footer');
+    $fakes['commands']->shouldReceive('steer')->once()->with(Mockery::any(), Mockery::type('string'), SteeringText::PREAMBLE . 'also the footer');
 
-    $message = app(ThreadTurns::class)->steer($thread, 'also the footer', User::factory()->create(['name' => 'Ada']), null);
+    $message = app(ThreadTurns::class)->steer($thread, 'also the footer', User::factory()->create(['name' => 'Ada']), null, null, 'thread');
 
     $turnMessage = ThreadTurnMessage::query()->where('uuid', $message->uuid)->first();
     expect($message->mode)->toBe(SteeringMode::Steer)
@@ -72,4 +73,27 @@ it('sends the model before the steer when it changed', function () {
     app(ThreadTurns::class)->steer($thread, 'think harder', null, 'opus');
 
     expect($order)->toBe(['set_model', 'steer']);
+});
+
+it('does not wrap a steer Yak framed itself', function () {
+    [$thread] = runningThreadWithTask();
+    fakeTurnCollaborators()['commands']->shouldReceive('steer')->once()->with(Mockery::any(), Mockery::type('string'), 'already framed');
+
+    $message = app(ThreadTurns::class)->steer($thread, 'already framed', null, null);
+
+    expect($message->source)->toBe('system');
+});
+
+it('runs the attachment callback before delivery', function () {
+    [$thread] = runningThreadWithTask();
+    $order = [];
+    fakeTurnCollaborators()['commands']->shouldReceive('steer')->once()->andReturnUsing(function () use (&$order) {
+        $order[] = 'steer';
+    });
+
+    app(ThreadTurns::class)->steer($thread, 'x', null, null, function ($message) use (&$order) {
+        $order[] = 'store';
+    }, 'thread');
+
+    expect($order)->toBe(['store', 'steer']);
 });
