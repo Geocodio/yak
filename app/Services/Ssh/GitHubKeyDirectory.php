@@ -21,10 +21,16 @@ class GitHubKeyDirectory
     public function refresh(User $user, bool $force = false): GithubKeySync
     {
         if ($user->github_id === null) {
+            $this->revoke($user);
+
             return new GithubKeySync(['user_id' => $user->id, 'status' => 'unknown_account']);
         }
 
         $existing = GithubKeySync::query()->find($user->id);
+
+        if ($existing !== null && $existing->github_id !== $user->github_id) {
+            SshKey::query()->where('user_id', $user->id)->fromGithub()->delete();
+        }
 
         if (! $force && $existing !== null && $this->isFresh($existing, $user)) {
             return $existing;
@@ -47,6 +53,15 @@ class GitHubKeyDirectory
             'stale_since' => null,
             'last_error' => null,
         ]);
+    }
+
+    /**
+     * Forgets everything cached from GitHub for the user: their github keys and the sync row.
+     */
+    public function revoke(User $user): void
+    {
+        SshKey::query()->where('user_id', $user->id)->fromGithub()->delete();
+        GithubKeySync::query()->whereKey($user->id)->delete();
     }
 
     public function isStale(User $user): bool

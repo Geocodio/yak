@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Settings\GitHubAccountController;
+use App\Models\GithubKeySync;
+use App\Models\SshKey;
 use App\Models\User;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
@@ -117,6 +119,20 @@ it('disconnects the GitHub account', function () {
     expect($user->github_id)->toBeNull()
         ->and($user->github_login)->toBeNull()
         ->and($user->github_linked_at)->toBeNull();
+});
+
+it('revokes cached github keys on disconnect', function () {
+    $user = User::factory()->withGitHub()->create();
+    SshKey::factory()->count(2)->create(['user_id' => $user->id, 'source' => 'github']);
+    $manual = SshKey::factory()->create(['user_id' => $user->id, 'source' => 'uploaded']);
+    GithubKeySync::query()->create(['user_id' => $user->id, 'github_id' => $user->github_id, 'status' => 'ok']);
+    $this->actingAs($user);
+
+    $this->delete(route('settings.github.disconnect'));
+
+    expect(SshKey::query()->where('user_id', $user->id)->fromGithub()->count())->toBe(0)
+        ->and(GithubKeySync::query()->find($user->id))->toBeNull()
+        ->and(SshKey::query()->whereKey($manual->id)->exists())->toBeTrue();
 });
 
 it('requires authentication', function () {
