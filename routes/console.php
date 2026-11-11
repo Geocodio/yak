@@ -39,6 +39,7 @@ Schedule::command('yak:preview-repair:sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:prune-session-store')->daily();
 Schedule::command('yak:claude-accounts-expiry')->daily();
 Schedule::command('yak:deliver-stack-results')->everyMinute()->withoutOverlapping();
+Schedule::command('yak:check-stack-usage')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:thread-sandboxes')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:reap-account-slots')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:close-idle-threads')->daily();
