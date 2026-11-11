@@ -51,6 +51,14 @@ test('stopped sandboxes of closed threads are destroyed', function () {
         ->and($open->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped);
 });
 
+it('clamps an oversized stored delay in the sweep', function () {
+    $thread = Thread::factory()->stopped()->create(['destroy_after_hours' => 4000000000, 'last_activity_at' => now()->subHours(200)]);
+
+    sweep();
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed);
+});
+
 test('stopped sandboxes destroy after 72 hours', function () {
     $old = Thread::factory()->stopped()->create(['last_activity_at' => now()->subHours(73)]);
     $young = Thread::factory()->stopped()->create(['last_activity_at' => now()->subHours(71)]);

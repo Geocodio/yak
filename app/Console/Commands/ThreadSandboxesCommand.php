@@ -11,6 +11,7 @@ use App\Events\ThreadSandboxSlotFreed;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\IncusThreadSandboxManager;
+use App\Services\Threads\RefreshTriggers;
 use App\Services\Threads\SandboxCapacity;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Console\Attributes\Description;
@@ -87,7 +88,7 @@ class ThreadSandboxesCommand extends Command
 
                 $idleSince = $thread->last_activity_at ?? $thread->sandbox_state_changed_at;
 
-                return $idleSince !== null && $idleSince->lte(now()->subHours($thread->destroy_after_hours ?? $defaultHours));
+                return $idleSince !== null && $idleSince->lte(now()->subHours(RefreshTriggers::clampDestroyAfterHours($thread->destroy_after_hours) ?? $defaultHours));
             })
             ->each(fn (Thread $thread) => $sandboxes->destroy($thread));
     }
