@@ -86,7 +86,7 @@ class StackToolRouter implements YakToolRouter
     private function list(Thread $thread): YakToolResult
     {
         $lines = array_map(
-            fn (array $row): string => "- {$row['name']} ({$row['kind']}, {$row['state']})" . ($row['latestResult'] === null ? '' : ": {$row['latestResult']}"),
+            fn (array $row): string => "- {$row['name']} ({$row['kind']}, {$row['state']})" . ($row['repo'] === null ? '' : " in {$row['repo']}" . ($row['pullRequestUrl'] === null ? '' : ", {$row['pullRequestUrl']}")) . ($row['latestResult'] === null ? '' : ": {$row['latestResult']}"),
             StackListing::for($thread),
         );
 

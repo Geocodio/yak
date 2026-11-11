@@ -17,6 +17,19 @@ export function ChildRow({ child, onChanged }: { child: StackChild; onChanged: (
                 <span className="ml-auto shrink-0 text-[12px] text-muted">{child.takenOver ? 'Taken over' : CHILD_STATE_LABEL[child.state]}</span>
             </div>
             <p className="mt-0.5 text-[12px] text-muted">{child.kind}{child.model ? ` · ${child.model}` : ''}{child.messagesPaused ? ' · messages paused' : ''}</p>
+            {child.repo && (
+                <p className="mt-0.5 text-[12px] text-muted" data-testid={`stack-child-${child.id}-repo`}>
+                    {child.repo}
+                    {child.pullRequestUrl && (
+                        <>
+                            {' · '}
+                            <a href={child.pullRequestUrl} target="_blank" rel="noreferrer" className="hover:underline" data-testid={`stack-child-${child.id}-pr`}>
+                                Pull request{child.ciStatus ? ` (${child.ciStatus})` : ''}
+                            </a>
+                        </>
+                    )}
+                </p>
+            )}
             {detail && <p className="mt-1 line-clamp-2 text-[12px] text-muted">{detail}</p>}
             {child.canOverride && !child.takenOver && (
                 <div className="mt-2 flex flex-wrap gap-2">

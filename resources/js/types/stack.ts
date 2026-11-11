@@ -12,6 +12,9 @@ export type StackChild = {
     step: string | null;
     resultSummary: string | null;
     branch: string | null;
+    repo: string | null;
+    pullRequestUrl: string | null;
+    ciStatus: string | null;
     queued: boolean;
     messagesPaused: boolean;
     takenOver: boolean;

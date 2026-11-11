@@ -15,12 +15,33 @@ use Illuminate\Validation\ValidationException;
 class MergeOrder
 {
     /**
+     * The threads whose pull requests form one set: the thread alone, or the
+     * root and its repo children when the stack fanned out to other repos.
+     *
+     * @return list<int>
+     */
+    public function stackThreadIds(Thread $thread): array
+    {
+        $root = $thread->rootThread();
+        $repoChildIds = Thread::query()->withoutGlobalScopes()
+            ->where('root_thread_id', $root->id)
+            ->where('repo', '!=', $root->repo)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->values()
+            ->all();
+
+        return $repoChildIds === [] ? [$thread->id] : [$root->id, ...$repoChildIds];
+    }
+
+    /**
      * @return Collection<int, ThreadRepository>
      */
     public function forThread(Thread $thread): Collection
     {
         return ThreadRepository::query()
-            ->where('thread_id', $thread->id)
+            ->whereIn('thread_id', $this->stackThreadIds($thread))
             ->where('role', '!=', 'context')
             ->whereNotNull('pull_request_url')
             ->orderByRaw('merge_position is null, merge_position')

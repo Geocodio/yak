@@ -16,13 +16,14 @@ class SiblingBlockPublisher
 {
     public function __construct(
         private readonly SiblingBlock $block,
+        private readonly MergeOrder $mergeOrder,
         private readonly PullRequestBodyUpdater $updater,
     ) {}
 
     public function publish(Thread $thread): void
     {
         $rows = ThreadRepository::query()
-            ->where('thread_id', $thread->id)
+            ->whereIn('thread_id', $this->mergeOrder->stackThreadIds($thread))
             ->where('pull_request_state', 'open')
             ->whereNotNull('pull_request_number')
             ->get();

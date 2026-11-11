@@ -15,6 +15,7 @@ class SiblingBlock
     public function render(Thread $thread, ThreadRepository $forRow): ?string
     {
         $rows = app(MergeOrder::class)->forThread($thread);
+        $thread = $thread->rootThread();
 
         if ($rows->count() < 2) {
             return null;

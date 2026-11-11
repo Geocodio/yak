@@ -26,7 +26,7 @@ final class StackData
      *     rootId: int,
      *     isRoot: bool,
      *     parent: ?array{id: int, name: string, title: string},
-     *     children: list<array{id: int, name: string, title: string, kind: string, model: ?string, state: string, step: ?string, resultSummary: ?string, branch: ?string, queued: bool, messagesPaused: bool, takenOver: bool, canOverride: bool}>,
+     *     children: list<array{id: int, name: string, title: string, kind: string, model: ?string, state: string, step: ?string, resultSummary: ?string, branch: ?string, repo: ?string, pullRequestUrl: ?string, ciStatus: ?string, queued: bool, messagesPaused: bool, takenOver: bool, canOverride: bool}>,
      *     limit: array{current: int, max: int},
      *     usage: array{turnCount: int, costUsd: float, activeHours: float, note: string},
      *     messages: list<array{id: int, fromName: string, toName: string, kind: string, text: string, createdAt: string}>,
@@ -43,7 +43,8 @@ final class StackData
 
         $children = [];
 
-        foreach (Thread::query()->withoutVisibilityScope()->visibleTo($viewer)->where('root_thread_id', $root->id)->orderBy('id')->get() as $child) {
+        foreach (Thread::query()->withoutVisibilityScope()->visibleTo($viewer)->where('root_thread_id', $root->id)->with('primaryRepository')->orderBy('id')->get() as $child) {
+            $isOtherRepo = $child->repo !== $root->repo;
             $state = StackListing::state($child);
 
             $children[] = [
@@ -56,6 +57,9 @@ final class StackData
                 'step' => $child->current_step,
                 'resultSummary' => $child->result_summary === null ? null : self::clip($child->result_summary),
                 'branch' => $child->branch,
+                'repo' => $isOtherRepo ? $child->repo : null,
+                'pullRequestUrl' => $isOtherRepo ? $child->primaryRepository?->pull_request_url : null,
+                'ciStatus' => $isOtherRepo ? $child->primaryRepository?->ci_status : null,
                 'queued' => $child->queued_for_slot_at !== null,
                 'messagesPaused' => $child->messages_paused_at !== null,
                 'takenOver' => $child->taken_over_at !== null,
