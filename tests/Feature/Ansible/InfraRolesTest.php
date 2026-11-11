@@ -378,3 +378,19 @@ it('restarts only running sandboxes, and succeeds when none are running', functi
     expect($run("yak-base,RUNNING\nyak-tpl-acme,RUNNING\nthread-7,RUNNING\nthread-8,STOPPED\nthread-9,RUNNING\n"))
         ->toBe([0, "thread-7\nthread-9"]);
 });
+
+it('keeps sandbox egress working when Docker starts after ufw', function () use ($ansibleYaml) {
+    $docker = collect($ansibleYaml('ansible/roles/docker/tasks/main.yml'));
+    $daemonConfig = json_decode($docker->firstWhere('name', 'Keep Docker from changing the FORWARD policy')['ansible.builtin.copy']['content'], true);
+
+    expect($daemonConfig)->toBe(['ip-forward-no-drop' => true]);
+
+    $names = collect($ansibleYaml('ansible/roles/incus/tasks/main.yml'))->pluck('name')->values();
+    $policy = $names->search('Set UFW default forward policy to ACCEPT (sandboxes need outbound NAT)');
+    $flush = $names->search('Apply the forward policy before the base template is built');
+    $baseTemplate = $names->search('Create base template container');
+
+    expect($policy)->toBeInt()
+        ->and($flush)->toBeGreaterThan($policy)
+        ->and($baseTemplate)->toBeGreaterThan($flush);
+});

@@ -249,13 +249,6 @@
   when: sandbox_acl_file.changed or sandbox_acl_create.changed or sandbox_acl_profile.changed
   changed_when: true
 
-- name: Set UFW default forward policy to ACCEPT (sandboxes need outbound NAT)
-  ansible.builtin.lineinfile:
-    path: /etc/default/ufw
-    regexp: '^DEFAULT_FORWARD_POLICY='
-    line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
-  notify: reload ufw
-
 - name: Block sandbox network from accessing host services
   community.general.ufw:
     rule: deny
@@ -364,6 +357,18 @@
     group: root
     mode: "0755"
   when: base_template_check.rc != 0
+
+- name: Set UFW default forward policy to ACCEPT (sandboxes need outbound NAT)
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^DEFAULT_FORWARD_POLICY='
+    line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
+  notify: reload ufw
+
+# The base template installs packages from inside a sandbox, so the forward
+# policy must be live before it is built, not when handlers run at the end.
+- name: Apply the forward policy before the base template is built
+  ansible.builtin.meta: flush_handlers
 
 - name: Create base template container
   ansible.builtin.shell: |
