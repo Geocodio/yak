@@ -73,22 +73,41 @@ func (IncusSpawner) Start(_ context.Context, container string, uid int, cwd, cha
 	return &incusProcess{cmd: cmd, stdin: stdin, stdout: stdout}, nil
 }
 
-// killRunnersScript kills every runner together with all its descendants and its
-// session. The agent's tool processes (a Bash call, its children) run in sessions of
-// their own, so the session kill alone would leave them running as orphans. The
-// bracketed pattern keeps pgrep from matching the shell that runs the script.
-const killRunnersScript = `descendants() { for child in $(pgrep -P "$1"); do echo "$child"; descendants "$child"; done; }
-for pid in $(pgrep -f '[/]opt/yak-runner/runner.mjs'); do
+// killScript kills every runner whose command line matches the pgrep pattern, together with
+// all its descendants and its session. The agent's tool processes (a Bash call, its children)
+// run in sessions of their own, so the session kill alone would leave them running as orphans.
+// The bracketed pattern keeps pgrep from matching the shell that runs the script.
+func killScript(pattern string) string {
+	return `descendants() { for child in $(pgrep -P "$1"); do echo "$child"; descendants "$child"; done; }
+for pid in $(pgrep -f '` + pattern + `'); do
   session="$(ps -o sid= -p "$pid" | tr -d ' ')"
   family="$pid $(descendants "$pid")"
   kill -KILL $family 2>/dev/null
   if [ -n "$session" ]; then pkill -KILL -s "$session"; fi
 done
 true`
+}
 
-// KillRunner kills the runner of one channel in the container.
-func (s IncusSpawner) KillRunner(ctx context.Context, container, _ string) error {
-	return s.KillAllRunners(ctx, container)
+// killAllRunnersScript kills every runner in the container.
+var killAllRunnersScript = killScript(`[/]opt/yak-runner/runner.mjs`)
+
+// killRunnerScript kills only the runner serving one channel. The pattern is anchored at the
+// end of the command line so channel threads_1 never matches threads_12.
+func killRunnerScript(channel string) string {
+	return killScript(`[/]opt/yak-runner/runner.mjs --channel ` + sanitizeChannel(channel) + `$`)
+}
+
+// KillRunner kills the runner of one channel in the container, leaving other runners alone.
+func (IncusSpawner) KillRunner(ctx context.Context, container, channel string) error {
+	return incusKill(ctx, container, killRunnerScript(channel))
+}
+
+func incusKill(ctx context.Context, container, script string) error {
+	out, err := exec.CommandContext(ctx, "incus", "exec", container, "--", "sh", "-c", script).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("kill runners in %s: %w: %s", container, err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // sanitizeChannel replaces every byte outside [A-Za-z0-9_-] with an underscore.
@@ -105,11 +124,7 @@ func sanitizeChannel(name string) string {
 
 // KillAllRunners kills every runner in the container, its session and every process below it.
 func (IncusSpawner) KillAllRunners(ctx context.Context, container string) error {
-	out, err := exec.CommandContext(ctx, "incus", "exec", container, "--", "sh", "-c", killRunnersScript).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("kill runners in %s: %w: %s", container, err, strings.TrimSpace(string(out)))
-	}
-	return nil
+	return incusKill(ctx, container, killAllRunnersScript)
 }
 
 // readLines calls emit for every newline-terminated line, with no size limit.

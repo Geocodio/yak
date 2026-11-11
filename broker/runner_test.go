@@ -9,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"io"
 	"log/slog"
+	"os/exec"
 	"strings"
 	"sync"
 	"testing"
@@ -513,4 +514,62 @@ func TestLateExitOfOldGenerationDoesNotRevokeNewPlaceholder(t *testing.T) {
 		}
 		return false
 	})
+}
+
+// startDecoy starts a fake runner whose argv ends in the channel and whose child sleeps in a
+// session of its own, like a Bash tool process.
+func startDecoy(t *testing.T, channel, sleepMarker string) {
+	t.Helper()
+	decoy := exec.Command("perl", "-e", `use POSIX; if (!fork) { POSIX::setsid(); exec "sleep", "`+sleepMarker+`" } sleep 300;`, "/opt/yak-runner/runner.mjs", "--channel", channel)
+	if err := decoy.Start(); err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = decoy.Wait() }()
+	t.Cleanup(func() { _ = exec.Command("pkill", "-KILL", "-f", "sleep "+sleepMarker).Run(); _ = decoy.Process.Kill() })
+	waitFor(t, func() bool { return toolRunning(sleepMarker) })
+}
+
+func toolRunning(sleepMarker string) bool {
+	return exec.Command("pgrep", "-f", "sleep "+sleepMarker).Run() == nil
+}
+
+func requirePerl(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("perl"); err != nil {
+		t.Skip("perl is required for the decoy runner")
+	}
+}
+
+func TestKillAllScriptKillsToolProcessesInTheirOwnSession(t *testing.T) {
+	requirePerl(t)
+	startDecoy(t, "threads_1", "300.7")
+	if err := exec.Command("sh", "-c", killAllRunnersScript).Run(); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, func() bool { return !toolRunning("300.7") })
+}
+
+func TestKillRunnerScriptKillsOnlyItsChannel(t *testing.T) {
+	requirePerl(t)
+	startDecoy(t, "threads_1", "300.71")
+	startDecoy(t, "threads_2", "300.72")
+	if err := exec.Command("sh", "-c", killRunnerScript("threads:1")).Run(); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, func() bool { return !toolRunning("300.71") })
+	if !toolRunning("300.72") {
+		t.Fatal("the other channel's tool process was killed")
+	}
+}
+
+func TestKillRunnerScriptDoesNotMatchPrefixChannel(t *testing.T) {
+	requirePerl(t)
+	startDecoy(t, "threads_12", "300.73")
+	if err := exec.Command("sh", "-c", killRunnerScript("threads:1")).Run(); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(500 * time.Millisecond)
+	if !toolRunning("300.73") {
+		t.Fatal("threads_12 was killed by the threads_1 script")
+	}
 }
