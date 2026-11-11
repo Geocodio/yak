@@ -352,7 +352,7 @@ Every open PR on an opted-in repo gets a live preview URL at `<repo>-<branch>.<h
 
 - OAuth-gated by default, with optional time-boxed public-share tokens for external reviewers
 - Hibernated when idle after 15 minutes, resumed on the next request (first-hit latency 5 to 15 seconds)
-- Destroyed when the PR closes, merges, or is deleted, or after 30 days of inactivity
+- Destroyed when the PR closes, merges, or is deleted, or after 7 days of inactivity
 
 Each preview runs in its own Incus container cloned from the same per-repo template snapshot that powers task sandboxes. A reverse proxy (Caddy in the default install) handles wildcard TLS, OAuth enforcement via forward-auth, and upstream resolution per request.
 
