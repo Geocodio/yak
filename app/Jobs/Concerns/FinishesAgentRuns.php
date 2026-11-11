@@ -114,11 +114,11 @@ trait FinishesAgentRuns
                 // Dirty tree + no commits means the agent edited files but
                 // forgot to `git add && git commit` before returning. Treat
                 // as a real failure so the retry path (RetryYakJob) picks it
-                // up with a clearer hint — otherwise the work silently
+                // up with a clearer hint -- otherwise the work silently
                 // disappears and the task claims success.
                 if (GitOperations::hasUncommittedChanges($shell, $container, $workspacePath)) {
                     throw new \RuntimeException(
-                        'Agent finished with uncommitted changes — run `git add -A && git commit` before returning.'
+                        'Agent finished with uncommitted changes, run `git add -A && git commit` before returning.'
                     );
                 }
 
@@ -149,7 +149,7 @@ trait FinishesAgentRuns
         if ($repository->settings()->ciSystem() === 'none') {
             ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
         } else {
-            $message = YakPersonality::generate(NotificationType::Progress, "Pushed fix on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
+            $message = YakPersonality::generate(NotificationType::Progress, "Pushed fix on branch {$this->task->branch_name}, waiting for CI to finish before opening a PR.");
             SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
         }
     }
@@ -220,7 +220,7 @@ trait FinishesAgentRuns
         // For repos with real CI, park the task in AwaitingCi until the
         // webhook/poll flips it. For ci_system=none there's nothing to wait
         // for; leave the status as Running so ProcessCIResultJob can move
-        // straight to Success — and, if PR creation blows up, the failed()
+        // straight to Success -- and, if PR creation blows up, the failed()
         // recovery path moves it to Failed instead of stranding it in a
         // misleading "awaiting_ci" state on a repo with no CI.
         if ($repository->settings()->ciSystem() !== 'none') {
@@ -232,7 +232,7 @@ trait FinishesAgentRuns
 
     private function handleError(string $errorMessage): void
     {
-        // Don't overwrite a task that's already terminal — cancelled
+        // Don't overwrite a task that's already terminal -- cancelled
         // mid-run, force-failed by a deploy drain with an accurate
         // reason, or finalised by a parallel path. Overwriting it here
         // would replace that reason with whatever this run's own error
