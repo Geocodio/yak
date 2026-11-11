@@ -42,6 +42,8 @@ func TestPluginFilesAreValidAndConsistent(t *testing.T) {
 	}
 	readJSON(t, "hooks/hooks.json", &hooks)
 	want := map[string]string{"SessionStart": "hook session-start", "UserPromptSubmit": "hook user-prompt-submit"}
+	// Teleport runs inside the UserPromptSubmit hook, so it gets the long timeout.
+	timeouts := map[string]int{"SessionStart": 5, "UserPromptSubmit": 900}
 	if len(hooks.Hooks) != len(want) {
 		t.Fatalf("hook events %v", hooks.Hooks)
 	}
@@ -51,7 +53,7 @@ func TestPluginFilesAreValidAndConsistent(t *testing.T) {
 			t.Fatalf("%s: %+v", event, groups)
 		}
 		h := groups[0].Hooks[0]
-		if h.Command != `"${CLAUDE_PLUGIN_ROOT}/bin/yak" `+suffix || h.Timeout != 5 {
+		if h.Command != `"${CLAUDE_PLUGIN_ROOT}/bin/yak" `+suffix || h.Timeout != timeouts[event] {
 			t.Errorf("%s: %+v", event, h)
 		}
 	}

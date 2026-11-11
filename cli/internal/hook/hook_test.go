@@ -230,3 +230,55 @@ func TestSessionStartRefreshesHandlerWhenBinaryMoved(t *testing.T) {
 	deps.RefreshHandler = nil
 	SessionStart(deps, Input{SessionID: sid, Source: "startup"})
 }
+
+func slashDeps(calls *[][]string) HookDeps {
+	return HookDeps{RunTeleport: func(args []string) (string, int) {
+		*calls = append(*calls, args)
+		return "Yak has the thread.\n", 0
+	}}
+}
+
+func TestSlashTeleportPromptIsHandledByTheHookWithoutAModelTurn(t *testing.T) {
+	var calls [][]string
+	for _, prompt := range []string{`/yak teleport "fix x"`, `/yak:yak teleport "fix x"`} {
+		out := UserPromptSubmit(slashDeps(&calls), Input{SessionID: sid, Prompt: prompt})
+		var got map[string]string
+		if err := json.Unmarshal([]byte(out), &got); err != nil || got["decision"] != "block" || got["reason"] != "Yak has the thread." {
+			t.Fatalf("%q: %q", prompt, out)
+		}
+	}
+	if len(calls) != 2 || strings.Join(calls[0], "|") != "--message|fix x" {
+		t.Fatalf("%v", calls)
+	}
+}
+
+func TestOtherPromptsAreUntouched(t *testing.T) {
+	var calls [][]string
+	for _, prompt := range []string{"hello", "/yak", "/yakteleport", "please /yak teleport", "/yak teleportation"} {
+		if out := UserPromptSubmit(slashDeps(&calls), Input{SessionID: sid, Prompt: prompt}); out != "" {
+			t.Errorf("%q: %q", prompt, out)
+		}
+	}
+	if len(calls) != 0 {
+		t.Fatal(calls)
+	}
+}
+
+func TestSlashTeleportWithBadQuotesBlocksWithUsage(t *testing.T) {
+	var calls [][]string
+	out := UserPromptSubmit(slashDeps(&calls), Input{SessionID: sid, Prompt: `/yak teleport 42 "oops`})
+	if !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "unbalanced quote") || len(calls) != 0 {
+		t.Fatal(out, calls)
+	}
+}
+
+func TestSlashTeleportFromAYakOwnedSessionIsBlockedWithTheMarkerText(t *testing.T) {
+	r := newRig(t)
+	r.marker(t, "yak", 7)
+	var calls [][]string
+	r.deps.RunTeleport = slashDeps(&calls).RunTeleport
+	out := UserPromptSubmit(r.deps, Input{SessionID: sid, Prompt: "/yak teleport"})
+	if !strings.Contains(out, "This session is on Yak") || len(calls) != 0 {
+		t.Fatal(out, calls)
+	}
+}

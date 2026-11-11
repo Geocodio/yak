@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/geocodio/yak/cli/internal/config"
 	"github.com/geocodio/yak/cli/internal/link"
 	"github.com/geocodio/yak/cli/internal/session"
+	"github.com/geocodio/yak/cli/internal/slash"
 )
 
 // MaxInputBytes caps what a hook reads from stdin.
@@ -44,6 +46,8 @@ type HookDeps struct {
 	Home string
 	// RefreshHandler re-registers the yak:// handler for Binary; nil disables the refresh.
 	RefreshHandler func()
+	// RunTeleport runs yak teleport with args and returns what it printed; nil leaves /yak teleport to the command file.
+	RunTeleport func(args []string) (output string, exitCode int)
 }
 
 // ReadInput decodes stdin; ok is false for anything unreadable.
@@ -108,30 +112,51 @@ func UserPromptSubmit(d HookDeps, in Input) string {
 		return ""
 	}
 	m, ok := config.ReadMarker(d.ConfigDir, in.SessionID)
-	if !ok {
-		return ""
-	}
-	switch m.Owner {
-	case "yak":
+	if ok && m.Owner == "yak" {
 		bin := "yak"
 		if d.Binary != "" {
 			bin = link.ShellQuote(d.Binary)
 		}
-		b, err := json.Marshal(map[string]string{
-			"decision": "block",
-			"reason": fmt.Sprintf("This session is on Yak. Run %s teleport %d to bring it back, or run %s marker clear %s to use it as a local session again (its work can be teleported up as a new thread).",
-				bin, m.ThreadID, bin, in.SessionID),
-		})
-		if err != nil {
-			return ""
-		}
-		return string(b) + "\n"
-	case "device":
+		return block(fmt.Sprintf("This session is on Yak. Run %s teleport %d to bring it back, or run %s marker clear %s to use it as a local session again (its work can be teleported up as a new thread).",
+			bin, m.ThreadID, bin, in.SessionID))
+	}
+	if out, handled := slashTeleport(d, in.Prompt); handled {
+		return out
+	}
+	if ok && m.Owner == "device" {
 		if text := stackMessages(d, in.SessionID, m); text != "" {
 			return output("UserPromptSubmit", text)
 		}
 	}
 	return ""
+}
+
+func block(reason string) string {
+	b, err := json.Marshal(map[string]string{"decision": "block", "reason": reason})
+	if err != nil {
+		return ""
+	}
+	return string(b) + "\n"
+}
+
+var slashTeleportPrompt = regexp.MustCompile(`^/yak(:yak)? teleport\b`)
+
+// slashTeleport runs /yak teleport inside the hook. Blocking the prompt shows the output to the person without a
+// model turn; no shell is involved, the prompt text only becomes an argument list.
+func slashTeleport(d HookDeps, prompt string) (string, bool) {
+	if d.RunTeleport == nil || !slashTeleportPrompt.MatchString(prompt) {
+		return "", false
+	}
+	rest := strings.TrimPrefix(strings.TrimPrefix(prompt, "/yak:yak"), "/yak")
+	args, err := slash.TeleportArgs(rest)
+	if err != nil {
+		return block(fmt.Sprintf("Could not read that command: %v. Usage: /yak teleport [<thread>] [\"message\"] [options]", err)), true
+	}
+	text, _ := d.RunTeleport(args)
+	if text = strings.TrimSpace(text); text == "" {
+		text = "yak teleport printed nothing."
+	}
+	return block(text), true
 }
 
 func seenPath(dir, sessionID string) string { return filepath.Join(dir, "seen", sessionID) }
