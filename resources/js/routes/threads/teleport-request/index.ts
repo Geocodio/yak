@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::store
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:20
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
 * @route '/threads/{thread}/teleport-request'
 */
 export const store = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::store
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:20
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
 * @route '/threads/{thread}/teleport-request'
 */
 store.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { thread: number | { id: number } } | [thread: number | { id:
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::store
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:20
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
 * @route '/threads/{thread}/teleport-request'
 */
 store.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ store.post = (args: { thread: number | { id: number } } | [thread: number | { id
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::destroy
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:34
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
 * @route '/threads/{thread}/teleport-request'
 */
 export const destroy = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -74,7 +74,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::destroy
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:34
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
 * @route '/threads/{thread}/teleport-request'
 */
 destroy.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ destroy.url = (args: { thread: number | { id: number } } | [thread: number | { i
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::destroy
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:34
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
 * @route '/threads/{thread}/teleport-request'
 */
 destroy.delete = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

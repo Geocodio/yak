@@ -3,6 +3,7 @@ import ThreadListController from './ThreadListController'
 import ThreadSeenController from './ThreadSeenController'
 import ThreadDiffController from './ThreadDiffController'
 import ThreadEnvironmentController from './ThreadEnvironmentController'
+import ThreadPullRequestController from './ThreadPullRequestController'
 import ThreadEventController from './ThreadEventController'
 import ThreadTeleportRequestController from './ThreadTeleportRequestController'
 import ThreadMessageController from './ThreadMessageController'
@@ -18,6 +19,7 @@ const Threads = {
     ThreadSeenController: Object.assign(ThreadSeenController, ThreadSeenController),
     ThreadDiffController: Object.assign(ThreadDiffController, ThreadDiffController),
     ThreadEnvironmentController: Object.assign(ThreadEnvironmentController, ThreadEnvironmentController),
+    ThreadPullRequestController: Object.assign(ThreadPullRequestController, ThreadPullRequestController),
     ThreadEventController: Object.assign(ThreadEventController, ThreadEventController),
     ThreadTeleportRequestController: Object.assign(ThreadTeleportRequestController, ThreadTeleportRequestController),
     ThreadMessageController: Object.assign(ThreadMessageController, ThreadMessageController),

@@ -1,6 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import diff from './diff'
 import environment from './environment'
+import pullRequest from './pull-request'
 import events from './events'
 import teleportRequest from './teleport-request'
 import messages from './messages'
@@ -376,6 +377,7 @@ const threads = {
     seen: Object.assign(seen, seen),
     diff: Object.assign(diff, diff),
     environment: Object.assign(environment, environment),
+    pullRequest: Object.assign(pullRequest, pullRequest),
     events: Object.assign(events, events),
     teleportRequest: Object.assign(teleportRequest, teleportRequest),
     messages: Object.assign(messages, messages),
