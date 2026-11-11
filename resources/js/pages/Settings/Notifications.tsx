@@ -19,10 +19,14 @@ type Props = PageProps<NotificationSettings>;
 
 const Intro = ({ children }: { children: ReactNode }) => <p className="mt-1 max-w-[600px] text-[12.5px] leading-relaxed text-muted">{children}</p>;
 
-function deviceLabel(): string {
+function deviceLabel(isStandalone: boolean): string {
     const agent = navigator.userAgent;
     const browser = /Edg\//.test(agent) ? 'Edge' : /Firefox/.test(agent) ? 'Firefox' : /Chrome/.test(agent) ? 'Chrome' : /Safari/.test(agent) ? 'Safari' : 'Browser';
     const system = /iPhone/.test(agent) ? 'iPhone' : /iPad/.test(agent) ? 'iPad' : /Android/.test(agent) ? 'Android' : /Mac/.test(agent) ? 'macOS' : /Windows/.test(agent) ? 'Windows' : /Linux/.test(agent) ? 'Linux' : '';
+
+    if (isStandalone) {
+        return `${system === '' ? browser : system}, installed app`;
+    }
 
     return system === '' ? browser : `${browser} on ${system}`;
 }
@@ -50,7 +54,7 @@ export default function Notifications({ events, devices, vapidPublicKey, isIosSu
 
     const enable = async () => {
         setSubscribeError(null);
-        const result = await push.subscribe(deviceLabel());
+        const result = await push.subscribe(deviceLabel(platform.isStandalone));
         platform.refresh();
 
         if (result === 'failed' || result === 'unsupported') {
@@ -64,7 +68,12 @@ export default function Notifications({ events, devices, vapidPublicKey, isIosSu
 
             <div className="flex flex-col gap-6">
                 <div>
-                    <h2 id="push-heading" className="text-[20px] font-semibold tracking-[-0.01em]">Notifications</h2>
+                    <h2 className="text-[20px] font-semibold tracking-[-0.01em]">Notifications</h2>
+                    <Intro>Where Yak reaches you, and how to install it as an app.</Intro>
+                </div>
+
+                <div>
+                    <h3 id="push-heading" className="text-[14px] font-semibold">Push notifications</h3>
                     <Intro>Yak can tap your phone or desktop when a thread needs you. Slack and email notifications work as before. Nothing is pushed while you have that thread open.</Intro>
                 </div>
 
@@ -129,6 +138,7 @@ export default function Notifications({ events, devices, vapidPublicKey, isIosSu
                         <Intro>Installed, Yak opens in its own window with its own icon, and pushes notifications to your phone. On iPhone and iPad this is required for notifications.</Intro>
                     </div>
                     {showIosSteps || (platform.isIos && !platform.isStandalone) ? <IosSteps isSupported={isIosSupported} /> : null}
+                    {platform.isIos && <a href="#ios-steps-heading" className="text-[12.5px] text-accent-text hover:underline" data-testid="ios-why-link">Why iOS needs this</a>}
                     <InstallCard isStandalone={platform.isStandalone} isIos={platform.isIos} onShowIosSteps={() => setShowIosSteps(true)} />
                 </section>
             </div>

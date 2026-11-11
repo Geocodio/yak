@@ -1,6 +1,6 @@
 import { Badge, Button } from '@geocodio/console-ui';
 import { router } from '@inertiajs/react';
-import { RefreshCw } from 'lucide-react';
+import { KeyRound, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { refresh } from '@/routes/settings/ssh-keys';
 import type { SshKeysPageData } from '@/types/sshKeys';
@@ -15,7 +15,12 @@ export function GithubKeysSection({ keys, github }: { keys: SshKeysPageData['git
     const empty = !github.linked ? (
         <>No GitHub account is linked to your Yak user. Link one in your profile and Yak will pick up its public keys, or add a key below.</>
     ) : (
-        <>No public keys found on {github.login ?? 'your GitHub account'}. Add one on GitHub or upload one below.</>
+        <div className="flex flex-col items-center gap-2 py-8 text-center" data-testid="ssh-github-empty">
+            <KeyRound size={18} aria-hidden="true" />
+            <h4 className="text-[13.5px] font-semibold text-text">GitHub has no public keys for you</h4>
+            <p className="max-w-[320px] text-[12.5px] leading-relaxed">Add a key at github.com/settings/keys and Yak picks it up on your next connection, or upload one below to start now.</p>
+            <a href="https://github.com/settings/keys" target="_blank" rel="noreferrer" className="mt-1 rounded-control border border-hair px-3 py-1.5 text-[12.5px] font-medium text-text hover:bg-panel-2">Open GitHub key settings</a>
+        </div>
     );
 
     return (

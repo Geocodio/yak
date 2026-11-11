@@ -62,6 +62,7 @@ export function DeviceList({ devices }: { devices: PushDevice[] }) {
                                 <div className="flex flex-wrap items-center gap-2 text-[13px] font-medium">
                                     {describe(device)}
                                     {device.isCurrent && <Badge tone="accent">This device</Badge>}
+                                    {/installed app/i.test(device.label ?? '') && <Badge>Installed app</Badge>}
                                 </div>
                                 <div className="text-[12px] text-muted">
                                     {lastUsed(device)}

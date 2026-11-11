@@ -7,6 +7,9 @@ it('saves a notification toggle across a reload and offers the install prompt', 
     $this->actingAs($user);
 
     $page = visit(route('settings.notifications'))
+        ->assertSee('Where Yak reaches you, and how to install it as an app.')
+        ->assertSee('Push notifications')
+        ->assertSee('Turn finished')
         ->assertVisible('[data-testid="event-toggles"]');
 
     $toggle = '[data-testid="event-toggle-turn_finished"]';
