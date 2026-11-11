@@ -76,7 +76,7 @@ func TestPluginFilesAreValidAndConsistent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(cmdMd), "description: Teleport this session to Yak") ||
-		!strings.Contains(string(cmdMd), `bin/yak" teleport $ARGUMENTS`) {
+		!strings.Contains(string(cmdMd), `"${CLAUDE_PLUGIN_ROOT}/bin/yak" slash-teleport`) {
 		t.Errorf("command file: %s", cmdMd)
 	}
 
