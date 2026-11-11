@@ -30,6 +30,7 @@ use App\Services\Threads\PullRequests\CiCheckDetails;
 use App\Services\Threads\PullRequests\RepositoryCiRetry;
 use App\Services\Threads\PullRequests\RepositoryTurnPrompts;
 use App\Services\Threads\PullRequests\RoutedPullRequest;
+use App\Services\Threads\PullRequests\SiblingFeedbackGate;
 use App\Services\Threads\PullRequests\ThreadPullRequestRouter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -328,8 +329,13 @@ class WebhookController extends Controller
             );
         }
 
-        $installationId = (int) config('yak.channels.github.installation_id');
         $repoFullName = (string) $request->input('repository.full_name');
+
+        if (! app(SiblingFeedbackGate::class)->permits($repoFullName, $author)) {
+            return response()->json(['ok' => true, 'skipped' => 'commenter lacks write access']);
+        }
+
+        $installationId = (int) config('yak.channels.github.installation_id');
 
         if ($installationId > 0 && $id > 0 && ! $isReview) {
             $github->addReaction($installationId, $repoFullName, $id, 'eyes', isReviewComment: $isReviewComment);

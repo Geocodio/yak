@@ -9,6 +9,7 @@ use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
+use App\Services\Threads\PullRequests\SiblingFeedbackGate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
@@ -36,6 +37,11 @@ beforeEach(function () {
     $this->web = ThreadRepository::factory()->for($this->thread)->changes()->withPullRequest(188)->create(['repo' => 'acme-web', 'branch' => 'yak/x', 'sandbox_path' => '/workspace/web', 'pull_request_url' => 'https://github.com/acme/web/pull/188']);
     $this->docs = ThreadRepository::factory()->for($this->thread)->context()->create(['repo' => 'acme-docs', 'branch' => 'yak/x']);
 });
+
+function permitSiblingFeedback(): void
+{
+    test()->mock(SiblingFeedbackGate::class)->shouldReceive('permits')->andReturn(true);
+}
 
 function sendGitHub(string $event, array $payload): TestResponse
 {
@@ -80,6 +86,7 @@ it('keeps primary pull request CI on the task path', function () {
 });
 
 it('starts a turn naming the repo for a sibling comment', function () {
+    permitSiblingFeedback();
     config()->set('yak.followup.github_prefixes', '/yak');
 
     sendGitHub('issue_comment', issueComment('acme/web', '/yak rename the field'))->assertOk()->assertJson(['dispatched' => true]);
@@ -89,6 +96,7 @@ it('starts a turn naming the repo for a sibling comment', function () {
 });
 
 it('starts a turn for a sibling review with feedback', function () {
+    permitSiblingFeedback();
     sendGitHub('pull_request_review', [
         'action' => 'submitted',
         'review' => ['id' => 9, 'state' => 'changes_requested', 'body' => '/yak Please add a test', 'user' => ['login' => 'sam', 'type' => 'User']],
@@ -137,6 +145,7 @@ it('ignores bot comments and comments without the prefix', function () {
 });
 
 it('declines a comment on a merged sibling pull request', function () {
+    permitSiblingFeedback();
     config()->set('yak.followup.github_prefixes', '/yak');
     config()->set('yak.channels.github.installation_id', 1);
     $this->web->forceFill(['pull_request_state' => 'merged'])->save();
