@@ -150,7 +150,13 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'not a yak branch']);
         }
 
-        $routed = $this->routeSiblingEvent($request, $this->checkSuitePullRequestNumbers($request), $branch);
+        $routed = $this->routeSiblingEvent(
+            $request,
+            $this->checkSuitePullRequestNumbers($request),
+            $branch,
+            (string) $request->input('check_suite.head_sha', ''),
+            (string) $request->input('check_suite.head_repository.full_name', ''),
+        );
 
         if ($routed !== null) {
             return $this->handleSiblingCheckSuite($request, $github, $routed);
@@ -209,7 +215,7 @@ class WebhookController extends Controller
      *
      * @param  list<int>  $prNumbers
      */
-    private function routeSiblingEvent(Request $request, array $prNumbers, ?string $branch = null): ?RoutedPullRequest
+    private function routeSiblingEvent(Request $request, array $prNumbers, ?string $branch = null, ?string $headSha = null, ?string $headRepositoryFullName = null): ?RoutedPullRequest
     {
         $repoFullName = (string) $request->input('repository.full_name', '');
 
@@ -220,7 +226,7 @@ class WebhookController extends Controller
         $router = app(ThreadPullRequestRouter::class);
 
         foreach ($prNumbers !== [] ? $prNumbers : [null] as $number) {
-            $routed = $router->route($repoFullName, $number, $branch);
+            $routed = $router->route($repoFullName, $number, $branch, $headSha, $headRepositoryFullName);
 
             if ($routed !== null) {
                 return $routed->isPrimary ? null : $routed;

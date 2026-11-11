@@ -82,7 +82,12 @@ class ThreadRepositoryPullRequests
             return;
         }
 
-        $row->forceFill(['ci_status' => 'running'])->save();
+        $head = $this->git($thread, $row, ['rev-parse', 'HEAD']);
+
+        $row->forceFill([
+            'ci_status' => 'running',
+            'last_pushed_sha' => $head->successful() ? trim($head->output()) : null,
+        ])->save();
 
         if ($repository?->settings()->ciSystem() === 'none') {
             $this->ciRetry->handleResult($row, true, null, null);

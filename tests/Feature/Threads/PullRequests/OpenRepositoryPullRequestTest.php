@@ -42,6 +42,7 @@ function queueRepoAnswers(SandboxManager $sandboxes, string $files, string $ahea
     $sandboxes->queueExecResult(Process::result($ahead));
     if ((int) $ahead > 0) {
         $sandboxes->queueExecResult(Process::result());
+        $sandboxes->queueExecResult(Process::result("0123456789abcdef0123456789abcdef01234567\n"));
     }
 }
 
@@ -60,6 +61,7 @@ it('pushes only changes repos that have commits and assigns a branch', function 
 
     $commands = sandboxExecCommands($sandboxes);
     expect($web->refresh()->branch)->toBe('yak/rename-web')->and($web->ci_status)->toBe('running')
+        ->and($web->last_pushed_sha)->toBe('0123456789abcdef0123456789abcdef01234567')
         ->and($commands->first(fn ($command) => str_contains($command, ' add ')))->toContain('src/Widget.php')->not->toContain('.env')
         ->and($commands->first(fn ($command) => str_contains($command, ' push ')))->toContain('-C /workspace/web push origin HEAD:refs/heads/yak/rename-web')
         ->and($commands->filter(fn ($command) => str_contains($command, '/workspace/docs')))->toBeEmpty()

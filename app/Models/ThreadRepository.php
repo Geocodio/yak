@@ -39,6 +39,7 @@ use Illuminate\Support\Str;
  * @property string|null $ci_status
  * @property array<int, array{name: string, state: string, durationSeconds?: int|null, excerpt?: string|null}>|null $ci_checks
  * @property string|null $last_commit_sha
+ * @property string|null $last_pushed_sha
  * @property string|null $merge_reason
  */
 class ThreadRepository extends Model

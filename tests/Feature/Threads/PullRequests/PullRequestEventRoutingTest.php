@@ -55,7 +55,7 @@ function checkSuite(string $repo, string $conclusion = 'failure', int $number = 
 {
     return [
         'action' => 'completed',
-        'check_suite' => ['head_branch' => 'yak/x', 'conclusion' => $conclusion, 'head_sha' => 'abc', 'pull_requests' => [['number' => $number]]],
+        'check_suite' => ['head_branch' => 'yak/x', 'conclusion' => $conclusion, 'head_sha' => 'abc', 'head_repository' => ['full_name' => $repo], 'pull_requests' => [['number' => $number]]],
         'repository' => ['full_name' => $repo],
     ];
 }
@@ -76,6 +76,18 @@ it('retries only the sibling repo when its CI fails', function () {
     Queue::assertPushed(RetryRepositoryCiJob::class, fn ($job) => $job->threadRepositoryId === $this->web->id);
     Queue::assertNotPushed(ProcessCIResultJob::class);
     expect($this->api->refresh()->ci_retry_count)->toBe(0);
+});
+
+it('does not retry a sibling repo for a fork check suite reusing the branch name', function () {
+    $this->web->forceFill(['branch' => 'yak/x', 'last_pushed_sha' => 'pushed'])->save();
+    $payload = checkSuite('acme/web');
+    $payload['check_suite']['pull_requests'] = [];
+    $payload['check_suite']['head_sha'] = 'forked';
+    $payload['check_suite']['head_repository'] = ['full_name' => 'evil/web'];
+
+    sendGitHub('check_suite', $payload)->assertOk();
+
+    Queue::assertNotPushed(RetryRepositoryCiJob::class);
 });
 
 it('keeps primary pull request CI on the task path', function () {
