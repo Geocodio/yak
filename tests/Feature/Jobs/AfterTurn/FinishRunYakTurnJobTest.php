@@ -80,7 +80,7 @@ it('completes without a push when the agent answered without commits', function 
 it('fails a turn that left uncommitted changes and no commits', function () {
     $shell = new class extends FakeSandboxManager
     {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
         {
             parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
 

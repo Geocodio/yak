@@ -39,6 +39,9 @@ class FakeSandboxManager extends IncusSandboxManager
      */
     public array $commands = [];
 
+    /** @var array<string, array<string, string>> Environment passed with each command, keyed by command. */
+    public array $environments = [];
+
     /**
      * Substring => [error output, exit code], for commands that should come back non-zero.
      *
@@ -110,9 +113,10 @@ class FakeSandboxManager extends IncusSandboxManager
         return $name;
     }
 
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
     {
         $this->commands[] = $command;
+        $this->environments[$command] = $env;
 
         foreach ($this->failingCommands as $substring => [$errorOutput, $exitCode]) {
             if (str_contains($command, $substring)) {

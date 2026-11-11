@@ -47,7 +47,7 @@ it('adds a counter suffix when the remote already has the branch', function () {
         /** @param  array<int, string>  $existingRemoteBranches */
         public function __construct(private array $existingRemoteBranches) {}
 
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
         {
             if (preg_match("/git ls-remote --heads origin '([^']+)'/", $command, $m)) {
                 return in_array($m[1], $this->existingRemoteBranches, true)
@@ -81,6 +81,19 @@ it('builds the prompt from the task description', function () {
     (new RunYakJob($context['task']))->handle();
 
     expect($context['sent'][1]['text'])->toContain('Fix the flaky importer');
+});
+
+it('with fresh_session_pending the tree is reset and the full prompt is sent', function () {
+    Queue::fake();
+    $context = pendingRunYak(['description' => 'Fix the flaky importer', 'branch_name' => 'yak/old']);
+    TaskRun::factory()->create(['yak_task_id' => $context['task']->id, 'thread_id' => $context['thread']->id, 'turn_state' => TurnState::Completed]);
+    $context['thread']->forceFill(['fresh_session_pending' => true])->save();
+
+    (new RunYakJob($context['task']))->handle();
+
+    expect($context['shell']->commandsMatching('git reset --hard && git clean -fd'))->toHaveCount(1)
+        ->and($context['shell']->commandsMatching('git checkout -B'))->toHaveCount(1)
+        ->and($context['sent'][1]['text'])->toContain('Fix the flaky importer');
 });
 
 it('a clarification resume in the same thread sends only the answers on the existing branch', function () {

@@ -136,10 +136,14 @@ class IncusSandboxManager implements SandboxShell
      * for the rare privileged operations (chown of pushed files, etc.).
      *
      * Returns the raw process result for callers that need stdout/stderr.
+     * `$env` reaches the command as `incus exec --env` flags, so values never
+     * appear in the shell command string.
+     *
+     * @param  array<string, string>  $env
      */
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
     {
-        $cmd = $this->buildExecCommand($containerName, $command, $asRoot);
+        $cmd = $this->buildExecCommand($containerName, $command, $asRoot, $env);
 
         $process = Process::timeout($timeout ?? 600);
 
@@ -937,8 +941,10 @@ class IncusSandboxManager implements SandboxShell
     /**
      * Build the `incus exec` shell command, wrapping the payload in
      * `sudo -u yak` unless the caller explicitly needs root.
+     *
+     * @param  array<string, string>  $env
      */
-    private function buildExecCommand(string $containerName, string $command, bool $asRoot): string
+    private function buildExecCommand(string $containerName, string $command, bool $asRoot, array $env = []): string
     {
         if ($asRoot) {
             // `incus exec` runs as root by default and preserves the
@@ -949,13 +955,20 @@ class IncusSandboxManager implements SandboxShell
             // small allowlist, which would eat the agent passthrough
             // vars we just set on the container. --preserve-env=<list>
             // whitelists exactly the ones we forwarded.
-            $preserve = $this->preserveEnvFlag();
+            $preserve = $this->preserveEnvFlag(array_keys($env));
             $shell = 'sudo -u yak' . $preserve . ' -H bash -c ' . escapeshellarg($command);
         }
 
+        $envFlags = '';
+
+        foreach ($env as $name => $value) {
+            $envFlags .= ' --env ' . escapeshellarg("{$name}={$value}");
+        }
+
         return sprintf(
-            'incus exec %s -- %s',
+            'incus exec %s%s -- %s',
             escapeshellarg($containerName),
+            $envFlags,
             $shell,
         );
     }
@@ -982,15 +995,14 @@ class IncusSandboxManager implements SandboxShell
      * Build the `--preserve-env=NAME1,NAME2` flag for sudo, based on
      * `yak.agent_passthrough_env`. Returns an empty string when
      * nothing is configured so the sudo invocation stays clean.
+     *
+     * @param  list<string|int>  $extraNames
      */
-    private function preserveEnvFlag(): string
+    private function preserveEnvFlag(array $extraNames = []): string
     {
         $passthrough = (string) config('yak.agent_passthrough_env', '');
-        if ($passthrough === '') {
-            return '';
-        }
+        $names = array_merge(array_filter(array_map('trim', explode(',', $passthrough))), array_map('strval', $extraNames));
 
-        $names = array_filter(array_map('trim', explode(',', $passthrough)));
         if ($names === []) {
             return '';
         }

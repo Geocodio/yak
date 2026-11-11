@@ -174,10 +174,11 @@ class ThreadTurns
             $this->commands->startRunner(
                 $thread,
                 $account,
-                $thread->activeSession()?->session_id,
+                $thread->fresh_session_pending ? null : $thread->activeSession()?->session_id,
                 (string) $thread->append_system_prompt,
                 $thread->sharesParentSandbox() ? ResearchChildRunner::worktreePath($thread) : null,
             );
+            $thread->forceFill(['fresh_session_pending' => false])->save();
         } elseif ($thread->model !== null && $thread->model !== $thread->runner_model) {
             $this->commands->setModel($thread, $thread->model);
         }

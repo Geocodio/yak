@@ -105,7 +105,7 @@ it('fails with a crafted reply when the push is rejected', function () {
 it('keeps raw exception text off the PR', function () {
     $sandbox = new class extends FakeSandboxManager
     {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
         {
             if (str_contains($command, 'rev-parse --abbrev-ref')) {
                 throw new RuntimeException('git config credential.helper password=secret');

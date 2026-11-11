@@ -326,6 +326,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         // Promote the setup container to a repo template with snapshot.
         // Future tasks for this repo will clone from this snapshot (instant CoW).
         // This also bumps current_template_version to 1+ so DeployBranchJob can proceed.
+        $this->runSetupScript($repository, $sandbox, $containerName);
         $setupScriptHash = app(SetupScriptHash::class)->forSandbox($containerName);
         $snapshotRef = $sandbox->promoteToTemplate($containerName, $repository);
 
@@ -354,6 +355,38 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         }
 
         SendNotificationJob::dispatch($this->task, NotificationType::Result, "Repository {$repository->name} is set up. I can work on tasks there now.");
+    }
+
+    /**
+     * Runs the repository's `.yak/setup.sh` in the template sandbox so the
+     * promoted template carries what the script installs. Build credentials
+     * reach it through the exec environment only. A failing script throws, which
+     * fails the setup before the sandbox is promoted.
+     */
+    private function runSetupScript(Repository $repository, IncusSandboxManager $sandbox, string $containerName): void
+    {
+        $workspacePath = IncusSandboxManager::workspacePath();
+
+        if ($sandbox->run($containerName, "[ -f {$workspacePath}/.yak/setup.sh ]", timeout: 30)->exitCode() !== 0) {
+            return;
+        }
+
+        $credentials = array_map('strval', $repository->build_credentials ?? []);
+        $result = $sandbox->run($containerName, "cd {$workspacePath} && bash .yak/setup.sh", timeout: 900, env: $credentials);
+
+        if ($result->failed()) {
+            $output = trim($result->output() . "\n" . $result->errorOutput());
+
+            foreach ($credentials as $credential) {
+                if ($credential !== '') {
+                    $output = str_replace($credential, '[redacted]', $output);
+                }
+            }
+
+            $output = (string) preg_replace('#(://)[^/@\s]+@#', '$1[redacted]@', $output);
+
+            throw new \RuntimeException(".yak/setup.sh failed (exit {$result->exitCode()}): " . mb_strcut($output, 0, 4000));
+        }
     }
 
     /**

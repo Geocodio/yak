@@ -34,7 +34,7 @@ function revisionShell(string $revision): FakeSandboxManager
     {
         public function __construct(private string $revision) {}
 
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
         {
             if (str_contains($command, 'git rev-parse HEAD')) {
                 return Process::result($this->revision);

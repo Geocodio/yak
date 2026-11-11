@@ -38,6 +38,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadVisibility $visibility
  * @property ThreadKind $kind
  * @property string|null $branch
+ * @property bool $fresh_session_pending
  * @property int|null $owner_user_id
  * @property int|null $parent_thread_id
  * @property int|null $root_thread_id
@@ -93,6 +94,7 @@ class Thread extends Model
         'runner_generation' => 0,
         'lock_holder' => 'none',
         'owner_side' => 'yak',
+        'fresh_session_pending' => false,
     ];
 
     /**
@@ -109,6 +111,7 @@ class Thread extends Model
             'lock_holder' => ThreadLockHolder::class,
             'owner_side' => ThreadOwnerSide::class,
             'blocked_reason' => ThreadBlockReason::class,
+            'fresh_session_pending' => 'boolean',
             'sandbox_state_changed_at' => 'immutable_datetime',
             'runner_started_at' => 'immutable_datetime',
             'lock_acquired_at' => 'immutable_datetime',

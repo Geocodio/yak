@@ -15,7 +15,9 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
+use App\Services\Threads\SetupScriptHash;
 use App\YakPromptBuilder;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -877,4 +879,108 @@ test('a hostile health probe path stays in one table cell of the setup PR', func
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/pulls')
         && str_contains($request['body'], "| `.yak/preview.yml` | Port 3000, health probe `/a'b\\|c d`, start and refresh commands |"));
+});
+
+/*
+|--------------------------------------------------------------------------
+| Template build runs .yak/setup.sh
+|--------------------------------------------------------------------------
+*/
+
+function runSetupWithScript(?FakeSandboxManager $sandbox = null, array $repositoryAttributes = []): array
+{
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_script',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        rawOutput: '{}',
+    ));
+    app()->instance(AgentRunner::class, $fake);
+
+    $sandbox ??= new class extends FakeSandboxManager
+    {
+        public function promoteToTemplate(string $containerName, Repository $repository): string
+        {
+            $this->commands[] = 'PROMOTE';
+
+            return parent::promoteToTemplate($containerName, $repository);
+        }
+    };
+    app()->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+
+    $repository = Repository::factory()->create([
+        'slug' => 'script-repo',
+        'path' => '/home/yak/repos/script-repo',
+        'setup_status' => 'pending',
+        ...$repositoryAttributes,
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'script-repo', 'mode' => TaskMode::Setup]);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    return [$repository->refresh(), $task->refresh(), $sandbox];
+}
+
+test('the template build runs .yak/setup.sh before promoting when the script exists', function () {
+    [, , $sandbox] = runSetupWithScript();
+
+    $commands = $sandbox->commands;
+    $scriptAt = array_search(true, array_map(fn ($c) => str_contains($c, 'bash .yak/setup.sh'), $commands), true);
+    $promoteAt = array_search('PROMOTE', $commands, true);
+
+    expect($scriptAt)->not->toBeFalse()
+        ->and($promoteAt)->toBeGreaterThan($scriptAt);
+});
+
+test('build credentials are in the exec environment only', function () {
+    [, , $sandbox] = runSetupWithScript(repositoryAttributes: ['build_credentials' => ['NPM_TOKEN' => 'tok-secret-1']]);
+
+    $command = collect($sandbox->commands)->first(fn ($c) => str_contains($c, 'bash .yak/setup.sh'));
+
+    expect($command)->not->toContain('tok-secret-1')
+        ->and($sandbox->environments[$command])->toBe(['NPM_TOKEN' => 'tok-secret-1']);
+});
+
+test('a failing setup.sh fails the setup and does not promote', function () {
+    $sandbox = (new FakeSandboxManager)->failCommand('bash .yak/setup.sh', 'npm ERR with tok-secret-1 and https://user:pw@host/x');
+
+    [$repository, $task, $sandbox] = runSetupWithScript($sandbox, ['build_credentials' => ['NPM_TOKEN' => 'tok-secret-1']]);
+
+    expect($repository->setup_status)->toBe('failed')
+        ->and($repository->sandbox_snapshot)->toBeNull()
+        ->and($sandbox->promotedTemplates)->toBe([])
+        ->and($task->status)->toBe(TaskStatus::Failed)
+        ->and($task->error_log)->toContain('.yak/setup.sh failed (exit 1)')
+        ->and($task->error_log)->not->toContain('tok-secret-1')
+        ->and($task->error_log)->not->toContain('user:pw');
+});
+
+test('without a script nothing runs and the template is promoted as before', function () {
+    $sandbox = (new FakeSandboxManager)->failCommand('[ -f', '', 1);
+
+    [$repository, , $sandbox] = runSetupWithScript($sandbox);
+
+    expect($sandbox->commandsMatching('bash .yak/setup.sh'))->toBe([])
+        ->and($sandbox->promotedTemplates)->toHaveCount(1)
+        ->and($repository->setup_status)->toBe('ready');
+});
+
+test('the stored hash is the hash of the script that ran', function () {
+    $sandbox = new class extends FakeSandboxManager
+    {
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
+        {
+            return str_starts_with($command, 'cat ') && str_contains($command, 'setup.sh')
+                ? Process::result("echo built\n")
+                : parent::run($containerName, $command, $timeout, $asRoot, $input, $output, $env);
+        }
+    };
+
+    [$repository] = runSetupWithScript($sandbox);
+
+    expect($repository->setup_script_hash)->toBe(SetupScriptHash::forContents("echo built\n"));
 });
