@@ -14,10 +14,15 @@ class SshKeyDirectory
 {
     public function userForFingerprint(string $fingerprint): ?User
     {
-        $key = SshKey::query()->where('fingerprint', $fingerprint)->first();
+        return $this->keyForFingerprint($fingerprint)?->user;
+    }
+
+    public function keyForFingerprint(string $fingerprint): ?SshKey
+    {
+        $key = SshKey::query()->with('user')->where('fingerprint', $fingerprint)->first();
 
         // Database collations may fold case; a base64 fingerprint must match exactly.
-        return $key !== null && hash_equals($key->fingerprint, $fingerprint) ? $key->user : null;
+        return $key !== null && hash_equals($key->fingerprint, $fingerprint) ? $key : null;
     }
 
     /**
