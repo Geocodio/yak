@@ -92,17 +92,64 @@ it('lists restore steps with the failed one', function () {
 
     $notice = ThreadNoticeData::for($thread);
 
-    expect($notice['restoreSteps'])->toBe([
-        ['label' => 'Create sandbox', 'status' => 'done', 'error' => null],
-        ['label' => 'Checkout branch', 'status' => 'failed', 'error' => 'Branch is gone'],
-    ])->and($notice['body'])->toContain('Branch is gone');
+    expect($notice['restoreSteps'][0])->toMatchArray(['key' => 'create_sandbox', 'status' => 'done', 'error' => null])
+        ->and($notice['restoreSteps'][1])->toMatchArray(['key' => 'checkout_branch', 'status' => 'failed', 'error' => 'Branch is gone', 'outputTail' => [], 'exitCode' => null]);
+});
+
+it('labels restore steps with the mockup wording and detail lines', function () {
+    $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Starting]);
+
+    foreach ([RestoreStepName::CreateSandbox, RestoreStepName::CheckoutBranch, RestoreStepName::RunSetupScript, RestoreStepName::RunRefreshTriggers, RestoreStepName::RestoreSessionFiles, RestoreStepName::PrepareEnvironment] as $index => $name) {
+        ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => $index + 1, 'step' => $name, 'status' => 'pending']);
+    }
+
+    $steps = ThreadNoticeData::for($thread)['restoreSteps'];
+
+    expect(array_column($steps, 'label'))->toBe(['Clone the repo template', 'Check out the thread branch', 'Run .yak/setup.sh', 'Run the refresh triggers', 'Restore the conversation', 'Start Claude'])
+        ->and(collect($steps)->every(fn (array $step): bool => $step['detail'] !== ''))->toBeTrue();
+});
+
+it('reports durationSeconds from started_at and finished_at', function () {
+    $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Starting]);
+    ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => 1, 'step' => RestoreStepName::CreateSandbox, 'status' => 'succeeded', 'started_at' => now()->subSeconds(12), 'finished_at' => now()]);
+    ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => 2, 'step' => RestoreStepName::CheckoutBranch, 'status' => 'running']);
+
+    $steps = ThreadNoticeData::for($thread)['restoreSteps'];
+
+    expect($steps[0]['durationSeconds'])->toBe(12.0)
+        ->and($steps[1]['durationSeconds'])->toBeNull();
+});
+
+it('keeps the last 5 output lines as outputTail and parses "exit code N" from the error', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::RestoreFailed]);
+    ThreadRestoreStep::factory()->failed('setup.sh failed with exit code 127')->create([
+        'thread_id' => $thread->id, 'position' => 1, 'step' => RestoreStepName::RunSetupScript,
+        'output' => implode("\n", ['one', 'two', 'three', 'four', 'five', 'six', 'seven']),
+    ]);
+
+    $step = ThreadNoticeData::for($thread)['restoreSteps'][0];
+
+    expect($step['outputTail'])->toBe(['three', 'four', 'five', 'six', 'seven'])
+        ->and($step['exitCode'])->toBe(127);
+});
+
+it('titles a rebuild failure with the failed step number', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::RestoreFailed]);
+    ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => 1, 'step' => RestoreStepName::CreateSandbox, 'status' => 'succeeded']);
+    ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => 2, 'step' => RestoreStepName::CheckoutBranch, 'status' => 'succeeded']);
+    ThreadRestoreStep::factory()->failed('boom')->create(['thread_id' => $thread->id, 'position' => 3, 'step' => RestoreStepName::RunSetupScript]);
+
+    expect(ThreadNoticeData::for($thread))->toMatchArray([
+        'title' => 'Rebuilding the sandbox stopped at step 3',
+        'body' => 'Your message is saved. Claude reads it once the sandbox is back.',
+    ]);
 });
 
 it('shows restore progress while the sandbox starts', function () {
     $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Starting]);
     ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'status' => 'running']);
 
-    expect(ThreadNoticeData::for($thread))->toMatchArray(['kind' => 'restoring', 'canContinue' => false])
+    expect(ThreadNoticeData::for($thread))->toMatchArray(['kind' => 'restoring', 'title' => 'Rebuilding the sandbox', 'canContinue' => false])
         ->and(ThreadNoticeData::for($thread)['restoreSteps'])->toHaveCount(1);
 });
 
@@ -137,4 +184,73 @@ it('names the queue position of a thread waiting for an account', function () {
     TaskRun::query()->where('thread_id', $first->id)->update(['turn_state' => TurnState::Pending]);
 
     expect(ThreadNoticeData::for($second->fresh())['body'])->toContain('You are number 1 in line.');
+});
+
+it('reports the queue position and turn counts for a thread waiting for its account', function () {
+    $account = ClaudeAccount::factory()->create(['name' => 'Work', 'max_concurrent_turns' => 2]);
+    TaskRun::factory()->count(2)->create(['claude_account_id' => $account->id, 'account_slot_held_at' => now()]);
+
+    $first = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForAccount, 'claude_account_id' => $account->id]);
+    $second = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForAccount, 'claude_account_id' => $account->id]);
+    foreach ([$first, $second] as $thread) {
+        $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+        TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'claude_account_id' => $account->id, 'turn_state' => TurnState::WaitingForAccount]);
+    }
+
+    expect(ThreadNoticeData::for($first)['waiting'])->toMatchArray(['position' => 1, 'turnsRunning' => 2, 'turnsLimit' => 2, 'accountName' => 'Work', 'slots' => []])
+        ->and(ThreadNoticeData::for($second)['waiting']['position'])->toBe(2);
+});
+
+it('lists the awake sandboxes for a thread waiting for a sandbox', function () {
+    config(['yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 4]);
+    $viewer = User::factory()->create();
+    Thread::factory()->count(6)->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => null])->each(fn (Thread $thread) => $thread->update(['sandbox_container' => 'c-' . $thread->id]));
+    Thread::factory()->paused()->create(['owner_user_id' => $viewer->id, 'last_activity_at' => now()->subMinutes(40)]);
+    Thread::factory()->paused()->create(['last_activity_at' => now()->subMinutes(5)]);
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now(), 'owner_user_id' => $viewer->id]);
+
+    $waiting = ThreadNoticeData::for($thread, $viewer)['waiting'];
+
+    expect($waiting['slots'])->toHaveCount(8)
+        ->and(collect($waiting['slots'])->where('state', 'paused')->pluck('idleMinutes')->sort()->values()->all())->toBe([5, 40])
+        ->and(collect($waiting['slots'])->where('isMine', true))->toHaveCount(1)
+        ->and($waiting['position'])->toBe(1)
+        ->and($waiting['ownSlotsCap'])->toBeNull();
+});
+
+it('offers the viewer a paused sandbox to stop when their own share is full', function () {
+    config(['yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 1]);
+    $viewer = User::factory()->create();
+    $paused = Thread::factory()->paused()->create(['owner_user_id' => $viewer->id, 'last_activity_at' => now()->subHour()]);
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now(), 'owner_user_id' => $viewer->id]);
+
+    expect(ThreadNoticeData::for($thread, $viewer)['waiting'])->toMatchArray(['ownSlotsUsed' => 1, 'ownSlotsCap' => 1, 'stoppableThreadId' => $paused->id])
+        ->and(ThreadNoticeData::for($thread, User::factory()->create())['waiting']['stoppableThreadId'])->toBeNull();
+});
+
+it('has no waiting props for other notices', function () {
+    expect(ThreadNoticeData::for(Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]))['waiting'])->toBeNull();
+});
+
+it('gives no time estimate for a thread waiting for a sandbox', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
+
+    expect(ThreadNoticeData::for($thread)['body'])->not->toContain('usually within a few minutes');
+});
+
+it('links the account settings for the owner and a new thread for everyone on a token problem', function () {
+    $owner = User::factory()->create();
+    $account = ClaudeAccount::factory()->create(['owner_user_id' => $owner->id]);
+    $thread = Thread::factory()->create(['claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::AccountInvalid]);
+
+    expect(ThreadNoticeData::for($thread, $owner))
+        ->toMatchArray(['accountSettingsUrl' => route('settings.claude-accounts'), 'startOnOwnAccountUrl' => route('threads.new')])
+        ->and(ThreadNoticeData::for($thread, User::factory()->create()))
+        ->toMatchArray(['accountSettingsUrl' => null, 'startOnOwnAccountUrl' => route('threads.new')]);
+});
+
+it('has no account links on other notices', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]);
+
+    expect(ThreadNoticeData::for($thread))->toMatchArray(['accountSettingsUrl' => null, 'startOnOwnAccountUrl' => null]);
 });

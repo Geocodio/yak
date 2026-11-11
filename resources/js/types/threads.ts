@@ -90,8 +90,10 @@ export type TeleportData = {
     failure: { code: string; message: string } | null;
     heldEvents: HeldEventData[];
     environmentNote: string | null;
+    environmentSwitch: { from: string; to: string; at: string } | null;
     accountName: string | null;
     continuedFromThreadId: number | null;
+    continuedFromTitle: string | null;
     canTeleport: boolean;
 };
 
@@ -104,6 +106,7 @@ export type ThreadPageData = {
     messages: ThreadMessage[];
     composer: ThreadComposer;
     notice: ThreadNotice | null;
+    capacity: ThreadCapacity | null;
     stackParent: { id: number; name: string; title: string } | null;
 };
 
@@ -142,6 +145,23 @@ export type ThreadNoticeKind =
     | 'guard_time'
     | 'restoring';
 
+export type ThreadWaiting = {
+    position: number | null;
+    turnsRunning: number;
+    turnsLimit: number;
+    accountName: string;
+    slots: { state: 'running' | 'paused'; idleMinutes: number | null; isMine: boolean; isThis: boolean }[];
+    ownSlotsUsed: number | null;
+    ownSlotsCap: number | null;
+    stoppableThreadId: number | null;
+};
+
+export type ThreadCapacity = {
+    turns: { used: number; limit: number };
+    sandboxes: { used: number; limit: number };
+    share: { used: number; limit: number };
+};
+
 export type ThreadNotice = {
     kind: ThreadNoticeKind;
     title: string;
@@ -149,7 +169,19 @@ export type ThreadNotice = {
     resetsAt: string | null;
     isOwnerOfAccount: boolean;
     canContinue: boolean;
-    restoreSteps: { label: string; status: 'pending' | 'running' | 'done' | 'failed'; error: string | null }[];
+    accountSettingsUrl: string | null;
+    startOnOwnAccountUrl: string | null;
+    waiting: ThreadWaiting | null;
+    restoreSteps: {
+        key: string;
+        label: string;
+        detail: string;
+        status: 'pending' | 'running' | 'done' | 'failed';
+        error: string | null;
+        durationSeconds: number | null;
+        outputTail: string[];
+        exitCode: number | null;
+    }[];
 };
 
 /** Props of the `Threads/New` page; mirrors `App\Http\Controllers\Threads\NewThreadController`. */

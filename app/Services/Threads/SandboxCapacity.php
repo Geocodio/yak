@@ -32,6 +32,21 @@ class SandboxCapacity
             ->count('threads.sandbox_container');
     }
 
+    /**
+     * One thread per awake container, with the owner of its stack as `effective_owner_id`.
+     *
+     * @return Collection<int, Thread>
+     */
+    public function awakeSlots(): Collection
+    {
+        return $this->awakeThreads()
+            ->selectRaw('threads.*, coalesce(roots.owner_user_id, threads.owner_user_id) as effective_owner_id')
+            ->orderBy('threads.id')
+            ->get()
+            ->unique('sandbox_container')
+            ->values();
+    }
+
     public function canWake(Thread $thread): bool
     {
         $reason = $this->needsEviction($thread);

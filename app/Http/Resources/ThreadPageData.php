@@ -14,8 +14,10 @@ use App\Enums\ThreadVisibility;
 use App\Models\Thread;
 use App\Models\ThreadShare;
 use App\Models\User;
+use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Teleport\TeleportPageState;
 use App\Services\Threads\Preview\ThreadPreviewPanelState;
+use App\Services\Threads\SandboxCapacity;
 use App\Services\Threads\ThreadAccess;
 
 /**
@@ -51,7 +53,8 @@ final class ThreadPageData
      *     },
      *     canDrive: bool,
      *     publishWarning: bool,
-     *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, accountName: ?string, continuedFromThreadId: ?int, canTeleport: bool},
+     *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitch: ?array{from: string, to: string, at: string}, accountName: ?string, continuedFromThreadId: ?int, continuedFromTitle: ?string, canTeleport: bool},
+     *     capacity: ?array{turns: array{used: int, limit: int}, sandboxes: array{used: int, limit: int}, share: array{used: int, limit: int}},
      * }
      */
     public static function build(Thread $thread, ?User $viewer): array
@@ -95,6 +98,32 @@ final class ThreadPageData
             'canDrive' => $access->canDrive($viewer, $thread),
             'publishWarning' => $thread->effectiveVisibility() !== ThreadVisibility::Team,
             'teleport' => app(TeleportPageState::class)->for($thread, $viewer),
+            'capacity' => self::capacity($thread),
+        ];
+    }
+
+    /**
+     * Turn, sandbox and personal share counters; null when the thread has no account or an owner, or a limit is unset.
+     *
+     * @return array{turns: array{used: int, limit: int}, sandboxes: array{used: int, limit: int}, share: array{used: int, limit: int}}|null
+     */
+    private static function capacity(Thread $thread): ?array
+    {
+        $account = $thread->claudeAccount;
+        $ownerId = $thread->effectiveOwnerUserId();
+        $sandboxLimit = (int) config('yak.threads.awake_cap');
+        $shareLimit = (int) config('yak.threads.person_awake_cap');
+
+        if ($account === null || $ownerId === null || $account->max_concurrent_turns < 1 || $sandboxLimit < 1 || $shareLimit < 1) {
+            return null;
+        }
+
+        $sandboxes = app(SandboxCapacity::class);
+
+        return [
+            'turns' => ['used' => app(AccountConcurrency::class)->heldCount($account), 'limit' => $account->max_concurrent_turns],
+            'sandboxes' => ['used' => $sandboxes->awakeCount(), 'limit' => $sandboxLimit],
+            'share' => ['used' => $sandboxes->awakeCountFor($ownerId), 'limit' => $shareLimit],
         ];
     }
 }

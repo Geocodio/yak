@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\EvictionReason;
+use App\Enums\RestoreStepName;
 use App\Enums\RestoreStepStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
@@ -12,6 +14,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Threads\RunawayGuard;
+use App\Services\Threads\SandboxCapacity;
 use Illuminate\Support\Str;
 
 /**
@@ -21,7 +24,7 @@ use Illuminate\Support\Str;
 final class ThreadNoticeData
 {
     /**
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, restoreSteps: list<array{label: string, status: 'pending'|'running'|'done'|'failed', error: ?string}>}|null
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}}|null
      */
     public static function for(Thread $thread, ?User $viewer = null): ?array
     {
@@ -32,19 +35,19 @@ final class ThreadNoticeData
         $ownerFirstName = Str::before((string) $ownerName, ' ');
 
         $steps = self::restoreSteps($thread);
-        $failedStep = collect($steps)->firstWhere('status', 'failed');
+        $failedIndex = array_search('failed', array_column($steps, 'status'), true);
 
         if ($thread->blocked_reason !== null) {
             [$title, $body] = match ($thread->blocked_reason) {
                 ThreadBlockReason::AccountInvalid, ThreadBlockReason::AccountExpired => self::accountProblem($thread->blocked_reason, $accountName, $isOwnerOfAccount, $ownerFirstName),
                 ThreadBlockReason::UsageLimit => ['Usage limit reached', "{$accountName} has used its Claude limit for now. This thread continues on its own when the limit resets. Messages you send now are read after the reset."],
                 ThreadBlockReason::WaitingForAccount => ['Waiting for the account', "{$accountName} is running its maximum number of turns. " . self::queuePositionSentence($thread) . 'Yak starts this one as soon as a slot frees up. Your message is saved and nothing needs doing.'],
-                ThreadBlockReason::WaitingForSandbox => ['Waiting for a free sandbox', 'All ' . (int) config('yak.threads.awake_cap') . ' thread sandboxes are in use. Yak starts this one as soon as another frees up, usually within a few minutes. Your message is saved and nothing needs doing.'],
+                ThreadBlockReason::WaitingForSandbox => ['Waiting for a free sandbox', 'All ' . (int) config('yak.threads.awake_cap') . ' thread sandboxes are in use. Yak stops a paused one after 5 idle minutes and starts this one soon. Your message is saved and nothing needs doing.'],
                 ThreadBlockReason::CredentialExposure => ['A credential was exposed', 'A secret showed up where it should not, so Yak stopped this thread. Replace the secret and ask an admin to check the thread before it continues.'],
-                ThreadBlockReason::RestoreFailed => ['The sandbox could not be restored', ($failedStep['error'] ?? null) !== null ? "Restore stopped at \"{$failedStep['label']}\": {$failedStep['error']}" : 'Restore stopped before the sandbox was ready. Try again.'],
+                ThreadBlockReason::RestoreFailed => ['Rebuilding the sandbox stopped' . ($failedIndex !== false ? ' at step ' . ($failedIndex + 1) : ''), 'Your message is saved. Claude reads it once the sandbox is back.'],
             };
 
-            return self::notice($thread->blocked_reason->value, $title, $body, $isOwnerOfAccount, false, $steps, $thread->blocked_reason === ThreadBlockReason::UsageLimit ? self::usageResetsAt($thread) : null);
+            return self::notice($thread->blocked_reason->value, $title, $body, $isOwnerOfAccount, false, $steps, $thread->blocked_reason === ThreadBlockReason::UsageLimit ? self::usageResetsAt($thread) : null, self::waiting($thread, $viewer, $accountName));
         }
 
         $guardKind = self::guardKind($thread);
@@ -58,7 +61,7 @@ final class ThreadNoticeData
         }
 
         if ($thread->sandbox_state === ThreadSandboxState::Starting && $steps !== [] && collect($steps)->contains(fn (array $step): bool => $step['status'] !== 'done')) {
-            return self::notice('restoring', 'Restoring the sandbox', 'Yak is rebuilding this thread\'s sandbox. It will be ready in a moment.', $isOwnerOfAccount, false, $steps);
+            return self::notice('restoring', 'Rebuilding the sandbox', 'The old sandbox was removed to free disk. Your branch, changes and conversation are safe, and your message is saved.', $isOwnerOfAccount, false, $steps);
         }
 
         return null;
@@ -100,11 +103,14 @@ final class ThreadNoticeData
     }
 
     /**
-     * @param  list<array{label: string, status: 'pending'|'running'|'done'|'failed', error: ?string}>  $steps
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, restoreSteps: list<array{label: string, status: 'pending'|'running'|'done'|'failed', error: ?string}>}
+     * @param  list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>  $steps
+     * @param  array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}|null  $waiting
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}}
      */
-    private static function notice(string $kind, string $title, string $body, bool $isOwnerOfAccount, bool $canContinue, array $steps, ?string $resetsAt = null): array
+    private static function notice(string $kind, string $title, string $body, bool $isOwnerOfAccount, bool $canContinue, array $steps, ?string $resetsAt = null, ?array $waiting = null): array
     {
+        $isAccountProblem = in_array($kind, ['account_invalid', 'account_expired', 'credential_exposure'], true);
+
         /** @var 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring' $kind */
         return [
             'kind' => $kind,
@@ -113,20 +119,32 @@ final class ThreadNoticeData
             'resetsAt' => $resetsAt,
             'isOwnerOfAccount' => $isOwnerOfAccount,
             'canContinue' => $canContinue,
+            'accountSettingsUrl' => $isAccountProblem && $isOwnerOfAccount ? route('settings.claude-accounts') : null,
+            'startOnOwnAccountUrl' => $isAccountProblem ? route('threads.new') : null,
             'restoreSteps' => in_array($kind, ['restoring', 'restore_failed'], true) ? $steps : [],
+            'waiting' => $waiting,
         ];
     }
 
     /**
-     * @return list<array{label: string, status: 'pending'|'running'|'done'|'failed', error: ?string}>
+     * @return list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>
      */
     private static function restoreSteps(Thread $thread): array
     {
         $steps = [];
 
         foreach ($thread->restoreSteps as $step) {
+            if ($step->step === RestoreStepName::SetUpExtraRepositories && $step->status === RestoreStepStatus::Skipped) {
+                continue;
+            }
+
+            $copy = self::stepCopy($step->step);
+            $lines = $step->output === null ? [] : array_values(array_filter(preg_split('/\R/', rtrim($step->output)) ?: [], fn (string $line): bool => $line !== ''));
+
             $steps[] = [
-                'label' => Str::ucfirst(str_replace('_', ' ', $step->step->value)),
+                'key' => $step->step->value,
+                'label' => $copy['label'],
+                'detail' => $copy['detail'],
                 'status' => match ($step->status) {
                     RestoreStepStatus::Pending => 'pending',
                     RestoreStepStatus::Running => 'running',
@@ -134,10 +152,97 @@ final class ThreadNoticeData
                     RestoreStepStatus::Failed => 'failed',
                 },
                 'error' => $step->error,
+                'durationSeconds' => $step->started_at !== null && $step->finished_at !== null ? (float) $step->started_at->diffInSeconds($step->finished_at, true) : null,
+                'outputTail' => array_slice($lines, -5),
+                'exitCode' => $step->error !== null && preg_match('/exit code (\d+)/i', $step->error, $match) === 1 ? (int) $match[1] : null,
             ];
         }
 
         return $steps;
+    }
+
+    /**
+     * @return array{label: string, detail: string}
+     */
+    private static function stepCopy(RestoreStepName $step): array
+    {
+        return match ($step) {
+            RestoreStepName::CreateSandbox => ['label' => 'Clone the repo template', 'detail' => 'Starts a fresh sandbox from the repository template.'],
+            RestoreStepName::CheckoutBranch => ['label' => 'Check out the thread branch', 'detail' => 'Puts your branch and saved changes back.'],
+            RestoreStepName::RunSetupScript => ['label' => 'Run .yak/setup.sh', 'detail' => 'Installs what the repository needs to run.'],
+            RestoreStepName::RunRefreshTriggers => ['label' => 'Run the refresh triggers', 'detail' => 'Refreshes dependencies when their lock files changed.'],
+            RestoreStepName::SetUpExtraRepositories => ['label' => 'Set up the extra repositories', 'detail' => 'Clones the other repositories of this thread.'],
+            RestoreStepName::RestoreSessionFiles => ['label' => 'Restore the conversation', 'detail' => 'Gives Claude its saved session back.'],
+            RestoreStepName::PrepareEnvironment => ['label' => 'Start Claude', 'detail' => 'Starts the runner so your message can be read.'],
+        };
+    }
+
+    /**
+     * Queue position and capacity behind a waiting notice; null for every other notice.
+     *
+     * @return array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}|null
+     */
+    private static function waiting(Thread $thread, ?User $viewer, string $accountName): ?array
+    {
+        $account = $thread->claudeAccount;
+        $concurrency = app(AccountConcurrency::class);
+        $turnsRunning = $account !== null ? $concurrency->heldCount($account) : 0;
+        $turnsLimit = $account !== null ? $account->max_concurrent_turns : 0;
+
+        if ($thread->blocked_reason === ThreadBlockReason::WaitingForAccount) {
+            $run = TaskRun::query()->where('thread_id', $thread->id)->where('turn_state', TurnState::WaitingForAccount)->latest('id')->first();
+            $position = $run !== null ? $concurrency->position($run) : 0;
+
+            return self::waitingProps($position > 0 ? $position : null, $turnsRunning, $turnsLimit, $accountName, [], null, null, null);
+        }
+
+        if ($thread->blocked_reason !== ThreadBlockReason::WaitingForSandbox) {
+            return null;
+        }
+
+        $capacity = app(SandboxCapacity::class);
+        $slots = [];
+
+        foreach ($capacity->awakeSlots() as $slot) {
+            $paused = $slot->sandbox_state === ThreadSandboxState::Paused;
+            $slots[] = [
+                'state' => $paused ? 'paused' : 'running',
+                'idleMinutes' => $paused && $slot->last_activity_at !== null ? (int) $slot->last_activity_at->diffInMinutes(now(), true) : null,
+                'isMine' => $viewer !== null && (int) $slot->getAttribute('effective_owner_id') === $viewer->id,
+                'isThis' => $slot->id === $thread->id,
+            ];
+        }
+
+        $position = $thread->blocked_at === null ? null : Thread::query()->withoutGlobalScopes()
+            ->where('blocked_reason', ThreadBlockReason::WaitingForSandbox->value)
+            ->where('blocked_at', '<=', $thread->blocked_at)
+            ->count();
+
+        $ownerId = $thread->effectiveOwnerUserId();
+        $ownCap = (int) config('yak.threads.person_awake_cap');
+        $ownUsed = $ownerId !== null ? $capacity->awakeCountFor($ownerId) : null;
+        $isShareFull = $ownUsed !== null && $ownCap > 0 && $ownUsed >= $ownCap;
+        $stoppable = $isShareFull && $viewer !== null && $ownerId === $viewer->id ? $capacity->evictionCandidate($thread, EvictionReason::PersonShare) : null;
+
+        return self::waitingProps($position, $turnsRunning, $turnsLimit, $accountName, $slots, $isShareFull ? $ownUsed : null, $isShareFull ? $ownCap : null, $stoppable?->id);
+    }
+
+    /**
+     * @param  list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>  $slots
+     * @return array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}
+     */
+    private static function waitingProps(?int $position, int $turnsRunning, int $turnsLimit, string $accountName, array $slots, ?int $ownSlotsUsed, ?int $ownSlotsCap, ?int $stoppableThreadId): array
+    {
+        return [
+            'position' => $position,
+            'turnsRunning' => $turnsRunning,
+            'turnsLimit' => $turnsLimit,
+            'accountName' => $accountName,
+            'slots' => $slots,
+            'ownSlotsUsed' => $ownSlotsUsed,
+            'ownSlotsCap' => $ownSlotsCap,
+            'stoppableThreadId' => $stoppableThreadId,
+        ];
     }
 
     /**

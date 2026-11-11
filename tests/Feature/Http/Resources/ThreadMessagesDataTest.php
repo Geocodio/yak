@@ -9,6 +9,7 @@ use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Str;
 
 function threadWithRun(): array
 {
@@ -83,4 +84,16 @@ it('renders markdown and lists the files sent with a steer', function () {
     expect($message['bodyHtml'])->toContain('<strong>v2</strong>')
         ->and(array_column($message['attachments'], 'id'))->toBe([$attachment->id])
         ->and($message['attachmentIds'])->toBe([$attachment->id]);
+});
+
+it('lists a message typed while the thread waits as not read yet', function () {
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    PendingSteeringMessage::query()->create(['root_task_id' => $task->id, 'text' => 'Hello', 'source' => 'thread', 'mode' => 'queue', 'author_name' => 'Ada Lovelace', 'uuid' => (string) Str::uuid()]);
+
+    $messages = ThreadMessagesData::for($thread);
+
+    expect($messages)->toHaveCount(1)
+        ->and($messages[0]['state'])->toBe('pending')
+        ->and($messages[0]['text'])->toBe('Hello');
 });

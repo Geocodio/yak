@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
+use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
@@ -69,6 +70,36 @@ final class ThreadMessagesData
                 'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($text), $references),
                 'attachments' => $attachments,
                 'attachmentIds' => $steer !== null ? array_values($steer->attachments->pluck('id')->map(fn ($id): int => (int) $id)->all()) : [],
+            ];
+        }
+
+        $root = $thread->tasks()->oldest()->first()?->rootTask();
+        $delivered = array_filter(array_column($messages, 'uuid'));
+        $undelivered = $root === null ? collect() : PendingSteeringMessage::query()
+            ->where('root_task_id', $root->id)
+            ->where('source', 'thread')
+            ->with('attachments')
+            ->orderBy('id')
+            ->get()
+            ->reject(fn (PendingSteeringMessage $queued): bool => in_array($queued->uuid, $delivered, true));
+
+        // A message typed while the thread waits is saved but not handed to a turn yet.
+        foreach ($undelivered as $queued) {
+            $attachments = array_values($queued->attachments->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all());
+
+            $messages[] = [
+                'id' => 'queued-message-' . $queued->id,
+                'uuid' => $queued->uuid,
+                'text' => $queued->text,
+                'authorName' => $queued->author_name,
+                'authorInitials' => self::initials($queued->author_name),
+                'model' => $queued->model,
+                'state' => 'pending',
+                'sentAt' => $queued->created_at?->toIso8601String() ?? '',
+                'readAfterSequence' => null,
+                'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($queued->text), array_values(array_filter(array_column($attachments, 'reference')))),
+                'attachments' => $attachments,
+                'attachmentIds' => array_values($queued->attachments->pluck('id')->map(fn ($id): int => (int) $id)->all()),
             ];
         }
 

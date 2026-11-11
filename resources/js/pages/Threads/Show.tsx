@@ -1,7 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
 import { useState, type ReactNode } from 'react';
+import { StatusPill } from '@/components/threads/StatusPill';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
+import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { TeleportConversationNotices } from '@/components/threads/teleport/TeleportConversationNotices';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -21,7 +23,7 @@ import type { ThreadPageData } from '@/types/threads';
 
 type Props = PageProps<ThreadPageData>;
 
-export default function Show({ thread, canDrive, messages, notice, composer, teleport, stackParent }: Props) {
+export default function Show({ thread, canDrive, messages, notice, composer, capacity, teleport, stackParent }: Props) {
     const panels = sidebarPanelsFor(thread);
     const [activeId, setActiveId] = useState<string | null>(null);
     const active = panels.find((panel) => panel.id === activeId) ?? panels[0] ?? null;
@@ -47,6 +49,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                         <div className="flex items-center gap-2">
                             <h1 className="truncate text-[15px] font-semibold text-body">{thread.title}</h1>
                             <VisibilityBadge thread={thread} />
+                            <StatusPill notice={notice} composerState={composer.state} />
                         </div>
                         <p className="text-[12px] text-muted">{thread.repo}</p>
                     </div>
@@ -56,6 +59,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                     </div>
                 </div>
             </header>
+            <FailedStepStrip notice={notice} threadId={thread.id} readonly={composer.state === 'readonly'} />
             <PrivateThreadBanner thread={thread} />
             <ChildParentBanner thread={thread} parent={stackParent} />
             <ThreadPhoneTabs registeredDockIds={dockPanels.map((panel) => panel.id)} active={phoneTab} onSelect={selectPhoneTab} />
@@ -67,8 +71,8 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                     data-testid="thread-conversation"
                 >
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation threadId={thread.id} messages={messages} notice={notice} readonly={composer.state === 'readonly'} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
-                    <ThreadComposer thread={thread} composer={composer} />
+                    <Conversation threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
+                    <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} />
                 </div>
 
                 <ThreadDockPanel thread={thread} canDrive={canDrive} active={activeDock} isPhoneVisible={isPhoneDockVisible} />
@@ -95,7 +99,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                             ))}
                         </div>
                         <div className="min-h-0 flex-1 overflow-auto px-4 py-5">
-                            <active.component thread={thread} canDrive={canDrive} />
+                            <active.component thread={thread} canDrive={canDrive} notice={notice} composerState={composer.state} capacity={capacity} accountName={composer.accountName} environmentSwitch={teleport.environmentSwitch} />
                         </div>
                     </aside>
                 )}

@@ -6,6 +6,7 @@ use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadEventPublisher;
 
 /**
  * The pure merge is exposed as window.__mergeConversation for these checks.
@@ -71,5 +72,23 @@ it('shows a message sent while Claude works greyed', function () {
 
     visit("/threads/{$thread->id}")
         ->assertVisible('[data-testid="thread-message-pending"]')
+        ->assertSeeIn('[data-testid="thread-message-pending"]', 'Not read yet')
+        ->assertScript("getComputedStyle(document.querySelector('[data-testid=\"thread-message-pending\"]')).opacity", '1')
+        ->assertNoJavaScriptErrors();
+});
+
+it('renders step rows with a chevron, the title block and the model chip', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Fix the login redirect']);
+    $publisher = app(ThreadEventPublisher::class);
+    $publisher->append($thread->id, 'entry', ['role' => 'system', 'subtype' => 'init', 'model' => 'claude-sonnet-5-5']);
+    $publisher->append($thread->id, 'entry', ['role' => 'assistant', 'messageId' => 'm1', 'blocks' => [['type' => 'tool_use', 'id' => 't1', 'name' => 'Read', 'input' => []], ['type' => 'text', 'text' => 'Done reading']]]);
+    $publisher->append($thread->id, 'entry', ['role' => 'tool_result', 'toolUseId' => 't1', 'isError' => false, 'text' => 'file']);
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->id}")->wait(1)
+        ->assertSeeIn('[data-testid="thread-title-block"]', 'Fix the login redirect')
+        ->assertVisible('[data-testid="thread-tool-activity"] [data-testid="tool-activity-chevron"]')
+        ->assertSeeIn('[data-testid="thread-model-chip"]', 'claude-sonnet-5-5')
         ->assertNoJavaScriptErrors();
 });
