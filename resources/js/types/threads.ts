@@ -26,6 +26,42 @@ export type ThreadData = {
     isOwner: boolean;
     sharedWithCount: number;
     startedOnDevice: boolean;
+    preview: ThreadPreviewData;
+};
+
+export type ThreadPreviewState =
+    | 'ready'
+    | 'sandbox_asleep'
+    | 'waking_sandbox'
+    | 'starting_dev_server'
+    | 'failing'
+    | 'no_manifest'
+    | 'invalid_manifest'
+    | 'destroyed'
+    | 'closed'
+    | 'local_machine'
+    | 'waiting_for_slot';
+
+export type ThreadPreviewTarget = {
+    threadId: number;
+    title: string;
+    kind: string;
+    url: string | null;
+    state: string;
+    canRestore: boolean;
+};
+
+export type ThreadPreviewData = {
+    state: ThreadPreviewState;
+    url: string | null;
+    host: string | null;
+    repoLabel: string;
+    canRestore: boolean;
+    safariFallback: boolean;
+    targets: ThreadPreviewTarget[];
+    awakeCap: number;
+    personAwakeCap: number;
+    teleportCommand: string | null;
 };
 
 export type HeldEventData = {

@@ -639,6 +639,9 @@ return [
         'preview_hold_seconds' => (int) env('YAK_THREADS_PREVIEW_HOLD_SECONDS', 10),
 
         'preview_activity_minutes' => (int) env('YAK_THREADS_PREVIEW_ACTIVITY_MINUTES', 5),
+
+        // Desktop Safari blocks the cross-site preview iframe cookie handshake; the panel shows an open-in-new-tab card instead.
+        'preview_safari_fallback' => (bool) env('YAK_THREADS_PREVIEW_SAFARI_FALLBACK', true),
     ],
 
 ];
