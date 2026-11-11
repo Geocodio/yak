@@ -394,3 +394,19 @@ it('keeps sandbox egress working when Docker starts after ufw', function () use 
         ->and($flush)->toBeGreaterThan($policy)
         ->and($baseTemplate)->toBeGreaterThan($flush);
 });
+
+it('lets only the sandbox bridge and the Yak container reach the auth proxy through ufw', function () use ($ansibleYaml) {
+    $task = collect($ansibleYaml('ansible/roles/yak-broker/tasks/main.yml'))->firstWhere('name', 'Allow sandboxes and the Yak container to reach the auth proxy');
+    $vars = $ansibleYaml('ansible/group_vars/yak.yml');
+
+    expect($task['community.general.ufw'])->toMatchArray([
+        'rule' => 'allow',
+        'direction' => 'in',
+        'proto' => 'tcp',
+        'to_ip' => "{{ yak_auth_proxy_address.split(':')[0] }}",
+        'to_port' => "{{ yak_auth_proxy_address.split(':')[1] }}",
+    ])
+        ->and(collect($task['loop'])->pluck('from')->all())->toBe(['{{ yak_sandbox_subnet }}', '{{ yak_container_address }}'])
+        ->and($vars['yak_sandbox_subnet'])->toBe('10.100.0.0/24')
+        ->and($vars['yak_auth_proxy_address'])->toStartWith('10.100.0.1:');
+});

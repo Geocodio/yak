@@ -89,6 +89,23 @@
     - Reload systemd
     - Restart yak-broker
 
+# UFW denies incoming traffic by default, and the bridge address is on the host,
+# so the auth proxy needs explicit allows: sandboxes on the Incus bridge, and the
+# Yak container's fixed address for account validation. Nothing else may reach it.
+- name: Allow sandboxes and the Yak container to reach the auth proxy
+  community.general.ufw:
+    rule: allow
+    direction: in
+    proto: tcp
+    from_ip: "{{ item.from }}"
+    to_ip: "{{ yak_auth_proxy_address.split(':')[0] }}"
+    to_port: "{{ yak_auth_proxy_address.split(':')[1] }}"
+    comment: "{{ item.comment }}"
+  loop:
+    - { from: "{{ yak_sandbox_subnet }}", comment: "Incus sandboxes to the Yak auth proxy" }
+    - { from: "{{ yak_container_address }}", comment: "Yak container to the auth proxy (account validation)" }
+  tags: [yak-broker, auth-proxy-ufw]
+
 - name: Enable and start the broker
   ansible.builtin.systemd:
     name: yak-broker

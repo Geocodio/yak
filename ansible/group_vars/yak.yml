@@ -34,6 +34,8 @@ yak_broker_uid: 991
 yak_broker_gid: 991
 yak_credentials_path: /var/lib/yak/credentials
 yak_auth_proxy_address: 10.100.0.1:8787
+# The Incus sandbox bridge (yak-sandbox); the auth proxy listens on its gateway address.
+yak_sandbox_subnet: 10.100.0.0/24
 yak_auth_proxy_host_cidrs: 172.16.0.0/12
 # The Yak container is the only member of this network and is its egress network, so the auth proxy sees this source address.
 yak_app_network_name: yak-app
