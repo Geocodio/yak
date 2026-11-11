@@ -92,7 +92,7 @@ class PreviewAccess
 
         $taskId = BranchDeployment::withoutGlobalScopes()->where('hostname', strtolower($host))->value('yak_task_id');
         $threadId = $taskId === null ? null : YakTask::withoutGlobalScopes()->whereKey($taskId)->value('thread_id');
-        $thread = $threadId === null ? null : Thread::withoutGlobalScopes()->find($threadId);
+        $thread = $threadId === null ? null : Thread::withoutGlobalScopes()->whereKey($threadId)->first();
 
         return $thread === null || app(ThreadAccess::class)->canSee($user, $thread);
     }
