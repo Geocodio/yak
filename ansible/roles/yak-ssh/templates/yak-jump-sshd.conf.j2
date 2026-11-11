@@ -12,7 +12,12 @@ AuthorizedKeysFile none
 AuthorizedKeysCommand /usr/local/bin/yak-ssh-lookup %f
 AuthorizedKeysCommandUser {{ yak_ssh_lookup_user }}
 
-AllowTcpForwarding yes
+# OpenSSH PermitOpen takes literal host:port only (no CIDR or wildcard host), so the
+# host-wide rule cannot name the 127.16.0.0/10 wake range. It pins the port to 22 and the
+# per-key permitopen from Yak stays the primary control. PermitListen needs OpenSSH 8.9+.
+AllowTcpForwarding local
+PermitListen none
+PermitOpen *:22
 PermitTTY no
 X11Forwarding no
 AllowAgentForwarding no

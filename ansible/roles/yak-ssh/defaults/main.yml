@@ -6,6 +6,9 @@ yak_ssh_url: "https://geocodio.yak.build"
 yak_ssh_internal_token: ""
 yak_ssh_allowed_origins: "https://geocodio.yak.build"
 yak_ssh_wake_timeout: 90s
+# Incus bridge gateway and subnet; the wake proxy only trusts a sandbox address inside it.
+yak_ssh_incus_bridge: 10.100.0.1/24
+yak_ssh_wake_max_session: 12h
 yak_ssh_jump_user: yak-jump
 yak_ssh_lookup_user: yak-ssh-lookup
 yak_ssh_bridge_user: yak-termbridge
