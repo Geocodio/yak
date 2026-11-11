@@ -69,6 +69,8 @@ trait FinishesRetryRuns
             $hasCommits = GitOperations::hasNewCommits($sandbox, $containerName, $workspacePath, $repository->default_branch);
 
             if (! $hasCommits) {
+                app(ThreadRepositoryPullRequests::class)->publishForTask($this->task);
+
                 if (GitOperations::hasUncommittedChanges($sandbox, $containerName, $workspacePath)) {
                     throw new \RuntimeException(
                         'Agent finished retry with uncommitted changes -- run `git add -A && git commit` before returning.'

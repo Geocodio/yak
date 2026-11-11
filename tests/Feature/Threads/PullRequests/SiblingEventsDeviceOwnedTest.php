@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\HeldEventKind;
+use App\Enums\TaskRunKind;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadVisibility;
 use App\Jobs\Threads\RetryRepositoryCiJob;
@@ -55,4 +56,12 @@ it('keeps the repo name out of the held-event notice of a private thread', funct
     app(RepositoryCiRetry::class)->handleResult($this->web, false, 'lint failed', 'abc');
 
     Mail::assertSent(HeldEventMail::class, fn (HeldEventMail $mail): bool => ! str_contains($mail->notice, 'acme/web') && ! str_contains($mail->notice, '#12'));
+});
+
+it('starts a sibling comment turn as a repository event run', function () {
+    $this->thread->forceFill(['owner_side' => ThreadOwnerSide::Yak])->save();
+    $turns = $this->mock(ThreadTurns::class);
+    $turns->shouldReceive('start')->once()->withArgs(fn ($task, $prompt, $driver, $model, $kind) => $kind === TaskRunKind::RepositoryEvent);
+
+    (new StartRepositoryTurnJob($this->web->id, 'Repository: acme/web. Rename it.', 5))->handle($turns, app(HeldEvents::class));
 });

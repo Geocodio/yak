@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Threads;
 
+use App\Enums\TaskRunKind;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
@@ -77,7 +78,7 @@ class RetryRepositoryCiJob implements ShouldBeUnique, ShouldQueue
         $sandboxes->exec($thread, ['bash', '-lc', 'cd ' . escapeshellarg($row->sandbox_path) . " && git fetch origin {$branch} && git reset --hard origin/{$branch} && git clean -fd"]);
 
         try {
-            $turns->start($headTask, RepositoryTurnPrompts::ciFailure($row, $this->output), null, null);
+            $turns->start($headTask, RepositoryTurnPrompts::ciFailure($row, $this->output), null, null, TaskRunKind::RepositoryEvent);
         } catch (ThreadBusy) {
             $this->release(30);
         }

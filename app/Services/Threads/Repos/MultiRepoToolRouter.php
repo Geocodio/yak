@@ -6,17 +6,23 @@ use App\DataTransferObjects\YakToolCall;
 use App\DataTransferObjects\YakToolResult;
 use App\Enums\RepositoryRole;
 use App\Models\Thread;
+use App\Services\Threads\PullRequests\MergeOrder;
 use App\Services\Threads\YakToolRouter;
+use Illuminate\Validation\ValidationException;
 
 /**
- * Serves `add_repository` and passes every other tool to the router it wraps.
+ * Serves `add_repository` and `set_merge_order` and passes every other tool to the router it wraps.
  */
 class MultiRepoToolRouter implements YakToolRouter
 {
-    public function __construct(private readonly YakToolRouter $inner, private readonly AddRepository $add) {}
+    public function __construct(private readonly YakToolRouter $inner, private readonly AddRepository $add, private readonly MergeOrder $mergeOrder) {}
 
     public function handle(Thread $thread, YakToolCall $call): YakToolResult
     {
+        if ($call->tool === 'set_merge_order') {
+            return $this->setMergeOrder($thread, $call);
+        }
+
         if ($call->tool !== 'add_repository') {
             return $this->inner->handle($thread, $call);
         }
@@ -37,5 +43,32 @@ class MultiRepoToolRouter implements YakToolRouter
             'no_access' => new YakToolResult(true, "Yak cannot access {$slug}. {$outcome->message}"),
             default => new YakToolResult(true, (string) $outcome->message),
         };
+    }
+
+    private function setMergeOrder(Thread $thread, YakToolCall $call): YakToolResult
+    {
+        $rowIdsBySlug = $this->mergeOrder->forThread($thread)->mapWithKeys(fn ($row): array => [strtolower($row->repo) => $row->id]);
+        $slugs = array_values(array_map('strval', (array) ($call->input['repos'] ?? [])));
+        $rowIds = [];
+
+        foreach ($slugs as $slug) {
+            $rowId = $rowIdsBySlug->get(strtolower($slug));
+
+            if ($rowId === null) {
+                return new YakToolResult(true, "{$slug} has no pull request in this thread. Pull requests: " . $rowIdsBySlug->keys()->implode(', ') . '.');
+            }
+
+            $rowIds[] = $rowId;
+        }
+
+        try {
+            $this->mergeOrder->set($thread, $rowIds);
+        } catch (ValidationException $exception) {
+            return new YakToolResult(true, $exception->getMessage() . ' Pull requests: ' . $rowIdsBySlug->keys()->implode(', ') . '.');
+        }
+
+        $canonical = $this->mergeOrder->forThread($thread)->pluck('repo', 'id');
+
+        return new YakToolResult(false, 'Merge order set: ' . implode(', ', array_map(fn (int $rowId): string => $canonical[$rowId], $rowIds)) . '.');
     }
 }

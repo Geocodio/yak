@@ -67,11 +67,11 @@ test('it answers every pending call with an error on rejectAll', async () => {
   assert.deepEqual(await pending, { content: [{ type: 'text', text: 'runner ended' }], isError: true });
 });
 
-test('it defines exactly the five Yak tools on a server named yak', () => {
+test('it defines exactly the six Yak tools on a server named yak', () => {
   const { yak } = setup();
   assert.equal(yak.server.name, 'yak');
   assert.deepEqual(yak.server.instance.tools.map((entry) => entry.name).sort(),
-    ['add_repository', 'list_threads', 'request_refresh', 'send_message', 'spawn_thread']);
+    ['add_repository', 'list_threads', 'request_refresh', 'send_message', 'set_merge_order', 'spawn_thread']);
 });
 
 test('it validates inputs with zod', () => {
@@ -94,4 +94,10 @@ test('it forwards the validated input unchanged in the tool_call line', () => {
   byName('spawn_thread').handler(input);
   assert.deepEqual(written[0].input, input);
   assert.equal(written[0].tool, 'spawn_thread');
+});
+
+test('set_merge_order forwards the repository list in the tool_call line', () => {
+  const { written, byName } = setup();
+  byName('set_merge_order').handler({ repos: ['acme/lib', 'acme/app'] });
+  assert.deepEqual(written[0], { type: 'yak.tool_call', call_id: 'call-1', tool: 'set_merge_order', input: { repos: ['acme/lib', 'acme/app'] } });
 });

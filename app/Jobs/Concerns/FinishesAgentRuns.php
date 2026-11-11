@@ -113,6 +113,10 @@ trait FinishesAgentRuns
 
             $hasCommits = GitOperations::hasNewCommits($shell, $container, $workspacePath, $repository->default_branch);
 
+            if (! $hasCommits) {
+                app(ThreadRepositoryPullRequests::class)->publishForTask($this->task);
+            }
+
             if ($this->task->source === PreviewFailureReporter::SOURCE && ! $this->acceptsPreviewRepairFix($result, $hasCommits)) {
                 $this->completeWithoutChanges($result, $recorder);
 

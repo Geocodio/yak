@@ -7,6 +7,7 @@ use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Jobs\AfterTurn\FinishFollowUpTurnJob;
+use App\Jobs\AfterTurn\FinishRepositoryTurnJob;
 use App\Jobs\AfterTurn\FinishResearchFollowUpTurnJob;
 use App\Jobs\AfterTurn\FinishResearchTurnJob;
 use App\Jobs\AfterTurn\FinishRetryTurnJob;
@@ -29,6 +30,7 @@ class DispatchAfterTurnWork
         'follow_up' => FinishFollowUpTurnJob::class,
         'retry' => FinishRetryTurnJob::class,
         'research' => FinishResearchTurnJob::class,
+        'repository_event' => FinishRepositoryTurnJob::class,
     ];
 
     public function handle(TurnCompleted|TurnFailed $event): void

@@ -21,6 +21,8 @@ class RepositoryWipSandbox extends FakeSandboxManager
 
     public bool $pushFails = false;
 
+    public bool $hasLocalLink = false;
+
     public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
     {
         parent::exec($thread, $command, $stdin, $env);
@@ -28,6 +30,8 @@ class RepositoryWipSandbox extends FakeSandboxManager
 
         return match (true) {
             str_contains($line, 'status --porcelain') => Process::result(output: $this->isDirty ? " M app.php\n" : ''),
+            $this->hasLocalLink && str_contains($line, 'diff --cached --name-only') => Process::result(output: "composer.json\napp.php\n"),
+            $this->hasLocalLink && str_contains($line, 'diff --cached -- composer.json') => Process::result(output: "+  \"url\": \"/extras/lib\"\n"),
             str_contains($line, 'rev-list') => Process::result(output: "{$this->ahead}\n"),
             str_contains($line, 'rev-parse HEAD') => Process::result(output: "abc123\n"),
             str_contains($line, 'remote get-url') => Process::result(output: "https://x:secret@github.com/acme/api.git\n"),
@@ -86,4 +90,12 @@ it('redacts remote urls from a push failure', function () {
     } catch (SandboxCommandFailed $exception) {
         expect($exception->getMessage())->toContain('push failed')->not->toContain('secret')->not->toContain('github.com');
     }
+});
+
+it('leaves a manifest linking a sandbox path out of the WIP commit', function () {
+    $this->sandboxes->hasLocalLink = true;
+
+    (new RepositoryWip($this->sandboxes))->preserve($this->thread, $this->extra);
+
+    expect(($this->commands)())->toContain('git -C /extras/api reset -q -- composer.json');
 });

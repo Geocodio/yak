@@ -337,7 +337,7 @@ class WebhookController extends Controller
 
         $repoFullName = (string) $request->input('repository.full_name');
 
-        if (! app(SiblingFeedbackGate::class)->permits($repoFullName, $author)) {
+        if (! app(SiblingFeedbackGate::class)->permits($repoFullName, [...$author, 'id' => (int) ($request->input('sender.id') ?? $author['id'] ?? 0)])) {
             return response()->json(['ok' => true, 'skipped' => 'commenter lacks write access']);
         }
 

@@ -15,17 +15,18 @@ class SiblingFeedbackGate
 {
     public function __construct(private readonly AppService $github) {}
 
-    /** @param array<string, mixed> $user the webhook payload `user` object */
+    /** @param array<string, mixed> $user the webhook payload `user` object, with the numeric `id` */
     public function permits(string $repoFullName, array $user): bool
     {
         $login = (string) ($user['login'] ?? '');
+        $userId = (int) ($user['id'] ?? 0);
         $installationId = (int) config('yak.channels.github.installation_id');
 
-        if (($user['type'] ?? null) === 'Bot' || $login === '' || $installationId <= 0) {
+        if (($user['type'] ?? null) === 'Bot' || $login === '' || $userId <= 0 || $installationId <= 0) {
             return false;
         }
 
-        $key = "sibling-feedback:{$repoFullName}:{$login}";
+        $key = "sibling-feedback:{$repoFullName}:{$userId}";
         $cached = Cache::get($key);
         if (is_bool($cached)) {
             return $cached;

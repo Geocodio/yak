@@ -81,6 +81,8 @@ trait FinishesFollowUpRuns
         $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, IncusSandboxManager::workspacePath(), "origin/{$branchName}"));
 
         if (! $this->hasNewCommits($sandbox, $containerName, $branchName)) {
+            app(ThreadRepositoryPullRequests::class)->publishForTask($this->task);
+
             // The follow-up prompt allows answering a question without
             // changing code. No commits means there's nothing to push or
             // wait on CI for -- resolve the task right away instead of

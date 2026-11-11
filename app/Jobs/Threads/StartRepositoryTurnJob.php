@@ -3,6 +3,7 @@
 namespace App\Jobs\Threads;
 
 use App\Enums\HeldEventKind;
+use App\Enums\TaskRunKind;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
@@ -61,7 +62,7 @@ class StartRepositoryTurnJob implements ShouldQueue
                 return;
             }
 
-            $turns->start($headTask, $this->prompt, null, null);
+            $turns->start($headTask, $this->prompt, null, null, TaskRunKind::RepositoryEvent);
         } catch (ThreadBusy|ThreadNotOwnedByYak) {
             $this->release(30);
         }

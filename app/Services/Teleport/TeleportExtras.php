@@ -3,11 +3,14 @@
 namespace App\Services\Teleport;
 
 use App\Enums\RepositoryRole;
+use App\Enums\RepositorySetupStatus;
+use App\Events\ThreadRepositoryChanged;
 use App\Models\Repository;
 use App\Models\Teleport;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use RuntimeException;
 
 /**
@@ -16,7 +19,7 @@ use RuntimeException;
  */
 class TeleportExtras
 {
-    public function __construct(private readonly SandboxManager $sandboxes) {}
+    public function __construct(private readonly SandboxManager $sandboxes, private readonly ThreadGitHubCredentials $credentials) {}
 
     /**
      * Clones the repository when the folder holds no checkout yet.
@@ -43,11 +46,16 @@ class TeleportExtras
         $repositories = $thread->repositories()->where('role', '!=', RepositoryRole::Primary->value)->get()
             ->filter(fn (ThreadRepository $repository): bool => in_array(strtolower($repository->repo), $requested, true));
 
+        if ($repositories->isNotEmpty()) {
+            $this->credentials->refresh($thread);
+        }
+
         foreach ($repositories as $repository) {
             $cloneUrl = (string) Repository::query()->where('slug', $repository->repo)->value('git_url');
 
             if ($repository->role === RepositoryRole::Context) {
                 $report[$repository->repo] = $this->prepareContext($thread, $repository, $cloneUrl);
+                $this->markSetup($thread, $repository, $report[$repository->repo]);
 
                 continue;
             }
@@ -55,6 +63,7 @@ class TeleportExtras
             $this->ensureCloned($thread, $repository, $cloneUrl);
             $this->resetToHead($thread, $repository, $this->headFor($teleport, $repository->repo));
             $report[$repository->repo] = ['status' => 'ready', 'reason' => null];
+            $this->markSetup($thread, $repository, $report[$repository->repo]);
         }
 
         return $report;
@@ -72,6 +81,24 @@ class TeleportExtras
         }
 
         return ['status' => 'ready', 'reason' => null];
+    }
+
+    /**
+     * A row added during the teleport leaves Pending once its clone is known; a row the restore already settled is kept.
+     *
+     * @param  array{status: 'ready'|'failed', reason: ?string}  $outcome
+     */
+    private function markSetup(Thread $thread, ThreadRepository $repository, array $outcome): void
+    {
+        if ($repository->setup_status !== RepositorySetupStatus::Pending) {
+            return;
+        }
+
+        $repository->update($outcome['status'] === 'ready'
+            ? ['setup_status' => RepositorySetupStatus::Ready]
+            : ['setup_status' => RepositorySetupStatus::Failed, 'setup_error' => $outcome['reason']]);
+
+        ThreadRepositoryChanged::dispatch($thread, $repository);
     }
 
     private function resetToHead(Thread $thread, ThreadRepository $repository, ?string $head): void
