@@ -188,7 +188,7 @@ class VisibilityRoutes
             'settings.notifications', 'settings.notifications.preferences', 'settings.notifications.devices.store',
             'settings.notifications.devices.update', 'settings.notifications.devices.destroy', 'settings.notifications.devices.test',
             // Broker-only SSH protocol behind the internal token: no signed-in user exists to filter for.
-            'internal.ssh.authorized-keys', 'internal.ssh.listeners', 'internal.ssh.wake', 'internal.ssh.terminal-redeem', 'internal.ssh.activity',
+            'internal.ssh.authorized-keys', 'internal.ssh.listeners', 'internal.ssh.wake', 'internal.ssh.terminal-redeem', 'internal.ssh.terminal-check', 'internal.ssh.activity',
             // Creates a task; reads nothing of another person's thread.
             'tasks.store', 'tasks.setup-card.dismiss',
             // Token-only public image roles for PR bodies; the route lists nothing and resolves by a 26 character token.
