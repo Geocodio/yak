@@ -1,0 +1,42 @@
+    # Thread preview hosts (t-<random>.{{ yak_domain }}). Handled before the
+    # generic branch preview handler: these hosts resolve to a thread, not a
+    # deployment, and the waking page and status come from the thread controllers.
+    @threadPreview host t-*.{{ yak_domain }}
+    handle @threadPreview {
+        handle /_yak/auth {
+            rewrite * /internal/deployments/preview-auth
+            reverse_proxy localhost:8080
+        }
+
+        handle /_yak/preview-status {
+            rewrite * /internal/threads/preview/status
+            reverse_proxy localhost:8080
+        }
+
+        handle {
+            route {
+                # A client must not pick its own upstream.
+                request_header -X-Upstream-Host
+                request_header -X-Upstream-Port
+                request_header -X-Yak-Thread-Id
+
+                forward_auth localhost:8080 {
+                    uri /internal/threads/preview/wake
+                    copy_headers X-Upstream-Host X-Upstream-Port X-Yak-Thread-Id
+                    header_up X-Forwarded-Uri {uri}
+                }
+
+                reverse_proxy {http.request.header.X-Upstream-Host}:{http.request.header.X-Upstream-Port} {
+                    header_up Host {host}
+                    # No Yak cookie reaches the untrusted sandbox.
+                    header_up Cookie "(__Host-yak_preview|yak_share_session|__Host-yak-session|yak-session|XSRF-TOKEN)=[^;]*(?:;\s*|$)" ""
+                    # The dashboard is the only allowed embedder: drop any
+                    # upstream frame-ancestors and set ours.
+                    header_down -X-Frame-Options
+                    header_down Content-Security-Policy "frame-ancestors [^;]*;?" ""
+                    header_down +Content-Security-Policy "frame-ancestors https://{{ yak_domain }}"
+                }
+            }
+        }
+    }
+

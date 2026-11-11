@@ -4,7 +4,7 @@ use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
-use App\Models\Repository;
+use App\Jobs\Threads\StartThreadPreviewJob;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\BrokerStreams;
@@ -12,7 +12,10 @@ use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
+
+require_once __DIR__ . '/../../../Support/ThreadPreviewHelpers.php';
 
 function runningSandboxThread(array $attributes = []): Thread
 {
@@ -155,17 +158,18 @@ test('ensure awake resumes paused', function () {
     expect($wake->ready)->toBeTrue()->and(operations())->toBe(['resume'])->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running);
 });
 
-test('ensure awake starts stopped and runs cold start', function () {
-    Repository::factory()->create(['slug' => 'acme/widgets', 'preview_manifest' => ['cold_start' => 'bin/serve']]);
+test('ensure awake starts stopped and hands the dev server to the preview manifest', function () {
+    Queue::fake();
     $thread = Thread::factory()->stopped()->create(['repo' => 'acme/widgets', 'runner_state' => RunnerState::Idle]);
+    queueSandboxOutput("port: 3000\nhealth_probe_path: /up\ncold_start: bin/serve\n");
+    queueSandboxOutput('', 7);
 
     $wake = app(ThreadSandbox::class)->ensureAwake($thread);
 
-    $calls = app(SandboxManager::class)->calls;
     expect($wake->ready)->toBeTrue()
-        ->and(operations())->toBe(['start', 'exec'])
-        ->and($calls[1]['arguments']['command'])->toBe(['bash', '-lc', 'bin/serve'])
+        ->and(operations())->toBe(['start', 'exec', 'exec'])
         ->and($thread->fresh()->runner_state)->toBe(RunnerState::None);
+    Queue::assertPushed(StartThreadPreviewJob::class);
 });
 
 test('ensure awake on a running sandbox is ready without calls', function () {

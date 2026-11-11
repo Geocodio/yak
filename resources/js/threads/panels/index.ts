@@ -6,3 +6,4 @@ import './environment';
 import './changes';
 import '@/threads/panels/teleport';
 import './stack';
+import './preview';

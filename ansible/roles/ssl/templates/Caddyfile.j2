@@ -24,6 +24,7 @@
         dns {{ caddy_dns_provider }} {{ caddy_dns_provider_api_token }}
     }
 
+{% include 'thread-preview.caddy.j2' %}
     @preview host *.{{ yak_domain }}
     handle @preview {
         # Preview cookie handshake. The dashboard bounce sends the browser

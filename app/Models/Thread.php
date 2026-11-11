@@ -70,6 +70,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property int $stack_alert_hours_mark
  * @property int $stack_alert_child_mark
  * @property CarbonImmutable|null $stack_stopped_at
+ * @property string|null $preview_hostname
+ * @property CarbonImmutable|null $preview_last_request_at
  */
 #[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
@@ -120,6 +122,7 @@ class Thread extends Model
             'messages_paused_at' => 'immutable_datetime',
             'queued_for_slot_at' => 'immutable_datetime',
             'stack_stopped_at' => 'immutable_datetime',
+            'preview_last_request_at' => 'immutable_datetime',
         ];
     }
 

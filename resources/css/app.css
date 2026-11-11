@@ -236,6 +236,19 @@ body[data-thread-changes-expanded] [data-testid='thread-sidebar'] {
     flex: 1;
 }
 
+/* A docked panel (Preview) shrinks the details sidebar and hides it on narrower screens. */
+@media (min-width: 1024px) {
+    body[data-thread-docked] [data-testid='thread-sidebar'] {
+        width: 300px;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+    body[data-thread-docked] [data-testid='thread-sidebar'] {
+        display: none;
+    }
+}
+
 /* Diff syntax colours, drawn from the semantic tokens. */
 .hljs-keyword,
 .hljs-built_in {

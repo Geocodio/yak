@@ -39,6 +39,9 @@ class VisibilityRoutes
         'threads.stack.take-over' => ['POST', '/threads/{child}/stack/take-over'],
         'threads.stack.split' => ['POST', '/threads/{child}/stack/split'],
         'threads.stack.drop' => ['POST', '/threads/{child}/stack/drop'],
+        'threads.preview.status' => ['GET', '/threads/{thread}/preview/status'],
+        'threads.preview.heartbeat' => ['POST', '/threads/{thread}/preview/heartbeat'],
+        'threads.preview.restore' => ['POST', '/threads/{thread}/preview/restore', [], 202],
         'tasks.show' => ['GET', '/tasks/{task}'],
         'tasks.retry' => ['POST', '/tasks/{task}/retry'],
         'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
@@ -189,14 +192,14 @@ class VisibilityRoutes
     }
 
     /**
-     * Preview host endpoints that resolve a deployment by hostname, swept in
-     * VisibilityPreviewHostsTest.
+     * Preview host endpoints that resolve a deployment or thread by hostname,
+     * swept in VisibilityPreviewHostsTest and ThreadPreviewVisibilityTest.
      *
      * @return list<string>
      */
     public static function hosts(): array
     {
-        return ['deployments.preview-auth', 'deployments.status', 'deployments.wake'];
+        return ['deployments.preview-auth', 'deployments.status', 'deployments.wake', 'threads.preview.wake', 'threads.preview.host-status'];
     }
 
     /**

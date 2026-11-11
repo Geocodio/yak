@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\Models\Thread;
 use App\Services\Datasets\DatasetAvailability;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Preview\ThreadPreviewHosts;
 
 /**
  * Writes the note the runner reads to learn what a restored sandbox lost.
@@ -53,6 +54,11 @@ class EnvironmentNote
 
         if ($dataset?->message() !== null) {
             $sections['Dataset'] = $dataset->message();
+        }
+
+        $preview = app(ThreadPreviewHosts::class)->environmentSection($thread);
+        if ($preview !== null) {
+            $sections['Preview'] = $preview;
         }
 
         $restored = [];

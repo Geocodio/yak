@@ -15,6 +15,7 @@ use App\Models\Thread;
 use App\Models\ThreadShare;
 use App\Models\User;
 use App\Services\Teleport\TeleportPageState;
+use App\Services\Threads\Preview\ThreadPreviewPanelState;
 use App\Services\Threads\ThreadAccess;
 
 /**
@@ -45,6 +46,7 @@ final class ThreadPageData
      *         isOwner: bool,
      *         sharedWithCount: int,
      *         startedOnDevice: bool,
+     *         preview: array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: int, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string},
      *     },
      *     canDrive: bool,
      *     publishWarning: bool,
@@ -86,6 +88,7 @@ final class ThreadPageData
                 'isOwner' => $isOwner,
                 'sharedWithCount' => $isOwner ? ThreadShare::query()->where('thread_id', $thread->root_thread_id ?? $thread->id)->count() : 0,
                 'startedOnDevice' => $thread->owner_side === ThreadOwnerSide::Device,
+                'preview' => app(ThreadPreviewPanelState::class)->build($thread, $viewer),
             ],
             'canDrive' => $access->canDrive($viewer, $thread),
             'publishWarning' => $thread->effectiveVisibility() !== ThreadVisibility::Team,

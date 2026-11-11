@@ -2,18 +2,18 @@
 
 namespace App\Services\Threads;
 
-use App\DataTransferObjects\PreviewManifest;
 use App\DataTransferObjects\SandboxWake;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
-use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\Datasets\DatasetClones;
 use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\Preview\ThreadPreviewActivity;
+use App\Services\Threads\Preview\ThreadPreviewDevServer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
@@ -38,6 +38,7 @@ class ThreadSandbox
         private SandboxRestorer $restorer,
         private AuthProxyPlaceholders $placeholders,
         private DatasetClones $datasetClones,
+        private ThreadPreviewDevServer $previewServer,
     ) {}
 
     public function touch(Thread $thread): void
@@ -62,7 +63,7 @@ class ThreadSandbox
         try {
             $thread->refresh();
 
-            if ($thread->sandbox_state !== ThreadSandboxState::Running || $thread->isSandboxBusy()) {
+            if ($thread->sandbox_state !== ThreadSandboxState::Running || $thread->isSandboxBusy() || app(ThreadPreviewActivity::class)->isActive($thread)) {
                 return;
             }
 
@@ -296,11 +297,7 @@ class ThreadSandbox
 
     private function runColdStart(Thread $thread): void
     {
-        $manifest = PreviewManifest::fromArray(Repository::where('slug', $thread->repo)->first()?->preview_manifest);
-
-        if ($manifest->coldStart !== '') {
-            $this->sandboxes->exec($thread, ['bash', '-lc', $manifest->coldStart]);
-        }
+        $this->previewServer->ensureStarted($thread);
     }
 
     private function stopLocked(Thread $thread, bool $preserveWork): void
