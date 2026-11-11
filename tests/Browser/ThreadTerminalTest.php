@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\RunnerState;
 use App\Enums\ThreadSandboxState;
 use App\Models\Thread;
 use App\Models\User;
@@ -189,4 +190,26 @@ test('the key row is absent at desktop width', function () {
     waitForTerminal($page, statusIs('connected'));
 
     $page->assertMissing('[data-testid="terminal-keyrow"]');
+});
+
+test('the phone shows the working strip only while Claude is busy', function () {
+    $thread = runningThread();
+    $thread->update(['runner_state' => RunnerState::Busy]);
+    $page = visit(route('threads.show', $thread))->on()->mobile()->assertPresent('[data-testid="thread-header"]');
+    installTerminalSocketStub($page);
+    openTerminalTab($page);
+    waitForTerminal($page, statusIs('connected'));
+
+    $page->assertPresent('[data-testid="terminal-working"]');
+});
+
+test('the working strip is absent at desktop width', function () {
+    $thread = runningThread();
+    $thread->update(['runner_state' => RunnerState::Busy]);
+    $page = visit(route('threads.show', $thread));
+    installTerminalSocketStub($page);
+    openTerminalTab($page);
+    waitForTerminal($page, statusIs('connected'));
+
+    $page->assertMissing('[data-testid="terminal-working"]');
 });

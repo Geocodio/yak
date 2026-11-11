@@ -7,7 +7,7 @@ import type { ThreadPageData } from '@/types/threads';
 import { KeyRow, useShowKeyRow } from './KeyRow';
 import { applyCtrl } from './keyCodes';
 import { TerminalFooter } from './TerminalFooter';
-import { BlockedState, SessionState, blockedState } from './TerminalStates';
+import { BlockedState, SessionState, WorkingStrip, blockedState } from './TerminalStates';
 import { TerminalStatus } from './TerminalStatus';
 import { MAX_TERMINAL_TABS, TerminalTabs, type TerminalTab } from './TerminalTabs';
 import type { TerminalControls } from './TerminalView';
@@ -94,6 +94,7 @@ export function TerminalPanel({ thread, canDrive }: PanelProps) {
     const [states, setStates] = useState<Record<number, TerminalSessionState>>({});
     const [clearToken, setClearToken] = useState(0);
     const nextId = useRef(2);
+    const isPhone = useShowKeyRow();
 
     const blocked = blockedState(thread, canDrive);
     if (blocked !== null) {
@@ -132,6 +133,7 @@ export function TerminalPanel({ thread, canDrive }: PanelProps) {
                     </IconButton>
                 </div>
             </div>
+            {isPhone && thread.runnerState === 'busy' && <WorkingStrip />}
             {tabs.map((tab) => (
                 <TerminalSessionBody
                     key={tab.id}
