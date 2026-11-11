@@ -5,7 +5,7 @@ use Tests\Support\VisibilityRoutes;
 function classifiedRouteNames(): array
 {
     return [
-        ...array_keys(VisibilityRoutes::probes(VisibilityRoutes::placeholderWorld())),
+        ...VisibilityRoutes::probeNames(),
         ...VisibilityRoutes::global(),
         ...VisibilityRoutes::lists(),
         ...VisibilityRoutes::hosts(),

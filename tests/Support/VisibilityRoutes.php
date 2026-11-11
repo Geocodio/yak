@@ -2,15 +2,9 @@
 
 namespace Tests\Support;
 
-use App\Models\Artifact;
-use App\Models\BranchDeployment;
-use App\Models\PrReview;
-use App\Models\TaskAttachment;
-use App\Models\TaskRun;
-use App\Models\Thread;
-use App\Models\YakTask;
 use Illuminate\Routing\Route as LaravelRoute;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL;
 
 /**
  * Every route is classified here, so a new route cannot ship without someone
@@ -19,6 +13,44 @@ use Illuminate\Support\Facades\Route;
  */
 class VisibilityRoutes
 {
+    /** @var array<string, array{0: string, 1: string, 2?: array<string, mixed>, 3?: int}> method, uri template, payload, owner status */
+    private const PROBES = [
+        'threads.show' => ['GET', '/threads/{thread}'],
+        'threads.seen' => ['POST', '/threads/{thread}/seen'],
+        'threads.share.show' => ['GET', '/threads/{thread}/share'],
+        'threads.share.update' => ['PUT', '/threads/{thread}/share', ['mode' => 'only_me']],
+        'tasks.show' => ['GET', '/tasks/{task}'],
+        'tasks.retry' => ['POST', '/tasks/{task}/retry'],
+        'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
+        'tasks.rerun-review' => ['POST', '/tasks/{task}/rerun-review'],
+        'tasks.retry-render' => ['POST', '/tasks/{task}/retry-render'],
+        'tasks.reroute' => ['POST', '/tasks/{task}/reroute', ['repo' => 'nope']],
+        'tasks.co-owner.approve' => ['POST', '/tasks/{task}/co-owner/approve'],
+        'tasks.co-owner.request-changes' => ['POST', '/tasks/{task}/co-owner/request-changes', ['comment' => 'x']],
+        'tasks.co-owner.reject' => ['POST', '/tasks/{task}/co-owner/reject'],
+        'tasks.co-owner.withdraw' => ['POST', '/tasks/{task}/co-owner/withdraw'],
+        'tasks.co-owner.check-access' => ['POST', '/tasks/{task}/co-owner/check-access'],
+        'tasks.co-owner.tag' => ['POST', '/tasks/{task}/co-owner/tag', ['user_id' => 1]],
+        'tasks.co-owner.decline' => ['POST', '/tasks/{task}/co-owner/decline'],
+        'tasks.messages.store' => ['POST', '/tasks/{task}/messages', ['message' => 'hello']],
+        'tasks.queued-messages.update' => ['PATCH', '/tasks/{task}/queued-messages/5', ['mode' => 'queue']],
+        'tasks.queued-messages.destroy' => ['DELETE', '/tasks/{task}/queued-messages/5'],
+        'tasks.clarification-answers.store' => ['POST', '/tasks/{task}/clarification-answers', ['answers' => []]],
+        'tasks.re-request-review' => ['POST', '/tasks/{task}/re-request-review', [], 502],
+        'tasks.pr-images.show' => ['GET', '/tasks/{task}/pr-images/abc123', [], 404],
+        'artifacts.show' => ['GET', '/artifacts/{task}/shot.png'],
+        'artifacts.viewer' => ['GET', '/artifacts/{task}/viewer/shot.png'],
+        'task-attachments.show' => ['GET', '/task-attachments/{attachment}'],
+        'deployments.show' => ['GET', '/deployments/{deployment}'],
+        'deployments.hibernation.update' => ['PATCH', '/deployments/{deployment}/hibernation', ['long_lived' => true]],
+        'deployments.rebuild' => ['POST', '/deployments/{deployment}/rebuild'],
+        'deployments.destroy' => ['DELETE', '/deployments/{deployment}'],
+        'deployments.share.store' => ['POST', '/deployments/{deployment}/share', ['expires_in_days' => 3]],
+        'deployments.share.destroy' => ['DELETE', '/deployments/{deployment}/share'],
+        'pr-reviews.for-pr' => ['GET', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}'],
+        'pr-reviews.for-pr.rerun' => ['POST', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}/rerun'],
+    ];
+
     /**
      * Routes whose parameters bind a thread, task, run, deployment, attachment,
      * artifact or PR review. A hidden id must answer exactly like `missingUri`.
@@ -34,42 +66,7 @@ class VisibilityRoutes
         $deployment = $world->deployment->id;
         $missing = $world->missingId;
 
-        $probes = [
-            'threads.show' => ['GET', '/threads/{thread}'],
-            'threads.seen' => ['POST', '/threads/{thread}/seen'],
-            'threads.share.show' => ['GET', '/threads/{thread}/share'],
-            'threads.share.update' => ['PUT', '/threads/{thread}/share', ['mode' => 'only_me']],
-            'tasks.show' => ['GET', '/tasks/{task}'],
-            'tasks.retry' => ['POST', '/tasks/{task}/retry'],
-            'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
-            'tasks.rerun-review' => ['POST', '/tasks/{task}/rerun-review'],
-            'tasks.retry-render' => ['POST', '/tasks/{task}/retry-render'],
-            'tasks.reroute' => ['POST', '/tasks/{task}/reroute', ['repo' => 'nope']],
-            'tasks.co-owner.approve' => ['POST', '/tasks/{task}/co-owner/approve'],
-            'tasks.co-owner.request-changes' => ['POST', '/tasks/{task}/co-owner/request-changes', ['comment' => 'x']],
-            'tasks.co-owner.reject' => ['POST', '/tasks/{task}/co-owner/reject'],
-            'tasks.co-owner.withdraw' => ['POST', '/tasks/{task}/co-owner/withdraw'],
-            'tasks.co-owner.check-access' => ['POST', '/tasks/{task}/co-owner/check-access'],
-            'tasks.co-owner.tag' => ['POST', '/tasks/{task}/co-owner/tag', ['user_id' => 1]],
-            'tasks.co-owner.decline' => ['POST', '/tasks/{task}/co-owner/decline'],
-            'tasks.messages.store' => ['POST', '/tasks/{task}/messages', ['message' => 'hello']],
-            'tasks.queued-messages.update' => ['PATCH', '/tasks/{task}/queued-messages/5', ['mode' => 'queue']],
-            'tasks.queued-messages.destroy' => ['DELETE', '/tasks/{task}/queued-messages/5'],
-            'tasks.clarification-answers.store' => ['POST', '/tasks/{task}/clarification-answers', ['answers' => []]],
-            'tasks.re-request-review' => ['POST', '/tasks/{task}/re-request-review'],
-            'tasks.pr-images.show' => ['GET', '/tasks/{task}/pr-images/abc123', [], 404],
-            'artifacts.show' => ['GET', '/artifacts/{task}/shot.png'],
-            'artifacts.viewer' => ['GET', '/artifacts/{task}/viewer/shot.png'],
-            'task-attachments.show' => ['GET', '/task-attachments/{attachment}'],
-            'deployments.show' => ['GET', '/deployments/{deployment}'],
-            'deployments.hibernation.update' => ['PATCH', '/deployments/{deployment}/hibernation', ['long_lived' => true]],
-            'deployments.rebuild' => ['POST', '/deployments/{deployment}/rebuild'],
-            'deployments.destroy' => ['DELETE', '/deployments/{deployment}'],
-            'deployments.share.store' => ['POST', '/deployments/{deployment}/share', ['expires_in_days' => 3]],
-            'deployments.share.destroy' => ['DELETE', '/deployments/{deployment}/share'],
-            'pr-reviews.for-pr' => ['GET', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}'],
-            'pr-reviews.for-pr.rerun' => ['POST', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}/rerun'],
-        ];
+        $probes = self::PROBES;
 
         $result = [];
         foreach ($probes as $name => $probe) {
@@ -90,12 +87,13 @@ class VisibilityRoutes
             ];
         }
 
-        // The auth bounce names the preview by host, not by id.
+        // The auth bounce names the preview by host, not by id, and is signed.
+        $bounce = fn (string $host): string => URL::temporarySignedRoute('deployments.auth-bounce', now()->addHour(), ['to' => "https://{$host}/"]);
         $result['deployments.auth-bounce'] = [
             'method' => 'GET',
-            'uri' => '/deployments/auth-bounce?to=' . urlencode('https://' . VisibilityWorld::HOSTNAME . '/'),
+            'uri' => $bounce(VisibilityWorld::HOSTNAME),
             'payload' => [],
-            'missingUri' => '/deployments/auth-bounce?to=' . urlencode('https://missing-preview.test/'),
+            'missingUri' => $bounce('missing-preview.test'),
             'ownerStatus' => 302,
         ];
 
@@ -187,19 +185,13 @@ class VisibilityRoutes
         return $routes;
     }
 
-    public static function placeholderWorld(): VisibilityWorld
+    /**
+     * The probe names, known without a database (dataset providers run before the app boots).
+     *
+     * @return list<string>
+     */
+    public static function probeNames(): array
     {
-        $world = new VisibilityWorld;
-        foreach (['thread', 'child'] as $property) {
-            $world->{$property} = (new Thread)->forceFill(['id' => 1]);
-        }
-        foreach (['task' => YakTask::class, 'childTask' => YakTask::class, 'run' => TaskRun::class,
-            'deployment' => BranchDeployment::class, 'attachment' => TaskAttachment::class,
-            'artifact' => Artifact::class, 'prReview' => PrReview::class] as $property => $class) {
-            $world->{$property} = (new $class)->forceFill(['id' => 1]);
-        }
-        $world->prReview->pr_number = 77;
-
-        return $world;
+        return [...array_keys(self::PROBES), 'deployments.auth-bounce'];
     }
 }

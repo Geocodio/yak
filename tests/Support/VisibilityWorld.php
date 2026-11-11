@@ -5,7 +5,9 @@ namespace Tests\Support;
 use App\Enums\ThreadVisibility;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
+use App\Models\CoOwnerRequest;
 use App\Models\PrReview;
+use App\Models\Repository;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -52,6 +54,8 @@ class VisibilityWorld
 
     public PrReview $prReview;
 
+    public CoOwnerRequest $coOwnerRequest;
+
     public int $missingId = 999_999;
 
     public static function build(): self
@@ -88,7 +92,10 @@ class VisibilityWorld
             'repo' => self::REPO,
             'branch_name' => self::BRANCH,
             'description' => self::TITLE,
+            'pr_url' => 'https://github.com/' . self::REPO . '/pull/77',
+            'pr_number' => 77,
         ]);
+        $repository = Repository::factory()->create(['slug' => self::REPO, 'github_full_name' => self::REPO, 'is_active' => true, 'pr_review_enabled' => true]);
         $world->childTask = YakTask::factory()->create([
             'thread_id' => $world->child->id,
             'repo' => self::REPO,
@@ -103,6 +110,12 @@ class VisibilityWorld
         $world->attachment = TaskAttachment::factory()->create(['yak_task_id' => $world->task->id]);
         $world->artifact = Artifact::factory()->create(['yak_task_id' => $world->task->id, 'filename' => 'shot.png', 'disk_path' => 'private/shot.png']);
         $world->prReview = PrReview::factory()->create(['yak_task_id' => $world->task->id, 'repo' => self::REPO, 'pr_number' => 77]);
+
+        $world->coOwnerRequest = CoOwnerRequest::factory()->create([
+            'task_id' => $world->task->id,
+            'root_task_id' => $world->task->id,
+            'repository_id' => $repository->id,
+        ]);
 
         Storage::fake('artifacts');
         Storage::disk('artifacts')->put($world->artifact->disk_path, 'png');
