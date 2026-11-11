@@ -1,6 +1,7 @@
 package hook
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -75,8 +76,7 @@ func TestYakOwnerBlocksWithoutNetwork(t *testing.T) {
 	r := newRig(t)
 	r.marker(t, "yak", 42)
 	out := UserPromptSubmit(r.deps, Input{SessionID: sid})
-	want := `{"decision":"block","reason":"This session is on Yak. Run ` + "`yak teleport 42`" + ` to bring it back."}`
-	if strings.TrimSpace(out) != want {
+	if !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "This session is on Yak.") {
 		t.Fatalf("got %s", out)
 	}
 	if *r.built != 0 {
@@ -186,5 +186,20 @@ func TestMarkerForOtherSessionIgnored(t *testing.T) {
 	}
 	if out := UserPromptSubmit(r.deps, Input{SessionID: "../../etc/passwd"}); out != "" {
 		t.Fatal(out)
+	}
+}
+
+func TestYakOwnedBlockNamesBothWaysOut(t *testing.T) {
+	r := newRig(t)
+	r.marker(t, "yak", 42)
+	r.deps.Binary = "/opt/yak/bin/yak"
+	var v struct{ Reason string }
+	if err := json.Unmarshal([]byte(UserPromptSubmit(r.deps, Input{SessionID: sid})), &v); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"'/opt/yak/bin/yak' teleport 42", "'/opt/yak/bin/yak' marker clear " + sid, "local session"} {
+		if !strings.Contains(v.Reason, want) {
+			t.Errorf("reason %q lacks %q", v.Reason, want)
+		}
 	}
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/geocodio/yak/cli/internal/api"
 	"github.com/geocodio/yak/cli/internal/config"
+	"github.com/geocodio/yak/cli/internal/link"
 	"github.com/geocodio/yak/cli/internal/session"
 )
 
@@ -37,6 +38,8 @@ type HookDeps struct {
 	ConfigDir string
 	API       func() (*api.Client, bool)
 	Out       io.Writer
+	// Binary is the absolute path of the running yak; empty falls back to "yak".
+	Binary string
 }
 
 // ReadInput decodes stdin; ok is false for anything unreadable.
@@ -94,9 +97,14 @@ func UserPromptSubmit(d HookDeps, in Input) string {
 	}
 	switch m.Owner {
 	case "yak":
+		bin := "yak"
+		if d.Binary != "" {
+			bin = link.ShellQuote(d.Binary)
+		}
 		b, err := json.Marshal(map[string]string{
 			"decision": "block",
-			"reason":   fmt.Sprintf("This session is on Yak. Run `yak teleport %d` to bring it back.", m.ThreadID),
+			"reason": fmt.Sprintf("This session is on Yak. Run %s teleport %d to bring it back, or run %s marker clear %s to use it as a local session again (its work can be teleported up as a new thread).",
+				bin, m.ThreadID, bin, in.SessionID),
 		})
 		if err != nil {
 			return ""

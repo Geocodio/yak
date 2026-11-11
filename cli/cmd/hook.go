@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/geocodio/yak/cli/internal/api"
@@ -21,7 +22,8 @@ func runHook(ctx *Context, args []string) int {
 	if !ok {
 		return 0
 	}
-	deps := hook.HookDeps{ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, API: func() (*api.Client, bool) { return silentClient(ctx) }}
+	binary, _ := os.Executable()
+	deps := hook.HookDeps{Binary: binary, ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, API: func() (*api.Client, bool) { return silentClient(ctx) }}
 	var out string
 	switch args[0] {
 	case "session-start":
