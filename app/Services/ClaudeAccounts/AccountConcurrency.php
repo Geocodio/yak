@@ -62,7 +62,7 @@ class AccountConcurrency
             return;
         }
 
-        $this->release(ClaudeAccount::query()->findOrFail($accountId), $run);
+        $this->release(ClaudeAccount::query()->whereKey($accountId)->firstOrFail(), $run);
     }
 
     public function position(TaskRun $run): int
