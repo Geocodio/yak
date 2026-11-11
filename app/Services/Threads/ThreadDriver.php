@@ -9,7 +9,6 @@ use App\Enums\AccountFailure;
 use App\Enums\ClaudeAccountStatus;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
-use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadSessionKind;
 use App\Enums\ThreadStatus;
 use App\Enums\TurnMessageState;
@@ -24,7 +23,6 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadSession;
 use App\Models\ThreadTurnMessage;
-use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\TaskLogger;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Support\SecretRedactor;
@@ -52,10 +50,8 @@ class ThreadDriver
         private readonly YakToolRouter $tools, // @phpstan-ignore property.onlyWritten
         private readonly SecretRedactor $redactor,
         private readonly BrokerStreams $streams,
-        private readonly AccountConcurrency $concurrency,
         private readonly RunawayGuard $guard,
-        private readonly ThreadSandbox $sandbox,
-        private readonly SessionSync $sessions,
+        private readonly TurnFinisher $finisher,
     ) {}
 
     public function handle(StreamEntry $entry): void
@@ -123,6 +119,8 @@ class ThreadDriver
             ->where('turn_state', TurnState::Running)
             ->get()
             ->each(fn (TaskRun $run) => $this->isolated(fn () => $this->tickTurn($run)));
+
+        $this->isolated(fn () => app(ThreadTurns::class)->resumeWaiting());
     }
 
     /**
@@ -291,27 +289,11 @@ class ThreadDriver
     }
 
     /**
-     * Fires events after the commit. A turn end is marked emitted only once its
-     * event went out, so a crash in between re-dispatches it from tick(); a
-     * closure is follow-up work that must not break the dispatch.
-     *
      * @param  list<object>  $events
      */
     private function dispatchAll(array $events): void
     {
-        foreach ($events as $event) {
-            if ($event instanceof Closure) {
-                $this->isolated($event);
-
-                continue;
-            }
-
-            event($event);
-
-            if ($event instanceof TurnCompleted || $event instanceof TurnFailed) {
-                TaskRun::query()->whereKey($event->run->id)->whereNull('completion_event_emitted_at')->update(['completion_event_emitted_at' => now()]);
-            }
-        }
+        $this->finisher->dispatch($events);
     }
 
     private function endEventFor(TaskRun $run): object
@@ -347,12 +329,7 @@ class ThreadDriver
 
     private function trackerFor(TaskRun $run): TurnTracker
     {
-        $stored = $run->getAttribute('tracker_state');
-        $state = is_string($stored) ? json_decode($stored, true) : null;
-
-        return is_array($state) && $state !== []
-            ? TurnTracker::fromState($state)
-            : app()->make(TurnTracker::class, ['graceSeconds' => (int) config('yak.threads.turn_grace_seconds')]);
+        return ThreadTurns::trackerFor($run);
     }
 
     /**
@@ -430,44 +407,12 @@ class ThreadDriver
     }
 
     /**
-     * Ends the running turn exactly once: only the call that wins the
-     * conditional transition releases the lock and the account slot and
-     * announces the end.
-     *
      * @param  list<object>  $events
      */
     private function finishTurn(Thread $thread, TaskRun $run, TurnState $to, array &$events): bool
     {
-        $changed = TaskRun::query()
-            ->whereKey($run->id)
-            ->where('turn_state', TurnState::Running)
-            ->update(['turn_state' => $to, 'finished_at' => now()]);
-
-        if ($changed !== 1) {
-            return false;
-        }
-
-        $run->refresh();
-        $account = $run->claudeAccount;
-
-        if ($account !== null) {
-            $this->concurrency->release($account, $run);
-        }
-
-        $thread->forceFill([
-            'lock_holder' => ThreadLockHolder::None,
-            'lock_turn_id' => null,
-            'runner_state' => RunnerState::Idle,
-            'last_activity_at' => now(),
-        ]);
         unset($this->handlers[$run->id]);
 
-        $events[] = $to === TurnState::Completed ? new TurnCompleted($run) : new TurnFailed($run);
-        $events[] = function () use ($thread): void {
-            $this->isolated(fn () => $this->sessions->syncFromSandbox($thread));
-            $this->isolated(fn () => $this->sandbox->pauseIfIdle($thread));
-        };
-
-        return true;
+        return $this->finisher->finish($thread, $run, $to, $events);
     }
 }
