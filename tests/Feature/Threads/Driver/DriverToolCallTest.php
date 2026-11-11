@@ -17,7 +17,7 @@ const CALL_ID = '5b7f6f0e-1d0a-4d6e-9a53-0c1f6c8d2a11';
  */
 function toolCallLine(string $callId = CALL_ID): array
 {
-    return ['type' => 'yak.tool_call', 'call_id' => $callId, 'tool' => 'list_threads', 'input' => ['limit' => 3]];
+    return ['type' => 'yak.tool_call', 'call_id' => $callId, 'tool' => 'other_tool', 'input' => ['limit' => 3]];
 }
 
 /**
@@ -96,7 +96,7 @@ it('uses the registered router', function () {
 
     pushRunnerLine($thread, 1, toolCallLine());
 
-    expect(toolResults($thread)[0]['content'])->toBe('ran list_threads with {"limit":3}');
+    expect(toolResults($thread)[0]['content'])->toBe('ran other_tool with {"limit":3}');
 });
 
 it('does not hand the call to the log handler', function () {

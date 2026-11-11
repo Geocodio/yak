@@ -3,7 +3,7 @@
 use App\DataTransferObjects\YakToolCall;
 use App\DataTransferObjects\YakToolResult;
 use App\Models\Thread;
-use App\Services\Threads\DefaultYakToolRouter;
+use App\Services\Stacks\StackToolRouter;
 use App\Services\Threads\YakToolRouter;
 
 it('parses a tool call line', function () {
@@ -24,8 +24,8 @@ it('rejects a line without a call id', function (array $line) {
 
 it('answers not available by default', function () {
     $router = app(YakToolRouter::class);
-    $result = $router->handle(Thread::factory()->create(), new YakToolCall('c1', 'spawn_thread', []));
+    $result = $router->handle(Thread::factory()->create(), new YakToolCall('c1', 'other_tool', []));
 
-    expect($router)->toBeInstanceOf(DefaultYakToolRouter::class)
-        ->and($result)->toEqual(new YakToolResult(true, 'The spawn_thread tool is not available yet.'));
+    expect($router)->toBeInstanceOf(StackToolRouter::class)
+        ->and($result)->toEqual(new YakToolResult(true, 'The other_tool tool is not available yet.'));
 });
