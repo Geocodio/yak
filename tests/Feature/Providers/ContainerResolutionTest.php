@@ -1,6 +1,6 @@
 <?php
 
-use App\Agents\SandboxedAgentRunner;
+use App\Agents\BrokerAgentRunner;
 use App\Contracts\AgentRunner;
 use App\Services\IncusSandboxManager;
 use App\Services\VideoRenderer;
@@ -18,7 +18,7 @@ it('can resolve VideoRenderer through the container', function () {
 });
 
 it('can resolve AgentRunner through the container', function () {
-    expect(app(AgentRunner::class))->toBeInstanceOf(SandboxedAgentRunner::class);
+    expect(app(AgentRunner::class))->toBeInstanceOf(BrokerAgentRunner::class);
 });
 
 it('can resolve IncusSandboxManager through the container', function () {
