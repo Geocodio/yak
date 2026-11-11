@@ -4,7 +4,6 @@ use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
-use App\Jobs\SetupYakJob;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -173,7 +172,6 @@ test('all claude jobs include EnsureDailyBudget middleware', function () {
     $jobs = [
         new RunYakJob($task),
         new RetryYakJob($task),
-        new SetupYakJob($task),
         new ResearchYakJob($task),
     ];
 

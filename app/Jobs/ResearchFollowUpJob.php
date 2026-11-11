@@ -10,7 +10,6 @@ use App\Jobs\Concerns\FinishesResearchFollowUpRuns;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ReportsResearchToSource;
-use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Concerns\StartsThreadTurns;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
@@ -44,7 +43,6 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
     use NotifiesSourceOfFailure;
     use Queueable;
     use ReportsResearchToSource;
-    use RetriesWithoutStaleSession;
     use StartsThreadTurns;
 
     /** Where the previous report sits in the sandbox for the agent to read. */

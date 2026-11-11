@@ -10,7 +10,6 @@ use App\Jobs\Concerns\FinishesFollowUpRuns;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
-use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Concerns\StartsThreadTurns;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -35,7 +34,6 @@ class RunFollowUpJob implements ShouldQueue
     use NotifiesSourceOfFailure;
     use Queueable;
     use ResumesAgentOnExistingBranch;
-    use RetriesWithoutStaleSession;
     use StartsThreadTurns;
 
     public int $timeout = 3600;

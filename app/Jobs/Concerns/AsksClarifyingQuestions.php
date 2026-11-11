@@ -13,6 +13,7 @@ use App\Models\YakTask;
 use App\Services\ClarificationMessage;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\YakPromptBuilder;
 
 /**
  * Lets an agent job stop and ask structured questions. The job calls
@@ -106,6 +107,16 @@ trait AsksClarifyingQuestions
     {
         return $this->task->clarificationAnswersAwaitingResume() !== null
             && ($this->task->session_id !== null || $this->task->thread_id !== null);
+    }
+
+    /**
+     * The answers prompt when resuming, otherwise the job's first-run prompt.
+     *
+     * @param  callable(): string  $firstRunPrompt
+     */
+    protected function promptFor(callable $firstRunPrompt): string
+    {
+        return $this->resumingWithAnswers() ? YakPromptBuilder::clarificationAnswersPrompt($this->task) : $firstRunPrompt();
     }
 
     /**
