@@ -9,7 +9,7 @@ use App\Services\Ssh\SshPublicKey;
 use App\Services\Threads\Contracts\SandboxManager;
 use Illuminate\Support\Facades\Process;
 
-function runningThread(array $state = []): Thread
+function sshKeysRunningThread(array $state = []): Thread
 {
     return Thread::factory()->paused()->create(['sandbox_state' => ThreadSandboxState::Running, ...$state]);
 }
@@ -33,7 +33,7 @@ it('writes only the keys of people who may drive the thread', function () {
     $owner = User::factory()->create();
     $ownerKey = SshKey::factory()->forUser($owner)->create();
     $strangerKey = SshKey::factory()->create();
-    $thread = runningThread(['visibility' => 'private', 'owner_user_id' => $owner->id]);
+    $thread = sshKeysRunningThread(['visibility' => 'private', 'owner_user_id' => $owner->id]);
 
     app(SandboxAuthorizedKeys::class)->sync($thread);
 
@@ -45,7 +45,7 @@ it('writes only the keys of people who may drive the thread', function () {
 it('writes every keyed user for a team thread', function () {
     $first = SshKey::factory()->create();
     $second = SshKey::factory()->create();
-    $thread = runningThread();
+    $thread = sshKeysRunningThread();
 
     app(SandboxAuthorizedKeys::class)->sync($thread);
 
@@ -53,7 +53,7 @@ it('writes every keyed user for a team thread', function () {
 });
 
 it('installs the file with private modes through sh', function () {
-    $thread = runningThread();
+    $thread = sshKeysRunningThread();
 
     app(SandboxAuthorizedKeys::class)->sync($thread);
 
@@ -62,7 +62,7 @@ it('installs the file with private modes through sh', function () {
 });
 
 it('adds an ephemeral key until its ttl passes', function () {
-    $thread = runningThread();
+    $thread = sshKeysRunningThread();
     $key = ephemeralKey();
 
     app(SandboxAuthorizedKeys::class)->addEphemeral($thread, $key, 900);
@@ -74,7 +74,7 @@ it('adds an ephemeral key until its ttl passes', function () {
 });
 
 it('removes an ephemeral key', function () {
-    $thread = runningThread();
+    $thread = sshKeysRunningThread();
     $key = ephemeralKey();
     $keys = app(SandboxAuthorizedKeys::class);
 
@@ -85,7 +85,7 @@ it('removes an ephemeral key', function () {
 });
 
 it('sweeps expired ephemeral keys and re-syncs only running sandboxes', function () {
-    $running = runningThread();
+    $running = sshKeysRunningThread();
     $paused = Thread::factory()->paused()->create();
     $keys = app(SandboxAuthorizedKeys::class);
     $keys->addEphemeral($running, ephemeralKey(), 60);
@@ -104,7 +104,7 @@ it('sweeps expired ephemeral keys and re-syncs only running sandboxes', function
 });
 
 it('does not swallow a failed write', function () {
-    $thread = runningThread();
+    $thread = sshKeysRunningThread();
     app(SandboxManager::class)->queueExecResult(Process::result(errorOutput: 'disk full', exitCode: 1));
 
     app(SandboxAuthorizedKeys::class)->sync($thread);

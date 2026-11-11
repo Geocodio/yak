@@ -13,7 +13,7 @@ beforeEach(function (): void {
 /**
  * A running sandbox keeps the session endpoint off Incus: the browser server boots its own app container without the test fakes.
  */
-function runningThread(): Thread
+function terminalRunningThread(): Thread
 {
     return Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_state_changed_at' => now()]);
 }
@@ -107,7 +107,7 @@ function statusIs(string $state): string
 }
 
 test('the terminal connects with the token from the session endpoint', function () {
-    $thread = runningThread();
+    $thread = terminalRunningThread();
     $page = visit(route('threads.show', $thread));
     installTerminalSocketStub($page);
 
@@ -121,7 +121,7 @@ test('the terminal connects with the token from the session endpoint', function 
 });
 
 test('typed input reaches the bridge and its echo is drawn', function () {
-    $page = visit(route('threads.show', runningThread()));
+    $page = visit(route('threads.show', terminalRunningThread()));
     installTerminalSocketStub($page);
     openTerminalTab($page);
     waitForTerminal($page, statusIs('connected'));
@@ -134,7 +134,7 @@ test('typed input reaches the bridge and its echo is drawn', function () {
 });
 
 test('a dropped connection shows lost state and reconnects with a new token', function () {
-    $page = visit(route('threads.show', runningThread()));
+    $page = visit(route('threads.show', terminalRunningThread()));
     installTerminalSocketStub($page);
     openTerminalTab($page);
     waitForTerminal($page, statusIs('connected'));
@@ -151,7 +151,7 @@ test('a dropped connection shows lost state and reconnects with a new token', fu
 });
 
 test('a 4403 close shows the refused state and does not reconnect', function () {
-    $page = visit(route('threads.show', runningThread()));
+    $page = visit(route('threads.show', terminalRunningThread()));
     installTerminalSocketStub($page);
     $page->script('window.__yakTerminalBackoff = [50]');
     openTerminalTab($page);
@@ -165,7 +165,7 @@ test('a 4403 close shows the refused state and does not reconnect', function () 
 });
 
 test('the phone key row sends control codes and arrows', function () {
-    $page = visit(route('threads.show', runningThread()))->on()->mobile()->assertPresent('[data-testid="thread-header"]');
+    $page = visit(route('threads.show', terminalRunningThread()))->on()->mobile()->assertPresent('[data-testid="thread-header"]');
     installTerminalSocketStub($page);
     openTerminalTab($page);
     waitForTerminal($page, statusIs('connected'));
@@ -184,7 +184,7 @@ test('the phone key row sends control codes and arrows', function () {
 });
 
 test('the key row is absent at desktop width', function () {
-    $page = visit(route('threads.show', runningThread()));
+    $page = visit(route('threads.show', terminalRunningThread()));
     installTerminalSocketStub($page);
     openTerminalTab($page);
     waitForTerminal($page, statusIs('connected'));
@@ -193,7 +193,7 @@ test('the key row is absent at desktop width', function () {
 });
 
 test('the phone shows the working strip only while Claude is busy', function () {
-    $thread = runningThread();
+    $thread = terminalRunningThread();
     $thread->update(['runner_state' => RunnerState::Busy]);
     $page = visit(route('threads.show', $thread))->on()->mobile()->assertPresent('[data-testid="thread-header"]');
     installTerminalSocketStub($page);
@@ -204,7 +204,7 @@ test('the phone shows the working strip only while Claude is busy', function () 
 });
 
 test('the working strip is absent at desktop width', function () {
-    $thread = runningThread();
+    $thread = terminalRunningThread();
     $thread->update(['runner_state' => RunnerState::Busy]);
     $page = visit(route('threads.show', $thread));
     installTerminalSocketStub($page);
