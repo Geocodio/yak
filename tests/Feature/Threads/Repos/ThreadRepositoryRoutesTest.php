@@ -5,6 +5,7 @@ use App\Enums\RepositoryRole;
 use App\Enums\RepositorySetupStatus;
 use App\Jobs\RetryRepositorySetupJob;
 use App\Models\Thread;
+use App\Models\ThreadDiff;
 use App\Models\ThreadRepository;
 use App\Models\ThreadShare;
 use App\Models\User;
@@ -90,4 +91,15 @@ it('stays quiet when the retry fails again', function () {
     $this->mock(ThreadTurns::class)->shouldNotReceive('steer');
 
     (new RetryRepositorySetupJob($this->thread, $row))->handle(app(ExtraRepositorySetup::class), app(ThreadTurns::class));
+});
+
+it('flips the stored diff flag when a context repo is promoted', function () {
+    $row = threadRepositoryRow($this->thread, 'context');
+    $diff = ThreadDiff::factory()->for($this->thread)->create();
+    $diff->repositories()->create(['repo' => 'acme/web', 'role' => 'context', 'base_sha' => 'a', 'head_sha' => 'b', 'files_count' => 2, 'is_throwaway' => true]);
+
+    $this->actingAs($this->owner)->patchJson(route('threads.repositories.update', [$this->thread, $row]), ['role' => 'changes'])->assertRedirect();
+
+    $this->actingAs($this->owner)->getJson(route('threads.diff.show', $this->thread))
+        ->assertJsonPath('diff.throwawayFilesCount', 0)->assertJsonPath('diff.filesCount', 2);
 });

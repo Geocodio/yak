@@ -5,6 +5,7 @@ namespace App\Services\Threads\Repos;
 use App\Enums\RepositoryRole;
 use App\Events\ThreadRepositoryChanged;
 use App\Exceptions\RepositoryRoleBlocked;
+use App\Models\ThreadDiffRepository;
 use App\Models\ThreadRepository;
 
 /**
@@ -22,6 +23,7 @@ class ThreadRepositoryRoles
         $thread = $repository->thread()->firstOrFail();
         $repository->update(['role' => RepositoryRole::Changes, 'branch' => $thread->branch]);
 
+        $this->syncStoredDiff($repository);
         ThreadRepositoryChanged::dispatch($thread, $repository);
 
         return $repository;
@@ -39,8 +41,18 @@ class ThreadRepositoryRoles
 
         $repository->update(['role' => RepositoryRole::Context, 'branch' => null, 'merge_position' => null]);
 
+        $this->syncStoredDiff($repository);
         ThreadRepositoryChanged::dispatch($repository->thread()->firstOrFail(), $repository);
 
         return $repository;
+    }
+
+    /** Keeps the stored diff's throwaway flag in step until the next capture. */
+    private function syncStoredDiff(ThreadRepository $repository): void
+    {
+        ThreadDiffRepository::query()
+            ->where('repo', $repository->repo)
+            ->whereHas('diff', fn ($query) => $query->where('thread_id', $repository->thread_id))
+            ->update(['role' => $repository->role->value, 'is_throwaway' => ! $repository->getsPullRequest()]);
     }
 }

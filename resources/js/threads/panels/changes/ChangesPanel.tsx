@@ -3,10 +3,13 @@ import { usePage } from '@inertiajs/react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PanelProps } from '@/threads/panels';
+import type { ThreadDiffFile } from '@/types/thread-changes';
 import { DiffViewer } from './DiffViewer';
 import { OpenPullRequestButton } from './OpenPullRequestButton';
+import { ContextRepoCallout } from './ContextRepoCallout';
 import { FileTree } from './FileTree';
-import { buildFileTree } from './buildFileTree';
+import { RepositoryTabs } from './RepositoryTabs';
+import { buildFileTree, fileKey } from './buildFileTree';
 import { useStack } from '../stack/useStack';
 import { useThreadDiff } from './useThreadDiff';
 
@@ -35,7 +38,7 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
     const { publishWarning } = usePage<{ publishWarning: boolean } & Record<string, unknown>>().props;
     const { stack } = useStack(thread);
     const [childId, setChildId] = useState<number | null>(null);
-    const { diff, isLoading, error } = useThreadDiff(thread, childId);
+    const { diff, isLoading, error, reload } = useThreadDiff(thread, childId);
     const switchOptions = stack?.isRoot && stack.children.length > 0 ? [{ value: '', label: 'This thread' }, ...stack.children.map((child) => ({ value: String(child.id), label: child.name }))] : [];
     const diffSwitch = switchOptions.length > 0 && (
         <Select
@@ -49,6 +52,7 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
     const diffThreadId = childId ?? thread.id;
     const [filter, setFilter] = useState('');
     const [openPath, setOpenPath] = useState<string | null>(null);
+    const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
     const [mode, setMode] = useState<'unified' | 'split'>('unified');
     const [isExpanded, setIsExpanded] = useState(false);
     const [viewed, setViewed] = useState<Set<string>>(new Set());
@@ -84,9 +88,20 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
 
-    const files = diff?.files ?? [];
+    const repositories = diff?.repositories ?? [];
+    const hasSeveralRepositories = repositories.length > 1;
+    const primaryRepo = repositories[0]?.repo ?? '';
+    const selectedRepository = repositories.find((repository) => repository.repo === selectedRepo) ?? null;
+    const allFiles = diff?.files ?? [];
+    const files = useMemo(() => (selectedRepository === null ? allFiles : allFiles.filter((file) => file.repo === selectedRepository.repo)), [allFiles, selectedRepository]);
     const visibleFiles = useMemo(() => files.filter((file) => file.path.toLowerCase().includes(filter.trim().toLowerCase())), [files, filter]);
-    const tree = useMemo(() => buildFileTree(visibleFiles), [visibleFiles]);
+    const tree = useMemo(() => buildFileTree(visibleFiles, primaryRepo, hasSeveralRepositories && selectedRepository === null), [visibleFiles, primaryRepo, hasSeveralRepositories, selectedRepository]);
+    const keyOf = (file: ThreadDiffFile) => fileKey(file, primaryRepo);
+    const selectRepository = (repo: string | null) => {
+        setSelectedRepo(repo);
+        setOpenPath(null);
+    };
+    const scratchRepositories = repositories.filter((repository) => repository.isThrowaway && repository.filesCount > 0);
 
     const toggleViewed = (path: string) => {
         const next = new Set(viewed);
@@ -97,7 +112,7 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
         writeViewed(key, next);
     };
 
-    if (diff === null || diff.filesCount === 0) {
+    if (diff === null || (diff.filesCount === 0 && diff.throwawayFilesCount === 0)) {
         return (
             <div className="flex flex-col gap-3" data-testid="changes-panel">
                 {diffSwitch}
@@ -117,10 +132,10 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
         );
     }
 
-    const openIndex = openPath === null ? -1 : files.findIndex((file) => file.path === openPath);
+    const openIndex = openPath === null ? -1 : files.findIndex((file) => keyOf(file) === openPath);
     const openFile = openIndex >= 0 ? files[openIndex] : null;
-    const viewedCount = files.filter((file) => viewed.has(file.path)).length;
-    const step = (delta: number) => setOpenPath(files[(openIndex + delta + files.length) % files.length].path);
+    const viewedCount = files.filter((file) => viewed.has(keyOf(file))).length;
+    const step = (delta: number) => setOpenPath(keyOf(files[(openIndex + delta + files.length) % files.length]));
 
     return (
         <div className="flex flex-col gap-3" data-testid="changes-panel">
@@ -129,6 +144,12 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                 <p className="text-[13px] text-body" data-testid="changes-summary">
                     <span className="font-medium">{diff.filesCount} {diff.filesCount === 1 ? 'file' : 'files'} changed</span>{' '}
                     <span className="text-ok">+{diff.additions}</span> <span className="text-fail">-{diff.deletions}</span>
+                    {selectedRepo === null && scratchRepositories.length > 0 && (
+                        <span className="text-muted" data-testid="changes-scratch-note">
+                            {' '}
+                            plus {diff.throwawayFilesCount} scratch {diff.throwawayFilesCount === 1 ? 'file' : 'files'} in {scratchRepositories.map((repository) => repository.repo.split('/').pop()).join(', ')}
+                        </span>
+                    )}
                 </p>
                 <div className="flex items-center gap-2">
                     {canDrive && childId === null && <OpenPullRequestButton thread={thread} publishWarning={publishWarning} />}
@@ -137,6 +158,10 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                     </button>
                 </div>
             </div>
+
+            {hasSeveralRepositories && childId === null && <RepositoryTabs repositories={repositories} totalFilesCount={diff.filesCount} selected={selectedRepo} onSelect={selectRepository} />}
+
+            {selectedRepository?.isThrowaway === true && childId === null && <ContextRepoCallout thread={thread} repo={selectedRepository.repo} canDrive={canDrive} onPromoted={reload} />}
 
             {diff.isTurnRunning && (
                 <p className="sticky top-0 rounded-card bg-app px-3 py-2 text-[12px] text-muted" data-testid="changes-working-note">
@@ -169,7 +194,7 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                         </div>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                        <code className="truncate font-mono text-[12px] text-body">{openFile.path}</code>
+                        <code className="truncate font-mono text-[12px] text-body">{hasSeveralRepositories ? `${openFile.repo}: ` : ''}{openFile.path}</code>
                         <div className="flex shrink-0 gap-1 text-[12px]" role="group" aria-label="Diff layout">
                             {(['unified', 'split'] as const).map((option) => (
                                 <button key={option} type="button" onClick={() => setMode(option)} aria-pressed={mode === option} className={cn('cursor-pointer rounded-chip px-2 py-0.5', mode === option ? 'bg-app text-body' : 'text-muted')}>
@@ -179,7 +204,7 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                         </div>
                     </div>
                     <label className="flex items-center gap-2 text-[12px] text-muted">
-                        <input type="checkbox" checked={viewed.has(openFile.path)} onChange={() => toggleViewed(openFile.path)} />
+                        <input type="checkbox" checked={viewed.has(keyOf(openFile))} onChange={() => toggleViewed(keyOf(openFile))} />
                         Viewed
                     </label>
                     <DiffViewer key={openFile.id} threadId={diffThreadId} file={openFile} mode={mode} />
