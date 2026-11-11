@@ -3,6 +3,7 @@
 use App\Enums\RestoreStepName;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
+use App\Enums\ThreadStatus;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadNoticeData;
 use App\Models\ClaudeAccount;
@@ -184,6 +185,28 @@ it('names the queue position of a thread waiting for an account', function () {
     TaskRun::query()->where('thread_id', $first->id)->update(['turn_state' => TurnState::Pending]);
 
     expect(ThreadNoticeData::for($second->fresh())['body'])->toContain('You are number 1 in line.');
+});
+
+it('counts only healthy waiters ahead and drops the sentence for an unhealthy own thread', function () {
+    $account = ClaudeAccount::factory()->create(['name' => 'Team']);
+    $waiting = fn (array $attributes = []): Thread => tap(Thread::factory()->create(['claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::WaitingForAccount, ...$attributes]), function (Thread $thread) use ($account): void {
+        TaskRun::factory()->create(['thread_id' => $thread->id, 'claude_account_id' => $account->id, 'turn_state' => TurnState::WaitingForAccount]);
+    });
+    $closed = $waiting(['status' => ThreadStatus::Closed]);
+    $mine = $waiting();
+
+    expect(ThreadNoticeData::for($mine)['body'])->toContain('You are number 1 in line.');
+
+    $healthy = $waiting();
+    $later = $waiting();
+
+    expect(ThreadNoticeData::for($later)['body'])->toContain('You are number 3 in line.');
+
+    $mine->forceFill(['status' => ThreadStatus::Closed])->save();
+    $healthy->forceFill(['blocked_reason' => ThreadBlockReason::UsageLimit])->save();
+
+    expect(ThreadNoticeData::for($later->fresh())['body'])->toContain('You are number 1 in line.')
+        ->and(ThreadNoticeData::for($healthy->fresh())['body'] ?? '')->not->toContain('in line.');
 });
 
 it('reports the queue position and turn counts for a thread waiting for its account', function () {
