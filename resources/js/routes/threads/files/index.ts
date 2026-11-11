@@ -69,7 +69,7 @@ tree.head = (args: { thread: number | { id: number } } | [thread: number | { id:
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadFileController::show
-* @see app/Http/Controllers/Threads/ThreadFileController.php:60
+* @see app/Http/Controllers/Threads/ThreadFileController.php:62
 * @route '/threads/{thread}/files/content'
 */
 export const show = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -84,7 +84,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadFileController::show
-* @see app/Http/Controllers/Threads/ThreadFileController.php:60
+* @see app/Http/Controllers/Threads/ThreadFileController.php:62
 * @route '/threads/{thread}/files/content'
 */
 show.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -117,7 +117,7 @@ show.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadFileController::show
-* @see app/Http/Controllers/Threads/ThreadFileController.php:60
+* @see app/Http/Controllers/Threads/ThreadFileController.php:62
 * @route '/threads/{thread}/files/content'
 */
 show.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -127,7 +127,7 @@ show.get = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadFileController::show
-* @see app/Http/Controllers/Threads/ThreadFileController.php:60
+* @see app/Http/Controllers/Threads/ThreadFileController.php:62
 * @route '/threads/{thread}/files/content'
 */
 show.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -137,7 +137,7 @@ show.head = (args: { thread: number | { id: number } } | [thread: number | { id:
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadFileController::update
-* @see app/Http/Controllers/Threads/ThreadFileController.php:86
+* @see app/Http/Controllers/Threads/ThreadFileController.php:88
 * @route '/threads/{thread}/files/content'
 */
 export const update = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -152,7 +152,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadFileController::update
-* @see app/Http/Controllers/Threads/ThreadFileController.php:86
+* @see app/Http/Controllers/Threads/ThreadFileController.php:88
 * @route '/threads/{thread}/files/content'
 */
 update.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -185,7 +185,7 @@ update.url = (args: { thread: number | { id: number } } | [thread: number | { id
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadFileController::update
-* @see app/Http/Controllers/Threads/ThreadFileController.php:86
+* @see app/Http/Controllers/Threads/ThreadFileController.php:88
 * @route '/threads/{thread}/files/content'
 */
 update.put = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({

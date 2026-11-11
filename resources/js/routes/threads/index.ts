@@ -11,6 +11,8 @@ import files from './files'
 import preview from './preview'
 import terminalSessions from './terminal-sessions'
 import stack from './stack'
+import pullRequests from './pull-requests'
+import repositories from './repositories'
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
 * @see app/Http/Controllers/Threads/ThreadController.php:18
@@ -375,6 +377,50 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     method: 'post',
 })
 
+/**
+* @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
+* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @route '/threads/new/repository-access'
+*/
+export const repositoryAccess = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: repositoryAccess.url(options),
+    method: 'get',
+})
+
+repositoryAccess.definition = {
+    methods: ["get","head"],
+    url: '/threads/new/repository-access',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
+* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @route '/threads/new/repository-access'
+*/
+repositoryAccess.url = (options?: RouteQueryOptions) => {
+    return repositoryAccess.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
+* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @route '/threads/new/repository-access'
+*/
+repositoryAccess.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: repositoryAccess.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
+* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @route '/threads/new/repository-access'
+*/
+repositoryAccess.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: repositoryAccess.url(options),
+    method: 'head',
+})
+
 const threads = {
     show: Object.assign(show, show),
     list: Object.assign(list, list),
@@ -395,6 +441,9 @@ const threads = {
     preview: Object.assign(preview, preview),
     terminalSessions: Object.assign(terminalSessions, terminalSessions),
     stack: Object.assign(stack, stack),
+    pullRequests: Object.assign(pullRequests, pullRequests),
+    repositoryAccess: Object.assign(repositoryAccess, repositoryAccess),
+    repositories: Object.assign(repositories, repositories),
 }
 
 export default threads

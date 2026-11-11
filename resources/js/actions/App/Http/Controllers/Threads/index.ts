@@ -16,6 +16,10 @@ import ThreadFileController from './ThreadFileController'
 import Preview from './Preview'
 import TerminalSessionController from './TerminalSessionController'
 import Stack from './Stack'
+import PullRequests from './PullRequests'
+import RepositoryAccessController from './RepositoryAccessController'
+import ThreadRepositoryProgressController from './ThreadRepositoryProgressController'
+import ThreadRepositoryController from './ThreadRepositoryController'
 
 const Threads = {
     ThreadController: Object.assign(ThreadController, ThreadController),
@@ -36,6 +40,10 @@ const Threads = {
     Preview: Object.assign(Preview, Preview),
     TerminalSessionController: Object.assign(TerminalSessionController, TerminalSessionController),
     Stack: Object.assign(Stack, Stack),
+    PullRequests: Object.assign(PullRequests, PullRequests),
+    RepositoryAccessController: Object.assign(RepositoryAccessController, RepositoryAccessController),
+    ThreadRepositoryProgressController: Object.assign(ThreadRepositoryProgressController, ThreadRepositoryProgressController),
+    ThreadRepositoryController: Object.assign(ThreadRepositoryController, ThreadRepositoryController),
 }
 
 export default Threads
