@@ -1,6 +1,6 @@
 //go:build darwin
 
-package termbridge
+package main
 
 import (
 	"os"

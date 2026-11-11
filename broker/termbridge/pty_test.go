@@ -1,4 +1,4 @@
-package termbridge
+package main
 
 import (
 	"bufio"

@@ -1,6 +1,6 @@
 //go:build linux
 
-package termbridge
+package main
 
 import (
 	"fmt"
