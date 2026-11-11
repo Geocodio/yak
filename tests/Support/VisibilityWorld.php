@@ -16,6 +16,7 @@ use App\Models\ThreadDiff;
 use App\Models\ThreadDiffFile;
 use App\Models\ThreadEvent;
 use App\Models\ThreadRepository;
+use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Storage;
@@ -40,6 +41,8 @@ class VisibilityWorld
     public User $other;
 
     public User $admin;
+
+    public User $sharedViewer;
 
     public Thread $thread;
 
@@ -90,6 +93,7 @@ class VisibilityWorld
         $world->owner = User::factory()->create();
         $world->other = User::factory()->create();
         $world->admin = User::factory()->create();
+        $world->sharedViewer = User::factory()->create();
         config(['claude-accounts.admin_user_ids' => [$world->admin->id]]);
 
         $account = ClaudeAccount::factory()->create();
@@ -100,6 +104,7 @@ class VisibilityWorld
             'visibility' => $visibility,
             'owner_user_id' => $world->owner->id,
         ]);
+        ThreadShare::factory()->create(['thread_id' => $world->thread->id, 'user_id' => $world->sharedViewer->id]);
         $diff = ThreadDiff::factory()->create(['thread_id' => $world->thread->id, 'files_count' => 1]);
         $world->diffFile = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id]);
         $world->repository = ThreadRepository::factory()->changes()->create(['thread_id' => $world->thread->id, 'repo' => 'secret-acme/extra']);

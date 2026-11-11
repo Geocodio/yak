@@ -76,24 +76,26 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks', StoreTaskController::class)->name('tasks.store');
     Route::post('tasks/setup-card/dismiss', DismissSetupCardController::class)->name('tasks.setup-card.dismiss');
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
-    Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');
-    Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('tasks.cancel');
-    Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('tasks.rerun-review');
-    Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');
-    Route::post('tasks/{task}/reroute', [TaskActionController::class, 'reroute'])->name('tasks.reroute');
-    Route::post('tasks/{task}/co-owner/approve', [CoOwnerDecisionController::class, 'approve'])->name('tasks.co-owner.approve');
-    Route::post('tasks/{task}/co-owner/request-changes', [CoOwnerDecisionController::class, 'requestChanges'])->name('tasks.co-owner.request-changes');
-    Route::post('tasks/{task}/co-owner/reject', [CoOwnerDecisionController::class, 'reject'])->name('tasks.co-owner.reject');
-    Route::post('tasks/{task}/co-owner/withdraw', [CoOwnerDecisionController::class, 'withdraw'])->name('tasks.co-owner.withdraw');
-    Route::post('tasks/{task}/co-owner/check-access', [CoOwnerDecisionController::class, 'checkAccess'])->name('tasks.co-owner.check-access');
-    Route::post('tasks/{task}/co-owner/tag', [EarlyWarningController::class, 'tag'])->name('tasks.co-owner.tag');
-    Route::post('tasks/{task}/co-owner/decline', [EarlyWarningController::class, 'decline'])->name('tasks.co-owner.decline');
-    Route::post('tasks/{task}/messages', [TaskMessageController::class, 'store'])->name('tasks.messages.store');
-    Route::patch('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'update'])->whereNumber('message')->name('tasks.queued-messages.update');
-    Route::delete('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'destroy'])->whereNumber('message')->name('tasks.queued-messages.destroy');
-    Route::post('tasks/{task}/clarification-answers', TaskClarificationAnswerController::class)->name('tasks.clarification-answers.store');
-    Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
-        ->name('tasks.re-request-review');
+    Route::middleware('task.drive')->group(function (): void {
+        Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');
+        Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('tasks.cancel');
+        Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('tasks.rerun-review');
+        Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');
+        Route::post('tasks/{task}/reroute', [TaskActionController::class, 'reroute'])->name('tasks.reroute');
+        Route::post('tasks/{task}/co-owner/approve', [CoOwnerDecisionController::class, 'approve'])->name('tasks.co-owner.approve');
+        Route::post('tasks/{task}/co-owner/request-changes', [CoOwnerDecisionController::class, 'requestChanges'])->name('tasks.co-owner.request-changes');
+        Route::post('tasks/{task}/co-owner/reject', [CoOwnerDecisionController::class, 'reject'])->name('tasks.co-owner.reject');
+        Route::post('tasks/{task}/co-owner/withdraw', [CoOwnerDecisionController::class, 'withdraw'])->name('tasks.co-owner.withdraw');
+        Route::post('tasks/{task}/co-owner/check-access', [CoOwnerDecisionController::class, 'checkAccess'])->name('tasks.co-owner.check-access');
+        Route::post('tasks/{task}/co-owner/tag', [EarlyWarningController::class, 'tag'])->name('tasks.co-owner.tag');
+        Route::post('tasks/{task}/co-owner/decline', [EarlyWarningController::class, 'decline'])->name('tasks.co-owner.decline');
+        Route::post('tasks/{task}/messages', [TaskMessageController::class, 'store'])->name('tasks.messages.store');
+        Route::patch('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'update'])->whereNumber('message')->name('tasks.queued-messages.update');
+        Route::delete('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'destroy'])->whereNumber('message')->name('tasks.queued-messages.destroy');
+        Route::post('tasks/{task}/clarification-answers', TaskClarificationAnswerController::class)->name('tasks.clarification-answers.store');
+        Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
+            ->name('tasks.re-request-review');
+    });
     Route::get('tasks/{task}/pr-images/{asset}', PullRequestImageController::class)
         ->whereUuid('asset')
         ->name('tasks.pr-images.show');
