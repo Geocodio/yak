@@ -14,7 +14,7 @@ use App\Services\Telemetry\RunRecorder;
 use App\Services\YakPersonality;
 
 /**
- * A teleport task carries a laptop's work onto Yak without a pull request: its
+ * A teleport task carries a local machine's work onto Yak without a pull request: its
  * turn ends with the result recorded and the session synced, and nothing is
  * pushed or waited on in CI. Once a pull request exists the normal path runs.
  *

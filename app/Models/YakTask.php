@@ -70,7 +70,7 @@ class YakTask extends Model
 
     public const MAX_CLARIFICATION_ROUNDS = 3;
 
-    /** Source of a task that carries a laptop's work onto Yak. */
+    /** Source of a task that carries a local machine's work onto Yak. */
     public const string SOURCE_TELEPORT = 'teleport';
 
     /** Source of a task that carries a sub-thread's brief. */
