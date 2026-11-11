@@ -1,7 +1,8 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Button, Dialog } from '@geocodio/console-ui';
 import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
+import { PrivatePublishGate } from '@/components/threads/share/PrivatePublishGate';
 import { CommandBlock } from '@/components/threads/teleport/CommandBlock';
 import { destroy, store } from '@/routes/threads/teleport-request';
 import type { TeleportData, ThreadData } from '@/types/threads';
@@ -13,6 +14,7 @@ import type { TeleportData, ThreadData } from '@/types/threads';
 export function TeleportToComputerDialog({ thread, teleport, open, onClose }: { thread: ThreadData; teleport: TeleportData; open: boolean; onClose: () => void }) {
     const [runningTurn, setRunningTurn] = useState<'wait' | 'stop'>('wait');
     const [processing, setProcessing] = useState(false);
+    const { publishWarning } = usePage<{ publishWarning: boolean } & Record<string, unknown>>().props;
 
     const done = () => {
         if (teleport.state === 'waiting') {
@@ -21,7 +23,7 @@ export function TeleportToComputerDialog({ thread, teleport, open, onClose }: { 
         }
         router.post(
             store.url(thread.id),
-            teleport.runningTurn ? { running_turn: runningTurn } : {},
+            { ...(teleport.runningTurn ? { running_turn: runningTurn } : {}), ...(publishWarning ? { acknowledged_private_publish: true } : {}) },
             { preserveScroll: true, onStart: () => setProcessing(true), onFinish: () => setProcessing(false), onSuccess: onClose },
         );
     };
@@ -82,9 +84,13 @@ export function TeleportToComputerDialog({ thread, teleport, open, onClose }: { 
                     <Button variant="tertiary" onClick={cancel} data-testid="teleport-cancel">
                         {teleport.state === 'waiting' ? 'Cancel teleport' : 'Close'}
                     </Button>
-                    <Button variant="primary" pending={processing} onClick={done} data-testid="teleport-done">
-                        Done
-                    </Button>
+                    <PrivatePublishGate required={publishWarning && teleport.state !== 'waiting'} onConfirm={done}>
+                        {(confirm) => (
+                            <Button variant="primary" pending={processing} onClick={confirm} data-testid="teleport-done">
+                                Done
+                            </Button>
+                        )}
+                    </PrivatePublishGate>
                 </div>
             </div>
         </Dialog>
