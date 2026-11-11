@@ -2,12 +2,15 @@
 
 use App\Enums\RestoreStepName;
 use App\Enums\RestoreStepStatus;
+use App\Enums\TeleportState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Jobs\RetryThreadRestoreJob;
 use App\Models\ClaudeAccount;
+use App\Models\Device;
 use App\Models\TaskRun;
+use App\Models\Teleport;
 use App\Models\Thread;
 use App\Models\ThreadRestoreStep;
 use App\Models\User;
@@ -236,5 +239,28 @@ it('shows the reset time and a countdown on a usage limit', function () {
         ->assertVisible('[data-testid="thread-notice"][data-kind="usage_limit"]')
         ->assertSee('Resets at')
         ->assertVisible('[data-testid="usage-countdown"]')
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows the environment note and side-switch divider after a teleport up and after one back down', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $device = Device::factory()->create(['user_id' => $user->id]);
+    Teleport::factory()->up()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => now()->subHour(), 'payload' => ['refresh_ran' => ['composer install']]]);
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->id}")
+        ->assertSeeIn('[data-testid="side-switch-divider"]', 'Moved from your computer to Yak')
+        ->assertSeeIn('[data-testid="environment-note"]', 'Environment changed: your computer to Yak')
+        ->assertMissing('[data-testid="environment-note-rows"]')
+        ->click('[data-testid="environment-note-toggle"]')
+        ->assertVisible('[data-testid="environment-note-rows"] ul')
+        ->assertNoJavaScriptErrors();
+
+    Teleport::factory()->down()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => now()]);
+
+    visit("/threads/{$thread->id}")
+        ->assertSeeIn('[data-testid="side-switch-divider"]', 'Moved from Yak to your computer')
+        ->assertVisible('[data-testid="environment-note"]')
         ->assertNoJavaScriptErrors();
 });

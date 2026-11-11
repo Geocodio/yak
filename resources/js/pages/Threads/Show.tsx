@@ -71,7 +71,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, cap
                     data-testid="thread-conversation"
                 >
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation threadId={thread.id} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
+                    <Conversation threadId={thread.id} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
                     <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} />
                 </div>
 
@@ -99,7 +99,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, cap
                             ))}
                         </div>
                         <div className="min-h-0 flex-1 overflow-auto px-4 py-5">
-                            <active.component thread={thread} canDrive={canDrive} notice={notice} composerState={composer.state} capacity={capacity} accountName={composer.accountName} />
+                            <active.component thread={thread} canDrive={canDrive} notice={notice} composerState={composer.state} capacity={capacity} accountName={composer.accountName} environmentSwitch={teleport.environmentSwitch} />
                         </div>
                     </aside>
                 )}

@@ -78,7 +78,7 @@ function formatStartedAt(iso: string): string {
     return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export function EnvironmentPanel({ thread, canDrive, notice, composerState, capacity = null, accountName = null }: PanelProps) {
+export function EnvironmentPanel({ thread, canDrive, notice, composerState, capacity = null, accountName = null, environmentSwitch = null }: PanelProps) {
     const { environment, isLoading, error, reload } = useThreadEnvironment(thread);
     const isSettingUp = environment?.repositories.some((repository) => ['pending', 'cloning', 'setup'].includes(repository.setupStatus)) ?? false;
 
@@ -126,6 +126,12 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
                 </div>
                 <p className="mt-1 text-[12px] text-muted">{sandboxSentence(sandbox.state, stoppedAfterMinutes)}</p>
             </section>
+
+            {environmentSwitch?.to === 'Yak' && (
+                <p className="text-[12px] text-muted" data-testid="environment-built-note">
+                    Built today at {new Date(environmentSwitch.at).toLocaleTimeString(undefined, { timeStyle: 'short' })} from your computer. See the note.
+                </p>
+            )}
 
             <dl>
                 <Row label="Branch" testId="environment-branch">

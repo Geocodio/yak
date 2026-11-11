@@ -37,6 +37,7 @@ class TeleportPageState
      *     failure: ?array{code: string, message: string},
      *     heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>,
      *     environmentNote: ?string,
+     *     environmentSwitch: ?array{from: string, to: string, at: string},
      *     accountName: ?string,
      *     continuedFromThreadId: ?int,
      *     continuedFromTitle: ?string,
@@ -81,6 +82,7 @@ class TeleportPageState
             'failure' => $this->failure($thread, $open),
             'heldEvents' => $onDevice ? $this->heldEventList($thread) : [],
             'environmentNote' => $this->environmentNote($thread),
+            'environmentSwitch' => $this->environmentSwitch($thread),
             'accountName' => $thread->claudeAccount?->name,
             'continuedFromThreadId' => $thread->continued_from_thread_id,
             'continuedFromTitle' => $thread->continued_from_thread_id === null ? null : Thread::query()->whereKey($thread->continued_from_thread_id)->value('title'),
@@ -120,6 +122,24 @@ class TeleportPageState
             'createdAt' => (string) $event->created_at?->toIso8601String(),
             'isTinted' => $this->heldEvents->tinted($event),
         ])->all());
+    }
+
+    /**
+     * The last completed side switch, which the conversation marks with a divider.
+     *
+     * @return array{from: string, to: string, at: string}|null
+     */
+    private function environmentSwitch(Thread $thread): ?array
+    {
+        $last = $thread->teleports()->where('state', TeleportState::Completed)->whereNotNull('completed_at')->latest('completed_at')->latest('id')->first();
+
+        if ($last === null) {
+            return null;
+        }
+
+        $isUp = $last->direction === TeleportDirection::Up;
+
+        return ['from' => $isUp ? 'your computer' : 'Yak', 'to' => $isUp ? 'Yak' : 'your computer', 'at' => (string) $last->completed_at?->toIso8601String()];
     }
 
     /**

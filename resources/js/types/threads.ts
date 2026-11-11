@@ -90,6 +90,7 @@ export type TeleportData = {
     failure: { code: string; message: string } | null;
     heldEvents: HeldEventData[];
     environmentNote: string | null;
+    environmentSwitch: { from: string; to: string; at: string } | null;
     accountName: string | null;
     continuedFromThreadId: number | null;
     continuedFromTitle: string | null;

@@ -103,6 +103,20 @@ it('links the thread it continued from', function () {
     expect($teleport['continuedFromThreadId'])->toBe($from->id)->and($teleport['continuedFromTitle'])->toBe('Fix login');
 });
 
+it('reports the last completed teleport as an environment switch', function () {
+    $thread = Thread::factory()->create();
+    $device = Device::factory()->create();
+    $viewer = User::factory()->create();
+
+    expect(teleportProp($viewer, $thread)['environmentSwitch'])->toBeNull();
+
+    Teleport::factory()->up()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => '2026-11-11 10:00:00']);
+    expect(teleportProp($viewer, $thread)['environmentSwitch'])->toMatchArray(['from' => 'your computer', 'to' => 'Yak']);
+
+    Teleport::factory()->down()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => '2026-11-11 12:00:00']);
+    expect(teleportProp($viewer, $thread)['environmentSwitch'])->toMatchArray(['from' => 'Yak', 'to' => 'your computer']);
+});
+
 it('exposes the teleport block as an Inertia prop', function () {
     $thread = Thread::factory()->create();
 

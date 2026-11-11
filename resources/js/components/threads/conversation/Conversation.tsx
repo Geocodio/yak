@@ -11,6 +11,8 @@ import { createReadTracker } from './mergeConversation';
 import { mergeConversation, useConversation } from './useConversation';
 import { PersonMessage } from './PersonMessage';
 import { PullRequestChips } from './PullRequestChip';
+import { EnvironmentNoteCard } from './EnvironmentNoteCard';
+import { SideSwitchDivider } from './SideSwitchDivider';
 import { ThreadNotice } from './ThreadNotice';
 import { ToolActivity } from './ToolActivity';
 import type { ConversationItem } from './conversationItem';
@@ -34,7 +36,7 @@ function EventRow({ item, canDrive }: { item: ConversationItem; canDrive: boolea
     return item.kind === 'edits' ? <EditsBlock item={item} /> : <ClaudeMessage item={item} />;
 }
 
-export function Conversation({ threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null }: { threadId: number; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null, environmentNote = null, environmentSwitch = null }: { environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: number; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection } = useConversation(threadId, messages);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -66,6 +68,8 @@ export function Conversation({ threadId, repo, branch, messages, notice, readonl
                         </Fragment>
                     );
                 })}
+                {environmentSwitch && <SideSwitchDivider {...environmentSwitch} />}
+                {environmentNote && <EnvironmentNoteCard threadId={threadId} text={environmentNote.text} from={environmentNote.from} to={environmentNote.to} />}
                 {pullRequestCount > 1 && <PullRequestChips threadId={threadId} lastActivityAt={lastActivityAt} />}
                 <span
                     hidden
