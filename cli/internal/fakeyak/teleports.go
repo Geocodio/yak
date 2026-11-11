@@ -50,6 +50,7 @@ type teleportState struct {
 	last       string
 
 	failComplete *api.Failure
+	failBegin    *api.Failure
 	slowComplete int
 	sandbox      string
 	sandboxRepos []api.SandboxRepo
@@ -103,6 +104,13 @@ func (s *Server) ScriptDownStates(threadID int, manifest api.DownManifest, state
 		s.tele.scripts = map[int]*downScript{}
 	}
 	s.tele.scripts[threadID] = &downScript{manifest: manifest, states: states}
+}
+
+// FailNextBegin makes the next teleport-up begin fail with 409 and the given code.
+func (s *Server) FailNextBegin(code, message string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tele.failBegin = &api.Failure{Code: code, Message: message}
 }
 
 // FailNextComplete makes the next teleport-up complete fail with 409 teleport_failed.
@@ -352,6 +360,11 @@ func (s *Server) inProgress(w http.ResponseWriter, row *teleportRow) {
 }
 
 func (s *Server) beginUp(w http.ResponseWriter, device *Device, req api.BeginUpRequest) {
+	if f := s.tele.failBegin; f != nil {
+		s.tele.failBegin = nil
+		writeErr(w, 409, f.Code, f.Message, nil)
+		return
+	}
 	if len(req.Repos) < 1 || len(req.Repos) > 10 || req.Repos[0].Role != "primary" || req.SessionID == "" {
 		writeErr(w, 422, "validation_failed", "Send a session id and between 1 and 10 repos, the first one primary.", nil)
 		return

@@ -32,6 +32,8 @@ type Context struct {
 	Exec func(dir string, argv []string) error
 	// OpenTerminal opens a terminal window running argv in dir; nil means print the command instead.
 	OpenTerminal func(dir string, argv []string) error
+	// Executable returns the absolute path of the running yak binary; nil means os.Executable.
+	Executable func() (string, error)
 	// RunCommand runs an external program, used to register the yak:// handler; nil means link.SystemRunner.
 	RunCommand func(name string, args ...string) error
 }

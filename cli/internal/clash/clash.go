@@ -62,6 +62,20 @@ func Check(repo gitx.Repo, tip string) (Report, error) {
 		entries = append(entries, entry{mode: f[0], sha: f[2], path: p})
 	}
 
+	links := map[string]string{}
+	if symlinksWork {
+		for _, e := range entries {
+			if e.mode != "120000" {
+				continue
+			}
+			blob, err := repo.RunBytes("cat-file", "blob", e.sha)
+			if err != nil {
+				return Report{}, err
+			}
+			links[e.path] = strings.ReplaceAll(string(blob), "\\", "/")
+		}
+	}
+
 	var rep Report
 	// Every path and every directory prefix, grouped by comparison key.
 	prefixes := map[string]bool{}
@@ -108,11 +122,7 @@ func Check(repo gitx.Repo, tip string) (Report, error) {
 		case "160000":
 			rep.Violations = append(rep.Violations, Violation{Kind: "submodule", Paths: []string{e.path}, Detail: "submodules are not supported"})
 		case "120000":
-			v, err := checkSymlink(repo, e, symlinksWork)
-			if err != nil {
-				return Report{}, err
-			}
-			if v != nil {
+			if v := checkSymlink(links, e, symlinksWork); v != nil {
 				rep.Violations = append(rep.Violations, *v)
 			}
 		}
@@ -126,21 +136,54 @@ func Check(repo gitx.Repo, tip string) (Report, error) {
 	return rep, nil
 }
 
-func checkSymlink(repo gitx.Repo, e entry, symlinksWork bool) (*Violation, error) {
+// maxSymlinkDepth bounds how many tree symlinks one path may expand through, which also ends loops.
+const maxSymlinkDepth = 40
+
+func checkSymlink(links map[string]string, e entry, symlinksWork bool) *Violation {
 	if !symlinksWork {
-		return &Violation{Kind: "symlink_unsupported", Paths: []string{e.path}, Detail: "this checkout cannot create symlinks (core.symlinks is false)"}, nil
+		return &Violation{Kind: "symlink_unsupported", Paths: []string{e.path}, Detail: "this checkout cannot create symlinks (core.symlinks is false)"}
 	}
-	blob, err := repo.RunBytes("cat-file", "blob", e.sha)
-	if err != nil {
-		return nil, err
-	}
-	target := string(blob)
+	target := links[e.path]
 	if strings.HasPrefix(target, "/") || strings.HasPrefix(target, "\\") || (len(target) > 1 && target[1] == ':') {
-		return &Violation{Kind: "symlink_absolute", Paths: []string{e.path}, Detail: "points to the absolute path " + target}, nil
+		return &Violation{Kind: "symlink_absolute", Paths: []string{e.path}, Detail: "points to the absolute path " + target}
 	}
-	joined := path.Clean(path.Join(path.Dir(e.path), strings.ReplaceAll(target, "\\", "/")))
-	if joined == ".." || strings.HasPrefix(joined, "../") {
-		return &Violation{Kind: "symlink_escapes", Paths: []string{e.path}, Detail: "points outside the repository: " + target}, nil
+	if !resolvesInTree(path.Dir(e.path), target, links) {
+		return &Violation{Kind: "symlink_escapes", Paths: []string{e.path}, Detail: "points outside the repository: " + target}
 	}
-	return nil, nil
+	return nil
+}
+
+// resolvesInTree follows target from dir component by component, expanding every prefix that is itself a
+// symlink in the tree, and reports whether the result stays inside the repository.
+func resolvesInTree(dir, target string, links map[string]string) bool {
+	var stack []string
+	if dir != "." {
+		stack = strings.Split(dir, "/")
+	}
+	queue := strings.Split(target, "/")
+	for expansions := 0; len(queue) > 0; {
+		part := queue[0]
+		queue = queue[1:]
+		switch part {
+		case "", ".":
+			continue
+		case "..":
+			if len(stack) == 0 {
+				return false
+			}
+			stack = stack[:len(stack)-1]
+			continue
+		}
+		stack = append(stack, part)
+		next, isLink := links[strings.Join(stack, "/")]
+		if !isLink {
+			continue
+		}
+		if expansions++; expansions > maxSymlinkDepth || strings.HasPrefix(next, "/") {
+			return false
+		}
+		stack = stack[:len(stack)-1]
+		queue = append(strings.Split(next, "/"), queue...)
+	}
+	return true
 }

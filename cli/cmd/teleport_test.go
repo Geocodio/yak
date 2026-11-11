@@ -11,6 +11,7 @@ import (
 	"github.com/geocodio/yak/cli/internal/fakeyak"
 	"github.com/geocodio/yak/cli/internal/gitx/testrepo"
 	"github.com/geocodio/yak/cli/internal/session"
+	"github.com/geocodio/yak/cli/internal/slash"
 )
 
 const cmdSession = "4f1c0c9e-7b53-4a52-9f7d-1c2b3a4d5e6f"
@@ -143,5 +144,16 @@ func TestExitCode3OnClash(t *testing.T) {
 	}
 	if reason, _ := r.srv.CancelInfo(r.srv.LastTeleportID()); reason != "clash" {
 		t.Fatalf("cancel reason %q", reason)
+	}
+}
+
+func TestSlashTeleportMessageBecomesMessageFlag(t *testing.T) {
+	argv, err := slash.TeleportArgs(`teleport "fix x"`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, positional, err := parseTeleportArgs(argv)
+	if err != nil || f.message != "fix x" || len(positional) != 0 {
+		t.Fatalf("message %q positional %v err %v", f.message, positional, err)
 	}
 }

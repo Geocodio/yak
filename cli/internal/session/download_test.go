@@ -22,9 +22,14 @@ func (f *fixture) seed(rel, content string) ManifestFile {
 
 func (f *fixture) download(t *testing.T, dir string, files, lastUp []ManifestFile, memory []MemoryManifestFile) (DownloadResult, error) {
 	t.Helper()
+	return f.downloadWithBaseline(t, dir, files, lastUp, memory, nil)
+}
+
+func (f *fixture) downloadWithBaseline(t *testing.T, dir string, files, lastUp []ManifestFile, memory []MemoryManifestFile, baseline map[string]string) (DownloadResult, error) {
+	t.Helper()
 	f.srv.OpenTeleport(threadID, 1, "down", "ready")
 	return Download(f.ctx, &f.store, threadID, DownloadPlan{
-		SessionID: testSID, ProjectDir: dir, Files: files, LastUp: lastUp, Memory: memory, Now: downloadNow,
+		SessionID: testSID, ProjectDir: dir, Files: files, LastUp: lastUp, Memory: memory, MemoryBaseline: baseline, Now: downloadNow,
 	})
 }
 
@@ -159,12 +164,12 @@ func memEntry(f *fixture, name, content string) MemoryManifestFile {
 	return MemoryManifestFile{RelPath: m.RelPath, Length: m.Length, SHA256: m.SHA256, ChangedSinceLastTeleport: true}
 }
 
-func TestMemoryLocalChangedKeepsLocalWritesYakCopy(t *testing.T) {
+func TestMemoryEditedLocallyKeepsLocalAndWritesYakCopy(t *testing.T) {
 	f := newDownloadFixture(t)
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "memory", "MEMORY.md"), "my edit")
-	lastUp := []ManifestFile{{RelPath: "memory/MEMORY.md", SHA256: hexSum([]byte("base"))}}
-	res, err := f.download(t, dir, nil, lastUp, []MemoryManifestFile{memEntry(f, "MEMORY.md", "yak edit")})
+	baseline := map[string]string{"memory/MEMORY.md": hexSum([]byte("base"))}
+	res, err := f.downloadWithBaseline(t, dir, nil, nil, []MemoryManifestFile{memEntry(f, "MEMORY.md", "yak edit")}, baseline)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +182,7 @@ func TestMemoryLocalChangedKeepsLocalWritesYakCopy(t *testing.T) {
 	}
 }
 
-func TestMemoryAbsentFromLastTeleportCountsAsLocalChange(t *testing.T) {
+func TestMemoryWithNoBaselineIsConflict(t *testing.T) {
 	f := newDownloadFixture(t)
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "memory", "notes.txt"), "mine")
@@ -187,13 +192,13 @@ func TestMemoryAbsentFromLastTeleportCountsAsLocalChange(t *testing.T) {
 	}
 }
 
-func TestMemoryMatchingLastTeleportKeepsLocalCopyThenReplaces(t *testing.T) {
+func TestMemoryUnchangedLocallyIsReplacedAndBackedUp(t *testing.T) {
 	f := newDownloadFixture(t)
 	dir := t.TempDir()
 	target := filepath.Join(dir, "memory", "MEMORY.md")
 	writeFile(t, target, "base")
-	lastUp := []ManifestFile{{RelPath: "memory/MEMORY.md", SHA256: hexSum([]byte("base"))}}
-	res, err := f.download(t, dir, nil, lastUp, []MemoryManifestFile{memEntry(f, "MEMORY.md", "yak edit")})
+	baseline := map[string]string{"memory/MEMORY.md": hexSum([]byte("base"))}
+	res, err := f.downloadWithBaseline(t, dir, nil, nil, []MemoryManifestFile{memEntry(f, "MEMORY.md", "yak edit")}, baseline)
 	if err != nil {
 		t.Fatal(err)
 	}

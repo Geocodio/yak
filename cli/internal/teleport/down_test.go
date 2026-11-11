@@ -778,3 +778,35 @@ func TestExtraFolderFollowsSandboxPath(t *testing.T) {
 		}
 	}
 }
+
+func TestDownMemoryUnchangedLocallyIsReplacedWithoutConflictWarning(t *testing.T) {
+	h := newHarness(t)
+	setup := h.setupDown(true)
+	h.srv.SeedSessionFile(42, "_memory", "memory/MEMORY.md", []byte("yak notes\n"))
+	setup.manifest.Memory = []api.MemoryFile{{RelPath: "memory/MEMORY.md", Length: int64(len("yak notes\n")), SHA256: sum("yak notes\n"), ChangedSinceLastTeleport: true}}
+	setup.manifest.MemoryBaseline = map[string]string{"memory/MEMORY.md": sum("old notes\n")}
+	h.srv.ScriptDownStates(42, setup.manifest, "preparing", "ready")
+	memoryPath := filepath.Join(h.projectDir(h.cwd), "memory", "MEMORY.md")
+	if err := os.MkdirAll(filepath.Dir(memoryPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(memoryPath, []byte("old notes\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(memoryPath); string(got) != "yak notes\n" {
+		t.Fatalf("memory file %q", got)
+	}
+	if strings.Contains(h.out.String(), "changed on both sides") {
+		t.Fatal(h.out.String())
+	}
+}
+
+func TestDownManifestWithoutMemoryBaselineDecodesToEmpty(t *testing.T) {
+	var m api.DownManifest
+	if err := json.Unmarshal([]byte(`{"memory":[]}`), &m); err != nil || len(m.MemoryBaseline) != 0 {
+		t.Fatalf("%v %v", err, m.MemoryBaseline)
+	}
+}

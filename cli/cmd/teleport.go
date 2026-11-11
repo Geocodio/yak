@@ -13,6 +13,7 @@ import (
 
 	"github.com/geocodio/yak/cli/internal/api"
 	"github.com/geocodio/yak/cli/internal/link"
+	"github.com/geocodio/yak/cli/internal/slash"
 	"github.com/geocodio/yak/cli/internal/teleport"
 	"github.com/geocodio/yak/cli/internal/ui"
 	"github.com/geocodio/yak/cli/internal/version"
@@ -49,7 +50,19 @@ type teleportFlags struct {
 	thread                                          string
 }
 
-func init() { commands["teleport"] = runTeleport }
+func init() {
+	commands["teleport"] = runTeleport
+	commands["slash-teleport"] = runSlashTeleport
+}
+
+// runSlashTeleport runs teleport for the raw text after /yak.
+func runSlashTeleport(ctx *Context, args []string) int {
+	argv, err := slash.TeleportArgs(strings.Join(args, " "))
+	if err != nil {
+		return usageError(ctx, err.Error())
+	}
+	return runTeleport(ctx, argv)
+}
 
 // parseTeleportArgs accepts flags before and after the thread argument.
 func parseTeleportArgs(args []string) (teleportFlags, []string, error) {
@@ -126,7 +139,7 @@ func runTeleport(ctx *Context, args []string) int {
 		return exitFailure
 	}
 	prompter := ctx.Prompter
-	if f.yes {
+	if f.yes && !f.fromLink {
 		prompter = ui.NewNonInteractive()
 	}
 	home := ctx.Env("HOME")

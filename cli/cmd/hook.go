@@ -1,13 +1,18 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
+	"os"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/geocodio/yak/cli/internal/api"
 	"github.com/geocodio/yak/cli/internal/config"
 	"github.com/geocodio/yak/cli/internal/hook"
+	"github.com/geocodio/yak/cli/internal/link"
 )
 
 func init() { commands["hook"] = runHook }
@@ -21,7 +26,27 @@ func runHook(ctx *Context, args []string) int {
 	if !ok {
 		return 0
 	}
-	deps := hook.HookDeps{ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, API: func() (*api.Client, bool) { return silentClient(ctx) }}
+	binary, _ := os.Executable()
+	home := ctx.Env("HOME")
+	refresh := func() {
+		run := ctx.RunCommand
+		if run == nil {
+			run = link.SystemRunner
+		}
+		_, _ = link.Install(runtime.GOOS, home, binary, run)
+	}
+	deps := hook.HookDeps{Binary: binary, Home: home, RefreshHandler: refresh, ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, API: func() (*api.Client, bool) { return silentClient(ctx) }}
+	deps.RunTeleport = func(args []string) (string, int) {
+		var buf bytes.Buffer
+		inner := *ctx
+		inner.Stdout, inner.Stderr, inner.Interactive = &buf, &buf, false
+		inner.Stdin = strings.NewReader("")
+		if in.Cwd != "" {
+			inner.Cwd = in.Cwd
+		}
+		code := runTeleport(&inner, append([]string{"--session", in.SessionID}, args...))
+		return buf.String(), code
+	}
 	var out string
 	switch args[0] {
 	case "session-start":

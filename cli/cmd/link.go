@@ -53,7 +53,12 @@ func openLink(ctx *Context, args []string) int {
 			ui.Warn(ctx.Stderr, "Could not remember that folder: %v", err)
 		}
 	}
-	argv := link.TerminalCommand(threadID)
+	binary, err := ctx.executable()
+	if err != nil {
+		ui.Fail(ctx.Stderr, "Could not find the yak program: %v", err)
+		return 1
+	}
+	argv := link.TerminalCommandFor(binary, threadID)
 	if ctx.OpenTerminal == nil {
 		fmt.Fprintf(ctx.Stdout, "Run: %s\n", link.ShellCommand(dir, argv))
 		return 0
@@ -101,7 +106,7 @@ func installLink(ctx *Context) int {
 	if run == nil {
 		run = link.SystemRunner
 	}
-	binary, err := os.Executable()
+	binary, err := ctx.executable()
 	if err == nil {
 		_, err = link.Install(runtime.GOOS, ctx.Env("HOME"), binary, run)
 	}
@@ -111,4 +116,11 @@ func installLink(ctx *Context) int {
 	}
 	ui.OK(ctx.Stdout, "yak:// links now open a terminal on this computer.")
 	return 0
+}
+
+func (ctx *Context) executable() (string, error) {
+	if ctx.Executable != nil {
+		return ctx.Executable()
+	}
+	return os.Executable()
 }

@@ -338,3 +338,17 @@ func TestSwitchToNewBranchAtSHA(t *testing.T) {
 		t.Fatal("existing branch must be refused")
 	}
 }
+
+func TestNonInteractiveDirtyTreeRefusalNamesWipFlag(t *testing.T) {
+	t.Parallel()
+	r := repoWith(t)
+	r.Write("a.txt", "changed\n")
+	_, err := PrepareUp(ui.NewNonInteractive(), r.Repo, PrepareOptions{})
+	var refusal *Refusal
+	if !errors.As(err, &refusal) || refusal.Kind != "tracked_changes" {
+		t.Fatal(err)
+	}
+	if !strings.Contains(refusal.Detail, "--wip") || strings.Contains(refusal.Detail, "--commit") {
+		t.Fatal(refusal.Detail)
+	}
+}

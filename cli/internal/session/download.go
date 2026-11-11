@@ -29,7 +29,10 @@ type DownloadPlan struct {
 	Files      []ManifestFile
 	LastUp     []ManifestFile
 	Memory     []MemoryManifestFile
-	Now        time.Time
+	// MemoryBaseline maps memory/<name> to the sha256 of the previous completed teleport's copy. A missing
+	// entry means the local copy cannot be proven unedited.
+	MemoryBaseline map[string]string
+	Now            time.Time
 }
 
 // WrittenFile is a verified file, reported back to Yak when the teleport completes.
@@ -119,7 +122,7 @@ func Download(ctx context.Context, s *Store, threadID int, plan DownloadPlan) (r
 			installs = append(installs, move{it.tmp, it.target})
 		case localSHA == it.sha:
 			// Already identical; nothing to write.
-		case it.isMemory && localSHA != lastUp[it.rel]:
+		case it.isMemory && localSHA != plan.MemoryBaseline[it.rel]:
 			dest := freeName(it.target, ".yak-"+date)
 			installs = append(installs, move{it.tmp, dest})
 			res.MemoryConflicts = append(res.MemoryConflicts, dest)

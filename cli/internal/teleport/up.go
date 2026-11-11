@@ -47,8 +47,9 @@ type upRepo struct {
 
 const maxPolls = 900
 
-// Up moves the session and its branch to Yak. Nothing local changes until Yak has confirmed the thread: the
-// read-only marker is written last, and only after a completed state.
+// Up moves the session and its branch to Yak. The default branch never moves: changes on it are snapshotted as a
+// detached WIP commit that only becomes a branch once Yak has assigned one. Nothing local changes until Yak has
+// confirmed the thread, and the read-only marker is written last, only after a completed state.
 func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	primaryRepo := gitx.Repo{Dir: in.Cwd}
 	top, err := primaryRepo.Toplevel()
@@ -131,6 +132,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 			opts = PrepareOptions{Interactive: in.Options.Interactive, CommitTracked: in.Options.CommitTracked}
 		}
 		if r.prepared, err = PrepareUp(d.Prompter, r.repo, opts); err != nil {
+			discardAllDetached(repos)
 			return UpResult{}, err
 		}
 		if r.prepared.WIPCommit != "" {
@@ -158,6 +160,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	}
 	var started api.BeginUpResponse
 	if err := d.API.Do(ctx, "POST", "/teleports", begin, &started); err != nil {
+		discardAllDetached(repos)
 		return UpResult{}, friendly(err)
 	}
 
@@ -181,6 +184,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 			continue
 		}
 		if err := prepareBranch(local, planned); err != nil {
+			discardAllDetached(repos)
 			d.cancel(ctx, started.TeleportID, "error", err.Error())
 			return UpResult{}, userErrorf(err, "Could not switch to the branch Yak assigned: %v", err)
 		}
@@ -259,6 +263,15 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	d.say("Yak runs it under the %s Claude account; turns you run here use your local Claude login.", started.Thread.ClaudeAccount.Name)
 	d.say("Continue at %s", started.Thread.URL)
 	return UpResult{ThreadID: started.Thread.ID, ThreadURL: started.Thread.URL, TeleportID: started.TeleportID, Branch: completeRepos[0].Branch}, nil
+}
+
+// discardAllDetached unstages the snapshots of repos whose WIP commit never became a branch.
+func discardAllDetached(repos []*upRepo) {
+	for _, r := range repos {
+		if r.prepared.Detached {
+			discardDetached(r.repo)
+		}
+	}
 }
 
 func completeUp(ctx context.Context, d Deps, started api.BeginUpResponse, req api.CompleteUpRequest, rePush func() error) (api.CompleteUpResponse, error) {

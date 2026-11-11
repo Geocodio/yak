@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +38,7 @@ func linkRig(t *testing.T) (*harness, *fakeyak.Server, *[]openedTerminal, string
 		}
 		return ""
 	}
+	h.ctx.Executable = func() (string, error) { return "/opt/yak/bin/yak", nil }
 	var opened []openedTerminal
 	h.ctx.OpenTerminal = func(dir string, argv []string) error { opened = append(opened, openedTerminal{dir, argv}); return nil }
 	return h, srv, &opened, home
@@ -55,7 +57,7 @@ func TestOpenLinkAsksCheckoutOnceThenRemembers(t *testing.T) {
 	if code := Run(h.ctx, []string{"open-link", "yak://teleport/42"}); code != 0 {
 		t.Fatalf("exit %d: %s", code, h.errb)
 	}
-	if len(*opened) != 1 || (*opened)[0].dir != checkout || strings.Join((*opened)[0].argv, " ") != "yak teleport --from-link 42" {
+	if len(*opened) != 1 || (*opened)[0].dir != checkout || strings.Join((*opened)[0].argv, " ") != "/opt/yak/bin/yak teleport --from-link 42" {
 		t.Fatalf("%+v", *opened)
 	}
 	cfg, _ := config.Load(h.ctx.ConfigDir)
@@ -94,5 +96,75 @@ func TestOpenLinkNeverRunsRawURL(t *testing.T) {
 	}
 	if len(*opened) != 0 || len(srv.Requests()) != 0 {
 		t.Fatal("acted on a hostile link")
+	}
+}
+
+func TestOpenLinkPrintsAbsoluteBinaryCommand(t *testing.T) {
+	h, _, _, home := linkRig(t)
+	dir := filepath.Join(home, "w")
+	_ = os.MkdirAll(dir, 0o755)
+	cfg, _ := config.Load(h.ctx.ConfigDir)
+	cfg.Checkouts = map[string]string{"acme/widgets": dir}
+	_ = cfg.Save(h.ctx.ConfigDir)
+	h.ctx.OpenTerminal = nil
+	if code := Run(h.ctx, []string{"open-link", "yak://teleport/42"}); code != 0 {
+		t.Fatal(code)
+	}
+	want := "Run: cd '" + dir + "' && '/opt/yak/bin/yak' 'teleport' '--from-link' '42'\n"
+	if got := h.out.String(); got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestOpenLinkRejectsHostileURLsBeforeAnyNetworkCall(t *testing.T) {
+	h, srv, opened, _ := linkRig(t)
+	for _, args := range [][]string{
+		{"yak://teleport/42;x"}, {"yak://teleport/042"}, {"yak://teleport/42?x"}, {""}, {},
+		{"yak://teleport/42", "yak://teleport/43"},
+	} {
+		if code := Run(h.ctx, append([]string{"open-link"}, args...)); code == 0 {
+			t.Errorf("%q exited 0", args)
+		}
+	}
+	if len(*opened) != 0 || len(srv.Requests()) != 0 {
+		t.Fatal("acted on a hostile link")
+	}
+}
+
+type confirmRecorder struct {
+	failingPrompter
+	asked []string
+}
+
+func (p *confirmRecorder) Confirm(q string, _ bool) (bool, error) {
+	p.asked = append(p.asked, q)
+	return false, nil
+}
+
+func TestFromLinkConfirmsEvenWithYes(t *testing.T) {
+	r := newTeleportRig(t)
+	r.srv.Threads[42] = &fakeyak.Thread{ID: 42, Title: "Fix", Repo: "acme/widgets", OwnerSide: "yak"}
+	cfg, _ := config.Load(r.ctx.ConfigDir)
+	cfg.Checkouts = map[string]string{"acme/widgets": r.ctx.Cwd}
+	_ = cfg.Save(r.ctx.ConfigDir)
+	prompt := &confirmRecorder{failingPrompter: failingPrompter{t}}
+	r.ctx.Prompter = prompt
+	if code := Run(r.ctx, []string{"teleport", "--from-link", "--yes", "42"}); code == 0 {
+		t.Fatalf("a declined link teleported: %s", r.out)
+	}
+	if len(prompt.asked) != 1 || prompt.asked[0] != "Continue?" {
+		t.Fatalf("asked %v", prompt.asked)
+	}
+}
+
+func TestInstallLinkReportsFailureWhenRunnerFails(t *testing.T) {
+	h, _, _, _ := linkRig(t)
+	h.ctx.RunCommand = func(string, ...string) error { return errors.New("boom") }
+	if code := Run(h.ctx, []string{"open-link", "--install"}); code != 0 {
+		t.Fatal(code)
+	}
+	got := h.out.String()
+	if !strings.Contains(got, "Use the command shown on the thread page.") || strings.Contains(got, "now open") {
+		t.Fatal(got)
 	}
 }

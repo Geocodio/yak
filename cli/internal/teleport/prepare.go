@@ -31,6 +31,8 @@ type Prepared struct {
 	Head            string
 	OnDefaultBranch bool
 	WIPCommit       string
+	// Detached means the WIP commit exists only as an object, not on any branch. WIPCommit and Head name it.
+	Detached        bool
 	PickedUntracked []string
 	LeftUntracked   []string
 }
@@ -92,7 +94,7 @@ func PrepareUp(p ui.Prompter, repo gitx.Repo, opts PrepareOptions) (Prepared, er
 	}
 
 	if len(tracked) > 0 && !opts.Interactive && !opts.CommitTracked {
-		return Prepared{}, &Refusal{Kind: "tracked_changes", Detail: "uncommitted changes to tracked files, commit them or pass --commit", Paths: tracked}
+		return Prepared{}, &Refusal{Kind: "tracked_changes", Detail: "uncommitted changes to tracked files, commit them or pass --wip", Paths: tracked}
 	}
 	if len(tracked) > 0 && opts.Interactive {
 		ok, err := p.Confirm(fmt.Sprintf("Commit %d changed tracked file(s) as a WIP commit so they travel with the thread?", len(tracked)), true)
@@ -118,7 +120,17 @@ func PrepareUp(p ui.Prompter, repo gitx.Repo, opts PrepareOptions) (Prepared, er
 				}
 			}
 		}
-		if prepared.WIPCommit, err = commit(repo, append(append([]string{}, tracked...), picked...), message); err != nil {
+		paths := append(append([]string{}, tracked...), picked...)
+		if onDefaultBranch(repo, st.Branch) {
+			prepared.Detached = true
+			prepared.WIPCommit, err = commitDetached(repo, paths, message)
+		} else {
+			prepared.WIPCommit, err = commit(repo, paths, message)
+		}
+		if err != nil {
+			if prepared.Detached {
+				discardDetached(repo)
+			}
 			return Prepared{}, err
 		}
 	}
@@ -127,7 +139,7 @@ func PrepareUp(p ui.Prompter, repo gitx.Repo, opts PrepareOptions) (Prepared, er
 	if err != nil {
 		return Prepared{}, err
 	}
-	if left := trackedPaths(after); len(left) > 0 {
+	if left := trackedPaths(after); len(left) > 0 && !prepared.Detached {
 		return Prepared{}, &Refusal{Kind: "tracked_changes", Detail: "tracked files are still modified", Paths: left}
 	}
 	pickedSet := map[string]bool{}
@@ -140,6 +152,9 @@ func PrepareUp(p ui.Prompter, repo gitx.Repo, opts PrepareOptions) (Prepared, er
 		}
 	}
 	prepared.Branch, prepared.Head = after.Branch, after.Head
+	if prepared.Detached {
+		prepared.Head = prepared.WIPCommit
+	}
 	prepared.OnDefaultBranch = onDefaultBranch(repo, after.Branch)
 	return prepared, nil
 }
@@ -246,6 +261,26 @@ func commit(repo gitx.Repo, paths []string, message string) (string, error) {
 		return "", err
 	}
 	return repo.Head()
+}
+
+// commitDetached snapshots the given paths as a commit on top of HEAD without moving HEAD or any ref. The paths
+// stay staged until the caller switches to a branch at the commit or calls discardDetached.
+func commitDetached(repo gitx.Repo, paths []string, message string) (string, error) {
+	if len(paths) > 0 {
+		if _, err := repo.Run(append([]string{"add", "-A", "--"}, paths...)...); err != nil {
+			return "", err
+		}
+	}
+	tree, err := repo.Run("write-tree")
+	if err != nil {
+		return "", err
+	}
+	return repo.Run("commit-tree", strings.TrimSpace(tree), "-p", "HEAD", "-m", message)
+}
+
+// discardDetached puts the index back to HEAD and leaves the working tree as it is.
+func discardDetached(repo gitx.Repo) {
+	_, _ = repo.Run("reset", "-q")
 }
 
 func onDefaultBranch(repo gitx.Repo, branch string) bool {

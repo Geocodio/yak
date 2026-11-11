@@ -422,7 +422,7 @@ func downloadSession(ctx context.Context, d Deps, threadID int, m api.DownManife
 	var written []api.DownloadedFile
 	backup := ""
 	plans := []session.DownloadPlan{{
-		SessionID: m.Session.SessionID, ProjectDir: projectDir, Files: m.Session.Files, Memory: m.Memory, Now: d.Now(),
+		SessionID: m.Session.SessionID, ProjectDir: projectDir, Files: m.Session.Files, Memory: m.Memory, MemoryBaseline: m.MemoryBaseline, Now: d.Now(),
 	}}
 	if m.LastUp != nil {
 		plans[0].LastUp = m.LastUp.Files

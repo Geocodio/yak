@@ -326,8 +326,10 @@ type DownManifest struct {
 		Files           []SessionFile `json:"files"`
 		OtherSessionIDs []string      `json:"other_session_ids"`
 	} `json:"session"`
-	Memory      []MemoryFile `json:"memory"`
-	Environment struct {
+	Memory []MemoryFile `json:"memory"`
+	// MemoryBaseline maps memory/<name> to the sha256 recorded by the previous completed teleport.
+	MemoryBaseline map[string]string `json:"memory_baseline"`
+	Environment    struct {
 		SandboxOS            string `json:"sandbox_os"`
 		SandboxArch          string `json:"sandbox_arch"`
 		SandboxWorkspacePath string `json:"sandbox_workspace_path"`

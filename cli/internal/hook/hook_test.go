@@ -1,8 +1,11 @@
 package hook
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -10,6 +13,7 @@ import (
 	"github.com/geocodio/yak/cli/internal/api"
 	"github.com/geocodio/yak/cli/internal/config"
 	"github.com/geocodio/yak/cli/internal/fakeyak"
+	"github.com/geocodio/yak/cli/internal/link"
 )
 
 const sid = "4f1c0c9e-7b53-4a52-9f7d-1c2b3a4d5e6f"
@@ -75,8 +79,7 @@ func TestYakOwnerBlocksWithoutNetwork(t *testing.T) {
 	r := newRig(t)
 	r.marker(t, "yak", 42)
 	out := UserPromptSubmit(r.deps, Input{SessionID: sid})
-	want := `{"decision":"block","reason":"This session is on Yak. Run ` + "`yak teleport 42`" + ` to bring it back."}`
-	if strings.TrimSpace(out) != want {
+	if !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "This session is on Yak.") {
 		t.Fatalf("got %s", out)
 	}
 	if *r.built != 0 {
@@ -186,5 +189,96 @@ func TestMarkerForOtherSessionIgnored(t *testing.T) {
 	}
 	if out := UserPromptSubmit(r.deps, Input{SessionID: "../../etc/passwd"}); out != "" {
 		t.Fatal(out)
+	}
+}
+
+func TestYakOwnedBlockNamesBothWaysOut(t *testing.T) {
+	r := newRig(t)
+	r.marker(t, "yak", 42)
+	r.deps.Binary = "/opt/yak/bin/yak"
+	var v struct{ Reason string }
+	if err := json.Unmarshal([]byte(UserPromptSubmit(r.deps, Input{SessionID: sid})), &v); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"'/opt/yak/bin/yak' teleport 42", "'/opt/yak/bin/yak' marker clear " + sid, "local session"} {
+		if !strings.Contains(v.Reason, want) {
+			t.Errorf("reason %q lacks %q", v.Reason, want)
+		}
+	}
+}
+
+func TestSessionStartRefreshesHandlerWhenBinaryMoved(t *testing.T) {
+	home := t.TempDir()
+	record := link.RegisteredBinaryPath(home)
+	calls := 0
+	deps := HookDeps{Binary: "/new/yak", Home: home, RefreshHandler: func() { calls++ }}
+	SessionStart(deps, Input{SessionID: sid, Source: "startup"})
+	if calls != 0 {
+		t.Fatal("refreshed without a record")
+	}
+	_ = os.MkdirAll(filepath.Dir(record), 0o755)
+	_ = os.WriteFile(record, []byte("/new/yak"), 0o644)
+	SessionStart(deps, Input{SessionID: sid, Source: "startup"})
+	if calls != 0 {
+		t.Fatal("refreshed with an unchanged path")
+	}
+	_ = os.WriteFile(record, []byte("/old/yak"), 0o644)
+	SessionStart(deps, Input{SessionID: sid, Source: "startup"})
+	if calls != 1 {
+		t.Fatalf("calls %d", calls)
+	}
+	deps.RefreshHandler = nil
+	SessionStart(deps, Input{SessionID: sid, Source: "startup"})
+}
+
+func slashDeps(calls *[][]string) HookDeps {
+	return HookDeps{RunTeleport: func(args []string) (string, int) {
+		*calls = append(*calls, args)
+		return "Yak has the thread.\n", 0
+	}}
+}
+
+func TestSlashTeleportPromptIsHandledByTheHookWithoutAModelTurn(t *testing.T) {
+	var calls [][]string
+	for _, prompt := range []string{`/yak teleport "fix x"`, `/yak:yak teleport "fix x"`} {
+		out := UserPromptSubmit(slashDeps(&calls), Input{SessionID: sid, Prompt: prompt})
+		var got map[string]string
+		if err := json.Unmarshal([]byte(out), &got); err != nil || got["decision"] != "block" || got["reason"] != "Yak has the thread." {
+			t.Fatalf("%q: %q", prompt, out)
+		}
+	}
+	if len(calls) != 2 || strings.Join(calls[0], "|") != "--message|fix x" {
+		t.Fatalf("%v", calls)
+	}
+}
+
+func TestOtherPromptsAreUntouched(t *testing.T) {
+	var calls [][]string
+	for _, prompt := range []string{"hello", "/yak", "/yakteleport", "please /yak teleport", "/yak teleportation"} {
+		if out := UserPromptSubmit(slashDeps(&calls), Input{SessionID: sid, Prompt: prompt}); out != "" {
+			t.Errorf("%q: %q", prompt, out)
+		}
+	}
+	if len(calls) != 0 {
+		t.Fatal(calls)
+	}
+}
+
+func TestSlashTeleportWithBadQuotesBlocksWithUsage(t *testing.T) {
+	var calls [][]string
+	out := UserPromptSubmit(slashDeps(&calls), Input{SessionID: sid, Prompt: `/yak teleport 42 "oops`})
+	if !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "unbalanced quote") || len(calls) != 0 {
+		t.Fatal(out, calls)
+	}
+}
+
+func TestSlashTeleportFromAYakOwnedSessionIsBlockedWithTheMarkerText(t *testing.T) {
+	r := newRig(t)
+	r.marker(t, "yak", 7)
+	var calls [][]string
+	r.deps.RunTeleport = slashDeps(&calls).RunTeleport
+	out := UserPromptSubmit(r.deps, Input{SessionID: sid, Prompt: "/yak teleport"})
+	if !strings.Contains(out, "This session is on Yak") || len(calls) != 0 {
+		t.Fatal(out, calls)
 	}
 }

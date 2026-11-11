@@ -9,13 +9,16 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/geocodio/yak/cli/internal/api"
 	"github.com/geocodio/yak/cli/internal/config"
+	"github.com/geocodio/yak/cli/internal/link"
 	"github.com/geocodio/yak/cli/internal/session"
+	"github.com/geocodio/yak/cli/internal/slash"
 )
 
 // MaxInputBytes caps what a hook reads from stdin.
@@ -37,6 +40,14 @@ type HookDeps struct {
 	ConfigDir string
 	API       func() (*api.Client, bool)
 	Out       io.Writer
+	// Binary is the absolute path of the running yak; empty falls back to "yak".
+	Binary string
+	// Home locates the record of the registered yak:// handler.
+	Home string
+	// RefreshHandler re-registers the yak:// handler for Binary; nil disables the refresh.
+	RefreshHandler func()
+	// RunTeleport runs yak teleport with args and returns what it printed; nil leaves /yak teleport to the command file.
+	RunTeleport func(args []string) (output string, exitCode int)
 }
 
 // ReadInput decodes stdin; ok is false for anything unreadable.
@@ -65,6 +76,7 @@ func output(event, text string) string {
 
 // SessionStart prints the environment note once on resume, plus unseen stack messages for a device-owned thread.
 func SessionStart(d HookDeps, in Input) string {
+	refreshHandler(d)
 	if in.Source != "resume" || !session.ValidSessionID(in.SessionID) {
 		return ""
 	}
@@ -83,31 +95,68 @@ func SessionStart(d HookDeps, in Input) string {
 	return output("SessionStart", strings.Join(parts, "\n\n"))
 }
 
+// refreshHandler re-registers the yak:// handler when yak moved since it was installed. A person who never installed
+// the handler has no record, so nothing is registered on their behalf.
+func refreshHandler(d HookDeps) {
+	if d.RefreshHandler == nil || d.Binary == "" || d.Home == "" {
+		return
+	}
+	if registered := link.RegisteredBinary(d.Home); registered != "" && registered != d.Binary {
+		d.RefreshHandler()
+	}
+}
+
 // UserPromptSubmit blocks prompts in a Yak-owned session and hands over stack messages in a device-owned one.
 func UserPromptSubmit(d HookDeps, in Input) string {
 	if !session.ValidSessionID(in.SessionID) {
 		return ""
 	}
 	m, ok := config.ReadMarker(d.ConfigDir, in.SessionID)
-	if !ok {
-		return ""
-	}
-	switch m.Owner {
-	case "yak":
-		b, err := json.Marshal(map[string]string{
-			"decision": "block",
-			"reason":   fmt.Sprintf("This session is on Yak. Run `yak teleport %d` to bring it back.", m.ThreadID),
-		})
-		if err != nil {
-			return ""
+	if ok && m.Owner == "yak" {
+		bin := "yak"
+		if d.Binary != "" {
+			bin = link.ShellQuote(d.Binary)
 		}
-		return string(b) + "\n"
-	case "device":
+		return block(fmt.Sprintf("This session is on Yak. Run %s teleport %d to bring it back, or run %s marker clear %s to use it as a local session again (its work can be teleported up as a new thread).",
+			bin, m.ThreadID, bin, in.SessionID))
+	}
+	if out, handled := slashTeleport(d, in.Prompt); handled {
+		return out
+	}
+	if ok && m.Owner == "device" {
 		if text := stackMessages(d, in.SessionID, m); text != "" {
 			return output("UserPromptSubmit", text)
 		}
 	}
 	return ""
+}
+
+func block(reason string) string {
+	b, err := json.Marshal(map[string]string{"decision": "block", "reason": reason})
+	if err != nil {
+		return ""
+	}
+	return string(b) + "\n"
+}
+
+var slashTeleportPrompt = regexp.MustCompile(`^/yak(:yak)? teleport\b`)
+
+// slashTeleport runs /yak teleport inside the hook. Blocking the prompt shows the output to the person without a
+// model turn; no shell is involved, the prompt text only becomes an argument list.
+func slashTeleport(d HookDeps, prompt string) (string, bool) {
+	if d.RunTeleport == nil || !slashTeleportPrompt.MatchString(prompt) {
+		return "", false
+	}
+	rest := strings.TrimPrefix(strings.TrimPrefix(prompt, "/yak:yak"), "/yak")
+	args, err := slash.TeleportArgs(rest)
+	if err != nil {
+		return block(fmt.Sprintf("Could not read that command: %v. Usage: /yak teleport [<thread>] [\"message\"] [options]", err)), true
+	}
+	text, _ := d.RunTeleport(args)
+	if text = strings.TrimSpace(text); text == "" {
+		text = "yak teleport printed nothing."
+	}
+	return block(text), true
 }
 
 func seenPath(dir, sessionID string) string { return filepath.Join(dir, "seen", sessionID) }
