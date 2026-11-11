@@ -51,6 +51,19 @@ test('owner sees the Private badge, the banner and the Share button; a team thre
         ->assertNoJavaScriptErrors();
 });
 
+test('a private thread shows the started-on-your-computer subtext and the owner role', function () {
+    $owner = User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create();
+    $this->actingAs($owner);
+
+    visit('/threads/' . $thread->id)
+        ->click('[data-testid="share-button"]')
+        ->assertSee('A thread started on your computer is private to you until you share it.')
+        ->click('[data-testid="share-mode-people"]')
+        ->assertSeeIn('[data-testid="share-role-' . $owner->id . '"]', 'Owner')
+        ->assertNoJavaScriptErrors();
+});
+
 test('the dialog lists people and the secret warning from the transcript', function () {
     $owner = User::factory()->create();
     $teammate = User::factory()->create(['name' => 'Tessa Teammate']);
@@ -129,6 +142,7 @@ test('a failed save shows the error and keeps Private', function () {
         ->click('[data-testid="share-submit"]')
         ->assertVisible('[data-testid="share-error"]')
         ->assertSee('This thread is still private')
+        ->assertVisible('[data-testid="share-error"][data-tone="fail"]')
         ->assertVisible('[data-testid="share-dialog"]');
 
     expect($thread->fresh()->visibility->value)->toBe('private');

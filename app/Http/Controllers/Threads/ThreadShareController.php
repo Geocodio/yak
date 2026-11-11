@@ -28,8 +28,8 @@ class ThreadShareController extends Controller
         return response()->json([
             'mode' => $current['mode']->value,
             'userIds' => $current['userIds'],
-            'people' => User::query()->whereKeyNot($owner->id)->orderBy('name')->get(['id', 'name'])
-                ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name])->values()->all(),
+            'people' => User::query()->orderBy('name')->get(['id', 'name'])
+                ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name, 'role' => $user->id === $owner->id ? 'Owner' : null])->values()->all(),
             'secretFiles' => $secrets['files'],
             'memoryFolder' => $secrets['memoryFolder'],
             'memoryFiles' => $secrets['memoryFiles'],
