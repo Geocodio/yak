@@ -281,6 +281,14 @@ type MemoryFile struct {
 	ChangedSinceLastTeleport bool   `json:"changed_since_last_teleport"`
 }
 
+// DownLastUp is the state of the thread's last teleport up, the baseline for change detection.
+type DownLastUp struct {
+	TeleportID string        `json:"teleport_id"`
+	Branch     string        `json:"branch"`
+	HeadSHA    string        `json:"head_sha"`
+	Files      []SessionFile `json:"files"`
+}
+
 type DownManifest struct {
 	Teleport Teleport `json:"teleport"`
 	Thread   struct {
@@ -290,13 +298,8 @@ type DownManifest struct {
 		Visibility    string        `json:"visibility"`
 		ClaudeAccount ClaudeAccount `json:"claude_account"`
 	} `json:"thread"`
-	Repos  []ManifestRepo `json:"repos"`
-	LastUp *struct {
-		TeleportID string        `json:"teleport_id"`
-		Branch     string        `json:"branch"`
-		HeadSHA    string        `json:"head_sha"`
-		Files      []SessionFile `json:"files"`
-	} `json:"last_up"`
+	Repos   []ManifestRepo `json:"repos"`
+	LastUp  *DownLastUp    `json:"last_up"`
 	Session struct {
 		SessionID       string        `json:"session_id"`
 		Files           []SessionFile `json:"files"`

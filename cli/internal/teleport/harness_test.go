@@ -32,6 +32,8 @@ type harness struct {
 	out       *bytes.Buffer
 	sleeps    []time.Duration
 	deps      Deps
+	// hostileTip is the commit pushTip last pushed.
+	hostileTip string
 }
 
 func isolateGit(t *testing.T) {
