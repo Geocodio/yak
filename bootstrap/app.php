@@ -1,6 +1,8 @@
 <?php
 
 use App\Channels\Drone\PollCommand;
+use App\Http\Middleware\AuthenticateDevice;
+use App\Http\Middleware\CliProtocol;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
 use App\Http\Middleware\VerifySessionStoreToken;
@@ -26,7 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'restrict-to-ingress' => RestrictToIngress::class,
             'session-store-token' => VerifySessionStoreToken::class,
+            'cli.protocol' => CliProtocol::class,
+            'auth.device' => AuthenticateDevice::class,
         ]);
+        $middleware->validateCsrfTokens(except: ['api/cli/*']);
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
