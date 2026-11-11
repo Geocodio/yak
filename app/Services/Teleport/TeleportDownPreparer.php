@@ -6,6 +6,7 @@ use App\Enums\RepositoryRole;
 use App\Enums\TeleportState;
 use App\Enums\TeleportStep;
 use App\Enums\TurnState;
+use App\Exceptions\SandboxCommandFailed;
 use App\Exceptions\TeleportError;
 use App\Models\SessionFile;
 use App\Models\Teleport;
@@ -28,6 +29,7 @@ class TeleportDownPreparer
         private readonly ThreadSandbox $sandbox,
         private readonly SandboxManager $sandboxes,
         private readonly WipPreserver $wip,
+        private readonly RepositoryWip $repositoryWip,
         private readonly SessionFileSync $sessions,
         private readonly SessionStore $store,
         private readonly BranchHeadVerifier $heads,
@@ -118,36 +120,50 @@ class TeleportDownPreparer
         $this->markDone($teleport, TeleportStep::WaitTurn);
         $teleport->forceFill(['state' => TeleportState::Preparing])->save();
         $teleport->progressStep(TeleportStep::CommitWip, 'running');
-        $result = $this->wip->preserveForTeleport($thread);
-        $made = [$thread->repo => $result->committed];
+        $made = [$thread->repo => $this->wip->preserveForTeleport($thread)->committed];
+        $failures = [];
+        $heads = [];
         $teleport->progressStep(TeleportStep::CommitWip, 'done');
         $teleport->progressStep(TeleportStep::Push, 'running');
-
-        $heads = [];
 
         foreach ($thread->repositories()->get() as $repository) {
             if ($repository->role === RepositoryRole::Context || blank($repository->branch)) {
                 continue;
             }
 
-            if ($repository->role !== RepositoryRole::Primary) {
-                $push = $this->sandboxes->exec($thread, ['git', '-C', $repository->sandbox_path, 'push', 'origin', "HEAD:refs/heads/{$repository->branch}"]);
+            if ($repository->role === RepositoryRole::Primary) {
+                $head = trim($this->sandboxes->exec($thread, ['git', '-C', $repository->sandbox_path, 'rev-parse', 'HEAD'])->output());
 
-                if ($push->failed()) {
-                    throw new TeleportError('teleport_failed', "Pushing {$repository->repo} failed.");
+                if ($head === '') {
+                    throw new TeleportError('teleport_failed', "Reading the head of {$repository->repo} failed.");
                 }
+
+                $heads[$repository->repo] = $head;
+
+                continue;
+            }
+
+            try {
+                $made[$repository->repo] = $this->repositoryWip->preserve($thread, $repository)->committed;
+            } catch (SandboxCommandFailed $exception) {
+                $made[$repository->repo] = false;
+                $failures[$repository->repo] = ['code' => str_starts_with($exception->getMessage(), 'WIP push') ? 'push_failed' : 'wip_failed', 'message' => $exception->getMessage()];
+
+                continue;
             }
 
             $head = trim($this->sandboxes->exec($thread, ['git', '-C', $repository->sandbox_path, 'rev-parse', 'HEAD'])->output());
 
             if ($head === '') {
-                throw new TeleportError('teleport_failed', "Reading the head of {$repository->repo} failed.");
+                $failures[$repository->repo] = ['code' => 'head_unreadable', 'message' => "Reading the head of {$repository->repo} failed."];
+
+                continue;
             }
 
             $heads[$repository->repo] = $head;
         }
 
-        $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'wip_commit_made' => $made]])->save();
+        $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'wip_commit_made' => $made, 'repo_failures' => $failures]])->save();
         $teleport->progressStep(TeleportStep::Push, 'done');
 
         return $heads;
