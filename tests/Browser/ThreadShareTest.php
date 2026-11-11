@@ -168,3 +168,40 @@ test('phone width 390: dialog fits and scrolls', function () {
 
     expect($fits)->toBeTrue();
 });
+
+test('the visibility row shows the shared people and Remove narrows them down to Private', function () {
+    $owner = User::factory()->create();
+    [$first, $second] = User::factory()->count(2)->create()->all();
+    $thread = Thread::factory()->private($owner)->create();
+    app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$first->id, $second->id]);
+    $this->actingAs($owner);
+
+    visit('/threads/' . $thread->id)
+        ->assertSeeIn('[data-testid="visibility-badge"]', 'Shared with 2 people')
+        ->click('[data-testid="thread-panel-tab-environment"]')
+        ->assertSeeIn('[data-testid="visibility-row-state"]', 'Shared with 2 people')
+        ->click('[data-testid="share-remove-' . $first->id . '"]')
+        ->assertSeeIn('[data-testid="visibility-row-state"]', 'Shared with 1 person')
+        ->assertMissing('[data-testid="share-remove-' . $first->id . '"]')
+        ->click('[data-testid="share-remove-' . $second->id . '"]')
+        ->assertSeeIn('[data-testid="visibility-row-state"]', 'Private')
+        ->assertMissing('[data-testid="shared-people"]')
+        ->assertNoJavaScriptErrors();
+
+    expect($thread->fresh()->visibility->value)->toBe('private')
+        ->and(app(ThreadSharing::class)->current($thread)['userIds'])->toBe([]);
+});
+
+test('a private thread shared with nobody shows Private and a Share link with no empty list', function () {
+    $owner = User::factory()->create();
+    User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create();
+    $this->actingAs($owner);
+
+    visit('/threads/' . $thread->id)
+        ->click('[data-testid="thread-panel-tab-environment"]')
+        ->assertSeeIn('[data-testid="visibility-row-state"]', 'Private')
+        ->assertSeeIn('[data-testid="visibility-row-share"]', 'Share')
+        ->assertMissing('[data-testid="shared-people"]')
+        ->assertNoJavaScriptErrors();
+});

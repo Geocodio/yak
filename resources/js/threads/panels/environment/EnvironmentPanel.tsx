@@ -2,6 +2,8 @@ import { Badge, Skeleton, cn, toast } from '@geocodio/console-ui';
 import { Copy, ExternalLink, KeyRound } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import { InfoTip } from '@/components/threads/environment/InfoTip';
+import { LocationChip } from '@/components/threads/share/LocationChip';
+import { VisibilityRow } from '@/components/threads/share/VisibilityRow';
 import { PersonAvatar } from '@/components/threads/environment/PersonAvatar';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadEnvironment } from '@/types/thread-changes';
@@ -138,6 +140,12 @@ export function EnvironmentPanel({ thread, canDrive }: PanelProps) {
             </section>
 
             <dl>
+                <VisibilityRow thread={thread} />
+                {thread.startedOnDevice && (
+                    <Row label="Started on" testId="environment-started-on">
+                        <LocationChip thread={thread} />
+                    </Row>
+                )}
                 <Row label="Branch" testId="environment-branch">
                     {branch === null ? (
                         <span className="text-muted">Not created yet</span>
