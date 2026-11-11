@@ -4,6 +4,7 @@ import { AlertTriangle, KeyRound, Lock, Plus, RefreshCw, Terminal } from 'lucide
 import { useEffect, useState, type ReactNode } from 'react';
 import { AccountDialog, type AccountDialogMode } from '@/components/accounts/AccountDialog';
 import { AccountsSection, Card } from '@/components/accounts/AccountsSection';
+import { AwakeShareCard, type AwakeShareRow } from '@/components/accounts/AwakeShareCard';
 import { EditAccountDialog } from '@/components/accounts/EditAccountDialog';
 import { RemoveAccountDialog } from '@/components/accounts/RemoveAccountDialog';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
@@ -14,6 +15,7 @@ type Props = PageProps<{
     accounts?: ClaudeAccount[];
     yakAccounts?: ClaudeAccount[];
     canManageYakAccounts: boolean;
+    awakeShare: AwakeShareRow[] | null;
     models: string[];
     docsUrl: string;
 }>;
@@ -70,7 +72,7 @@ function EmptyAccounts({ docsUrl, onAdd }: { docsUrl: string; onAdd: () => void 
     );
 }
 
-export default function ClaudeAccounts({ accounts, yakAccounts, canManageYakAccounts, models, docsUrl }: Props) {
+export default function ClaudeAccounts({ accounts, yakAccounts, canManageYakAccounts, awakeShare, models, docsUrl }: Props) {
     const [dialog, setDialog] = useState<{ mode: AccountDialogMode; account?: ClaudeAccount } | null>(null);
     const [editing, setEditing] = useState<ClaudeAccount | null>(null);
     const [removing, setRemoving] = useState<ClaudeAccount | null>(null);
@@ -145,6 +147,13 @@ export default function ClaudeAccounts({ accounts, yakAccounts, canManageYakAcco
                         {yakAccounts.length > 0
                             ? <AccountsSection accounts={yakAccounts} readOnly={!canManageYakAccounts} {...rowProps} />
                             : <Card className="p-4"><EmptyState title="No Yak account yet" body="Work nobody started, like Sentry alerts, cannot run until an admin adds one." action={canManageYakAccounts ? <Button variant="primary" icon={<Plus size={14} />} onClick={() => setDialog({ mode: 'addSystem' })}>Add Yak account</Button> : undefined} /></Card>}
+                    </section>
+                )}
+
+                {awakeShare !== null && (
+                    <section className="flex flex-col gap-3" aria-labelledby="awake-heading">
+                        <h3 id="awake-heading" className="text-[14px] font-semibold">Awake share</h3>
+                        <AwakeShareCard rows={awakeShare} />
                     </section>
                 )}
             </div>

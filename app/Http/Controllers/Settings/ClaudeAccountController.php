@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\RotateClaudeAccountRequest;
 use App\Http\Requests\Settings\StoreClaudeAccountRequest;
 use App\Http\Requests\Settings\UpdateClaudeAccountRequest;
+use App\Http\Resources\AwakeShareData;
 use App\Http\Resources\ClaudeAccountData;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
@@ -31,10 +32,13 @@ class ClaudeAccountController extends Controller
     {
         Gate::authorize('viewAny', ClaudeAccount::class);
 
+        $canManageYakAccounts = $request->user()?->can('create', [ClaudeAccount::class, true]) ?? false;
+
         return Inertia::render('Settings/ClaudeAccounts', [
             'accounts' => Inertia::defer(fn () => $this->present(ClaudeAccount::query()->where('owner_user_id', $request->user()?->id)), 'accounts'),
             'yakAccounts' => Inertia::defer(fn () => $this->present(ClaudeAccount::query()->whereNull('owner_user_id')), 'accounts'),
-            'canManageYakAccounts' => $request->user()?->can('create', [ClaudeAccount::class, true]) ?? false,
+            'canManageYakAccounts' => $canManageYakAccounts,
+            'awakeShare' => $canManageYakAccounts ? AwakeShareData::forAdmin() : null,
             'models' => config('claude-accounts.models'),
             'docsUrl' => Docs::url('accounts'),
         ]);

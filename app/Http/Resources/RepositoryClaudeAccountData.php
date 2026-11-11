@@ -6,6 +6,7 @@ use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\UserRepositorySetting;
+use App\Support\Docs;
 
 /**
  * The "Claude account" section of the repository page.
@@ -20,6 +21,7 @@ final class RepositoryClaudeAccountData
      *     globalSystemAccountId: int|null,
      *     canChangeUnattended: bool,
      *     models: list<string>,
+     *     docsUrl: string,
      * }
      */
     public static function forRepository(Repository $repository, ?User $user): array
@@ -36,6 +38,7 @@ final class RepositoryClaudeAccountData
             'globalSystemAccountId' => ClaudeAccount::globalSystemAccount()?->id,
             'canChangeUnattended' => $user?->can('useAsUnattended', ClaudeAccount::class) ?? false,
             'models' => $picker['models'],
+            'docsUrl' => Docs::url('accounts'),
         ];
     }
 }

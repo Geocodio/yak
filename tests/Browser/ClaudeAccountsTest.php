@@ -29,7 +29,12 @@ test('a person adds an account and replaces a secret', function () {
     $page->click('Replace secret')
         ->type('[data-testid="account-secret"]', 'sk-ant-api03-' . str_repeat('b', 30))
         ->click('[data-testid="account-save"]')
-        ->assertPresent('[data-testid="account-' . $account->id . '"]');
+        ->assertPresent('[data-testid="account-' . $account->id . '"]')
+        ->click('[aria-label="More actions for Work"]')
+        ->click('Remove account')
+        ->click('[role="alertdialog"] button:last-child');
+
+    expect(ClaudeAccount::query()->count())->toBe(0);
 });
 
 test('a non-admin sees no Yak account buttons', function () {
