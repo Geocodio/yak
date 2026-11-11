@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\RepositoryRole;
 use App\Enums\TeleportState;
 use App\Enums\TeleportStep;
 use App\Enums\ThreadSandboxState;
@@ -9,6 +10,7 @@ use App\Exceptions\TeleportError;
 use App\Models\Teleport;
 use App\Models\Thread;
 use App\Services\Teleport\TeleportEnvironmentNote;
+use App\Services\Teleport\TeleportExtras;
 use App\Services\Teleport\Teleports;
 use App\Services\Teleport\TeleportUpCompleter;
 use App\Services\Threads\Contracts\SandboxManager;
@@ -41,6 +43,7 @@ class PrepareTeleportUpJob implements ShouldQueue
         EnvironmentNote $note,
         TeleportUpCompleter $completer,
         Teleports $teleports,
+        TeleportExtras $extras,
     ): void {
         $teleport = Teleport::query()->find($this->teleportId);
 
@@ -51,7 +54,7 @@ class PrepareTeleportUpJob implements ShouldQueue
         $thread = Thread::query()->withoutGlobalScopes()->findOrFail($teleport->thread_id);
 
         try {
-            $sandboxState = $this->prepare($teleport, $thread, $sandbox, $sandboxes, $sessions, $refresh, $note);
+            $sandboxState = $this->prepare($teleport, $thread, $sandbox, $sandboxes, $sessions, $refresh, $note, $extras);
             $completer->finish($teleport->refresh(), $sandboxState);
         } catch (Throwable $exception) {
             $teleports->fail($teleport->refresh(), 'teleport_failed', $exception instanceof TeleportError || $exception instanceof RuntimeException ? $exception->getMessage() : 'Preparing the sandbox failed.');
@@ -67,6 +70,7 @@ class PrepareTeleportUpJob implements ShouldQueue
         SessionFileSync $sessions,
         RefreshTriggers $refresh,
         EnvironmentNote $note,
+        TeleportExtras $extras,
     ): string {
         $wasRestored = in_array($thread->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed], true);
 
@@ -90,6 +94,8 @@ class PrepareTeleportUpJob implements ShouldQueue
 
         if ($wasRestored) {
             // The restore already checked out the branch, ran setup and refresh, and restored the session.
+            $this->prepareExtras($teleport, $thread, $extras);
+
             foreach ([TeleportStep::FetchBranch, TeleportStep::Setup, TeleportStep::Refresh, TeleportStep::SessionRestore] as $step) {
                 $teleport->progressStep($step, 'done');
             }
@@ -98,6 +104,7 @@ class PrepareTeleportUpJob implements ShouldQueue
         }
 
         $this->fetchBranches($teleport, $thread, $sandboxes);
+        $this->prepareExtras($teleport, $thread, $extras);
         $this->runSetup($teleport, $thread, $sandboxes, $refresh);
         $this->runRefresh($teleport, $thread, $refresh);
 
@@ -114,7 +121,7 @@ class PrepareTeleportUpJob implements ShouldQueue
     {
         $teleport->progressStep(TeleportStep::FetchBranch, 'running');
 
-        foreach ($thread->repositories as $repository) {
+        foreach ($thread->repositories->where('role', RepositoryRole::Primary) as $repository) {
             $head = $teleport->branch_heads[$repository->repo] ?? $this->headFor($teleport, $repository->repo);
 
             if ($head === null || blank($repository->branch)) {
@@ -137,6 +144,19 @@ class PrepareTeleportUpJob implements ShouldQueue
         }
 
         $teleport->progressStep(TeleportStep::FetchBranch, 'done');
+    }
+
+    private function prepareExtras(Teleport $teleport, Thread $thread, TeleportExtras $extras): void
+    {
+        try {
+            $report = $extras->prepare($thread, $teleport);
+        } catch (RuntimeException $exception) {
+            $teleport->progressStep(TeleportStep::FetchBranch, 'failed');
+
+            throw $exception;
+        }
+
+        $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'sandbox_repos' => $report]])->save();
     }
 
     private function headFor(Teleport $teleport, string $repo): ?string
