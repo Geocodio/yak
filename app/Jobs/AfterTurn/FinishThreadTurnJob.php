@@ -49,6 +49,14 @@ abstract class FinishThreadTurnJob implements ShouldQueue
     abstract protected function reportFailure(string $message, ?\Throwable $cause = null): void;
 
     /**
+     * Whether the job still runs when the head task already ended.
+     */
+    protected function runsOnTerminalTask(): bool
+    {
+        return false;
+    }
+
+    /**
      * Runs in the job's final step, before the recorder closes.
      */
     protected function afterTurn(): void {}
@@ -67,7 +75,7 @@ abstract class FinishThreadTurnJob implements ShouldQueue
         $recorder = RunRecorder::forTurn($run);
 
         try {
-            if ($this->taskIsTerminal($this->task)) {
+            if ($this->taskIsTerminal($this->task) && ! $this->runsOnTerminalTask()) {
                 return;
             }
 
