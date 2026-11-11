@@ -72,3 +72,33 @@ it('answers 404 for another user\'s private thread on both routes', function () 
 it('rejects guests', function () {
     $this->post(route('threads.teleport-request.store', Thread::factory()->create()))->assertRedirectToRoute('login');
 });
+
+it('refuses a private thread teleport request without the acknowledgement and does not mark it waiting', function () {
+    $owner = User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create();
+
+    $this->actingAs($owner)
+        ->post(route('threads.teleport-request.store', $thread))
+        ->assertSessionHasErrors('acknowledged_private_publish');
+
+    expect($thread->refresh()->waiting_for_computer_at)->toBeNull();
+});
+
+it('marks a private thread waiting when the request carries the acknowledgement', function () {
+    $owner = User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create();
+
+    $this->actingAs($owner)
+        ->post(route('threads.teleport-request.store', $thread), ['acknowledged_private_publish' => true])
+        ->assertRedirect();
+
+    expect($thread->refresh()->waiting_for_computer_at)->not->toBeNull();
+});
+
+it('needs no acknowledgement for a team thread teleport request', function () {
+    $thread = Thread::factory()->create();
+
+    $this->actingAs(User::factory()->create())->post(route('threads.teleport-request.store', $thread))->assertRedirect();
+
+    expect($thread->refresh()->waiting_for_computer_at)->not->toBeNull();
+});
