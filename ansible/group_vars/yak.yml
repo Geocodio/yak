@@ -23,9 +23,20 @@ ufw_allowed_ports:
 mariadb_container_name: yak-mariadb
 mariadb_data_path: /home/yak/mariadb-data
 redis_container_name: yak-redis
-redis_data_path: /home/yak/redis-data
+# Thread stream contents live here, so it sits outside /home/yak and is mode 0700.
+redis_data_path: /var/lib/yak/redis
+redis_container_uid: 999
+redis_container_gid: 1000
 redis_config_path: /home/yak/redis.conf
 redis_maxmemory: 1gb
+yak_broker_user: yak-broker
+yak_broker_uid: 991
+yak_broker_gid: 991
+yak_credentials_path: /var/lib/yak/credentials
+yak_auth_proxy_address: 10.100.0.1:8787
+yak_auth_proxy_host_cidrs: 172.16.0.0/12
+# uid of www-data inside the Yak container, the peer allowed on the credential socket.
+yak_container_www_data_uid: 33
 telemetryd_container_name: yak-telemetryd
 telemetryd_data_path: /home/yak/telemetryd-data
 telemetryd_image_tag: "0.72.2"
@@ -36,6 +47,9 @@ telemetryd_memory_limit: "1g"
 # incus_zfs_device: /dev/sdb  # Uncomment and set to a dedicated disk for best performance
 incus_zfs_pool_size: 250G     # Only used when no dedicated disk (file-backed pool)
 incus_zfs_arc_max: "8589934592"  # 8GB ZFS ARC cache (tune based on total RAM)
+
+# Incus release series the host is pinned to.
+incus_version_pin: "7.6"
 
 # yak-base image version. Bump this whenever the base template build
 # changes in a way repo templates need to inherit (new packages, swapped

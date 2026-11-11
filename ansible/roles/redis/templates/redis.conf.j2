@@ -6,6 +6,7 @@
 # a queued job. At maxmemory, writes fail instead of the kernel killing
 # Redis outright.
 appendonly yes
+appendfsync everysec
 maxmemory {{ redis_maxmemory }}
 maxmemory-policy noeviction
 
