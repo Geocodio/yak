@@ -7,7 +7,7 @@ import { AppearanceFields } from './AppearanceFields';
 
 /** Name, default model and appearance of an existing account. The secret has its own dialog. */
 export function EditAccountDialog({ account, models, onClose }: { account: ClaudeAccount; models: string[]; onClose: () => void }) {
-    const form = useForm({ name: account.name, default_model: account.defaultModel, icon: account.icon, color: account.color });
+    const form = useForm({ name: account.name, default_model: account.defaultModel, icon: account.icon, color: account.color, max_concurrent_turns: account.maxConcurrentTurns });
 
     const save = () => form.patch(update.url(account.id), { preserveScroll: true, onSuccess: onClose });
 
@@ -21,7 +21,7 @@ export function EditAccountDialog({ account, models, onClose }: { account: Claud
             footer={
                 <div className="flex items-center justify-end gap-2">
                     <Button variant="tertiary" onClick={onClose}>Cancel</Button>
-                    <Button variant="primary" disabled={form.data.name.trim() === ''} pending={form.processing} onClick={save}>Save</Button>
+                    <Button variant="primary" disabled={form.data.name.trim() === '' || !(form.data.max_concurrent_turns >= 1)} pending={form.processing} onClick={save} data-testid="account-edit-save">Save</Button>
                 </div>
             }
         >
@@ -30,6 +30,9 @@ export function EditAccountDialog({ account, models, onClose }: { account: Claud
                     <Field label="Name" error={form.errors.name}><TextInput value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></Field>
                     <Field label="Default model" description="Used when a task does not pick one."><Select value={form.data.default_model} onChange={(value) => form.setData('default_model', value)} options={modelOptions(models)} /></Field>
                 </div>
+                <Field label="Concurrent turns" description="How many turns may run on this account at once." error={form.errors.max_concurrent_turns}>
+                    <TextInput type="number" min={1} max={64} data-testid="account-max-concurrent-turns" value={String(form.data.max_concurrent_turns)} onChange={(event) => form.setData('max_concurrent_turns', Number(event.target.value))} />
+                </Field>
                 <AppearanceFields value={{ icon: form.data.icon, color: form.data.color }} onChange={(next) => form.setData((data) => ({ ...data, ...next }))} />
             </div>
         </Dialog>
