@@ -27,10 +27,15 @@ func main() {
 		waitTimeout = parsed
 	}
 
+	gateway, bridge, err := net.ParseCIDR(os.Getenv("YAK_INCUS_BRIDGE"))
+	if err != nil {
+		log.Fatalf("wakeproxy: bad or missing YAK_INCUS_BRIDGE: %v", err)
+	}
+
 	client := &HTTPYakClient{BaseURL: os.Getenv("YAK_SSH_URL"), Token: strings.TrimSpace(string(token))}
 	handler := &Handler{
 		Client:        client,
-		Resolver:      IncusResolver{},
+		Resolver:      IncusResolver{Bridge: bridge, Gateway: gateway},
 		Dial:          func(address string) (net.Conn, error) { return net.DialTimeout("tcp", address, 2*time.Second) },
 		WaitTimeout:   waitTimeout,
 		PollEvery:     2 * time.Second,

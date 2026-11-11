@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"os/exec"
 	"regexp"
 )
@@ -15,10 +16,16 @@ type ContainerResolver interface {
 	Resolve(ctx context.Context, container string) (string, error)
 }
 
-// IncusResolver asks the incus CLI for the container's global IPv4 address.
-type IncusResolver struct{}
+// sandboxInterface is the only NIC whose address is trusted; mirrors broker/runner.go.
+const sandboxInterface = "eth0"
 
-func (IncusResolver) Resolve(ctx context.Context, container string) (string, error) {
+// IncusResolver asks the incus CLI for the sandbox NIC address, which must sit inside the Incus bridge subnet.
+type IncusResolver struct {
+	Bridge  *net.IPNet
+	Gateway net.IP
+}
+
+func (r IncusResolver) Resolve(ctx context.Context, container string) (string, error) {
 	if !containerNamePattern.MatchString(container) {
 		return "", errors.New("invalid container name")
 	}
@@ -28,10 +35,14 @@ func (IncusResolver) Resolve(ctx context.Context, container string) (string, err
 		return "", errors.New("incus query failed")
 	}
 
-	return parseIncusState(output)
+	return parseIncusState(output, r.Bridge, r.Gateway)
 }
 
-func parseIncusState(raw []byte) (string, error) {
+func parseIncusState(raw []byte, bridge *net.IPNet, gateway net.IP) (string, error) {
+	if bridge == nil {
+		return "", errors.New("bridge not configured")
+	}
+
 	var state struct {
 		Network map[string]struct {
 			Addresses []struct {
@@ -45,16 +56,17 @@ func parseIncusState(raw []byte) (string, error) {
 		return "", err
 	}
 
-	for name, network := range state.Network {
-		if name == "lo" {
+	for _, address := range state.Network[sandboxInterface].Addresses {
+		if address.Family != "inet" || address.Scope != "global" {
 			continue
 		}
-		for _, address := range network.Addresses {
-			if address.Family == "inet" && address.Scope == "global" {
-				return address.Address, nil
-			}
+		ip := net.ParseIP(address.Address)
+		if ip == nil || !bridge.Contains(ip) || ip.Equal(gateway) {
+			continue
 		}
+
+		return address.Address, nil
 	}
 
-	return "", errors.New("container has no address yet")
+	return "", errors.New("container has no address inside the bridge")
 }

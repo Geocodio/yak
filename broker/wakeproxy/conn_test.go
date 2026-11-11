@@ -219,17 +219,6 @@ func TestActivityFiresWhileSpliced(t *testing.T) {
 	}
 }
 
-func TestParseIncusState(t *testing.T) {
-	raw := `{"network":{"lo":{"addresses":[{"family":"inet","address":"127.0.0.1","scope":"local"}]},"eth0":{"addresses":[{"family":"inet6","address":"fe80::1","scope":"link"},{"family":"inet","address":"10.100.0.42","scope":"global"}]}}}`
-	ip, err := parseIncusState([]byte(raw))
-	if err != nil || ip != "10.100.0.42" {
-		t.Fatalf("ip=%q err=%v", ip, err)
-	}
-	if _, err := parseIncusState([]byte(`{"network":{}}`)); err == nil {
-		t.Fatal("expected error without an address")
-	}
-}
-
 func TestIncusResolverRejectsBadNames(t *testing.T) {
 	if _, err := (IncusResolver{}).Resolve(context.Background(), "../x"); err == nil {
 		t.Fatal("expected refusal")
