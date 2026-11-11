@@ -10,6 +10,7 @@ test('a thread with a stopped sandbox shows the waking state in the Preview pane
     $this->actingAs($owner);
 
     visit('/threads/' . $thread->id)
+        ->click('[data-testid="thread-dock-toggle-preview"]')
         ->assertVisible('[data-testid="preview-panel"]')
         ->assertVisible('[data-testid="preview-state-waking"]')
         ->assertMissing('[data-testid="preview-frame"]')
@@ -22,6 +23,7 @@ test('the toolbar can open the preview in a new tab once it is ready', function 
     $this->actingAs($owner);
 
     visit('/threads/' . $thread->id)
+        ->click('[data-testid="thread-dock-toggle-preview"]')
         ->assertVisible('[data-testid="preview-panel"]')
         ->assertNoJavaScriptErrors();
 });

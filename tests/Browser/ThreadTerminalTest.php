@@ -95,10 +95,10 @@ JS);
     expect($found)->toBeTrue("Timed out waiting for: {$condition}");
 }
 
-function openTerminalTab($page): void
+function openTerminalTab($page, bool $isPhone = false): void
 {
     allowTerminalOrigin($page);
-    $page->click('[data-testid="thread-dock-toggle-terminal"]');
+    $page->click($isPhone ? '[data-testid="thread-phone-tab-terminal"]' : '[data-testid="thread-dock-toggle-terminal"]');
 }
 
 function statusIs(string $state): string
@@ -167,7 +167,7 @@ test('a 4403 close shows the refused state and does not reconnect', function () 
 test('the phone key row sends control codes and arrows', function () {
     $page = visit(route('threads.show', terminalRunningThread()))->on()->mobile()->assertPresent('[data-testid="thread-header"]');
     installTerminalSocketStub($page);
-    openTerminalTab($page);
+    openTerminalTab($page, true);
     waitForTerminal($page, statusIs('connected'));
 
     $page->assertPresent('[data-testid="terminal-keyrow"]');
@@ -197,7 +197,7 @@ test('the phone shows the working strip only while Claude is busy', function () 
     $thread->update(['runner_state' => RunnerState::Busy]);
     $page = visit(route('threads.show', $thread))->on()->mobile()->assertPresent('[data-testid="thread-header"]');
     installTerminalSocketStub($page);
-    openTerminalTab($page);
+    openTerminalTab($page, true);
     waitForTerminal($page, statusIs('connected'));
 
     $page->assertPresent('[data-testid="terminal-working"]');
