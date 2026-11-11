@@ -30,6 +30,10 @@ type Context struct {
 	Interactive bool
 	// Exec replaces this process with argv running in dir; nil means print the command instead.
 	Exec func(dir string, argv []string) error
+	// OpenTerminal opens a terminal window running argv in dir; nil means print the command instead.
+	OpenTerminal func(dir string, argv []string) error
+	// RunCommand runs an external program, used to register the yak:// handler; nil means link.SystemRunner.
+	RunCommand func(name string, args ...string) error
 }
 
 type command func(ctx *Context, args []string) int
@@ -37,7 +41,7 @@ type command func(ctx *Context, args []string) int
 var commands = map[string]command{}
 
 // futureCommands are dispatched names whose implementation lands in a later chunk.
-var futureCommands = []string{"ssh", "mcp", "open-link", "marker"}
+var futureCommands = []string{"ssh", "mcp", "marker"}
 
 func init() {
 	commands["version"] = func(ctx *Context, _ []string) int {

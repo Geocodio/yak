@@ -14,6 +14,7 @@ import (
 	"github.com/geocodio/yak/cli/cmd"
 	"github.com/geocodio/yak/cli/internal/config"
 	"github.com/geocodio/yak/cli/internal/keychain"
+	"github.com/geocodio/yak/cli/internal/link"
 	"github.com/geocodio/yak/cli/internal/ui"
 )
 
@@ -26,17 +27,19 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	cwd, _ := os.Getwd()
 	return cmd.Run(&cmd.Context{
 		Stdin: stdin, Stdout: stdout, Stderr: stderr,
-		Env:         os.Getenv,
-		Keychain:    keychain.NewSystem(),
-		Prompter:    prompter(stdin, stdout),
-		OpenURL:     openURL,
-		HTTP:        &http.Client{},
-		Now:         time.Now,
-		Sleep:       time.Sleep,
-		Cwd:         cwd,
-		Interactive: isTerminal(stdin),
-		Exec:        execIn,
-		ConfigDir:   dir,
+		Env:          os.Getenv,
+		Keychain:     keychain.NewSystem(),
+		Prompter:     prompter(stdin, stdout),
+		OpenURL:      openURL,
+		HTTP:         &http.Client{},
+		Now:          time.Now,
+		Sleep:        time.Sleep,
+		Cwd:          cwd,
+		Interactive:  isTerminal(stdin),
+		Exec:         execIn,
+		OpenTerminal: link.OpenTerminalSystem(runtime.GOOS),
+		RunCommand:   link.SystemRunner,
+		ConfigDir:    dir,
 	}, args)
 }
 
