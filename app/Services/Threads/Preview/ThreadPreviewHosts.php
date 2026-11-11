@@ -2,6 +2,8 @@
 
 namespace App\Services\Threads\Preview;
 
+use App\Enums\ThreadOwnerSide;
+use App\Enums\ThreadSandboxState;
 use App\Models\BranchDeployment;
 use App\Models\Thread;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -64,6 +66,25 @@ class ThreadPreviewHosts
     public function urlFor(Thread $thread, string $path = '/'): string
     {
         return 'https://' . $this->hostnameFor($thread) . '/' . ltrim($path, '/');
+    }
+
+    /**
+     * The "Preview" section of the agent's environment note, or null when the
+     * thread has no preview (local machine owner, or no usable manifest).
+     */
+    public function environmentSection(Thread $thread): ?string
+    {
+        if ($thread->owner_side === ThreadOwnerSide::Device || $thread->sandbox_state !== ThreadSandboxState::Running) {
+            return null;
+        }
+
+        $result = app(ThreadPreviewManifestReader::class)->read($thread);
+
+        if ($result->manifest === null) {
+            return null;
+        }
+
+        return "The dev server for this thread is served at {$this->urlFor($thread)}. You may restart it; the health probe is {$result->manifest->healthProbePath}.";
     }
 
     private function suffix(): string
