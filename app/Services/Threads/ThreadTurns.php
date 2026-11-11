@@ -115,6 +115,10 @@ class ThreadTurns
                 $thread->forceFill(['claude_account_id' => $account->id, 'model' => $resolved->model ?? $model ?? $thread->model]);
             }
 
+            if ($driver !== null && $thread->owner_user_id === null) {
+                $thread->owner_user_id = $driver->id;
+            }
+
             $queued = PendingSteeringMessage::drainFor($task);
             $text = $queued === null ? $prompt : $queued . "\n\n" . $prompt;
             $uuid = (string) Str::uuid();
@@ -236,6 +240,10 @@ class ThreadTurns
             'uuid' => (string) Str::uuid(),
             'model' => $model,
         ]);
+
+        if ($sender !== null && $thread->owner_user_id === null) {
+            Thread::query()->whereKey($thread->id)->whereNull('owner_user_id')->update(['owner_user_id' => $sender->id]);
+        }
 
         if (! app(SteeringDelivery::class)->deliver($thread, $message)) {
             $message->forceFill(['mode' => SteeringMode::Queue])->save();
