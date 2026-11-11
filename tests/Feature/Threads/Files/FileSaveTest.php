@@ -2,13 +2,18 @@
 
 use App\Enums\FileScope;
 use App\Enums\ThreadSandboxState;
+use App\Models\PendingSteeringMessage;
 use App\Models\Thread;
+use App\Models\ThreadFileEdit;
 use App\Models\ThreadRepository;
+use App\Models\ThreadShare;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\FakeSandboxManager;
 use App\Services\Threads\Files\FileSaver;
 use App\Services\Threads\Files\InvalidFilePath;
+use App\Services\Threads\SteeringDelivery;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
@@ -97,4 +102,81 @@ it('escapes shell syntax in the path', function () {
 
     expect(execCommands($this)[1])->toContain(escapeshellarg('/workspace/widgets/a $(touch x).txt'))
         ->and(execCommands($this)[1])->not->toContain(' $(touch x).txt ');
+});
+
+function saveThread(): array
+{
+    $owner = User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create(['sandbox_state' => ThreadSandboxState::Running]);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/widgets']);
+    YakTask::factory()->create(['thread_id' => $thread->id]);
+    $delivery = Mockery::mock(SteeringDelivery::class);
+    $delivery->shouldReceive('deliver')->andReturn(true);
+    app()->instance(SteeringDelivery::class, $delivery);
+
+    return [$thread, $owner];
+}
+
+function savePayload(array $overrides = []): array
+{
+    return ['scope' => 'repo', 'path' => 'src/a.ts', 'content' => 'new', 'base_sha256' => hash('sha256', 'old'), ...$overrides];
+}
+
+it('saves over HTTP, records the edit and steers the agent', function () {
+    $this->withoutVite();
+    [$thread, $owner] = saveThread();
+    queueRead($this, 'old');
+    $this->sandboxes->queueExecResult(Process::result());
+    queueRead($this, 'new');
+
+    $this->actingAs($owner)->putJson(route('threads.files.update', $thread), savePayload())
+        ->assertOk()
+        ->assertJsonPath('state', 'saved')
+        ->assertJsonPath('file.sha256', hash('sha256', 'new'))
+        ->assertJsonPath('working', false);
+
+    expect(ThreadFileEdit::query()->sole()->path)->toBe('/workspace/widgets/src/a.ts')
+        ->and(PendingSteeringMessage::query()->count())->toBe(1);
+});
+
+it('answers 409 with the current file on a conflict and records nothing', function () {
+    [$thread, $owner] = saveThread();
+    queueRead($this, 'claude wrote this');
+
+    $this->actingAs($owner)->putJson(route('threads.files.update', $thread), savePayload())
+        ->assertStatus(409)
+        ->assertJsonPath('state', 'conflict')
+        ->assertJsonPath('file.content', 'claude wrote this');
+
+    expect(ThreadFileEdit::query()->count())->toBe(0)->and(PendingSteeringMessage::query()->count())->toBe(0);
+});
+
+it('keeps a viewer without drive rights out and hides the thread from a stranger', function () {
+    [$thread, $owner] = saveThread();
+    $viewer = User::factory()->create();
+    ThreadShare::query()->create(['thread_id' => $thread->id, 'user_id' => $viewer->id]);
+
+    $this->actingAs($viewer)->putJson(route('threads.files.update', $thread), savePayload())->assertForbidden();
+    $this->actingAs(User::factory()->create())->putJson(route('threads.files.update', $thread), savePayload())->assertNotFound();
+
+    expect($this->sandboxes->calls)->toBeEmpty();
+});
+
+it('answers 422 for a read-only system path and for oversized content', function () {
+    [$thread, $owner] = saveThread();
+
+    $this->actingAs($owner)->putJson(route('threads.files.update', $thread), savePayload(['scope' => 'sandbox', 'path' => '/etc/hosts']))->assertStatus(422);
+    $this->actingAs($owner)->putJson(route('threads.files.update', $thread), savePayload(['content' => str_repeat('a', 1_000_001)]))->assertStatus(422);
+
+    expect($this->sandboxes->calls)->toBeEmpty();
+});
+
+it('accepts empty content and an empty base for a new empty file', function () {
+    [$thread, $owner] = saveThread();
+    $this->sandboxes->queueExecResult(Process::result('', '', 4));
+    $this->sandboxes->queueExecResult(Process::result());
+    queueRead($this, '');
+
+    $this->actingAs($owner)->putJson(route('threads.files.update', $thread), savePayload(['content' => '', 'base_sha256' => '']))
+        ->assertOk()->assertJsonPath('state', 'saved');
 });

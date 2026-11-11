@@ -24,6 +24,7 @@ class VisibilityRoutes
         'threads.environment.show' => ['GET', '/threads/{thread}/environment'],
         'threads.files.tree' => ['GET', '/threads/{thread}/files?scope=repo'],
         'threads.files.show' => ['GET', '/threads/{thread}/files/content?scope=repo&path=README.md'],
+        'threads.files.update' => ['PUT', '/threads/{thread}/files/content', ['scope' => 'repo', 'path' => 'a.txt', 'content' => 'x', 'base_sha256' => ''], 409],
         'threads.events.index' => ['GET', '/threads/{thread}/events'],
         'threads.events.show' => ['GET', '/threads/{thread}/events/{sequence}'],
         'threads.pull-request.store' => ['POST', '/threads/{thread}/pull-request', ['acknowledged_private_publish' => true], 302],

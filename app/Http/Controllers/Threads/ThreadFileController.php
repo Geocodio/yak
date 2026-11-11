@@ -3,11 +3,16 @@
 namespace App\Http\Controllers\Threads;
 
 use App\Enums\FileScope;
+use App\Enums\RunnerState;
+use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSandboxState;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Threads\SaveThreadFileRequest;
 use App\Http\Resources\ThreadDiffData;
 use App\Models\Thread;
+use App\Services\Threads\Files\FileSaver;
+use App\Services\Threads\Files\HumanEditNotes;
 use App\Services\Threads\Files\SandboxFiles;
 use App\Services\Threads\Files\SandboxPath;
 use App\Services\Threads\ThreadSandbox;
@@ -76,6 +81,41 @@ class ThreadFileController extends Controller
             && SandboxPath::isWritable(SandboxPath::resolve($thread, $scope, $path));
 
         return response()->json([...$file->toArray(), 'state' => 'ready', 'canEdit' => $canEdit]);
+    }
+
+    public function update(SaveThreadFileRequest $request, Thread $thread, FileSaver $saver, HumanEditNotes $notes): JsonResponse
+    {
+        if ($unavailable = $this->unavailable($thread)) {
+            return $unavailable;
+        }
+
+        $user = $request->user() ?? abort(401);
+        $scope = FileScope::from($request->string('scope')->toString());
+        $path = $request->string('path')->toString();
+
+        $outcome = $saver->save(
+            $thread,
+            $user,
+            $scope,
+            $path,
+            (string) $request->input('content'),
+            $request->string('base_sha256')->toString(),
+            $request->boolean('overwrite'),
+        );
+
+        if (! $outcome->saved || $outcome->written === null) {
+            return response()->json($outcome->toArray(), 409);
+        }
+
+        $notes->record($thread, $user, SandboxPath::resolve($thread, $scope, $path), $outcome->written->sha256);
+        $this->sandbox->touch($thread);
+
+        $thread->refresh();
+
+        return response()->json([
+            ...$outcome->toArray(),
+            'working' => $thread->runner_state === RunnerState::Busy || $thread->lock_holder !== ThreadLockHolder::None,
+        ]);
     }
 
     private function scope(Request $request): FileScope
