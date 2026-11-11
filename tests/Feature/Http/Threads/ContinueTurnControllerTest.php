@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TurnState;
+use App\Models\Device;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
@@ -57,7 +58,7 @@ it('refuses on a closed thread', function () {
 
 it('refuses while a computer owns the thread', function () {
     [$thread, , $user] = guardStoppedThread();
-    $thread->forceFill(['owner_side' => 'device', 'owner_device_id' => 1])->save();
+    $thread->forceFill(['owner_side' => 'device', 'owner_device_id' => Device::factory()->create()->id])->save();
     $this->mock(ThreadTurns::class)->shouldNotReceive('start');
 
     $this->actingAs($user)->post(route('threads.continue', $thread))->assertSessionHas('error');

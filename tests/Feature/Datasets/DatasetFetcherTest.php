@@ -33,7 +33,7 @@ beforeEach(function () {
 });
 
 /** @return list<string> */
-function recordedCommands(): array
+function recordedDatasetCommands(): array
 {
     $commands = [];
     Process::assertRan(function ($process) use (&$commands) {
@@ -64,7 +64,7 @@ it('fetches a version through the data sandbox and publishes it', function () {
 
     $version = app(DatasetFetcher::class)->fetch($this->repository);
 
-    $commands = recordedCommands();
+    $commands = recordedDatasetCommands();
     $order = [
         'incus copy yak-base/ready yak-data-demo-fetch',
         'incus start yak-data-demo-fetch',

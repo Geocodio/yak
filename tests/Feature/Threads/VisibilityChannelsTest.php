@@ -33,7 +33,7 @@ function channelNamesFor(int $threadId): array
     return $names;
 }
 
-function authorizeChannel($test, $user, string $channelName)
+function authorizeVisibilityChannel($test, $user, string $channelName)
 {
     return $test->actingAs($user)->post('/broadcasting/auth', ['socket_id' => '1234.5678', 'channel_name' => $channelName]);
 }
@@ -44,8 +44,8 @@ it('refuses every thread channel of a private thread and its child to a teammate
     foreach ([$world->other, $world->admin] as $stranger) {
         foreach ([$world->thread->id, $world->child->id] as $threadId) {
             foreach (channelNamesFor($threadId) as $pattern => $name) {
-                $hidden = authorizeChannel($this, $stranger, $name);
-                $missing = authorizeChannel($this, $stranger, channelNamesFor($world->missingId)[$pattern]);
+                $hidden = authorizeVisibilityChannel($this, $stranger, $name);
+                $missing = authorizeVisibilityChannel($this, $stranger, channelNamesFor($world->missingId)[$pattern]);
 
                 expect($hidden->getStatusCode())->toBe(403)
                     ->and($hidden->getStatusCode())->toBe($missing->getStatusCode())
@@ -62,7 +62,7 @@ it('authorizes the owner and a shared person on every thread channel', function 
     foreach ([$world->owner, $world->other] as $viewer) {
         foreach ([$world->thread->id, $world->child->id] as $threadId) {
             foreach (channelNamesFor($threadId) as $name) {
-                authorizeChannel($this, $viewer, $name)->assertOk();
+                authorizeVisibilityChannel($this, $viewer, $name)->assertOk();
             }
         }
     }
@@ -73,7 +73,7 @@ it('gives a shared person the member payload on the presence channel', function 
     ThreadShare::factory()->create(['thread_id' => $world->thread->id, 'user_id' => $world->other->id]);
     $presence = collect(channelNamesFor($world->thread->id))->first(fn (string $name) => str_starts_with($name, 'presence-'));
 
-    $response = authorizeChannel($this, $world->other, $presence)->assertOk();
+    $response = authorizeVisibilityChannel($this, $world->other, $presence)->assertOk();
 
     expect(json_decode($response->json('channel_data'), true)['user_info'])->toBe(['id' => $world->other->id, 'name' => $world->other->name]);
 });
@@ -82,6 +82,6 @@ it('opens the channels to a teammate when the thread is team visible', function 
     $world = VisibilityWorld::forTeamControl();
 
     foreach (channelNamesFor($world->thread->id) as $name) {
-        authorizeChannel($this, $world->other, $name)->assertOk();
+        authorizeVisibilityChannel($this, $world->other, $name)->assertOk();
     }
 });

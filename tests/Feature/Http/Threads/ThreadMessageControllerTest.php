@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TurnState;
+use App\Models\Device;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -79,7 +80,7 @@ it('404s stop for a second user and an admin on a private thread', function (boo
 
 it('refuses while a computer owns the thread', function () {
     [$thread, , $user] = messageThread();
-    $thread->forceFill(['owner_side' => 'device', 'owner_device_id' => 1])->save();
+    $thread->forceFill(['owner_side' => 'device', 'owner_device_id' => Device::factory()->create()->id])->save();
     $turns = mockTurns();
     $turns->shouldNotReceive('start');
     $turns->shouldNotReceive('steer');

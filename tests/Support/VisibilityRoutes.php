@@ -19,6 +19,17 @@ class VisibilityRoutes
         'threads.seen' => ['POST', '/threads/{thread}/seen'],
         'threads.share.show' => ['GET', '/threads/{thread}/share'],
         'threads.share.update' => ['PUT', '/threads/{thread}/share', ['mode' => 'only_me']],
+        'threads.diff.show' => ['GET', '/threads/{thread}/diff'],
+        'threads.diff.files.show' => ['GET', '/threads/{thread}/diff/files/1', [], 404],
+        'threads.environment.show' => ['GET', '/threads/{thread}/environment'],
+        'threads.events.index' => ['GET', '/threads/{thread}/events'],
+        'threads.events.show' => ['GET', '/threads/{thread}/events/1', [], 404],
+        'threads.teleport-request.store' => ['POST', '/threads/{thread}/teleport-request'],
+        'threads.teleport-request.destroy' => ['DELETE', '/threads/{thread}/teleport-request'],
+        'threads.messages.store' => ['POST', '/threads/{thread}/messages', ['message' => ''], 302],
+        'threads.stop' => ['POST', '/threads/{thread}/stop'],
+        'threads.continue' => ['POST', '/threads/{thread}/continue'],
+        'threads.restore.retry' => ['POST', '/threads/{thread}/restore/retry'],
         'tasks.show' => ['GET', '/tasks/{task}'],
         'tasks.retry' => ['POST', '/tasks/{task}/retry'],
         'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
@@ -130,6 +141,20 @@ class VisibilityRoutes
             'profile.email-addresses.destroy', 'profile.email-addresses.resend', 'verification.resend', 'account.destroy',
             'email-addresses.confirm.show', 'email-addresses.confirm',
             'video-theme.logo', 'video-theme.sample',
+            // Device pairing and the viewer's own paired devices: per user, no thread data.
+            'device.show', 'device.approve', 'device.deny', 'settings.devices', 'settings.devices.destroy',
+            // New-thread form and creation: reads the viewer's own repositories and accounts only.
+            'threads.new', 'threads.store',
+            // Device-token protocol for the CLI: no web session; each controller resolves the thread through the device owner's visibility.
+            'cli.device.code', 'cli.device.token', 'cli.me', 'cli.device.destroy', 'cli.repos.resolve',
+            'GET api/cli/v1/threads/by-session/{sessionId}', 'GET api/cli/v1/threads/{thread}', 'POST api/cli/v1/teleports',
+            'GET api/cli/v1/teleports/{teleport}', 'POST api/cli/v1/teleports/{teleport}/complete',
+            'POST api/cli/v1/teleports/{teleport}/cancel', 'GET api/cli/v1/threads/{thread}/stack-messages',
+            'POST api/cli/v1/threads/{thread}/stack-messages/ack', 'GET api/cli/v1/threads/{thread}/ssh',
+            'GET api/cli/v1/threads/{thread}/session/length', 'POST api/cli/v1/threads/{thread}/session/append',
+            'POST api/cli/v1/threads/{thread}/session/checkpoint', 'PUT api/cli/v1/threads/{thread}/session/file',
+            'GET api/cli/v1/threads/{thread}/session/files', 'GET api/cli/v1/threads/{thread}/session/read',
+            'GET api/cli/v1/threads/{thread}/session/tree',
             // Creates a task; reads nothing of another person's thread.
             'tasks.store', 'tasks.setup-card.dismiss',
             // Token-only public image roles for PR bodies; the route lists nothing and resolves by a 26 character token.

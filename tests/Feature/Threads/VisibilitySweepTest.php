@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\GitHub\AppService;
+use App\Services\Threads\ThreadEventWindow;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
@@ -18,6 +19,8 @@ beforeEach(function () {
     $github->shouldReceive('getPullRequest')->andReturn([]);
     app()->instance(AppService::class, $github);
     config(['yak.deployments.hostname_suffix' => 'test']);
+    // The catch-up window lives in Redis; the sweep reads the database fallback.
+    $this->mock(ThreadEventWindow::class, fn ($window) => $window->shouldReceive('since')->andReturn(null));
 });
 
 /**

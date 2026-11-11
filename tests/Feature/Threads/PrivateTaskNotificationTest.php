@@ -24,7 +24,7 @@ beforeEach(function () {
 /**
  * @return list<Request>
  */
-function slackPosts(): array
+function recordedPrivateTaskSlackPosts(): array
 {
     return Http::recorded()
         ->map(fn (array $pair): Request => $pair[0])
@@ -51,7 +51,7 @@ test('a task of a private thread sends no channel message', function () {
 
     notifyAbout($task);
 
-    expect(slackPosts())->toBe([]);
+    expect(recordedPrivateTaskSlackPosts())->toBe([]);
 });
 
 test('the owner gets a direct message without the task title', function () {
@@ -68,9 +68,9 @@ test('the owner gets a direct message without the task title', function () {
 
     notifyAbout($task);
 
-    expect(slackPosts())->toHaveCount(1)
-        ->and(slackPosts()[0]['text'])->toBe('Private thread')
-        ->and(json_encode(slackPosts()[0]->data()))->not->toContain('Stripe');
+    expect(recordedPrivateTaskSlackPosts())->toHaveCount(1)
+        ->and(recordedPrivateTaskSlackPosts()[0]['text'])->toBe('Private thread')
+        ->and(json_encode(recordedPrivateTaskSlackPosts()[0]->data()))->not->toContain('Stripe');
 });
 
 test('a direct message to someone who may not see the thread is dropped', function () {
@@ -86,7 +86,7 @@ test('a direct message to someone who may not see the thread is dropped', functi
 
     notifyAbout($task);
 
-    expect(slackPosts())->toBe([]);
+    expect(recordedPrivateTaskSlackPosts())->toBe([]);
 });
 
 test('a team task is unchanged', function () {
@@ -103,6 +103,6 @@ test('a team task is unchanged', function () {
 
     notifyAbout($task);
 
-    expect(slackPosts())->toHaveCount(1)
-        ->and(slackPosts()[0]['text'])->toBe('PR ready: Fix null postal code');
+    expect(recordedPrivateTaskSlackPosts())->toHaveCount(1)
+        ->and(recordedPrivateTaskSlackPosts()[0]['text'])->toBe('PR ready: Fix null postal code');
 });
