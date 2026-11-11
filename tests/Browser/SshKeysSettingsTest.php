@@ -6,7 +6,7 @@ it('shows the empty states and the single-field add key dialog with the fixed er
     $this->actingAs(User::factory()->create());
 
     $page = visit(route('settings.ssh-keys'))
-        ->assertSee('How you reach a thread\'s sandbox from your own machine.')
+        ->assertSee('The keys that can open a shell in the sandboxes of threads you drive.')
         ->assertSee('Set up your computer')
         ->assertSee('No extra keys.')
         ->assertMissing('[data-testid="ssh-key-name"]')
