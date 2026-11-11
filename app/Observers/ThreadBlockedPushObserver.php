@@ -4,11 +4,15 @@ namespace App\Observers;
 
 use App\Enums\ThreadBlockReason;
 use App\Models\Thread;
+use App\Models\User;
+use App\Services\ClaudeAccounts\AccountNotifier;
 use App\Services\Push\AccountProblemPush;
 use App\Services\Push\PushEvent;
 use App\Services\Push\PushRecipients;
 use App\Services\Push\ThreadPush;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Pushes when a thread becomes blocked on something only a person can fix.
@@ -18,7 +22,7 @@ class ThreadBlockedPushObserver
 {
     private const int USAGE_LIMIT_EPISODE_MINUTES = 360;
 
-    public function __construct(private readonly ThreadPush $push, private readonly PushRecipients $recipients, private readonly AccountProblemPush $accountProblems) {}
+    public function __construct(private readonly ThreadPush $push, private readonly PushRecipients $recipients, private readonly AccountProblemPush $accountProblems, private readonly AccountNotifier $accountNotifier) {}
 
     public function updated(Thread $thread): void
     {
@@ -45,16 +49,33 @@ class ThreadBlockedPushObserver
     }
 
     /**
-     * One notice per account per episode, however many threads it blocks.
+     * One push per account per episode, and one Slack and email notice per
+     * account and driver per episode, however many threads it blocks.
      */
     private function notifyUsageLimit(Thread $thread): void
     {
         $account = $thread->claudeAccount;
 
-        if ($account === null || ! Cache::add("account-problem:{$account->id}:usage-limit", true, now()->addMinutes(self::USAGE_LIMIT_EPISODE_MINUTES))) {
+        if ($account === null) {
             return;
         }
 
-        $this->accountProblems->send($account, "{$account->name} hit its usage limit.");
+        $expiresAt = now()->addMinutes(self::USAGE_LIMIT_EPISODE_MINUTES);
+
+        if (Cache::add("account-problem:{$account->id}:usage-limit", true, $expiresAt)) {
+            $this->accountProblems->send($account, "{$account->name} hit its usage limit.");
+        }
+
+        $driverId = $thread->runs()->whereNotNull('driver_user_id')->latest('id')->value('driver_user_id');
+
+        if (! Cache::add("account-problem:{$account->id}:usage-limit:" . ($driverId ?? 'none'), true, $expiresAt)) {
+            return;
+        }
+
+        try {
+            $this->accountNotifier->usageLimit($account, $account->usage_limit_resets_at, $driverId === null ? null : User::find($driverId));
+        } catch (Throwable $exception) {
+            Log::channel('yak')->warning('Claude account notice failed', ['account_id' => $account->id, 'error' => $exception->getMessage()]);
+        }
     }
 }
