@@ -4,18 +4,19 @@ namespace App\Console\Commands;
 
 use App\Models\GithubKeySync;
 use App\Services\Ssh\GitHubKeyDirectory;
+use App\Services\Ssh\SandboxAuthorizedKeys;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 
 #[Signature('yak:ssh-sweep')]
-#[Description('Refresh cached GitHub keys whose cache time has passed')]
+#[Description('Refresh cached GitHub keys whose cache time has passed and drop expired terminal keys')]
 class SshSweepCommand extends Command
 {
     private const BATCH_SIZE = 50;
 
-    public function handle(GitHubKeyDirectory $github): int
+    public function handle(GitHubKeyDirectory $github, SandboxAuthorizedKeys $authorizedKeys): int
     {
         $positiveCutoff = now()->subSeconds((int) config('yak.ssh.github_ttl_seconds'));
         $negativeCutoff = now()->subSeconds((int) config('yak.ssh.github_negative_ttl_seconds'));
@@ -35,6 +36,8 @@ class SshSweepCommand extends Command
                 $github->refresh($sync->user);
             }
         }
+
+        $authorizedKeys->sweep();
 
         $this->components->info("Refreshed GitHub keys for {$due->count()} user(s).");
 
