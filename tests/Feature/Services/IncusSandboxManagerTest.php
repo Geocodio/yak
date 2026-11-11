@@ -208,6 +208,15 @@ it('runs sandbox commands as the yak user by default', function () {
     Process::assertRan(fn ($process) => str_contains($process->command, "incus exec 'box' -- sudo -u yak -H bash -c 'git status'"));
 });
 
+it('passes the environment as incus exec flags and preserves it through sudo', function () {
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+
+    app(IncusSandboxManager::class)->run('box', 'bash setup.sh', env: ['NPM_TOKEN' => 'tok en']);
+
+    Process::assertRan(fn ($process) => str_contains($process->command, "incus exec 'box' --env 'NPM_TOKEN=tok en' -- sudo -u yak --preserve-env='NPM_TOKEN'")
+        && ! str_contains($process->command, "bash -c 'bash setup.sh' tok"));
+});
+
 it('runs sandbox commands as root when asRoot is set', function () {
     Process::fake(['*' => Process::result(exitCode: 0)]);
 

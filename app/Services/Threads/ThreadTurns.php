@@ -129,6 +129,10 @@ class ThreadTurns
                 $thread->forceFill(['claude_account_id' => $account->id, 'model' => $resolved->model ?? $model ?? $thread->model]);
             }
 
+            if ($driver !== null && $thread->owner_user_id === null) {
+                $thread->owner_user_id = $driver->id;
+            }
+
             $queued = PendingSteeringMessage::drainFor($task);
             $text = $queued === null ? $prompt : $queued . "\n\n" . $prompt;
             $uuid = (string) Str::uuid();
@@ -184,10 +188,11 @@ class ThreadTurns
             $this->commands->startRunner(
                 $thread,
                 $account,
-                $thread->activeSession()?->session_id,
+                $thread->fresh_session_pending ? null : $thread->activeSession()?->session_id,
                 (string) $thread->append_system_prompt,
                 $thread->sharesParentSandbox() ? ResearchChildRunner::worktreePath($thread) : null,
             );
+            $thread->forceFill(['fresh_session_pending' => false])->save();
         } elseif ($thread->model !== null && $thread->model !== $thread->runner_model) {
             $this->commands->setModel($thread, $thread->model);
         }
@@ -261,6 +266,10 @@ class ThreadTurns
 
         if ($storeAttachments !== null) {
             $storeAttachments($message);
+        }
+
+        if ($sender !== null && $thread->owner_user_id === null) {
+            Thread::query()->whereKey($thread->id)->whereNull('owner_user_id')->update(['owner_user_id' => $sender->id]);
         }
 
         if (! app(SteeringDelivery::class)->deliver($thread, $message)) {

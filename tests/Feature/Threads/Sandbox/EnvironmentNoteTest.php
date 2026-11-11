@@ -80,3 +80,14 @@ test('a single repo thread has no repository sections', function () {
 
     expect(app(EnvironmentNote::class)->sectionsForRepositories($thread))->toBe([]);
 });
+
+test('the restore note lists gitignored files the conversation touched that are now missing', function () {
+    $sections = app(EnvironmentNote::class)->sectionsForRestore(noteThread(), [], false, null, null, ['.env', 'storage/seed.sql']);
+
+    expect($sections['Missing gitignored files'])->toBe(['Gitignored files you used earlier are gone; regenerate them in .yak/setup.sh:', '.env', 'storage/seed.sql'])
+        ->and(array_key_last($sections))->toBe('Restore');
+});
+
+test('lists nothing when the conversation touched no ignored file', function () {
+    expect(app(EnvironmentNote::class)->sectionsForRestore(noteThread(), [], false, null))->not->toHaveKey('Missing gitignored files');
+});

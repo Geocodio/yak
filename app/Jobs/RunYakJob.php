@@ -174,13 +174,17 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
                 $answersPrompt = YakPromptBuilder::clarificationAnswersPrompt($this->task);
 
-                // The thread's session already holds the task; a new thread needs the task itself, then the answers.
-                return $thread->runs()->exists() ? $answersPrompt : $this->assemblePrompt() . "\n\n" . $answersPrompt;
+                // The thread's session already holds the task; a new thread, or one starting a fresh session, needs the task itself, then the answers.
+                return $thread->runs()->exists() && ! $thread->fresh_session_pending ? $answersPrompt : $this->assemblePrompt() . "\n\n" . $answersPrompt;
             },
             function (SandboxShell $shell, Thread $thread) use ($repository, $resuming): void {
                 // A continuing thread's working tree is as its last turn left it.
-                if ($thread->runs()->exists()) {
+                if ($thread->runs()->exists() && ! $thread->fresh_session_pending) {
                     return;
+                }
+
+                if ($thread->fresh_session_pending) {
+                    $shell->run('', 'cd ' . IncusSandboxManager::workspacePath() . ' && git reset --hard && git clean -fd', timeout: 60);
                 }
 
                 if ($resuming && $this->task->branch_name !== null) {

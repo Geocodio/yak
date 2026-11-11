@@ -42,7 +42,7 @@ Schedule::command('yak:deliver-stack-results')->everyMinute()->withoutOverlappin
 Schedule::command('yak:check-stack-usage')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:thread-sandboxes')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:reap-account-slots')->everyMinute()->withoutOverlapping();
-Schedule::command('yak:close-idle-threads')->daily();
+Schedule::command('yak:close-idle-threads')->hourly()->withoutOverlapping();
 Schedule::command('model:prune', ['--model' => [DeviceAuthorization::class]])->daily();
 Schedule::command('yak:expire-teleports')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:dataset-sweep')->hourly()->withoutOverlapping();

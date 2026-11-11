@@ -42,9 +42,10 @@ class EnvironmentNote
 
     /**
      * @param  list<string>  $refreshRan  Refresh commands that ran during the restore.
+     * @param  list<string>  $missingIgnored  Gitignored files the conversation touched that are gone.
      * @return array<string, string|list<string>>
      */
-    public function sectionsForRestore(Thread $thread, array $refreshRan, bool $setupRan, ?string $wipSha, ?DatasetAvailability $dataset = null): array
+    public function sectionsForRestore(Thread $thread, array $refreshRan, bool $setupRan, ?string $wipSha, ?DatasetAvailability $dataset = null, array $missingIgnored = []): array
     {
         $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
         $sections = [];
@@ -64,6 +65,10 @@ class EnvironmentNote
         $preview = app(ThreadPreviewHosts::class)->environmentSection($thread);
         if ($preview !== null) {
             $sections['Preview'] = $preview;
+        }
+
+        if ($missingIgnored !== []) {
+            $sections['Missing gitignored files'] = ['Gitignored files you used earlier are gone; regenerate them in .yak/setup.sh:', ...$missingIgnored];
         }
 
         $restored = [];

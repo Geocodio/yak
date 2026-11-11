@@ -47,7 +47,7 @@ function dirtySandbox(): FakeSandboxManager
 {
     return new class extends FakeSandboxManager
     {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
         {
             parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
 

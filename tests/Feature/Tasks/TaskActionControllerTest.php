@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\RunnerState;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
@@ -16,8 +17,11 @@ use App\Models\LinearOauthConnection;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\TaskLog;
+use App\Models\TaskRun;
+use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadSandbox;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -94,6 +98,69 @@ test('retry starts over when CI never reported on the branch', function () {
     Queue::assertNotPushed(RetryYakJob::class);
     expect($task->fresh()->attempts_at_manual_retry)->toBe(2);
 });
+
+function failedTaskOnThread(array $threadAttributes = [], bool $ran = true, array $taskAttributes = []): array
+{
+    $thread = Thread::factory()->create($threadAttributes);
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed, 'mode' => TaskMode::Fix, 'thread_id' => $thread->id, ...$taskAttributes]);
+
+    if ($ran) {
+        TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id]);
+    }
+
+    return [$thread, $task];
+}
+
+test('retry on a failed task whose thread already ran sets fresh_session_pending and dispatches the job', function () {
+    Queue::fake();
+    [$thread, $task] = failedTaskOnThread();
+
+    $this->post(route('tasks.retry', $task));
+
+    Queue::assertPushed(RunYakJob::class);
+    expect($thread->fresh()->fresh_session_pending)->toBeTrue();
+});
+
+test('retry on a failed task with a live runner stops the runner first', function () {
+    Queue::fake();
+    [$thread, $task] = failedTaskOnThread(['runner_state' => RunnerState::Idle]);
+    $sandbox = Mockery::mock(ThreadSandbox::class);
+    $sandbox->shouldReceive('stop')->once();
+    app()->instance(ThreadSandbox::class, $sandbox);
+
+    $this->post(route('tasks.retry', $task));
+
+    expect($thread->fresh()->fresh_session_pending)->toBeTrue();
+});
+
+test('retry on a failed task whose thread never ran leaves the thread untouched', function () {
+    Queue::fake();
+    [$thread, $task] = failedTaskOnThread(ran: false);
+
+    $this->post(route('tasks.retry', $task));
+
+    expect($thread->fresh()->fresh_session_pending)->toBeFalse();
+});
+
+test('retry with a pushed branch still resumes on the branch and does not set the flag', function () {
+    Queue::fake();
+    [$thread, $task] = failedTaskOnThread(taskAttributes: ['branch_name' => 'yak/x']);
+    TaskLog::create(['yak_task_id' => $task->id, 'level' => 'info', 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
+
+    $this->post(route('tasks.retry', $task));
+
+    Queue::assertPushed(RetryYakJob::class);
+    expect($thread->fresh()->fresh_session_pending)->toBeFalse();
+});
+
+test('retry for Setup, Research and Review modes does not touch the thread', function (TaskMode $mode) {
+    Queue::fake();
+    [$thread, $task] = failedTaskOnThread(taskAttributes: ['mode' => $mode]);
+
+    $this->post(route('tasks.retry', $task));
+
+    expect($thread->fresh()->fresh_session_pending)->toBeFalse();
+})->with([TaskMode::Setup, TaskMode::Research, TaskMode::Review]);
 
 test('retry clears a stale pr body update and review replies', function () {
     Queue::fake();
