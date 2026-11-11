@@ -5,6 +5,7 @@ use App\Mail\HeldEventMail;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Push\StackUsagePush;
 use App\Services\Stacks\StackUsage;
 use App\Services\Stacks\StackUsageAlerts;
 use Illuminate\Support\Facades\Event;
@@ -81,4 +82,29 @@ it('sums turns, cost and children across the stack', function () {
     stackRuns($child, 3);
 
     expect(app(StackUsage::class)->for($this->root))->toMatchArray(['turnCount' => 5, 'costUsd' => 2.5, 'childCount' => 1]);
+});
+
+it('sends a stack usage web push when a mark is crossed', function () {
+    stackRuns($this->root, 50);
+    $this->mock(StackUsagePush::class)->shouldReceive('send')->once()->with(Mockery::on(fn ($thread) => $thread->is($this->root)), 'its stack has run 50 turns. Nothing was paused.')->andReturn(1);
+
+    app(StackUsageAlerts::class)->check($this->root);
+});
+
+it('does not push again for the same mark', function () {
+    stackRuns($this->root, 50);
+    $this->mock(StackUsagePush::class)->shouldReceive('send')->once()->andReturn(1);
+    $alerts = app(StackUsageAlerts::class);
+
+    $alerts->check($this->root->fresh());
+    $alerts->check($this->root->fresh());
+});
+
+it('still notifies and dispatches when the push throws', function () {
+    stackRuns($this->root, 50);
+    $this->mock(StackUsagePush::class)->shouldReceive('send')->once()->andThrow(new RuntimeException('push down'));
+
+    expect(app(StackUsageAlerts::class)->check($this->root))->toHaveCount(1);
+    Mail::assertSent(HeldEventMail::class, 1);
+    Event::assertDispatched(StackThresholdReached::class);
 });
