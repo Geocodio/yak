@@ -19,9 +19,9 @@ class LocalGitSandboxManager extends FakeSandboxManager
 
     public string $branch = 'yak/thread-branch';
 
-    public static function withRepository(string $tempDir): self
+    public static function withRepository(string $tempDir): static
     {
-        $manager = new self;
+        $manager = new static; // @phpstan-ignore new.static
         $manager->bare = "{$tempDir}/origin.git";
         $manager->workspace = "{$tempDir}/workspace";
         $seed = "{$tempDir}/seed";

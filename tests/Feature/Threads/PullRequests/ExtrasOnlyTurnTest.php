@@ -47,9 +47,9 @@ it('publishes an extra repo before the dirty primary fails the turn', function (
     Queue::fake();
     $shell = new class extends FakeSandboxManager
     {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
         {
-            parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
+            parent::run($containerName, $command, $timeout, $asRoot, $input, $output, $env);
 
             return str_contains($command, 'git status --porcelain') ? Process::result(' M a.php') : parent::run($containerName, $command);
         }

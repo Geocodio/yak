@@ -1,6 +1,5 @@
 <?php
 
-use App\DataTransferObjects\WipResult;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadKind;
@@ -305,7 +304,7 @@ test('a failing session sync does not block releasing a research child', functio
 
 test('a failed WIP push during destroy puts a stopped sandbox back to stopped', function () {
     $thread = Thread::factory()->stopped()->create();
-    app()->instance(WipPreserver::class, Mockery::mock(WipPreserver::class, fn ($mock) => $mock->shouldReceive('preserve')->andThrow(new RuntimeException('push rejected'))));
+    app()->instance(WipPreserver::class, Mockery::mock(WipPreserver::class, fn ($mock) => $mock->shouldReceive('preserveAll')->andThrow(new RuntimeException('push rejected'))));
 
     app(ThreadSandbox::class)->destroy($thread);
 
@@ -315,7 +314,7 @@ test('a failed WIP push during destroy puts a stopped sandbox back to stopped', 
 
 test('a failed WIP push during destroy puts a paused sandbox back to paused', function () {
     $thread = Thread::factory()->paused()->create();
-    app()->instance(WipPreserver::class, Mockery::mock(WipPreserver::class, fn ($mock) => $mock->shouldReceive('preserve')->andThrow(new RuntimeException('push rejected'))));
+    app()->instance(WipPreserver::class, Mockery::mock(WipPreserver::class, fn ($mock) => $mock->shouldReceive('preserveAll')->andThrow(new RuntimeException('push rejected'))));
 
     app(ThreadSandbox::class)->destroy($thread);
 
@@ -325,7 +324,7 @@ test('a failed WIP push during destroy puts a paused sandbox back to paused', fu
 
 test('a running sandbox stays running when its WIP push fails', function () {
     $thread = runningSandboxThread(['runner_state' => RunnerState::None]);
-    app()->instance(WipPreserver::class, Mockery::mock(WipPreserver::class, fn ($mock) => $mock->shouldReceive('preserve')->andThrow(new RuntimeException('push rejected'))));
+    app()->instance(WipPreserver::class, Mockery::mock(WipPreserver::class, fn ($mock) => $mock->shouldReceive('preserveAll')->andThrow(new RuntimeException('push rejected'))));
 
     app(ThreadSandbox::class)->destroy($thread);
 
@@ -336,8 +335,8 @@ test('a running sandbox stays running when its WIP push fails', function () {
 test('the stopped sandbox is picked up by the next sweep once the push works', function () {
     $thread = Thread::factory()->stopped()->create();
     $preserver = $this->mock(WipPreserver::class);
-    $preserver->shouldReceive('preserve')->once()->andThrow(new RuntimeException('push rejected'));
-    $preserver->shouldReceive('preserve')->once()->andReturn(new WipResult(true, true, 'abc'));
+    $preserver->shouldReceive('preserveAll')->once()->andThrow(new RuntimeException('push rejected'));
+    $preserver->shouldReceive('preserveAll')->once()->andReturnNull();
     app()->forgetInstance(ThreadSandbox::class);
 
     app(ThreadSandbox::class)->destroy($thread);

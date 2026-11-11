@@ -14,7 +14,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(fn () => $this->withoutVite());
 
-function runningThread(User $owner, string $repo, bool $private = false): Thread
+function runningOperationsThread(User $owner, string $repo, bool $private = false): Thread
 {
     $thread = ($private ? Thread::factory()->private($owner) : Thread::factory())
         ->create(['created_by_user_id' => $owner->id, 'repo' => $repo]);
@@ -55,9 +55,9 @@ test('repository status strings come from the viewer visible threads', function 
     $other = User::factory()->create();
     Repository::factory()->create(['slug' => 'acme/busy', 'name' => 'Busy Repo']);
     Repository::factory()->create(['slug' => 'acme/quiet', 'name' => 'Quiet Repo']);
-    runningThread($user, 'acme/busy');
-    runningThread($user, 'acme/busy');
-    runningThread($other, 'acme/quiet', private: true);
+    runningOperationsThread($user, 'acme/busy');
+    runningOperationsThread($user, 'acme/busy');
+    runningOperationsThread($other, 'acme/quiet', private: true);
 
     $repositories = collect(OperationsPanelData::for($user)['repositories'])->keyBy('slug');
 
@@ -65,7 +65,7 @@ test('repository status strings come from the viewer visible threads', function 
         ->and($repositories['acme/busy']['initials'])->toBe('BR')
         ->and($repositories['acme/quiet']['status'])->toBe('Quiet');
 
-    runningThread($user, 'acme/quiet', private: true);
+    runningOperationsThread($user, 'acme/quiet', private: true);
 
     expect(collect(OperationsPanelData::for($user)['repositories'])->keyBy('slug')['acme/quiet']['status'])->toBe('1 thread running');
 });

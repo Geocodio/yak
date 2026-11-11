@@ -90,7 +90,7 @@ test('watermark destroys oldest stopped first and stops at the boundary', functi
 test('watermark never destroys when the wip push fails', function () {
     app(SandboxManager::class)->poolPercent = 95;
     $thread = Thread::factory()->stopped()->create(['last_activity_at' => now()->subHours(3)]);
-    $this->mock(WipPreserver::class)->shouldReceive('preserve')->andThrow(new RuntimeException('push rejected'));
+    $this->mock(WipPreserver::class)->shouldReceive('preserveAll')->andThrow(new RuntimeException('push rejected'));
 
     sweep();
 

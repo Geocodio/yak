@@ -9,8 +9,8 @@ use App\Services\Threads\ThreadSecretFiles;
 beforeEach(fn () => $this->withoutVite());
 
 test('the owner reads the share state with secret file names', function () {
-    $owner = User::factory()->create();
-    $guest = User::factory()->create();
+    $owner = User::factory()->create(['name' => 'Aaron Owner']);
+    $guest = User::factory()->create(['name' => 'Zed Guest']);
     $thread = Thread::factory()->private($owner)->create();
     ThreadShare::factory()->create(['thread_id' => $thread->id, 'user_id' => $guest->id]);
     $this->mock(ThreadSecretFiles::class)->shouldReceive('for')->andReturn(['files' => ['.env'], 'memoryFolder' => 'memory/', 'memoryFiles' => ['notes.md']]);
@@ -20,7 +20,7 @@ test('the owner reads the share state with secret file names', function () {
         ->assertJson([
             'mode' => 'people',
             'userIds' => [$guest->id],
-            'people' => [['id' => $guest->id, 'name' => $guest->name]],
+            'people' => [['id' => $owner->id, 'name' => $owner->name, 'role' => 'Owner'], ['id' => $guest->id, 'name' => $guest->name, 'role' => null]],
             'secretFiles' => ['.env'],
             'memoryFolder' => 'memory/',
             'memoryFiles' => ['notes.md'],
