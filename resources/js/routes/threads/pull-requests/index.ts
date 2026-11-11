@@ -127,7 +127,7 @@ order.put = (args: { thread: number | { id: number } } | [thread: number | { id:
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\AskToFixController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:18
+* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
 export const fix = (args: { thread: number | { id: number }, repository: string | number } | [thread: number | { id: number }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -142,7 +142,7 @@ fix.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\AskToFixController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:18
+* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
 fix.url = (args: { thread: number | { id: number }, repository: string | number } | [thread: number | { id: number }, repository: string | number ], options?: RouteQueryOptions) => {
@@ -170,7 +170,7 @@ fix.url = (args: { thread: number | { id: number }, repository: string | number 
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\AskToFixController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:18
+* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
 fix.post = (args: { thread: number | { id: number }, repository: string | number } | [thread: number | { id: number }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
