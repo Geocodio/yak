@@ -127,6 +127,25 @@ func TestForgottenChannelStreamsAreDeleted(t *testing.T) {
 	})
 }
 
+func TestReRegisteredChannelSurvivesAnInFlightForget(t *testing.T) {
+	h := newHarness(t, func(h *harness) { h.spawner.killDelay = 300 * time.Millisecond })
+	ctx := context.Background()
+	h.command("oneshot:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+
+	h.redis.SRem(ctx, "broker:channels", "oneshot:1")
+	waitFor(t, func() bool { return h.spawner.killBegunCount() == 1 })
+	h.command("oneshot:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+
+	waitFor(t, func() bool { return h.spawner.startCount() == 2 })
+	if exists, _ := h.redis.Exists(ctx, "oneshot:1:out").Result(); exists != 1 {
+		t.Fatal("the re-registered channel lost its out stream")
+	}
+	if h.redis.SIsMember(ctx, "broker:channels", "oneshot:1").Val() == false {
+		t.Fatal("channel not registered")
+	}
+}
+
 func TestOutStreamIsCapped(t *testing.T) {
 	h := newHarness(t)
 	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)

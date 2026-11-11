@@ -8,7 +8,7 @@ namespace App\Services\Threads;
  */
 final class BrokerLine
 {
-    private const BROKER_EVENTS = ['runner_started', 'runner_exited', 'restarted', 'start_refused', 'kill_done', 'no_runner', 'broker_started'];
+    private const BROKER_EVENTS = ['runner_started', 'runner_exited', 'restarted', 'start_refused', 'kill_done', 'no_runner', 'broker_started', 'line_dropped'];
 
     private const RUNNER_EVENTS = ['started', 'interrupted', 'error', 'exit_after_result', 'done'];
 
