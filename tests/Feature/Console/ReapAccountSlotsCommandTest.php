@@ -1,6 +1,9 @@
 <?php
 
 use App\Enums\RunnerState;
+use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadLockHolder;
+use App\Enums\ThreadStatus;
 use App\Enums\TurnState;
 use App\Events\AccountSlotFreed;
 use App\Models\ClaudeAccount;
@@ -122,4 +125,25 @@ it('is scheduled every minute', function () {
         ->first(fn ($event) => str_contains((string) $event->command, 'yak:reap-account-slots'));
 
     expect($event)->not->toBeNull()->and($event->expression)->toBe('* * * * *');
+});
+
+function reaperWaiterOn(Thread $thread): TaskRun
+{
+    return TaskRun::factory()->create([
+        'claude_account_id' => test()->account->id, 'thread_id' => $thread->id,
+        'turn_state' => TurnState::WaitingForAccount, 'finished_at' => null,
+    ]);
+}
+
+it('fails waiters on closed threads and leaves blocked and healthy waiters alone', function () {
+    $closed = Thread::factory()->create(['status' => ThreadStatus::Closed, 'lock_holder' => ThreadLockHolder::Sandbox]);
+    $closedWaiter = reaperWaiterOn($closed);
+    $kept = collect([null, ThreadBlockReason::UsageLimit, ThreadBlockReason::RestoreFailed])
+        ->map(fn ($reason) => reaperWaiterOn(Thread::factory()->create(['blocked_reason' => $reason])));
+
+    $this->artisan('yak:reap-account-slots')->expectsOutputToContain('Cleared 1 stale waiter(s)')->assertSuccessful();
+
+    expect($closedWaiter->fresh()->turn_state)->toBe(TurnState::Failed)
+        ->and($closed->fresh()->lock_holder)->toBe(ThreadLockHolder::None);
+    $kept->each(fn (TaskRun $run) => expect($run->fresh()->turn_state)->toBe(TurnState::WaitingForAccount));
 });

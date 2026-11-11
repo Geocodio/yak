@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\ThreadBlockReason;
 use App\Enums\TurnState;
 use App\Events\AccountSlotFreed;
 use App\Models\ClaudeAccount;
 use App\Models\TaskRun;
+use App\Models\Thread;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use Illuminate\Support\Facades\Event;
 
@@ -143,4 +145,66 @@ it('does not let a waiting run on another account block a grant', function () {
     $this->queue->acquire($one, $b);
 
     expect($this->queue->acquire($two, $c))->toBeTrue();
+});
+
+function waiterOn(ClaudeAccount $account, ?Thread $thread): TaskRun
+{
+    return TaskRun::factory()->create([
+        'claude_account_id' => $account->id,
+        'turn_state' => TurnState::WaitingForAccount,
+        'thread_id' => $thread?->id,
+    ]);
+}
+
+it('is not blocked by a stale waiter on a closed thread', function () {
+    $account = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    waiterOn($account, Thread::factory()->closed()->create());
+    [$run] = runs(1);
+
+    expect($this->queue->acquire($account, $run))->toBeTrue();
+});
+
+it('is not blocked by a waiter on a usage-limited thread', function () {
+    $account = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    waiterOn($account, Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]));
+    [$run] = runs(1);
+
+    expect($this->queue->acquire($account, $run))->toBeTrue();
+});
+
+it('keeps FIFO among healthy thread waiters', function () {
+    $account = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    $first = waiterOn($account, Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForAccount]));
+    $second = waiterOn($account, Thread::factory()->create());
+    [$run] = runs(1);
+
+    expect($this->queue->acquire($account, $run))->toBeFalse()
+        ->and($this->queue->position($first))->toBe(1)
+        ->and($this->queue->position($second))->toBe(2);
+});
+
+it('ignores a closed-thread waiter ahead of the run in position', function () {
+    $account = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    waiterOn($account, Thread::factory()->closed()->create());
+    $healthy = waiterOn($account, Thread::factory()->create());
+
+    expect($this->queue->position($healthy))->toBe(1);
+});
+
+it('reports position 0 when the run own thread is closed or blocked', function () {
+    $account = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    $closed = waiterOn($account, Thread::factory()->closed()->create());
+    $blocked = waiterOn($account, Thread::factory()->create(['blocked_reason' => ThreadBlockReason::RestoreFailed]));
+
+    expect($this->queue->position($closed))->toBe(0)
+        ->and($this->queue->position($blocked))->toBe(0);
+});
+
+it('still counts a thread-less one-shot waiter as healthy', function () {
+    $account = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    $oneShot = waiterOn($account, null);
+    [$run] = runs(1);
+
+    expect($this->queue->acquire($account, $run))->toBeFalse()
+        ->and($this->queue->position($oneShot))->toBe(1);
 });

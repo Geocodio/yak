@@ -7,6 +7,7 @@ use App\Enums\SteeringMode;
 use App\Enums\TaskRunKind;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
+use App\Enums\ThreadStatus;
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
@@ -24,6 +25,8 @@ use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\Services\Teleport\ThreadOwnership;
 use Carbon\CarbonImmutable;
 use Closure;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -34,6 +37,8 @@ use Throwable;
 class ThreadTurns
 {
     private const WAITING_STATES = [TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox];
+
+    private const MAX_ADVANCE_FAILURES = 5;
 
     public function __construct(
         private readonly ThreadCommands $commands,
@@ -225,20 +230,90 @@ class ThreadTurns
                 ->oldest('id')
                 ->get()
                 ->each(function (TaskRun $waiting): void {
+                    $thread = Thread::query()->withoutGlobalScopes()->find($waiting->thread_id);
+
+                    if ($thread === null) {
+                        $this->failWaiter($waiting);
+
+                        return;
+                    }
+
+                    if ($thread->status !== ThreadStatus::Open) {
+                        return;
+                    }
+
+                    $failureKey = "thread-turns:advance-failures:{$waiting->id}";
+
                     try {
                         DB::transaction(function () use ($waiting): void {
-                            $thread = Thread::query()->lockForUpdate()->find($waiting->thread_id);
+                            $thread = Thread::query()->withoutGlobalScopes()->lockForUpdate()->find($waiting->thread_id);
                             $run = TaskRun::query()->find($waiting->id);
 
                             if ($thread !== null && $run !== null && $run->getAttribute('turn_state') === $waiting->getAttribute('turn_state')) {
                                 $this->advance($thread, $run, ClaudeAccount::query()->findOrFail($run->claude_account_id));
                             }
                         });
+
+                        Cache::forget($failureKey);
                     } catch (Throwable $exception) {
                         report($exception);
+
+                        Cache::add($failureKey, 0, now()->addDay());
+
+                        if ($exception instanceof ModelNotFoundException || Cache::increment($failureKey) >= self::MAX_ADVANCE_FAILURES) {
+                            $this->failWaiter($waiting);
+                            Cache::forget($failureKey);
+                        }
                     }
                 });
         }
+    }
+
+    /**
+     * Ends a waiting turn that can never advance as Failed, through the same
+     * path as every other turn end so the thread lock and the slot are freed.
+     */
+    public function failWaiter(TaskRun $run): void
+    {
+        $finisher = app(TurnFinisher::class);
+        $events = [];
+
+        DB::transaction(function () use ($run, $finisher, &$events): void {
+            $thread = Thread::query()->withoutGlobalScopes()->lockForUpdate()->find($run->thread_id);
+
+            if ($thread === null) {
+                $changed = TaskRun::query()->whereKey($run->id)->whereIn('turn_state', self::WAITING_STATES)
+                    ->update(['turn_state' => TurnState::Failed, 'finished_at' => now()]);
+
+                if ($changed === 1) {
+                    $this->concurrency->releaseRun($run);
+                    $this->cancelMessages($run);
+                }
+
+                return;
+            }
+
+            if (! $finisher->finish($thread, $run, TurnState::Failed, $events, self::WAITING_STATES)) {
+                return;
+            }
+
+            if (in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForAccount, ThreadBlockReason::WaitingForSandbox], true)) {
+                $thread->forceFill(['blocked_reason' => null, 'blocked_at' => null]);
+            }
+
+            $this->cancelMessages($run);
+            $thread->save();
+        });
+
+        $finisher->dispatch($events);
+    }
+
+    private function cancelMessages(TaskRun $run): void
+    {
+        ThreadTurnMessage::query()
+            ->where('task_run_id', $run->id)
+            ->whereIn('state', [TurnMessageState::Sent, TurnMessageState::Queued, TurnMessageState::Started])
+            ->update(['state' => TurnMessageState::Cancelled]);
     }
 
     /**
@@ -310,10 +385,7 @@ class ThreadTurns
                 $locked->forceFill(['blocked_reason' => null, 'blocked_at' => null]);
             }
 
-            ThreadTurnMessage::query()
-                ->where('task_run_id', $run->id)
-                ->whereIn('state', [TurnMessageState::Sent, TurnMessageState::Queued, TurnMessageState::Started])
-                ->update(['state' => TurnMessageState::Cancelled]);
+            $this->cancelMessages($run);
 
             $locked->save();
         });
