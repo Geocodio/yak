@@ -124,6 +124,9 @@ class ThreadDriver
             ->each(fn (TaskRun $run) => $this->isolated(fn () => $this->tickTurn($run)));
 
         $this->isolated(fn () => $this->recovery->recoverDue());
+        $this->isolated(function (): void {
+            app(ThreadBlockClearer::class)->clearResolved();
+        });
         $this->isolated(fn () => app(ThreadTurns::class)->resumeWaiting());
     }
 

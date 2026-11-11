@@ -151,6 +151,12 @@ final class ThreadNoticeData
 
     private static function usageResetsAt(Thread $thread): ?string
     {
+        $accountResetsAt = $thread->claudeAccount?->usage_limit_resets_at;
+
+        if ($accountResetsAt !== null) {
+            return $accountResetsAt->toIso8601String();
+        }
+
         $stored = TaskRun::query()->where('thread_id', $thread->id)->latest('id')->value('tracker_state');
         $state = is_string($stored) ? json_decode($stored, true) : null;
 

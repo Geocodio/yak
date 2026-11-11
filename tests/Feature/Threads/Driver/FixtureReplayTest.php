@@ -16,6 +16,7 @@ use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadTurns;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Process;
@@ -54,6 +55,7 @@ it('ends a natural turn with one TurnCompleted', function () {
 
 it('fails a usage-limit turn and blocks the thread', function () {
     Event::fake([TurnCompleted::class, TurnFailed::class]);
+    $this->travelTo(CarbonImmutable::createFromTimestampUTC(1794136119 - 3600));
     [$thread, $run] = fixtureTurn();
 
     replayFixtureThroughConsumer($thread, 'usage-limit');

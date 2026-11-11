@@ -3,14 +3,18 @@
 use App\DataTransferObjects\AccountValidation;
 use App\Enums\ClaudeAccountStatus;
 use App\Enums\RunnerState;
+use App\Enums\ThreadBlockReason;
 use App\Enums\TurnState;
 use App\Models\ClaudeAccount;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeAccountValidator;
 use App\Services\Threads\ThreadCommands;
 use Inertia\Testing\AssertableInertia as Assert;
+
+require_once __DIR__ . '/../../../Support/ThreadTurnsHelpers.php';
 
 const NEW_SECRET = 'sk-ant-oat01-brandnewsecretvalue000000000000';
 
@@ -106,6 +110,28 @@ it('rotates a secret, resets status and error, and keeps the old secret on failu
     $this->post(route('settings.claude-accounts.rotate', $account), ['secret' => NEW_SECRET])->assertRedirect();
     $account->refresh();
     expect($account->secret)->toBe(NEW_SECRET)->and($account->status)->toBe(ClaudeAccountStatus::Active)->and($account->last_error)->toBeNull();
+});
+
+it('clears both blocked threads on rotation and starts each pending turn once', function () {
+    $account = ClaudeAccount::factory()->for($this->user, 'owner')->invalid()->create();
+    $fakes = fakeTurnCollaborators();
+    $fakes['commands']->shouldReceive('startRunner');
+    $fakes['commands']->shouldReceive('turn')->twice();
+
+    $runs = collect(range(1, 2))->map(function () use ($account) {
+        $thread = Thread::factory()->create(['claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::AccountInvalid, 'blocked_at' => now()]);
+        $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+
+        return TaskRun::factory()->create([
+            'yak_task_id' => $task->id, 'thread_id' => $thread->id, 'claude_account_id' => $account->id,
+            'turn_state' => TurnState::Pending, 'prompt_uuid' => fake()->uuid(), 'prompt' => 'go',
+            'started_at' => now()->subMinute(), 'finished_at' => null,
+        ]);
+    });
+
+    $this->post(route('settings.claude-accounts.rotate', $account), ['secret' => NEW_SECRET])->assertRedirect();
+
+    $runs->each(fn (TaskRun $run) => expect($run->refresh()->turn_state)->toBe(TurnState::Running)->and($run->thread->refresh()->blocked_reason)->toBeNull());
 });
 
 it('validates the concurrency limit', function (int $limit, bool $accepted) {

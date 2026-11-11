@@ -13,6 +13,7 @@ use App\Models\ThreadRestoreStep;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\RunawayGuard;
+use Carbon\CarbonImmutable;
 
 function stoppedByGuard(?string $reason): Thread
 {
@@ -111,4 +112,13 @@ it('reads the usage limit reset time from the run', function () {
     TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'tracker_state' => json_encode(['failure' => ['resetsAt' => '2026-11-11T16:30:00+00:00']])]);
 
     expect(ThreadNoticeData::for($thread)['resetsAt'])->toBe('2026-11-11T16:30:00+00:00');
+});
+
+it('prefers the account reset time over the tracker state', function () {
+    $account = ClaudeAccount::factory()->usageLimited(CarbonImmutable::parse('2026-11-11T18:00:00+00:00'))->create();
+    $thread = Thread::factory()->create(['claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::UsageLimit]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'tracker_state' => json_encode(['failure' => ['resetsAt' => '2026-11-11T16:30:00+00:00']])]);
+
+    expect(ThreadNoticeData::for($thread)['resetsAt'])->toBe('2026-11-11T18:00:00+00:00');
 });

@@ -15,7 +15,9 @@ use App\Http\Resources\ClaudeAccountData;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Services\ClaudeAccounts\ClaudeAccountValidator;
+use App\Services\Threads\ThreadBlockClearer;
 use App\Services\Threads\ThreadCommands;
+use App\Services\Threads\ThreadTurns;
 use App\Support\Docs;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -86,6 +88,9 @@ class ClaudeAccountController extends Controller
             'last_expiry_warning_at' => null,
             'expires_at' => $this->expiryFor($request, $account->kind),
         ])->save();
+
+        app(ThreadBlockClearer::class)->clearForAccount($account);
+        app(ThreadTurns::class)->resumeWaiting();
 
         return redirect()->route('settings.claude-accounts')->with('success', 'Secret replaced.');
     }
