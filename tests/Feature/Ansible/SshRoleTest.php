@@ -135,3 +135,11 @@ it('derives the bridge urls from yak_domain and hard-codes no host', function ()
         expect(file_get_contents($file->getPathname()))->not->toContain('geocodio.yak.build');
     }
 });
+
+it('gives the app the jump host and port that yak ssh hands to clients', function () {
+    $env = file_get_contents(base_path('ansible/roles/yak-container/templates/env.j2'));
+
+    expect($env)->toContain('YAK_SSH_JUMP_HOST={{ yak_ssh_jump_host | default(yak_domain) }}')
+        ->toContain('YAK_SSH_JUMP_PORT={{ yak_ssh_jump_port | default(2222) }}')
+        ->and(config('yak.ssh.jump_port'))->toBe(2222);
+});
