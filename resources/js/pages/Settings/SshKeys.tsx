@@ -38,8 +38,7 @@ export default function SshKeys({ githubKeys, uploadedKeys, github, config }: Pr
 
             <div className="flex flex-col gap-8">
                 <div>
-                    <h2 className="text-[20px] font-semibold tracking-[-0.01em]">SSH keys</h2>
-                    <p className="mt-1.5 max-w-[620px] text-[13px] leading-relaxed text-muted">
+                    <p className="max-w-[620px] text-[13px] leading-relaxed text-muted">
                         These keys can run <code className="font-mono">yak ssh &lt;thread&gt;</code> and use <code className="font-mono">scp</code> or an editor&apos;s remote mode against the sandboxes of threads you can drive.{' '}
                         <a href={config.docsUrl} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">How yak ssh works</a>
                     </p>
@@ -57,7 +56,7 @@ export default function SshKeys({ githubKeys, uploadedKeys, github, config }: Pr
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h3 id="ssh-extra-heading" className="text-[14px] font-semibold">Extra keys</h3>
-                            <p className="mt-1 text-[12.5px] text-muted">For a key that is not on GitHub, like one on a work laptop or a hardware token.</p>
+                            <p className="mt-1 text-[12.5px] text-muted">For a key that is not on GitHub, like one on a work computer or a hardware token.</p>
                         </div>
                         <Button variant="secondary" icon={<Plus size={13} />} onClick={() => setIsAdding(true)} data-testid="ssh-add-key">
                             Add a key

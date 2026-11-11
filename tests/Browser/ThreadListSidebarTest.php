@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ThreadBlockReason;
 use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -68,5 +69,41 @@ test('children are nested under their parent and can be collapsed', function () 
         ->click('[data-testid="thread-row-' . $parent->id . '"] button[aria-label="Collapse sub-threads"]')
         ->assertMissing('[data-testid="thread-children-' . $parent->id . '"]')
         ->assertVisible('[data-testid="thread-dots-' . $parent->id . '"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('the count pill toggles the nested children', function () {
+    $user = User::factory()->create();
+    $parent = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Parent work']);
+    Thread::factory()->child($parent)->create(['created_by_user_id' => $user->id, 'title' => 'Child work']);
+    $this->actingAs($user);
+
+    visit('/tasks')
+        ->assertVisible('[data-testid="thread-children-' . $parent->id . '"]')
+        ->assertSeeIn('[data-testid="thread-toggle-' . $parent->id . '"]', '1')
+        ->click('[data-testid="thread-toggle-' . $parent->id . '"]')
+        ->assertMissing('[data-testid="thread-children-' . $parent->id . '"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a blocked thread label is red', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::AccountExpired]);
+    $this->actingAs($user);
+
+    visit('/tasks')
+        ->assertVisible('[data-testid="thread-row-' . $thread->id . '"] .text-fail')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a teammate thread shows the owner chip under everyone', function () {
+    $user = User::factory()->create();
+    $teammate = User::factory()->create(['name' => 'Tina Teammate']);
+    $thread = Thread::factory()->create(['created_by_user_id' => $teammate->id]);
+    $this->actingAs($user);
+
+    visit('/tasks')
+        ->click('[data-testid="thread-filter"] button[aria-pressed="false"]')
+        ->assertSeeIn('[data-testid="thread-owner-' . $thread->id . '"]', 'TT')
         ->assertNoJavaScriptErrors();
 });

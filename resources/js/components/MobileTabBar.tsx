@@ -1,22 +1,9 @@
 import { Link, usePage } from '@inertiajs/react';
 import { TabBar, type TabBarItem, type TabBarLinkProps } from '@geocodio/console-ui';
-import { Menu as MenuIcon, Plus } from 'lucide-react';
-import { NAV_ITEMS, isActive, openMobileNav, openNewTask } from '@/components/Sidebar';
+import { Code2, MessageSquare, Menu as MenuIcon, MessagesSquare, Plus } from 'lucide-react';
+import { isActive, openMobileNav, openNewTask } from '@/components/Sidebar';
+import { prReviews, repos, tasks } from '@/routes';
 import type { SharedProps } from '@/types/shared';
-
-const BAR_LABELS = ['Tasks', 'PR Reviews', 'Repositories'] as const;
-const SHORT_LABELS: Record<(typeof BAR_LABELS)[number], string> = {
-    Tasks: 'Threads',
-    'PR Reviews': 'Reviews',
-    Repositories: 'Repos',
-};
-
-// Stable test ids, independent of the visible label.
-const TAB_TEST_IDS: Record<(typeof BAR_LABELS)[number], string> = {
-    Tasks: 'tasks',
-    'PR Reviews': 'reviews',
-    Repositories: 'repos',
-};
 
 /**
  * Tab links load their page in the background when the bar mounts and keep
@@ -37,22 +24,20 @@ function PrefetchingTabLink(props: TabBarLinkProps) {
 export function MobileTabBar() {
     const { props, url } = usePage<SharedProps>();
 
-    const items: TabBarItem[] = BAR_LABELS.map((label) => {
-        const item = NAV_ITEMS.find((candidate) => candidate.label === label);
-        if (!item) {
-            throw new Error(`Nav item "${label}" is missing from NAV_ITEMS`);
-        }
-        const Icon = item.icon;
-        return {
-            key: item.url,
-            label: SHORT_LABELS[label],
-            icon: <Icon size={22} />,
-            href: item.url,
-            active: isActive(url, item.url),
-            badge: label === 'Tasks' ? props.nav.activeTaskCount : null,
-            testId: `mobile-tab-${TAB_TEST_IDS[label]}`,
-        };
-    });
+    const slots = [
+        { key: 'tasks', label: 'Threads', icon: <MessagesSquare size={22} />, url: tasks.url(), badge: props.nav.activeTaskCount },
+        { key: 'reviews', label: 'Reviews', icon: <MessageSquare size={22} />, url: prReviews.url(), badge: null },
+        { key: 'repos', label: 'Repos', icon: <Code2 size={22} />, url: repos.url(), badge: null },
+    ];
+    const items: TabBarItem[] = slots.map((slot) => ({
+        key: slot.url,
+        label: slot.label,
+        icon: slot.icon,
+        href: slot.url,
+        active: isActive(url, slot.url),
+        badge: slot.badge,
+        testId: `mobile-tab-${slot.key}`,
+    }));
 
     items.push({
         key: 'more',

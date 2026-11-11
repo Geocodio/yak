@@ -175,11 +175,6 @@ export default function Devices({ devices, installCommand, loginCommand }: Props
             <Head title="Devices" />
 
             <div className="flex flex-col gap-6">
-                <div>
-                    <h2 className="text-[20px] font-semibold tracking-[-0.01em]">Devices</h2>
-                    <p className="mt-1.5 max-w-[620px] text-[13px] leading-relaxed text-muted">The computers that can teleport threads to and from Yak.</p>
-                </div>
-
                 {revokedName !== null && (
                     <div role="status" className="flex items-start gap-2 rounded-card border border-hair bg-ok-soft px-4 py-3 text-[13px]" data-testid="device-revoked-banner">
                         <Check size={15} className="mt-0.5 shrink-0 text-ok" aria-hidden="true" />

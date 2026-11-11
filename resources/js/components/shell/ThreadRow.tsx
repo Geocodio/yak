@@ -21,19 +21,7 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
     return (
         <div data-testid={`thread-row-${row.id}`}>
             <div className="flex items-start">
-                {hasChildren ? (
-                    <button
-                        type="button"
-                        aria-label={isExpanded ? 'Collapse sub-threads' : 'Expand sub-threads'}
-                        aria-expanded={isExpanded}
-                        onClick={() => setIsExpanded((value) => !value)}
-                        className="mt-2 flex h-5 w-4 shrink-0 items-center justify-center text-faint hover:text-body"
-                    >
-                        <ChevronRight size={12} className={cn('transition-transform', isExpanded && 'rotate-90')} />
-                    </button>
-                ) : (
-                    <span className="w-4 shrink-0" />
-                )}
+                {nested ? <span className="w-4 shrink-0" /> : null}
                 <Link
                     href={show.url(row.id)}
                     aria-current={active ? 'page' : undefined}
@@ -56,11 +44,16 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                                 <Badge tone="accent">Unattended</Badge>
                             </Tooltip>
                         ) : null}
+                        {row.ownerInitials ? (
+                            <span data-testid={`thread-owner-${row.id}`} className="shrink-0 rounded-pill bg-panel-2 px-1.5 text-[10px] text-muted">
+                                {row.ownerInitials}
+                            </span>
+                        ) : null}
                         <span className="tnum shrink-0 text-[11px] text-faint">{formatTime(row.lastActivityAt)}</span>
                     </span>
                     <span className="flex items-center gap-2 pl-4 text-[11.5px]">
                         {row.needsYouLabel ? (
-                            <span className="truncate text-warn">{row.needsYouLabel}</span>
+                            <span className={cn('truncate', row.needsYouReason === 'blocked' ? 'text-fail' : 'text-brand')}>{row.needsYouLabel}</span>
                         ) : row.repo ? (
                             <span className="truncate font-mono">{row.repo}</span>
                         ) : (
@@ -75,6 +68,19 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                         ) : null}
                     </span>
                 </Link>
+                {hasChildren ? (
+                    <button
+                        type="button"
+                        aria-label={isExpanded ? 'Collapse sub-threads' : 'Expand sub-threads'}
+                        aria-expanded={isExpanded}
+                        data-testid={`thread-toggle-${row.id}`}
+                        onClick={() => setIsExpanded((value) => !value)}
+                        className="mt-2 mr-1 flex h-5 shrink-0 items-center gap-0.5 rounded-pill bg-panel-2 px-1.5 text-[11px] text-muted hover:text-body"
+                    >
+                        {row.children.length}
+                        <ChevronRight size={10} className={cn('transition-transform', isExpanded && 'rotate-90')} />
+                    </button>
+                ) : null}
             </div>
             {hasChildren && isExpanded ? (
                 <div className="ml-2 border-l border-hair pl-1" data-testid={`thread-children-${row.id}`}>

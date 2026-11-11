@@ -34,7 +34,7 @@ export function AddKeyDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         >
             <div className="flex flex-col gap-4">
                 <Field label="Name" error={form.errors.name}>
-                    <TextInput autoFocus placeholder="Work laptop" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} data-testid="ssh-key-name" />
+                    <TextInput autoFocus placeholder="Work computer" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} data-testid="ssh-key-name" />
                 </Field>
                 <Field label="Public key" error={form.errors.public_key}>
                     <Textarea rows={3} className="font-mono" placeholder="ssh-ed25519 AAAA..." value={form.data.public_key} onChange={(e) => form.setData('public_key', e.target.value)} data-testid="ssh-key-public" />

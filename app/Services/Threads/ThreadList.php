@@ -27,7 +27,7 @@ use Illuminate\Support\Str;
  *
  * A row is `array{id: int, title: string, repo: string, status: string,
  * needsYouReason: ?string, needsYouLabel: ?string, isPrivate: bool,
- * isUnattended: bool, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
+ * isUnattended: bool, ownerInitials: ?string, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
  * children: list<array<string, mixed>>}`.
  */
 class ThreadList
@@ -68,6 +68,11 @@ class ThreadList
             ->whereIn('thread_id', $all->pluck('id')->all())
             ->pluck('last_seen_at', 'thread_id');
 
+        $owners = User::query()
+            ->whereIn('id', $all->pluck('created_by_user_id')->filter()->unique()->all())
+            ->get(['id', 'name'])
+            ->keyBy('id');
+
         $startOfDay = now()->startOfDay();
         $startOfWeek = now()->startOfWeek();
         $needsYou = [];
@@ -75,8 +80,8 @@ class ThreadList
 
         foreach ($roots as $root) {
             $isPrivate = $root->visibility === ThreadVisibility::Private;
-            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $startOfDay, $startOfWeek, $isPrivate, []))->all());
-            $row = self::row($root, $runs, $seen, $startOfDay, $startOfWeek, $isPrivate, $children);
+            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $owners, $user, $startOfDay, $startOfWeek, $isPrivate, []))->all());
+            $row = self::row($root, $runs, $seen, $owners, $user, $startOfDay, $startOfWeek, $isPrivate, $children);
 
             $needyChildren = array_values(array_filter($children, fn (array $child): bool => $child['needsYouReason'] !== null));
 
@@ -155,10 +160,11 @@ class ThreadList
     /**
      * @param  Collection<int, TaskRun>  $runs
      * @param  Collection<int, mixed>  $seen
+     * @param  Collection<int, User>  $owners
      * @param  list<array<string, mixed>>  $children
      * @return array<string, mixed>
      */
-    private static function row(Thread $thread, Collection $runs, Collection $seen, CarbonInterface $startOfDay, CarbonInterface $startOfWeek, bool $isPrivate, array $children): array
+    private static function row(Thread $thread, Collection $runs, Collection $seen, Collection $owners, User $viewer, CarbonInterface $startOfDay, CarbonInterface $startOfWeek, bool $isPrivate, array $children): array
     {
         $run = $runs->get($thread->getAttribute('latest_run_id'));
         [$reason, $label] = self::needsYou($thread, $run, $seen->get($thread->id));
@@ -172,6 +178,9 @@ class ThreadList
             'needsYouLabel' => $label,
             'isPrivate' => $isPrivate,
             'isUnattended' => $thread->created_by_user_id === null,
+            'ownerInitials' => $thread->created_by_user_id !== null && $thread->created_by_user_id !== $viewer->id
+                ? $owners->get($thread->created_by_user_id)?->initials()
+                : null,
             'lastActivityAt' => $thread->last_activity_at?->toIso8601String(),
             'group' => match (true) {
                 $thread->last_activity_at === null => 'older',
