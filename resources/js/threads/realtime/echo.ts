@@ -2,6 +2,9 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 
 let instance: Echo<'reverb'> | null = null;
+let hasLoggedMissingKey = false;
+
+type EchoEnv = { VITE_REVERB_APP_KEY?: string; DEV?: boolean };
 
 function xsrfToken(): string {
     const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
@@ -9,8 +12,22 @@ function xsrfToken(): string {
     return match ? decodeURIComponent(match[1]) : '';
 }
 
-/** Lazy singleton: one websocket per browser tab, shared by every thread subscription. */
-export function getEcho(): Echo<'reverb'> {
+/**
+ * Lazy singleton: one websocket per browser tab, shared by every thread subscription.
+ * Returns null when no app key is configured; callers fall back to HTTP catch-up polling.
+ */
+export function getEcho(env: EchoEnv = import.meta.env): Echo<'reverb'> | null {
+    const key = env.VITE_REVERB_APP_KEY?.trim();
+
+    if (!key) {
+        if (env.DEV && !hasLoggedMissingKey) {
+            hasLoggedMissingKey = true;
+            console.info('Realtime disabled: VITE_REVERB_APP_KEY is empty; using HTTP catch-up polling.');
+        }
+
+        return null;
+    }
+
     if (instance === null) {
         const isSecure = window.location.protocol === 'https:';
         const port = Number(import.meta.env.VITE_REVERB_PORT) || Number(window.location.port) || (isSecure ? 443 : 80);
@@ -19,7 +36,7 @@ export function getEcho(): Echo<'reverb'> {
 
         instance = new Echo({
             broadcaster: 'reverb',
-            key: import.meta.env.VITE_REVERB_APP_KEY,
+            key,
             wsHost: import.meta.env.VITE_REVERB_HOST || window.location.hostname,
             wsPort: port,
             wssPort: port,

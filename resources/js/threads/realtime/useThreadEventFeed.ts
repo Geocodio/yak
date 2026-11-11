@@ -4,6 +4,7 @@ import { fetchEvent, fetchEventsAfter } from './catchUp';
 import { type ThreadEventFeed } from './feedReducer.ts';
 import { createCatchUpRunner } from './catchUpRunner';
 import { getEcho } from './echo';
+import { pollWhileVisible } from './pollWhileVisible';
 import { initialFeed, reduceFeed } from './feedReducer.ts';
 import { findGap, initialEventState } from './reducer';
 
@@ -60,6 +61,17 @@ export function useThreadEventFeed(threadId: number): ThreadEventFeed {
         };
 
         const echo = getEcho();
+
+        if (echo === null) {
+            void runner.request();
+            const stopPolling = pollWhileVisible(() => void runner.request());
+
+            return () => {
+                isActive = false;
+                stopPolling();
+            };
+        }
+
         const connection = echo.connector.pusher.connection;
         let wasDisconnected = false;
 
