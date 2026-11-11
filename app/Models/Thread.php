@@ -11,8 +11,12 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadSessionKind;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
+use App\Models\Scopes\VisibleThreadScope;
+use App\Services\Threads\ThreadAccess;
 use Carbon\CarbonImmutable;
 use Database\Factories\ThreadFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,6 +35,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadStatus $status
  * @property ThreadVisibility $visibility
  * @property ThreadKind $kind
+ * @property string|null $branch
  * @property int|null $owner_user_id
  * @property int|null $parent_thread_id
  * @property int|null $root_thread_id
@@ -47,6 +52,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonImmutable|null $last_activity_at
  * @property CarbonImmutable|null $closed_at
  */
+#[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
 {
     /** @use HasFactory<ThreadFactory> */
@@ -92,6 +98,17 @@ class Thread extends Model
     }
 
     /**
+     * Keeps the threads the user may see; see ThreadAccess.
+     *
+     * @param  Builder<covariant Thread>  $query
+     * @return Builder<covariant Thread>
+     */
+    public function scopeVisibleTo(Builder $query, ?User $user): Builder
+    {
+        return app(ThreadAccess::class)->scopeVisibleTo($query, $user);
+    }
+
+    /**
      * @return HasMany<YakTask, $this>
      */
     public function tasks(): HasMany
@@ -122,7 +139,8 @@ class Thread extends Model
      */
     public function root(): BelongsTo
     {
-        return $this->belongsTo(self::class, 'root_thread_id');
+        // Unscoped: access decisions must see a root the viewer cannot.
+        return $this->belongsTo(self::class, 'root_thread_id')->withoutGlobalScopes();
     }
 
     /**

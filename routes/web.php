@@ -229,6 +229,23 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
+
+    // Each next-gen track adds its routes in its own file here.
+    foreach (glob(__DIR__ . '/next-gen/*.php') ?: [] as $nextGenRoutes) {
+        require $nextGenRoutes;
+    }
+});
+
+// Next-gen routes that need no session (signed or token-authenticated).
+foreach (glob(__DIR__ . '/next-gen-public/*.php') ?: [] as $nextGenPublicRoutes) {
+    require $nextGenPublicRoutes;
+}
+
+// Next-gen host-only endpoints, served to the ingress and the broker only.
+Route::middleware(['restrict-to-ingress'])->group(function (): void {
+    foreach (glob(__DIR__ . '/next-gen-internal/*.php') ?: [] as $nextGenInternalRoutes) {
+        require $nextGenInternalRoutes;
+    }
 });
 
 Route::get('artifacts/public/{token}', [ArtifactController::class, 'publicImage'])

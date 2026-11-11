@@ -10,10 +10,12 @@ use App\Jobs\FlushSteeringMessagesJob;
 use App\Jobs\ReRequestReviewJob;
 use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Models\Concerns\HasClarificationRounds;
+use App\Models\Scopes\VisibleTaskScope;
 use App\Services\TaskDescriptionSummary;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\YakTaskFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -59,6 +61,7 @@ use Illuminate\Support\Str;
  * @property string|null $slack_follow_up_user_id
  * @property CarbonImmutable|null $clarification_reminder_at
  */
+#[ScopedBy(VisibleTaskScope::class)]
 class YakTask extends Model
 {
     /** @use HasFactory<YakTaskFactory> */
