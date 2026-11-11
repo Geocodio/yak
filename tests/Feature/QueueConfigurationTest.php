@@ -263,9 +263,6 @@ test('every supervisord program that runs artisan runs as www-data', function ()
 
     expect($artisanPrograms)->not->toBeEmpty();
 
-    // The credential socket program chowns its socket to the broker uid, which needs root.
-    unset($artisanPrograms['yak-credential-socket']);
-
     foreach ($artisanPrograms as $name => $directives) {
         expect($directives['user'] ?? null)->toBe('www-data', "[program:{$name}] must declare user=www-data");
     }
