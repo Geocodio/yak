@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { analytics, channels, costs, deployments, health, logout, mcp, observations, prReviews, prompts, repos, skills, system, tasks } from '@/routes';
+import { newMethod as newThread } from '@/routes/threads';
 import { edit as profileEdit } from '@/routes/profile';
 import { ShellSidebar } from '@/components/shell/ShellSidebar';
 import type { SharedProps } from '@/types/shared';
@@ -56,8 +57,7 @@ export const SECONDARY_NAV_ITEMS: NavItem[] = [{ label: 'Channels', icon: Inbox,
 export const SETTINGS_ITEM: NavItem = { label: 'Settings', icon: SettingsIcon, url: profileEdit.url() };
 
 export function openNewTask(): void {
-    router.visit(tasks.url({ query: { new: 1 } }));
-    window.dispatchEvent(new CustomEvent('yak:new-task'));
+    router.visit(newThread.url());
 }
 
 export function openPalette(): void {

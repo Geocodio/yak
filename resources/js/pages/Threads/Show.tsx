@@ -1,6 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
 import { useState, type ReactNode } from 'react';
+import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
+import { Conversation } from '@/components/threads/conversation/Conversation';
 import { AppLayout } from '@/layouts/AppLayout';
 import { sidebarPanelsFor } from '@/threads/panels';
 import '@/threads/panels/index';
@@ -9,7 +11,7 @@ import type { ThreadPageData } from '@/types/threads';
 
 type Props = PageProps<ThreadPageData>;
 
-export default function Show({ thread, canDrive }: Props) {
+export default function Show({ thread, canDrive, messages, notice, composer }: Props) {
     const panels = sidebarPanelsFor(thread);
     const [activeId, setActiveId] = useState<string | null>(null);
     const active = panels.find((panel) => panel.id === activeId) ?? panels[0] ?? null;
@@ -25,8 +27,8 @@ export default function Show({ thread, canDrive }: Props) {
 
             <div className="flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col" data-testid="thread-conversation">
-                    {/* The conversation, composer and notices (W2-THREADPAGE) mount here. */}
-                    <div className="min-h-0 flex-1 overflow-auto" />
+                    <Conversation threadId={thread.id} messages={messages} notice={notice} readonly={composer.state === 'readonly'} />
+                    <ThreadComposer thread={thread} composer={composer} />
                 </div>
 
                 {panels.length > 0 && active !== null && (
