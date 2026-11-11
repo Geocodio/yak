@@ -45,7 +45,7 @@ function queueRepoAnswers(SandboxManager $sandboxes, string $files, string $ahea
     }
 }
 
-function execCommands(SandboxManager $sandboxes): Collection
+function sandboxExecCommands(SandboxManager $sandboxes): Collection
 {
     return collect($sandboxes->calls)->where('operation', 'exec')->map(fn ($call) => implode(' ', $call['arguments']['command']));
 }
@@ -58,7 +58,7 @@ it('pushes only changes repos that have commits and assigns a branch', function 
 
     app(ThreadRepositoryPullRequests::class)->publishChangedRepositories($thread);
 
-    $commands = execCommands($sandboxes);
+    $commands = sandboxExecCommands($sandboxes);
     expect($web->refresh()->branch)->toBe('yak/rename-web')->and($web->ci_status)->toBe('running')
         ->and($commands->first(fn ($command) => str_contains($command, ' add ')))->toContain('src/Widget.php')->not->toContain('.env')
         ->and($commands->first(fn ($command) => str_contains($command, ' push ')))->toContain('-C /workspace/web push origin HEAD:refs/heads/yak/rename-web')
@@ -74,7 +74,7 @@ it('gives a changes repo without commits no push and no state', function () {
 
     app(ThreadRepositoryPullRequests::class)->publishChangedRepositories($thread);
 
-    expect(execCommands($sandboxes)->filter(fn ($command) => str_contains($command, ' push ')))->toBeEmpty()
+    expect(sandboxExecCommands($sandboxes)->filter(fn ($command) => str_contains($command, ' push ')))->toBeEmpty()
         ->and($web->refresh()->branch)->toBeNull()->and($web->ci_status)->toBeNull();
 });
 

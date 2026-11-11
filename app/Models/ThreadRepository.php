@@ -105,7 +105,17 @@ class ThreadRepository extends Model
 
     public function hasOpenPullRequest(): bool
     {
-        return $this->pull_request_state === 'open';
+        if ($this->pull_request_state !== null) {
+            return $this->pull_request_state === 'open';
+        }
+
+        if ($this->pull_request_url === null) {
+            return false;
+        }
+
+        $task = YakTask::query()->where('pr_url', $this->pull_request_url)->first();
+
+        return $task === null || $task->prState() === 'open';
     }
 
     public function hasEnded(): bool

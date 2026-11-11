@@ -25,7 +25,7 @@ beforeEach(function () {
     ThreadRepository::factory()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/app']);
 });
 
-function fakeGitHub(array $reachable = ['acme/docs']): void
+function fakeReachableRepositories(array $reachable = ['acme/docs']): void
 {
     $fakes = [
         'api.github.com/app/installations/42/access_tokens' => fn (Request $request) => Http::response([
@@ -68,7 +68,7 @@ function repositoryCards(Thread $thread): array
 
 it('adds a changes repository and returns its path', function () {
     Repository::factory()->create(['slug' => 'acme/docs']);
-    fakeGitHub();
+    fakeReachableRepositories();
     queueSetup();
 
     $result = app(YakToolRouter::class)->handle($this->thread, addRepositoryCall(['repo' => 'acme/docs', 'reason' => 'Needs the docs']));
@@ -84,7 +84,7 @@ it('adds a changes repository and returns its path', function () {
 
 it('stores the context role', function () {
     Repository::factory()->create(['slug' => 'acme/docs']);
-    fakeGitHub();
+    fakeReachableRepositories();
     queueSetup();
 
     app(YakToolRouter::class)->handle($this->thread, addRepositoryCall(['repo' => 'acme/docs', 'role' => 'context']));
@@ -103,7 +103,7 @@ it('rejects the primary role and unknown roles', function () {
 
 it('creates no row and reports no access for an unreachable repository', function () {
     Repository::factory()->create(['slug' => 'acme/docs']);
-    fakeGitHub([]);
+    fakeReachableRepositories([]);
 
     $result = app(YakToolRouter::class)->handle($this->thread, addRepositoryCall(['repo' => 'acme/docs']));
 
@@ -117,7 +117,7 @@ it('creates no row and reports no access for an unreachable repository', functio
 
 it('keeps a repository whose setup failed and tells Claude to stop and ask', function () {
     Repository::factory()->create(['slug' => 'acme/docs']);
-    fakeGitHub();
+    fakeReachableRepositories();
     queueSetup('fatal: repository not found', 128);
 
     $result = app(YakToolRouter::class)->handle($this->thread, addRepositoryCall(['repo' => 'acme/docs']));
@@ -149,7 +149,7 @@ it('passes other tools to the inner router', function () {
 
 it('mints scoped tokens that include the new repository', function () {
     Repository::factory()->create(['slug' => 'acme/docs']);
-    fakeGitHub();
+    fakeReachableRepositories();
     queueSetup();
 
     app(YakToolRouter::class)->handle($this->thread, addRepositoryCall(['repo' => 'acme/docs']));

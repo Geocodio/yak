@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 
-const MULTI_SESSION = 'e4e4e4e4-0000-4000-8000-000000000015';
+const PREPARE_DOWN_MULTI_SESSION = 'e4e4e4e4-0000-4000-8000-000000000015';
 
 /**
  * A fake sandbox where every checkout is dirty and one folder can refuse pushes or heads.
@@ -59,7 +59,7 @@ beforeEach(function () {
     ThreadRepository::factory()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/widgets', 'branch' => 'yak/fix-it']);
     ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/api', 'sandbox_path' => '/extras/api', 'branch' => 'yak/fix-it']);
     ThreadRepository::factory()->role(RepositoryRole::Context)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs', 'branch' => null]);
-    ThreadSession::factory()->create(['thread_id' => $this->thread->id, 'session_id' => MULTI_SESSION]);
+    ThreadSession::factory()->create(['thread_id' => $this->thread->id, 'session_id' => PREPARE_DOWN_MULTI_SESSION]);
 
     $this->heads = Mockery::mock(BranchHeadVerifier::class);
     $this->heads->shouldReceive('headOf')->andReturnUsing(fn (string $repo): string => $this->pushedHeads[$repo] ?? 'unknown')->byDefault();
@@ -77,7 +77,7 @@ beforeEach(function () {
     app()->instance(ThreadSandbox::class, $sandbox);
 
     $chunk = "{\"type\":\"user\"}\n";
-    app(SessionStore::class)->append($this->thread, MULTI_SESSION, MULTI_SESSION . '.jsonl', 0, $chunk, hash('sha256', $chunk), hash('sha256', ''));
+    app(SessionStore::class)->append($this->thread, PREPARE_DOWN_MULTI_SESSION, PREPARE_DOWN_MULTI_SESSION . '.jsonl', 0, $chunk, hash('sha256', $chunk), hash('sha256', ''));
 
     $this->run = function (): Teleport {
         $teleport = Teleport::factory()->down()->inState(TeleportState::Preparing)->create([
