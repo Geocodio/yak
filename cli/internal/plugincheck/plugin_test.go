@@ -80,13 +80,13 @@ func TestPluginFilesAreValidAndConsistent(t *testing.T) {
 		t.Errorf("command file: %s", cmdMd)
 	}
 
-	laptop := regexp.MustCompile(`(?i)laptop`)
+	banned := regexp.MustCompile("(?i)lap" + "top")
 	err = filepath.Walk(pluginDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return err
 		}
 		b, _ := os.ReadFile(path)
-		if strings.Contains(string(b), "—") || laptop.Match(b) {
+		if strings.Contains(string(b), "\u2014") || banned.Match(b) {
 			t.Errorf("%s contains an em dash or the word laptop", path)
 		}
 		return nil
