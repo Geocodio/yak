@@ -117,9 +117,7 @@ namespace App\Services\Threads {
         {
             public function check(TaskRun $run, CarbonImmutable $now, int $assistantTurns): ?string
             {
-                $startedAt = $run->started_at;
-
-                return $startedAt !== null && $startedAt->addMinutes((int) config('yak.threads.turn_wall_clock_minutes'))->lessThan($now)
+                return $run->started_at->addMinutes((int) config('yak.threads.turn_wall_clock_minutes'))->lessThan($now)
                     ? 'wall_clock'
                     : null;
             }
