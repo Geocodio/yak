@@ -13,8 +13,6 @@ use Illuminate\Support\Facades\DB;
  * Hides the tasks of other people's private threads from a signed-in user.
  * Tasks outside any thread are always visible. Jobs and commands, which have
  * no signed-in user, see everything.
- *
- * @implements Scope<YakTask>
  */
 class VisibleTaskScope implements Scope
 {
