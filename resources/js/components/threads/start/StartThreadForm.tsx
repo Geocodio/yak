@@ -8,6 +8,8 @@ import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft'
 import { repoInitials } from './repoInitials';
 import { RunsOnStrip } from './RunsOnStrip';
 import { StartHints } from './StartHints';
+import { StartErrorBanner } from './StartErrorBanner';
+import { BrokenDefaultNote, NoOwnAccountNote, resolveAccountNote } from './accountNotes';
 import { RepositoryPicker } from './RepositoryPicker';
 import { RepositoryProgress } from './RepositoryProgress';
 import { YAK_MARK } from '@/lib/brand';
@@ -49,6 +51,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
     const noAccounts = picker.accounts.every((account) => account.usable === false);
     const noRepos = repos.length === 0;
     const defaults = picker.defaultsByRepo[form.data.repo];
+    const accountNote = resolveAccountNote(picker.accounts, defaults?.brokenDefaultAccountId ?? null);
     const defaultAccount = picker.accounts.find((account) => account.id === defaults?.accountId);
     const chosenAccount = picker.accounts.find((account) => String(account.id) === form.data.claude_account_id);
     const effectiveModel = form.data.model ?? chosenAccount?.defaultModel ?? defaults?.model ?? null;
@@ -182,7 +185,15 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                     accountsHelpUrl={`${docs.baseUrl.replace(/\/$/, '')}/claude-accounts/`}
                     defaultLabel={defaultAccount ? `${defaultAccount.name} (default)` : 'Default account'}
                     defaultAccount={defaultAccount}
+                    note={
+                        accountNote.kind === 'own-missing' ? (
+                            <NoOwnAccountNote sharedName={accountNote.sharedName ?? ''} accountsUrl={claudeAccounts.url()} />
+                        ) : accountNote.kind === 'repo-default-broken' ? (
+                            <BrokenDefaultNote brokenName={accountNote.brokenName ?? ''} fallbackName={accountNote.fallbackName ?? ''} accountsUrl={claudeAccounts.url()} />
+                        ) : undefined
+                    }
                 />
+                {error && <StartErrorBanner message={error} />}
                 <StartHints isResearch={isResearch} />
             </div>
 
@@ -226,11 +237,6 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
             {noRepos && (
                 <p className="mt-3 text-[12.5px] text-muted" data-testid="start-thread-no-repos">
                     No repository is set up yet. Add one under Repositories first.
-                </p>
-            )}
-            {error && (
-                <p className="mt-3 text-[12.5px] text-fail" role="alert" data-testid="start-thread-error">
-                    {error}
                 </p>
             )}
         </div>
