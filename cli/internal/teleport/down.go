@@ -472,12 +472,24 @@ func applyRepos(ctx context.Context, d Deps, repo gitx.Repo, top, mode string, m
 	d.say("Applied %s at %s (%s)", primary.Branch, shortSHA(primary.HeadSHA), strings.ReplaceAll(res.Mode, "_", "-"))
 	applied := []AppliedRepo{{Repo: primary.Repo, Status: "applied", Mode: res.Mode, HeadSHA: primary.HeadSHA, Branch: res.Branch, Path: res.Path}}
 	extrasRoot, _ := downFolders(top, m.Thread.Slug)
+	_, rootExisted := os.Lstat(extrasRoot)
 	for _, extra := range m.Repos {
-		if extra.Role == "primary" {
-			continue
+		switch {
+		case extra.Role == "primary":
+		case extra.Status == "failed":
+			reason := "Yak could not push it"
+			if extra.Failure != nil && extra.Failure.Message != "" {
+				reason += ": " + strings.TrimRight(extra.Failure.Message, ".")
+			}
+			applied = append(applied, AppliedRepo{Repo: extra.Repo, Status: "skipped", Reason: reason})
+		default:
+			applied = append(applied, cloneExtra(d, extrasRoot, extra))
 		}
-		applied = append(applied, cloneExtra(d, extrasRoot, extra))
 	}
+	if rootExisted != nil {
+		_ = os.Remove(extrasRoot)
+	}
+	printAppliedSummary(d, applied)
 	return applied, res.Path, nil
 }
 
@@ -514,6 +526,22 @@ func printDownPlan(d Deps, m api.DownManifest, mode, top string) {
 
 func repoName(slug string) string { return slug[strings.LastIndex(slug, "/")+1:] }
 
+// printAppliedSummary names the repos that landed here and, with the reason, the ones that did not.
+func printAppliedSummary(d Deps, applied []AppliedRepo) {
+	var landed []string
+	for _, a := range applied {
+		if a.Status == "applied" {
+			landed = append(landed, a.Repo)
+		}
+	}
+	d.say("Applied: %s", strings.Join(landed, ", "))
+	for _, a := range applied {
+		if a.Status != "applied" {
+			d.say("Not applied: %s (%s)", a.Repo, a.Reason)
+		}
+	}
+}
+
 func shortSHA(sha string) string {
 	if len(sha) > 7 {
 		return sha[:7]
@@ -524,8 +552,7 @@ func shortSHA(sha string) string {
 // cloneExtra clones a secondary repo without checking anything out, runs the same clash check, then checks out
 // the thread's commit. A failure is reported for that repo and never blocks the primary.
 func cloneExtra(d Deps, root string, extra api.ManifestRepo) AppliedRepo {
-	name := extra.Repo[strings.LastIndex(extra.Repo, "/")+1:]
-	path := filepath.Join(root, name)
+	path := filepath.Join(root, repoName(extra.Repo))
 	failed := func(reason string) AppliedRepo {
 		return AppliedRepo{Repo: extra.Repo, Status: "failed", Mode: "clone", Reason: reason}
 	}
@@ -537,14 +564,18 @@ func cloneExtra(d Deps, root string, extra api.ManifestRepo) AppliedRepo {
 	}
 	if _, err := (gitx.Repo{Dir: root}).Run("clone", "--quiet", "--no-checkout", extra.CloneURL, path); err != nil {
 		os.RemoveAll(path)
-		return failed("clone failed")
+		return failed(cloneFailureReason(extra.Repo, err))
 	}
 	clone := gitx.Repo{Dir: path}
 	if extra.HeadSHA != "" {
 		report, err := clash.Check(clone, extra.HeadSHA)
-		if err != nil || !report.Empty() {
+		if err != nil {
 			os.RemoveAll(path)
-			return failed("the repo has files this computer cannot hold")
+			return failed("the repo could not be checked for files this computer cannot hold")
+		}
+		if !report.Empty() {
+			os.RemoveAll(path)
+			return failed("these paths clash: " + strings.Join(clashPaths(report), ", "))
 		}
 		if _, err := clone.Run("checkout", "--quiet", "-B", extra.Branch, extra.HeadSHA); err != nil {
 			os.RemoveAll(path)
@@ -556,6 +587,17 @@ func cloneExtra(d Deps, root string, extra api.ManifestRepo) AppliedRepo {
 	}
 	d.say("Cloned %s to %s", extra.Repo, path)
 	return AppliedRepo{Repo: extra.Repo, Status: "applied", Mode: "clone", HeadSHA: extra.HeadSHA, Branch: extra.Branch, Path: path}
+}
+
+// cloneFailureReason keeps the repo name and drops git's text, which can carry the clone URL.
+func cloneFailureReason(slug string, err error) string {
+	text := err.Error()
+	for _, marker := range []string{"Authentication failed", "403", "not found", "does not exist", "Could not read"} {
+		if strings.Contains(text, marker) {
+			return "clone denied for " + slug
+		}
+	}
+	return "clone failed for " + slug
 }
 
 func writeNote(d Deps, m api.DownManifest, applied []AppliedRepo, resumeDir, projectDir, tip string) {
