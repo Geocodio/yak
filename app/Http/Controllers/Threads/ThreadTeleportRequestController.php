@@ -8,6 +8,7 @@ use App\Http\Requests\Threads\TeleportRequestRequest;
 use App\Models\Device;
 use App\Models\Thread;
 use App\Services\Teleport\Teleports;
+use App\Services\Threads\ThreadPublishGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 
@@ -22,6 +23,9 @@ class ThreadTeleportRequestController extends Controller
         $this->authorizeDrive($thread);
 
         abort_unless($thread->owner_side === ThreadOwnerSide::Yak && $thread->openTeleport() === null, 409, 'This thread is already moving or on a computer.');
+
+        // Teleporting down pushes the branch to GitHub through WipPreserver.
+        ThreadPublishGuard::assertAcknowledged($thread, $request->acknowledgedPrivatePublish());
 
         $thread->forceFill([
             'waiting_for_computer_at' => now(),

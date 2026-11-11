@@ -1,8 +1,10 @@
 import { Button, TextInput, cn } from '@geocodio/console-ui';
+import { usePage } from '@inertiajs/react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PanelProps } from '@/threads/panels';
 import { DiffViewer } from './DiffViewer';
+import { OpenPullRequestButton } from './OpenPullRequestButton';
 import { FileTree } from './FileTree';
 import { buildFileTree } from './buildFileTree';
 import { useThreadDiff } from './useThreadDiff';
@@ -28,7 +30,8 @@ function writeViewed(key: string, viewed: Set<string>): void {
     }
 }
 
-export function ChangesPanel({ thread }: PanelProps) {
+export function ChangesPanel({ thread, canDrive }: PanelProps) {
+    const { publishWarning } = usePage<{ publishWarning: boolean } & Record<string, unknown>>().props;
     const { diff, isLoading, error } = useThreadDiff(thread);
     const [filter, setFilter] = useState('');
     const [openPath, setOpenPath] = useState<string | null>(null);
@@ -111,9 +114,12 @@ export function ChangesPanel({ thread }: PanelProps) {
                     <span className="font-medium">{diff.filesCount} {diff.filesCount === 1 ? 'file' : 'files'} changed</span>{' '}
                     <span className="text-ok">+{diff.additions}</span> <span className="text-fail">-{diff.deletions}</span>
                 </p>
-                <button type="button" onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? 'Shrink to sidebar width' : 'Expand to full width'} className="cursor-pointer text-muted hover:text-body">
-                    {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                </button>
+                <div className="flex items-center gap-2">
+                    {canDrive && <OpenPullRequestButton thread={thread} publishWarning={publishWarning} />}
+                    <button type="button" onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? 'Shrink to sidebar width' : 'Expand to full width'} className="cursor-pointer text-muted hover:text-body">
+                        {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                    </button>
+                </div>
             </div>
 
             {diff.isTurnRunning && (
