@@ -103,21 +103,24 @@ it('does not complete before background work reports done', function (string $fi
 
     // The entries already applied are dropped by the cursor; the rest finish the turn.
     replayFixtureThroughConsumer($thread, $fixture);
+    $this->travel(60)->seconds();
+    app(ThreadDriver::class)->tick();
 
     expect($run->refresh()->turn_state)->toBe(TurnState::Completed);
     Event::assertDispatchedTimes(TurnCompleted::class, 1);
-})->with(['background-bash-task', 'background-subagent', 'background-bash-wake-result'])
-    ->skip('needs the real W1-TURNS tracker');
+})->with(['background-bash-task', 'background-subagent', 'background-bash-wake-result']);
 
 it('steers inside the grace window without a second completion', function () {
     Event::fake([TurnCompleted::class]);
     [$thread, $run] = fixtureTurn();
 
     replayFixtureThroughConsumer($thread, 'steer-in-grace-window');
+    $this->travel(60)->seconds();
+    app(ThreadDriver::class)->tick();
 
     Event::assertDispatchedTimes(TurnCompleted::class, 1);
     expect($run->refresh()->turn_state)->toBe(TurnState::Completed);
-})->skip('needs the real W1-TURNS tracker');
+});
 
 it('applies every fixture twice without a second log line or event', function (string $fixture) {
     Event::fake([TurnCompleted::class, TurnFailed::class]);
