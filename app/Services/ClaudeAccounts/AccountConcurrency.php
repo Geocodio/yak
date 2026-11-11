@@ -24,12 +24,7 @@ class AccountConcurrency
                 return true;
             }
 
-            $held = TaskRun::query()
-                ->where('claude_account_id', $locked->id)
-                ->whereNotNull('account_slot_held_at')
-                ->count();
-
-            if ($held < $locked->max_concurrent_turns) {
+            if ($this->heldCount($locked) < $locked->max_concurrent_turns) {
                 $run->forceFill(['account_slot_held_at' => now(), 'claude_account_id' => $locked->id])->save();
 
                 return true;
@@ -39,6 +34,14 @@ class AccountConcurrency
 
             return false;
         });
+    }
+
+    public function heldCount(ClaudeAccount $account): int
+    {
+        return TaskRun::query()
+            ->where('claude_account_id', $account->id)
+            ->whereNotNull('account_slot_held_at')
+            ->count();
     }
 
     public function release(ClaudeAccount $account, TaskRun $run): void

@@ -159,3 +159,49 @@ it('reads the usage limit reset time from the run', function () {
 
     expect(ThreadNoticeData::for($thread)['resetsAt'])->toBe('2026-11-11T16:30:00+00:00');
 });
+
+it('reports the queue position and turn counts for a thread waiting for its account', function () {
+    $account = ClaudeAccount::factory()->create(['name' => 'Work', 'max_concurrent_turns' => 2]);
+    TaskRun::factory()->count(2)->create(['claude_account_id' => $account->id, 'account_slot_held_at' => now()]);
+
+    $first = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForAccount, 'claude_account_id' => $account->id]);
+    $second = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForAccount, 'claude_account_id' => $account->id]);
+    foreach ([$first, $second] as $thread) {
+        $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+        TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'claude_account_id' => $account->id, 'turn_state' => TurnState::WaitingForAccount]);
+    }
+
+    expect(ThreadNoticeData::for($first)['waiting'])->toMatchArray(['position' => 1, 'turnsRunning' => 2, 'turnsLimit' => 2, 'accountName' => 'Work', 'slots' => []])
+        ->and(ThreadNoticeData::for($second)['waiting']['position'])->toBe(2);
+});
+
+it('lists the awake sandboxes for a thread waiting for a sandbox', function () {
+    config(['yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 4]);
+    $viewer = User::factory()->create();
+    Thread::factory()->count(6)->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => null])->each(fn (Thread $thread) => $thread->update(['sandbox_container' => 'c-' . $thread->id]));
+    Thread::factory()->paused()->create(['owner_user_id' => $viewer->id, 'last_activity_at' => now()->subMinutes(40)]);
+    Thread::factory()->paused()->create(['last_activity_at' => now()->subMinutes(5)]);
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now(), 'owner_user_id' => $viewer->id]);
+
+    $waiting = ThreadNoticeData::for($thread, $viewer)['waiting'];
+
+    expect($waiting['slots'])->toHaveCount(8)
+        ->and(collect($waiting['slots'])->where('state', 'paused')->pluck('idleMinutes')->sort()->values()->all())->toBe([5, 40])
+        ->and(collect($waiting['slots'])->where('isMine', true))->toHaveCount(1)
+        ->and($waiting['position'])->toBe(1)
+        ->and($waiting['ownSlotsCap'])->toBeNull();
+});
+
+it('offers the viewer a paused sandbox to stop when their own share is full', function () {
+    config(['yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 1]);
+    $viewer = User::factory()->create();
+    $paused = Thread::factory()->paused()->create(['owner_user_id' => $viewer->id, 'last_activity_at' => now()->subHour()]);
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now(), 'owner_user_id' => $viewer->id]);
+
+    expect(ThreadNoticeData::for($thread, $viewer)['waiting'])->toMatchArray(['ownSlotsUsed' => 1, 'ownSlotsCap' => 1, 'stoppableThreadId' => $paused->id])
+        ->and(ThreadNoticeData::for($thread, User::factory()->create())['waiting']['stoppableThreadId'])->toBeNull();
+});
+
+it('has no waiting props for other notices', function () {
+    expect(ThreadNoticeData::for(Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]))['waiting'])->toBeNull();
+});

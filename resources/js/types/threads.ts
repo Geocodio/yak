@@ -104,6 +104,7 @@ export type ThreadPageData = {
     messages: ThreadMessage[];
     composer: ThreadComposer;
     notice: ThreadNotice | null;
+    capacity: ThreadCapacity | null;
     stackParent: { id: number; name: string; title: string } | null;
 };
 
@@ -142,6 +143,23 @@ export type ThreadNoticeKind =
     | 'guard_time'
     | 'restoring';
 
+export type ThreadWaiting = {
+    position: number | null;
+    turnsRunning: number;
+    turnsLimit: number;
+    accountName: string;
+    slots: { state: 'running' | 'paused'; idleMinutes: number | null; isMine: boolean; isThis: boolean }[];
+    ownSlotsUsed: number | null;
+    ownSlotsCap: number | null;
+    stoppableThreadId: number | null;
+};
+
+export type ThreadCapacity = {
+    turns: { used: number; limit: number };
+    sandboxes: { used: number; limit: number };
+    share: { used: number; limit: number };
+};
+
 export type ThreadNotice = {
     kind: ThreadNoticeKind;
     title: string;
@@ -149,6 +167,7 @@ export type ThreadNotice = {
     resetsAt: string | null;
     isOwnerOfAccount: boolean;
     canContinue: boolean;
+    waiting: ThreadWaiting | null;
     restoreSteps: {
         key: string;
         label: string;
