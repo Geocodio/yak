@@ -19,8 +19,6 @@ class RepositoryWip
 {
     private const SUBJECT = 'WIP: teleport to local machine';
 
-    private const YAK_TRAILER = 'Co-authored-by: Yak <yak@geocod.io>';
-
     public function __construct(private readonly SandboxManager $sandboxes) {}
 
     /**
@@ -44,7 +42,7 @@ class RepositoryWip
             $hasUnstaged = $this->unstageLocalLinks($thread, $repository);
 
             if (! $hasUnstaged || $this->git($thread, $repository, ['diff', '--cached', '--quiet'])->failed()) {
-                $this->mustGit($thread, $repository, [...$this->identityArguments($thread), 'commit', '-m', self::SUBJECT . "\n\n" . self::YAK_TRAILER], 'commit');
+                $this->mustGit($thread, $repository, [...$this->identityArguments($thread), 'commit', '-m', self::SUBJECT . "\n\n" . $this->trailer()], 'commit');
             }
         }
 
@@ -115,5 +113,10 @@ class RepositoryWip
         $email = $thread->git_author_email ?: config('yak.git_user_email');
 
         return ['-c', "user.name={$name}", '-c', "user.email={$email}"];
+    }
+
+    private function trailer(): string
+    {
+        return 'Co-authored-by: Yak <' . config('yak.git_user_email') . '>';
     }
 }
