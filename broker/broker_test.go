@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -18,6 +17,8 @@ type harness struct {
 	redis   *redis.Client
 	spawner *fakeSpawner
 	revoker PlaceholderRevoker
+	options []Option
+	logs    *lockedBuffer
 }
 
 func newHarness(t *testing.T, prepare ...func(*harness)) *harness {
@@ -26,12 +27,13 @@ func newHarness(t *testing.T, prepare ...func(*harness)) *harness {
 	h := &harness{
 		redis:   redis.NewClient(&redis.Options{Addr: server.Addr()}),
 		spawner: &fakeSpawner{},
+		logs:    &lockedBuffer{},
 	}
 	for _, fn := range prepare {
 		fn(h)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	broker := New(h.redis, h.spawner, h.revoker, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	broker := New(h.redis, h.spawner, h.revoker, slog.New(slog.NewTextHandler(h.logs, nil)), h.options...)
 	done := make(chan struct{})
 	go func() { _ = broker.Run(ctx); close(done) }()
 	t.Cleanup(func() {

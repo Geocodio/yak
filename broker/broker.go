@@ -29,13 +29,15 @@ type command struct {
 	UID       int             `json:"uid"`
 	Cwd       string          `json:"cwd"`
 	Start     json.RawMessage `json:"start"`
-	UUID      string          `json:"uuid"`
-	Text      string          `json:"text"`
-	Priority  string          `json:"priority"`
-	Model     string          `json:"model"`
-	CallID    string          `json:"call_id"`
-	IsError   bool            `json:"is_error"`
-	Content   string          `json:"content"`
+	// CredentialsPath is the host path of the mounted .credentials.json to check before starting.
+	CredentialsPath string `json:"credentials_path"`
+	UUID            string `json:"uuid"`
+	Text            string `json:"text"`
+	Priority        string `json:"priority"`
+	Model           string `json:"model"`
+	CallID          string `json:"call_id"`
+	IsError         bool   `json:"is_error"`
+	Content         string `json:"content"`
 }
 
 type userMessage struct {
@@ -72,18 +74,41 @@ type Broker struct {
 	logger   *slog.Logger
 	consumer string
 
+	exposure ExposureChecker
+
 	mu       sync.Mutex
 	channels map[string]*channelState
 	wg       sync.WaitGroup
+	capMu    sync.Mutex
+	cap      *restartCap
+}
+
+// Option customizes a Broker.
+type Option func(*Broker)
+
+// WithExposureChecker sets the credential exposure check run before every runner start.
+func WithExposureChecker(checker ExposureChecker) Option {
+	return func(b *Broker) { b.exposure = checker }
+}
+
+// WithRestartCap sets the runner restart cap per channel.
+func WithRestartCap(limit int, window time.Duration, now func() time.Time) Option {
+	return func(b *Broker) {
+		b.cap.limit, b.cap.window, b.cap.now = limit, window, now
+	}
 }
 
 // New builds a broker. A nil revoker revokes nothing.
-func New(client *redis.Client, spawner Spawner, revoker PlaceholderRevoker, logger *slog.Logger) *Broker {
+func New(client *redis.Client, spawner Spawner, revoker PlaceholderRevoker, logger *slog.Logger, options ...Option) *Broker {
 	if revoker == nil {
 		revoker = noopRevoker{}
 	}
 	hostname, _ := os.Hostname()
-	return &Broker{redis: client, spawner: spawner, revoker: revoker, logger: logger, consumer: hostname, channels: map[string]*channelState{}}
+	b := &Broker{redis: client, spawner: spawner, revoker: revoker, logger: logger, consumer: hostname, channels: map[string]*channelState{}, cap: newRestartCap()}
+	for _, option := range options {
+		option(b)
+	}
+	return b
 }
 
 // Run serves until the context ends, then kills every runner (their pipes
@@ -247,6 +272,9 @@ func (b *Broker) forget(ctx context.Context, state *channelState) {
 	b.mu.Lock()
 	delete(b.channels, state.name)
 	b.mu.Unlock()
+	b.capMu.Lock()
+	delete(b.cap.starts, state.name)
+	b.capMu.Unlock()
 
 	for deadline := time.Now().Add(forgetWait); time.Now().Before(deadline) && ctx.Err() == nil; time.Sleep(50 * time.Millisecond) {
 		state.mu.Lock()
@@ -278,7 +306,32 @@ func (b *Broker) handle(ctx context.Context, state *channelState, message redis.
 	b.finish(ctx, state, message.ID)
 }
 
+// refuseStart counts the refused start as a generation and reports why.
+func (b *Broker) refuseStart(state *channelState, reason string) {
+	state.mu.Lock()
+	state.generation++
+	generation := state.generation
+	state.mu.Unlock()
+	b.logger.Warn("start refused", "channel", state.name, "reason", reason)
+	b.emitBroker(state, "broker.start_refused", map[string]any{"reason": reason, "generation": generation})
+}
+
 func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd command) {
+	path := cmd.CredentialsPath
+	if path == "" {
+		path = os.Getenv("YAK_BROKER_CREDENTIALS_FILE")
+	}
+	if path != "" && b.exposure != nil && b.exposure.Check(path) != nil {
+		b.refuseStart(state, "credential_exposure")
+		return
+	}
+	b.capMu.Lock()
+	allowed := b.cap.allow(state.name)
+	b.capMu.Unlock()
+	if !allowed {
+		b.refuseStart(state, "restart_cap")
+		return
+	}
 	b.kill(ctx, state)
 	if cmd.Container != "" && cmd.Container != state.container {
 		state.container = cmd.Container

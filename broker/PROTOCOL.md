@@ -24,13 +24,13 @@ One field, `command`, holding a JSON object with a `type`:
 
 | `type` | Fields | Effect |
 |---|---|---|
-| `start_runner` | `container`, `uid`, `cwd`, `start` (the runner `start` line, section 3) | Kills any runner left in the container, starts a new runner under `setsid`, writes `start` to its stdin, and increments the channel's generation. |
+| `start_runner` | `container`, `uid`, `cwd`, `start` (the runner `start` line, section 3), optional `credentials_path` | Checks the mounted credentials file, then kills this channel's previous runner, starts a new runner under `setsid` (its command line carries a `--channel <name>` marker the per-channel kill matches), writes `start` to its stdin, and increments the channel's generation. `credentials_path` is the host path of the mounted `.credentials.json`; when empty the broker uses `YAK_BROKER_CREDENTIALS_FILE`; when both are empty the check is skipped. |
 | `turn` | `uuid`, `text`, optional `priority` | Writes a runner `user` line. |
 | `steer` | `uuid`, `text`, optional `priority` (`next` or `now`) | Same wire effect as `turn`; the driver tracks them differently. |
 | `interrupt` | none | Writes an `interrupt` line. |
 | `set_model` | `model` | Writes a `set_model` line. |
 | `end` | none | Writes an `end` line: finish the current work and exit. |
-| `kill` | none | Kills the runner's whole process tree with the full kill script. |
+| `kill` | none | Kills this channel's runner process tree with the full kill script. Other runners in the same container are untouched. |
 | `tool_result` | `call_id`, `is_error`, `content` | Writes the answer to a `yak.tool_call` (section 4) to the runner's stdin. |
 
 The broker deletes every inbound entry after processing it, whether or not it parses. A `turn` or `steer` with no live runner produces a broker line `{"type":"broker.no_runner","uuid":"..."}` (`call_id` for a `tool_result`).
@@ -52,7 +52,7 @@ Broker lines are objects whose `type` starts with `broker.`. Trust the `origin` 
 | `broker.runner_started` | `generation` | After the `start` line was written to the new runner. |
 | `broker.runner_exited` | `generation`, `exit_code` | The runner ended; `exit_code` is `-1` when it could not be started. |
 | `broker.no_runner` | `uuid` or `call_id` | A `turn`, `steer` or `tool_result` found no live runner. |
-| `broker.start_refused` | `reason`, `generation` | The broker refused to start the runner (for example `credential_exposure`). |
+| `broker.start_refused` | `reason`, `generation` | The broker refused to start the runner. No process was started and the generation still increments. `reason` is `credential_exposure` (the credentials file holds a Claude login that is not an allowed shared account, or cannot be read or parsed: fail closed; a missing file or one without `claudeAiOauth` is allowed) or `restart_cap` (more than 5 starts of this channel within 5 minutes). |
 | `broker.kill_done` | `generation` | A `kill` command's script returned. |
 
 A restarted broker reads the last `:out` entry of each channel to continue its generation and sequence, so the driver never trims that entry. The driver acknowledges an entry only after handling it, retries a failing entry a few times, then moves it to `:dead`. Entries left pending by a crashed consumer are claimed again after 60 s. After acknowledging, the driver trims `:out` to the last `yak.threads.stream_catchup_minutes` and deletes all three keys when the runner ends for good.
@@ -87,3 +87,13 @@ The runner exposes in-process MCP tools to Claude: `spawn_thread`, `send_message
 3. A call PHP never answers times out inside the runner after 120 s with an error result for Claude.
 
 `call_id` is a fresh UUID per call. PHP handles a `yak.tool_call` once per `call_id` (the entry may be redelivered), and answers a call from a stale generation with nothing.
+
+## 5. Broker environment
+
+| Variable | Meaning |
+|---|---|
+| `YAK_BROKER_REDIS_ADDR` | Redis address, default `127.0.0.1:6379`. |
+| `YAK_BROKER_REDIS_PASSWORD` | Redis password. |
+| `YAK_BROKER_CREDENTIALS_FILE` | Credentials file to check when a `start_runner` has no `credentials_path`. |
+| `YAK_BROKER_SHARED_CLAUDE_REFRESH_SHA256` | Comma list of sha256 hex digests of the refresh tokens of the shared Yak Claude account(s) that may appear as `claudeAiOauth`. |
+| `YAK_BROKER_CREDENTIAL_SOCKET` | Unix socket the auth proxy listens on, default `/var/lib/yak/credentials/redeem.sock`. |
