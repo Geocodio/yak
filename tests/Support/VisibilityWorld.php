@@ -104,7 +104,7 @@ class VisibilityWorld
         $world->diffFile = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id]);
         $world->repository = ThreadRepository::factory()->changes()->create(['thread_id' => $world->thread->id, 'repo' => 'secret-acme/extra']);
         $world->event = ThreadEvent::factory()->create(['thread_id' => $world->thread->id, 'sequence' => 1]);
-        $world->pullRequestRow = ThreadRepository::factory()->for($world->thread)->changes()->withPullRequest(77)->create(['repo' => self::REPO]);
+        $world->pullRequestRow = ThreadRepository::factory()->for($world->thread)->changes()->withPullRequest(77)->create(['repo' => self::REPO, 'ci_status' => 'failing']);
         $world->child = Thread::factory()->child($world->thread)->create(['title' => self::TITLE . ' child', 'claude_account_id' => $account->id]);
 
         $world->task = YakTask::factory()->create([
