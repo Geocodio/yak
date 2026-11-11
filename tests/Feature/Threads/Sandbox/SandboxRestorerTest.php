@@ -5,6 +5,7 @@ use App\Enums\RestoreStepStatus;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
+use App\Enums\ThreadSessionKind;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
@@ -12,6 +13,7 @@ use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\FakeSandboxManager;
 use App\Services\Threads\SandboxRestorer;
 use App\Services\Threads\ThreadSandbox;
+use App\Services\Threads\TouchedIgnoredFiles;
 use App\Services\Threads\WipPreserver;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
@@ -273,4 +275,17 @@ test('ensure awake during a restore reports restoring', function () {
         ->and(app(SandboxManager::class)->calls)->toBe([]);
 
     $lock->release();
+});
+
+test('environment note lists gitignored files the conversation touched', function () {
+    $thread = destroyedThread();
+    $thread->sessions()->create(['session_id' => 'sess-1', 'kind' => ThreadSessionKind::Main]);
+    app()->instance(TouchedIgnoredFiles::class, Mockery::mock(TouchedIgnoredFiles::class, fn ($mock) => $mock->shouldReceive('missing')->once()->with(Mockery::on(fn ($t) => $t->is($thread)), 'sess-1')->andReturn(['.env'])));
+    $sandbox = app(SandboxManager::class);
+
+    app(SandboxRestorer::class)->restore($thread);
+
+    $exec = array_values(array_column(array_filter($sandbox->calls, fn (array $call): bool => $call['operation'] === 'exec'), 'arguments'));
+
+    expect(end($exec)['stdin'])->toContain('## Missing gitignored files')->toContain('- .env');
 });

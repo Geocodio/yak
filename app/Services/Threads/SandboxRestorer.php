@@ -231,7 +231,10 @@ class SandboxRestorer
         preg_match_all('/^\$ (.+)$/m', $refreshOutput, $matches);
         $setupRan = ($steps[RestoreStepName::RunSetupScript->value]->status ?? null) === RestoreStepStatus::Succeeded;
 
-        $this->note->write($thread, [...$this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha, DatasetAvailability::forThread($thread)), ...$this->note->sectionsForRepositories($thread)]);
+        $sessionId = $thread->activeSession()?->session_id;
+        $missingIgnored = $sessionId === null ? [] : app(TouchedIgnoredFiles::class)->missing($thread, $sessionId);
+
+        $this->note->write($thread, [...$this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha, DatasetAvailability::forThread($thread), $missingIgnored), ...$this->note->sectionsForRepositories($thread)]);
 
         return true;
     }

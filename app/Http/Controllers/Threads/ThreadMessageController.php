@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\SendThreadMessageRequest;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
+use App\Services\Threads\ClearCommand;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadTurns;
@@ -40,6 +41,15 @@ class ThreadMessageController extends Controller
         $task = $thread->tasks()->latest('id')->firstOrFail();
 
         try {
+            if (ClearCommand::matches($text)) {
+                if (ThreadTurns::activeTurn($thread) !== null) {
+                    return back()->with('error', 'Stop the running turn before clearing.');
+                }
+
+                return redirect()->route('threads.show', ClearCommand::apply($thread, $task))
+                    ->with('success', 'Started a new thread continued from this one.');
+            }
+
             if (ThreadTurns::activeTurn($thread) === null) {
                 $turns->start($task, $text, $user, $model);
                 TaskAttachment::storeFromRequest($request, ['yak_task_id' => $task->id]);
