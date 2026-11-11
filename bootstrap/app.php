@@ -1,11 +1,13 @@
 <?php
 
 use App\Channels\Drone\PollCommand;
+use App\Exceptions\TeleportError;
 use App\Http\Middleware\AuthenticateDevice;
 use App\Http\Middleware\CliProtocol;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
 use App\Http\Middleware\VerifySessionStoreToken;
+use App\Http\Responses\CliError;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -77,6 +79,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 'error' => 'rate_limited',
                 'message' => 'Too many requests. Try again shortly.',
             ], 429, $e->getHeaders());
+        });
+        $exceptions->render(function (TeleportError $e, Request $request) {
+            if (! $request->is('api/cli/*')) {
+                return null;
+            }
+
+            return CliError::make($e->errorCode, $e->getMessage(), $e->status, $e->details);
         });
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if (! $request->is('api/cli/*')) {
