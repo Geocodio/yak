@@ -4,8 +4,10 @@ namespace App\Console\Commands;
 
 use App\Actions\RecordPullRequestOutcome;
 use App\Channels\GitHub\AppService;
+use App\Enums\RepositoryRole;
 use App\Enums\TaskMode;
 use App\Models\Repository;
+use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -112,8 +114,49 @@ class ReconcilePullRequestStateCommand extends Command
             ]);
         }
 
+        $closed += $this->reconcileRepositoryRows($github, $outcome, $installationId, $limit);
+
         $this->components->info("Checked {$checked} open PR(s); recorded {$closed} newly merged/closed.");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Pull requests of extra repos have a thread repository row and no task.
+     */
+    private function reconcileRepositoryRows(AppService $github, RecordPullRequestOutcome $outcome, int $installationId, int $limit): int
+    {
+        $closed = 0;
+
+        $rows = ThreadRepository::query()->openPullRequests()
+            ->where('role', '!=', RepositoryRole::Primary->value)
+            ->whereNotNull('pull_request_number')
+            ->limit($limit)
+            ->get();
+
+        foreach ($rows as $row) {
+            try {
+                $pr = $github->getPullRequest($installationId, Repository::githubNameFor($row->repo), (int) $row->pull_request_number);
+            } catch (Throwable $e) {
+                Log::channel('yak')->warning('PR reconcile: GitHub lookup failed', ['pr_url' => $row->pull_request_url, 'error' => $e->getMessage()]);
+
+                continue;
+            }
+
+            if (($pr['state'] ?? 'open') !== 'closed') {
+                continue;
+            }
+
+            $outcome->record(
+                (string) $row->pull_request_url,
+                merged: (bool) ($pr['merged'] ?? ($pr['merged_at'] ?? null) !== null),
+                mergedAt: $pr['merged_at'] ?? null,
+                closedAt: $pr['closed_at'] ?? null,
+                via: 'reconcile',
+            );
+            $closed++;
+        }
+
+        return $closed;
     }
 }
