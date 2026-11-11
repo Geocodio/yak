@@ -32,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontFlash(['secret']);
+
         // Internal endpoints (forward_auth targets) must return 401, not a login redirect.
         $exceptions->render(function (AuthenticationException $e, Request $request): ?Response {
             if ($request->is('internal/*')) {

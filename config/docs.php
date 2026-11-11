@@ -66,6 +66,9 @@ return [
         'repositories.rerun-setup' => 'repositories/#re-running-setup',
         'repositories.routing' => 'repositories/#routing-tasks-to-repos',
 
+        // Claude accounts
+        'accounts' => 'claude-accounts/',
+
         // PR review
         'pr-review' => 'pr-review/',
 

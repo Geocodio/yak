@@ -52,6 +52,7 @@ export default defineConfig({
             { slug: 'channels' },
             { slug: 'repositories' },
             { slug: 'repo-config' },
+            { slug: 'claude-accounts' },
             { slug: 'pr-review' },
           ],
         },
