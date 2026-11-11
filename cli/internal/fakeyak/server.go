@@ -61,6 +61,7 @@ type Server struct {
 	nextID   int
 
 	sessions sessionState
+	ssh      sshState
 	tele     teleportState
 	// Clock drives teleport expiry; nil means time.Now.
 	Clock func() time.Time

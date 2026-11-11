@@ -710,9 +710,15 @@ func (s *Server) threadExtraRoute(w http.ResponseWriter, r *http.Request, device
 		return
 	}
 	if call == "ssh" {
+		key := strconv.Itoa(threadID)
 		switch {
 		case thread.OwnerSide == "device":
 			writeErr(w, 409, "thread_owned_by_device", "Teleport it up first.", nil)
+		case s.ssh.errors[key] != nil:
+			e := s.ssh.errors[key]
+			writeErr(w, e.status, e.code, "ssh lookup refused.", e.details)
+		case s.ssh.bodies[key] != nil:
+			writeJSON(w, 200, s.ssh.bodies[key])
 		case s.SSHNoKeySettingsURL != "":
 			writeErr(w, 409, "no_ssh_key", "Add an SSH key first.", map[string]any{"settings_url": s.SSHNoKeySettingsURL})
 		case s.SSHBody != nil:
