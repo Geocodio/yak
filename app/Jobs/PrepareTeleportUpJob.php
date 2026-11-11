@@ -9,6 +9,7 @@ use App\Enums\ThreadSandboxState;
 use App\Exceptions\TeleportError;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Services\Teleport\TeleportEnvironmentNote;
 use App\Services\Teleport\TeleportExtras;
 use App\Services\Teleport\Teleports;
@@ -19,6 +20,7 @@ use App\Services\Threads\EnvironmentNote;
 use App\Services\Threads\RefreshTriggers;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Queue\Queueable;
 use RuntimeException;
 use Throwable;
@@ -106,11 +108,11 @@ class PrepareTeleportUpJob implements ShouldQueue
         $this->fetchBranches($teleport, $thread, $sandboxes);
         $this->prepareExtras($teleport, $thread, $extras);
         $this->runSetup($teleport, $thread, $sandboxes, $refresh);
-        $this->runRefresh($teleport, $thread, $refresh);
+        $this->runRefresh($teleport, $thread, $refresh, $sandboxes);
 
         $teleport->progressStep(TeleportStep::SessionRestore, 'running');
         $sessions->restoreIntoSandbox($thread);
-        $this->linkLocalPath($thread, $sandboxes);
+        $this->linkLocalPath($thread, $teleport, $sandboxes);
         $this->writeNote($teleport, $thread, $note);
         $teleport->progressStep(TeleportStep::SessionRestore, 'done');
 
@@ -184,15 +186,78 @@ class PrepareTeleportUpJob implements ShouldQueue
             }
         }
 
+        foreach ($this->changesExtras($thread) as $repository) {
+            $setupScript = "{$repository->sandbox_path}/.yak/setup.sh";
+
+            if ($sandboxes->exec($thread, ['test', '-f', $setupScript])->successful()
+                && $sandboxes->exec($thread, ['bash', $setupScript], env: $refresh->buildEnvironment($thread))->failed()) {
+                $teleport->progressStep(TeleportStep::Setup, 'failed');
+
+                throw new RuntimeException("The setup script of {$repository->repo} failed.");
+            }
+        }
+
         $teleport->progressStep(TeleportStep::Setup, 'done');
     }
 
-    private function runRefresh(Teleport $teleport, Thread $thread, RefreshTriggers $refresh): void
+    /**
+     * @return Collection<int, ThreadRepository>
+     */
+    private function changesExtras(Thread $thread): Collection
+    {
+        return $thread->repositories()->where('role', RepositoryRole::Changes->value)->get();
+    }
+
+    /**
+     * Runs the commands each changes extra's own refresh map calls for.
+     *
+     * @return list<string>
+     */
+    private function refreshExtras(Thread $thread, SandboxManager $sandboxes, RefreshTriggers $refresh): array
+    {
+        $ran = [];
+
+        foreach ($this->changesExtras($thread) as $repository) {
+            $map = $refresh->configFor($thread, $repository->sandbox_path);
+
+            if ($map === []) {
+                continue;
+            }
+
+            $listing = $sandboxes->exec($thread, ['git', '-C', $repository->sandbox_path, 'ls-files'])->output();
+            $files = array_values(array_filter(array_map('trim', explode("\n", $listing))));
+
+            foreach ($refresh->matching($map, $files) as $command) {
+                $result = $sandboxes->exec($thread, ['sh', '-c', "cd {$repository->sandbox_path} && {$command}"], env: $refresh->buildEnvironment($thread));
+                $ran[] = "{$repository->repo}: {$command}";
+
+                if ($result->failed()) {
+                    throw new RuntimeException("Refresh command failed in {$repository->repo}: {$command}");
+                }
+            }
+        }
+
+        return $ran;
+    }
+
+    private function runRefresh(Teleport $teleport, Thread $thread, RefreshTriggers $refresh, SandboxManager $sandboxes): void
     {
         $teleport->progressStep(TeleportStep::Refresh, 'running');
         $results = $refresh->run($thread);
-        $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'refresh_ran' => array_map(fn ($result): string => $result->command, $results)]])->save();
+        $ran = array_map(fn ($result): string => $result->command, $results);
         $last = end($results);
+
+        if ($last === false || $last->succeeded()) {
+            try {
+                $ran = [...$ran, ...$this->refreshExtras($thread, $sandboxes, $refresh)];
+            } catch (RuntimeException $exception) {
+                $teleport->progressStep(TeleportStep::Refresh, 'failed');
+
+                throw $exception;
+            }
+        }
+
+        $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'refresh_ran' => $ran]])->save();
 
         if ($last !== false && ! $last->succeeded()) {
             $teleport->progressStep(TeleportStep::Refresh, 'failed');
@@ -203,14 +268,26 @@ class PrepareTeleportUpJob implements ShouldQueue
         $teleport->progressStep(TeleportStep::Refresh, 'done');
     }
 
-    private function linkLocalPath(Thread $thread, SandboxManager $sandboxes): void
+    private function linkLocalPath(Thread $thread, Teleport $teleport, SandboxManager $sandboxes): void
     {
-        if (blank($thread->local_repo_path)) {
-            return;
+        $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $links = [];
+
+        if (filled($thread->local_repo_path)) {
+            $links[(string) $thread->local_repo_path] = $workspace;
         }
 
-        $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
-        $sandboxes->exec($thread, ['sh', '-c', 'mkdir -p "$(dirname "$1")" && ln -sfn "$2" "$1"', 'sh', (string) $thread->local_repo_path, $workspace]);
+        foreach ($this->changesExtras($thread) as $repository) {
+            $localPath = $teleport->localPathOf($repository->repo);
+
+            if ($localPath !== null) {
+                $links[$localPath] = $repository->sandbox_path;
+            }
+        }
+
+        foreach ($links as $localPath => $target) {
+            $sandboxes->exec($thread, ['sh', '-c', 'mkdir -p "$(dirname "$1")" && ln -sfn "$2" "$1"', 'sh', $localPath, $target]);
+        }
     }
 
     private function writeNote(Teleport $teleport, Thread $thread, EnvironmentNote $note): void
