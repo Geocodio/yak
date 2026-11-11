@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Thread;
 use App\Models\User;
 
 test('the rail switches between the thread list and the section drawers', function () {
@@ -47,5 +48,31 @@ test('the phone sheet holds the section switcher and the user row', function () 
         ->click('[data-testid="mobile-section-operations"]')
         ->assertVisible('[data-testid="section-panel-operations"]')
         ->assertVisible('[data-testid="mobile-nav-user"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a docked thread panel leaves only the rail on a wide screen', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = Thread::factory()->create();
+
+    $page = visit(route('threads.show', $thread));
+
+    $page->assertVisible('[data-testid="sidebar-panel"]')
+        ->click('[data-testid="thread-dock-toggle-preview"]')
+        ->assertVisible('[data-testid="icon-rail"]')
+        ->assertMissing('[data-testid="sidebar-panel"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('the details sidebar is a sheet behind a header toggle at laptop width', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = Thread::factory()->create();
+
+    $page = visit(route('threads.show', $thread))->resize(1100, 800);
+
+    $page->click('[data-testid="thread-dock-toggle-preview"]');
+    expect($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).display'))->toBe('none');
+    $page->click('[data-testid="thread-details-sheet-toggle"]')
+        ->assertVisible('[data-testid="thread-sidebar"]')
         ->assertNoJavaScriptErrors();
 });

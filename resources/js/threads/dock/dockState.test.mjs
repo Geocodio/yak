@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { dockHashFor, parseDockHash, phoneTabs } from './dockState.ts';
+import { dockHashFor, parseDockHash, phoneDockIdFor, phoneTabs } from './dockState.ts';
 
 const ids = (tabs) => tabs.map((tab) => tab.id);
 
@@ -24,4 +24,12 @@ test('the dock hash names the active panel', () => {
     assert.equal(parseDockHash('#panel=<script>'), null);
     assert.equal(dockHashFor('preview'), '#panel=preview');
     assert.equal(dockHashFor(null), '');
+});
+
+test('the phone Terminal tab shows the shell or the files dock panel', () => {
+    assert.equal(phoneDockIdFor('terminal', 'shell'), 'terminal');
+    assert.equal(phoneDockIdFor('terminal', 'files'), 'files');
+    assert.equal(phoneDockIdFor('preview', 'files'), 'preview');
+    assert.equal(phoneDockIdFor('chat', 'shell'), null);
+    assert.equal(phoneDockIdFor('details', 'files'), null);
 });

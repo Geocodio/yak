@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\RunnerState;
 use App\Enums\TurnMessageState;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -72,4 +73,18 @@ it('shows a message sent while Claude works greyed', function () {
     visit("/threads/{$thread->id}")
         ->assertVisible('[data-testid="thread-message-pending"]')
         ->assertNoJavaScriptErrors();
+});
+
+test('the phone Chat tab shows an activity dot only while Claude is busy', function () {
+    $this->actingAs(User::factory()->create());
+    $busy = Thread::factory()->create(['runner_state' => RunnerState::Busy]);
+    $idle = Thread::factory()->create(['runner_state' => RunnerState::Idle]);
+
+    visit(route('threads.show', $busy))->on()->mobile()
+        ->assertPresent('[data-testid="thread-phone-tab-chat-dot"]')
+        ->assertNoJavaScriptErrors();
+
+    visit(route('threads.show', $idle))->on()->mobile()
+        ->assertPresent('[data-testid="thread-phone-tabs"]')
+        ->assertMissing('[data-testid="thread-phone-tab-chat-dot"]');
 });

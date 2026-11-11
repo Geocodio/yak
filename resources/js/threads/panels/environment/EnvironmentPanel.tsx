@@ -1,6 +1,8 @@
 import { Badge, Skeleton, cn, toast } from '@geocodio/console-ui';
-import { Copy, ExternalLink } from 'lucide-react';
+import { Copy, ExternalLink, Globe } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
+import { CopyableAddress } from '@/components/CopyableAddress';
+import { sshKeys } from '@/routes/settings';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadEnvironment } from '@/types/thread-changes';
 import { RepositoryRows } from './RepositoryRows';
@@ -106,7 +108,7 @@ export function EnvironmentPanel({ thread, canDrive }: PanelProps) {
         );
     }
 
-    const { sandbox, branch, pullRequest, deployment, account, model, startedBy, stoppedAfterMinutes, repositories, notUploadedDirectories } = environment;
+    const { sandbox, branch, pullRequest, account, startedBy, stoppedAfterMinutes, repositories, notUploadedDirectories } = environment;
 
     return (
         <div className="flex flex-col gap-4" data-testid="environment-panel">
@@ -143,15 +145,27 @@ export function EnvironmentPanel({ thread, canDrive }: PanelProps) {
                     )}
                 </Row>
 
-                <Row label="Deployment" testId="environment-deployment">
-                    {deployment === null ? (
-                        <span className="text-muted">No preview</span>
-                    ) : (
-                        <span className="inline-flex items-center gap-2">
-                            <ExternalAnchor href={deployment.url}>Open preview</ExternalAnchor>
-                            <Badge tone="neutral">{deployment.status}</Badge>
+                {thread.preview.host !== null && (
+                    <Row label="Preview" testId="environment-preview">
+                        <span className="inline-flex max-w-full items-center gap-1.5">
+                            <Globe size={13} className="shrink-0 text-muted" />
+                            <code className="truncate font-mono text-[12px]">{thread.preview.host}</code>
                         </span>
-                    )}
+                        {thread.preview.state === 'ready' && (
+                            <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
+                                <span className="inline-block h-1.5 w-1.5 rounded-pill bg-ok" aria-hidden="true" />
+                                Dev server running
+                            </p>
+                        )}
+                    </Row>
+                )}
+
+                <Row label="Terminal" testId="environment-terminal">
+                    <CopyableAddress address={`yak ssh ${thread.name}`} label={null} />
+                    <p className="mt-0.5 text-[12px] text-muted">From your computer, with your GitHub keys.</p>
+                    <a href={sshKeys().url} className="text-[12px] text-accent-text hover:underline" data-testid="environment-ssh-link">
+                        Set up SSH
+                    </a>
                 </Row>
 
                 <Row label="Account" testId="environment-account">
@@ -166,11 +180,6 @@ export function EnvironmentPanel({ thread, canDrive }: PanelProps) {
                             <p className="mt-0.5 text-[12px] text-muted">Setup token. Fixed for this thread.</p>
                         </>
                     )}
-                </Row>
-
-                <Row label="Model" testId="environment-model">
-                    {model === null ? <span className="text-muted">Default</span> : model}
-                    <p className="mt-0.5 text-[12px] text-muted">Change it next to Send.</p>
                 </Row>
 
                 {startedBy !== null && (

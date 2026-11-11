@@ -42,3 +42,16 @@ test('it shows the working note while a turn runs', function () {
     $page->click('[data-testid="thread-panel-tab-changes"]')
         ->assertPresent('[data-testid="changes-working-note"]');
 });
+
+test('the Environment tab is first and lists the Terminal row', function () {
+    $thread = Thread::factory()->create();
+
+    $page = visit(route('threads.show', $thread));
+
+    expect($page->script('document.querySelector(\'[data-testid="thread-panel-tab-environment"]\').getAttribute("aria-selected")'))->toBe('true');
+    expect($page->script('[...document.querySelectorAll(\'[role="tablist"][aria-label="Thread panels"] [role="tab"]\')].map(t => t.dataset.testid).join(",")'))
+        ->toStartWith('thread-panel-tab-environment');
+    $page->assertSeeIn('[data-testid="environment-terminal"]', 'yak ssh ' . $thread->name)
+        ->assertSeeIn('[data-testid="environment-terminal"]', 'Set up SSH')
+        ->assertNoJavaScriptErrors();
+});

@@ -1,5 +1,7 @@
 export type PhoneTabId = 'chat' | 'preview' | 'terminal' | 'details';
 
+export type PhoneTerminalMode = 'shell' | 'files';
+
 export type PhoneTab = { id: PhoneTabId; label: string };
 
 /** Chat and Details always show; Preview and Terminal show only when a dock panel with that id is registered. */
@@ -28,4 +30,17 @@ export function parseDockHash(hash: string): string | null {
 
 export function dockHashFor(id: string | null): string {
     return id === null ? '' : `#panel=${id}`;
+}
+
+/** The dock panel a phone tab shows; the Terminal tab switches between the shell and the files browser. */
+export function phoneDockIdFor(tab: PhoneTabId, mode: PhoneTerminalMode): string | null {
+    if (tab === 'preview') {
+        return 'preview';
+    }
+
+    if (tab === 'terminal') {
+        return mode === 'files' ? 'files' : 'terminal';
+    }
+
+    return null;
 }

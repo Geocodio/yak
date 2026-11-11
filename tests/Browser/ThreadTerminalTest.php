@@ -200,7 +200,21 @@ test('the phone shows the working strip only while Claude is busy', function () 
     openTerminalTab($page, true);
     waitForTerminal($page, statusIs('connected'));
 
-    $page->assertPresent('[data-testid="terminal-working"]');
+    expect($page->script('document.querySelectorAll(\'[data-testid="claude-working-strip"]\').length'))->toBe(1);
+    $page->assertMissing('[data-testid="terminal-working"]');
+});
+
+test('the phone Terminal tab switches between the shell and the files browser', function () {
+    $page = visit(route('threads.show', terminalRunningThread()))->on()->mobile()->assertPresent('[data-testid="thread-header"]');
+    openTerminalTab($page, true);
+
+    $page->assertVisible('[data-testid="phone-terminal-switch"]')
+        ->assertPresent('[data-testid="terminal-panel"]')
+        ->click('[data-testid="phone-terminal-mode-files"]')
+        ->assertPresent('[data-testid="files-panel"]')
+        ->click('[data-testid="phone-terminal-mode-shell"]')
+        ->assertPresent('[data-testid="terminal-panel"]')
+        ->assertNoJavaScriptErrors();
 });
 
 test('the working strip is absent at desktop width', function () {
@@ -211,5 +225,5 @@ test('the working strip is absent at desktop width', function () {
     openTerminalTab($page);
     waitForTerminal($page, statusIs('connected'));
 
-    $page->assertMissing('[data-testid="terminal-working"]');
+    $page->assertMissing('[data-testid="claude-working-strip"]');
 });

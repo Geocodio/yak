@@ -14,16 +14,6 @@ function Centered({ testId, title, children }: { testId: string; title: string; 
     );
 }
 
-/** Phone-only strip: the on-screen keyboard leaves little room, so a busy Claude shows as one slim line. */
-export function WorkingStrip() {
-    return (
-        <div className="flex shrink-0 items-center gap-2 border-b border-hair px-3 py-1 text-[12px] text-muted" data-testid="terminal-working">
-            <Spinner size="sm" />
-            Claude is working
-        </div>
-    );
-}
-
 /** Why no shell is offered for this thread, or null when one can be opened. */
 export function blockedState(thread: ThreadData, canDrive: boolean): 'viewer' | 'closed' | 'device' | 'destroyed' | null {
     if (thread.status === 'closed') {
