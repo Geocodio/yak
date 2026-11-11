@@ -5,6 +5,7 @@ use App\Channels\GitHub\PullRequestSummonReplier;
 use App\DataTransferObjects\ResolvedAccount;
 use App\DataTransferObjects\SandboxWake;
 use App\Enums\HeldEventKind;
+use App\Enums\ThreadSandboxState;
 use App\Jobs\HandlePullRequestSummonJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\TriageReviewJob;
@@ -178,7 +179,11 @@ describe('teleport up', function () {
         $sync->shouldReceive('restoreIntoSandbox');
         app()->instance(SessionFileSync::class, $sync);
         $sandbox = Mockery::mock(ThreadSandbox::class);
-        $sandbox->shouldReceive('ensureAwake')->andReturn(SandboxWake::ready());
+        $sandbox->shouldReceive('ensureAwake')->andReturnUsing(function (Thread $thread) {
+            $thread->forceFill(['sandbox_state' => ThreadSandboxState::Running])->save();
+
+            return SandboxWake::ready();
+        });
         app()->instance(ThreadSandbox::class, $sandbox);
         $this->turns = Mockery::mock(ThreadTurns::class);
         app()->instance(ThreadTurns::class, $this->turns);

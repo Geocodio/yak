@@ -90,6 +90,24 @@ it('echoes a non-default branch and gives context repos no branch', function () 
         ->assertJsonPath('repos.1.sandbox_path', '/extras/lib');
 });
 
+it('treats a branch equal to the default branch as on the default branch whatever the client says', function () {
+    Repository::query()->where('slug', 'acme/widgets')->update(['default_branch' => 'develop']);
+
+    $this->postJson('/api/cli/v1/teleports', beginPayload(['repos' => [['branch' => 'develop', 'on_default_branch' => false]]]), cliHeaders($this->token))
+        ->assertOk()
+        ->assertJsonPath('repos.0.create_branch', true)
+        ->assertJsonPath('repos.0.branch', 'yak/fix-the-geocode-cache');
+});
+
+it('lets a thread with a branch teleport up from the default branch when the client flag is false', function () {
+    Repository::query()->where('slug', 'acme/widgets')->update(['default_branch' => 'develop']);
+    $thread = Thread::factory()->create(['owner_user_id' => $this->device->user_id, 'owner_side' => 'device', 'owner_device_id' => $this->device->id, 'branch' => 'yak/x']);
+    ThreadSession::factory()->create(['thread_id' => $thread->id, 'session_id' => BEGIN_SESSION]);
+
+    $this->postJson('/api/cli/v1/teleports', beginPayload(['repos' => [['branch' => 'develop', 'on_default_branch' => false]]]), cliHeaders($this->token))
+        ->assertOk();
+});
+
 it('rejects an unknown repo', function () {
     $this->postJson('/api/cli/v1/teleports', beginPayload(['repos' => [['repo' => 'nope/nothing']]]), cliHeaders($this->token))
         ->assertStatus(422)->assertJsonPath('error', 'repo_not_on_yak')->assertJsonPath('details.repo', 'nope/nothing');

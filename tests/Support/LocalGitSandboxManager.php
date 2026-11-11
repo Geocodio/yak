@@ -21,7 +21,7 @@ class LocalGitSandboxManager extends FakeSandboxManager
 
     public static function withRepository(string $tempDir): self
     {
-        $manager = new static;
+        $manager = new self;
         $manager->bare = "{$tempDir}/origin.git";
         $manager->workspace = "{$tempDir}/workspace";
         $seed = "{$tempDir}/seed";
@@ -49,6 +49,12 @@ class LocalGitSandboxManager extends FakeSandboxManager
         $hook = "{$this->bare}/hooks/pre-receive";
         file_put_contents($hook, "#!/bin/sh\necho rejected >&2\nexit 1\n");
         chmod($hook, 0755);
+    }
+
+    /** Checks out a new branch at origin/main in the workspace; nothing is pushed. */
+    public function useBranchFromDefault(string $branch): void
+    {
+        $this->run($this->workspace, ['git', 'checkout', '-B', $branch, 'origin/main']);
     }
 
     /** Pushes a commit to the thread branch from a second clone. */

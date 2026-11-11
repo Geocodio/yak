@@ -102,7 +102,7 @@ function completeMultiRepoUp(object $test): array
     Thread::withoutGlobalScopes()->whereKey($begin['thread']['id'])->update(['sandbox_state' => ThreadSandboxState::Running]);
 
     $response = $test->postJson("/api/cli/v1/teleports/{$begin['teleport_id']}/complete", ['repos' => array_map(
-        fn (array $entry): array => array_filter(['repo' => $entry['repo'], 'branch' => $entry['branch'] ?? null, 'head_sha' => $entry['head_sha'] ?? null]),
+        fn (array $entry): array => array_filter(['repo' => $entry['repo'], 'branch' => $entry['role'] === 'primary' ? $begin['repos'][0]['branch'] : ($entry['branch'] ?? null), 'head_sha' => $entry['head_sha'] ?? null]),
         $repos,
     )], cliHeaders($test->token));
 
