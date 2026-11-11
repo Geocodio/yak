@@ -31,6 +31,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<string, array<string, int|float>>|null $model_usage
  * @property array<string, array{calls: int, errors: int, ms: int}>|null $tool_breakdown
  * @property array<string, int>|null $api_retry_breakdown
+ * @property array<string, mixed>|null $last_result_event
+ * @property CarbonImmutable|null $completion_dispatched_at
  */
 class TaskRun extends Model
 {
@@ -65,6 +67,8 @@ class TaskRun extends Model
             'model_usage' => 'json',
             'tool_breakdown' => 'json',
             'api_retry_breakdown' => 'json',
+            'last_result_event' => 'array',
+            'completion_dispatched_at' => 'datetime',
             'cost_usd' => 'decimal:4',
             'recorded_cost_usd' => 'decimal:4',
         ];
