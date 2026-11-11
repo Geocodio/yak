@@ -79,7 +79,9 @@ it('points the app at the credential socket and auth proxy', function () {
     $env = file_get_contents(base_path('ansible/roles/yak-container/templates/env.j2'));
 
     expect($env)->toContain('YAK_THREADS_CREDENTIAL_SOCKET={{ yak_credentials_path }}/redeem.sock')
-        ->toContain('YAK_THREADS_AUTH_PROXY_URL=http://{{ yak_auth_proxy_address }}');
+        ->toContain('YAK_THREADS_AUTH_PROXY_URL=http://{{ yak_auth_proxy_address }}')
+        ->toContain('YAK_THREADS_CREDENTIAL_SOCKET_UID={{ yak_broker_uid }}')
+        ->toContain('YAK_THREADS_AUTH_PROXY_VALIDATION_CIDRS={{ yak_auth_proxy_host_cidrs }}');
 });
 
 it('configures Reverb behind Caddy on the in-container port', function () {
@@ -121,11 +123,11 @@ it('runs the broker as an unprivileged user in incus-admin', function () use ($r
     ]);
 });
 
-it('keeps the credential socket directory reachable only by the app uid and the broker group', function () use ($roleTask) {
+it('keeps the credential socket directory traversable, with the socket itself owned by the broker uid', function () use ($roleTask) {
     $directory = $roleTask('yak-broker', 'Create the credential socket directory')['ansible.builtin.file'];
 
     expect($directory)->toMatchArray([
-        'mode' => '2750',
+        'mode' => '0755',
         'owner' => '{{ yak_container_www_data_uid }}',
         'group' => '{{ yak_broker_user }}',
     ]);

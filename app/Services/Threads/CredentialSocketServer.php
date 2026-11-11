@@ -7,8 +7,8 @@ use RuntimeException;
 use Socket;
 
 /**
- * Serves the credential behind an auth proxy placeholder on a Unix socket. The socket file is reachable
- * only by the broker's group, and every connection is also checked against the
+ * Serves the credential behind an auth proxy placeholder on a Unix socket. The socket file is owned by the
+ * broker's uid and reachable only by it and the app's group, and every connection is also checked against the
  * broker's uid with the kernel's peer credentials (SCM_CREDENTIALS), which the
  * peer cannot forge. One request line `{"placeholder": "...", "container_ip": "..."}` gets one reply line:
  * `{"kind", "secret", "account_id"}`, `{"error": "unknown"}` or `{"error": "forbidden"}`. Never logs.
@@ -44,6 +44,12 @@ class CredentialSocketServer
         // Set before any peer connects, so the kernel attaches the peer's credentials to its first message.
         if (defined('SO_PASSCRED')) {
             socket_set_option($listener, SOL_SOCKET, SO_PASSCRED, 1);
+        }
+
+        // Root hands the socket to the broker uid; the mode then admits only that owner and the app's group.
+        if (! @chown($path, $allowedUid) && posix_geteuid() !== $allowedUid) {
+            socket_close($listener);
+            throw new RuntimeException('Cannot chown the credential socket to uid ' . $allowedUid . ': not running as root');
         }
 
         chmod($path, $mode);
