@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ThreadShare;
+use App\Services\DeploymentShareTokens;
 use App\Services\DeploymentWaker;
 use App\Services\PreviewAccess;
 use Tests\Support\VisibilityWorld;
@@ -87,3 +88,65 @@ it('keeps the hidden deployment out of the deployments index', function (string 
         ->assertDontSee(VisibilityWorld::HOSTNAME)
         ->assertDontSee(VisibilityWorld::BRANCH);
 })->with(['other', 'admin']);
+
+function wakeWith($test, string $host, string $uri = '/', array $cookies = [])
+{
+    foreach ($cookies as $name => $value) {
+        $test = $test->withCookie($name, $value);
+    }
+
+    return $test->get('/internal/deployments/wake', ['X-Forwarded-Host' => $host, 'X-Forwarded-Uri' => $uri]);
+}
+
+it('stops honouring a preview cookie once the share is revoked', function () {
+    $share = ThreadShare::factory()->create(['thread_id' => $this->world->thread->id, 'user_id' => $this->world->other->id]);
+
+    wakeAs($this, VisibilityWorld::HOSTNAME, $this->world->other->id)->assertOk()->assertHeader('X-Upstream-Host', '10.0.0.1');
+
+    $share->delete();
+
+    $revoked = wakeAs($this, VisibilityWorld::HOSTNAME, $this->world->other->id);
+    $missing = wakeAs($this, $this->unknown, $this->world->other->id);
+
+    expect($revoked->getStatusCode())->toBe(404)
+        ->and(hostMasked($revoked, VisibilityWorld::HOSTNAME))->toBe(hostMasked($missing, $this->unknown));
+});
+
+it('answers an upper-case forwarded host like the lower-case one', function () {
+    $upper = strtoupper(VisibilityWorld::HOSTNAME);
+    $mixed = ucfirst(VisibilityWorld::HOSTNAME);
+    $lowerStranger = wakeAs($this, VisibilityWorld::HOSTNAME, $this->world->other->id);
+
+    foreach ([$upper, $mixed] as $host) {
+        $stranger = wakeAs($this, $host, $this->world->other->id);
+        expect($stranger->getStatusCode())->toBe(404)
+            ->and(hostMasked($stranger, $host))->toBe(hostMasked($lowerStranger, VisibilityWorld::HOSTNAME));
+
+        wakeAs($this, $host, $this->world->owner->id)->assertOk()->assertHeader('X-Upstream-Host', '10.0.0.1');
+    }
+});
+
+it('still sends the cookieless owner and a signed-out visitor through the auth bounce', function () {
+    $bounce = route('deployments.auth-bounce', absolute: false);
+
+    wakeWith($this, VisibilityWorld::HOSTNAME)->assertStatus(302);
+    expect(wakeWith($this, VisibilityWorld::HOSTNAME)->headers->get('Location'))->toContain($bounce);
+});
+
+it('keeps a thread shared to one person private for share tokens', function () {
+    ThreadShare::factory()->create(['thread_id' => $this->world->thread->id, 'user_id' => $this->world->other->id]);
+    $tokens = app(DeploymentShareTokens::class);
+    $deployment = $this->world->deployment;
+    $token = $tokens->mint($deployment, expiresInDays: 7);
+    $deployment->refresh();
+
+    $byToken = wakeWith($this, VisibilityWorld::HOSTNAME, "/_share/{$token}/x");
+    $byCookie = wakeWith($this, VisibilityWorld::HOSTNAME, '/x', ['yak_share_session' => $tokens->cookieValue($deployment)]);
+    $missing = wakeWith($this, $this->unknown, '/x');
+
+    expect($byToken->getStatusCode())->toBe(404)
+        ->and(hostMasked($byToken, VisibilityWorld::HOSTNAME))->toBe(hostMasked($missing, $this->unknown))
+        ->and($byCookie->getStatusCode())->toBe(302);
+
+    wakeAs($this, VisibilityWorld::HOSTNAME, $this->world->other->id)->assertOk();
+});
