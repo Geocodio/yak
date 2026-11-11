@@ -8,8 +8,9 @@ import { AddChildDialog } from './AddChildDialog';
 import { AwakeLimitStepper } from './AwakeLimitStepper';
 import { ChildRow } from './ChildRow';
 import { StackMessages } from './StackMessages';
-import { StackUsageSummary } from './StackUsageSummary';
 import { useStack } from './useStack';
+
+const MAX_CHILDREN = 12;
 
 export function StackPanel({ thread }: PanelProps) {
     const { stack, isLoading, error, reload } = useStack(thread);
@@ -37,13 +38,14 @@ export function StackPanel({ thread }: PanelProps) {
                 </p>
             )}
 
+            {stack.isRoot && <AwakeLimitStepper threadId={thread.id} current={stack.limit.current} max={stack.limit.max} awake={stack.limit.awake} waiting={stack.limit.waiting} canDrive={stack.canDrive} onChanged={reload} />}
+
+            {stack.canDrive && stack.isRoot && thread.ownerSide === 'yak' && (
+                <Button variant="secondary" icon={<Plus size={13} />} onClick={() => setIsAdding(true)} className="w-full" data-testid="stack-add">Add a sub-thread</Button>
+            )}
+
             <section>
-                <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-[13px] font-semibold text-body">Sub-threads <span className="font-normal text-muted">{stack.children.length}</span></h3>
-                    {stack.canDrive && stack.isRoot && thread.ownerSide === 'yak' && (
-                        <Button variant="secondary" icon={<Plus size={13} />} onClick={() => setIsAdding(true)} data-testid="stack-add">Add sub-thread</Button>
-                    )}
-                </div>
+                <h3 className="text-[13px] font-semibold text-body" data-testid="stack-children-header">Sub-threads <span className="font-normal text-muted">{stack.children.length} of {MAX_CHILDREN}</span></h3>
                 {stack.children.length === 0 ? (
                     <p className="mt-2 text-[12.5px] text-muted" data-testid="stack-empty">No sub-threads yet. Claude can start them, or you can add one.</p>
                 ) : (
@@ -53,8 +55,6 @@ export function StackPanel({ thread }: PanelProps) {
                 )}
             </section>
 
-            {stack.isRoot && <AwakeLimitStepper threadId={thread.id} current={stack.limit.current} max={stack.limit.max} awake={stack.limit.awake} waiting={stack.limit.waiting} canDrive={stack.canDrive} onChanged={reload} />}
-            <StackUsageSummary usage={stack.usage} />
             <StackMessages messages={stack.messages} />
 
             {stack.canStop && stack.children.length > 0 && (

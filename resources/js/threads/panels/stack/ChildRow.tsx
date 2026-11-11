@@ -1,6 +1,7 @@
 import { Button } from '@geocodio/console-ui';
 import { Link, router } from '@inertiajs/react';
-import { ChildStateDot, CHILD_STATE_LABEL } from '@/components/threads/stack/ChildStateDot';
+import { KindIcon } from '@/components/threads/stack/KindIcon';
+import { StatePill } from '@/components/threads/stack/StatePill';
 import { show } from '@/routes/threads';
 import { drop, split, takeOver } from '@/routes/threads/stack';
 import type { StackChild } from '@/types/stack';
@@ -12,9 +13,11 @@ export function ChildRow({ child, onChanged }: { child: StackChild; onChanged: (
     return (
         <li className="px-3 py-2.5" data-testid={`stack-child-${child.id}`} data-state={child.state}>
             <div className="flex items-center gap-2">
-                <ChildStateDot state={child.state} />
+                <KindIcon kind={child.kind} />
                 <Link href={show.url(child.id)} className="min-w-0 truncate text-[13px] font-medium text-body hover:underline">{child.name}</Link>
-                <span className="ml-auto shrink-0 text-[12px] text-muted">{child.takenOver ? 'Taken over' : CHILD_STATE_LABEL[child.state]}</span>
+                <span className="ml-auto">
+                    <StatePill state={child.state} label={child.takenOver ? 'Taken over' : undefined} />
+                </span>
             </div>
             <p className="mt-0.5 text-[12px] text-muted">{child.kind}{child.model ? ` · ${child.model}` : ''}{child.messagesPaused ? ' · messages paused' : ''}</p>
             {child.repo && (

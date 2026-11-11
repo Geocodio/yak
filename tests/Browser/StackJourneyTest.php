@@ -91,3 +91,30 @@ it('shows an empty awake meter for a stack with no sub-threads', function () {
         ->assertScript('document.querySelectorAll(\'[data-testid="stack-awake-meter"] span\').length', 3)
         ->assertScript('document.querySelectorAll(\'[data-testid="stack-awake-meter"] span[data-filled="true"]\').length', 0);
 });
+
+it('orders the stack panel and collapses the messages', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create();
+    $child = Thread::factory()->child($parent)->create(['name' => 'scout']);
+    StackThreadMessage::factory()->count(4)->create(['root_thread_id' => $parent->id, 'from_thread_id' => $child->id, 'to_thread_id' => $parent->id, 'kind' => StackThreadMessageKind::Result]);
+
+    visit(route('threads.show', $parent))
+        ->click('[data-testid="thread-panel-tab-stack"]')
+        ->assertSeeIn('[data-testid="stack-children-header"]', 'Sub-threads 1 of 12')
+        ->assertSeeIn('[data-testid="stack-child-' . $child->id . '"] [data-testid="state-pill"]', 'Waiting for a slot')
+        ->assertScript('document.querySelectorAll(\'[data-testid^="stack-message-"]\').length', 3)
+        ->assertScript('(() => { const top = (testid) => document.querySelector(`[data-testid="${testid}"]`).getBoundingClientRect().top; return top("stack-limit") < top("stack-add") && top("stack-add") < top("stack-children-header"); })()', true)
+        ->click('[data-testid="stack-messages-show-all"]')
+        ->assertScript('document.querySelectorAll(\'[data-testid^="stack-message-"]\').length', 4);
+});
+
+it('renders every sub-thread past the cap of 12 without clamping', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create();
+    Thread::factory()->count(13)->child($parent)->create();
+
+    visit(route('threads.show', $parent))
+        ->click('[data-testid="thread-panel-tab-stack"]')
+        ->assertSeeIn('[data-testid="stack-children-header"]', 'Sub-threads 13 of 12')
+        ->assertScript('document.querySelectorAll(\'[data-testid^="stack-child-"][data-state]\').length', 13);
+});
