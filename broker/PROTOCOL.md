@@ -134,3 +134,20 @@ Status mapping: 401 unknown or missing placeholder, 404 path not allowed, 502 up
 Logging: every non-200 upstream response is logged with its status, safe headers and body shape (JSON key names, `error.type`, length). Body values, the secret and the placeholder are never logged.
 
 Wiring: `NewAuthProxy(SocketCredentialSource{Path: socketPath}, upstreamURL, logger)`, then `Serve(ctx, listener)` on the bridge address. `Serve` shuts down gracefully on `ctx.Done` (10 s drain), uses a 10 s `ReadHeaderTimeout` and has no write timeout.
+
+## 8. Wake proxy and SSH lookup
+
+Two small host programs let `ssh` reach a sandbox without Yak knowing the container address. Both call the Yak app over HTTPS with `Authorization: Bearer <token>`; an unset token on the Yak side answers 401 to everything.
+
+Environment (both programs): `YAK_SSH_URL` (Yak base URL), `YAK_SSH_TOKEN_FILE` (file holding the bearer token, mode 0600, never logged). The wake proxy also reads `YAK_WAKE_TIMEOUT` (Go duration, default `90s`): how long a connection may wait for a free sandbox.
+
+Internal endpoints (all JSON):
+
+- `GET /internal/ssh/listeners` returns `{"listeners": [{"address": "127.18.4.17", "port": 22}]}`, one per sandbox that may be reached. The wake proxy polls it every 5 s and binds one listener per address. Addresses outside `127.0.0.0/8` are ignored.
+- `POST /internal/ssh/wake {"address"}` returns `{"state", "container", "message"}`. `state` is `ready` (with the container name), `waiting` (no free sandbox slot yet), `destroyed`, `closed` or `no_sandbox`. The sandbox is chosen by the listener's address, never by anything the client sends.
+- `POST /internal/ssh/activity {"address"}` returns `{"state": "ok"}` and keeps the sandbox from being paused. The proxy sends it every 60 s while a connection is spliced.
+- `POST /internal/ssh/authorized-keys {"fingerprint"}` returns `{"lines": ["restrict,port-forwarding,permitopen=\"127.18.4.17:22\" ssh-ed25519 AAAA..."]}`. `yak-ssh-lookup` (the jump sshd's `AuthorizedKeysCommand`) takes the fingerprint as `%f`, accepts only `^SHA256:[A-Za-z0-9+/]{43}$`, prints the lines, and prints nothing and exits 0 on any error, which means no login. It gives up after 3 s.
+
+Plain text before the SSH banner: while a sandbox is `waiting`, the wake proxy writes `yak: waiting for a free sandbox\r\n` once, then asks again every 2 s until the timeout. RFC 4253 section 4.2 lets a server send lines that do not start with `SSH-` before its version string, so clients show them and carry on. `destroyed`, `closed`, `no_sandbox`, a timeout or an unreachable Yak write one `yak: ...` line and close.
+
+When the state is `ready`, the proxy checks the container name against `^[a-z0-9][a-z0-9-]{0,62}$`, reads its global IPv4 address with `incus query /1.0/instances/<name>/state`, waits up to 20 s for port 22, then copies bytes both ways until either side closes.
