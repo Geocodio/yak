@@ -95,3 +95,30 @@ it('records an outcome for a pull request that has a row and no task', function 
 
     expect(app(RecordPullRequestOutcome::class)->record(WEB_PR, merged: true))->toBeTrue();
 });
+
+it('keeps the thread open while a pushed changes repository has no pull request yet', function () {
+    $thread = twoRepoThread();
+    ThreadRepository::where('pull_request_url', WEB_PR)->update(['pull_request_state' => 'merged']);
+    $pending = ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/lib', 'last_pushed_sha' => 'abc123']);
+    $this->mock(ThreadSandbox::class)->shouldReceive('destroy')->once();
+
+    app(RecordPullRequestOutcome::class)->record(API_PR, merged: true);
+
+    expect($thread->refresh()->status)->toBe(ThreadStatus::Open);
+
+    $pending->update(['pull_request_url' => 'https://github.com/acme/lib/pull/7', 'pull_request_number' => 7, 'pull_request_state' => 'open']);
+    app(RecordPullRequestOutcome::class)->record('https://github.com/acme/lib/pull/7', merged: true);
+
+    expect($thread->refresh()->status)->toBe(ThreadStatus::Closed)->and($thread->close_reason)->toBe('pr_merged');
+});
+
+it('ignores a changes repository without commits when closing', function () {
+    $thread = twoRepoThread();
+    ThreadRepository::where('pull_request_url', WEB_PR)->update(['pull_request_state' => 'merged']);
+    ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/lib', 'last_pushed_sha' => null]);
+    $this->mock(ThreadSandbox::class)->shouldReceive('destroy')->once();
+
+    app(RecordPullRequestOutcome::class)->record(API_PR, merged: true);
+
+    expect($thread->refresh()->status)->toBe(ThreadStatus::Closed);
+});

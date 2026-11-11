@@ -72,6 +72,17 @@ class ThreadPullRequestSync
             return;
         }
 
+        $awaitsPullRequest = ThreadRepository::query()
+            ->where('thread_id', $thread->id)
+            ->where('role', '!=', 'context')
+            ->whereNotNull('last_pushed_sha')
+            ->whereNull('pull_request_state')
+            ->exists();
+
+        if ($awaitsPullRequest) {
+            return;
+        }
+
         $this->closer->close($thread, $states->contains('merged') ? 'pr_merged' : 'pr_closed');
     }
 }
