@@ -76,10 +76,13 @@ class RunnerRecovery
             ->filter(fn (ThreadTurnMessage $message): bool => $message->state === TurnMessageState::Started)
             ->each(fn (ThreadTurnMessage $message): bool => $message->forceFill(['state' => TurnMessageState::Cancelled])->save());
 
-        $messages
-            ->filter(fn (ThreadTurnMessage $message): bool => $message->kind === TurnMessageKind::Steer && in_array($message->state, [TurnMessageState::Sent, TurnMessageState::Queued], true))
-            ->filter(fn (ThreadTurnMessage $message): bool => $message->pendingSteeringMessage !== null)
-            ->each(fn (ThreadTurnMessage $message) => $this->commands->steer($thread, $message->uuid, SteeringText::for($thread, $message->pendingSteeringMessage)));
+        foreach ($messages as $message) {
+            $steer = $message->pendingSteeringMessage;
+
+            if ($message->kind === TurnMessageKind::Steer && in_array($message->state, [TurnMessageState::Sent, TurnMessageState::Queued], true) && $steer !== null) {
+                $this->commands->steer($thread, $message->uuid, SteeringText::for($thread, $steer));
+            }
+        }
 
         ThreadTurns::abandonStarted($run);
 
