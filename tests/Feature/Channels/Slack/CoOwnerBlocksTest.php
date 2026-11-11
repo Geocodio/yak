@@ -2,34 +2,8 @@
 
 use App\Channels\Slack\CoOwnerBlocks;
 use App\Enums\CoOwnerRequestStatus;
-use App\Models\CoOwnerRequest;
-use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
-
-function heldRequest(array $attributes = [], array $taskAttributes = []): CoOwnerRequest
-{
-    $repository = Repository::firstOrCreate(['slug' => 'acme/web'], Repository::factory()->raw(['github_full_name' => 'acme/web', 'default_branch' => 'main']));
-    $task = YakTask::factory()->awaitingCoOwner()->create([
-        'repo' => 'acme/web',
-        'branch_name' => 'yak/fix-login',
-        'author_name' => 'Jane Doe',
-        'source' => 'slack',
-        ...$taskAttributes,
-    ]);
-
-    return CoOwnerRequest::factory()->create([
-        'task_id' => $task->id,
-        'repository_id' => $repository->id,
-        'matched_areas' => [['name' => 'API response pipeline', 'risk' => 'high', 'rationale' => 'It shapes every response.', 'paths' => ['app/Http/Middleware/Authenticate.php', 'app/new.php']]],
-        'changed_files' => [
-            ['path' => 'app/Http/Middleware/Authenticate.php', 'previousPath' => null, 'status' => 'modified', 'additions' => 12, 'deletions' => 3, 'isHeld' => true],
-            ['path' => 'app/new.php', 'previousPath' => null, 'status' => 'new', 'additions' => 30, 'deletions' => 0, 'isHeld' => true],
-        ],
-        'held_at' => now()->setTime(14, 5),
-        ...$attributes,
-    ]);
-}
 
 function allText(array $blocks): string
 {
