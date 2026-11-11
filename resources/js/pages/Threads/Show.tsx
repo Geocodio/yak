@@ -4,6 +4,9 @@ import { useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { sidebarPanelsFor } from '@/threads/panels';
 import '@/threads/panels/index';
+import { PrivateThreadBanner } from '@/components/threads/share/PrivateThreadBanner';
+import { ShareButton } from '@/components/threads/share/ShareButton';
+import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
 import type { PageProps } from '@/types/shared';
 import type { ThreadPageData } from '@/types/threads';
 
@@ -19,9 +22,18 @@ export default function Show({ thread, canDrive }: Props) {
             <Head title={thread.title} />
 
             <header className="shrink-0 border-b border-hair px-4 py-3 sm:px-8" data-testid="thread-header">
-                <h1 className="text-[15px] font-semibold text-body">{thread.title}</h1>
-                <p className="text-[12px] text-muted">{thread.repo}</p>
+                <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h1 className="truncate text-[15px] font-semibold text-body">{thread.title}</h1>
+                            <VisibilityBadge thread={thread} />
+                        </div>
+                        <p className="text-[12px] text-muted">{thread.repo}</p>
+                    </div>
+                    <ShareButton thread={thread} />
+                </div>
             </header>
+            <PrivateThreadBanner thread={thread} />
 
             <div className="flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col" data-testid="thread-conversation">
