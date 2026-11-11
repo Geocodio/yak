@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Api\Cli;
 
+use App\Enums\TeleportDirection;
 use App\Exceptions\TeleportError;
 use App\Http\Controllers\Api\Cli\Concerns\ResolvesCliThread;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Cli\BeginTeleportRequest;
 use App\Models\Thread;
 use App\Services\Teleport\Teleports;
+use App\Services\Teleport\TeleportUpCompleter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -53,6 +55,28 @@ class TeleportController extends Controller
         $cancelled = $this->teleports->cancel($device, $this->teleports->get($device, $teleport), $data['reason'], $data['detail'] ?? null);
 
         return response()->json($cancelled->toApi());
+    }
+
+    public function complete(Request $request, string $teleport, TeleportUpCompleter $completer): JsonResponse
+    {
+        $device = $this->cliDevice($request);
+        $teleportModel = $this->teleports->get($device, $teleport);
+
+        if ($teleportModel->direction !== TeleportDirection::Up) {
+            throw new TeleportError('direction_unavailable', 'Completing a teleport down is not available yet.', 422);
+        }
+
+        $data = $request->validate([
+            'repos' => ['required', 'array', 'min:1', 'max:10'],
+            'repos.*.repo' => ['required', 'string', 'max:200'],
+            'repos.*.branch' => ['nullable', 'string', 'max:255'],
+            'repos.*.head_sha' => ['nullable', 'string', 'max:64'],
+            'message' => ['nullable', 'string', 'max:20000'],
+        ]);
+
+        $result = $completer->complete($device, $teleportModel, $data);
+
+        return response()->json($result['body'], $result['status']);
     }
 
     /**

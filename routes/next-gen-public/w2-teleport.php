@@ -15,6 +15,7 @@ Route::prefix('api/cli/v1')
 
         Route::post('teleports', [TeleportController::class, 'begin']);
         Route::get('teleports/{teleport}', [TeleportController::class, 'show']);
+        Route::post('teleports/{teleport}/complete', [TeleportController::class, 'complete']);
         Route::post('teleports/{teleport}/cancel', [TeleportController::class, 'cancel']);
 
         Route::prefix('threads/{thread}/session')
