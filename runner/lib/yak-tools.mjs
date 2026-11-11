@@ -35,6 +35,7 @@ export function createYakTools({ write, timeoutMs = TOOL_CALL_TIMEOUT_MS, random
     define('send_message', 'Send a message to another thread in this project.', { to: z.string(), text: z.string() }),
     define('list_threads', 'List the threads in this project.', {}),
     define('add_repository', 'Add a repository to this thread. Use role changes when you will edit it, context for read only.', { repo: z.string(), role: z.enum(['changes', 'context']).default('changes'), reason: z.string().optional() }),
+    define('set_merge_order', 'Set the order to merge this thread\'s pull requests, first to merge first. List each repository once.', { repos: z.array(z.string()) }),
     define('request_refresh', 'Ask Yak to refresh this sandbox environment.', { reason: z.string().optional() }),
   ];
 
