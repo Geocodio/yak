@@ -14,7 +14,7 @@ const FILTERS: { value: ThreadListFilter; label: string }[] = [
 
 const FILTER_HELP = 'Mine: threads you started or took part in, plus unattended threads on repos you follow.';
 
-export function ThreadListPanel({ onCollapse }: { onCollapse: () => void }) {
+export function ThreadListPanel({ onCollapse, touch = false }: { onCollapse?: () => void; touch?: boolean }) {
     const { props, url } = usePage<SharedProps>();
     const { data, filter, setFilter, search, setSearch, isLoading } = useThreadList(props.threadList);
     const activeThreadId = Number(/^\/threads\/(\d+)/.exec(url.split('?')[0])?.[1] ?? 0) || null;
@@ -25,15 +25,17 @@ export function ThreadListPanel({ onCollapse }: { onCollapse: () => void }) {
         <div className="flex min-h-0 flex-1 flex-col" data-testid="thread-list-panel">
             <div className="flex h-12 items-center justify-between px-3">
                 <span className="text-[13.5px] font-semibold tracking-tight">Threads</span>
-                <IconButton label="Collapse thread list" onClick={onCollapse} data-testid="collapse-thread-list">
-                    <PanelLeftClose size={14} />
-                </IconButton>
+                {onCollapse ? (
+                    <IconButton label="Collapse thread list" onClick={onCollapse} data-testid="collapse-thread-list">
+                        <PanelLeftClose size={14} />
+                    </IconButton>
+                ) : null}
             </div>
             <div className="flex flex-col gap-2 px-3 pb-2">
-                <Button variant="primary" icon={<Plus size={14} />} onClick={openNewTask} className="w-full" data-testid="new-thread">
+                <Button variant="primary" icon={<Plus size={14} />} onClick={openNewTask} className={cn('w-full', touch && 'h-10')} data-testid="new-thread">
                     New thread
                 </Button>
-                <div className="flex h-7 items-center gap-2 rounded-control border border-hair bg-panel px-2 text-[12px] text-muted shadow-card focus-within:border-hair-strong">
+                <div className={cn('flex items-center gap-2 rounded-control border border-hair bg-panel px-2 text-muted shadow-card focus-within:border-hair-strong', touch ? 'h-10 text-[14px]' : 'h-7 text-[12px]')}>
                     <Search size={13} />
                     <input
                         type="search"

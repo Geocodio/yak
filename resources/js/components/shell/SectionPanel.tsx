@@ -5,7 +5,7 @@ import type { RailSection } from '@/components/shell/sections';
 import { isActive } from '@/components/Sidebar';
 
 /** The Operations, Insights and Settings drawers: a description line and the section's pages. */
-export function SectionPanel({ section }: { section: Exclude<RailSection, 'threads'> }) {
+export function SectionPanel({ section, touch = false, onNavigate }: { section: Exclude<RailSection, 'threads'>; touch?: boolean; onNavigate?: () => void }) {
     const { url } = usePage();
     const { title, description, items } = SECTION_COPY[section];
 
@@ -21,13 +21,15 @@ export function SectionPanel({ section }: { section: Exclude<RailSection, 'threa
                         <Link
                             key={item.url}
                             href={item.url}
+                            onClick={onNavigate}
                             aria-current={active ? 'page' : undefined}
                             className={cn(
-                                'flex h-8 items-center gap-2 rounded-control px-2 text-[13px] text-muted hover:bg-panel-2 hover:text-body',
+                                touch ? 'h-11 text-[15px]' : 'h-8 text-[13px]',
+                                'flex items-center gap-2 rounded-control px-2 text-muted hover:bg-panel-2 hover:text-body',
                                 active && 'bg-brand-soft font-medium text-brand hover:bg-brand-soft hover:text-brand',
                             )}
                         >
-                            <Icon size={15} />
+                            <Icon size={touch ? 18 : 15} />
                             <span className="flex-1">{item.label}</span>
                         </Link>
                     );
