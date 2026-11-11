@@ -162,3 +162,55 @@ test('status follows the latest run, then blocked, then paused', function () {
         ->and($byId[$paused->id]['status'])->toBe('paused')
         ->and($byId[$unattended->id]['isUnattended'])->toBeTrue();
 });
+
+test('owner initials are null for the viewer and set for a teammate', function () {
+    $user = User::factory()->create(['name' => 'Vera Viewer']);
+    $teammate = User::factory()->create(['name' => 'Tina Teammate']);
+    $own = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $theirs = Thread::factory()->create(['created_by_user_id' => $teammate->id]);
+    $unattended = Thread::factory()->create(['created_by_user_id' => null]);
+
+    $byId = collect(ThreadList::for($user, ThreadListFilter::Everyone)['threads'])->keyBy('id');
+
+    expect($byId[$own->id]['ownerInitials'])->toBeNull()
+        ->and($byId[$theirs->id]['ownerInitials'])->toBe('TT')
+        ->and($byId[$unattended->id]['ownerInitials'])->toBeNull();
+});
+
+test('owner initials cover nested children', function () {
+    $user = User::factory()->create();
+    $teammate = User::factory()->create(['name' => 'Tina Teammate']);
+    $parent = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    Thread::factory()->child($parent)->create(['created_by_user_id' => $teammate->id]);
+
+    expect(ThreadList::for($user)['threads'][0]['children'][0]['ownerInitials'])->toBe('TT');
+});
+
+test('owner initials need one user query regardless of row count', function () {
+    $user = User::factory()->create();
+    $teammates = User::factory()->count(5)->create();
+
+    foreach ($teammates as $teammate) {
+        Thread::factory()->create(['created_by_user_id' => $teammate->id]);
+    }
+
+    DB::enableQueryLog();
+    ThreadList::for($user, ThreadListFilter::Everyone);
+    $userQueries = collect(DB::getQueryLog())->filter(fn (array $entry): bool => str_contains($entry['query'], 'from `users`') || str_contains($entry['query'], 'from "users"'));
+    DB::disableQueryLog();
+
+    expect($userQueries)->toHaveCount(1);
+});
+
+test('a private thread of another user never leaks its owner initials', function () {
+    $user = User::factory()->create();
+    $secretOwner = User::factory()->create(['name' => 'Zed Zebra']);
+    $hidden = Thread::factory()->private($secretOwner)->create(['created_by_user_id' => $secretOwner->id]);
+    $visible = Thread::factory()->create(['created_by_user_id' => User::factory()->create(['name' => 'Tina Teammate'])->id]);
+
+    $list = ThreadList::for($user, ThreadListFilter::Everyone);
+
+    expect(listedIds($list))->not->toContain($hidden->id)->toContain($visible->id)
+        ->and(json_encode($list))->not->toContain('ZZ')->not->toContain('Zed')
+        ->and(collect($list['threads'])->firstWhere('id', $visible->id)['ownerInitials'])->toBe('TT');
+});

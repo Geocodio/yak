@@ -9,6 +9,7 @@ export type ThreadListRow = {
     needsYouLabel: string | null;
     isPrivate: boolean;
     isUnattended: boolean;
+    ownerInitials: string | null;
     lastActivityAt: string | null;
     group: 'today' | 'this_week' | 'older';
     children: ThreadListRow[];
