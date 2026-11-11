@@ -59,7 +59,7 @@ it('walks shell access from key upload to revocation', function () {
     $this->withToken('secret-token')->postJson('/internal/ssh/wake', ['address' => $address])
         ->assertOk()->assertJson(['state' => 'ready']);
     expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running)
-        ->and(array_column(app(SandboxManager::class)->calls, 'operation'))->toBe(['start', 'exec'])
+        ->and(array_column(app(SandboxManager::class)->calls, 'operation'))->toBe(['start', 'exec', 'exec'])
         ->and(journeyLastInstalledKeys())->toContain($key->public_key);
 
     // A terminal session installs an ephemeral key that the sweep removes after its ttl.

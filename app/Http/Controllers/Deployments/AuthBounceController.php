@@ -52,7 +52,7 @@ class AuthBounceController
             // the user must be allowed in. A hidden thread host answers exactly
             // like an unknown host.
             $kind = $this->previewAccess->targetKind($host);
-            if ($kind === null || ($kind === 'thread' && ! $this->previewAccess->mayEnter($host, $user->id))) {
+            if ($kind === null || ! $this->previewAccess->mayEnter($host, $user->id)) {
                 abort(404, 'No preview for this host.');
             }
 

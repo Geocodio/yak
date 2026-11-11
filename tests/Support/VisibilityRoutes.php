@@ -45,6 +45,7 @@ class VisibilityRoutes
         'threads.preview.status' => ['GET', '/threads/{thread}/preview/status'],
         'threads.preview.heartbeat' => ['POST', '/threads/{thread}/preview/heartbeat'],
         'threads.preview.restore' => ['POST', '/threads/{thread}/preview/restore', [], 202],
+        'threads.terminal-sessions.store' => ['POST', '/threads/{thread}/terminal-sessions', [], 403],
         'tasks.show' => ['GET', '/tasks/{task}'],
         'tasks.retry' => ['POST', '/tasks/{task}/retry'],
         'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
@@ -173,6 +174,12 @@ class VisibilityRoutes
             'POST api/cli/v1/threads/{thread}/session/checkpoint', 'PUT api/cli/v1/threads/{thread}/session/file',
             'GET api/cli/v1/threads/{thread}/session/files', 'GET api/cli/v1/threads/{thread}/session/read',
             'GET api/cli/v1/threads/{thread}/session/tree',
+            // Per-user settings: the viewer's own SSH keys and push devices; no thread data.
+            'settings.ssh-keys', 'settings.ssh-keys.store', 'settings.ssh-keys.refresh', 'settings.ssh-keys.destroy',
+            'settings.notifications', 'settings.notifications.preferences', 'settings.notifications.devices.store',
+            'settings.notifications.devices.update', 'settings.notifications.devices.destroy', 'settings.notifications.devices.test',
+            // Broker-only SSH protocol behind the internal token: no signed-in user exists to filter for.
+            'internal.ssh.authorized-keys', 'internal.ssh.listeners', 'internal.ssh.wake', 'internal.ssh.terminal-redeem', 'internal.ssh.activity',
             // Creates a task; reads nothing of another person's thread.
             'tasks.store', 'tasks.setup-card.dismiss',
             // Token-only public image roles for PR bodies; the route lists nothing and resolves by a 26 character token.

@@ -41,7 +41,7 @@ it('starts a stopped sandbox', function () {
 
     $this->postJson('/internal/ssh/wake', wakeAddress($thread))->assertJson(['state' => 'ready']);
 
-    expect(sandboxOperations())->toBe(['start', 'exec']);
+    expect(sandboxOperations())->toBe(['start', 'exec', 'exec']);
 });
 
 it('answers ready for a running sandbox without waking it', function () {
