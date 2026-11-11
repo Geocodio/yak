@@ -22,6 +22,7 @@ use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\Services\Teleport\ThreadOwnership;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -85,6 +86,18 @@ class ThreadTurns
     {
         $tracker = self::trackerFor($run);
         $tracker->track($uuid);
+
+        $run->forceFill(['tracker_state' => json_encode($tracker->state(), JSON_THROW_ON_ERROR)])->save();
+    }
+
+    /**
+     * Drops the uuids that started on a runner generation that is gone, so the
+     * continuation sent to the new runner can end the turn.
+     */
+    public static function abandonStarted(TaskRun $run): void
+    {
+        $tracker = self::trackerFor($run);
+        $tracker->abandonStarted(CarbonImmutable::now());
 
         $run->forceFill(['tracker_state' => json_encode($tracker->state(), JSON_THROW_ON_ERROR)])->save();
     }

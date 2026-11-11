@@ -80,6 +80,8 @@ class RunnerRecovery
             ->filter(fn (ThreadTurnMessage $message): bool => $message->kind === TurnMessageKind::Steer && in_array($message->state, [TurnMessageState::Sent, TurnMessageState::Queued], true))
             ->each(fn (ThreadTurnMessage $message) => $this->commands->steer($thread, $message->uuid, (string) $message->pendingSteeringMessage?->text));
 
+        ThreadTurns::abandonStarted($run);
+
         if ($promptNeverStarted) {
             $this->commands->turn($thread, $promptUuid, (string) $run->getAttribute('prompt'));
         } else {
