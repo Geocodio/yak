@@ -51,3 +51,29 @@ it('shows the pull requests of a multi-repo thread and reorders them', function 
         ->click('[data-testid="thread-panel-tab-pull-requests"]')
         ->assertAttribute('[data-testid="pull-request-card-acme/web"]', 'data-state', 'merged');
 });
+
+it('shows the connector, the help link and the none state', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['title' => 'Move invoices to cursor pagination']);
+    ThreadRepository::factory()->for($thread)->create(['repo' => 'acme/api']);
+    ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/web']);
+    ThreadRepository::factory()->for($thread)->context()->create(['repo' => 'acme/docs']);
+
+    $this->actingAs($user);
+
+    visit(route('threads.show', $thread))
+        ->click('[data-testid="thread-panel-tab-pull-requests"]')
+        ->assertPresent('[data-testid="pull-requests-none"]')
+        ->assertSee('No pull requests yet')
+        ->assertSeeIn('[data-testid="pull-requests-expectations"]', 'What to expect here')
+        ->assertSeeIn('[data-testid="pull-requests-expectations"]', 'acme/docs gets none, it is context')
+        ->assertSee('How pull requests work with several repos');
+
+    ThreadRepository::query()->where('thread_id', $thread->id)->where('repo', 'acme/api')->update(['pull_request_url' => 'https://github.com/acme/api/pull/1', 'pull_request_number' => 1, 'pull_request_state' => 'open', 'merge_position' => 1]);
+    ThreadRepository::query()->where('thread_id', $thread->id)->where('repo', 'acme/web')->update(['pull_request_url' => 'https://github.com/acme/web/pull/2', 'pull_request_number' => 2, 'pull_request_state' => 'open', 'merge_position' => 2]);
+
+    visit(route('threads.show', $thread))
+        ->click('[data-testid="thread-panel-tab-pull-requests"]')
+        ->assertCount('[data-testid="merge-connector"]', 1)
+        ->assertSeeIn('[data-testid="pull-requests-panel"]', 'How this works');
+});

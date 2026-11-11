@@ -4,6 +4,7 @@ namespace App\Services\Threads\PullRequests;
 
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Models\ThreadDiffRepository;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Services\Threads\ThreadAccess;
@@ -30,6 +31,7 @@ class ThreadPullRequestsPanel
      *     canDrive: bool,
      *     pullRequests: list<array{rowId: int, repo: string, repoInitials: string, role: string, number: ?int, url: string, title: string, state: 'open'|'merged'|'closed', closedAt: ?string, ci: ?array{status: string, passedChecks: int, totalChecks: int, checks: list<array{name: string, state: string, durationSeconds: ?int, excerpt: ?string}>}, mergeAfter: ?array{repo: string, number: ?int, reason: ?string}, siblingBlock: ?string, canAskToFix: bool}>,
      *     withoutPullRequest: list<array{repo: string, role: string, reason: 'context'|'unchanged'|'pending', note: string}>,
+     *     expectations: list<string>,
      * }
      */
     public function build(Thread $thread, ?User $viewer): array
@@ -71,12 +73,13 @@ class ThreadPullRequestsPanel
 
         return [
             'state' => $state,
-            'banner' => $this->banner($state, $failing, $rows->count() - $openCount, $rows->count()),
+            'banner' => $this->banner($state, $failing, $rows->count() - $openCount, $rows->count(), $rows->filter(fn (ThreadRepository $row): bool => $row->hasOpenPullRequest())->values()->all()),
             'openCount' => $openCount,
             'totalCount' => $rows->count(),
             'canDrive' => $canDrive,
             'pullRequests' => $pullRequests,
             'withoutPullRequest' => $this->withoutPullRequest($thread),
+            'expectations' => $this->expectations($thread),
         ];
     }
 
@@ -112,22 +115,61 @@ class ThreadPullRequestsPanel
     }
 
     /**
+     * @param  array<int, ThreadRepository>  $openRows
      * @return array{title: string, body: string, tone: 'info'|'danger'|'success'}
      */
-    private function banner(string $state, ?ThreadRepository $failing, int $endedCount, int $totalCount): array
+    private function banner(string $state, ?ThreadRepository $failing, int $endedCount, int $totalCount, array $openRows): array
     {
         return match ($state) {
             'none' => ['title' => 'No pull requests yet', 'body' => 'Claude opens one pull request for each repository it changes.', 'tone' => 'info'],
             'waiting_for_ci' => ['title' => 'Waiting for CI', 'body' => 'One pull request is still running checks. Merge in the order below once they pass.', 'tone' => 'info'],
             'blocked' => [
                 'title' => 'Blocked: CI is failing in ' . Repository::githubNameFor((string) $failing?->repo),
-                'body' => 'Fix it before merging in order. Merging half of a change can leave the repositories out of step.',
+                'body' => 'Fix it before merging in order. The other pull request does not depend on this check, but merging half of a change leaves ' . $this->outOfStepPair($failing, $openRows) . ' out of step.',
                 'tone' => 'danger',
             ],
             'partial' => ['title' => 'Partly merged', 'body' => "{$endedCount} of {$totalCount} pull requests are done. Merge the rest in the order below.", 'tone' => 'info'],
             'ready' => ['title' => 'Ready to merge', 'body' => 'Checks pass. Merge in the order below.', 'tone' => 'success'],
             default => ['title' => 'All pull requests are done', 'body' => 'Every pull request of this thread has been merged or closed.', 'tone' => 'success'],
         };
+    }
+
+    /**
+     * @param  array<int, ThreadRepository>  $openRows
+     */
+    private function outOfStepPair(?ThreadRepository $failing, array $openRows): string
+    {
+        $others = array_values(array_filter($openRows, fn (ThreadRepository $row): bool => $row->id !== $failing?->id));
+
+        if ($failing === null || count($openRows) !== 2 || count($others) !== 1) {
+            return 'the repositories';
+        }
+
+        return 'the ' . $failing->shortName() . ' and the ' . $others[0]->shortName();
+    }
+
+    /**
+     * What the person can expect from each repository of the thread.
+     *
+     * @return list<string>
+     */
+    private function expectations(Thread $thread): array
+    {
+        $lines = [];
+        $hasOpened = false;
+
+        foreach (ThreadRepository::query()->where('thread_id', $thread->id)->orderBy('id')->get() as $row) {
+            if (! $row->getsPullRequest()) {
+                $lines[] = "{$row->repo} gets none, it is context";
+
+                continue;
+            }
+
+            $lines[] = $hasOpened ? "{$row->repo} waits for it" : "{$row->repo} opens first";
+            $hasOpened = true;
+        }
+
+        return $lines;
     }
 
     /**
@@ -166,6 +208,9 @@ class ThreadPullRequestsPanel
         $listed = [];
 
         $rows = ThreadRepository::query()->where('thread_id', $thread->id)->whereNull('pull_request_url')->orderBy('id')->get();
+        $scratchCounts = ThreadDiffRepository::query()
+            ->whereHas('diff', fn ($query) => $query->where('thread_id', $thread->id))
+            ->pluck('files_count', 'repo');
 
         foreach ($rows as $row) {
             $reason = ! $row->isChangesRepo() ? 'context' : ($row->branch !== null || $row->ci_status !== null ? 'pending' : 'unchanged');
@@ -175,7 +220,9 @@ class ThreadPullRequestsPanel
                 'role' => $row->role->value,
                 'reason' => $reason,
                 'note' => match ($reason) {
-                    'context' => 'No pull request. Claude used it for reference only.',
+                    'context' => ($scratchCounts[$row->repo] ?? 0) > 0
+                        ? "No pull request. Claude left {$scratchCounts[$row->repo]} scratch files there, and they go away with the sandbox."
+                        : 'No pull request.',
                     'pending' => 'The pull request opens once CI passes.',
                     default => 'No commits here, so no pull request.',
                 },

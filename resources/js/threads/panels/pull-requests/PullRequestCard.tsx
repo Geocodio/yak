@@ -1,5 +1,5 @@
 import { Badge, Button } from '@geocodio/console-ui';
-import { ArrowDown, ArrowUp, ChevronRight, ExternalLink, GitMerge } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronRight, ExternalLink, GitBranch } from 'lucide-react';
 import { useState } from 'react';
 import type { PullRequestRow } from '@/types/thread-pull-requests';
 import { checksLabel, durationLabel } from './pullRequestsState';
@@ -28,8 +28,9 @@ export function PullRequestCard({ row, position, isFirst, isLast, canDrive, isBu
     const testKey = row.repo;
 
     return (
-        <li className="flex gap-2.5" data-testid={`pull-request-card-${testKey}`} data-state={row.state}>
-            <span className="mt-2 flex size-5 shrink-0 items-center justify-center rounded-pill border border-hair bg-panel text-[11px] text-muted">{position}</span>
+        <li className="relative flex gap-2.5" data-testid={`pull-request-card-${testKey}`} data-state={row.state}>
+            {!isLast && <span aria-hidden className="absolute -bottom-3 left-2.5 top-[1.75rem] w-px -translate-x-1/2 bg-hair" data-testid="merge-connector" />}
+            <span className="relative z-10 mt-2 flex size-5 shrink-0 items-center justify-center rounded-pill border border-hair bg-panel text-[11px] text-muted">{position}</span>
             <div className={`min-w-0 flex-1 overflow-hidden rounded-card border border-hair bg-panel ${isEnded ? 'opacity-60' : ''}`}>
                 <div className="flex items-start gap-2 px-3 py-2.5">
                     <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-chip bg-accent-soft text-[10px] font-semibold text-accent-text">{row.repoInitials}</span>
@@ -60,7 +61,7 @@ export function PullRequestCard({ row, position, isFirst, isLast, canDrive, isBu
 
                 {row.mergeAfter && (
                     <p className="flex items-start gap-1.5 bg-panel-2 px-3 py-2 text-[12.5px] text-muted" data-testid={`merge-after-${testKey}`}>
-                        <GitMerge size={13} aria-hidden className="mt-0.5 shrink-0" />
+                        <GitBranch size={13} aria-hidden className="mt-0.5 shrink-0" />
                         <span>
                             Merge after {row.mergeAfter.repo}{row.mergeAfter.number !== null ? `#${row.mergeAfter.number}` : ''}.{row.mergeAfter.reason ? ` ${row.mergeAfter.reason}` : ''}
                         </span>
