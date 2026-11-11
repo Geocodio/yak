@@ -122,3 +122,19 @@ it('prefers the account reset time over the tracker state', function () {
 
     expect(ThreadNoticeData::for($thread)['resetsAt'])->toBe('2026-11-11T18:00:00+00:00');
 });
+
+it('names the queue position of a thread waiting for an account', function () {
+    $account = ClaudeAccount::factory()->create(['name' => 'Team']);
+    $waiting = fn (): Thread => tap(Thread::factory()->create(['claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::WaitingForAccount]), function (Thread $thread) use ($account): void {
+        TaskRun::factory()->create(['thread_id' => $thread->id, 'claude_account_id' => $account->id, 'turn_state' => TurnState::WaitingForAccount]);
+    });
+    $first = $waiting();
+    $second = $waiting();
+
+    expect(ThreadNoticeData::for($first)['body'])->toContain('Team is running its maximum number of turns. You are number 1 in line.')
+        ->and(ThreadNoticeData::for($second)['body'])->toContain('You are number 2 in line.');
+
+    TaskRun::query()->where('thread_id', $first->id)->update(['turn_state' => TurnState::Pending]);
+
+    expect(ThreadNoticeData::for($second->fresh())['body'])->toContain('You are number 1 in line.');
+});
