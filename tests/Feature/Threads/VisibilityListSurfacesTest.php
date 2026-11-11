@@ -11,6 +11,7 @@ use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\TelemetryEvent;
 use App\Models\Thread;
+use App\Models\VideoMetric;
 use App\Models\YakTask;
 use App\Services\Telemetry\AnalyticsReport;
 use App\Services\Threads\ThreadList;
@@ -145,3 +146,10 @@ it('hides private-thread AI spend from the costs page, filtered and unfiltered',
     'other unfiltered' => ['other', '', 0.25, 1],
     'admin unfiltered' => ['admin', '', 0.25, 1],
 ]);
+
+it('hides private-thread video renders from the costs page video summary', function (string $viewer, int $rendered) {
+    VideoMetric::factory()->create(['yak_task_id' => $this->world->task->id]);
+    $props = inertiaProps($this, '/costs', $this->world->{$viewer});
+
+    expect($props['videoSummary']['rendered'])->toBe($rendered);
+})->with([['owner', 1], ['other', 0], ['admin', 0]]);
