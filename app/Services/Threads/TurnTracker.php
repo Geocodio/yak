@@ -52,6 +52,25 @@ class TurnTracker
     }
 
     /**
+     * A new runner generation replaces the one that was lost: uuids that had
+     * started there will never complete, so they are cancelled and the turn
+     * carries on. Sent and queued uuids stay because recovery re-sends them.
+     */
+    public function abandonStarted(CarbonImmutable $at): void
+    {
+        foreach ($this->uuids as $uuid => $state) {
+            if ($state === TurnMessageState::Started) {
+                $this->uuids[$uuid] = TurnMessageState::Cancelled;
+            }
+        }
+
+        $this->openToolUses = [];
+        $this->ended = false;
+        $this->runnerExited = false;
+        $this->lastActivityAt = $at;
+    }
+
+    /**
      * @param  array<string, mixed>  $line
      */
     public function apply(array $line, CarbonImmutable $at): TurnTrackerChange

@@ -10,6 +10,7 @@ use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Threads\RunawayGuard;
 use Illuminate\Support\Str;
 
@@ -37,7 +38,7 @@ final class ThreadNoticeData
             [$title, $body] = match ($thread->blocked_reason) {
                 ThreadBlockReason::AccountInvalid, ThreadBlockReason::AccountExpired => self::accountProblem($thread->blocked_reason, $accountName, $isOwnerOfAccount, $ownerFirstName),
                 ThreadBlockReason::UsageLimit => ['Usage limit reached', "{$accountName} has used its Claude limit for now. This thread continues on its own when the limit resets. Messages you send now are read after the reset."],
-                ThreadBlockReason::WaitingForAccount => ['Waiting for the account', "{$accountName} is running its maximum number of turns. Yak starts this one as soon as a slot frees up. Your message is saved and nothing needs doing."],
+                ThreadBlockReason::WaitingForAccount => ['Waiting for the account', "{$accountName} is running its maximum number of turns. " . self::queuePositionSentence($thread) . 'Yak starts this one as soon as a slot frees up. Your message is saved and nothing needs doing.'],
                 ThreadBlockReason::WaitingForSandbox => ['Waiting for a free sandbox', 'All ' . (int) config('yak.threads.awake_cap') . ' thread sandboxes are in use. Yak starts this one as soon as another frees up, usually within a few minutes. Your message is saved and nothing needs doing.'],
                 ThreadBlockReason::CredentialExposure => ['A credential was exposed', 'A secret showed up where it should not, so Yak stopped this thread. Replace the secret and ask an admin to check the thread before it continues.'],
                 ThreadBlockReason::RestoreFailed => ['The sandbox could not be restored', ($failedStep['error'] ?? null) !== null ? "Restore stopped at \"{$failedStep['label']}\": {$failedStep['error']}" : 'Restore stopped before the sandbox was ready. Try again.'],
@@ -61,6 +62,19 @@ final class ThreadNoticeData
         }
 
         return null;
+    }
+
+    private static function queuePositionSentence(Thread $thread): string
+    {
+        $run = TaskRun::query()
+            ->where('thread_id', $thread->id)
+            ->where('turn_state', TurnState::WaitingForAccount)
+            ->latest('id')
+            ->first();
+
+        $position = $run !== null ? app(AccountConcurrency::class)->position($run) : 0;
+
+        return $position > 0 ? "You are number {$position} in line. " : '';
     }
 
     /**
@@ -151,6 +165,12 @@ final class ThreadNoticeData
 
     private static function usageResetsAt(Thread $thread): ?string
     {
+        $accountResetsAt = $thread->claudeAccount?->usage_limit_resets_at;
+
+        if ($accountResetsAt !== null) {
+            return $accountResetsAt->toIso8601String();
+        }
+
         $stored = TaskRun::query()->where('thread_id', $thread->id)->latest('id')->value('tracker_state');
         $state = is_string($stored) ? json_decode($stored, true) : null;
 

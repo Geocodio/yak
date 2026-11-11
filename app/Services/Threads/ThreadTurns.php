@@ -22,6 +22,8 @@ use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\Services\Teleport\ThreadOwnership;
+use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -85,6 +87,18 @@ class ThreadTurns
     {
         $tracker = self::trackerFor($run);
         $tracker->track($uuid);
+
+        $run->forceFill(['tracker_state' => json_encode($tracker->state(), JSON_THROW_ON_ERROR)])->save();
+    }
+
+    /**
+     * Drops the uuids that started on a runner generation that is gone, so the
+     * continuation sent to the new runner can end the turn.
+     */
+    public static function abandonStarted(TaskRun $run): void
+    {
+        $tracker = self::trackerFor($run);
+        $tracker->abandonStarted(CarbonImmutable::now());
 
         $run->forceFill(['tracker_state' => json_encode($tracker->state(), JSON_THROW_ON_ERROR)])->save();
     }
@@ -190,14 +204,19 @@ class ThreadTurns
 
     /**
      * Retries the account slot and sandbox wake for turns that could not start,
-     * oldest first. A failing turn does not hold up the others.
+     * oldest first. A pending turn counts once its thread is unblocked and
+     * start() has had ten seconds to advance it. A failing turn does not hold
+     * up the others.
      */
     public function resumeWaiting(): void
     {
-        foreach ([TurnState::WaitingForAccount, TurnState::WaitingForSandbox] as $state) {
+        foreach ([TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox] as $state) {
             TaskRun::query()
                 ->whereNotNull('thread_id')
                 ->where('turn_state', $state)
+                ->when($state === TurnState::Pending, fn ($query) => $query
+                    ->where('started_at', '<=', now()->subSeconds(10))
+                    ->whereHas('thread', fn ($thread) => $thread->whereNull('blocked_reason')))
                 ->oldest('id')
                 ->get()
                 ->each(function (TaskRun $waiting): void {
@@ -219,9 +238,12 @@ class ThreadTurns
 
     /**
      * Records a steering message and sends it when a turn is running.
-     * Otherwise it stays queued for the next prompt.
+     * Otherwise it stays queued for the next prompt. `$source` is `thread` for
+     * a person's message, which reaches the runner wrapped; any other source
+     * carries text Yak already framed. `$storeAttachments` runs before delivery
+     * so the files exist when the text is built.
      */
-    public function steer(Thread $thread, string $text, ?User $sender, ?string $model): PendingSteeringMessage
+    public function steer(Thread $thread, string $text, ?User $sender, ?string $model, ?Closure $storeAttachments = null, string $source = 'system'): PendingSteeringMessage
     {
         app(ThreadOwnership::class)->assertYakMayRunTurns($thread->fresh() ?? $thread);
 
@@ -230,12 +252,16 @@ class ThreadTurns
         $message = PendingSteeringMessage::query()->create([
             'root_task_id' => $root->rootTask()->id,
             'text' => $text,
-            'source' => 'thread',
+            'source' => $source,
             'mode' => SteeringMode::Steer,
             'author_name' => $sender?->name,
             'uuid' => (string) Str::uuid(),
             'model' => $model,
         ]);
+
+        if ($storeAttachments !== null) {
+            $storeAttachments($message);
+        }
 
         if (! app(SteeringDelivery::class)->deliver($thread, $message)) {
             $message->forceFill(['mode' => SteeringMode::Queue])->save();

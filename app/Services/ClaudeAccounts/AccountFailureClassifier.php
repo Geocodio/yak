@@ -38,7 +38,7 @@ class AccountFailureClassifier
 
     /**
      * @param  array<string, mixed>  $line
-     * @return array{resetsAt: CarbonImmutable, type: ?string}|null
+     * @return array{resetsAt: CarbonImmutable, type: ?string, utilisation: ?float}|null
      */
     public static function rateLimitFrom(array $line): ?array
     {
@@ -51,6 +51,7 @@ class AccountFailureClassifier
         return [
             'resetsAt' => CarbonImmutable::createFromTimestampUTC((int) $info['resetsAt']),
             'type' => is_string($info['rateLimitType'] ?? null) ? $info['rateLimitType'] : null,
+            'utilisation' => is_numeric($info['utilization'] ?? null) ? (float) $info['utilization'] : null,
         ];
     }
 }

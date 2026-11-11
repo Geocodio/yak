@@ -6,6 +6,7 @@ use App\Enums\ClaudeAccountColor;
 use App\Enums\ClaudeAccountIcon;
 use App\Enums\ClaudeAccountKind;
 use App\Enums\ClaudeAccountStatus;
+use App\Services\ClaudeAccounts\AccountNotifier;
 use App\Services\Push\AccountProblemPush;
 use Carbon\CarbonImmutable;
 use Database\Factories\ClaudeAccountFactory;
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * A credential a turn runs on: a person's setup token or API key, or a Yak
@@ -33,6 +36,8 @@ use Illuminate\Support\Facades\DB;
  * @property CarbonImmutable|null $validated_at
  * @property CarbonImmutable|null $expires_at
  * @property CarbonImmutable|null $last_used_at
+ * @property CarbonImmutable|null $usage_limit_resets_at
+ * @property float|null $usage_utilisation
  */
 #[Hidden(['secret'])]
 class ClaudeAccount extends Model
@@ -67,6 +72,8 @@ class ClaudeAccount extends Model
             'validated_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',
             'last_used_at' => 'immutable_datetime',
+            'usage_limit_resets_at' => 'immutable_datetime',
+            'usage_utilisation' => 'float',
         ];
     }
 
@@ -130,6 +137,12 @@ class ClaudeAccount extends Model
 
         if ($isNewEpisode) {
             app(AccountProblemPush::class)->send($this, "{$this->name} stopped working. Open Settings to fix it.");
+
+            try {
+                app(AccountNotifier::class)->invalid($this);
+            } catch (Throwable $exception) {
+                Log::channel('yak')->warning('Claude account notice failed', ['account_id' => $this->id, 'error' => $exception->getMessage()]);
+            }
         }
     }
 

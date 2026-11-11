@@ -86,3 +86,12 @@ it('finds no failure in benign fixtures', function (string $name) {
         expect($classifier->classify($line))->toBeNull();
     }
 })->with(['natural-turn-end', 'compaction', 'steer-in-grace-window']);
+
+it('returns the utilisation of a rejected rate limit when present and null otherwise', function () {
+    $base = ['type' => 'rate_limit_event', 'rate_limit_info' => ['status' => 'rejected', 'resetsAt' => 1794136119]];
+    $withUtilisation = $base;
+    $withUtilisation['rate_limit_info']['utilization'] = 0.97;
+
+    expect(AccountFailureClassifier::rateLimitFrom($withUtilisation)['utilisation'])->toBe(0.97)
+        ->and(AccountFailureClassifier::rateLimitFrom($base)['utilisation'])->toBeNull();
+});

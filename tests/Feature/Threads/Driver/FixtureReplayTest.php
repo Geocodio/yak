@@ -1,5 +1,6 @@
 <?php
 
+use App\DataTransferObjects\TurnTrackerChange;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\TurnState;
@@ -9,10 +10,14 @@ use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
+use App\Services\ClaudeAccounts\AccountFailure;
+use App\Services\ClaudeAccounts\AccountFailureKind;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadTurns;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Process;
 
@@ -50,14 +55,26 @@ it('ends a natural turn with one TurnCompleted', function () {
 
 it('fails a usage-limit turn and blocks the thread', function () {
     Event::fake([TurnCompleted::class, TurnFailed::class]);
+    $this->travelTo(CarbonImmutable::createFromTimestampUTC(1794136119 - 3600));
     [$thread, $run] = fixtureTurn();
 
     replayFixtureThroughConsumer($thread, 'usage-limit');
 
     expect($run->refresh()->turn_state)->toBe(TurnState::Failed)
-        ->and($thread->refresh()->blocked_reason)->toBe(ThreadBlockReason::UsageLimit);
+        ->and($thread->refresh()->blocked_reason)->toBe(ThreadBlockReason::UsageLimit)
+        ->and($thread->claudeAccount->refresh()->usage_limit_resets_at->getTimestamp())->toBe(1794136119);
     Event::assertDispatchedTimes(TurnFailed::class, 1);
     Event::assertNotDispatched(TurnCompleted::class);
+});
+
+it('falls back to a delay when the limit has no reset time', function () {
+    bindTrackerChanges([new TurnTrackerChange(ended: true, failure: new AccountFailure(AccountFailureKind::UsageLimit, null))]);
+    [$thread] = runningTurnFor();
+
+    pushRunnerLine($thread, 1, ['type' => 'assistant']);
+
+    expect($thread->refresh()->blocked_reason)->toBe(ThreadBlockReason::UsageLimit)
+        ->and($thread->claudeAccount->refresh()->usage_limit_resets_at->isFuture())->toBeTrue();
 });
 
 it('keeps an interrupted turn interrupted when the aborted result arrives', function () {
@@ -139,3 +156,35 @@ it('applies every fixture twice without a second log line or event', function (s
     expect(TaskLog::query()->count())->toBe($logs)
         ->and(collect(Event::dispatched(TurnCompleted::class))->count() + collect(Event::dispatched(TurnFailed::class))->count())->toBe($ends);
 })->with(['natural-turn-end', 'usage-limit', 'steer-in-grace-window', 'compaction']);
+
+it('completes a turn after the runner exits mid-turn and recovery continues it', function () {
+    Event::fake([TurnCompleted::class, TurnFailed::class]);
+    [$thread, $run] = fixtureTurn();
+    $thread->forceFill(['sandbox_container' => 'thread-1', 'sandbox_state' => 'running'])->save();
+    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7\n"));
+
+    replayFixtureThroughConsumer($thread, 'runner-exit-mid-turn');
+
+    $continuation = (string) ThreadTurnMessage::query()->where('task_run_id', $run->id)->where('uuid', '!=', FIXTURE_PROMPT_UUID)->value('uuid');
+    expect($run->refresh()->restart_count)->toBe(1)->and($continuation)->not->toBe('');
+
+    $streams = app(BrokerStreams::class);
+    $channel = 'threads:' . $thread->id;
+    $sequence = 100;
+
+    foreach ([
+        ['type' => 'runner', 'event' => 'started', 'generation' => 2],
+        ['type' => 'command_lifecycle', 'command_uuid' => $continuation, 'state' => 'started', 'generation' => 2],
+        ['type' => 'result', 'subtype' => 'success', 'is_error' => false, 'session_id' => 'a46f8256-9427-5ce0-88ae-4d0cc885f796', 'generation' => 2],
+        ['type' => 'command_lifecycle', 'command_uuid' => $continuation, 'state' => 'completed', 'generation' => 2],
+    ] as $line) {
+        $streams->pushOut($channel, 2, ++$sequence, $line);
+    }
+
+    Artisan::call('yak:thread-drivers', ['--once' => true]);
+    $this->travel(60)->seconds();
+    app(ThreadDriver::class)->tick();
+
+    expect($run->refresh()->turn_state)->toBe(TurnState::Completed);
+    Event::assertDispatchedTimes(TurnCompleted::class, 1);
+});

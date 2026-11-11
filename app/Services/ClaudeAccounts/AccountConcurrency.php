@@ -29,7 +29,13 @@ class AccountConcurrency
                 ->whereNotNull('account_slot_held_at')
                 ->count();
 
-            if ($held < $locked->max_concurrent_turns) {
+            $isOlderWaiterPresent = TaskRun::query()
+                ->where('claude_account_id', $locked->id)
+                ->where('turn_state', TurnState::WaitingForAccount)
+                ->where('id', '<', $run->id)
+                ->exists();
+
+            if (! $isOlderWaiterPresent && $held < $locked->max_concurrent_turns) {
                 $run->forceFill(['account_slot_held_at' => now(), 'claude_account_id' => $locked->id])->save();
 
                 return true;

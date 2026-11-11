@@ -124,6 +124,9 @@ class ThreadDriver
             ->each(fn (TaskRun $run) => $this->isolated(fn () => $this->tickTurn($run)));
 
         $this->isolated(fn () => $this->recovery->recoverDue());
+        $this->isolated(function (): void {
+            app(ThreadBlockClearer::class)->clearResolved();
+        });
         $this->isolated(fn () => app(ThreadTurns::class)->resumeWaiting());
     }
 
@@ -167,6 +170,7 @@ class ThreadDriver
                 }
 
                 $this->finishTurn($thread, $run, TurnState::StoppedByGuard, $events);
+                $events[] = fn () => app(GuardStopNotifier::class)->ask($run, $reason, (int) $run->getAttribute('assistant_turns'));
             }
         });
     }
@@ -463,6 +467,12 @@ class ThreadDriver
 
             if ($change->failure->kind === AccountFailureKind::AuthFailed) {
                 $thread->claudeAccount?->markInvalid('The Claude API rejected the credential.');
+            }
+
+            if ($change->failure->kind === AccountFailureKind::UsageLimit) {
+                $thread->claudeAccount?->forceFill([
+                    'usage_limit_resets_at' => $change->failure->resetsAt ?? now()->addMinutes((int) config('yak.threads.usage_limit_fallback_minutes')),
+                ])->save();
             }
 
             $this->commands->interrupt($thread);

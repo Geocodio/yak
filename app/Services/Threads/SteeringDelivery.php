@@ -44,7 +44,7 @@ class SteeringDelivery
                 $locked->forceFill(['model' => $message->model])->save();
             }
 
-            $this->commands->steer($locked, $uuid, $message->text);
+            $this->commands->steer($locked, $uuid, SteeringText::for($locked, $message));
 
             ThreadTurnMessage::query()->create([
                 'task_run_id' => $run->id,

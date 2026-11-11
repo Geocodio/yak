@@ -209,3 +209,35 @@ it('continues identically after a state round trip', function () {
 
     expect($b)->toEqual($a)->and($b->failure->resetsAt->getTimestamp())->toBe(1893456000);
 });
+
+it('cancels started uuids and open tool uses on a new runner generation', function () {
+    $tracker = turnTrackerNew();
+    $tracker->track('p1');
+    $tracker->apply(turnTrackerLifecycle('p1', 'started'), turnTrackerAt(0));
+    $tracker->apply(['type' => 'assistant', 'message' => ['content' => [['type' => 'tool_use', 'id' => 't1']]]], turnTrackerAt(1));
+
+    $tracker->abandonStarted(turnTrackerAt(5));
+
+    expect($tracker->state()['uuids']['p1'])->toBe('cancelled')
+        ->and($tracker->state()['open_tool_uses'])->toBe([])
+        ->and($tracker->state()['last_activity_at'])->toBe(turnTrackerAt(5)->toIso8601String());
+});
+
+it('keeps sent uuids when abandoning started ones', function () {
+    $tracker = turnTrackerNew();
+    $tracker->track('p1');
+
+    $tracker->abandonStarted(turnTrackerAt(0));
+
+    expect($tracker->state()['uuids']['p1'])->toBe('sent');
+});
+
+it('reopens a tracker ended by a runner exit', function () {
+    $tracker = turnTrackerNew();
+    $tracker->apply(['type' => 'broker.runner_exited'], turnTrackerAt(0));
+
+    $tracker->abandonStarted(turnTrackerAt(1));
+
+    expect($tracker->state()['ended'])->toBeFalse()
+        ->and($tracker->state()['runner_exited'])->toBeFalse();
+});

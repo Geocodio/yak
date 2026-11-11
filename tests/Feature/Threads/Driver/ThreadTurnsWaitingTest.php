@@ -76,3 +76,36 @@ it('moves a run waiting for an account on to the sandbox wait', function () {
 
     expect($run->refresh()->turn_state)->toBe(TurnState::WaitingForSandbox);
 });
+
+it('starts a pending run once its thread is unblocked', function () {
+    $run = waitingRun(TurnState::Pending, 'go');
+    $run->forceFill(['started_at' => now()->subMinute()])->save();
+    $fakes = fakeTurnCollaborators();
+    $fakes['commands']->shouldReceive('startRunner');
+    $fakes['commands']->shouldReceive('turn')->once();
+
+    app(ThreadTurns::class)->resumeWaiting();
+
+    expect($run->refresh()->turn_state)->toBe(TurnState::Running);
+});
+
+it('leaves a pending run on a blocked thread alone', function () {
+    $run = waitingRun(TurnState::Pending, 'go');
+    $run->forceFill(['started_at' => now()->subMinute()])->save();
+    $run->thread->forceFill(['blocked_reason' => ThreadBlockReason::UsageLimit])->save();
+    fakeTurnCollaborators()['commands']->shouldNotReceive('turn');
+
+    app(ThreadTurns::class)->resumeWaiting();
+
+    expect($run->refresh()->turn_state)->toBe(TurnState::Pending);
+});
+
+it('leaves a fresh pending run to start()', function () {
+    $run = waitingRun(TurnState::Pending, 'go');
+    $run->forceFill(['started_at' => now()])->save();
+    fakeTurnCollaborators()['commands']->shouldNotReceive('turn');
+
+    app(ThreadTurns::class)->resumeWaiting();
+
+    expect($run->refresh()->turn_state)->toBe(TurnState::Pending);
+});

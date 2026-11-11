@@ -4,6 +4,7 @@ use App\Enums\RunnerState;
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
+use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
@@ -12,8 +13,11 @@ use App\Models\ThreadSession;
 use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\Threads\RunnerRecovery;
+use App\Services\Threads\SteeringText;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
+use App\Services\Threads\ThreadTurns;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
 use Mockery\MockInterface;
 
@@ -70,14 +74,14 @@ it('re-sends unstarted steers with original uuids and skips started ones', funct
     $root = YakTask::factory()->create();
 
     foreach (['steer-sent' => TurnMessageState::Sent, 'steer-queued' => TurnMessageState::Queued, 'steer-started' => TurnMessageState::Started] as $uuid => $state) {
-        $pending = PendingSteeringMessage::create(['root_task_id' => $root->id, 'text' => "text of {$uuid}", 'source' => 'web', 'mode' => 'steer', 'uuid' => $uuid]);
+        $pending = PendingSteeringMessage::create(['root_task_id' => $root->id, 'text' => "text of {$uuid}", 'source' => 'thread', 'mode' => 'steer', 'uuid' => $uuid]);
         ThreadTurnMessage::factory()->steer()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'state' => $state, 'pending_steering_message_id' => $pending->id]);
     }
 
     $commands->shouldReceive('kill')->once();
     $commands->shouldReceive('startRunner')->once();
-    $commands->shouldReceive('steer')->once()->with(Mockery::any(), 'steer-sent', 'text of steer-sent');
-    $commands->shouldReceive('steer')->once()->with(Mockery::any(), 'steer-queued', 'text of steer-queued');
+    $commands->shouldReceive('steer')->once()->with(Mockery::any(), 'steer-sent', SteeringText::PREAMBLE . 'text of steer-sent');
+    $commands->shouldReceive('steer')->once()->with(Mockery::any(), 'steer-queued', SteeringText::PREAMBLE . 'text of steer-queued');
     $commands->shouldReceive('turn')->once();
 
     app(RunnerRecovery::class)->recover($thread);
@@ -149,4 +153,49 @@ it('recovers from a runner-exit fixture of the current generation', function () 
     replayRunnerFixture($thread, 'runner-exit-mid-turn');
 
     expect($run->refresh()->restart_count)->toBe(1);
+});
+
+/**
+ * Recovers a turn whose prompt had started and returns the continuation uuid.
+ */
+function recoverStartedPrompt(Thread $thread, TaskRun $run, MockInterface $commands): string
+{
+    $commands->shouldReceive('kill', 'startRunner', 'turn')->once();
+    ThreadTurns::trackUuid($run, 'prompt-1');
+    $tracker = ThreadTurns::trackerFor($run->refresh());
+    $tracker->apply(['type' => 'command_lifecycle', 'command_uuid' => 'prompt-1', 'state' => 'started'], CarbonImmutable::now());
+    $run->forceFill(['tracker_state' => json_encode($tracker->state())])->save();
+
+    app(RunnerRecovery::class)->recover($thread);
+    $thread->save();
+
+    return (string) ThreadTurnMessage::query()->where('task_run_id', $run->id)->where('uuid', '!=', 'prompt-1')->value('uuid');
+}
+
+it('ends a recovered turn through the grace window', function () {
+    Event::fake([TurnCompleted::class]);
+    [$thread, $run, $commands] = lostRunnerTurn();
+    $thread->forceFill(['runner_state' => RunnerState::Busy])->save();
+    $continuation = recoverStartedPrompt($thread, $run, $commands);
+    $thread->forceFill(['runner_state' => RunnerState::Busy])->save();
+
+    pushRunnerLine($thread, 1, ['type' => 'result', 'subtype' => 'success', 'is_error' => false, 'session_id' => 'session-1']);
+    pushRunnerLine($thread, 2, ['type' => 'command_lifecycle', 'command_uuid' => $continuation, 'state' => 'completed']);
+    $this->travel(31)->seconds();
+    app(ThreadDriver::class)->tick();
+
+    expect($run->refresh()->turn_state)->toBe(TurnState::Completed);
+    Event::assertDispatchedTimes(TurnCompleted::class, 1);
+});
+
+it('does not end a recovered turn before the continuation completes', function () {
+    [$thread, $run, $commands] = lostRunnerTurn();
+    recoverStartedPrompt($thread, $run, $commands);
+    $thread->forceFill(['runner_state' => RunnerState::Busy])->save();
+
+    pushRunnerLine($thread, 1, ['type' => 'result', 'subtype' => 'success', 'is_error' => false, 'session_id' => 'session-1']);
+    $this->travel(31)->seconds();
+    app(ThreadDriver::class)->tick();
+
+    expect($run->refresh()->turn_state)->toBe(TurnState::Running);
 });
