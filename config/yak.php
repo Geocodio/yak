@@ -588,6 +588,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Thread files
+    |--------------------------------------------------------------------------
+    |
+    | File browser and editor limits: largest file opened for editing, and the
+    | most entries listed for one folder.
+    |
+    */
+
+    'files' => [
+        'max_edit_bytes' => (int) env('YAK_FILES_MAX_EDIT_BYTES', 1_000_000),
+        'tree_limit' => (int) env('YAK_FILES_TREE_LIMIT', 2000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Threads
     |--------------------------------------------------------------------------
     |
