@@ -5,11 +5,13 @@ namespace App\Services\Threads;
 use App\Enums\RepositoryRole;
 use App\Enums\TaskMode;
 use App\Enums\ThreadKind;
+use App\Jobs\RunYakJob;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -18,13 +20,13 @@ use RuntimeException;
 
 /**
  * Creates a thread from the start screen: the thread, its primary repository,
- * the root task, and the first turn.
+ * the root task, and the before-turn job that writes the first turn.
  */
 class ThreadStarter
 {
     public function __construct(
         private readonly ClaudeAccountResolver $resolver,
-        private readonly ThreadTurns $turns,
+        private readonly AgentJobDispatcher $dispatcher,
     ) {}
 
     /**
@@ -83,7 +85,8 @@ class ThreadStarter
             return $task;
         });
 
-        $this->turns->start($task, $description, $starter, $resolved->model);
+        // The before-turn job prepares the branch in the thread's sandbox and writes the first turn.
+        $this->dispatcher->dispatch($task, RunYakJob::class);
 
         return $task->thread()->firstOrFail();
     }

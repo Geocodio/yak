@@ -4,6 +4,7 @@ namespace App\Jobs\AfterTurn;
 
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\AgentRunResult;
+use App\Enums\ThreadSandboxState;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Models\Repository;
@@ -14,6 +15,7 @@ use App\Services\IncusSandboxManager;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\IncusThreadSandboxManager;
+use App\Services\Threads\ThreadDiffCapture;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadShell;
 use App\Services\Threads\TurnResult;
@@ -104,6 +106,9 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             $recorder->failed($e);
             $this->reportFailure($e->getMessage(), $e);
         } finally {
+            // The sandbox is awake and its tree final here; once paused, the listener's capture would be skipped.
+            $this->captureDiff($thread->refresh());
+
             try {
                 $threadSandbox->pauseIfIdle($thread->refresh());
             } catch (\Throwable $e) {
@@ -126,6 +131,13 @@ abstract class FinishThreadTurnJob implements ShouldQueue
 
         $this->task = $task;
         $this->reportFailure($e?->getMessage() ?? 'Job failed without exception');
+    }
+
+    private function captureDiff(Thread $thread): void
+    {
+        if ($thread->sandbox_state === ThreadSandboxState::Running) {
+            app(ThreadDiffCapture::class)->capture($thread);
+        }
     }
 
     /**

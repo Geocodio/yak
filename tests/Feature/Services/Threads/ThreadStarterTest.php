@@ -2,21 +2,20 @@
 
 use App\Enums\TaskMode;
 use App\Enums\ThreadVisibility;
+use App\Jobs\RunYakJob;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
-use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Services\Threads\ThreadStarter;
-use App\Services\Threads\ThreadTurns;
-use Mockery\MockInterface;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
     Repository::factory()->create(['slug' => 'acme/widgets']);
     config(['yak.default_model' => 'opus']);
-    $this->turns = $this->mock(ThreadTurns::class, fn (MockInterface $mock) => $mock->shouldReceive('start')->andReturn(new TaskRun)->byDefault());
+    Queue::fake();
 });
 
 function startThread(?int $accountId = null, ?string $model = null, string $repo = 'acme/widgets')
@@ -26,7 +25,6 @@ function startThread(?int $accountId = null, ?string $model = null, string $repo
 
 it('creates thread, task, repository row and starts the first turn', function () {
     $account = ClaudeAccount::factory()->default()->create(['owner_user_id' => $this->user->id]);
-    $this->turns->shouldReceive('start')->once()->withArgs(fn ($task, $prompt, $driver, $model) => $prompt === "Fix the login bug\nit crashes" && $driver->is($this->user))->andReturn(new TaskRun);
 
     $thread = startThread();
 
@@ -38,6 +36,7 @@ it('creates thread, task, repository row and starts the first turn', function ()
     expect(ThreadRepository::query()->where('thread_id', $thread->id)->where('repo', 'acme/widgets')->exists())->toBeTrue();
     $task = $thread->tasks()->first();
     expect($task->source)->toBe('dashboard')->and($task->description)->toBe("Fix the login bug\nit crashes");
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->is($task));
 });
 
 it('uses the chosen account and model', function () {

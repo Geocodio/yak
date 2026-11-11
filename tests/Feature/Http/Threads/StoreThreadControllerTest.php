@@ -2,17 +2,15 @@
 
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
-use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
-use App\Services\Threads\ThreadTurns;
-use Mockery\MockInterface;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
     Repository::factory()->create(['slug' => 'acme/widgets']);
     Repository::factory()->inactive()->create(['slug' => 'acme/old']);
-    $this->turns = $this->mock(ThreadTurns::class, fn (MockInterface $mock) => $mock->shouldReceive('start')->andReturn(new TaskRun)->byDefault());
+    Queue::fake();
 });
 
 it('starts a thread and redirects to it', function () {
