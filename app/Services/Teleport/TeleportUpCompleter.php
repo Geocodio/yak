@@ -7,6 +7,7 @@ use App\Enums\TeleportState;
 use App\Exceptions\TeleportError;
 use App\Jobs\PrepareTeleportUpJob;
 use App\Models\Device;
+use App\Models\Repository;
 use App\Models\SessionFile;
 use App\Models\Teleport;
 use App\Models\Thread;
@@ -137,6 +138,14 @@ class TeleportUpCompleter
                 }
 
                 throw new TeleportError('push_not_visible', "{$entry['repo']} needs a pushed branch and head_sha.", 409, ['repo' => $entry['repo']]);
+            }
+
+            $name = strtolower((string) $entry['repo']);
+            $repository = Repository::query()->whereRaw('LOWER(github_full_name) = ?', [$name])->first()
+                ?? Repository::query()->whereRaw('LOWER(slug) = ?', [$name])->first();
+
+            if ($repository !== null && $repository->default_branch === $entry['branch']) {
+                throw new TeleportError('default_branch_not_allowed', 'Teleport never pushes the default branch.', 409, ['repo' => $entry['repo'], 'branch' => $entry['branch']]);
             }
 
             if ($this->heads->headOf($entry['repo'], $entry['branch']) !== $entry['head_sha']) {

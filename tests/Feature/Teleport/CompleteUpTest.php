@@ -144,6 +144,15 @@ it('answers push_not_visible and leaves the owner', function () {
         ->and(Teleport::query()->find($begin['teleport_id'])->state)->toBe(TeleportState::Open);
 });
 
+it('refuses a default-branch push and leaves the owner', function () {
+    $begin = beginAndUpload($this);
+
+    $this->postJson("/api/cli/v1/teleports/{$begin['teleport_id']}/complete", completeBody(Repository::query()->first()->default_branch), cliHeaders($this->token))
+        ->assertStatus(409)->assertJsonPath('error', 'default_branch_not_allowed');
+
+    expect(Thread::withoutGlobalScopes()->find($begin['thread']['id'])->owner_side)->toBe(ThreadOwnerSide::Device);
+});
+
 it('rejects a primary repo without head_sha and leaves the owner', function () {
     $begin = beginAndUpload($this);
     $this->heads->shouldNotReceive('headOf');

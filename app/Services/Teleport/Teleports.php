@@ -77,7 +77,7 @@ class Teleports
                 throw $this->inProgress($open);
             }
 
-            $this->assertDeviceMayUp($thread, $device, $validated);
+            $this->assertDeviceMayUp($thread, $device, $validated, $repositories[0]);
         } else {
             $this->assertNoOpenTeleportForSession($device, $validated['session_id']);
         }
@@ -254,7 +254,7 @@ class Teleports
     /**
      * @param  array<string, mixed>  $validated
      */
-    private function assertDeviceMayUp(Thread $thread, Device $device, array $validated): void
+    private function assertDeviceMayUp(Thread $thread, Device $device, array $validated, Repository $primaryRepository): void
     {
         if ($thread->owner_side === ThreadOwnerSide::Yak) {
             throw new TeleportError('thread_owned_by_yak', 'This thread is on Yak. Run yak teleport ' . $thread->id . ' to bring it down first.', 409, ['thread_id' => $thread->id]);
@@ -268,12 +268,22 @@ class Teleports
 
         $primary = $validated['repos'][0];
 
-        if ($thread->branch !== null && ! ($primary['on_default_branch'] ?? false) && ($primary['branch'] ?? null) !== $thread->branch) {
+        if ($thread->branch !== null && ! $this->isOnDefaultBranch($primary, $primaryRepository) && ($primary['branch'] ?? null) !== $thread->branch) {
             throw new TeleportError('branch_mismatch', "This thread works on {$thread->branch}, but the checkout is on " . ($primary['branch'] ?? 'no branch') . '.', 409, [
                 'thread_branch' => $thread->branch,
                 'current_branch' => $primary['branch'] ?? null,
             ]);
         }
+    }
+
+    /**
+     * The client flag is a hint; the server also compares the branch with the repository's default branch.
+     *
+     * @param  array<string, mixed>  $entry
+     */
+    private function isOnDefaultBranch(array $entry, Repository $repository): bool
+    {
+        return (bool) ($entry['on_default_branch'] ?? false) || ($entry['branch'] ?? null) === $repository->default_branch;
     }
 
     private function inProgress(Teleport $open): TeleportError
@@ -317,7 +327,7 @@ class Teleports
             $role = RepositoryRole::from($entry['role']);
             $repository = $repositories[$index];
             $isContext = $role === RepositoryRole::Context;
-            $createBranch = ! $isContext && (bool) ($entry['on_default_branch'] ?? false);
+            $createBranch = ! $isContext && $this->isOnDefaultBranch($entry, $repository);
             $branch = match (true) {
                 $isContext => null,
                 $createBranch => $thread->branch ?? $this->namer->branchFor((string) $slug),
