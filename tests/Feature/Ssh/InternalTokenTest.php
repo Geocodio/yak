@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\VerifySshInternalToken;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Route;
 
 beforeEach(function () {
@@ -29,5 +30,8 @@ it('lets the right token through', function () {
 });
 
 it('is registered under the ssh-internal-token alias', function () {
+    // The HTTP kernel copies bootstrap/app.php aliases onto the router when it is resolved.
+    app(Kernel::class);
+
     expect(app('router')->getMiddleware()['ssh-internal-token'])->toBe(VerifySshInternalToken::class);
 });
