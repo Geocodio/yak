@@ -52,4 +52,14 @@ class ThreadDiff extends Model
     {
         return $this->hasMany(ThreadDiffFile::class)->orderBy('path');
     }
+
+    /**
+     * Per-repository diffs of a multi-repo thread. The primary's files carry no repository id.
+     *
+     * @return HasMany<ThreadDiffRepository, $this>
+     */
+    public function repositories(): HasMany
+    {
+        return $this->hasMany(ThreadDiffRepository::class);
+    }
 }

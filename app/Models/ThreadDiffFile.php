@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One changed file of a thread diff. Binary and oversized files carry no patch.
  *
  * @property int $thread_diff_id
+ * @property int|null $thread_diff_repository_id null means the primary repository
  * @property string $path
  * @property string|null $old_path
  * @property DiffFileStatus $status
@@ -48,5 +49,13 @@ class ThreadDiffFile extends Model
     public function diff(): BelongsTo
     {
         return $this->belongsTo(ThreadDiff::class, 'thread_diff_id');
+    }
+
+    /**
+     * @return BelongsTo<ThreadDiffRepository, $this>
+     */
+    public function repositoryDiff(): BelongsTo
+    {
+        return $this->belongsTo(ThreadDiffRepository::class, 'thread_diff_repository_id');
     }
 }
