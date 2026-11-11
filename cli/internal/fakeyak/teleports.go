@@ -759,3 +759,10 @@ func (s *Server) threadExtraRoute(w http.ResponseWriter, r *http.Request, device
 		writeErr(w, 404, "not_found", "No such route in the fake server.", nil)
 	}
 }
+
+// ResetAcks forgets every acknowledgement for a thread, as if the ack call never arrived.
+func (s *Server) ResetAcks(threadID int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.tele.acked, threadID)
+}

@@ -37,7 +37,7 @@ type command func(ctx *Context, args []string) int
 var commands = map[string]command{}
 
 // futureCommands are dispatched names whose implementation lands in a later chunk.
-var futureCommands = []string{"ssh", "hook", "mcp", "open-link", "marker"}
+var futureCommands = []string{"ssh", "mcp", "open-link", "marker"}
 
 func init() {
 	commands["version"] = func(ctx *Context, _ []string) int {
