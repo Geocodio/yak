@@ -1,5 +1,5 @@
-import { router } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
+import { csrfToken } from '@/lib/csrfToken';
 import { seen } from '@/routes/threads';
 
 const THREAD_URL = /^\/threads\/(\d+)/;
@@ -18,6 +18,7 @@ export function useMarkThreadSeen(url: string): void {
             return;
         }
         postedId.current = threadId;
-        router.post(seen.url(threadId), {}, { preserveState: true, preserveScroll: true, only: [] });
+        // A plain request: the endpoint answers 204, which an Inertia visit reports as an invalid response.
+        void fetch(seen.url(threadId), { method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': csrfToken() } }).catch(() => undefined);
     }, [threadId]);
 }

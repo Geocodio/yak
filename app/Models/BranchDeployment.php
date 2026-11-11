@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use App\Enums\DeploymentStatus;
+use App\Models\Scopes\VisibleDeploymentScope;
 use App\Observers\BranchDeploymentObserver;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\BranchDeploymentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,6 +33,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read Repository $repository
  */
 #[ObservedBy([BranchDeploymentObserver::class])]
+#[ScopedBy(VisibleDeploymentScope::class)]
 class BranchDeployment extends Model
 {
     /** @use HasFactory<BranchDeploymentFactory> */

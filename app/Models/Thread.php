@@ -184,6 +184,16 @@ class Thread extends Model
     }
 
     /**
+     * People a private root thread is shared with.
+     *
+     * @return HasMany<ThreadShare, $this>
+     */
+    public function shares(): HasMany
+    {
+        return $this->hasMany(ThreadShare::class);
+    }
+
+    /**
      * @return HasMany<ThreadRepository, $this>
      */
     public function repositories(): HasMany

@@ -12,6 +12,7 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
 use App\Models\Thread;
+use App\Models\ThreadShare;
 use App\Models\User;
 use App\Services\Threads\ThreadAccess;
 
@@ -40,12 +41,18 @@ final class ThreadPageData
      *         rootThreadId: ?int,
      *         lastActivityAt: ?string,
      *         repositories: list<array{repo: string, role: value-of<RepositoryRole>, setupStatus: value-of<RepositorySetupStatus>}>,
+     *         isOwner: bool,
+     *         sharedWithCount: int,
+     *         startedOnDevice: bool,
      *     },
      *     canDrive: bool,
+     *     publishWarning: bool,
      * }
      */
     public static function build(Thread $thread, ?User $viewer): array
     {
+        $access = app(ThreadAccess::class);
+        $isOwner = $access->isOwner($viewer, $thread);
         $repositories = [];
 
         foreach ($thread->repositories as $repository) {
@@ -74,8 +81,12 @@ final class ThreadPageData
                 'rootThreadId' => $thread->root_thread_id,
                 'lastActivityAt' => $thread->last_activity_at?->toIso8601String(),
                 'repositories' => $repositories,
+                'isOwner' => $isOwner,
+                'sharedWithCount' => $isOwner ? ThreadShare::query()->where('thread_id', $thread->root_thread_id ?? $thread->id)->count() : 0,
+                'startedOnDevice' => $thread->owner_side === ThreadOwnerSide::Device,
             ],
-            'canDrive' => app(ThreadAccess::class)->canDrive($viewer, $thread),
+            'canDrive' => $access->canDrive($viewer, $thread),
+            'publishWarning' => $thread->effectiveVisibility() !== ThreadVisibility::Team,
         ];
     }
 }
