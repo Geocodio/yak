@@ -1,8 +1,10 @@
 import { Deferred, Head, Link, router } from '@inertiajs/react';
 import { Badge, Button, ConfirmDialog, EmptyState, Skeleton, StatusPill } from '@geocodio/console-ui';
-import { AlertTriangle, Check, Copy, Monitor, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, Monitor, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Card } from '@/components/accounts/AccountsSection';
+import { AddComputerCard, INSTALL_GUIDE_URL } from '@/components/settings/devices/AddComputerCard';
+import { systemLabel } from '@/components/settings/devices/systemLabel';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
 import { destroy } from '@/routes/settings/devices';
 import { show as showThread } from '@/routes/threads';
@@ -15,7 +17,6 @@ type Props = PageProps<{
     loginCommand: string;
 }>;
 
-const OPERATING_SYSTEMS: Record<string, string> = { darwin: 'macOS', linux: 'Linux' };
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 function relative(iso: string): string {
@@ -35,25 +36,6 @@ function shortDate(iso: string): string {
     return new Date(iso).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function CopyBox({ command, label }: { command: string; label: string }) {
-    const [didCopy, setDidCopy] = useState(false);
-    const copy = () => {
-        void navigator.clipboard?.writeText(command).then(() => {
-            setDidCopy(true);
-            window.setTimeout(() => setDidCopy(false), 1500);
-        });
-    };
-
-    return (
-        <div className="flex items-center justify-between gap-2 rounded-control border border-hair bg-panel-2 px-3 py-2">
-            <code className="min-w-0 truncate font-mono text-[12.5px]">{command}</code>
-            <button type="button" onClick={copy} aria-label={`Copy ${label}`} className={`grid size-7 shrink-0 place-items-center rounded-control text-muted hover:text-text ${FOCUS}`}>
-                {didCopy ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-            </button>
-        </div>
-    );
-}
-
 function LoadingRows() {
     return (
         <Card className="divide-y divide-hair" aria-busy="true" aria-label="Loading computers" data-testid="devices-loading">
@@ -70,27 +52,23 @@ function LoadingRows() {
 
 function EmptyDevices({ installCommand, loginCommand }: { installCommand: string; loginCommand: string }) {
     return (
-        <Card className="p-5" data-testid="no-devices">
-            <div className="flex flex-col gap-4">
-                <div>
-                    <h3 className="text-[14px] font-semibold">No computers paired</h3>
-                    <p className="mt-1 max-w-[480px] text-[12.5px] leading-relaxed text-muted">Pair a computer to move threads between it and Yak.</p>
-                </div>
-                <div>
-                    <h4 className="mb-2 text-[13px] font-medium">Pair your first computer</h4>
-                    <ol className="flex max-w-[480px] flex-col gap-2 text-[12.5px] text-muted">
-                        <li className="flex flex-col gap-1.5"><span>1. Install the plugin in Claude Code.</span><CopyBox command={installCommand} label="install command" /></li>
-                        <li className="flex flex-col gap-1.5"><span>2. Sign in from your terminal and enter the code it shows.</span><CopyBox command={loginCommand} label="login command" /></li>
-                    </ol>
-                </div>
-            </div>
-        </Card>
+        <div className="flex flex-col gap-4" data-testid="no-devices">
+            <Card className="p-8">
+                <EmptyState
+                    icon={<Monitor size={18} />}
+                    title="No computers paired"
+                    body="Pair a computer to teleport threads between it and Yak. Until then threads you start on Yak stay on Yak."
+                    action={<a href={INSTALL_GUIDE_URL} target="_blank" rel="noreferrer" className={`rounded-[3px] text-[12.5px] text-accent-text hover:underline ${FOCUS}`}>How teleport works</a>}
+                />
+            </Card>
+            <AddComputerCard heading="Pair your first computer" installCommand={installCommand} loginCommand={loginCommand} />
+        </div>
     );
 }
 
 function DeviceRow({ device, onRevoke }: { device: Device; onRevoke: (device: Device) => void }) {
     const owned = device.owned_threads[0];
-    const system = `${OPERATING_SYSTEMS[device.os] ?? device.os}, ${device.arch}`;
+    const system = systemLabel(device.os, device.arch);
     const showLastSeen = device.last_seen_at !== null && device.last_seen_at !== device.last_teleport?.at;
 
     return (
@@ -109,8 +87,9 @@ function DeviceRow({ device, onRevoke }: { device: Device; onRevoke: (device: De
                         : 'Never teleported'}
                     {showLastSeen && device.last_seen_at && <> &middot; last seen {relative(device.last_seen_at)}</>}
                 </p>
+                {device.is_stale && <p className="text-[12px] text-warn" data-testid="device-stale-hint">Not used in {device.stale_days} days. Revoke it if this computer is gone.</p>}
             </div>
-            <Button variant="secondary" onClick={() => onRevoke(device)} data-testid="device-revoke">Revoke</Button>
+            <Button variant="secondary" icon={<Trash2 size={13} />} onClick={() => onRevoke(device)} data-testid="device-revoke">Revoke</Button>
         </li>
     );
 }
@@ -120,10 +99,10 @@ function revokeBody(device: Device | null): ReactNode {
         return '';
     }
 
-    const owned = device.owned_threads[0];
+    const [owned, ...others] = device.owned_threads;
 
     if (owned) {
-        return <>&ldquo;{owned.title}&rdquo; is on this computer right now. It returns to Yak as it was when it left. Work done on the computer since then stays in that Claude Code session, which becomes a normal local session again, and the thread cannot be teleported from it. To bring that work to Yak, pair the computer again and run <code className="font-mono">yak teleport</code> to start a new thread from the branch. The token stops working at once.</>;
+        return <>The thread &ldquo;{owned.title}&rdquo; is on this computer right now.{others.length > 0 && <> Also: {others.map((other) => `\u201c${other.title}\u201d`).join(', ')}.</>} It returns to Yak as it was when it left. Work done on the computer since then stays in that Claude Code session, which becomes a normal local session again, and the thread cannot be teleported from it. To bring that work to Yak, pair the computer again and run <code className="font-mono">yak teleport</code> to start a new thread from the branch. The token stops working at once.</>;
     }
 
     return <>This computer can no longer teleport. Its token stops working at once, and a teleport in progress there stops with a message that says so. You can pair it again with <code className="font-mono">yak login</code>.</>;
@@ -165,8 +144,8 @@ export default function Devices({ devices, installCommand, loginCommand }: Props
     };
 
     const failedCard = (
-        <Card className="p-4" data-testid="devices-load-failed">
-            <EmptyState icon={<AlertTriangle size={18} />} title="Could not load your computers" body="Yak could not reach its server, so the list is missing. Your computers are still paired. Check your connection and try again." action={<Button variant="secondary" icon={<RefreshCw size={13} />} onClick={retry}>Try again</Button>} />
+        <Card className="p-8" data-testid="devices-load-failed">
+            <EmptyState icon={<AlertTriangle size={18} />} title="Could not load your computers" body="Yak could not reach its server, so your list may be out of date. Nothing was changed. Try again in a moment." action={<Button variant="secondary" icon={<RefreshCw size={13} />} onClick={retry}>Try again</Button>} />
         </Card>
     );
 
@@ -177,7 +156,7 @@ export default function Devices({ devices, installCommand, loginCommand }: Props
             <div className="flex flex-col gap-6">
                 <div>
                     <h2 className="text-[20px] font-semibold tracking-[-0.01em]">Devices</h2>
-                    <p className="mt-1.5 max-w-[620px] text-[13px] leading-relaxed text-muted">The computers that can teleport threads to and from Yak.</p>
+                    <p className="mt-1.5 max-w-[620px] text-[13px] leading-relaxed text-muted">The computers that can teleport threads to and from Yak. Each one signed in with <code className="font-mono">yak login</code> and holds its own token, which stays in the system keychain on that computer.</p>
                 </div>
 
                 {revokedName !== null && (
@@ -192,7 +171,12 @@ export default function Devices({ devices, installCommand, loginCommand }: Props
                     {didLoadFail && devices === undefined ? failedCard : (
                         <Deferred data="devices" fallback={<LoadingRows />}>
                             {devices && devices.length > 0
-                                ? <Card><ul className="divide-y divide-hair">{devices.map((device) => <DeviceRow key={device.id} device={device} onRevoke={setRevoking} />)}</ul></Card>
+                                ? (
+                                    <div className="flex flex-col gap-4">
+                                        <Card><ul className="divide-y divide-hair">{devices.map((device) => <DeviceRow key={device.id} device={device} onRevoke={setRevoking} />)}</ul></Card>
+                                        <AddComputerCard heading="Add a computer" installCommand={installCommand} loginCommand={loginCommand} />
+                                    </div>
+                                )
                                 : <EmptyDevices installCommand={installCommand} loginCommand={loginCommand} />}
                         </Deferred>
                     )}

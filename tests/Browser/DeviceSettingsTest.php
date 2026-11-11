@@ -23,3 +23,25 @@ test('a person revokes a computer that owns a thread', function () {
 
     expect($device->fresh()->isRevoked())->toBeTrue();
 });
+
+test('a person with a paired computer can still add another', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    Device::factory()->forUser($user)->create();
+
+    visit('/settings/devices')
+        ->assertPresent('[data-testid="add-computer"]')
+        ->assertSee('yak login')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a stale computer shows its hint', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    Device::factory()->forUser($user)->stale()->create();
+
+    visit('/settings/devices')
+        ->assertSee('Not used in 91 days. Revoke it if this computer is gone.')
+        ->assertPresent('[data-testid="device-stale-hint"]')
+        ->assertNoJavaScriptErrors();
+});
