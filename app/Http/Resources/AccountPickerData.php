@@ -5,19 +5,21 @@ namespace App\Http\Resources;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\User;
+use App\Models\UserRepositorySetting;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 
 /**
  * What an account picker needs: the accounts a person may start a thread on
  * (their own plus Yak accounts, checked ones only), and per repository the
- * account and model Yak would pick for them without a choice.
+ * account and model Yak would pick for them without a choice, plus the
+ * person's configured repository default when that account is unusable.
  */
 final class AccountPickerData
 {
     /**
      * @return array{
      *     accounts: list<array{id: int, name: string, kind: string, icon: string, color: string, isSystem: bool, isDefault: bool, defaultModel: ?string, usable: bool, status: string}>,
-     *     defaultsByRepo: array<string, array{accountId: int|null, model: string|null}>,
+     *     defaultsByRepo: array<string, array{accountId: int|null, brokenDefaultAccountId: int|null, model: string|null}>,
      *     models: list<string>,
      * }
      */
@@ -43,12 +45,15 @@ final class AccountPickerData
             ->all());
 
         $resolver = app(ClaudeAccountResolver::class);
+        $configuredDefaults = $user === null ? collect() : UserRepositorySetting::query()->where('user_id', $user->id)->whereNotNull('claude_account_id')->pluck('claude_account_id', 'repo');
 
         $defaultsByRepo = Repository::query()->where('is_active', true)->orderBy('slug')->get()
-            ->mapWithKeys(function (Repository $repository) use ($resolver, $user): array {
+            ->mapWithKeys(function (Repository $repository) use ($resolver, $user, $configuredDefaults): array {
                 $resolved = $resolver->forNewThread($user, $repository->slug, null, null);
+                $configured = $configuredDefaults->has($repository->slug) ? ClaudeAccount::query()->whereKey((int) $configuredDefaults[$repository->slug])->first() : null;
+                $isBroken = $configured !== null && ! $configured->isUsable() && ($configured->isSystem() || $configured->owner_user_id === $user?->id);
 
-                return [$repository->slug => ['accountId' => $resolved->account?->id, 'model' => $resolved->model]];
+                return [$repository->slug => ['accountId' => $resolved->account?->id, 'brokenDefaultAccountId' => $isBroken ? $configured->id : null, 'model' => $resolved->model]];
             })
             ->all();
 

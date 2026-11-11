@@ -1,14 +1,18 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { Button, Menu, cn } from '@geocodio/console-ui';
+import { BrandMarkIcon, Button, Kbd, Menu, cn } from '@geocodio/console-ui';
 import { ChevronDown, Search, Wrench } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
-import { AccountPicker } from '@/components/accounts/AccountPicker';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
-import { ModelPicker } from '@/components/threads/composer/ModelPicker';
+import { repoInitials } from './repoInitials';
+import { RunsOnStrip } from './RunsOnStrip';
+import { StartHints } from './StartHints';
+import { StartErrorBanner } from './StartErrorBanner';
+import { BrokenDefaultNote, NoOwnAccountNote, resolveAccountNote } from './accountNotes';
 import { RepositoryPicker } from './RepositoryPicker';
 import { RepositoryProgress } from './RepositoryProgress';
+import { YAK_MARK } from '@/lib/brand';
 import { show, store } from '@/routes/threads';
 import { claudeAccounts } from '@/routes/settings';
 import type { SharedProps } from '@/types/shared';
@@ -47,6 +51,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
     const noAccounts = picker.accounts.every((account) => account.usable === false);
     const noRepos = repos.length === 0;
     const defaults = picker.defaultsByRepo[form.data.repo];
+    const accountNote = resolveAccountNote(picker.accounts, defaults?.brokenDefaultAccountId ?? null);
     const defaultAccount = picker.accounts.find((account) => account.id === defaults?.accountId);
     const chosenAccount = picker.accounts.find((account) => String(account.id) === form.data.claude_account_id);
     const effectiveModel = form.data.model ?? chosenAccount?.defaultModel ?? defaults?.model ?? null;
@@ -95,29 +100,42 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
 
     return (
         <div data-testid="start-thread-form">
-            <div className="relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
+            <div className="relative overflow-hidden rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
                 <AttachmentDropOverlay draft={draft} />
-                <AttachmentTextarea
-                    ref={editorRef}
-                    draft={draft}
-                    rows={5}
-                    autoFocus={autoFocus}
-                    placeholder="Describe the change or the question. Paste or drop screenshots and files."
-                    value={form.data.description}
-                    onValueChange={(value) => form.setData('description', value)}
-                    onKeyDown={onKeyDown}
-                    onPaste={draft.onPaste}
-                    aria-invalid={errors.description ? true : undefined}
-                    className="w-full resize-none border-0 shadow-none focus:ring-0"
-                    data-testid="start-thread-description"
-                />
+                <div className="flex items-start gap-3 px-[18px] pb-2 pt-4">
+                    <BrandMarkIcon mark={YAK_MARK} size={26} className="mt-[3px] shrink-0" />
+                    <AttachmentTextarea
+                        ref={editorRef}
+                        draft={draft}
+                        rows={5}
+                        autoFocus={autoFocus}
+                        placeholder="What should Yak do? Say what is wrong or what you want, and where to look if you know."
+                        value={form.data.description}
+                        onValueChange={(value) => form.setData('description', value)}
+                        onKeyDown={onKeyDown}
+                        onPaste={draft.onPaste}
+                        aria-invalid={errors.description ? true : undefined}
+                        wrapperClassName="min-w-0 flex-1"
+                        className="min-h-24 w-full resize-none rounded-none border-0 bg-transparent px-0 py-0 text-[16px] leading-[1.55] shadow-none outline-none hover:border-0 focus:shadow-none focus:ring-0"
+                        data-testid="start-thread-description"
+                    />
+                </div>
                 <DraftAttachments draft={draft} errors={errors} progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null} onOpenMedia={() => {}} />
-                <div className="flex flex-wrap items-center gap-2 border-t border-hair px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2 border-t border-hair py-2.5 pl-[18px] pr-3">
                     <Menu
                         aria-label="Repository"
                         disabled={noRepos}
                         trigger={
-                            <span className="flex items-center gap-1 text-[12.5px] font-medium text-body" data-testid="start-thread-repo">
+                            <span
+                                className={cn(
+                                    'inline-flex h-7 items-center gap-1.5 rounded-control border bg-panel pl-2 pr-2.5 text-[12.5px] font-medium hover:bg-panel-2',
+                                    form.data.repo === '' ? 'border-dashed border-hair-strong text-muted' : 'border-hair-strong text-body',
+                                )}
+                                data-testid="start-thread-repo"
+                            >
+                                <span className={cn('grid size-4 place-items-center rounded-[4px] font-mono text-[9px] font-semibold', form.data.repo === '' ? 'bg-panel-2 text-faint' : 'bg-brand text-accent-ink')}>
+                                    {form.data.repo === '' ? '@' : repoInitials(form.data.repo)}
+                                </span>
                                 {form.data.repo || (noRepos ? 'No repository' : 'Pick a repo')} <ChevronDown size={12} className="text-faint" aria-hidden="true" />
                             </span>
                         }
@@ -150,10 +168,33 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                         ))}
                     </div>
                     <AttachButton draft={draft} disabled={form.processing} />
-                    <Button variant="primary" className="ml-auto h-7" pending={form.processing || startedThreadId !== null} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
-                        Start thread
-                    </Button>
+                    <div className="ml-auto flex items-center gap-2.5">
+                        <Kbd keys={['⌘', '↵']} className="hidden pointer-fine:inline-flex" />
+                        <Button variant="primary" className="h-7" pending={form.processing || startedThreadId !== null} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
+                            {form.processing || startedThreadId !== null ? 'Starting...' : `Start ${isResearch ? 'research' : 'change'}`}
+                        </Button>
+                    </div>
                 </div>
+                <RunsOnStrip
+                    picker={picker}
+                    accountId={form.data.claude_account_id}
+                    onAccountChange={(id) => form.setData('claude_account_id', id)}
+                    model={effectiveModel}
+                    onModelChange={(model) => form.setData('model', model)}
+                    disabled={noAccounts || form.processing}
+                    accountsHelpUrl={`${docs.baseUrl.replace(/\/$/, '')}/claude-accounts/`}
+                    defaultLabel={defaultAccount ? `${defaultAccount.name} (default)` : 'Default account'}
+                    defaultAccount={defaultAccount}
+                    note={
+                        accountNote.kind === 'own-missing' ? (
+                            <NoOwnAccountNote sharedName={accountNote.sharedName ?? ''} accountsUrl={claudeAccounts.url()} />
+                        ) : accountNote.kind === 'repo-default-broken' ? (
+                            <BrokenDefaultNote brokenName={accountNote.brokenName ?? ''} fallbackName={accountNote.fallbackName ?? ''} accountsUrl={claudeAccounts.url()} />
+                        ) : undefined
+                    }
+                />
+                {error && <StartErrorBanner message={error} />}
+                <StartHints isResearch={isResearch} />
             </div>
 
             {startedThreadId !== null ? (
@@ -188,22 +229,6 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                 )
             )}
 
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted" data-testid="start-thread-runs-on">
-                <span>Runs on</span>
-                <AccountPicker
-                    label="Claude account"
-                    value={form.data.claude_account_id}
-                    accounts={picker.accounts}
-                    onChange={(id) => form.setData('claude_account_id', id)}
-                    disabled={noAccounts || form.processing}
-                    defaultLabel={defaultAccount ? `${defaultAccount.name} (default)` : 'Default account'}
-                    defaultAccount={defaultAccount}
-                    className="h-7 min-w-[160px]"
-                />
-                <span>with</span>
-                <ModelPicker models={picker.models} value={effectiveModel} onChange={(model) => form.setData('model', model)} disabled={noAccounts || form.processing} />
-            </div>
-
             {noAccounts && (
                 <p className="mt-3 text-[12.5px] text-fail" role="alert" data-testid="start-thread-no-accounts">
                     No usable Claude account. <Link href={claudeAccounts.url()} className="underline">Connect one in Settings</Link>, or ask an admin to set up a shared account.
@@ -214,17 +239,6 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                     No repository is set up yet. Add one under Repositories first.
                 </p>
             )}
-            {error && (
-                <p className="mt-3 text-[12.5px] text-fail" role="alert" data-testid="start-thread-error">
-                    {error}
-                </p>
-            )}
-
-            <p className="mt-4 text-[12px] text-muted">
-                <a href={docs.baseUrl} target="_blank" rel="noreferrer" className="underline">
-                    How threads work
-                </a>
-            </p>
         </div>
     );
 }

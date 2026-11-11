@@ -4,6 +4,7 @@ use App\Http\Resources\AccountPickerData;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\User;
+use App\Models\UserRepositorySetting;
 
 function checked(ClaudeAccount $account): ClaudeAccount
 {
@@ -48,5 +49,22 @@ it('reports the default account per active repository', function () {
     $mine = checked(ClaudeAccount::factory()->for($me, 'owner')->default()->create(['default_model' => 'haiku']));
     $repository = Repository::factory()->create(['is_active' => true]);
 
-    expect(AccountPickerData::forUser($me)['defaultsByRepo'][$repository->slug])->toBe(['accountId' => $mine->id, 'model' => 'haiku']);
+    expect(AccountPickerData::forUser($me)['defaultsByRepo'][$repository->slug])->toBe(['accountId' => $mine->id, 'brokenDefaultAccountId' => null, 'model' => 'haiku']);
+});
+
+it('reports brokenDefaultAccountId when the repository default is unusable', function () {
+    $me = User::factory()->create();
+    $repository = Repository::factory()->create(['is_active' => true]);
+    $expired = checked(ClaudeAccount::factory()->for($me, 'owner')->expired()->create());
+    $valid = checked(ClaudeAccount::factory()->for($me, 'owner')->default()->create());
+    UserRepositorySetting::query()->create(['user_id' => $me->id, 'repo' => $repository->slug, 'claude_account_id' => $expired->id]);
+
+    expect(AccountPickerData::forUser($me)['defaultsByRepo'][$repository->slug])
+        ->toMatchArray(['accountId' => $valid->id, 'brokenDefaultAccountId' => $expired->id]);
+
+    $valid->update(['is_default' => false]);
+    expect(AccountPickerData::forUser($me)['defaultsByRepo'][$repository->slug]['brokenDefaultAccountId'])->toBe($expired->id);
+
+    UserRepositorySetting::query()->update(['claude_account_id' => $valid->id]);
+    expect(AccountPickerData::forUser($me)['defaultsByRepo'][$repository->slug]['brokenDefaultAccountId'])->toBeNull();
 });

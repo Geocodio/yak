@@ -157,7 +157,7 @@ export type NewThreadPageData = {
     repos: { slug: string; name: string }[];
     picker: {
         accounts: PickerAccount[];
-        defaultsByRepo: Record<string, { accountId: number | null; model: string | null }>;
+        defaultsByRepo: Record<string, { accountId: number | null; brokenDefaultAccountId: number | null; model: string | null }>;
         models: string[];
     };
     defaultRepo: string | null;
