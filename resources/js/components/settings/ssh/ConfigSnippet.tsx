@@ -39,7 +39,7 @@ export function ConfigSnippet({ command, snippet }: { command: string; snippet: 
                         {command}
                         {commandCopy.state === 'copied' ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
                     </button>{' '}
-                    to print this snippet for your own setup. Paste it into <code className="font-mono">~/.ssh/config</code> so plain <code className="font-mono">ssh</code>, <code className="font-mono">scp</code> and editor remote modes work with the jump host.
+                    to print this snippet for your own setup. Paste it into <code className="font-mono">~/.ssh/config</code> so plain <code className="font-mono">ssh</code>, <code className="font-mono">scp</code> and editor remote modes such as VS Code Remote work with the jump host.
                 </p>
             </div>
             <Card className="overflow-hidden" data-testid="ssh-config-snippet">

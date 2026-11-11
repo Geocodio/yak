@@ -5,6 +5,7 @@ import { SectionPanel } from '@/components/shell/SectionPanel';
 import { sectionForUrl, type RailSection } from '@/components/shell/sections';
 import { ThreadListPanel } from '@/components/shell/ThreadListPanel';
 import { useMarkThreadSeen } from '@/components/shell/useMarkThreadSeen';
+import { useThreadDocked } from '@/components/shell/useThreadDocked';
 
 const COLLAPSED_KEY = 'yak:shell-collapsed';
 
@@ -24,11 +25,12 @@ function writeCollapsed(isCollapsed: boolean): void {
     }
 }
 
-/** Icon rail plus the panel of the active section; hidden below `lg`. */
+/** Icon rail plus the panel of the active section; hidden below `lg`. A docked thread panel leaves only the rail. */
 export function ShellSidebar() {
     const { url } = usePage();
     const [picked, setPicked] = useState<RailSection | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(readCollapsed);
+    const isDocked = useThreadDocked();
     const active = picked ?? sectionForUrl(url);
 
     useMarkThreadSeen(url);
@@ -59,7 +61,7 @@ export function ShellSidebar() {
     return (
         <aside className="hidden shrink-0 border-r border-hair bg-sidebar lg:flex" data-testid="sidebar">
             <IconRail active={active} onSelect={select} />
-            {isCollapsed ? null : (
+            {isCollapsed || isDocked ? null : (
                 <div className="flex w-[300px] min-h-0 flex-col" data-testid="sidebar-panel">
                     {active === 'threads' ? <ThreadListPanel onCollapse={collapse} /> : <SectionPanel section={active} onCollapse={collapse} />}
                 </div>

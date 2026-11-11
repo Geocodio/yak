@@ -236,7 +236,7 @@ body[data-thread-changes-expanded] [data-testid='thread-sidebar'] {
     flex: 1;
 }
 
-/* A docked panel (Preview) shrinks the details sidebar and hides it on narrower screens. */
+/* A docked panel shrinks the details sidebar; on narrower screens it becomes a sheet the header toggle opens. */
 @media (min-width: 1024px) {
     body[data-thread-docked] [data-testid='thread-sidebar'] {
         width: 300px;
@@ -245,7 +245,17 @@ body[data-thread-changes-expanded] [data-testid='thread-sidebar'] {
 
 @media (min-width: 1024px) and (max-width: 1279px) {
     body[data-thread-docked] [data-testid='thread-sidebar'] {
+        position: fixed;
+        inset-block: 0;
+        right: 0;
+        z-index: 40;
         display: none;
+        width: min(320px, 90vw);
+        box-shadow: 0 0 24px rgb(0 0 0 / 0.18);
+    }
+
+    body[data-thread-docked][data-thread-details-open] [data-testid='thread-sidebar'] {
+        display: flex;
     }
 }
 

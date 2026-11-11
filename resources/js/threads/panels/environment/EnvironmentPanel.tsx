@@ -1,10 +1,12 @@
 import { Badge, Skeleton, cn, toast } from '@geocodio/console-ui';
-import { Copy, ExternalLink, KeyRound } from 'lucide-react';
+import { Copy, ExternalLink, Globe, KeyRound } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import { InfoTip } from '@/components/threads/environment/InfoTip';
 import { LocationChip } from '@/components/threads/share/LocationChip';
 import { VisibilityRow } from '@/components/threads/share/VisibilityRow';
 import { PersonAvatar } from '@/components/threads/environment/PersonAvatar';
+import { CopyableAddress } from '@/components/CopyableAddress';
+import { sshKeys } from '@/routes/settings';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadEnvironment } from '@/types/thread-changes';
 import { CapacityBlock } from './CapacityBlock';
@@ -134,7 +136,7 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
         );
     }
 
-    const { sandbox, branch, pullRequest, deployment, account, model, startedBy, stoppedAfterMinutes, repositories, notUploadedDirectories } = environment;
+    const { sandbox, branch, pullRequest, account, startedBy, stoppedAfterMinutes, repositories, notUploadedDirectories } = environment;
 
     return (
         <div className="flex flex-col gap-4" data-testid="environment-panel">
@@ -196,6 +198,29 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
                     )}
                 </Row>
 
+                {thread.preview.host !== null && (
+                    <Row label="Preview" testId="environment-preview">
+                        <span className="inline-flex max-w-full items-center gap-1.5">
+                            <Globe size={13} className="shrink-0 text-muted" />
+                            <code className="truncate font-mono text-[12px]">{thread.preview.host}</code>
+                        </span>
+                        {thread.preview.state === 'ready' && (
+                            <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
+                                <span className="inline-block h-1.5 w-1.5 rounded-pill bg-ok" aria-hidden="true" />
+                                Dev server running
+                            </p>
+                        )}
+                    </Row>
+                )}
+
+                <Row label="Terminal" testId="environment-terminal">
+                    <CopyableAddress address={`yak ssh ${thread.name}`} label={null} />
+                    <p className="mt-0.5 text-[12px] text-muted">From your computer, with your GitHub keys.</p>
+                    <a href={sshKeys().url} className="text-[12px] text-accent-text hover:underline" data-testid="environment-ssh-link">
+                        Set up SSH
+                    </a>
+                </Row>
+
                 <Row label="Account" testId="environment-account" tip="The Claude account this thread runs on.">
                     {account === null ? (
                         <span className="text-muted">Not chosen yet</span>
@@ -209,11 +234,6 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
                             <p className="mt-0.5 text-[12px] text-muted">Setup token. Fixed for this thread.</p>
                         </>
                     )}
-                </Row>
-
-                <Row label="Model" testId="environment-model" tip="The model Claude uses for the next message.">
-                    {model === null ? <span className="text-muted">Default</span> : model}
-                    <p className="mt-0.5 text-[12px] text-muted">Change it next to Send.</p>
                 </Row>
 
                 {startedBy !== null && (

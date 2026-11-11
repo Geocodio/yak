@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
-import { useState, type ReactNode } from 'react';
+import { PanelRight } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { StatusPill } from '@/components/threads/StatusPill';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
 import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
@@ -8,7 +9,8 @@ import { Conversation } from '@/components/threads/conversation/Conversation';
 import { TeleportConversationNotices } from '@/components/threads/teleport/TeleportConversationNotices';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ClaudeWorkingStrip } from '@/threads/dock/ClaudeWorkingStrip';
-import type { PhoneTabId } from '@/threads/dock/dockState';
+import { phoneDockIdFor, type PhoneTabId, type PhoneTerminalMode } from '@/threads/dock/dockState';
+import { PhoneTerminalSwitch } from '@/threads/dock/PhoneTerminalSwitch';
 import { ThreadDockPanel, ThreadDockToggles } from '@/threads/dock/ThreadDock';
 import { ThreadPhoneTabs } from '@/threads/dock/ThreadPhoneTabs';
 import { useDockState } from '@/threads/dock/useDockState';
@@ -32,15 +34,36 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, brief,
     const active = panels.find((panel) => panel.id === activeId) ?? panels[0] ?? null;
     const dockPanels = dockPanelsFor(thread);
     const dock = useDockState();
+    const dockPanelIds = dockPanels.map((panel) => panel.id);
+    const [phoneTerminalMode, setPhoneTerminalMode] = useState<PhoneTerminalMode>(() => (dock.activeId === 'files' ? 'files' : 'shell'));
     const activeDock = dockPanels.find((panel) => panel.id === dock.activeId) ?? null;
-    const [phoneTab, setPhoneTab] = useState<PhoneTabId>(() => (activeDock !== null && (activeDock.id === 'preview' || activeDock.id === 'terminal') ? activeDock.id : 'chat'));
+    const [phoneTab, setPhoneTab] = useState<PhoneTabId>(() => (activeDock === null ? 'chat' : activeDock.id === 'files' ? 'terminal' : activeDock.id === 'preview' || activeDock.id === 'terminal' ? activeDock.id : 'chat'));
+    const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
     const selectPhoneTab = (id: PhoneTabId) => {
         setPhoneTab(id);
-        if (id === 'preview' || id === 'terminal') {
-            dock.setActiveId(id);
+        const dockId = phoneDockIdFor(id, phoneTerminalMode);
+        if (dockId !== null) {
+            dock.setActiveId(dockId);
         }
     };
+    const selectPhoneTerminalMode = (mode: PhoneTerminalMode) => {
+        setPhoneTerminalMode(mode);
+        dock.setActiveId(phoneDockIdFor('terminal', mode));
+    };
     const isPhoneDockVisible = phoneTab === 'preview' || phoneTab === 'terminal';
+    const isDocked = activeDock !== null;
+
+    useEffect(() => {
+        if (!isDocked || !isDetailsSheetOpen) {
+            return;
+        }
+
+        document.body.dataset.threadDetailsOpen = 'true';
+
+        return () => {
+            delete document.body.dataset.threadDetailsOpen;
+        };
+    }, [isDocked, isDetailsSheetOpen]);
 
     return (
         <>
@@ -65,6 +88,18 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, brief,
                         <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} pullRequest={pullRequest} />
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
+                        {isDocked && (
+                            <button
+                                type="button"
+                                aria-pressed={isDetailsSheetOpen}
+                                aria-label="Thread details"
+                                data-testid="thread-details-sheet-toggle"
+                                onClick={() => setIsDetailsSheetOpen((value) => !value)}
+                                className="hidden size-8 cursor-pointer items-center justify-center rounded-chip border border-hair text-muted hover:text-body lg:flex xl:hidden"
+                            >
+                                <PanelRight size={14} />
+                            </button>
+                        )}
                         <ThreadDockToggles panels={dockPanels} active={activeDock} onSelect={dock.setActiveId} />
                         <ShareButton thread={thread} />
                     </div>
@@ -73,7 +108,8 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, brief,
             <FailedStepStrip notice={notice} threadId={thread.id} readonly={composer.state === 'readonly'} />
             <PrivateThreadBanner thread={thread} />
             <ChildParentBanner thread={thread} parent={stackParent} hasBrief={brief !== null} />
-            <ThreadPhoneTabs registeredDockIds={dockPanels.map((panel) => panel.id)} active={phoneTab} onSelect={selectPhoneTab} />
+            <ThreadPhoneTabs registeredDockIds={dockPanelIds} active={phoneTab} isWorking={thread.runnerState === 'busy'} onSelect={selectPhoneTab} />
+            {phoneTab === 'terminal' && <PhoneTerminalSwitch mode={phoneTerminalMode} onChange={selectPhoneTerminalMode} />}
             {isPhoneDockVisible && <ClaudeWorkingStrip thread={thread} onOpenChat={() => setPhoneTab('chat')} />}
 
             <div className="flex min-h-0 flex-1">

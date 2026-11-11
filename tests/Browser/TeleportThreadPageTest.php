@@ -14,6 +14,8 @@ it('shows the teleport dialog with the command for a Yak-owned thread', function
     $this->actingAs($user);
 
     visit(route('threads.show', $thread))
+        ->assertAttribute('@thread-panel-tab-environment', 'aria-selected', 'true')
+        ->click('@thread-panel-tab-teleport')
         ->click('@teleport-button')
         ->assertVisible('@teleport-dialog')
         ->assertSeeIn('@teleport-dialog', 'Only committed work travels')

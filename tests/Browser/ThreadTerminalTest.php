@@ -2,8 +2,10 @@
 
 use App\Enums\RunnerState;
 use App\Enums\ThreadSandboxState;
+use App\Models\Device;
 use App\Models\Thread;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 
 beforeEach(function (): void {
     $this->actingAs(User::factory()->create());
@@ -116,7 +118,9 @@ test('the terminal connects with the token from the session endpoint', function 
     waitForTerminal($page, statusIs('connected'));
     $page->assertSeeIn('[data-testid="terminal-status"]', 'Connected');
     expect($page->script('window.__ws.url'))->toContain('/terminal/ws?token=')
-        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('yak ssh ' . $thread->name);
+        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('yak ssh ' . $thread->name)
+        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('Closing a tab ends its shell.')
+        ->toContain('Terminal docs');
     $page->assertNoJavaScriptErrors();
 });
 
@@ -141,7 +145,11 @@ test('a dropped connection shows lost state and reconnects with a new token', fu
 
     $page->script('window.__ws.close(1006)');
     waitForTerminal($page, statusIs('lost'));
-    $page->assertSeeIn('[data-testid="terminal-status"]', 'Connection lost');
+    $page->assertSeeIn('[data-testid="terminal-status"]', 'Disconnected');
+    $page->assertSeeIn('[data-testid="terminal-lost"]', 'The terminal lost its connection');
+    $page->assertSeeIn('[data-testid="terminal-lost"]', 'Reconnect to open a new shell. Anything you typed while disconnected was not sent.');
+    $page->assertPresent('.xterm');
+    expect($page->script('document.querySelector(\'[data-testid="terminal-lost"]\').classList.contains("absolute")'))->toBeFalse();
 
     $page->click('[data-testid="terminal-reconnect"]');
 
@@ -200,7 +208,21 @@ test('the phone shows the working strip only while Claude is busy', function () 
     openTerminalTab($page, true);
     waitForTerminal($page, statusIs('connected'));
 
-    $page->assertPresent('[data-testid="terminal-working"]');
+    expect($page->script('document.querySelectorAll(\'[data-testid="claude-working-strip"]\').length'))->toBe(1);
+    $page->assertMissing('[data-testid="terminal-working"]');
+});
+
+test('the phone Terminal tab switches between the shell and the files browser', function () {
+    $page = visit(route('threads.show', terminalRunningThread()))->on()->mobile()->assertPresent('[data-testid="thread-header"]');
+    openTerminalTab($page, true);
+
+    $page->assertVisible('[data-testid="phone-terminal-switch"]')
+        ->assertPresent('[data-testid="terminal-panel"]')
+        ->click('[data-testid="phone-terminal-mode-files"]')
+        ->assertPresent('[data-testid="files-panel"]')
+        ->click('[data-testid="phone-terminal-mode-shell"]')
+        ->assertPresent('[data-testid="terminal-panel"]')
+        ->assertNoJavaScriptErrors();
 });
 
 test('the working strip is absent at desktop width', function () {
@@ -211,5 +233,42 @@ test('the working strip is absent at desktop width', function () {
     openTerminalTab($page);
     waitForTerminal($page, statusIs('connected'));
 
-    $page->assertMissing('[data-testid="terminal-working"]');
+    $page->assertMissing('[data-testid="claude-working-strip"]');
+});
+
+test('the first extra tab is the dev server when the preview has a port, later ones are shells', function () {
+    $thread = terminalRunningThread();
+    Cache::put("thread-preview:manifest:{$thread->id}", ['port' => 3000, 'coldStart' => null], 3600);
+    $page = visit(route('threads.show', $thread));
+    installTerminalSocketStub($page);
+    openTerminalTab($page);
+    waitForTerminal($page, statusIs('connected'));
+
+    $page->click('[data-testid="terminal-tab-add"]')->click('[data-testid="terminal-tab-add"]');
+
+    $page->assertSeeIn('[data-testid="terminal-tab-2"]', 'dev server')->assertSeeIn('[data-testid="terminal-tab-3"]', 'shell 3');
+});
+
+test('extra tabs are plain shells when the preview has no port', function () {
+    $page = visit(route('threads.show', terminalRunningThread()));
+    installTerminalSocketStub($page);
+    openTerminalTab($page);
+    waitForTerminal($page, statusIs('connected'));
+
+    $page->click('[data-testid="terminal-tab-add"]');
+
+    $page->assertSeeIn('[data-testid="terminal-tab-2"]', 'shell 2');
+});
+
+test('a device-owned thread shows the teleport command only to its owner', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $ownThread = Thread::factory()->ownedByDevice(Device::factory()->create(['user_id' => $user->id])->id)->create();
+    $page = visit(route('threads.show', $ownThread));
+    openTerminalTab($page);
+    $page->assertPresent('[data-testid="terminal-device"]')->assertPresent('[data-testid="terminal-teleport-command"]');
+
+    $page = visit(route('threads.show', Thread::factory()->ownedByDevice()->create()));
+    openTerminalTab($page);
+    $page->assertPresent('[data-testid="terminal-device"]')->assertMissing('[data-testid="terminal-teleport-command"]');
 });

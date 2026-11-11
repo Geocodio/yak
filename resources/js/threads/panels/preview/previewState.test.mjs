@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { addressFor, previewReferrerPolicy, previewSandbox, isDesktopSafari, isTransitional, stepStatuses, widthFor } from './previewState.ts';
+import { addressFor, previewReferrerPolicy, previewSandbox, isDesktopSafari, isTransitional, progressPercent, stepDetails, stepStatuses, widthFor } from './previewState.ts';
 
 const macSafari = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
 const macChrome = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -54,4 +54,15 @@ test('the frame applies the sandbox and the panel has no probe frame', () => {
     assert.ok(frame.includes('referrerPolicy={previewReferrerPolicy}'));
     assert.equal(panel.includes('<iframe'), false);
     assert.equal(panel.includes('preview-wake-probe'), false);
+});
+
+test('step details use the manifest values and never invent a command', () => {
+    assert.deepEqual(stepDetails({ port: 3000, coldStartCommand: 'npm run dev' }), ['about 10 seconds', 'npm run dev', 'Wait for the app to answer on port 3000']);
+    assert.deepEqual(stepDetails({ port: null, coldStartCommand: null }), ['about 10 seconds', null, null]);
+});
+
+test('progress counts done steps and half of the active one', () => {
+    assert.equal(progressPercent(['active', 'pending', 'pending']), 17);
+    assert.equal(progressPercent(['done', 'active', 'pending']), 50);
+    assert.equal(progressPercent(['done', 'done', 'done']), 100);
 });

@@ -13,7 +13,7 @@ export function InstallCard({ isStandalone, isIos, onShowIosSteps }: { isStandal
                 <EmptyState
                     icon={<Check size={18} />}
                     title="Yak is installed on this device"
-                    body="You opened Yak from its app icon, so you get notifications and the page opens without browser chrome."
+                    body="You opened Yak from its app icon, so the page opens without browser chrome. Turn notifications on in the section above."
                     action={<Link href="#push-heading"><Button variant="secondary" icon={<Bell size={13} />}>Go to push settings</Button></Link>}
                 />
             </Card>

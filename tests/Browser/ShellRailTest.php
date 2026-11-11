@@ -68,3 +68,29 @@ test('a private row leads with the lock and a shared row carries the Shared badg
     $lockFirst = $page->script("(() => { const el = document.querySelector('[data-testid=\"thread-title-{$alone->id}\"]'); return el.firstElementChild.tagName.toLowerCase() === 'svg'; })()");
     expect($lockFirst)->toBeTrue();
 });
+
+test('a docked thread panel leaves only the rail on a wide screen', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = Thread::factory()->create();
+
+    $page = visit(route('threads.show', $thread));
+
+    $page->assertVisible('[data-testid="sidebar-panel"]')
+        ->click('[data-testid="thread-dock-toggle-preview"]')
+        ->assertVisible('[data-testid="icon-rail"]')
+        ->assertMissing('[data-testid="sidebar-panel"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('the details sidebar is a sheet behind a header toggle at laptop width', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = Thread::factory()->create();
+
+    $page = visit(route('threads.show', $thread))->resize(1100, 800);
+
+    $page->click('[data-testid="thread-dock-toggle-preview"]');
+    expect($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).display'))->toBe('none');
+    $page->click('[data-testid="thread-details-sheet-toggle"]')
+        ->assertVisible('[data-testid="thread-sidebar"]')
+        ->assertNoJavaScriptErrors();
+});

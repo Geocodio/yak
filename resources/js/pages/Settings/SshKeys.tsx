@@ -62,7 +62,7 @@ export default function SshKeys({ githubKeys, uploadedKeys, github, config }: Pr
                             Add a key
                         </Button>
                     </div>
-                    <KeyList keys={uploadedKeys} onRemove={setRemoving} empty="No extra keys." testId="ssh-extra-keys" />
+                    <KeyList keys={uploadedKeys} onRemove={setRemoving} empty={<>No extra keys. You do not need any if your GitHub keys already cover the computers you connect from.</>} testId="ssh-extra-keys" />
                 </section>
 
                 <ConfigSnippet command={config.command} snippet={config.snippet} />

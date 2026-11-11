@@ -13,6 +13,7 @@ export type FileTree = {
     entriesByDirectory: Record<string, FileEntryData[]>;
     root: string;
     changedPaths: string[];
+    addedPaths: string[];
     state: FileState;
     detail: FileTreeResponse | null;
     isLoading: boolean;
@@ -25,6 +26,7 @@ export function useFileTree(threadId: number, scope: FileScope): FileTree {
     const [entriesByDirectory, setEntriesByDirectory] = useState<Record<string, FileEntryData[]>>({});
     const [root, setRoot] = useState('');
     const [changedPaths, setChangedPaths] = useState<string[]>([]);
+    const [addedPaths, setAddedPaths] = useState<string[]>([]);
     const [state, setState] = useState<FileState>('ready');
     const [detail, setDetail] = useState<FileTreeResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +43,7 @@ export function useFileTree(threadId: number, scope: FileScope): FileTree {
                         if (path === '') {
                             setRoot(body.root ?? '');
                             setChangedPaths(body.changedPaths ?? []);
+                            setAddedPaths(body.addedPaths ?? []);
                         }
                         setState('ready');
                         setError(null);
@@ -72,5 +75,5 @@ export function useFileTree(threadId: number, scope: FileScope): FileTree {
         [entriesByDirectory, load],
     );
 
-    return { entriesByDirectory, root, changedPaths, state, detail, isLoading, error, expand };
+    return { entriesByDirectory, root, changedPaths, addedPaths, state, detail, isLoading, error, expand };
 }

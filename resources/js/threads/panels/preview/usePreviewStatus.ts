@@ -21,7 +21,7 @@ type Initial = { state: ThreadPreviewState; url: string | null };
  * The live state of one preview target. Polls the status endpoint every 2 s while the preview is waking (or a
  * restore was requested) and sends a heartbeat every minute while the panel is open on a ready preview.
  */
-export function usePreviewStatus(threadId: number, initial: Initial): { status: PreviewStatus; restoring: boolean; requestRestore: () => void } {
+export function usePreviewStatus(threadId: number, initial: Initial): { status: PreviewStatus; restoring: boolean; requestRestore: () => void; requestRetry: () => void } {
     const [status, setStatus] = useState<PreviewStatus>({ ...initial, log: [], error: null });
     const [restoring, setRestoring] = useState(false);
 
@@ -68,7 +68,9 @@ export function usePreviewStatus(threadId: number, initial: Initial): { status: 
         }
 
         const requestWarm = () => {
-            void fetch(warm.url(threadId), { method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': csrfToken(), Accept: 'application/json' } }).catch(() => undefined);
+            void fetch(warm.url(threadId), { method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': csrfToken(), Accept: 'application/json' } }).catch(
+                () => undefined,
+            );
         };
         requestWarm();
         const interval = setInterval(requestWarm, WARM_MILLISECONDS);
@@ -105,5 +107,11 @@ export function usePreviewStatus(threadId: number, initial: Initial): { status: 
             .catch(() => setRestoring(false));
     }, [threadId]);
 
-    return { status, restoring, requestRestore };
+    /** Asks the server to start the dev server again; the status flips to starting so the poll picks the answer up. */
+    const requestRetry = useCallback(() => {
+        setStatus((current) => ({ ...current, state: 'starting_dev_server', error: null }));
+        void fetch(warm.url(threadId), { method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': csrfToken(), Accept: 'application/json' } }).catch(() => undefined);
+    }, [threadId]);
+
+    return { status, restoring, requestRestore, requestRetry };
 }
