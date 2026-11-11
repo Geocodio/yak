@@ -49,6 +49,20 @@ export type ThreadDiffFilePatch = {
     patch: string | null;
 };
 
+export type ThreadEnvironmentRepository = {
+    id: number;
+    repo: string;
+    role: 'primary' | 'changes' | 'context';
+    path: string;
+    setupStatus: 'pending' | 'cloning' | 'setup' | 'ready' | 'failed';
+    setupError: string | null;
+    setupOutput: string | null;
+    addedBy: string | null;
+    addedAt: string | null;
+    isDatasetAttached: boolean;
+    canMakeContextOnly: boolean;
+};
+
 export type ThreadEnvironment = {
     sandbox: { state: 'none' | 'starting' | 'running' | 'paused' | 'stopped' | 'destroying' | 'destroyed'; stateChangedAt: string | null };
     branch: string | null;
@@ -58,5 +72,6 @@ export type ThreadEnvironment = {
     model: string | null;
     startedBy: { name: string; at: string } | null;
     stoppedAfterMinutes: number;
-    repositories: { repo: string; role: string; setupStatus: string }[];
+    repositories: ThreadEnvironmentRepository[];
+    notUploadedDirectories: string[];
 };
