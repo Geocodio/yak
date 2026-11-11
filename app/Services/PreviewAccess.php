@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ThreadOwnerSide;
+use App\Enums\ThreadVisibility;
 use App\Models\BranchDeployment;
 use App\Models\Thread;
 use App\Models\User;
@@ -121,13 +122,30 @@ class PreviewAccess
         return $this->mayEnterDeployment($host, $user);
     }
 
+    /**
+     * True when the host belongs to a thread that is not team-visible. A share
+     * token or share cookie identifies nobody, so it never opens such a host.
+     */
+    public function refusesShareCredentials(string $host): bool
+    {
+        $thread = $this->threadFor($host) ?? $this->threadForDeployment($host);
+
+        return $thread !== null && $thread->effectiveVisibility() !== ThreadVisibility::Team;
+    }
+
     private function mayEnterDeployment(string $host, User $user): bool
+    {
+        $thread = $this->threadForDeployment($host);
+
+        return $thread === null || app(ThreadAccess::class)->canSee($user, $thread);
+    }
+
+    private function threadForDeployment(string $host): ?Thread
     {
         $taskId = BranchDeployment::withoutGlobalScopes()->where('hostname', strtolower($host))->value('yak_task_id');
         $threadId = $taskId === null ? null : YakTask::withoutGlobalScopes()->whereKey($taskId)->value('thread_id');
-        $thread = $threadId === null ? null : Thread::withoutGlobalScopes()->whereKey($threadId)->first();
 
-        return $thread === null || app(ThreadAccess::class)->canSee($user, $thread);
+        return $threadId === null ? null : Thread::withoutGlobalScopes()->whereKey($threadId)->first();
     }
 
     private function cookieUserId(string $host, string $value): ?int

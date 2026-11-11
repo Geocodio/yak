@@ -120,7 +120,7 @@ it('answers an upper-case forwarded host like the lower-case one', function () {
     foreach ([$upper, $mixed] as $host) {
         $stranger = wakeAs($this, $host, $this->world->other->id);
         expect($stranger->getStatusCode())->toBe(404)
-            ->and(hostMasked($stranger, $host))->toBe(hostMasked($lowerStranger, VisibilityWorld::HOSTNAME));
+            ->and(hostMasked($stranger, strtolower($host)))->toBe(hostMasked($lowerStranger, VisibilityWorld::HOSTNAME));
 
         wakeAs($this, $host, $this->world->owner->id)->assertOk()->assertHeader('X-Upstream-Host', '10.0.0.1');
     }
