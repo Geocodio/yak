@@ -11,6 +11,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
@@ -43,7 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->dontFlash(['secret']);
 
         // Internal endpoints (forward_auth targets) must return 401, not a login redirect.
-        $exceptions->render(function (AuthenticationException $e, Request $request): ?Response {
+        $exceptions->render(function (AuthenticationException $e, Request $request): Response|JsonResponse|null {
             if ($request->is('internal/*')) {
                 return response('Unauthenticated.', 401);
             }
