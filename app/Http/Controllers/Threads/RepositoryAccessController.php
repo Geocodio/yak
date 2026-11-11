@@ -14,7 +14,7 @@ class RepositoryAccessController extends Controller
 {
     public function __invoke(Request $request, RepositoryAccess $access): JsonResponse
     {
-        $result = $access->check($request->validate(['repo' => ['required', 'string', 'max:255']])['repo']);
+        $result = $access->check($request->validate(['repo' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/']])['repo']);
 
         return response()->json(['allowed' => $result->allowed, 'reason' => $result->reason]);
     }
