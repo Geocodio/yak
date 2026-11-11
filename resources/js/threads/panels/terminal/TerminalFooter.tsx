@@ -1,9 +1,11 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { toast } from '@geocodio/console-ui';
 import { Copy } from 'lucide-react';
 import { sshKeys } from '@/routes/settings';
+import type { SharedProps } from '@/types/shared';
 
 export function TerminalFooter({ threadName }: { threadName: string }) {
+    const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
     const command = `yak ssh ${threadName}`;
     const copy = () => {
         navigator.clipboard.writeText(command).then(
@@ -19,10 +21,13 @@ export function TerminalFooter({ threadName }: { threadName: string }) {
                 {command}
                 <Copy size={11} />
             </button>
-            <span>Closing a tab ends its shell.</span>
+            <span className="max-lg:hidden">Closing this tab keeps your shell for 30 minutes.</span>
             <Link href={sshKeys().url} className="ml-auto underline" data-testid="terminal-keys-link">
                 SSH keys
             </Link>
+            <a href={docsUrl} target="_blank" rel="noreferrer" className="underline" data-testid="terminal-docs-link">
+                Terminal docs
+            </a>
         </div>
     );
 }

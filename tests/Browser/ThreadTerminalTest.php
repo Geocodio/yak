@@ -116,7 +116,9 @@ test('the terminal connects with the token from the session endpoint', function 
     waitForTerminal($page, statusIs('connected'));
     $page->assertSeeIn('[data-testid="terminal-status"]', 'Connected');
     expect($page->script('window.__ws.url'))->toContain('/terminal/ws?token=')
-        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('yak ssh ' . $thread->name);
+        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('yak ssh ' . $thread->name)
+        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('Closing this tab keeps your shell for 30 minutes.')
+        ->toContain('Terminal docs');
     $page->assertNoJavaScriptErrors();
 });
 
@@ -141,7 +143,11 @@ test('a dropped connection shows lost state and reconnects with a new token', fu
 
     $page->script('window.__ws.close(1006)');
     waitForTerminal($page, statusIs('lost'));
-    $page->assertSeeIn('[data-testid="terminal-status"]', 'Connection lost');
+    $page->assertSeeIn('[data-testid="terminal-status"]', 'Disconnected');
+    $page->assertSeeIn('[data-testid="terminal-lost"]', 'The terminal lost its connection');
+    $page->assertSeeIn('[data-testid="terminal-lost"]', 'Your shell is still running. Anything you typed while disconnected was not sent.');
+    $page->assertPresent('.xterm');
+    expect($page->script('document.querySelector(\'[data-testid="terminal-lost"]\').classList.contains("absolute")'))->toBeFalse();
 
     $page->click('[data-testid="terminal-reconnect"]');
 

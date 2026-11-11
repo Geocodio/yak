@@ -6,7 +6,7 @@ const PILLS: Record<TerminalSessionState, { tone: StatusPillProps['tone']; label
     connecting: { tone: 'warn', label: 'Connecting' },
     waiting: { tone: 'warn', label: 'Waiting' },
     connected: { tone: 'ok', label: 'Connected' },
-    lost: { tone: 'fail', label: 'Connection lost' },
+    lost: { tone: 'fail', label: 'Disconnected' },
     denied: { tone: 'fail', label: 'Refused' },
     unavailable: { tone: 'idle', label: 'Unavailable' },
 };

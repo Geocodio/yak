@@ -1,7 +1,9 @@
 import { Button, Spinner } from '@geocodio/console-ui';
-import { RefreshCw } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
+import { RefreshCw, WifiOff } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { CommandBlock } from '@/components/threads/teleport/CommandBlock';
+import type { SharedProps } from '@/types/shared';
 import type { TeleportData, ThreadData } from '@/types/threads';
 import type { TerminalSessionState } from './useTerminalSession';
 
@@ -46,18 +48,21 @@ export function BlockedState({ kind, teleport }: { kind: NonNullable<ReturnType<
             );
         case 'device':
             return (
-                <Centered testId="terminal-device" title="This thread is running on a computer.">
-                    <p className="max-w-sm text-[13px] text-muted">Teleport it back to Yak to use the sandbox shell. To continue it on another computer:</p>
-                    <div className="w-full max-w-md">
-                        <CommandBlock command={teleport.command} testId="terminal-teleport-command" />
-                    </div>
+                <Centered testId="terminal-device" title="This thread runs on your computer">
+                    <p className="max-w-sm text-[13px] text-muted">Claude is working in a folder on your computer, so there is no sandbox to open a shell in.</p>
+                    <p className="max-w-sm text-[13px] text-muted">Teleport the thread and the terminal appears here.</p>
+                    {teleport.command !== '' && (
+                        <div className="w-full max-w-md">
+                            <CommandBlock command={teleport.command} testId="terminal-teleport-command" />
+                        </div>
+                    )}
                 </Centered>
             );
     }
 }
 
 type Props = {
-    state: Exclude<TerminalSessionState, 'connected' | 'idle'>;
+    state: Exclude<TerminalSessionState, 'connected' | 'idle' | 'lost'>;
     reason: string | null;
     sandboxState: ThreadData['sandboxState'];
     onReconnect: () => void;
@@ -69,9 +74,13 @@ export function SessionState({ state, reason, sandboxState, onReconnect }: Props
         const waking = sandboxState === 'paused' || sandboxState === 'stopped';
 
         return (
-            <Centered testId="terminal-connecting" title={waking ? 'Waking the sandbox' : 'Connecting to the sandbox'}>
-                <Spinner size="md" />
-            </Centered>
+            <div className="h-full overflow-auto bg-panel-2 px-3 py-2.5 font-mono text-[12.5px] leading-[1.55]" data-testid="terminal-connecting" aria-live="polite">
+                <div className="flex items-center gap-2 text-muted">
+                    <Spinner size="sm" />
+                    {waking ? 'Waking the sandbox...' : 'Connecting to the sandbox...'}
+                </div>
+                {waking && <div className="text-faint">The sandbox was paused. Opening a terminal wakes it and counts toward the awake limit.</div>}
+            </div>
         );
     }
     if (state === 'waiting') {
@@ -83,7 +92,7 @@ export function SessionState({ state, reason, sandboxState, onReconnect }: Props
         );
     }
 
-    const title = state === 'lost' ? 'Connection lost' : state === 'denied' ? 'The terminal session was refused' : 'The terminal is unavailable';
+    const title = state === 'denied' ? 'The terminal session was refused' : 'The terminal is unavailable';
 
     return (
         <Centered testId={`terminal-${state}`} title={title}>
@@ -92,5 +101,26 @@ export function SessionState({ state, reason, sandboxState, onReconnect }: Props
                 Reconnect
             </Button>
         </Centered>
+    );
+}
+
+/** The shell is still drawn below; only the link to it dropped. */
+export function LostBanner({ onReconnect }: { onReconnect: () => void }) {
+    const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
+
+    return (
+        <div className="m-2.5 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-hair bg-panel-2 px-3 py-2.5" role="alert" data-testid="terminal-lost">
+            <WifiOff size={14} className="shrink-0 text-fail" aria-hidden="true" />
+            <div className="min-w-0 flex-1 basis-60">
+                <p className="text-[13px] font-medium text-body">The terminal lost its connection</p>
+                <p className="text-[12.5px] text-muted">Your shell is still running. Anything you typed while disconnected was not sent.</p>
+            </div>
+            <Button variant="primary" icon={<RefreshCw size={14} />} onClick={onReconnect} data-testid="terminal-reconnect">
+                Reconnect
+            </Button>
+            <a href={docsUrl} target="_blank" rel="noreferrer" className="text-[12.5px] text-accent-text hover:underline">
+                Why this happens
+            </a>
+        </div>
     );
 }

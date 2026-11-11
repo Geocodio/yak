@@ -7,7 +7,7 @@ import type { ThreadPageData } from '@/types/threads';
 import { KeyRow, useShowKeyRow } from './KeyRow';
 import { applyCtrl } from './keyCodes';
 import { TerminalFooter } from './TerminalFooter';
-import { BlockedState, SessionState, blockedState } from './TerminalStates';
+import { BlockedState, LostBanner, SessionState, blockedState } from './TerminalStates';
 import { TerminalStatus } from './TerminalStatus';
 import { MAX_TERMINAL_TABS, TerminalTabs, type TerminalTab } from './TerminalTabs';
 import type { TerminalControls } from './TerminalView';
@@ -72,11 +72,12 @@ function TerminalSessionBody({ threadId, sandboxState, active, clearToken, onSta
 
     return (
         <div className={active ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+            {state === 'lost' && <LostBanner onReconnect={connect} />}
             <div className="relative min-h-0 flex-1 bg-panel-2">
                 <Suspense fallback={null}>
                     <TerminalView onInput={onInput} onResize={resize} subscribe={onData} controls={controls} label="Terminal" />
                 </Suspense>
-                {state !== 'connected' && state !== 'idle' && (
+                {state !== 'connected' && state !== 'idle' && state !== 'lost' && (
                     <div className="absolute inset-0 bg-sidebar">
                         <SessionState state={state} reason={reason} sandboxState={sandboxState} onReconnect={connect} />
                     </div>
@@ -109,7 +110,8 @@ export function TerminalPanel({ thread, canDrive }: PanelProps) {
             return;
         }
         const id = nextId.current++;
-        setTabs([...tabs, { id, title: `shell ${id}` }]);
+        const wantsDevServer = thread.preview.port !== null && !tabs.some((tab) => tab.title === 'dev server');
+        setTabs([...tabs, { id, title: wantsDevServer ? 'dev server' : `shell ${id}` }]);
         setActiveId(id);
     };
 
