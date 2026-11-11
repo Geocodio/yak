@@ -205,10 +205,10 @@ it('restarts the broker on binary, env or unit change', function () use ($roleTa
     }
 });
 
-it('builds the broker binary on the controller unless CI supplied one', function () use ($roleTask) {
+it('always builds the broker binary on the controller', function () use ($roleTask) {
     $build = $roleTask('yak-broker', 'Build the broker on the controller');
 
-    expect($build['when'])->toContain('not')
+    expect($build)->not->toHaveKey('when')
         ->and($build['delegate_to'])->toBe('localhost')
         ->and($build['run_once'])->toBeTrue()
         ->and(file_get_contents(base_path('.gitignore')))->toContain('broker/dist/');

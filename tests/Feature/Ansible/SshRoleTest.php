@@ -74,8 +74,41 @@ it('keeps token files private and never touches the main sshd config', function 
     expect($touchesMainConfig)->toBeFalse();
 });
 
-it('is not wired into the playbook yet', function () {
-    expect(file_get_contents(base_path('ansible/playbook.yml')))->not->toContain('yak-ssh');
+it('is wired into the playbook after incus and yak-broker with its tag', function () {
+    $roles = collect(Yaml::parseFile(base_path('ansible/playbook.yml'))[0]['roles']);
+    $names = $roles->pluck('role')->all();
+
+    expect($roles->firstWhere('role', 'yak-ssh')['tags'])->toBe(['yak-ssh'])
+        ->and($roles->firstWhere('role', 'yak-broker')['tags'])->toBe(['yak-broker'])
+        ->and(array_search('yak-ssh', $names))->toBeGreaterThan(array_search('incus', $names))
+        ->toBeGreaterThan(array_search('yak-broker', $names))
+        ->and(array_search('yak-broker', $names))->toBeLessThan(array_search('yak-container', $names))
+        ->toBeGreaterThan(array_search('redis', $names));
+});
+
+it('builds and installs the ssh binaries the units expect', function () use ($rolePath) {
+    $tasks = collect(Yaml::parseFile($rolePath('tasks/main.yml')));
+
+    $build = $tasks->firstWhere('name', 'Build the ssh binaries on the controller');
+    expect($build)->not->toHaveKey('when')
+        ->and($build['environment'])->toMatchArray(['CGO_ENABLED' => '0', 'GOOS' => 'linux', 'GOARCH' => 'amd64'])
+        ->and(collect($build['loop'])->pluck('binary')->all())->toBe(['yak-wakeproxy', 'yak-termbridge', 'yak-ssh-lookup']);
+
+    foreach ([
+        'Install the wake proxy binary' => ['yak-wakeproxy', 'Restart yak-wake'],
+        'Install the terminal bridge binary' => ['yak-termbridge', 'Restart yak-termbridge'],
+        'Install the key lookup binary' => ['yak-ssh-lookup', null],
+    ] as $name => [$binary, $handler]) {
+        $copy = $tasks->firstWhere('name', $name);
+        expect($copy['ansible.builtin.copy'])->toMatchArray(['mode' => '0755', 'owner' => 'root', 'group' => 'root'])
+            ->and($copy['ansible.builtin.copy']['dest'])->toBe("{{ yak_ssh_bin_dir }}/{$binary}")
+            ->and($copy['notify'] ?? null)->toBe($handler);
+    }
+});
+
+it('passes the internal token to the app and documents it in the vault example', function () {
+    expect(file_get_contents(base_path('ansible/roles/yak-container/templates/env.j2')))->toContain('YAK_SSH_INTERNAL_TOKEN={{ yak_ssh_internal_token')
+        ->and(file_get_contents(base_path('ansible/vault/secrets.example.yml')))->toContain('yak_ssh_internal_token:');
 });
 
 it('names the termbridge origin allowlist variable the bridge reads', function () use ($rolePath) {

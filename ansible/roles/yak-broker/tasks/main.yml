@@ -46,15 +46,7 @@
     owner: root
     group: "{{ yak_broker_user }}"
 
-# CI can supply broker/dist/yak-broker; the controller builds it only when absent.
-- name: Look for a prebuilt broker binary
-  ansible.builtin.stat:
-    path: "{{ playbook_dir }}/../broker/dist/yak-broker"
-  delegate_to: localhost
-  become: false
-  run_once: true
-  register: broker_prebuilt
-
+# Always built (cached, so fast): a stale broker/dist binary is never installed.
 - name: Build the broker on the controller
   ansible.builtin.command:
     cmd: go build -o {{ playbook_dir }}/../broker/dist/yak-broker .
@@ -67,7 +59,6 @@
   become: false
   changed_when: false
   run_once: true
-  when: not broker_prebuilt.stat.exists
 
 - name: Install the broker binary
   ansible.builtin.copy:
