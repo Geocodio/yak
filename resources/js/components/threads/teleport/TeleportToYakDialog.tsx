@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { CommandBlock } from '@/components/threads/teleport/CommandBlock';
 import type { TeleportData, ThreadData } from '@/types/threads';
 
-const TELEPORT_DOCS = 'https://geocodio.github.io/yak/teleport/';
+export const TELEPORT_DOCS = 'https://geocodio.github.io/yak/teleport/';
 
 /** Teleport a device-owned thread back to Yak. The command runs inside Claude Code on the computer. */
 export function TeleportToYakDialog({ thread, teleport, open, onClose }: { thread: ThreadData; teleport: TeleportData; open: boolean; onClose: () => void }) {
