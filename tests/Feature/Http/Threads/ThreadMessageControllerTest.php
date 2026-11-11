@@ -44,18 +44,38 @@ it('steers when a turn is running', function () {
         ->assertSessionHas('success');
 });
 
-it('404s for a second user on a private thread', function () {
+dataset('privateThreadOutsiders', ['second user' => [false], 'admin' => [true]]);
+
+function outsider(bool $isAdmin): User
+{
+    $user = User::factory()->create();
+    if ($isAdmin) {
+        config(['claude-accounts.admin_user_ids' => [$user->id]]);
+    }
+
+    return $user;
+}
+
+it('404s for a second user and an admin on a private thread', function (bool $isAdmin) {
     $thread = Thread::factory()->private()->create();
     YakTask::factory()->create(['thread_id' => $thread->id]);
-    $other = User::factory()->create();
+    $other = outsider($isAdmin);
     $turns = mockTurns();
     $turns->shouldNotReceive('start');
     $turns->shouldNotReceive('steer');
     $turns->shouldNotReceive('stop');
 
     $this->actingAs($other)->post(route('threads.messages.store', $thread), ['message' => 'hi'])->assertNotFound();
+})->with('privateThreadOutsiders');
+
+it('404s stop for a second user and an admin on a private thread', function (bool $isAdmin) {
+    $thread = Thread::factory()->private()->create();
+    YakTask::factory()->create(['thread_id' => $thread->id]);
+    $other = outsider($isAdmin);
+    mockTurns()->shouldNotReceive('stop');
+
     $this->actingAs($other)->post(route('threads.stop', $thread))->assertNotFound();
-});
+})->with('privateThreadOutsiders');
 
 it('refuses while a computer owns the thread', function () {
     [$thread, , $user] = messageThread();

@@ -32,14 +32,18 @@ it('lets a teammate retry on a team-visible thread', function () {
     Queue::assertPushed(RetryThreadRestoreJob::class, 1);
 });
 
-it('404s for a second user on a private thread', function () {
+it('404s for a second user and an admin on a private thread', function (bool $isAdmin) {
     Queue::fake();
     $thread = Thread::factory()->private()->create(['blocked_reason' => ThreadBlockReason::RestoreFailed]);
+    $user = User::factory()->create();
+    if ($isAdmin) {
+        config(['claude-accounts.admin_user_ids' => [$user->id]]);
+    }
 
-    $this->actingAs(User::factory()->create())->post(route('threads.restore.retry', $thread))->assertNotFound();
+    $this->actingAs($user)->post(route('threads.restore.retry', $thread))->assertNotFound();
 
     Queue::assertNothingPushed();
-});
+})->with(['second user' => [false], 'admin' => [true]]);
 
 it('refuses when the thread is not in restore_failed', function () {
     Queue::fake();
