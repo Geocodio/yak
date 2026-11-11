@@ -2,9 +2,11 @@
 
 use App\Enums\TaskStatus;
 use App\Enums\ThreadSessionKind;
+use App\Enums\ThreadVisibility;
 use App\Jobs\RunFollowUpJob;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 use App\Services\Threads\ClearCommand;
@@ -38,6 +40,16 @@ it('/clear starts a new open thread that links back, and leaves the old thread a
         ->and($this->head->refresh()->thread_id)->toBe($new->id)
         ->and($this->thread->refresh()->isOpen())->toBeTrue()
         ->and($this->thread->sessions()->count())->toBe(1);
+});
+
+it('/clear keeps a private thread private with the same owner', function () {
+    $owner = User::factory()->create();
+    $this->thread->forceFill(['visibility' => ThreadVisibility::Private, 'owner_user_id' => $owner->id])->save();
+
+    $new = ClearCommand::apply($this->thread->refresh(), $this->head);
+
+    expect($new->refresh()->visibility)->toBe(ThreadVisibility::Private)
+        ->and($new->owner_user_id)->toBe($owner->id);
 });
 
 it('a /clear follow-up message switches threads without queueing a turn', function () {

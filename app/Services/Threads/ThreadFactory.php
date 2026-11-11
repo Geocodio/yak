@@ -46,12 +46,16 @@ class ThreadFactory
 
     /**
      * The thread `/clear` starts: same repository and branch, a fresh account
-     * resolution, and no session to resume.
+     * resolution, the same visibility and owner, and no session to resume.
      */
     public function continuing(Thread $previous, YakTask $task): Thread
     {
         return DB::transaction(function () use ($previous, $task): Thread {
             $thread = $this->create($task->repo, $task, $previous->branch, $previous->id);
+            $thread->forceFill([
+                'visibility' => $previous->effectiveVisibility(),
+                'owner_user_id' => $previous->effectiveOwnerUserId(),
+            ])->save();
             $task->forceFill(['thread_id' => $thread->id])->save();
 
             return $thread;
