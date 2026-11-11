@@ -65,17 +65,17 @@ function useLocalGit($test): LocalGitSandboxManager
     return $git;
 }
 
-test('six steps are recorded in order', function () {
+test('seven steps are recorded in order', function () {
     $thread = destroyedThread();
 
     expect(app(SandboxRestorer::class)->restore($thread))->toBeTrue();
 
     $steps = $thread->restoreSteps()->get();
     expect($steps->pluck('step')->all())->toBe(RestoreStepName::cases())
-        ->and($steps->pluck('position')->all())->toBe([1, 2, 3, 4, 5, 6])
+        ->and($steps->pluck('position')->all())->toBe([1, 2, 3, 4, 5, 6, 7])
         ->and($steps->pluck('status')->all())->toBe([
             RestoreStepStatus::Succeeded, RestoreStepStatus::Succeeded, RestoreStepStatus::Succeeded,
-            RestoreStepStatus::Skipped, RestoreStepStatus::Succeeded, RestoreStepStatus::Succeeded,
+            RestoreStepStatus::Skipped, RestoreStepStatus::Skipped, RestoreStepStatus::Succeeded, RestoreStepStatus::Succeeded,
         ])
         ->and($steps->every(fn ($step) => $step->started_at !== null && $step->finished_at !== null))->toBeTrue()
         ->and($this->sync->restored)->toBe([$thread->id])
@@ -141,7 +141,7 @@ test('a failed setup script marks step three failed and stops', function () {
     $steps = $thread->restoreSteps()->get();
     expect($steps->pluck('status')->all())->toBe([
         RestoreStepStatus::Succeeded, RestoreStepStatus::Succeeded, RestoreStepStatus::Failed,
-        RestoreStepStatus::Pending, RestoreStepStatus::Pending, RestoreStepStatus::Pending,
+        RestoreStepStatus::Pending, RestoreStepStatus::Pending, RestoreStepStatus::Pending, RestoreStepStatus::Pending,
     ])
         ->and($steps[2]->error)->toContain('exit 2')
         ->and($steps[2]->output)->toContain('boom')
@@ -161,7 +161,7 @@ test('retry resumes at the failed step without recreating the sandbox', function
     $operations = array_column($sandbox->calls, 'operation');
     expect(array_count_values($operations)['create'])->toBe(1)
         ->and(array_count_values($operations)['start'])->toBe(1)
-        ->and($thread->restoreSteps()->count())->toBe(6);
+        ->and($thread->restoreSteps()->count())->toBe(7);
 });
 
 test('retry success clears restore failed', function () {
@@ -188,7 +188,7 @@ test('a finished restore starts over the next time', function () {
 
     expect(array_column(app(SandboxManager::class)->calls, 'operation'))->toContain('create')
         ->and(array_count_values(array_column(app(SandboxManager::class)->calls, 'operation'))['create'])->toBe(2)
-        ->and($thread->restoreSteps()->count())->toBe(6);
+        ->and($thread->restoreSteps()->count())->toBe(7);
 });
 
 test('local path symlink is created when a local path exists', function () {
@@ -246,7 +246,7 @@ test('ensure awake for a destroyed sandbox restores then reports ready', functio
 
     expect($wake->ready)->toBeTrue()->and($wake->restoring)->toBeFalse()
         ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running)
-        ->and($thread->restoreSteps()->count())->toBe(6);
+        ->and($thread->restoreSteps()->count())->toBe(7);
 });
 
 test('ensure awake reports a failed restore as neither ready nor restoring', function () {
