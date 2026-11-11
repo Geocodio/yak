@@ -1,5 +1,14 @@
 {{ yak_domain }} {
-    reverse_proxy localhost:8080
+    # Reverb websocket (/app) and signed Pusher HTTP API (/apps); the API
+    # is protected by Reverb's HMAC signature check.
+    @reverb path /app/* /apps/*
+    handle @reverb {
+        reverse_proxy localhost:8080
+    }
+
+    handle {
+        reverse_proxy localhost:8080
+    }
     tls {
         protocols tls1.2 tls1.3
     }

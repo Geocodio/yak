@@ -289,3 +289,29 @@ it('base template starts docker.socket, gives yak the docker group and runs sshd
         ->toContain('openssh-server')
         ->toContain('systemctl enable ssh');
 });
+
+it('caddy routes the Reverb paths on the dashboard host', function () {
+    $caddy = file_get_contents(base_path('ansible/roles/ssl/templates/Caddyfile.j2'));
+    $dashboard = explode('*.{{ yak_domain }}', $caddy)[0];
+
+    expect($dashboard)->toContain('@reverb path /app/* /apps/*')
+        ->toContain('handle @reverb')
+        ->toContain('reverse_proxy localhost:8080')
+        ->toMatch('/handle @reverb \{.*?\}\s+handle \{/s')
+        ->and($caddy)->toContain('forward_auth localhost:8080')->toContain('/_yak/auth');
+});
+
+it('nginx proxies the Reverb paths with websocket upgrade', function () {
+    $nginx = file_get_contents(base_path('docker/nginx.conf'));
+
+    foreach (['/app/', '/apps/'] as $path) {
+        preg_match('/location ' . preg_quote($path, '/') . ' \{(.*?)\}/s', $nginx, $block);
+        expect($block)->not->toBeEmpty();
+        expect($block[1])->toContain('proxy_pass http://127.0.0.1:8080')
+            ->toContain('proxy_http_version 1.1')
+            ->toContain('proxy_set_header Upgrade $http_upgrade')
+            ->toContain('proxy_set_header Connection "upgrade"')
+            ->toMatch('/proxy_read_timeout (3600|[4-9]\d{3}|\d{5,})s;/');
+        expect(strpos($nginx, "location $path {"))->toBeLessThan(strpos($nginx, 'location / {'));
+    }
+});
