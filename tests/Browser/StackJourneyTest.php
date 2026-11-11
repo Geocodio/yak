@@ -8,6 +8,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Stacks\ChildCardPublisher;
+use App\Services\Threads\ThreadEventPublisher;
 
 /**
  * Journey 7: a thread spawns sub-threads, one result comes back, one child fails,
@@ -132,4 +133,32 @@ it('opens the Add a sub-thread dialog with the approved copy', function () {
         ->assertSeeIn('[data-testid="stack-add-note"]', '0 of 3 sub-threads are awake. 0 of 12 used.')
         ->assertScript('document.querySelector(\'[data-testid="stack-add-name"]\').placeholder', 'Reverb events')
         ->assertSeeIn('[data-testid="stack-add-submit"]', 'Start sub-thread');
+});
+
+it('shows queued, asking and merged sub-threads with their new card layout', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create();
+    $queued = Thread::factory()->child($parent)->create(['name' => 'queuer']);
+    $asking = Thread::factory()->child($parent)->create(['name' => 'asker']);
+    $merged = Thread::factory()->child($parent)->create(['name' => 'merger']);
+
+    $card = fn (Thread $child, string $state, array $extra = []): array => [
+        'childThreadId' => $child->id, 'name' => $child->name, 'kind' => 'implement', 'model' => 'sonnet', 'state' => $state,
+        'step' => null, 'resultSummary' => null, 'branch' => null, 'messagesPaused' => false,
+        'mergedAt' => null, 'question' => null, 'filesChanged' => null, 'additions' => null, 'deletions' => null,
+        'conflictResolved' => false, 'decision' => null, ...$extra,
+    ];
+
+    $events = app(ThreadEventPublisher::class);
+    $events->append($parent->id, 'child', $card($queued, 'queued'));
+    $events->append($parent->id, 'child', $card($asking, 'waiting', ['question' => 'Which table should hold it?']));
+    $events->append($parent->id, 'child', $card($merged, 'done', ['mergedAt' => now()->toIso8601String(), 'filesChanged' => 3, 'additions' => 12, 'deletions' => 4, 'conflictResolved' => true, 'decision' => 'Kept the cursor paging.']));
+
+    visit(route('threads.show', $parent))
+        ->assertSeeIn('[data-testid="child-card-' . $queued->id . '"]', 'Starts when another sub-thread finishes')
+        ->assertSeeIn('[data-testid="child-card-' . $asking->id . '"]', 'Asked you')
+        ->assertSeeIn('[data-testid="child-card-' . $asking->id . '"]', 'Asks you: Which table should hold it?')
+        ->assertSeeIn('[data-testid="child-card-' . $merged->id . '"]', 'Merged into this branch')
+        ->assertSeeIn('[data-testid="child-card-' . $merged->id . '"]', 'Merge conflict resolved')
+        ->assertSeeIn('[data-testid="child-card-' . $merged->id . '"]', '3 files');
 });
