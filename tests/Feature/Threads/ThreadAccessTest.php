@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Scopes\VisibleThreadScope;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
@@ -84,6 +85,16 @@ test('a signed-in user does not load other people private threads or their tasks
         ->and(YakTask::count())->toBe(2);
 });
 
+test('withoutVisibilityScope drops only the visibility scope', function () {
+    $private = Thread::factory()->private(User::factory()->create())->create();
+    $task = YakTask::factory()->create(['thread_id' => $private->id]);
+    $this->actingAs(User::factory()->create());
+
+    expect(Thread::withoutVisibilityScope()->count())->toBe(1)
+        ->and(YakTask::withoutVisibilityScope()->pluck('id')->all())->toBe([$task->id])
+        ->and(Thread::withoutVisibilityScope()->removedScopes())->toBe([VisibleThreadScope::class]);
+});
+
 test('jobs and commands see everything', function () {
     $private = Thread::factory()->private()->create();
     YakTask::factory()->create(['thread_id' => $private->id]);
@@ -93,7 +104,7 @@ test('jobs and commands see everything', function () {
         ->and(YakTask::count())->toBe(1);
 });
 
-test('a private task is missing from the tasks, costs and analytics pages for other users', function () {
+test('a private task is missing from the tasks, costs, analytics and system pages for other users', function () {
     $owner = User::factory()->create();
     $thread = Thread::factory()->private($owner)->create();
     $task = YakTask::factory()->create(['thread_id' => $thread->id, 'repo' => 'secret/repo', 'cost_usd' => 4.25, 'created_at' => now()]);
@@ -110,6 +121,7 @@ test('a private task is missing from the tasks, costs and analytics pages for ot
             ->where('summary.claudeCode.amount', 1));
         $this->get('/analytics')->assertInertia(fn (Assert $page) => $page
             ->where('filters.repos', ['acme/api']));
+        $this->get('/system')->assertOk()->assertDontSee('secret/repo');
     }
 
     $this->actingAs($owner);

@@ -16,6 +16,7 @@ use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\YakTaskFactory;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -150,6 +151,17 @@ class YakTask extends Model
                 ReRequestReviewJob::dispatch($task)->afterCommit();
             }
         });
+    }
+
+    /**
+     * Drops only the visibility scope, for internal code that must see hidden rows.
+     *
+     * @param  Builder<covariant YakTask>  $query
+     * @return Builder<covariant YakTask>
+     */
+    public function scopeWithoutVisibilityScope(Builder $query): Builder
+    {
+        return $query->withoutGlobalScope(VisibleTaskScope::class);
     }
 
     /**

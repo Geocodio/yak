@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Scope;
 /**
  * Hides other people's private threads from a signed-in user. Without a
  * signed-in user (jobs, commands, queue workers) nothing is hidden. Internal
- * code that runs inside a request opts out with withoutGlobalScopes().
+ * code that runs inside a request opts out with withoutVisibilityScope().
  *
  * @implements Scope<Thread>
  */

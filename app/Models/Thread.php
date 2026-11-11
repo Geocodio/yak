@@ -98,6 +98,17 @@ class Thread extends Model
     }
 
     /**
+     * Drops only the visibility scope, for internal code that must see hidden rows.
+     *
+     * @param  Builder<covariant Thread>  $query
+     * @return Builder<covariant Thread>
+     */
+    public function scopeWithoutVisibilityScope(Builder $query): Builder
+    {
+        return $query->withoutGlobalScope(VisibleThreadScope::class);
+    }
+
+    /**
      * Keeps the threads the user may see; see ThreadAccess.
      *
      * @param  Builder<covariant Thread>  $query
