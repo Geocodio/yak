@@ -47,6 +47,16 @@ func TestTerminalCommandUsesValidatedIntegerOnly(t *testing.T) {
 	}
 }
 
+func TestTerminalCommandForUsesAbsoluteBinary(t *testing.T) {
+	got := strings.Join(TerminalCommandFor("/opt/yak/bin/yak", 42), " ")
+	if got != "/opt/yak/bin/yak teleport --from-link 42" {
+		t.Fatal(got)
+	}
+	if TerminalCommandFor("yak", 42) != nil || TerminalCommandFor("/opt/yak/bin/yak", 0) != nil {
+		t.Fatal("accepted a relative binary or a bad id")
+	}
+}
+
 func TestShellQuotingOfCheckoutPathWithSpacesAndQuotes(t *testing.T) {
 	got := ShellCommand(`/Users/me/it's here; rm -rf`, []string{"yak", "teleport", "--from-link", "42"})
 	want := `cd '/Users/me/it'\''s here; rm -rf' && 'yak' 'teleport' '--from-link' '42'`

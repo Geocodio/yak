@@ -3,6 +3,7 @@ package link
 
 import (
 	"errors"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -39,6 +40,17 @@ func TerminalCommand(threadID int) []string {
 		return nil
 	}
 	return []string{"yak", "teleport", "--from-link", id}
+}
+
+// TerminalCommandFor is TerminalCommand with the absolute path of the yak binary, so a terminal whose PATH lacks yak
+// still runs it. A relative binary or an invalid id yields nil.
+func TerminalCommandFor(binary string, threadID int) []string {
+	argv := TerminalCommand(threadID)
+	if argv == nil || !filepath.IsAbs(binary) {
+		return nil
+	}
+	argv[0] = binary
+	return argv
 }
 
 // ShellQuote wraps s in single quotes for a POSIX shell.

@@ -37,6 +37,7 @@ func linkRig(t *testing.T) (*harness, *fakeyak.Server, *[]openedTerminal, string
 		}
 		return ""
 	}
+	h.ctx.Executable = func() (string, error) { return "/opt/yak/bin/yak", nil }
 	var opened []openedTerminal
 	h.ctx.OpenTerminal = func(dir string, argv []string) error { opened = append(opened, openedTerminal{dir, argv}); return nil }
 	return h, srv, &opened, home
@@ -55,7 +56,7 @@ func TestOpenLinkAsksCheckoutOnceThenRemembers(t *testing.T) {
 	if code := Run(h.ctx, []string{"open-link", "yak://teleport/42"}); code != 0 {
 		t.Fatalf("exit %d: %s", code, h.errb)
 	}
-	if len(*opened) != 1 || (*opened)[0].dir != checkout || strings.Join((*opened)[0].argv, " ") != "yak teleport --from-link 42" {
+	if len(*opened) != 1 || (*opened)[0].dir != checkout || strings.Join((*opened)[0].argv, " ") != "/opt/yak/bin/yak teleport --from-link 42" {
 		t.Fatalf("%+v", *opened)
 	}
 	cfg, _ := config.Load(h.ctx.ConfigDir)
@@ -94,5 +95,22 @@ func TestOpenLinkNeverRunsRawURL(t *testing.T) {
 	}
 	if len(*opened) != 0 || len(srv.Requests()) != 0 {
 		t.Fatal("acted on a hostile link")
+	}
+}
+
+func TestOpenLinkPrintsAbsoluteBinaryCommand(t *testing.T) {
+	h, _, _, home := linkRig(t)
+	dir := filepath.Join(home, "w")
+	_ = os.MkdirAll(dir, 0o755)
+	cfg, _ := config.Load(h.ctx.ConfigDir)
+	cfg.Checkouts = map[string]string{"acme/widgets": dir}
+	_ = cfg.Save(h.ctx.ConfigDir)
+	h.ctx.OpenTerminal = nil
+	if code := Run(h.ctx, []string{"open-link", "yak://teleport/42"}); code != 0 {
+		t.Fatal(code)
+	}
+	want := "Run: cd '" + dir + "' && '/opt/yak/bin/yak' 'teleport' '--from-link' '42'\n"
+	if got := h.out.String(); got != want {
+		t.Fatalf("got %q want %q", got, want)
 	}
 }
