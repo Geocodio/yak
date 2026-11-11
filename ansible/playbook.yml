@@ -67,7 +67,7 @@
           - redis_password is defined and redis_password | length > 0
           - telemetryd_ingest_token is defined and telemetryd_ingest_token | length > 0
           - telemetryd_query_token is defined and telemetryd_query_token | length > 0
-          - yak_session_store_key is defined and yak_session_store_key | length > 0 and yak_session_store_key | b64decode | length == 32
+          - yak_session_store_key is defined and yak_session_store_key is match('^[A-Za-z0-9+/]{43}=$')
           - reverb_app_id is defined and reverb_app_id | length > 0
           - reverb_app_key is defined and reverb_app_key | length > 0
           - reverb_app_secret is defined and reverb_app_secret | length > 0

@@ -37,7 +37,16 @@ it('fails the playbook early without a 32 byte session store key', function () u
     $assert = collect($playbook[0]['pre_tasks'])->firstWhere('name', 'Validate required variables')['ansible.builtin.assert']['that'];
     $conditions = collect($assert)->filter(fn ($condition) => str_contains($condition, 'yak_session_store_key'))->implode("\n");
 
-    expect($conditions)->toContain('b64decode | length == 32')
+    preg_match("/is match\\('([^']+)'\\)/", $conditions, $matches);
+    $pattern = '#' . $matches[1] . '#';
+
+    foreach (range(1, 200) as $ignored) {
+        expect(preg_match($pattern, base64_encode(random_bytes(32))))->toBe(1);
+    }
+
+    expect(preg_match($pattern, base64_encode(random_bytes(31))))->toBe(0)
+        ->and(preg_match($pattern, base64_encode(random_bytes(33))))->toBe(0)
+        ->and(preg_match($pattern, str_repeat('*', 43) . '='))->toBe(0)
         ->and(collect($assert)->implode("\n"))->toContain('reverb_app_key')
         ->toContain('reverb_app_secret')
         ->toContain('reverb_app_id');

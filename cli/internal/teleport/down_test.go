@@ -652,7 +652,16 @@ func TestDownExtraFolderExistsFailsOnlyThatRepo(t *testing.T) {
 }
 
 func TestDownExtraClashNamesPathsAndLeavesNothingBehind(t *testing.T) {
+	// Case-only names clash only on a case-insensitive file system. The fresh
+	// clone reads core.ignorecase from the global config (set after the harness
+	// isolates git), which stands in for
+	// the macOS default on every OS.
+	gitConfig := filepath.Join(t.TempDir(), "gitconfig")
+	if err := os.WriteFile(gitConfig, []byte("[core]\n\tignorecase = true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	h := newHarness(t)
+	t.Setenv("GIT_CONFIG_GLOBAL", gitConfig)
 	s := h.setupDown(true)
 	origin := h.srv.AddRepoWithOrigin(t, "acme/api")
 	yak := testrepo.Clone(t, origin)
