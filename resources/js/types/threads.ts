@@ -1,3 +1,4 @@
+import type { PickerAccount } from '@/types/claudeAccounts';
 import type { AttachmentData } from '@/types/tasks';
 export type ThreadRepositoryData = {
     repo: string;
@@ -76,4 +77,15 @@ export type ThreadNotice = {
     isOwnerOfAccount: boolean;
     canContinue: boolean;
     restoreSteps: { label: string; status: 'pending' | 'running' | 'done' | 'failed'; error: string | null }[];
+};
+
+/** Props of the `Threads/New` page; mirrors `App\Http\Controllers\Threads\NewThreadController`. */
+export type NewThreadPageData = {
+    repos: { slug: string; name: string }[];
+    picker: {
+        accounts: PickerAccount[];
+        defaultsByRepo: Record<string, { accountId: number | null; model: string | null }>;
+        models: string[];
+    };
+    defaultRepo: string | null;
 };
