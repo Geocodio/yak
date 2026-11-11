@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "yak": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/yak",
+      "args": ["mcp"]
+    }
+  }
+}
