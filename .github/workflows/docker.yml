@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/next-gen
 
 permissions:
   contents: read
@@ -26,6 +27,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
+        if: github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -33,5 +35,18 @@ jobs:
           tags: |
             geocodio/yak:latest
             geocodio/yak:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The next-gen trial server pulls these tags; :latest stays on main.
+      - name: Build and push next-gen
+        if: github.ref == 'refs/heads/feat/next-gen'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            geocodio/yak:next-gen
+            geocodio/yak:next-gen-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
