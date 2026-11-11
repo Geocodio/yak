@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ThreadKind;
 use App\Models\Thread;
 use App\Services\SessionStore\SessionStore;
 use App\Services\SessionStore\SessionSync;
@@ -78,4 +79,14 @@ it('round trips: sync then restore into another thread sandbox yields identical 
     $this->sandboxes->disks[$other->id] = $this->sandboxes->disks[$this->thread->id];
 
     expect($this->sandboxes->disks[$other->id])->toEqualCanonicalizing($source);
+});
+
+it('restores a research child transcript into its worktree project directory', function () {
+    $parent = Thread::factory()->create(['sandbox_container' => 'yak-shared']);
+    $child = Thread::factory()->child($parent)->create(['kind' => ThreadKind::Research, 'name' => 'scan', 'sandbox_container' => 'yak-shared', 'claude_config_dir' => '/home/yak/.claude-child']);
+    $this->store->append($child, $this->sid, "{$this->sid}.jsonl", 0, "one\n", hash('sha256', "one\n"), hash('sha256', ''));
+
+    app(SessionSync::class)->restoreIntoSandbox($child);
+
+    expect($this->sandboxes->disks[$child->id])->toBe(["/home/yak/.claude-child/projects/-workspace-research-scan/{$this->sid}.jsonl" => "one\n"]);
 });

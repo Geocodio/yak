@@ -4,6 +4,7 @@ namespace App\Services\SessionStore;
 
 use App\Models\SessionFile;
 use App\Models\Thread;
+use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Threads\Contracts\SandboxManager;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -248,7 +249,9 @@ class SessionSync
 
     private function projectDirectory(Thread $thread): string
     {
-        return $thread->claude_config_dir . '/projects/' . preg_replace('/[^a-zA-Z0-9]/', '-', self::WORKSPACE_PATH);
+        $runnerCwd = $thread->sharesParentSandbox() ? ResearchChildRunner::worktreePath($thread) : self::WORKSPACE_PATH;
+
+        return $thread->claude_config_dir . '/projects/' . preg_replace('/[^a-zA-Z0-9]/', '-', $runnerCwd);
     }
 
     private function sessionIdOf(string $relativePath): string
