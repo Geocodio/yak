@@ -122,7 +122,7 @@ final class ThreadNoticeData
             'isOwnerOfAccount' => $isOwnerOfAccount,
             'canContinue' => $canContinue,
             'accountSettingsUrl' => $isAccountProblem && $isOwnerOfAccount ? route('settings.claude-accounts') : null,
-            'startOnOwnAccountUrl' => $isAccountProblem ? route('threads.new') : null,
+            'startOnOwnAccountUrl' => ($isAccountProblem || $kind === 'usage_limit') ? route('threads.new') : null,
             'restoreSteps' => in_array($kind, ['restoring', 'restore_failed'], true) ? $steps : [],
             'waiting' => $waiting,
         ];

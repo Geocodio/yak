@@ -274,8 +274,14 @@ it('links the account settings for the owner and a new thread for everyone on a 
         ->toMatchArray(['accountSettingsUrl' => null, 'startOnOwnAccountUrl' => route('threads.new')]);
 });
 
-it('has no account links on other notices', function () {
+it('offers a new thread on another account for a usage limit', function () {
     $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]);
+
+    expect(ThreadNoticeData::for($thread))->toMatchArray(['accountSettingsUrl' => null, 'startOnOwnAccountUrl' => route('threads.new')]);
+});
+
+it('has no account links on other notices', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForAccount]);
 
     expect(ThreadNoticeData::for($thread))->toMatchArray(['accountSettingsUrl' => null, 'startOnOwnAccountUrl' => null]);
 });

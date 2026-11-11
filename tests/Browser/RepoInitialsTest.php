@@ -14,11 +14,11 @@ it('renders the repo chip for single-segment and empty slugs', function (?string
 
     $page = visit(route('threads.new'));
     if ($initials !== '') {
-        $page->assertSeeIn('[data-testid="start-thread-repo"]', $initials);
+        $page->assertSeeIn('[data-testid="start-thread-repo"] [data-testid="repo-avatar"]', $initials);
     }
     $page->assertNoJavaScriptErrors();
 })->with([
-    'two segments' => ['acme/web', 'AW'],
+    'two segments' => ['acme/web', 'WE'],
     'single segment' => ['solo', 'SO'],
     'no repository' => [null, ''],
 ]);

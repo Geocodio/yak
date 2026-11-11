@@ -92,7 +92,7 @@ it('labels the submit button by mode and shows the footer sentence, counter and 
 
     visit(route('threads.new'))
         ->assertSeeIn('[data-testid="start-thread-submit"]', 'Start change')
-        ->assertSeeIn('[data-testid="start-thread-footer"]', 'one pull request per repo that changed')
+        ->assertSeeIn('[data-testid="start-thread-footer"]', 'opens a pull request for you to review')
         ->click('[data-testid="add-repo"]')
         ->click('acme/docs')
         ->assertSeeIn('[data-testid="expected-pr-count"]', '2 pull requests expected')

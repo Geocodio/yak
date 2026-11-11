@@ -74,7 +74,7 @@ export function SectionPanel({ section, touch = false, onNavigate, onCollapse }:
             </nav>
             {operationsPanel && operationsPanel.repositories.length > 0 ? (
                 <div className="flex flex-col gap-px px-2" data-testid="ops-repositories">
-                    <div className="px-2 pb-1 pt-4 text-[11px] font-medium text-faint">Repositories</div>
+                    <div className="px-2 pb-1 pt-4 text-[11px] font-medium text-muted">Repositories</div>
                     {operationsPanel.repositories.map((repository) => (
                         <Link
                             key={repository.slug}
@@ -86,7 +86,7 @@ export function SectionPanel({ section, touch = false, onNavigate, onCollapse }:
                             <span className="flex size-6 shrink-0 items-center justify-center rounded-control bg-panel-2 text-[9px] font-semibold text-muted">{repository.initials}</span>
                             <span className="flex min-w-0 flex-col">
                                 <span className="truncate font-mono text-[12px] text-body">{repository.slug}</span>
-                                <span className={cn('text-[11px]', repository.status.endsWith('needs you') ? 'text-brand' : 'text-faint')}>{repository.status}</span>
+                                <span className={cn('text-[11px]', repository.status.endsWith('needs you') ? 'text-brand' : 'text-muted')}>{repository.status}</span>
                             </span>
                         </Link>
                     ))}

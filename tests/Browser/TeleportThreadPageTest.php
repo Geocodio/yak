@@ -51,6 +51,7 @@ it('shows the teleport to Yak dialog with the slash command on a device-owned th
     $this->actingAs($user);
 
     visit(route('threads.show', $thread))
+        ->click('@thread-panel-tab-teleport')
         ->click('@teleport-up')
         ->assertVisible('@teleport-dialog')
         ->assertSeeIn('@teleport-command', '/yak teleport')
