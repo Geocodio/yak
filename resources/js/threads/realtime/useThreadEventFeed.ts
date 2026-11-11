@@ -22,6 +22,7 @@ export function useThreadEventFeed(threadId: number): ThreadEventFeed {
 
     useEffect(() => {
         let isActive = true;
+        let hasCaughtUp = false;
         dispatch({ kind: 'reset' });
         lastSequence.current = 0;
 
@@ -29,6 +30,7 @@ export function useThreadEventFeed(threadId: number): ThreadEventFeed {
             fetchAfter: (after) => fetchEventsAfter(threadId, after),
             getLastSequence: () => lastSequence.current,
             onResult: ({ events, latestSequence }) => {
+                hasCaughtUp = true;
                 if (isActive) {
                     dispatch({ kind: 'events', events, latestSequence });
                 }
@@ -94,9 +96,16 @@ export function useThreadEventFeed(threadId: number): ThreadEventFeed {
             .leaving((viewer: Viewer) => dispatch({ kind: 'viewers', viewers: viewersRef.current.filter((known) => known.id !== viewer.id) }));
 
         void runner.request();
+        // Until the first catch-up has succeeded, retry over HTTP: the socket only delivers events after it connects.
+        const stopPolling = pollWhileVisible(() => {
+            if (!hasCaughtUp) {
+                void runner.request();
+            }
+        });
 
         return () => {
             isActive = false;
+            stopPolling();
             connection.unbind('state_change', onStateChange);
             echo.leave(`thread.${threadId}`);
             echo.leave(`thread-presence.${threadId}`);
