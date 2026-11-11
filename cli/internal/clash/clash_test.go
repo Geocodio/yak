@@ -173,3 +173,40 @@ func TestUnknownTipIsAnError(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestSymlinkEscapeThroughTreeSymlinkRefused(t *testing.T) {
+	t.Parallel()
+	r := setup(t, false)
+	v := only(t, check(t, r, []testrepo.Entry{
+		{Path: "d/up", Mode: "120000", Content: ".."},
+		{Path: "d/out", Mode: "120000", Content: "up/.."},
+	}), "symlink_escapes")
+	if v.Paths[0] != "d/out" {
+		t.Fatalf("%+v", v)
+	}
+}
+
+func TestSymlinkLoopRefused(t *testing.T) {
+	t.Parallel()
+	r := setup(t, false)
+	rep := check(t, r, []testrepo.Entry{
+		{Path: "a", Mode: "120000", Content: "b"},
+		{Path: "b", Mode: "120000", Content: "a"},
+	})
+	if len(rep.Violations) != 2 || rep.Violations[0].Kind != "symlink_escapes" {
+		t.Fatalf("%+v", rep.Violations)
+	}
+}
+
+func TestSymlinkChainStayingInsideAllowed(t *testing.T) {
+	t.Parallel()
+	r := setup(t, false)
+	rep := check(t, r, []testrepo.Entry{
+		{Path: "d/file", Content: "x"},
+		{Path: "d/up", Mode: "120000", Content: ".."},
+		{Path: "d/ok", Mode: "120000", Content: "up/d/file"},
+	})
+	if !rep.Empty() {
+		t.Fatal(rep)
+	}
+}
