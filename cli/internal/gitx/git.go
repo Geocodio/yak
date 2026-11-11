@@ -28,8 +28,14 @@ func exitCode(err error) int {
 }
 
 // RunBytes runs git in the repo directory and returns stdout untouched.
-func (r Repo) RunBytes(args ...string) ([]byte, error) {
+func (r Repo) RunBytes(args ...string) ([]byte, error) { return r.RunInput(nil, args...) }
+
+// RunInput is RunBytes with stdin, for commands such as check-ignore --stdin -z.
+func (r Repo) RunInput(stdin []byte, args ...string) ([]byte, error) {
 	cmd := exec.Command("git", append([]string{"-C", r.Dir}, args...)...)
+	if stdin != nil {
+		cmd.Stdin = bytes.NewReader(stdin)
+	}
 	cmd.Env = append(append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0"), r.Env...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
