@@ -56,10 +56,12 @@ func TestLookupNon200ReturnsError(t *testing.T) {
 }
 
 func TestLookupTimeout(t *testing.T) {
+	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		<-r.Context().Done()
+		<-release
 	}))
 	defer server.Close()
+	defer close(release)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
