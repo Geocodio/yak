@@ -11,6 +11,7 @@ use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\FakeBrokerStreams;
 use App\Services\Threads\FakeSandboxManager;
 use Carbon\CarbonImmutable;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Str;
 use Pest\Browser\Api\AwaitableWebpage;
+use Tests\Support\FakeSessionFileSync;
 use Tests\TestCase;
 
 /*
@@ -39,6 +41,7 @@ pest()->extend(TestCase::class)
         // the real Redis streams construct RedisBrokerStreams themselves.
         app()->singleton(SandboxManager::class, FakeSandboxManager::class);
         app()->singleton(BrokerStreams::class, FakeBrokerStreams::class);
+        app()->singleton(SessionFileSync::class, FakeSessionFileSync::class);
 
         // Slack webhook tests post as arbitrary user IDs. The sender policy
         // tests swap the real SenderPolicy back in with faked Slack lookups.

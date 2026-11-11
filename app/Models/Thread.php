@@ -45,6 +45,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadLockHolder $lock_holder
  * @property ThreadOwnerSide $owner_side
  * @property ThreadBlockReason|null $blocked_reason
+ * @property string|null $last_refresh_commit
+ * @property string|null $wip_commit_sha
+ * @property string|null $local_repo_path
+ * @property string|null $git_author_name
+ * @property string|null $git_author_email
  * @property CarbonImmutable|null $sandbox_state_changed_at
  * @property CarbonImmutable|null $runner_started_at
  * @property CarbonImmutable|null $lock_acquired_at
@@ -184,6 +189,14 @@ class Thread extends Model
     public function sessions(): HasMany
     {
         return $this->hasMany(ThreadSession::class);
+    }
+
+    /**
+     * @return HasMany<ThreadRestoreStep, $this>
+     */
+    public function restoreSteps(): HasMany
+    {
+        return $this->hasMany(ThreadRestoreStep::class)->orderBy('position');
     }
 
     /**
