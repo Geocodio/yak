@@ -124,7 +124,7 @@ class ExtraRepositorySetup
         $mirror = escapeshellarg(self::MIRROR_DIRECTORY . "/{$slug}.git");
         $url = escapeshellarg("https://github.com/{$slug}.git");
 
-        $lines = ["git clone --reference-if-able {$mirror} --dissociate {$url} {$destination} || exit \$?", "cd {$destination} || exit \$?"];
+        $lines = ["cd {$destination} 2>/dev/null && [ -d .git ] && exit 0", "git clone --reference-if-able {$mirror} --dissociate {$url} {$destination} || exit \$?", "cd {$destination} || exit \$?"];
 
         if ($repository->role === RepositoryRole::Changes && filled($thread->branch)) {
             $branch = escapeshellarg((string) $thread->branch);
