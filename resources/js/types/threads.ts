@@ -162,3 +162,14 @@ export type NewThreadPageData = {
     defaultRepo: string | null;
     emailToYakAddress: string | null;
 };
+
+export type StartRepositoryRole = 'changes' | 'context';
+
+/** An extra repository chosen in the start dialog; the primary is the form's `repo`. */
+export type StartRepository = { repo: string; role: StartRepositoryRole };
+
+/** Mirrors `App\Http\Controllers\Threads\ThreadRepositoryProgressController`. */
+export type RepositoryProgressData = {
+    repositories: { repo: string; role: 'primary' | StartRepositoryRole; status: 'queued' | 'cloning' | 'setup' | 'ready' | 'failed' }[];
+    isReady: boolean;
+};
