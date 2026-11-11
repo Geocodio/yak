@@ -103,6 +103,7 @@ class TeleportController extends Controller
             'repos.*.branch' => ['nullable', 'string', 'max:255'],
             'repos.*.head_sha' => ['nullable', 'string', 'max:64'],
             'message' => ['nullable', 'string', 'max:20000'],
+            'deliver_held_events' => ['nullable', 'boolean'],
         ]);
 
         $result = $upCompleter->complete($device, $teleportModel, $data);

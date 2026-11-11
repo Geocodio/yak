@@ -83,8 +83,8 @@ class TeleportUpCompleter
     public function finish(Teleport $teleport, string $sandboxState): void
     {
         $thread = Thread::query()->withoutGlobalScopes()->findOrFail($teleport->thread_id);
-        $heldMessage = $this->held->firstMessageFor($thread);
-        $delivered = $this->held->deliveredCount($thread);
+        $deliverHeld = (bool) ($teleport->payload['deliver_held_events'] ?? true);
+        $heldMessage = $deliverHeld ? $this->held->firstMessageFor($thread) : null;
         $prompt = collect([$heldMessage, $teleport->message])->filter(fn (?string $part): bool => filled($part))->implode("\n\n");
 
         $this->mover->toYak($thread, $teleport);
@@ -94,6 +94,8 @@ class TeleportUpCompleter
         if ($prompt !== '') {
             $turnStarted = $this->startTurn($thread, $teleport, $prompt);
         }
+
+        $delivered = $turnStarted && $heldMessage !== null ? $this->held->markDelivered($thread) : 0;
 
         $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'result' => [
             'sandbox_state' => $sandboxState,
@@ -194,6 +196,7 @@ class TeleportUpCompleter
                 'state' => TeleportState::Preparing,
                 'branch_heads' => $heads,
                 'message' => $validated['message'] ?? null,
+                'payload' => [...($locked->payload ?? []), 'deliver_held_events' => (bool) ($validated['deliver_held_events'] ?? true)],
             ])->save();
             $teleport->setRawAttributes($locked->getAttributes(), true);
 
