@@ -17,6 +17,7 @@ var ErrDenied = errors.New("terminal token denied")
 // Grant is what Yak returns for a redeemed terminal token.
 type Grant struct {
 	ThreadID  int64
+	UserID    int64
 	Address   string
 	Container string
 	TTL       time.Duration
@@ -25,6 +26,12 @@ type Grant struct {
 // Redeemer exchanges a one-time terminal token and a public key for a Grant.
 type Redeemer interface {
 	Redeem(ctx context.Context, token, publicKey, origin string) (Grant, error)
+}
+
+// Checker asks Yak whether a granted session may keep running.
+type Checker interface {
+	// Check returns ErrDenied only when Yak answers 403; any other failure is a different error.
+	Check(ctx context.Context, grant Grant) error
 }
 
 // YakClient redeems terminal tokens against POST /internal/ssh/terminal/redeem.
@@ -72,6 +79,7 @@ func (c *YakClient) Redeem(ctx context.Context, token, publicKey, origin string)
 
 	var reply struct {
 		ThreadID  int64  `json:"thread_id"`
+		UserID    int64  `json:"user_id"`
 		Address   string `json:"address"`
 		Container string `json:"container"`
 		TTL       int    `json:"ttl"`
@@ -82,8 +90,51 @@ func (c *YakClient) Redeem(ctx context.Context, token, publicKey, origin string)
 
 	return Grant{
 		ThreadID:  reply.ThreadID,
+		UserID:    reply.UserID,
 		Address:   reply.Address,
 		Container: reply.Container,
 		TTL:       time.Duration(reply.TTL) * time.Second,
 	}, nil
+}
+
+// Check posts to /internal/ssh/terminal/check. Only a 403 is ErrDenied, so an outage keeps sessions alive.
+func (c *YakClient) Check(ctx context.Context, grant Grant) error {
+	secret, err := os.ReadFile(c.TokenFile)
+	if err != nil {
+		return errors.New("yak token file unreadable")
+	}
+
+	payload, _ := json.Marshal(map[string]int64{"thread_id": grant.ThreadID, "user_id": grant.UserID})
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		strings.TrimRight(c.BaseURL, "/")+"/internal/ssh/terminal/check", bytes.NewReader(payload))
+	if err != nil {
+		return errors.New("yak check request invalid")
+	}
+	request.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(secret)))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
+	client := c.HTTP
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	response, err := client.Do(request)
+	if err != nil {
+		return errors.New("yak check request failed")
+	}
+	defer response.Body.Close()
+
+	switch response.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusForbidden:
+		return ErrDenied
+	default:
+		return errors.New("yak check unexpected status")
+	}
 }

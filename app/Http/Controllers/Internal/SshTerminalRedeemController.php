@@ -56,6 +56,7 @@ class SshTerminalRedeemController extends Controller
 
         return response()->json([
             'thread_id' => $thread->id,
+            'user_id' => $user->id,
             'address' => SandboxSshAddress::for($thread),
             'container' => $result->container,
             'ttl' => $ttl,

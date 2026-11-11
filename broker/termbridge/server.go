@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -28,7 +29,10 @@ type Server struct {
 	MaxPerThread int
 	MaxTotal     int
 	MaxDuration  time.Duration
-	Stop         <-chan struct{}
+	// Checker re-validates a running session every CheckEvery; zero CheckEvery disables it.
+	Checker    Checker
+	CheckEvery time.Duration
+	Stop       <-chan struct{}
 
 	mu        sync.Mutex
 	total     int
@@ -162,6 +166,7 @@ func (s *Server) serveTerminal(w http.ResponseWriter, r *http.Request) {
 	finished := make(chan struct{})
 	defer close(finished)
 	stop := make(chan struct{})
+	var revoked atomic.Bool
 	go func() {
 		var limit <-chan time.Time
 		if s.MaxDuration > 0 {
@@ -169,16 +174,41 @@ func (s *Server) serveTerminal(w http.ResponseWriter, r *http.Request) {
 			defer timer.Stop()
 			limit = timer.C
 		}
-		select {
-		case <-limit:
-		case <-s.Stop:
-		case <-finished:
+		var recheck <-chan time.Time
+		if s.Checker != nil && s.CheckEvery > 0 {
+			ticker := time.NewTicker(s.CheckEvery)
+			defer ticker.Stop()
+			recheck = ticker.C
+		}
+		for {
+			select {
+			case <-limit:
+			case <-s.Stop:
+			case <-finished:
+				return
+			case <-recheck:
+				checkContext, cancelCheck := context.WithTimeout(r.Context(), 10*time.Second)
+				err := s.Checker.Check(checkContext, grant)
+				cancelCheck()
+				if !errors.Is(err, ErrDenied) {
+					continue
+				}
+				revoked.Store(true)
+			}
+			close(stop)
+
 			return
 		}
-		close(stop)
 	}()
 
 	session := s.Session
+	session.DoneCloseCode = func() int {
+		if revoked.Load() {
+			return closeDenied
+		}
+
+		return 1001
+	}
 	_ = session.Run(stop, conn, grant, keyPath,
 		dimension(r.URL.Query().Get("cols"), 80), dimension(r.URL.Query().Get("rows"), 24))
 }

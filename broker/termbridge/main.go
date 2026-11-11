@@ -18,8 +18,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	yak := &YakClient{BaseURL: os.Getenv("YAK_SSH_URL"), TokenFile: os.Getenv("YAK_SSH_TOKEN_FILE")}
 	server := &Server{
-		Redeemer:     &YakClient{BaseURL: os.Getenv("YAK_SSH_URL"), TokenFile: os.Getenv("YAK_SSH_TOKEN_FILE")},
+		Redeemer:     yak,
+		Checker:      yak,
+		CheckEvery:   30 * time.Second,
 		Origins:      splitOrigins(os.Getenv("YAK_TERMBRIDGE_ORIGINS")),
 		Session:      Session{SSHBin: os.Getenv("SSH_BIN"), IdleTimeout: 30 * time.Minute},
 		MaxPerThread: 4,

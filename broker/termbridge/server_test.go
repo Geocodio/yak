@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -26,6 +27,20 @@ func (s *stubRedeemer) Redeem(_ context.Context, token, publicKey, origin string
 
 	return Grant{ThreadID: s.threadID, Address: "127.16.0.1", TTL: 15 * time.Minute}, nil
 }
+
+type stubChecker struct {
+	err atomic.Value
+}
+
+func (s *stubChecker) Check(context.Context, Grant) error {
+	if err, _ := s.err.Load().(error); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *stubChecker) fail(err error) { s.err.Store(err) }
 
 func testServer(t *testing.T, redeemer *stubRedeemer, mutate func(*Server)) (*httptest.Server, string, string) {
 	t.Helper()
@@ -172,4 +187,42 @@ func TestOverallLimitClosesWith4429(t *testing.T) {
 	if op, payload := client.read(t); op != opClose || closeCode(payload) != 4429 || redeemer.calls.Load() != 0 {
 		t.Fatalf("op %d payload %v", op, payload)
 	}
+}
+
+func TestSessionStopsWhenCheckDenied(t *testing.T) {
+	checker := &stubChecker{}
+	server, _, _ := testServer(t, &stubRedeemer{threadID: 1}, func(s *Server) {
+		s.Checker = checker
+		s.CheckEvery = 20 * time.Millisecond
+	})
+
+	client, _ := dialPath(t, server, "/terminal/ws?token=a", "https://yak.test")
+	readUntil(t, client, "ready")
+	checker.fail(ErrDenied)
+
+	for {
+		op, payload := client.read(t)
+		if op == opClose {
+			if closeCode(payload) != 4403 {
+				t.Fatalf("closed %d", closeCode(payload))
+			}
+			return
+		}
+	}
+}
+
+func TestSessionSurvivesCheckTransportError(t *testing.T) {
+	checker := &stubChecker{}
+	checker.fail(errors.New("yak unreachable"))
+	server, _, _ := testServer(t, &stubRedeemer{threadID: 1}, func(s *Server) {
+		s.Checker = checker
+		s.CheckEvery = 20 * time.Millisecond
+	})
+
+	client, _ := dialPath(t, server, "/terminal/ws?token=a", "https://yak.test")
+	readUntil(t, client, "ready")
+	time.Sleep(150 * time.Millisecond)
+
+	client.send(true, opBinary, []byte("hello\n"), true)
+	readUntil(t, client, "got:hello")
 }
