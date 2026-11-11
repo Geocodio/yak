@@ -4,6 +4,7 @@ import { IconRail } from '@/components/shell/IconRail';
 import { SectionPanel } from '@/components/shell/SectionPanel';
 import { sectionForUrl, type RailSection } from '@/components/shell/sections';
 import { ThreadListPanel } from '@/components/shell/ThreadListPanel';
+import { useMarkThreadSeen } from '@/components/shell/useMarkThreadSeen';
 
 const COLLAPSED_KEY = 'yak:shell-collapsed';
 
@@ -29,6 +30,8 @@ export function ShellSidebar() {
     const [picked, setPicked] = useState<RailSection | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(readCollapsed);
     const active = picked ?? sectionForUrl(url);
+
+    useMarkThreadSeen(url);
 
     useEffect(() => {
         setPicked(null);
