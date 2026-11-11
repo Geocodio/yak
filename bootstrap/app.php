@@ -16,6 +16,7 @@ use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -37,6 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'cli.protocol' => CliProtocol::class,
             'auth.device' => AuthenticateDevice::class,
         ]);
+        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: CliProtocol::class);
+        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
         $middleware->validateCsrfTokens(except: ['api/cli/*']);
         $middleware->web(append: [
             HandleInertiaRequests::class,

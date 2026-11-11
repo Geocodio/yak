@@ -147,7 +147,17 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('cli-device', function (Request $request): Limit {
             $device = $request->attributes->get('device');
 
+            if ($request->is('api/cli/v1/threads/*/session/*')) {
+                return Limit::none();
+            }
+
             return Limit::perMinute(120)->by($device instanceof Device ? 'device:' . $device->id : 'ip:' . $request->ip());
+        });
+
+        RateLimiter::for('cli-session', function (Request $request): Limit {
+            $device = $request->attributes->get('device');
+
+            return Limit::perMinute(1200)->by($device instanceof Device ? 'device:' . $device->id : 'ip:' . $request->ip());
         });
 
         RateLimiter::for('cli-device-code', fn (Request $request): Limit => Limit::perMinute(10)->by('ip:' . $request->ip()));
