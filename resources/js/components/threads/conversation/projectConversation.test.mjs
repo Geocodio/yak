@@ -148,3 +148,18 @@ test('keeps one card per repository', () => {
 
     assert.deepEqual(items.map((item) => item.key), ['repository:acme/docs', 'repository:acme/lib']);
 });
+
+test('a tools item is running until every tool use has a result', () => {
+    const open = project(feedOf(assistant(1, 'm1', [use('a', 'Bash'), use('b', 'Bash')]), toolResult(2, 'a', 'ok')));
+    assert.equal(open.items[0].running, true);
+
+    const done = project(feedOf(assistant(1, 'm1', [use('a', 'Bash')]), toolResult(2, 'a', 'ok')));
+    assert.equal(done.items[0].running, undefined);
+    assert.equal(done.items[0].durationMs, undefined);
+});
+
+test('text items carry the model from the session init entry', () => {
+    const { items } = project(feedOf(entry(1, { role: 'system', subtype: 'init', model: 'claude-sonnet-5-5' }), assistant(2, 'm1', [{ type: 'text', text: 'hi' }, { type: 'thinking', text: 'hm' }])));
+
+    assert.deepEqual(items.map((item) => [item.kind, item.model]), [['text', 'claude-sonnet-5-5'], ['thinking', undefined]]);
+});

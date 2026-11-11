@@ -56,7 +56,7 @@ function editItem(messageId: string, sequence: number, edits: ToolUse[]): Conver
     return { kind: 'edits', key: `edits:${messageId}`, sequence, role: 'assistant', files: [...files], added, removed };
 }
 
-function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>, sequence: number, results: Map<string, string>): ConversationItem[] {
+function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>, sequence: number, results: Map<string, string>, model: string | undefined): ConversationItem[] {
     const items: ConversationItem[] = [];
     const edits: ToolUse[] = [];
     let run: { firstIndex: number; tools: ToolUse[] } | null = null;
@@ -70,6 +70,7 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
                 sequence,
                 role: 'assistant',
                 text: summarize(run.tools),
+                ...(run.tools.some((tool) => !results.has(tool.id)) ? { running: true } : {}),
                 ...(detail.length > 0 ? { detail: detail.join('\n\n') } : {}),
             });
             run = null;
@@ -89,7 +90,7 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
         }
 
         closeRun();
-        items.push({ kind: block.type, key: `${entry.messageId}:${index}`, sequence, role: 'assistant', text: block.text });
+        items.push({ kind: block.type, key: `${entry.messageId}:${index}`, sequence, role: 'assistant', text: block.text, ...(block.type === 'text' && model ? { model } : {}) });
     });
 
     closeRun();
@@ -110,6 +111,7 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
         }
     });
 
+    let model: string | undefined;
     const items: ConversationItem[] = [];
     const readSequences: Record<string, number> = {};
 
@@ -117,7 +119,9 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
         const sequence = entrySequences[index] ?? state.lastSequence;
 
         if (entry.role === 'assistant') {
-            items.push(...projectAssistant(entry, sequence, results));
+            items.push(...projectAssistant(entry, sequence, results, model));
+        } else if (entry.role === 'system' && entry.model) {
+            model = entry.model;
         } else if (entry.role === 'result') {
             items.push({ kind: 'result', key: `result:${sequence}`, sequence, role: 'assistant', text: entry.text });
         } else if (entry.role === 'user' && entry.uuid) {

@@ -14,13 +14,15 @@ import { PullRequestChips } from './PullRequestChip';
 import { EnvironmentNoteCard } from './EnvironmentNoteCard';
 import { SideSwitchDivider } from './SideSwitchDivider';
 import { ThreadNotice } from './ThreadNotice';
+import { ThreadTitleBlock } from './ThreadTitleBlock';
 import { ToolActivity } from './ToolActivity';
+import { WorkingBlock } from './WorkingBlock';
 import type { ConversationItem } from './conversationItem';
 
 // Browser tests drive the pure merge through this hook.
 Object.assign(window, { __mergeConversation: mergeConversation, __createReadTracker: createReadTracker });
 
-function EventRow({ item, canDrive }: { item: ConversationItem; canDrive: boolean }) {
+function EventRow({ item, canDrive, isLast }: { item: ConversationItem; canDrive: boolean; isLast: boolean }) {
     if (item.kind === 'child') {
         return <ChildCard item={item} canDrive={canDrive} />;
     }
@@ -30,13 +32,17 @@ function EventRow({ item, canDrive }: { item: ConversationItem; canDrive: boolea
     }
 
     if (item.kind === 'tools') {
+        if (item.running && isLast) {
+            return <WorkingBlock items={[item]} />;
+        }
+
         return <ToolActivity item={item} />;
     }
 
     return item.kind === 'edits' ? <EditsBlock item={item} /> : <ClaudeMessage item={item} />;
 }
 
-export function Conversation({ threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null, environmentNote = null, environmentSwitch = null }: { environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: number; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null }: { title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: number; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection } = useConversation(threadId, messages);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -45,9 +51,10 @@ export function Conversation({ threadId, repo, branch, messages, notice, readonl
     return (
         <div className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-8">
             <div className="mx-auto flex max-w-[760px] flex-col gap-4">
-                {entries.map((entry) => {
+                {title && <ThreadTitleBlock title={title} repo={repo} branch={branch} />}
+                {entries.map((entry, index) => {
                     if (entry.type === 'event') {
-                        return <EventRow key={entry.item.key} item={entry.item} canDrive={!readonly} />;
+                        return <EventRow key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} />;
                     }
 
                     const day = entry.message.sentAt.slice(0, 10);
