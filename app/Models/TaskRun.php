@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TaskRunKind;
 use App\Enums\TaskRunOutcome;
+use App\Enums\TurnState;
 use Carbon\CarbonImmutable;
 use Database\Factories\TaskRunFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -35,6 +36,9 @@ class TaskRun extends Model
 
     protected $guarded = [];
 
+    /** @var array<string, mixed> */
+    protected $attributes = ['turn_state' => 'pending'];
+
     /**
      * @return array<string, string>
      */
@@ -43,6 +47,8 @@ class TaskRun extends Model
         return [
             'kind' => TaskRunKind::class,
             'outcome' => TaskRunOutcome::class,
+            'turn_state' => TurnState::class,
+            'completion_event_emitted_at' => 'datetime',
             'resumed' => 'boolean',
             'stale_session_retry' => 'boolean',
             'synthesized_result' => 'boolean',
@@ -56,6 +62,7 @@ class TaskRun extends Model
             'tool_breakdown' => 'json',
             'api_retry_breakdown' => 'json',
             'cost_usd' => 'decimal:4',
+            'recorded_cost_usd' => 'decimal:4',
         ];
     }
 
@@ -65,5 +72,31 @@ class TaskRun extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(YakTask::class, 'yak_task_id');
+    }
+
+    /**
+     * @return BelongsTo<Thread, $this>
+     */
+    public function thread(): BelongsTo
+    {
+        return $this->belongsTo(Thread::class);
+    }
+
+    /**
+     * @return BelongsTo<ClaudeAccount, $this>
+     */
+    public function claudeAccount(): BelongsTo
+    {
+        return $this->belongsTo(ClaudeAccount::class);
+    }
+
+    /**
+     * The person whose message started the turn; null for unattended work.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'driver_user_id');
     }
 }

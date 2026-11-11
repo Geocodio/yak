@@ -189,6 +189,16 @@ class Repository extends Model
     }
 
     /**
+     * The Yak system account unattended work on this repository runs on.
+     *
+     * @return BelongsTo<ClaudeAccount, $this>
+     */
+    public function unattendedClaudeAccount(): BelongsTo
+    {
+        return $this->belongsTo(ClaudeAccount::class, 'unattended_claude_account_id');
+    }
+
+    /**
      * @return HasMany<YakTask, $this>
      */
     public function tasks(): HasMany

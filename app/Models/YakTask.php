@@ -158,6 +158,14 @@ class YakTask extends Model
     }
 
     /**
+     * @return BelongsTo<Thread, $this>
+     */
+    public function thread(): BelongsTo
+    {
+        return $this->belongsTo(Thread::class);
+    }
+
+    /**
      * The Yak user who started the task. Null for sources without a Yak
      * identity (Slack, GitHub, the command line, system tasks).
      *
