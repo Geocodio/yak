@@ -78,7 +78,10 @@ func TestRenderMacAppHasURLScheme(t *testing.T) {
 func TestInstallWritesFilesAndRegisters(t *testing.T) {
 	home := t.TempDir()
 	var calls []string
-	run := func(name string, args ...string) error { calls = append(calls, name+" "+strings.Join(args, " ")); return nil }
+	run := func(name string, args ...string) error {
+		calls = append(calls, name+" "+strings.Join(args, " "))
+		return nil
+	}
 	if _, err := Install("linux", home, "/bin/yak", run); err != nil || len(calls) != 1 || !strings.HasPrefix(calls[0], "xdg-mime default") {
 		t.Fatal(err, calls)
 	}
