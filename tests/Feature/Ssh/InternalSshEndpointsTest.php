@@ -7,6 +7,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Services\Ssh\SandboxSshAddress;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\ThreadSandbox;
 
 beforeEach(function () {
     config()->set('yak.deployments.internal.ingress_ip_cidr', '0.0.0.0/0');
@@ -99,6 +100,14 @@ it('touches the thread on activity', function () {
     $this->postJson('/internal/ssh/activity', wakeAddress($thread))->assertOk()->assertJson(['state' => 'ok']);
 
     expect($thread->fresh()->last_activity_at->isAfter(now()->subMinute()))->toBeTrue();
+});
+
+it('marks the session open on the activity heartbeat', function () {
+    $thread = Thread::factory()->paused()->create();
+
+    $this->postJson('/internal/ssh/activity', wakeAddress($thread))->assertOk();
+
+    expect(app(ThreadSandbox::class)->hasOpenSession($thread))->toBeTrue();
 });
 
 it('answers 410 on activity once the sandbox is no longer reachable', function (Closure $makeThread) {

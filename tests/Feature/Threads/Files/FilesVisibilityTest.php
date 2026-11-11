@@ -11,6 +11,7 @@ use App\Models\ThreadShare;
 use App\Models\User;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\FakeSandboxManager;
+use App\Services\Threads\ThreadSandbox;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
@@ -55,6 +56,15 @@ it('lets a viewer read the repository tree and a file but not edit or browse the
         ->assertJsonPath('content', 'hi')
         ->assertJsonPath('canEdit', false);
     $this->actingAs($this->viewer)->getJson(route('threads.files.tree', [$thread, 'scope' => 'sandbox']))->assertForbidden();
+});
+
+it('marks the session open when a file is read', function () {
+    $thread = filesThread();
+    $this->sandboxes->queueExecResult(Process::result("2\n" . base64_encode('hi') . "\n-\n"));
+
+    $this->actingAs($this->owner)->getJson(route('threads.files.show', [$thread, 'scope' => 'repo', 'path' => 'a.txt']))->assertOk();
+
+    expect(app(ThreadSandbox::class)->hasOpenSession($thread))->toBeTrue();
 });
 
 it('tells the owner a writable text file can be edited', function () {

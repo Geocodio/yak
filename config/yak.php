@@ -634,6 +634,7 @@ return [
         'usage_limit_fallback_minutes' => (int) env('YAK_THREADS_USAGE_LIMIT_FALLBACK_MINUTES', 60),
         'terminal_close_hours' => (int) env('YAK_THREADS_TERMINAL_CLOSE_HOURS', 24),
         'turn_grace_seconds' => (int) env('YAK_THREADS_TURN_GRACE_SECONDS', 30),
+        'session_activity_seconds' => (int) env('YAK_THREAD_SESSION_ACTIVITY_SECONDS', 120),
         'turn_wall_clock_minutes' => (int) env('YAK_THREADS_TURN_WALL_CLOCK_MINUTES', 240),
         'pause_to_stop_minutes' => (int) env('YAK_THREADS_PAUSE_TO_STOP_MINUTES', 30),
         'stop_to_destroy_hours' => (int) env('YAK_THREADS_STOP_TO_DESTROY_HOURS', 72),

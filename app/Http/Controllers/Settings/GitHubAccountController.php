@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Ssh\GitHubKeyDirectory;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -78,13 +79,17 @@ class GitHubAccountController extends Controller
         return redirect($destination)->with('success', "GitHub connected as {$user->github_login}.");
     }
 
-    public function disconnect(): RedirectResponse
+    public function disconnect(GitHubKeyDirectory $keyDirectory): RedirectResponse
     {
-        $this->authenticatedUser()->forceFill([
+        $user = $this->authenticatedUser();
+
+        $user->forceFill([
             'github_id' => null,
             'github_login' => null,
             'github_linked_at' => null,
         ])->save();
+
+        $keyDirectory->revoke($user);
 
         return redirect()->route('profile.edit')->with('success', 'GitHub disconnected.');
     }

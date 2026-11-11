@@ -189,3 +189,29 @@ it('removes cached keys when the account has none left', function () {
 
     expect($user->sshKeys()->count())->toBe(0);
 });
+
+it('deletes cached github keys and the sync row when the user has no github id', function () {
+    $user = User::factory()->create(['github_id' => null]);
+    SshKey::factory()->count(2)->create(['user_id' => $user->id, 'source' => 'github']);
+    $manual = SshKey::factory()->create(['user_id' => $user->id, 'source' => 'uploaded']);
+    GithubKeySync::query()->create(['user_id' => $user->id, 'github_id' => 1, 'status' => 'ok']);
+
+    $sync = directory()->refresh($user);
+
+    expect($sync->status)->toBe('unknown_account')
+        ->and(SshKey::query()->where('user_id', $user->id)->fromGithub()->count())->toBe(0)
+        ->and(GithubKeySync::query()->find($user->id))->toBeNull()
+        ->and(SshKey::query()->whereKey($manual->id)->exists())->toBeTrue();
+});
+
+it('drops the previous identity keys when the sync github id differs, even if GitHub errors', function () {
+    $user = githubUser();
+    SshKey::factory()->count(2)->create(['user_id' => $user->id, 'source' => 'github']);
+    GithubKeySync::query()->create(['user_id' => $user->id, 'github_id' => 1, 'status' => 'ok', 'checked_at' => now()]);
+    Http::swap(new Factory);
+    Http::fake(['*' => Http::response('', 500)]);
+
+    directory()->refresh($user);
+
+    expect(SshKey::query()->where('user_id', $user->id)->fromGithub()->count())->toBe(0);
+});

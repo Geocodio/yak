@@ -49,6 +49,37 @@ test('pause only when no runner in the sandbox has a turn', function () {
     expect(operations())->toBe(['pause'])->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused);
 });
 
+test('an open session keeps the sandbox awake at turn end', function () {
+    $thread = runningSandboxThread();
+    app(ThreadSandbox::class)->markSessionOpen($thread);
+
+    app(ThreadSandbox::class)->pauseIfIdle($thread);
+
+    expect(operations())->toBe([])->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running);
+});
+
+test('the sandbox pauses once the session flag expires', function () {
+    $thread = runningSandboxThread();
+    app(ThreadSandbox::class)->markSessionOpen($thread);
+
+    $this->travel(config('yak.threads.session_activity_seconds') + 1)->seconds();
+    app(ThreadSandbox::class)->pauseIfIdle($thread);
+
+    expect(operations())->toBe(['pause']);
+});
+
+test('a heartbeat before expiry extends the session', function () {
+    $thread = runningSandboxThread();
+    $ttl = config('yak.threads.session_activity_seconds');
+    app(ThreadSandbox::class)->markSessionOpen($thread);
+
+    $this->travel((int) ($ttl * 0.75))->seconds();
+    app(ThreadSandbox::class)->markSessionOpen($thread);
+    $this->travel((int) ($ttl * 0.75))->seconds();
+
+    expect(app(ThreadSandbox::class)->hasOpenSession($thread))->toBeTrue();
+});
+
 test('a research childs running turn keeps the parents sandbox awake', function () {
     $parent = runningSandboxThread();
     $child = Thread::factory()->child($parent)->create(['sandbox_container' => $parent->sandbox_container, 'sandbox_state' => ThreadSandboxState::Running]);

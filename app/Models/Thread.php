@@ -39,6 +39,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadKind $kind
  * @property string|null $branch
  * @property bool $fresh_session_pending
+ * @property string|null $sandbox_ip
  * @property int|null $owner_user_id
  * @property int|null $parent_thread_id
  * @property int|null $root_thread_id

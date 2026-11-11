@@ -49,6 +49,20 @@ class ThreadSandbox
         }
     }
 
+    /**
+     * Records a live terminal, ssh session or editor. Turn-end pause skips the thread until the flag expires.
+     */
+    public function markSessionOpen(Thread $thread): void
+    {
+        $this->touch($thread);
+        Cache::put($this->sessionKey($thread), true, (int) config('yak.threads.session_activity_seconds'));
+    }
+
+    public function hasOpenSession(Thread $thread): bool
+    {
+        return Cache::has($this->sessionKey($thread));
+    }
+
     public function pauseIfIdle(Thread $thread): void
     {
         if ($thread->sharesParentSandbox()) {
@@ -64,7 +78,7 @@ class ThreadSandbox
         try {
             $thread->refresh();
 
-            if ($thread->sandbox_state !== ThreadSandboxState::Running || $thread->isSandboxBusy() || app(ThreadPreviewActivity::class)->isActive($thread)) {
+            if ($thread->sandbox_state !== ThreadSandboxState::Running || $thread->isSandboxBusy() || app(ThreadPreviewActivity::class)->isActive($thread) || $this->hasOpenSession($thread)) {
                 return;
             }
 
@@ -432,6 +446,11 @@ class ThreadSandbox
 
         $thread->forceFill($values)->save();
         $thread->refresh();
+    }
+
+    private function sessionKey(Thread $thread): string
+    {
+        return "thread-sandbox:session:{$thread->id}";
     }
 
     private function lockName(Thread $thread): string

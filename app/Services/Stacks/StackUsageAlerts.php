@@ -4,6 +4,8 @@ namespace App\Services\Stacks;
 
 use App\Events\StackThresholdReached;
 use App\Models\Thread;
+use App\Services\Push\StackUsagePush;
+use Throwable;
 
 /**
  * Tells the owner when a stack crosses a usage mark: every N turns, every N
@@ -12,7 +14,7 @@ use App\Models\Thread;
  */
 class StackUsageAlerts
 {
-    public function __construct(private readonly StackUsage $usage, private readonly StackNotifier $notifier) {}
+    public function __construct(private readonly StackUsage $usage, private readonly StackNotifier $notifier, private readonly StackUsagePush $push) {}
 
     /**
      * @return list<string> the notices sent
@@ -34,7 +36,15 @@ class StackUsageAlerts
             }
 
             $root->forceFill([$column => $mark])->save();
-            $this->notifier->notifyOwner($root, $subject . '. Nothing was paused.');
+            $notice = $subject . '. Nothing was paused.';
+            $this->notifier->notifyOwner($root, $notice);
+
+            try {
+                $this->push->send($root, $notice);
+            } catch (Throwable $e) {
+                report($e);
+            }
+
             StackThresholdReached::dispatch($root, $threshold, $mark);
             $sent[] = $subject;
         }

@@ -8,6 +8,7 @@ use App\Services\DeploymentContainerManager;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Preview\ThreadPreviewWaker;
 use App\Services\Threads\SandboxCapacity;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
 
@@ -99,3 +100,24 @@ it('never wakes a closed or local machine thread', function (string $state, stri
 
     expect(app(ThreadPreviewWaker::class)->wake($thread, 10)->state)->toBe($state)->and(wakeOperations())->toBe([]);
 })->with([['closed', 'closed'], ['local_machine', 'ownedByDevice']]);
+
+it('answers ready from the recorded sandbox ip without running incus', function () {
+    Process::fake();
+    $thread = previewSandboxThread(['sandbox_ip' => '10.0.0.5']);
+    queueHealthyPreview();
+
+    $outcome = app(ThreadPreviewWaker::class)->wake($thread, 10);
+
+    expect($outcome->state)->toBe('ready')->and($outcome->host)->toBe('10.0.0.5');
+    Process::assertNothingRan();
+});
+
+it('resolves and records the ip once when the record has none', function () {
+    $thread = previewSandboxThread();
+    queueHealthyPreview(2);
+
+    app(ThreadPreviewWaker::class)->wake($thread, 10);
+    app(ThreadPreviewWaker::class)->wake($thread, 10);
+
+    expect($thread->fresh()->sandbox_ip)->toBe('10.0.0.7');
+});

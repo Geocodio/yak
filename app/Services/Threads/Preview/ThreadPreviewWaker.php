@@ -90,6 +90,12 @@ class ThreadPreviewWaker
     /** @param list<string> $steps */
     private function ready(Thread $thread, int $port, array $steps): PreviewWakeOutcome
     {
-        return PreviewWakeOutcome::ready($this->containers->resolveContainerIp((string) $thread->sandbox_container), $port, $steps);
+        $address = $thread->sandbox_ip ?? $this->containers->resolveContainerIp((string) $thread->sandbox_container);
+
+        if ($thread->sandbox_ip === null) {
+            $thread->forceFill(['sandbox_ip' => $address])->saveQuietly();
+        }
+
+        return PreviewWakeOutcome::ready($address, $port, $steps);
     }
 }
