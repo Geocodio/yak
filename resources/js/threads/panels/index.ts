@@ -2,3 +2,4 @@
 // this folder that calls registerSidebarPanel or registerDockPanel, and
 // importing it here.
 export {};
+import './environment';
