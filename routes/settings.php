@@ -4,7 +4,9 @@ use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\EmailAddressController;
 use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Http\Controllers\Settings\LinearConnectionController;
+use App\Http\Controllers\Settings\NotificationController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\PushDeviceController;
 use App\Http\Controllers\Settings\VideoThemeController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +33,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('settings/linear', [LinearConnectionController::class, 'edit'])->name('settings.linear');
     Route::patch('settings/linear', [LinearConnectionController::class, 'update'])->name('settings.linear.update');
     Route::delete('settings/linear', [LinearConnectionController::class, 'disconnect'])->name('settings.linear.disconnect');
+
+    Route::get('settings/notifications', [NotificationController::class, 'edit'])->name('settings.notifications');
+    Route::put('settings/notifications', [NotificationController::class, 'updatePreferences'])->name('settings.notifications.preferences');
+    Route::post('settings/notifications/devices', [PushDeviceController::class, 'store'])->name('settings.notifications.devices.store');
+    Route::patch('settings/notifications/devices/{pushDevice}', [PushDeviceController::class, 'update'])->name('settings.notifications.devices.update');
+    Route::delete('settings/notifications/devices/{pushDevice}', [PushDeviceController::class, 'destroy'])->name('settings.notifications.devices.destroy');
+    Route::post('settings/notifications/devices/{pushDevice}/test', [PushDeviceController::class, 'test'])->name('settings.notifications.devices.test');
 
     Route::get('settings/video', [VideoThemeController::class, 'edit'])->name('settings.video');
     Route::put('settings/video', [VideoThemeController::class, 'update'])->name('settings.video.update');

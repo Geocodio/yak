@@ -17,6 +17,7 @@ use App\Services\PreviewRepair\PreviewFailureReporter;
 use App\Services\PullRequestBodySections;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\PullRequestTitle;
+use App\Services\Push\PullRequestPush;
 use App\Services\ReviewReplyPoster;
 use App\Services\TaskLogger;
 use App\Services\WalkthroughPrSection;
@@ -189,6 +190,8 @@ class CreatePullRequestJob implements ShouldQueue
 
     private function recordOpened(mixed $prNumber, CarbonInterface $openedAt): void
     {
+        app(PullRequestPush::class)->opened($this->task);
+
         $this->announcePreviewRepair();
 
         // Request-to-PR is the headline delivery latency on the Analytics page.

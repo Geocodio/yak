@@ -1,11 +1,11 @@
 import type { SettingsNavSection } from '@geocodio/console-ui';
-import { Activity, Inbox, Monitor, Puzzle, Server, Type, User, UserRound, Video as VideoIcon, Zap } from 'lucide-react';
+import { Activity, Bell, Inbox, Monitor, Puzzle, Server, Type, User, UserRound, Video as VideoIcon, Zap } from 'lucide-react';
 import { createElement } from 'react';
 import { channels, mcp, prompts, skills, system } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
-import { linear, video } from '@/routes/settings';
+import { linear, notifications, video } from '@/routes/settings';
 
-export type SettingsSlug = 'profile' | 'claude-accounts' | 'devices' | 'prompts' | 'skills' | 'mcp' | 'linear' | 'video' | 'channels' | 'system';
+export type SettingsSlug = 'profile' | 'claude-accounts' | 'devices' | 'notifications' | 'prompts' | 'skills' | 'mcp' | 'linear' | 'video' | 'channels' | 'system';
 
 const icon = (component: typeof User) => createElement(component, { size: 15 });
 
@@ -39,6 +39,14 @@ export const SETTINGS_SECTIONS: SettingsNavSection[] = [
                 icon: icon(Monitor),
                 description: 'The computers that can teleport threads to and from Yak.',
                 keywords: ['teleport', 'login', 'token'],
+            },
+            {
+                slug: 'notifications',
+                href: notifications.url(),
+                label: 'Notifications',
+                icon: icon(Bell),
+                description: 'Choose what Yak pushes to your devices.',
+                keywords: ['push', 'install', 'phone'],
             },
         ],
     },

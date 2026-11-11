@@ -10,6 +10,9 @@ use App\Models\HeldThreadEvent;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Push\PushEvent;
+use App\Services\Push\PushRecipients;
+use App\Services\Push\ThreadPush;
 use App\Services\Threads\ThreadNotificationGuard;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -39,6 +42,7 @@ class HeldEvents
 
         $event = $this->record($thread, $kind, $title, $summary, $task->pr_url, $payload, $task->id);
         $this->notify($thread, $event);
+        $this->push($thread, $event, app(PushRecipients::class)->forHeldEvent($thread));
 
         return true;
     }
@@ -56,6 +60,7 @@ class HeldEvents
 
         $event = $this->record($root, HeldEventKind::Other, "Question from {$child->title}", $question, null, ['child_thread_id' => $child->id], null);
         $this->notify($root, $event);
+        $this->push($root, $event, app(PushRecipients::class)->forChildEscalation($child));
 
         return true;
     }
@@ -106,6 +111,14 @@ class HeldEvents
         } catch (Throwable $exception) {
             Log::channel('yak')->warning('Held event email failed', ['thread_id' => $thread->id, 'error' => $exception->getMessage()]);
         }
+    }
+
+    /**
+     * @param  list<User>  $recipients
+     */
+    private function push(Thread $thread, HeldThreadEvent $event, array $recipients): void
+    {
+        app(ThreadPush::class)->send(PushEvent::NeedsYou, $thread, $recipients, $event->title, "held-event-{$event->id}");
     }
 
     private function sendSlack(User $owner, string $notice): void

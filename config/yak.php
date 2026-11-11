@@ -644,4 +644,18 @@ return [
         'preview_safari_fallback' => (bool) env('YAK_THREADS_PREVIEW_SAFARI_FALLBACK', true),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Web push
+    |--------------------------------------------------------------------------
+    |
+    | VAPID keys live in config/webpush.php. ios_supported hides the iOS
+    | install steps on the settings page when push is not offered there.
+    |
+    */
+
+    'push' => [
+        'ios_supported' => (bool) env('YAK_PUSH_IOS_SUPPORTED', true),
+    ],
+
 ];

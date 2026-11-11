@@ -12,6 +12,7 @@ use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\PullRequestFinisher;
+use App\Services\Push\PullRequestPush;
 use App\Services\TaskLogger;
 use App\Services\Teleport\HeldEvents;
 use App\Support\TaskContext;
@@ -132,6 +133,7 @@ class ProcessCIResultJob implements ShouldQueue
             TaskLogger::info($this->task, self::RESULT_LOG_MESSAGE, ['passed' => $this->passed]);
 
             $this->recordCiResult();
+            $this->pushCiResult();
 
             if ($this->passed) {
                 $this->handleGreenPath();
@@ -224,6 +226,20 @@ class ProcessCIResultJob implements ShouldQueue
         ], task: $this->task, durationMs: $lastRun?->agent_finished_at !== null
             ? max(0, now()->getTimestampMs() - $lastRun->agent_finished_at->getTimestampMs())
             : null);
+    }
+
+    /**
+     * A failure Yak will retry stays quiet; the person hears about the one that ends the run.
+     */
+    private function pushCiResult(): void
+    {
+        $pullRequestPush = app(PullRequestPush::class);
+
+        if ($this->passed) {
+            $pullRequestPush->ciPassed($this->task);
+        } elseif (! $this->task->hasCiRetryLeft()) {
+            $pullRequestPush->ciFailed($this->task);
+        }
     }
 
     private function handleGreenPath(): void

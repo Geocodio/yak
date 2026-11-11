@@ -11,6 +11,9 @@ use App\Jobs\SendNotificationJob;
 use App\Models\DailyCost;
 use App\Models\YakTask;
 use App\Services\ClarificationMessage;
+use App\Services\Push\PushEvent;
+use App\Services\Push\PushRecipients;
+use App\Services\Push\ThreadPush;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\YakPromptBuilder;
@@ -92,12 +95,27 @@ trait AsksClarifyingQuestions
             'round' => $this->task->clarificationRoundCount(),
         ], task: $this->task);
 
+        $this->pushClarification($questionCount);
+
         SendNotificationJob::dispatch(
             $this->task,
             NotificationType::Clarification,
             ClarificationMessage::asked($this->task->refresh()),
             personalize: false,
         );
+    }
+
+    private function pushClarification(int $questionCount): void
+    {
+        $thread = $this->task->thread;
+
+        if ($thread === null) {
+            return;
+        }
+
+        $body = $questionCount === 1 ? 'Yak has a question for you.' : "Yak has {$questionCount} questions for you.";
+
+        app(ThreadPush::class)->send(PushEvent::NeedsYou, $thread, app(PushRecipients::class)->forClarification($thread), $body, "thread-{$thread->id}-clarification");
     }
 
     /**

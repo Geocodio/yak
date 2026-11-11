@@ -7,7 +7,6 @@ use App\DataTransferObjects\StreamEntry;
 use App\DataTransferObjects\TurnTrackerChange;
 use App\DataTransferObjects\YakToolCall;
 use App\DataTransferObjects\YakToolResult;
-use App\Enums\ClaudeAccountStatus;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSessionKind;
@@ -463,7 +462,7 @@ class ThreadDriver
             $thread->forceFill(['blocked_reason' => $reason, 'blocked_at' => now()]);
 
             if ($change->failure->kind === AccountFailureKind::AuthFailed) {
-                $thread->claudeAccount?->forceFill(['status' => ClaudeAccountStatus::Invalid])->save();
+                $thread->claudeAccount?->markInvalid('The Claude API rejected the credential.');
             }
 
             $this->commands->interrupt($thread);
