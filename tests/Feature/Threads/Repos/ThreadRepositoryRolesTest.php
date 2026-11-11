@@ -15,13 +15,13 @@ beforeEach(function () {
     $this->roles = app(ThreadRepositoryRoles::class);
 });
 
-function extra(Thread $thread, string $state, array $attributes = []): ThreadRepository
+function extraRepositoryRow(Thread $thread, string $state, array $attributes = []): ThreadRepository
 {
     return ThreadRepository::factory()->{$state}()->create(['thread_id' => $thread->id, 'repo' => 'acme/lib', ...$attributes]);
 }
 
 it('promotes a context repo to changes on the thread branch', function () {
-    $repository = extra($this->thread, 'context');
+    $repository = extraRepositoryRow($this->thread, 'context');
 
     $this->roles->promoteToChanges($repository);
 
@@ -31,7 +31,7 @@ it('promotes a context repo to changes on the thread branch', function () {
 });
 
 it('makes a changes repo context only when it has no pull request', function () {
-    $repository = extra($this->thread, 'changes', ['branch' => 'yak/thread-x', 'merge_position' => 2]);
+    $repository = extraRepositoryRow($this->thread, 'changes', ['branch' => 'yak/thread-x', 'merge_position' => 2]);
 
     $this->roles->makeContextOnly($repository);
 
@@ -43,7 +43,7 @@ it('makes a changes repo context only when it has no pull request', function () 
 it('blocks context only while the pull request is open', function () {
     $url = 'https://github.com/acme/lib/pull/9';
     YakTask::factory()->create(['pr_url' => $url]);
-    $repository = extra($this->thread, 'changes', ['pull_request_url' => $url]);
+    $repository = extraRepositoryRow($this->thread, 'changes', ['pull_request_url' => $url]);
 
     expect(fn () => $this->roles->makeContextOnly($repository))
         ->toThrow(RepositoryRoleBlocked::class, 'Close the pull request first, then make this repo context only.');
@@ -55,7 +55,7 @@ it('blocks context only while the pull request is open', function () {
 it('allows context only once the pull request is merged', function () {
     $url = 'https://github.com/acme/lib/pull/10';
     YakTask::factory()->create(['pr_url' => $url, 'pr_merged_at' => now()]);
-    $repository = extra($this->thread, 'changes', ['pull_request_url' => $url]);
+    $repository = extraRepositoryRow($this->thread, 'changes', ['pull_request_url' => $url]);
 
     $this->roles->makeContextOnly($repository);
 
@@ -67,6 +67,6 @@ it('rejects role changes on the primary repository and no-op switches', function
 
     expect(fn () => $this->roles->promoteToChanges($primary))->toThrow(RepositoryRoleBlocked::class)
         ->and(fn () => $this->roles->makeContextOnly($primary))->toThrow(RepositoryRoleBlocked::class)
-        ->and(fn () => $this->roles->promoteToChanges(extra($this->thread, 'changes', ['repo' => 'acme/a'])))->toThrow(RepositoryRoleBlocked::class)
-        ->and(fn () => $this->roles->makeContextOnly(extra($this->thread, 'context', ['repo' => 'acme/b'])))->toThrow(RepositoryRoleBlocked::class);
+        ->and(fn () => $this->roles->promoteToChanges(extraRepositoryRow($this->thread, 'changes', ['repo' => 'acme/a'])))->toThrow(RepositoryRoleBlocked::class)
+        ->and(fn () => $this->roles->makeContextOnly(extraRepositoryRow($this->thread, 'context', ['repo' => 'acme/b'])))->toThrow(RepositoryRoleBlocked::class);
 });
