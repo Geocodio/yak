@@ -10,7 +10,7 @@ export const RAIL_SECTIONS: RailSection[] = ['threads', 'operations', 'insights'
 export const OPERATIONS_ITEMS: NavItem[] = [
     { label: 'Repositories', icon: Code2, url: repos.url() },
     { label: 'Deployments', icon: Rocket, url: deployments.url() },
-    { label: 'PR Reviews', icon: MessageSquare, url: prReviews.url() },
+    { label: 'PR reviews', icon: MessageSquare, url: prReviews.url() },
     { label: 'Observations', icon: Eye, url: observations.url() },
 ];
 
@@ -43,12 +43,15 @@ export function sectionForUrl(url: string): RailSection {
     return 'threads';
 }
 
-export const SETTINGS_ITEMS: NavItem[] = SETTINGS_SECTIONS.flatMap((section) =>
-    section.items.map((item) => ({ label: item.label, icon: () => item.icon, url: item.href })),
-);
+export const SETTINGS_PANEL_GROUPS: { title: string; items: NavItem[] }[] = SETTINGS_SECTIONS.map((section) => ({
+    title: section.title,
+    items: section.items.map((item) => ({ label: item.label, icon: () => item.icon, url: item.href })),
+}));
 
-export const SECTION_COPY: Record<Exclude<RailSection, 'threads'>, { title: string; description: string; items: NavItem[] }> = {
+type SectionCopy = { title: string; description: string; items?: NavItem[]; groups?: { title: string; items: NavItem[] }[] };
+
+export const SECTION_COPY: Record<Exclude<RailSection, 'threads'>, SectionCopy> = {
     operations: { title: 'Operations', description: 'The repositories, previews and reviews Yak works across.', items: OPERATIONS_ITEMS },
     insights: { title: 'Insights', description: 'How Yak is performing, what it costs and whether it is healthy.', items: INSIGHTS_ITEMS },
-    settings: { title: 'Settings', description: 'Your profile, prompts, skills and integrations.', items: SETTINGS_ITEMS },
+    settings: { title: 'Settings', description: '', groups: SETTINGS_PANEL_GROUPS },
 };

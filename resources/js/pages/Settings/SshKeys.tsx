@@ -57,7 +57,7 @@ export default function SshKeys({ githubKeys, uploadedKeys, github, config }: Pr
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h3 id="ssh-extra-heading" className="text-[14px] font-semibold">Extra keys</h3>
-                            <p className="mt-1 text-[12.5px] text-muted">For a key that is not on GitHub, like one on a work laptop or a hardware token.</p>
+                            <p className="mt-1 text-[12.5px] text-muted">For a key that is not on GitHub, like one on a work computer or a hardware token.</p>
                         </div>
                         <Button variant="secondary" icon={<Plus size={13} />} onClick={() => setIsAdding(true)} data-testid="ssh-add-key">
                             Add a key

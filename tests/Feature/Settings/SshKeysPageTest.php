@@ -9,7 +9,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 function pasteKey(): string
 {
-    return 'ssh-ed25519 ' . base64_encode(pack('N', 11) . 'ssh-ed25519' . pack('N', 32) . random_bytes(32)) . ' me@laptop';
+    return 'ssh-ed25519 ' . base64_encode(pack('N', 11) . 'ssh-ed25519' . pack('N', 32) . random_bytes(32)) . ' me@computer';
 }
 
 beforeEach(function () {
@@ -22,7 +22,7 @@ beforeEach(function () {
 
 it('shows keys, the github account and the config snippet', function () {
     SshKey::factory()->forUser($this->user)->fromGithub()->create(['name' => 'MacBook Pro']);
-    SshKey::factory()->forUser($this->user)->create(['name' => 'Work laptop']);
+    SshKey::factory()->forUser($this->user)->create(['name' => 'Work computer']);
     SshKey::factory()->create(['name' => 'Someone else']);
     GithubKeySync::factory()->forUser($this->user)->create(['github_login' => 'dana-whitfield']);
 
@@ -34,7 +34,7 @@ it('shows keys, the github account and the config snippet', function () {
             ->where('githubKeys.0.name', 'MacBook Pro')
             ->where('githubKeys.0.source', 'github')
             ->has('uploadedKeys', 1)
-            ->where('uploadedKeys.0.name', 'Work laptop')
+            ->where('uploadedKeys.0.name', 'Work computer')
             ->where('github.linked', true)
             ->where('github.login', 'dana-whitfield')
             ->where('github.profileUrl', 'https://github.com/dana-whitfield')

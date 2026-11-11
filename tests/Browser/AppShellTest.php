@@ -12,7 +12,7 @@ test('the app shell renders the sidebar nav and the command palette opens', func
     // The rail groups the destinations into sections; each section drawer
     // lists its pages, and the thread list is the default.
     $sections = [
-        'operations' => ['Repositories', 'Deployments', 'PR Reviews'],
+        'operations' => ['Repositories', 'Deployments', 'PR reviews'],
         'insights' => ['Analytics', 'Costs', 'Health'],
         'settings' => ['Prompts', 'Skills', 'MCP servers', 'System'],
     ];
@@ -28,6 +28,13 @@ test('the app shell renders the sidebar nav and the command palette opens', func
 
     // Channels lives in the Settings drawer, which is still open here.
     $page->assertVisible('[data-testid="section-panel-settings"] a[href="/channels"]');
+
+    $page->assertSee('Account')
+        ->assertSee('Agent')
+        ->assertSee('Workspace')
+        ->assertDontSee('Your profile, prompts')
+        ->click('[data-testid="section-panel-collapse"]')
+        ->assertMissing('[data-testid="sidebar-panel"]');
 
     $page->keys('[data-testid="app-shell"]', ['Meta+k']);
 

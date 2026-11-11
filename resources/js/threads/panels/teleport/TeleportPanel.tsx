@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { Button } from '@geocodio/console-ui';
-import { Laptop } from 'lucide-react';
+import { Monitor } from 'lucide-react';
 import { useState } from 'react';
 import { formatTime } from '@/components/shell/formatTime';
 import { TeleportToComputerDialog } from '@/components/threads/teleport/TeleportToComputerDialog';
@@ -47,7 +47,7 @@ export function TeleportPanel({ thread }: PanelProps) {
             )}
 
             {teleport.canTeleport && teleport.state !== 'teleporting' && (
-                <Button variant="secondary" icon={<Laptop size={14} />} onClick={() => setOpen(true)} data-testid="teleport-button">
+                <Button variant="secondary" icon={<Monitor size={14} />} onClick={() => setOpen(true)} data-testid="teleport-button">
                     {onDevice ? 'Teleport to Yak' : 'Teleport to your computer'}
                 </Button>
             )}

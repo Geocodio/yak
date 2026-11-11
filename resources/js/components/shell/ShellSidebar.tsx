@@ -61,7 +61,7 @@ export function ShellSidebar() {
             <IconRail active={active} onSelect={select} />
             {isCollapsed ? null : (
                 <div className="flex w-[300px] min-h-0 flex-col" data-testid="sidebar-panel">
-                    {active === 'threads' ? <ThreadListPanel onCollapse={collapse} /> : <SectionPanel section={active} />}
+                    {active === 'threads' ? <ThreadListPanel onCollapse={collapse} /> : <SectionPanel section={active} onCollapse={collapse} />}
                 </div>
             )}
         </aside>

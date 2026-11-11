@@ -4,17 +4,17 @@ import { Menu as MenuIcon, Plus } from 'lucide-react';
 import { NAV_ITEMS, isActive, openMobileNav, openNewTask } from '@/components/Sidebar';
 import type { SharedProps } from '@/types/shared';
 
-const BAR_LABELS = ['Tasks', 'PR Reviews', 'Repositories'] as const;
+const BAR_LABELS = ['Tasks', 'PR reviews', 'Repositories'] as const;
 const SHORT_LABELS: Record<(typeof BAR_LABELS)[number], string> = {
     Tasks: 'Threads',
-    'PR Reviews': 'Reviews',
+    'PR reviews': 'Reviews',
     Repositories: 'Repos',
 };
 
 // Stable test ids, independent of the visible label.
 const TAB_TEST_IDS: Record<(typeof BAR_LABELS)[number], string> = {
     Tasks: 'tasks',
-    'PR Reviews': 'reviews',
+    'PR reviews': 'reviews',
     Repositories: 'repos',
 };
 

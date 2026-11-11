@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { BrandMarkIcon, Button, TextInput, cn } from '@geocodio/console-ui';
-import { Check, Laptop, ShieldAlert, TimerOff } from 'lucide-react';
+import { Check, Monitor, ShieldAlert, TimerOff } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { YAK_MARK } from '@/lib/brand';
 import { approve, deny, show } from '@/routes/device';
@@ -84,7 +84,7 @@ function Confirm({ device }: { device: DeviceApproval }) {
 
     return (
         <>
-            <Icon tone="neutral"><Laptop size={20} /></Icon>
+            <Icon tone="neutral"><Monitor size={20} /></Icon>
             <h1 className="text-center text-[18px] font-semibold tracking-tight" data-testid="device-state">Connect this computer to Yak?</h1>
             <p className="mt-1.5 text-center text-[13px] leading-relaxed text-muted">Check that this code is the one in your terminal.</p>
             <div className="mt-4 rounded-card bg-panel-2 py-4 text-center" aria-label={`Code ${code}`}><span className="font-mono text-[28px] font-semibold tracking-[0.18em]" data-testid="device-code">{code}</span></div>

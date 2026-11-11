@@ -37,7 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
     { label: 'Observations', icon: Eye, url: observations.url() },
     { label: 'Repositories', icon: Code2, url: repos.url() },
     { label: 'Deployments', icon: Rocket, url: deployments.url() },
-    { label: 'PR Reviews', icon: MessageSquare, url: prReviews.url() },
+    { label: 'PR reviews', icon: MessageSquare, url: prReviews.url() },
     { label: 'Prompts', icon: Type, url: prompts.url() },
     { label: 'Costs', icon: DollarSign, url: costs.url() },
     { label: 'Analytics', icon: BarChart3, url: analytics.url() },
