@@ -1,7 +1,10 @@
 import { cn } from '@geocodio/console-ui';
+import { MessageWithAttachments } from '@/components/attachments/Attachments';
+import { Prose } from '@/components/Prose';
+import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage } from '@/types/threads';
 
-export function PersonMessage({ message, pending }: { message: ThreadMessage; pending: boolean }) {
+export function PersonMessage({ message, pending, onOpenMedia }: { message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
     const time = new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
     return (
@@ -17,7 +20,9 @@ export function PersonMessage({ message, pending }: { message: ThreadMessage; pe
                     <span className="text-faint">{time}</span>
                     {message.model && <span className="rounded-pill bg-panel-2 px-2 py-0.5 text-[11px] text-muted">{message.model}</span>}
                 </div>
-                <p className="mt-1 text-[13px] leading-relaxed whitespace-pre-wrap wrap-break-word">{message.text}</p>
+                <MessageWithAttachments attachments={message.attachments} onOpenMedia={onOpenMedia}>
+                    <Prose html={message.bodyHtml} className="mt-1" />
+                </MessageWithAttachments>
             </div>
         </div>
     );

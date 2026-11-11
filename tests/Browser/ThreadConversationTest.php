@@ -31,8 +31,8 @@ it('never renders a message twice when the same uuid is replayed', function () u
 });
 
 it('keeps a message read once it was read', function () use ($person) {
-    $read = str_replace("state:'pending'", "state:'read'", $person);
-    threadMergePage()->assertScript(threadMergeScript("[{$read}]", "['a']", '[]'), '["a"]');
+    $script = "(() => { const track = window.__createReadTracker(); const messages = [{$person}]; track(['a']); const afterReplay = track([]); return JSON.stringify(window.__mergeConversation(messages, afterReplay, []).map(e => e.message.uuid + (e.pending ? '?' : ''))); })()";
+    threadMergePage()->assertScript($script, '["a"]');
 });
 
 it('replays the full history after reconnect without duplicates', function () use ($event) {

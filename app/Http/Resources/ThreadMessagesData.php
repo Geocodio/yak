@@ -4,8 +4,11 @@ namespace App\Http\Resources;
 
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
+use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
+use App\Support\AttachmentReferences;
+use App\Support\Markdown;
 use Illuminate\Support\Str;
 
 /**
@@ -15,7 +18,7 @@ use Illuminate\Support\Str;
 final class ThreadMessagesData
 {
     /**
-     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>}>
+     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
      */
     public static function for(Thread $thread): array
     {
@@ -42,13 +45,17 @@ final class ThreadMessagesData
                 continue;
             }
 
+            $attachments = $steer !== null ? array_values($steer->attachments->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all()) : [];
+            $text = $steer !== null ? $steer->text : (string) $run->task?->description;
+            $references = array_values(array_filter(array_column($attachments, 'reference')));
+
             $authorName = $steer !== null ? $steer->author_name : $run->driver?->name;
 
             $messages[] = [
                 'id' => 'turn-message-' . $row->id,
                 'uuid' => $row->uuid,
                 // The assembled prompt on task_runs is never shown; it carries Yak's own notes.
-                'text' => $steer !== null ? $steer->text : (string) $run->task?->description,
+                'text' => $text,
                 'authorName' => $authorName,
                 'authorInitials' => self::initials($authorName),
                 'model' => $steer !== null ? $steer->model : $run->model,
@@ -59,6 +66,8 @@ final class ThreadMessagesData
                 },
                 'sentAt' => $row->created_at?->toIso8601String() ?? '',
                 'readAfterSequence' => null,
+                'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($text), $references),
+                'attachments' => $attachments,
                 'attachmentIds' => $steer !== null ? array_values($steer->attachments->pluck('id')->map(fn ($id): int => (int) $id)->all()) : [],
             ];
         }

@@ -1,8 +1,11 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
+import { MediaLightbox } from '@/components/tasks/MediaLightbox';
+import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage, ThreadNotice as ThreadNoticeData } from '@/types/threads';
 import { ClaudeMessage } from './ClaudeMessage';
 import { DayDivider } from './DayDivider';
 import { EditsBlock } from './EditsBlock';
+import { createReadTracker } from './mergeConversation';
 import { mergeConversation, useConversation } from './useConversation';
 import { PersonMessage } from './PersonMessage';
 import { ThreadNotice } from './ThreadNotice';
@@ -10,7 +13,7 @@ import { ToolActivity } from './ToolActivity';
 import type { ConversationItem } from './realtimeStub';
 
 // Browser tests drive the pure merge through this hook.
-(window as unknown as { __mergeConversation?: typeof mergeConversation }).__mergeConversation = mergeConversation;
+Object.assign(window, { __mergeConversation: mergeConversation, __createReadTracker: createReadTracker });
 
 function EventRow({ item }: { item: ConversationItem }) {
     if (item.kind === 'tools') {
@@ -22,6 +25,8 @@ function EventRow({ item }: { item: ConversationItem }) {
 
 export function Conversation({ threadId, messages, notice, readonly }: { threadId: number; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean }) {
     const { entries } = useConversation(threadId, messages);
+    const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
     let previousDay = '';
 
     return (
@@ -39,12 +44,20 @@ export function Conversation({ threadId, messages, notice, readonly }: { threadI
                     return (
                         <Fragment key={entry.message.uuid ?? entry.message.id}>
                             {showDay && <DayDivider iso={entry.message.sentAt} />}
-                            <PersonMessage message={entry.message} pending={entry.pending} />
+                            <PersonMessage
+                                message={entry.message}
+                                pending={entry.pending}
+                                onOpenMedia={(media, index) => {
+                                    setLightboxMedia(media);
+                                    setLightboxIndex(index);
+                                }}
+                            />
                         </Fragment>
                     );
                 })}
                 {notice && <ThreadNotice notice={notice} threadId={threadId} readonly={readonly} />}
             </div>
+            <MediaLightbox media={lightboxMedia} index={lightboxIndex} onOpenChange={(open) => !open && setLightboxMedia(null)} onIndexChange={setLightboxIndex} />
         </div>
     );
 }

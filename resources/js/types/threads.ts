@@ -1,3 +1,4 @@
+import type { AttachmentData } from '@/types/tasks';
 export type ThreadRepositoryData = {
     repo: string;
     role: 'primary' | 'changes' | 'context';
@@ -43,6 +44,8 @@ export type ThreadMessage = {
     sentAt: string;
     readAfterSequence: number | null;
     attachmentIds: number[];
+    bodyHtml: string;
+    attachments: AttachmentData[];
 };
 
 export type ThreadComposer = {

@@ -3,6 +3,7 @@
 use App\Enums\TurnMessageState;
 use App\Http\Resources\ThreadMessagesData;
 use App\Models\PendingSteeringMessage;
+use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
@@ -66,4 +67,20 @@ it('leaves out other threads', function () {
     ThreadTurnMessage::factory()->create(['task_run_id' => $run->id]);
 
     expect(ThreadMessagesData::for(Thread::factory()->create()))->toBe([]);
+});
+
+it('renders markdown and lists the files sent with a steer', function () {
+    [$thread, $task, $run] = threadWithRun();
+    $steer = PendingSteeringMessage::query()->create([
+        'root_task_id' => $task->id, 'text' => 'Use **v2**', 'source' => 'thread',
+        'mode' => 'steer', 'author_name' => 'Grace Hopper', 'uuid' => 'steer-uuid', 'model' => 'sonnet',
+    ]);
+    $attachment = TaskAttachment::factory()->create(['yak_task_id' => null, 'pending_steering_message_id' => $steer->id]);
+    ThreadTurnMessage::factory()->steer()->create(['task_run_id' => $run->id, 'uuid' => 'steer-uuid', 'pending_steering_message_id' => $steer->id]);
+
+    $message = ThreadMessagesData::for($thread)[0];
+
+    expect($message['bodyHtml'])->toContain('<strong>v2</strong>')
+        ->and(array_column($message['attachments'], 'id'))->toBe([$attachment->id])
+        ->and($message['attachmentIds'])->toBe([$attachment->id]);
 });
