@@ -7,7 +7,7 @@ import { YAK_MARK } from '@/lib/brand';
 import { logout, tasks } from '@/routes';
 import type { SharedProps } from '@/types/shared';
 
-const SECTION_ICONS: Record<RailSection, { label: string; icon: ComponentType<{ size?: number }> }> = {
+export const SECTION_ICONS: Record<RailSection, { label: string; icon: ComponentType<{ size?: number }> }> = {
     threads: { label: 'Threads', icon: LayoutList },
     operations: { label: 'Operations', icon: Layers },
     insights: { label: 'Insights', icon: Gauge },
