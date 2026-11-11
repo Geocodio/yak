@@ -169,7 +169,7 @@ test('it does not rewrite the tool_call line except for secrets', async () => {
   sendMessage.handler({ to: 'a', text: `plain and ${SECRET}` });
   await run.tick();
   const callLine = run.lines().find((line) => line.type === 'yak.tool_call');
-  assert.equal(callLine.input.text, 'plain and [REDACTED]');
+  assert.equal(callLine.input.text, 'plain and [redacted]');
   assert.equal(callLine.input.to, 'a');
   await finish(run);
 });
