@@ -51,10 +51,10 @@ class ThreadSecretFiles
         $files = SecretFilePatterns::filter(array_values(array_unique($paths)));
         sort($files);
 
-        $memoryFiles = array_values(array_map(
+        $memoryFiles = array_map(
             fn (array $file): string => basename($file['rel_path']),
             $this->store->files($thread, SessionStore::MEMORY_SESSION_ID),
-        ));
+        );
 
         return [
             'files' => $files,
