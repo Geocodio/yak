@@ -35,3 +35,4 @@ Schedule::job(GarbageCollectTemplateSnapshotsJob::class)->hourly()->name('deploy
 Schedule::job(BackfillOpenPrDeploymentsJob::class)->hourly()->name('deployments:backfill-open-prs')->withoutOverlapping();
 Schedule::command('yak:co-owner:sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:preview-repair:sweep')->hourly()->withoutOverlapping();
+Schedule::command('yak:prune-session-store')->daily();
