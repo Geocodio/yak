@@ -3,15 +3,13 @@
 namespace App\Http\Requests\Threads\Stack;
 
 use App\Enums\ThreadKind;
+use App\Http\Requests\Concerns\AuthorizesThreadDriving;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreStackChildRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
+    use AuthorizesThreadDriving;
 
     /**
      * @return array<string, list<mixed>>
