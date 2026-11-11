@@ -61,7 +61,7 @@ export function StackPanel({ thread }: PanelProps) {
                 <Button variant="secondary" onClick={() => setIsConfirmingStop(true)} data-testid="stack-stop">Stop stack</Button>
             )}
 
-            {isAdding && <AddChildDialog threadId={thread.id} onClose={() => setIsAdding(false)} onAdded={reload} />}
+            {isAdding && <AddChildDialog threadId={thread.id} parentTitle={thread.title} awake={stack.limit.awake} limit={stack.limit.current} childCount={stack.children.length} maxChildren={MAX_CHILDREN} onClose={() => setIsAdding(false)} onAdded={reload} />}
             <ConfirmDialog
                 open={isConfirmingStop}
                 onOpenChange={setIsConfirmingStop}

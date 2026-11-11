@@ -118,3 +118,18 @@ it('renders every sub-thread past the cap of 12 without clamping', function () {
         ->assertSeeIn('[data-testid="stack-children-header"]', 'Sub-threads 13 of 12')
         ->assertScript('document.querySelectorAll(\'[data-testid^="stack-child-"][data-state]\').length', 13);
 });
+
+it('opens the Add a sub-thread dialog with the approved copy', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create(['title' => 'Ship the importer']);
+
+    visit(route('threads.show', $parent))
+        ->click('[data-testid="thread-panel-tab-stack"]')
+        ->click('[data-testid="stack-add"]')
+        ->assertSeeIn('[data-testid="stack-add-dialog"]', 'Add a sub-thread')
+        ->assertSeeIn('[data-testid="stack-add-dialog"]', 'Ship the importer hands it a brief and a copy of its sandbox as it is now.')
+        ->assertSeeIn('[data-testid="stack-add-dialog"]', 'Implement')
+        ->assertSeeIn('[data-testid="stack-add-note"]', '0 of 3 sub-threads are awake. 0 of 12 used.')
+        ->assertScript('document.querySelector(\'[data-testid="stack-add-name"]\').placeholder', 'Reverb events')
+        ->assertSeeIn('[data-testid="stack-add-submit"]', 'Start sub-thread');
+});
