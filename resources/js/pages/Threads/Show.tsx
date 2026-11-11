@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
 import { useState, type ReactNode } from 'react';
+import { StatusPill } from '@/components/threads/StatusPill';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { TeleportConversationNotices } from '@/components/threads/teleport/TeleportConversationNotices';
@@ -47,6 +48,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                         <div className="flex items-center gap-2">
                             <h1 className="truncate text-[15px] font-semibold text-body">{thread.title}</h1>
                             <VisibilityBadge thread={thread} />
+                            <StatusPill notice={notice} composerState={composer.state} />
                         </div>
                         <p className="text-[12px] text-muted">{thread.repo}</p>
                     </div>
