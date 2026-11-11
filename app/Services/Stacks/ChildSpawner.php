@@ -8,7 +8,10 @@ use App\Enums\ThreadKind;
 use App\Exceptions\StackRuleViolation;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadTurns;
+use App\YakPromptBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -22,7 +25,12 @@ class ChildSpawner
 
     private const DEFAULT_CHILD_MODEL = 'sonnet';
 
-    public function __construct(private readonly StackRules $rules) {}
+    public function __construct(
+        private readonly StackRules $rules,
+        private readonly ChildSandboxProvisioner $provisioner,
+        private readonly ResearchChildRunner $researchRunner,
+        private readonly ThreadTurns $turns,
+    ) {}
 
     public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null): Thread
     {
@@ -84,6 +92,46 @@ class ChildSpawner
 
             return $child;
         });
+    }
+
+    /**
+     * Gives the child its sandbox and starts its first turn with the wrapped
+     * brief. A child that is still waiting for a sandbox stays queued and no
+     * turn starts; running this again later resumes it.
+     */
+    public function start(Thread $child): void
+    {
+        if ($child->runs()->exists()) {
+            return;
+        }
+
+        if ($child->kind === ThreadKind::Research) {
+            $this->researchRunner->prepare($child);
+        } else {
+            $this->provisioner->provision($child);
+        }
+
+        $child->refresh();
+
+        if ($child->queued_for_slot_at !== null) {
+            return;
+        }
+
+        $task = $child->tasks()->firstOrFail();
+        $child->forceFill(['append_system_prompt' => YakPromptBuilder::systemPrompt($task)])->save();
+        $driver = $task->started_by_user_id === null ? null : User::query()->find($task->started_by_user_id);
+
+        $this->turns->start($task, $this->wrapBrief($child), $driver, null);
+    }
+
+    private function wrapBrief(Thread $child): string
+    {
+        $parent = Thread::query()->withoutGlobalScopes()->findOrFail($child->parent_thread_id);
+
+        return "You are a sub-thread named \"{$child->name}\" of the thread \"{$parent->title}\". "
+            . 'Your parent is an agent, not a person: it can answer questions from its plan, but it cannot approve anything on a person\'s behalf. '
+            . "Do the work below, and when you are done, finish with a clear result for your parent.\n\n"
+            . "Brief:\n" . $child->brief;
     }
 
     private function uniqueName(Thread $parent, string $name): string
