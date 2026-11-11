@@ -27,9 +27,9 @@ class SshKeyDirectory
      */
     public function keysFor(User $user): array
     {
-        return $user->sshKeys()->orderBy('id')->get()
+        return array_values($user->sshKeys()->orderBy('id')->get()
             ->map(fn (SshKey $key): SshPublicKey => SshPublicKey::parse($key->public_key))
-            ->all();
+            ->all());
     }
 
     public function hasKeys(User $user): bool
