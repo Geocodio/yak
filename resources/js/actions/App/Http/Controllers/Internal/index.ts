@@ -5,6 +5,7 @@ import SshAuthorizedKeysController from './SshAuthorizedKeysController'
 import SshListenersController from './SshListenersController'
 import SshWakeController from './SshWakeController'
 import SshTerminalRedeemController from './SshTerminalRedeemController'
+import SshTerminalCheckController from './SshTerminalCheckController'
 import SshActivityController from './SshActivityController'
 import DeploymentWakeController from './DeploymentWakeController'
 import PreviewAuthController from './PreviewAuthController'
@@ -18,6 +19,7 @@ const Internal = {
     SshListenersController: Object.assign(SshListenersController, SshListenersController),
     SshWakeController: Object.assign(SshWakeController, SshWakeController),
     SshTerminalRedeemController: Object.assign(SshTerminalRedeemController, SshTerminalRedeemController),
+    SshTerminalCheckController: Object.assign(SshTerminalCheckController, SshTerminalCheckController),
     SshActivityController: Object.assign(SshActivityController, SshActivityController),
     DeploymentWakeController: Object.assign(DeploymentWakeController, DeploymentWakeController),
     PreviewAuthController: Object.assign(PreviewAuthController, PreviewAuthController),

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\SshActivityController::__invoke
-* @see app/Http/Controllers/Internal/SshActivityController.php:13
+* @see app/Http/Controllers/Internal/SshActivityController.php:17
 * @route '/internal/ssh/activity'
 */
 const SshActivityController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ SshActivityController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshActivityController::__invoke
-* @see app/Http/Controllers/Internal/SshActivityController.php:13
+* @see app/Http/Controllers/Internal/SshActivityController.php:17
 * @route '/internal/ssh/activity'
 */
 SshActivityController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ SshActivityController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshActivityController::__invoke
-* @see app/Http/Controllers/Internal/SshActivityController.php:13
+* @see app/Http/Controllers/Internal/SshActivityController.php:17
 * @route '/internal/ssh/activity'
 */
 SshActivityController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

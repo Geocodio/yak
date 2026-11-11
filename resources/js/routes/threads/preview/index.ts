@@ -126,6 +126,64 @@ heartbeat.post = (args: { thread: number | { id: number } } | [thread: number | 
 })
 
 /**
+* @see \App\Http\Controllers\Threads\Preview\ThreadPreviewWarmController::__invoke
+* @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
+* @route '/threads/{thread}/preview/warm'
+*/
+export const warm = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: warm.url(args, options),
+    method: 'post',
+})
+
+warm.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/preview/warm',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\Preview\ThreadPreviewWarmController::__invoke
+* @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
+* @route '/threads/{thread}/preview/warm'
+*/
+warm.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { thread: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.id
+        : args.thread,
+    }
+
+    return warm.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\Preview\ThreadPreviewWarmController::__invoke
+* @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
+* @route '/threads/{thread}/preview/warm'
+*/
+warm.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: warm.url(args, options),
+    method: 'post',
+})
+
+/**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
@@ -274,6 +332,7 @@ hostStatus.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 const preview = {
     status: Object.assign(status, status),
     heartbeat: Object.assign(heartbeat, heartbeat),
+    warm: Object.assign(warm, warm),
     restore: Object.assign(restore, restore),
     wake: Object.assign(wake, wake),
     hostStatus: Object.assign(hostStatus, hostStatus),

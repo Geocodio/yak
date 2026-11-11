@@ -146,8 +146,42 @@ terminalRedeem.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
 })
 
 /**
+* @see \App\Http\Controllers\Internal\SshTerminalCheckController::__invoke
+* @see app/Http/Controllers/Internal/SshTerminalCheckController.php:15
+* @route '/internal/ssh/terminal/check'
+*/
+export const terminalCheck = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: terminalCheck.url(options),
+    method: 'post',
+})
+
+terminalCheck.definition = {
+    methods: ["post"],
+    url: '/internal/ssh/terminal/check',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Internal\SshTerminalCheckController::__invoke
+* @see app/Http/Controllers/Internal/SshTerminalCheckController.php:15
+* @route '/internal/ssh/terminal/check'
+*/
+terminalCheck.url = (options?: RouteQueryOptions) => {
+    return terminalCheck.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Internal\SshTerminalCheckController::__invoke
+* @see app/Http/Controllers/Internal/SshTerminalCheckController.php:15
+* @route '/internal/ssh/terminal/check'
+*/
+terminalCheck.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: terminalCheck.url(options),
+    method: 'post',
+})
+
+/**
 * @see \App\Http\Controllers\Internal\SshActivityController::__invoke
-* @see app/Http/Controllers/Internal/SshActivityController.php:13
+* @see app/Http/Controllers/Internal/SshActivityController.php:17
 * @route '/internal/ssh/activity'
 */
 export const activity = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -162,7 +196,7 @@ activity.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshActivityController::__invoke
-* @see app/Http/Controllers/Internal/SshActivityController.php:13
+* @see app/Http/Controllers/Internal/SshActivityController.php:17
 * @route '/internal/ssh/activity'
 */
 activity.url = (options?: RouteQueryOptions) => {
@@ -171,7 +205,7 @@ activity.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshActivityController::__invoke
-* @see app/Http/Controllers/Internal/SshActivityController.php:13
+* @see app/Http/Controllers/Internal/SshActivityController.php:17
 * @route '/internal/ssh/activity'
 */
 activity.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -184,6 +218,7 @@ const ssh = {
     listeners: Object.assign(listeners, listeners),
     wake: Object.assign(wake, wake),
     terminalRedeem: Object.assign(terminalRedeem, terminalRedeem),
+    terminalCheck: Object.assign(terminalCheck, terminalCheck),
     activity: Object.assign(activity, activity),
 }
 
