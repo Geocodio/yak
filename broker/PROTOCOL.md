@@ -53,7 +53,7 @@ Broker lines are objects whose `type` starts with `broker.`. Trust the `origin` 
 | `broker.runner_exited` | `generation`, `exit_code` | The runner ended; `exit_code` is `-1` when it could not be started. |
 | `broker.no_runner` | `uuid` or `call_id` | A `turn`, `steer` or `tool_result` found no live runner. |
 | `broker.start_refused` | `reason`, `generation` | The broker refused to start the runner (for example `credential_exposure`). |
-| `broker.kill_done` | none | A `kill` command's script returned. |
+| `broker.kill_done` | `generation` | A `kill` command's script returned. |
 
 A restarted broker reads the last `:out` entry of each channel to continue its generation and sequence, so the driver never trims that entry. The driver acknowledges an entry only after handling it, retries a failing entry a few times, then moves it to `:dead`. Entries left pending by a crashed consumer are claimed again after 60 s. After acknowledging, the driver trims `:out` to the last `yak.threads.stream_catchup_minutes` and deletes all three keys when the runner ends for good.
 

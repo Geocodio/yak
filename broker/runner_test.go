@@ -357,6 +357,7 @@ func TestStartFailureEmitsExitedMinusOne(t *testing.T) {
 	broker := New(client, failingSpawner{&fakeSpawner{}}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	go func() { _ = broker.Run(ctx) }()
 	h := &harness{redis: client}
+	time.Sleep(50 * time.Millisecond)
 	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
 	entries := h.out("threads:1", func(entries []map[string]any) bool { return findEntry(entries, "broker.runner_exited") != nil })
 	if got := findEntry(entries, "broker.runner_exited")["line"]; got != `{"type":"broker.runner_exited","exit_code":-1,"generation":1}` {
@@ -386,7 +387,7 @@ func TestKillCommandEmitsKillDone(t *testing.T) {
 	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
 	h.command("threads:1", `{"type":"kill"}`)
 	entries := h.out("threads:1", func(entries []map[string]any) bool { return findEntry(entries, "broker.kill_done") != nil })
-	if got := findEntry(entries, "broker.kill_done")["line"]; got != `{"type":"broker.kill_done"}` {
+	if got := findEntry(entries, "broker.kill_done")["line"]; got != `{"type":"broker.kill_done","generation":1}` {
 		t.Fatalf("line = %v", got)
 	}
 }

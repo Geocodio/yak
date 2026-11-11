@@ -365,7 +365,10 @@ func (b *Broker) dispatch(ctx context.Context, state *channelState, cmd command)
 		b.write(state, map[string]string{"type": "set_model", "model": cmd.Model})
 	case "kill":
 		b.kill(ctx, state)
-		b.emitBroker(state, "broker.kill_done", nil)
+		state.mu.Lock()
+		generation := state.generation
+		state.mu.Unlock()
+		b.emitBroker(state, "broker.kill_done", map[string]any{"generation": generation})
 	default:
 		b.logger.Warn("unknown command", "channel", state.name, "type", cmd.Type)
 	}
