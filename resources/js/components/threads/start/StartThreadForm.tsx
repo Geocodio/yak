@@ -7,12 +7,12 @@ import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/compone
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { ModelPicker } from '@/components/threads/composer/ModelPicker';
-import { RepositoryPicker } from './RepositoryPicker';
+import { RepositoryPicker, type PickerRepository } from './RepositoryPicker';
 import { RepositoryProgress } from './RepositoryProgress';
 import { show, store } from '@/routes/threads';
 import { claudeAccounts } from '@/routes/settings';
 import type { SharedProps } from '@/types/shared';
-import type { NewThreadPageData, StartRepository } from '@/types/threads';
+import type { NewThreadPageData } from '@/types/threads';
 
 type Mode = 'fix' | 'research';
 
@@ -29,7 +29,7 @@ const MODES: { mode: Mode; label: string; icon: typeof Wrench; hint: string }[] 
  */
 export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFocus }: Omit<NewThreadPageData, 'emailToYakAddress'> & { onStarted?: () => void; autoFocus?: boolean }) {
     const { docs } = usePage<SharedProps>().props;
-    const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[]; repositories: StartRepository[] }>({
+    const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[]; repositories: PickerRepository[] }>({
         repo: defaultRepo ?? '',
         mode: 'fix',
         description: '',
@@ -39,6 +39,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
         attachment_refs: [],
         repositories: [],
     });
+    const [isBlocked, setIsBlocked] = useState(false);
     const [startedThreadId, setStartedThreadId] = useState<number | null>(null);
     const editorRef = useRef<AttachmentTextareaHandle>(null);
     const draft = useAttachmentDraft({ enabled: true, onAdd: (added) => editorRef.current?.insertTokens(added) });
@@ -50,7 +51,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
     const defaultAccount = picker.accounts.find((account) => account.id === defaults?.accountId);
     const chosenAccount = picker.accounts.find((account) => String(account.id) === form.data.claude_account_id);
     const effectiveModel = form.data.model ?? chosenAccount?.defaultModel ?? defaults?.model ?? null;
-    const canSubmit = !noAccounts && !noRepos && form.data.repo !== '' && form.data.description.trim().length >= 3;
+    const canSubmit = !noAccounts && !noRepos && form.data.repo !== '' && form.data.description.trim().length >= 3 && !isBlocked;
 
     const extras = form.data.repositories;
     const isResearch = form.data.mode === 'research';
@@ -69,6 +70,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
         }
         form.transform((data) => ({
             ...data,
+            repositories: data.repositories.map(({ repo, role }) => ({ repo, role })),
             claude_account_id: data.claude_account_id === '' ? null : data.claude_account_id,
             attachments: draft.files,
             attachment_refs: draft.refs,
@@ -133,7 +135,12 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                         ))}
                     </div>
                     <AttachButton draft={draft} disabled={form.processing} />
-                    <Button variant="primary" className="ml-auto h-7" pending={isStarting} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
+                    {isBlocked && (
+                        <span className="ml-auto text-[12px] text-fail" data-testid="start-thread-blocked">
+                            Remove {extras.find((extra) => extra.blocked !== undefined)?.repo} or fix its access to start.
+                        </span>
+                    )}
+                    <Button variant="primary" className={cn('h-7', !isBlocked && 'ml-auto')} pending={isStarting} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
                         {isStarting ? 'Starting...' : isResearch ? 'Start research' : 'Start change'}
                     </Button>
                 </div>
@@ -150,6 +157,8 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                             primary={form.data.repo}
                             extras={extras}
                             available={repos.map((repo) => repo.slug)}
+                            onBlockedChange={setIsBlocked}
+                            docsUrl={docs.baseUrl}
                             onPrimaryChange={(slug) => form.setData((data) => ({ ...data, repo: slug, repositories: data.repositories.filter((extra) => extra.repo !== slug) }))}
                             isResearch={isResearch}
                             disabled={form.processing || form.data.repo === ''}
