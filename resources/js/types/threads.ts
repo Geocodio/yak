@@ -88,4 +88,5 @@ export type NewThreadPageData = {
         models: string[];
     };
     defaultRepo: string | null;
+    emailToYakAddress: string | null;
 };

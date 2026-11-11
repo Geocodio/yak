@@ -21,6 +21,18 @@ it('lists repos and picker data', function () {
         ->has('picker.models'));
 });
 
+it('passes the email-to-Yak address only while the email channel is enabled', function () {
+    $user = User::factory()->create();
+
+    config()->set('yak.channels.email', ['webhook_password' => 'secret', 'inbound_address' => 'yak@example.test']);
+    $this->actingAs($user)->get(route('threads.new'))->assertInertia(fn (Assert $page) => $page
+        ->where('emailToYakAddress', 'yak@example.test'));
+
+    config()->set('yak.channels.email', []);
+    $this->actingAs($user)->get(route('threads.new'))->assertInertia(fn (Assert $page) => $page
+        ->where('emailToYakAddress', null));
+});
+
 it('hides unusable accounts', function () {
     $user = User::factory()->create();
     ClaudeAccount::factory()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);

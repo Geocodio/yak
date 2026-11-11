@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Threads;
 
+use App\Channels\ChannelRegistry;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AccountPickerData;
 use App\Models\Repository;
@@ -21,6 +22,9 @@ class NewThreadController extends Controller
             'repos' => $repositories->map(fn (Repository $repository): array => ['slug' => $repository->slug, 'name' => $repository->name])->values()->all(),
             'picker' => AccountPickerData::forUser($request->user()),
             'defaultRepo' => $defaultRepo?->slug,
+            'emailToYakAddress' => app(ChannelRegistry::class)->for('email')?->enabled() === true
+                ? (string) config('yak.channels.email.inbound_address')
+                : null,
         ]);
     }
 }
