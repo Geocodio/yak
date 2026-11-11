@@ -87,4 +87,4 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run browser tests
-        run: ./vendor/bin/pest --group=browser --shard=${{ matrix.shard }}/4
+        run: ./vendor/bin/pest tests/Browser --shard=${{ matrix.shard }}/4
