@@ -120,3 +120,27 @@ it('releaseRun is a no-op for a run with no account', function () {
 
     Event::assertNotDispatched(AccountSlotFreed::class);
 });
+
+it('refuses a newer run while an older run waits, then lets the waiter in', function () {
+    Event::fake();
+    $account = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    [$a, $b, $c] = runs(3);
+    $this->queue->acquire($account, $a);
+    $this->queue->acquire($account, $b);
+    $this->queue->release($account, $a);
+
+    expect($this->queue->acquire($account, $c))->toBeFalse()
+        ->and($c->fresh()->turn_state)->toBe(TurnState::WaitingForAccount)
+        ->and($this->queue->acquire($account, $b->fresh()))->toBeTrue()
+        ->and($b->fresh()->account_slot_held_at)->not->toBeNull();
+});
+
+it('does not let a waiting run on another account block a grant', function () {
+    $one = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    $two = ClaudeAccount::factory()->create(['max_concurrent_turns' => 1]);
+    [$a, $b, $c] = runs(3);
+    $this->queue->acquire($one, $a);
+    $this->queue->acquire($one, $b);
+
+    expect($this->queue->acquire($two, $c))->toBeTrue();
+});
