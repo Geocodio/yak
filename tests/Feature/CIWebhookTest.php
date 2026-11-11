@@ -4,6 +4,8 @@ use App\Jobs\ProcessCIResultJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\TaskLog;
+use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Http;
@@ -452,4 +454,82 @@ test('GitHub CI webhook ignores task when repo uses different CI system', functi
     ])->assertOk()->assertJson(['skipped' => 'wrong CI system']);
 
     Queue::assertNotPushed(ProcessCIResultJob::class);
+});
+
+/*
+|--------------------------------------------------------------------------
+| GitHub CI Webhook — per-check details stored on the thread repository row
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * @return array<string, mixed>
+ */
+function checkRunsWithOneFailure(): array
+{
+    return ['check_runs' => [
+        [
+            'id' => 1,
+            'name' => 'tests',
+            'conclusion' => 'failure',
+            'html_url' => 'https://github.com/org/my-repo/runs/1',
+            'started_at' => '2026-11-11T10:00:00Z',
+            'completed_at' => '2026-11-11T10:02:05Z',
+            'output' => ['title' => '3 tests failed', 'summary' => 'AuthTest::testLogin failed', 'text' => null],
+        ],
+        ['id' => 2, 'name' => 'lint', 'conclusion' => 'success', 'started_at' => '2026-11-11T10:00:00Z', 'completed_at' => '2026-11-11T10:00:30Z'],
+    ]];
+}
+
+test('a failed check_suite stores each check on the primary thread repository row', function () {
+    Queue::fake();
+    $task = setUpFailingGitHubActionsTask();
+    $thread = Thread::factory()->create();
+    $task->update(['thread_id' => $thread->id]);
+    $row = ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'org/my-repo']);
+
+    Http::fake([
+        'https://api.github.com/repos/org/my-repo/actions/runs*' => Http::response(workflowRunsResponse(runAttempt: 2)),
+        'https://api.github.com/repos/org/my-repo/commits/abc123/check-runs*' => Http::response(checkRunsWithOneFailure()),
+    ]);
+
+    postFailedCheckSuite()->assertOk()->assertJson(['dispatched' => true]);
+
+    $checks = collect($row->refresh()->ci_checks)->keyBy('name');
+
+    expect($checks)->toHaveCount(2)
+        ->and($checks['tests']['state'])->toBe('failing')
+        ->and($checks['tests']['durationSeconds'])->toBe(125)
+        ->and($checks['tests']['excerpt'])->toContain('3 tests failed')->toContain('AuthTest::testLogin failed')
+        ->and($checks['lint']['state'])->toBe('passing')
+        ->and($checks['lint']['excerpt'])->toBeNull();
+});
+
+test('a failed check_suite on a sibling changes repo stores its checks on that row', function () {
+    Queue::fake();
+    setUpFailingGitHubActionsTask();
+    Repository::factory()->create(['slug' => 'org/other-repo', 'ci_system' => 'github_actions']);
+    $row = ThreadRepository::factory()->changes()->withPullRequest(7)->create(['repo' => 'org/other-repo', 'branch' => 'yak/fix-flake']);
+
+    Http::fake([
+        'https://api.github.com/repos/org/other-repo/actions/runs*' => Http::response(workflowRunsResponse(runAttempt: 2)),
+        'https://api.github.com/repos/org/other-repo/commits/abc123/check-runs*' => Http::response(checkRunsWithOneFailure()),
+    ]);
+
+    $payload = [
+        'action' => 'completed',
+        'check_suite' => ['head_branch' => 'yak/fix-flake', 'conclusion' => 'failure', 'head_sha' => 'abc123', 'pull_requests' => [['number' => 7]]],
+        'repository' => ['full_name' => 'org/other-repo'],
+    ];
+
+    $this->postJson('/webhooks/ci/github', $payload, [
+        'X-Hub-Signature-256' => signGitHubPayload($payload, 'github-webhook-secret'),
+        'X-GitHub-Event' => 'check_suite',
+    ])->assertOk()->assertJson(['dispatched' => true]);
+
+    $checks = collect($row->refresh()->ci_checks)->keyBy('name');
+
+    expect($checks['tests']['state'])->toBe('failing')
+        ->and($checks['tests']['excerpt'])->toContain('3 tests failed')
+        ->and($checks['lint']['state'])->toBe('passing');
 });
