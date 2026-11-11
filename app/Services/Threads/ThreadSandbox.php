@@ -116,6 +116,7 @@ class ThreadSandbox
                 return;
             }
 
+            $priorState = $thread->sandbox_state;
             $this->wakeForPreserve($thread);
 
             try {
@@ -126,6 +127,8 @@ class ThreadSandbox
 
             // Never destroy a sandbox whose work could not be pushed; the sweep retries.
             if (! $this->preserveWork($thread)) {
+                $this->restorePriorState($thread, $priorState);
+
                 return;
             }
 
@@ -346,6 +349,18 @@ class ThreadSandbox
         } elseif ($thread->sandbox_state === ThreadSandboxState::Stopped) {
             $this->sandboxes->start($thread);
             $this->record($thread, ThreadSandboxState::Running);
+        }
+    }
+
+    /** Puts a sandbox that destroy() woke back to the state it was in. */
+    private function restorePriorState(Thread $thread, ?ThreadSandboxState $priorState): void
+    {
+        if ($priorState === ThreadSandboxState::Stopped) {
+            $this->sandboxes->stop($thread, (int) config('yak.threads.stop_timeout_seconds'));
+            $this->record($thread, ThreadSandboxState::Stopped);
+        } elseif ($priorState === ThreadSandboxState::Paused) {
+            $this->sandboxes->pause($thread);
+            $this->record($thread, ThreadSandboxState::Paused);
         }
     }
 
