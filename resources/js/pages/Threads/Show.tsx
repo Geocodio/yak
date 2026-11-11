@@ -72,7 +72,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                 >
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
                     <Conversation threadId={thread.id} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
-                    <ThreadComposer thread={thread} composer={composer} />
+                    <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} />
                 </div>
 
                 <ThreadDockPanel thread={thread} canDrive={canDrive} active={activeDock} isPhoneVisible={isPhoneDockVisible} />

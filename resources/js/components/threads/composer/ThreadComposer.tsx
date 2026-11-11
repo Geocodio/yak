@@ -6,7 +6,8 @@ import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { store as storeMessage } from '@/routes/threads/messages';
 import { stop } from '@/routes/threads';
-import type { ThreadComposer as ThreadComposerData, ThreadData } from '@/types/threads';
+import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice } from '@/types/threads';
+import { composerCopy } from './composerCopy';
 import { ModelPicker } from './ModelPicker';
 
 const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
@@ -16,7 +17,7 @@ const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
     readonly: 'You can read this thread but not send messages.',
 };
 
-export function ThreadComposer({ thread, composer }: { thread: ThreadData; composer: ThreadComposerData }) {
+export function ThreadComposer({ thread, composer, notice, teleportState }: { thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state'] }) {
     const form = useForm<{ message: string; model: string | null; attachments: File[]; attachment_refs: string[] }>({
         message: '',
         model: composer.model,
@@ -26,6 +27,7 @@ export function ThreadComposer({ thread, composer }: { thread: ThreadData; compo
     const editorRef = useRef<AttachmentTextareaHandle>(null);
     const disabled = composer.state === 'disabled_closed' || composer.state === 'disabled_computer' || composer.state === 'disabled_blocked' || composer.state === 'readonly';
     const working = composer.state === 'working';
+    const copy = composerCopy(notice, composer.state, teleportState);
     const draft = useAttachmentDraft({
         enabled: !disabled,
         firstNumber: composer.nextAttachmentNumber,
@@ -64,7 +66,7 @@ export function ThreadComposer({ thread, composer }: { thread: ThreadData; compo
                         ref={editorRef}
                         draft={draft}
                         rows={2}
-                        placeholder={working ? 'Add a message. Claude reads it as soon as it can.' : 'Message Claude'}
+                        placeholder={copy.placeholder}
                         value={form.data.message}
                         onValueChange={(value) => form.setData('message', value)}
                         onKeyDown={onKeyDown}
@@ -84,7 +86,9 @@ export function ThreadComposer({ thread, composer }: { thread: ThreadData; compo
                         <div className="flex min-w-0 items-center gap-3">
                             {!disabled && <AttachButton draft={draft} disabled={form.processing} />}
                             <ModelPicker models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} disabled={disabled} />
-                            {DISABLED_COPY[composer.state] && <span className="truncate text-[11px] text-faint">{DISABLED_COPY[composer.state]}</span>}
+                            <span className="truncate text-[11px] text-faint" data-testid="thread-composer-hint">
+                                {DISABLED_COPY[composer.state] ?? copy.hint}
+                            </span>
                         </div>
                         <div className="flex shrink-0 gap-2">
                             {working && (

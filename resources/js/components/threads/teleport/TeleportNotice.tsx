@@ -1,15 +1,10 @@
 import { Link, router } from '@inertiajs/react';
 import { Button } from '@geocodio/console-ui';
+import { teleportComposerHint } from '@/components/threads/composer/composerCopy';
 import { formatTime } from '@/components/shell/formatTime';
 import { destroy, store } from '@/routes/threads/teleport-request';
 import { show } from '@/routes/threads';
 import type { TeleportData, ThreadData } from '@/types/threads';
-
-/** Composer copy for W2-THREADPAGE. */
-export const teleportComposerHint = {
-    waiting: 'Yak keeps working until you run the command on your computer.',
-    onDevice: (name: string) => `This thread is on ${name}. Teleport it to Yak to message Claude here.`,
-};
 
 /** The name shown for the machine that owns the thread. */
 export function ownerLabel(teleport: TeleportData): string {
