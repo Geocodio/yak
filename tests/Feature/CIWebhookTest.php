@@ -458,7 +458,7 @@ test('GitHub CI webhook ignores task when repo uses different CI system', functi
 
 /*
 |--------------------------------------------------------------------------
-| GitHub CI Webhook — per-check details stored on the thread repository row
+| GitHub CI Webhook -- per-check details stored on the thread repository row
 |--------------------------------------------------------------------------
 */
 
