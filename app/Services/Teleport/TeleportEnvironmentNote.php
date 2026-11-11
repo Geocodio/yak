@@ -60,13 +60,37 @@ class TeleportEnvironmentNote
             $sections['Directories that are not here'] = array_values($missing);
         }
 
-        $extras = $this->extras($thread);
+        $extras = $this->upExtras($thread, $teleport);
 
         if ($extras !== []) {
             $sections['Extra repositories'] = $extras;
         }
 
         return $sections;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function upExtras(Thread $thread, Teleport $teleport): array
+    {
+        $report = $teleport->payload['sandbox_repos'] ?? [];
+
+        return array_values($thread->repositories()->where('role', '!=', RepositoryRole::Primary->value)->orderBy('repo')->get()
+            ->map(function (ThreadRepository $repository) use ($teleport, $report): string {
+                $line = "{$repository->repo}: {$repository->sandbox_path}";
+
+                if ($repository->role === RepositoryRole::Context) {
+                    $line .= ' (context, default branch; local edits were not uploaded)';
+
+                    return ($report[$repository->repo]['status'] ?? null) === 'failed' ? $line . '; the clone failed, so it is not available here' : $line;
+                }
+
+                $localPath = $teleport->localPathOf($repository->repo);
+
+                return $line . ' (changes)' . ($localPath === null ? '' : ", your path {$localPath} links to it");
+            })
+            ->all());
     }
 
     /**
@@ -118,16 +142,6 @@ class TeleportEnvironmentNote
     private function extrasOfRole(Thread $thread, RepositoryRole $role): Collection
     {
         return $thread->repositories()->where('role', $role->value)->get();
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function extras(Thread $thread): array
-    {
-        return array_values($thread->repositories()->where('role', '!=', RepositoryRole::Primary->value)->get()
-            ->map(fn ($repository): string => "{$repository->repo} at {$repository->sandbox_path}")
-            ->all());
     }
 
     /**

@@ -37,7 +37,7 @@ class TeleportExtras
      */
     public function prepare(Thread $thread, Teleport $teleport): array
     {
-        $requested = collect($teleport->payload['repos'] ?? [])->map(fn (array $entry): string => strtolower((string) $entry['repo']))->all();
+        $requested = array_map(fn (array $entry): string => strtolower((string) $entry['repo']), $teleport->payload['repos'] ?? []);
         $report = [];
 
         $repositories = $thread->repositories()->where('role', '!=', RepositoryRole::Primary->value)->get()

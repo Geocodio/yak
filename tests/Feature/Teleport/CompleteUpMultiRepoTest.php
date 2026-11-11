@@ -150,3 +150,21 @@ it('fails the teleport when an extra setup fails', function () {
     $run['response']->assertStatus(409)->assertJsonPath('error', 'teleport_failed');
     expect($run['thread']->refresh()->owner_side->value)->toBe('device');
 });
+
+it('reports sandbox repos with a failed context clone and still completes', function () {
+    $this->sandboxes->script = function (string $command): ?ProcessResult {
+        return match ($command) {
+            'test -d /extras/docs/.git' => Process::result(exitCode: 1),
+            'git clone https://github.com/acme/docs.git /extras/docs' => Process::result(errorOutput: 'fatal', exitCode: 128),
+            default => null,
+        };
+    };
+
+    $run = completeMultiRepoUp($this);
+
+    $run['response']->assertOk()
+        ->assertJsonPath('sandbox.state', 'ready')
+        ->assertJsonPath('sandbox.repos.0', ['repo' => 'acme/widgets', 'role' => 'primary', 'status' => 'ready', 'reason' => null])
+        ->assertJsonPath('sandbox.repos.1.repo', 'acme/lib')
+        ->assertJsonPath('sandbox.repos.2.status', 'failed');
+});

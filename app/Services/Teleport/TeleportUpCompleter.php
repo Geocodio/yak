@@ -219,6 +219,32 @@ class TeleportUpCompleter
     }
 
     /**
+     * @return list<array{repo: string, role: string, status: string, reason: ?string}>
+     */
+    private function sandboxRepos(Teleport $teleport): array
+    {
+        $report = $teleport->payload['sandbox_repos'] ?? [];
+
+        if ($report === []) {
+            return [];
+        }
+
+        $roles = ThreadRepository::query()->where('thread_id', $teleport->thread_id)->get()->keyBy(fn (ThreadRepository $repository): string => strtolower($repository->repo));
+        $repos = [];
+
+        foreach ($teleport->payload['repos'] ?? [] as $requested) {
+            $repository = $roles->get(strtolower((string) $requested['repo']));
+            $entry = $repository?->role === RepositoryRole::Primary ? ['status' => 'ready', 'reason' => null] : ($report[$repository?->repo] ?? null);
+
+            if ($repository !== null && $entry !== null) {
+                $repos[] = ['repo' => $repository->repo, 'role' => $repository->role->value, 'status' => $entry['status'], 'reason' => $entry['reason']];
+            }
+        }
+
+        return $repos;
+    }
+
+    /**
      * @return array{status: int, body: array<string, mixed>}
      */
     private function respond(Teleport $teleport): array
@@ -237,10 +263,11 @@ class TeleportUpCompleter
         return ['status' => 200, 'body' => [
             'teleport' => $teleport->toApi(),
             'ownership' => 'yak',
-            'sandbox' => [
+            'sandbox' => array_filter([
                 'state' => $sandboxState,
                 'message' => $sandboxState === 'waiting_for_slot' ? 'Yak has no free sandbox right now. The thread is on Yak and will start when one is free.' : null,
-            ],
+                'repos' => $this->sandboxRepos($teleport),
+            ], fn (mixed $value, string $key): bool => $key !== 'repos' || $value !== [], ARRAY_FILTER_USE_BOTH),
             'turn_started' => (bool) ($result['turn_started'] ?? false),
             'held_events_delivered' => (int) ($result['held_events_delivered'] ?? 0),
             'marker' => [
