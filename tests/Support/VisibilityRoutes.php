@@ -204,6 +204,8 @@ class VisibilityRoutes
     /**
      * Preview host endpoints that resolve a deployment or thread by hostname,
      * swept in VisibilityPreviewHostsTest and ThreadPreviewVisibilityTest.
+     * The deployment-host sweep there maps every name below to a request, and
+     * fails on a name it does not know.
      *
      * @return list<string>
      */

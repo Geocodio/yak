@@ -4,6 +4,8 @@ use App\Models\ThreadShare;
 use App\Services\DeploymentShareTokens;
 use App\Services\DeploymentWaker;
 use App\Services\PreviewAccess;
+use App\Services\Threads\Preview\ThreadPreviewHosts;
+use Tests\Support\VisibilityRoutes;
 use Tests\Support\VisibilityWorld;
 
 beforeEach(function () {
@@ -150,3 +152,33 @@ it('keeps a thread shared to one person private for share tokens', function () {
 
     wakeAs($this, VisibilityWorld::HOSTNAME, $this->world->other->id)->assertOk();
 });
+
+it('sweeps every preview host route for a deployment linked to a private thread', function (string $stranger) {
+    config(['yak.deployments.hostname_suffix' => 'yak.example.com']);
+    $threadHost = app(ThreadPreviewHosts::class)->hostnameFor($this->world->thread);
+    $user = $this->world->{$stranger};
+    $access = app(PreviewAccess::class);
+    $requests = [
+        'deployments.preview-auth' => fn (string $host) => $this->withHeaders(['X-Forwarded-Host' => $host])
+            ->get('/internal/deployments/preview-auth?' . http_build_query(['ticket' => $access->mintTicket($host, $user), 'to' => '/'])),
+        'deployments.status' => fn (string $host) => $this->actingAs($user)->get('/internal/deployments/status?host=' . $host),
+        'deployments.wake' => fn (string $host) => wakeAs($this, $host, $user->id),
+        'threads.preview.wake' => fn (string $host) => $this->withHeaders(['X-Forwarded-Host' => $host, 'X-Forwarded-Uri' => '/'])
+            ->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))->get('/internal/threads/preview/wake'),
+        'threads.preview.host-status' => fn (string $host) => $this->withHeaders(['X-Forwarded-Host' => $host])
+            ->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))->get('/internal/threads/preview/status'),
+    ];
+
+    foreach (VisibilityRoutes::hosts() as $name) {
+        expect($requests)->toHaveKey($name);
+        [$hiddenHost, $missingHost] = str_starts_with($name, 'threads.')
+            ? [$threadHost, 't-nope000000.yak.example.com']
+            : [VisibilityWorld::HOSTNAME, $this->unknown];
+
+        $hidden = $requests[$name]($hiddenHost);
+        $missing = $requests[$name]($missingHost);
+
+        expect($hidden->getStatusCode())->toBe($missing->getStatusCode(), $name)
+            ->and(hostMasked($hidden, $hiddenHost))->toBe(hostMasked($missing, $missingHost), $name);
+    }
+})->with(['other', 'admin']);
