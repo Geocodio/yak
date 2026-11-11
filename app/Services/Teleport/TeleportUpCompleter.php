@@ -2,6 +2,7 @@
 
 namespace App\Services\Teleport;
 
+use App\Enums\RepositoryRole;
 use App\Enums\TeleportState;
 use App\Exceptions\TeleportError;
 use App\Jobs\PrepareTeleportUpJob;
@@ -52,7 +53,7 @@ class TeleportUpCompleter
         }
 
         $thread = Thread::query()->withoutGlobalScopes()->findOrFail($teleport->thread_id);
-        $heads = $this->verifyPush($validated['repos']);
+        $heads = $this->verifyPush($thread, $validated['repos']);
         $this->verifySession($thread, (string) $teleport->session_id);
 
         if (! $this->claim($teleport, $thread, $validated, $heads)) {
@@ -102,16 +103,28 @@ class TeleportUpCompleter
     }
 
     /**
+     * Only context repos may omit branch and head_sha; every other repo must be visible on GitHub.
+     *
      * @param  list<array<string, mixed>>  $repos
      * @return array<string, string>
      */
-    private function verifyPush(array $repos): array
+    private function verifyPush(Thread $thread, array $repos): array
     {
         $heads = [];
+        $contextRepos = ThreadRepository::query()
+            ->where('thread_id', $thread->id)
+            ->where('role', RepositoryRole::Context)
+            ->pluck('repo')
+            ->map(fn (string $repo): string => strtolower($repo))
+            ->all();
 
         foreach ($repos as $entry) {
             if (blank($entry['branch'] ?? null) || blank($entry['head_sha'] ?? null)) {
-                continue;
+                if (in_array(strtolower((string) $entry['repo']), $contextRepos, true)) {
+                    continue;
+                }
+
+                throw new TeleportError('push_not_visible', "{$entry['repo']} needs a pushed branch and head_sha.", 409, ['repo' => $entry['repo']]);
             }
 
             if ($this->heads->headOf($entry['repo'], $entry['branch']) !== $entry['head_sha']) {

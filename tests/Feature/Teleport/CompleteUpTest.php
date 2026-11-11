@@ -143,6 +143,19 @@ it('answers push_not_visible and leaves the owner', function () {
         ->and(Teleport::query()->find($begin['teleport_id'])->state)->toBe(TeleportState::Open);
 });
 
+it('rejects a primary repo without head_sha and leaves the owner', function () {
+    $begin = beginAndUpload($this);
+    $this->heads->shouldNotReceive('headOf');
+    $body = completeBody();
+    $body['repos'][0]['head_sha'] = null;
+
+    $this->postJson("/api/cli/v1/teleports/{$begin['teleport_id']}/complete", $body, cliHeaders($this->token))
+        ->assertStatus(409)->assertJsonPath('error', 'push_not_visible');
+
+    expect(Thread::withoutGlobalScopes()->find($begin['thread']['id'])->owner_side)->toBe(ThreadOwnerSide::Device)
+        ->and(Teleport::query()->find($begin['teleport_id'])->state)->toBe(TeleportState::Open);
+});
+
 it('answers session_incomplete without a matching checkpoint', function () {
     $begin = beginAndUpload($this, checkpoint: false);
 
