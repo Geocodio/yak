@@ -482,6 +482,9 @@ return [
     */
 
     'pr_review' => [
+        // Largest classifier prompt (concerns plus diff), in characters.
+        'classifier_max_diff_characters' => 200000,
+
         // Files that decide how Yak itself behaves in a repository. A diff
         // touching them always needs a human, whatever the repository says.
         'config_floor_paths' => [

@@ -167,6 +167,14 @@ class PromptDefinitions
                 'type' => 'agent',
                 'variables' => [],
             ],
+            'agents-concern-classifier' => [
+                'view' => 'prompts.agents.concern-classifier',
+                'label' => 'Concern Classifier',
+                'description' => 'Instructions for the ConcernClassifier, which reads a pull request diff and the repository concerns and reports which concerns the diff touches and what kind of change it is. It guards automatic approval.',
+                'category' => 'advanced',
+                'type' => 'agent',
+                'variables' => [],
+            ],
             'agents-risk-area-guess' => [
                 'view' => 'prompts.agents.risk-area-guess',
                 'label' => 'Risk Area Guesser',
