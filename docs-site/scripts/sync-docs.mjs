@@ -29,20 +29,32 @@ const SCHEMAS_TARGET_DIR = resolve(__dirname, '../public/schemas');
 // the prefix baked in. Kept here as a single source of truth for the sync.
 const SITE_BASE = '/yak';
 
-// Sidebar grouping and order. Files not listed here are synced but excluded
-// from explicit ordering — they'll appear alphabetically if included.
+// Every published page. A file that is not listed here is skipped. The sidebar
+// in astro.config.mjs lists the same slugs and decides grouping and order.
 const PAGES = [
-  { file: 'setup.md',           title: 'Setup Guide',    description: 'Provision a Yak server with Ansible in one command.',                    group: 'getting-started', order: 1 },
-  { file: 'channels.md',        title: 'Channels',       description: 'Configure Slack, Linear, Sentry, GitHub, Drone, and the manual CLI.',    group: 'getting-started', order: 2 },
-  { file: 'repositories.md',    title: 'Repositories',   description: 'Add and manage repositories, setup tasks, and CLAUDE.md conventions.',   group: 'getting-started', order: 3 },
-  { file: 'repo-config.md',      title: 'Repository config', description: 'Commit .yak/ files to a repository to control how Yak behaves there.', group: 'getting-started', order: 4 },
-  { file: 'claude-accounts.md', title: 'Claude Accounts', description: 'Connect Claude accounts, set defaults, and manage the shared Yak account and admins.', group: 'getting-started', order: 5 },
-  { file: 'teleport.md',        title: 'Teleport',       description: 'Move a thread between Yak and Claude Code on your computer.',            group: 'getting-started', order: 6 },
-  { file: 'pr-review.md',       title: 'PR Review',      description: 'Enable Yak to review pull requests with line-level comments and a feedback dashboard.', group: 'getting-started', order: 7 },
-  { file: 'architecture.md',    title: 'Architecture',   description: 'How Yak works under the hood: two-tier AI, drivers, state machine.',    group: 'reference',       order: 1 },
-  { file: 'prompting.md',       title: 'Prompting',      description: 'Three prompt layers, system prompt, task templates, MCP servers.',       group: 'reference',       order: 2 },
-  { file: 'troubleshooting.md', title: 'Troubleshooting',description: 'Common problems and how to diagnose them.',                             group: 'operations',      order: 1 },
-  { file: 'development.md',     title: 'Development',    description: 'Local setup, running tests, code style, and adding new channel drivers.',group: 'contributing',    order: 1 },
+  { file: "concepts.md", title: "Concepts", description: "Threads, turns, tasks, sandboxes and Claude accounts, and how they relate.", group: "start", order: 1 },
+  { file: "threads.md", title: "Threads", description: "Start a thread, steer Claude, read the thread page, and share or keep a thread private.", group: "work", order: 1 },
+  { file: "multi-repo.md", title: "Multi-repo threads", description: "Work across several repositories in one thread, with one pull request per changed repository.", group: "work", order: 2 },
+  { file: "sub-threads.md", title: "Sub-threads", description: "Split work into sub-threads that run side by side and report back to the parent.", group: "work", order: 3 },
+  { file: "previews.md", title: "Previews", description: "Thread previews of live work, branch deployments for pull requests, and preview repair.", group: "work", order: 4 },
+  { file: "teleport.md", title: "Teleport", description: "Move a Claude Code session between your computer and a Yak thread.", group: "work", order: 5 },
+  { file: "ssh.md", title: "SSH and terminal", description: "Open a shell in a thread sandbox from the browser or with yak ssh.", group: "work", order: 6 },
+  { file: "cli.md", title: "yak CLI", description: "Command and flag reference for the yak command and the Claude Code plugin.", group: "work", order: 7 },
+  { file: "claude-accounts.md", title: "Claude accounts", description: "Add Claude accounts, choose which one a thread uses, and handle usage limits.", group: "work", order: 8 },
+  { file: "notifications.md", title: "Notifications", description: "Push notifications, Slack direct messages and email.", group: "work", order: 9 },
+  { file: "pr-review.md", title: "PR Review", description: "Let Yak review pull requests with line-level comments and a feedback dashboard.", group: "work", order: 10 },
+  { file: "video-walkthroughs.md", title: "Video walkthroughs", description: "Recorded walkthroughs of UI changes and the installation-wide video theme.", group: "work", order: 11 },
+  { file: "dashboard.md", title: "Dashboard pages", description: "What each dashboard page shows.", group: "work", order: 12 },
+  { file: "channels.md", title: "Channels", description: "Configure Slack, Linear, Sentry, email, GitHub and Drone.", group: "configure", order: 1 },
+  { file: "repositories.md", title: "Repositories", description: "Add and manage repositories, setup, routing and per-repository settings.", group: "configure", order: 2 },
+  { file: "repo-config.md", title: "Repository config", description: "Commit .yak/ files to a repository to control how Yak behaves there.", group: "configure", order: 3 },
+  { file: "prompting.md", title: "Prompting", description: "How Yak builds what Claude sees: prompt layers, templates, tools and MCP servers.", group: "configure", order: 4 },
+  { file: "setup.md", title: "Setup", description: "Provision a Yak server with Ansible.", group: "run", order: 1 },
+  { file: "upgrading.md", title: "Upgrading to threads", description: "Move an existing installation to the thread model.", group: "run", order: 2 },
+  { file: "operations.md", title: "Operations", description: "Host components, scheduled commands, capacity settings and datasets.", group: "run", order: 3 },
+  { file: "architecture.md", title: "Architecture", description: "How Yak works inside: the thread model, the life of a turn, sandboxes and safety.", group: "run", order: 4 },
+  { file: "troubleshooting.md", title: "Troubleshooting", description: "Common problems and how to diagnose them.", group: "run", order: 5 },
+  { file: "development.md", title: "Development", description: "Local setup, tests, code style, adding a channel and working on the docs.", group: "contributing", order: 1 },
 ];
 
 // Exclude the GitHub-facing folder index. Starlight has its own homepage.
