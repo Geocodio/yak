@@ -70,8 +70,32 @@ class ReviewApprovalPolicy
         if ($isYakAuthored) {
             return ['Yak opened this pull request.'];
         }
-        if (trim((string) ($metadata['author'] ?? '')) === '') {
+        $installationId = (int) config('yak.channels.github.installation_id');
+        try {
+            $live = $github->getPullRequestOrFail($installationId, $repository->github_full_name, (int) ($metadata['pr_number'] ?? 0));
+        } catch (\Throwable) {
+            $live = null;
+        }
+        if ($live === null) {
+            return ['Could not verify the pull request on GitHub.'];
+        }
+
+        $liveAuthor = (string) ($live['user']['login'] ?? '');
+        if (strcasecmp($liveAuthor, $github->appBotLogin()) === 0) {
+            return ['Yak opened this pull request.'];
+        }
+        if (trim($liveAuthor) === '' || trim((string) ($metadata['author'] ?? '')) === '') {
             return ['Pull request author is unknown.'];
+        }
+        if (($live['state'] ?? '') !== 'open' || ($live['draft'] ?? true) !== false || ($live['auto_merge'] ?? null) !== null
+            || ($live['head']['repo']['full_name'] ?? null) !== ($live['base']['repo']['full_name'] ?? '')) {
+            return ['Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'];
+        }
+        if (($live['head']['sha'] ?? null) !== ($metadata['head_sha'] ?? '') || ($live['base']['ref'] ?? null) !== ($metadata['base_ref'] ?? '')) {
+            return ['Pull request changed since the review; Yak will review again.'];
+        }
+        if (($live['changed_files'] ?? null) !== count($files)) {
+            return ['Changed file list is incomplete.'];
         }
 
         $concerns = $repository->settings()->concerns();
@@ -82,7 +106,7 @@ class ReviewApprovalPolicy
         $baseRef = (string) ($metadata['base_ref'] ?? '');
         try {
             $hasChecks = $github->hasRequiredStatusChecks(
-                (int) config('yak.channels.github.installation_id'), $repository->github_full_name, $baseRef,
+                $installationId, $repository->github_full_name, $baseRef,
             );
         } catch (\Throwable) {
             $hasChecks = false;

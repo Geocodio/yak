@@ -68,7 +68,7 @@ it('computes diff against incremental_base_sha in incremental scope', function (
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
     $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 5, 'comments' => []]);
     app()->instance(GitHubAppService::class, $github);
 
@@ -132,7 +132,7 @@ it('falls back to full review when incremental base fetch fails', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
     $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 5, 'comments' => []]);
     app()->instance(GitHubAppService::class, $github);
 
@@ -198,7 +198,7 @@ it('passes hydrated prior findings into the prompt context', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([]);
     $github->shouldReceive('listReviewThreads')->andReturn([
         ['thread_id' => 't', 'is_resolved' => false, 'comment_database_ids' => [555]],
     ]);

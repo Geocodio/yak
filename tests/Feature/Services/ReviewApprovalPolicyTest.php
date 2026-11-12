@@ -31,7 +31,7 @@ function policyEvaluate(array $files, ParsedReview $review, array $metadata = []
 {
     return app(ReviewApprovalPolicy::class)->evaluate(
         test()->repo, $review,
-        array_merge(['pr_number' => 42, 'base_ref' => 'main', 'review_scope' => 'full', 'author' => 'alice'], $metadata),
+        array_merge(['pr_number' => 42, 'head_sha' => 'head', 'base_ref' => 'main', 'review_scope' => 'full', 'author' => 'alice'], $metadata),
         $files,
     );
 }
@@ -48,6 +48,12 @@ beforeEach(function () {
     fakeYakFiles(['risk-profile.yml' => concernsYaml()]);
     $this->github = mock(AppService::class);
     $this->github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
+    $this->livePullRequest = [
+        'state' => 'open', 'draft' => false, 'auto_merge' => null, 'changed_files' => 1,
+        'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']],
+        'base' => ['ref' => 'main', 'repo' => ['full_name' => 'acme/api']], 'user' => ['login' => 'alice'],
+    ];
+    $this->github->shouldReceive('getPullRequestOrFail')->andReturnUsing(fn () => $this->livePullRequest)->byDefault();
     $this->github->shouldReceive('hasRequiredStatusChecks')->andReturn(true)->byDefault();
     app()->instance(AppService::class, $this->github);
 });
@@ -132,6 +138,7 @@ it('allows behavior changes at level 4 only with a test file', function () {
     expect($decision['event'])->toBe('COMMENT')->and($decision['reasons'])->toBe(['DEFCON 4 does not cover behavior_change changes.']);
 
     fakeClassifier('behavior_change');
+    $this->livePullRequest['changed_files'] = 2;
     $decision = policyEvaluate(policyFiles('app/Thing.php', 'tests/Feature/XTest.php'), policyReview());
     expect($decision['event'])->toBe('APPROVE')->and($decision['observed']['has_test_change'])->toBeTrue();
 });
@@ -166,6 +173,7 @@ it('holds a touched always_human concern, and a when_tested one without a test c
     expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Touches ' . METERING . ' without a test change.']);
 
     fakeClassifier('behavior_change', [['name' => METERING, 'evidence' => 'meter']]);
+    $this->livePullRequest['changed_files'] = 2;
     expect(policyEvaluate(policyFiles('app/Thing.php', 'tests/Feature/XTest.php'), policyReview())['event'])->toBe('APPROVE');
 });
 
@@ -182,7 +190,7 @@ it('requests changes for a visible must_fix finding in enforce only', function (
 
 it('holds when the pull request author is unknown', function (bool $keyPresent) {
     Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
-    $metadata = ['pr_number' => 42, 'base_ref' => 'main', 'review_scope' => 'full'];
+    $metadata = ['pr_number' => 42, 'head_sha' => 'head', 'base_ref' => 'main', 'review_scope' => 'full'];
     if ($keyPresent) {
         $metadata['author'] = '';
     }
@@ -190,3 +198,23 @@ it('holds when the pull request author is unknown', function (bool $keyPresent) 
     expect($decision['candidate'])->not->toBe('APPROVE')->and($decision['reasons'])->toBe(['Pull request author is unknown.']);
     ConcernClassifier::assertNeverPrompted();
 })->with([true, false]);
+
+it('holds when the live pull request no longer matches the review', function (callable $change, string $reason) {
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    $change($this);
+    $decision = policyEvaluate(policyFiles(), policyReview());
+    expect($decision['candidate'])->not->toBe('APPROVE')->and($decision['reasons'])->toBe([$reason]);
+    ConcernClassifier::assertNeverPrompted();
+})->with([
+    'moved head' => [fn ($t) => $t->livePullRequest['head']['sha'] = 'new', 'Pull request changed since the review; Yak will review again.'],
+    'moved base ref' => [fn ($t) => $t->livePullRequest['base']['ref'] = 'dev', 'Pull request changed since the review; Yak will review again.'],
+    'closed' => [fn ($t) => $t->livePullRequest['state'] = 'closed', 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'],
+    'draft' => [fn ($t) => $t->livePullRequest['draft'] = true, 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'],
+    'auto merge' => [fn ($t) => $t->livePullRequest['auto_merge'] = ['enabled_by' => []], 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'],
+    'fork' => [fn ($t) => $t->livePullRequest['head']['repo']['full_name'] = 'x/api', 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'],
+    'file count' => [fn ($t) => $t->livePullRequest['changed_files'] = 2, 'Changed file list is incomplete.'],
+    'not found' => [fn ($t) => $t->github->shouldReceive('getPullRequestOrFail')->andReturn(null), 'Could not verify the pull request on GitHub.'],
+    'throws' => [fn ($t) => $t->github->shouldReceive('getPullRequestOrFail')->andThrow(new RuntimeException('500')), 'Could not verify the pull request on GitHub.'],
+    'live author is the bot' => [fn ($t) => $t->livePullRequest['user']['login'] = 'yak[bot]', 'Yak opened this pull request.'],
+    'live author empty' => [fn ($t) => $t->livePullRequest['user'] = [], 'Pull request author is unknown.'],
+]);

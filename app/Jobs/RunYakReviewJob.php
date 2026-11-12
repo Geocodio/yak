@@ -533,7 +533,14 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         // Ask GitHub which (file, line) pairs live inside a diff hunk —
         // only those can carry a review comment without being rejected
         // with a 422. Everything else gets rolled into the review body.
-        $prFiles = $github->listPullRequestFiles($installationId, $repository->github_full_name, $prNumber);
+        // An incomplete list never reaches the approval policy: on failure the
+        // empty list holds approval and every finding goes into the review body.
+        try {
+            $prFiles = $github->listPullRequestFilesOrFail($installationId, $repository->github_full_name, $prNumber);
+        } catch (\Throwable $e) {
+            TaskLogger::warning($this->task, 'Could not list pull request files; approval is held', ['error' => $e->getMessage()]);
+            $prFiles = [];
+        }
         $validLines = GitHubDiffLines::buildMap($prFiles);
 
         $lineComments = [];
@@ -709,6 +716,25 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'pr_number' => (int) $metadata['pr_number'],
             'pr_author' => (string) ($metadata['author'] ?? ''),
         ], task: $this->task, subject: $review);
+
+        if ($decision['event'] === 'APPROVE' && isset($response['id'])) {
+            try {
+                $currentHead = $github->getPullRequestOrFail($installationId, $repository->github_full_name, $prNumber)['head']['sha'] ?? null;
+            } catch (\Throwable) {
+                $currentHead = null;
+            }
+            if ($currentHead !== (string) $metadata['head_sha']) {
+                try {
+                    $github->dismissPullRequestReview(
+                        $installationId, $repository->github_full_name, $prNumber, (int) $response['id'],
+                        'New commits arrived while Yak was approving. Reviewing again.',
+                    );
+                    $review->update(['dismissed_at' => now()]);
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to dismiss stale approval', ['review_id' => $review->id, 'error' => $e->getMessage()]);
+                }
+            }
+        }
 
         if ($priorFindings !== []) {
             PrReviewComment::query()
