@@ -245,3 +245,9 @@ it('lets the allowed uid connect and refuses another uid', function () {
 
     $server->close();
 })->skip(fn () => posix_geteuid() !== 0, 'needs root to chown and setuid');
+
+test('the production image installs the sockets extension the credential socket needs', function () {
+    $dockerfile = file_get_contents(base_path('Dockerfile'));
+
+    expect($dockerfile)->toMatch('/docker-php-ext-install[^&]*\bsockets\b/');
+});
