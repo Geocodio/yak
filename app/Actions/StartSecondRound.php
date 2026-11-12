@@ -7,8 +7,6 @@ use App\Models\Repository;
 
 class StartSecondRound
 {
-    public const FINDINGS_REASON = 'Review contains findings.';
-
     public function __construct(private readonly EnqueuePrReview $enqueuePrReview) {}
 
     /**
@@ -21,7 +19,9 @@ class StartSecondRound
      */
     public function handle(Repository $repository, array $pullRequest, string $trigger): bool
     {
-        if ($repository->approvalLevel() < 2 || ($pullRequest['state'] ?? 'open') !== 'open') {
+        if ($repository->approvalLevel() < 2
+            || ($pullRequest['state'] ?? 'open') !== 'open'
+            || $this->enqueuePrReview->skipReason($repository, $pullRequest) !== null) {
             return false;
         }
 
@@ -50,12 +50,12 @@ class StartSecondRound
     }
 
     /**
-     * Inline findings are stored as comments; findings that landed outside
-     * the diff only show up in the approval policy's reasons.
+     * The review records how many findings it parsed, so findings that
+     * landed outside the diff and have no comment row still count.
      */
     private function hadFindings(PrReview $review): bool
     {
-        return $review->comments()->exists()
-            || in_array(self::FINDINGS_REASON, (array) ($review->risk_assessment['reasons'] ?? []), true);
+        return (int) ($review->risk_assessment['findings_count'] ?? 0) > 0
+            || $review->comments()->exists();
     }
 }

@@ -118,11 +118,13 @@ class WebhookController extends Controller
             $repository = $this->resolveRepositoryFromPayload($request);
 
             if ($repository !== null && $repository->is_active) {
-                QuietPeriodReviewJob::dispatch(
-                    $repository->id,
-                    (int) $request->input('pull_request.number'),
-                    (string) $request->input('pull_request.head.sha'),
-                )->delay(now()->addMinutes(60));
+                if ($repository->approvalLevel() >= 2) {
+                    QuietPeriodReviewJob::dispatch(
+                        $repository->id,
+                        (int) $request->input('pull_request.number'),
+                        (string) $request->input('pull_request.head.sha'),
+                    )->delay(now()->addMinutes(60));
+                }
 
                 if (app(WithdrawApprovalOnPush::class)->handle($repository, (array) $request->input('pull_request'))) {
                     return response()->json(['ok' => true, 'withdrawn' => true]);
@@ -426,6 +428,18 @@ class WebhookController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    private function mayRequestReview(Request $request, AppService $github): bool
+    {
+        $commenter = (array) $request->input('comment.user', []);
+
+        if ($this->isBotAuthor($commenter, $github)) {
+            return false;
+        }
+
+        return (string) ($commenter['login'] ?? '') === (string) $request->input('issue.user.login', '')
+            || in_array((string) $request->input('comment.author_association', ''), ['OWNER', 'MEMBER', 'COLLABORATOR'], true);
+    }
+
     private function handleReviewThread(Request $request, AppService $github): JsonResponse
     {
         if ($request->input('action') !== 'resolved') {
@@ -451,8 +465,17 @@ class WebhookController extends Controller
             $prNumber,
         );
 
-        foreach ($threads as $thread) {
-            if (! $thread['is_resolved'] && array_intersect($thread['comment_database_ids'], $yakCommentIds) !== []) {
+        $yakThreads = array_filter(
+            $threads,
+            fn (array $thread): bool => array_intersect($thread['comment_database_ids'], $yakCommentIds) !== [],
+        );
+
+        if ($yakThreads === []) {
+            return response()->json(['ok' => true, 'skipped' => 'no yak threads on the PR']);
+        }
+
+        foreach ($yakThreads as $thread) {
+            if (! $thread['is_resolved']) {
                 return response()->json(['ok' => true, 'skipped' => 'yak threads still unresolved']);
             }
         }
@@ -495,6 +518,10 @@ class WebhookController extends Controller
         $prUrl = (string) data_get($request->all(), 'issue.pull_request.html_url', '');
 
         if (strcasecmp(trim((string) $request->input('comment.body', '')), '/yak review') === 0) {
+            if (! $this->mayRequestReview($request, $github)) {
+                return response()->json(['ok' => true, 'skipped' => 'commenter may not request a review']);
+            }
+
             return $this->startSecondRound($request, $github, (int) $request->input('issue.number'), 'comment');
         }
 
@@ -804,20 +831,14 @@ class WebhookController extends Controller
 
         $repo = $this->resolveRepositoryFromPayload($request);
 
-        if ($repo === null || ! $repo->is_active) {
+        if ($repo === null) {
             return response()->json(['ok' => true, 'skipped' => 'repo not registered or inactive']);
         }
 
-        if (! $repo->settings()->reviewEnabled()) {
-            return response()->json(['ok' => true, 'skipped' => 'pr review disabled on repo']);
-        }
+        $skipReason = app(EnqueuePrReview::class)->skipReason($repo, $pr);
 
-        if ((bool) ($pr['draft'] ?? false)) {
-            return response()->json(['ok' => true, 'skipped' => 'draft PR']);
-        }
-
-        if (! config('yak.pr_review.self_review_enabled') && (string) ($pr['user']['login'] ?? '') === app(AppService::class)->appBotLogin()) {
-            return response()->json(['ok' => true, 'skipped' => 'yak-authored PR']);
+        if ($skipReason !== null) {
+            return response()->json(['ok' => true, 'skipped' => $skipReason]);
         }
 
         $scope = $action === 'review_requested' ? 'incremental' : 'full';

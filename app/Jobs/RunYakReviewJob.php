@@ -626,6 +626,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             ]);
         }
 
+        $body = $this->withSecondRoundHint($body, $parsed);
+
         try {
             $response = $github->createPullRequestReview(
                 $installationId,
@@ -657,6 +659,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             // A rejected submission is never retried as an approval.
             $decision['event'] = 'COMMENT';
             $body .= $policyNote . "\n\nGitHub rejected the original review; posted as a comment only.";
+            $body = $this->withSecondRoundHint($body, $parsed);
             $response = $github->createPullRequestReview(
                 $installationId,
                 $repository->github_full_name,
@@ -684,6 +687,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'verdict' => $parsed->verdict,
             'risk_assessment' => $decision + [
                 'head_sha' => $metadata['head_sha'], 'base_sha' => $metadata['base_sha'],
+                'findings_count' => count($parsed->findings),
             ],
             'submitted_at' => now(),
         ]);
@@ -857,10 +861,6 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
         $parts[] = $this->reReviewFooter();
 
-        if ($parsed->findings !== []) {
-            $parts[] = 'When you have addressed these, resolve the threads or comment /yak review, and Yak will look again.';
-        }
-
         return implode("\n\n", $parts);
     }
 
@@ -917,10 +917,6 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
         $parts[] = $this->reReviewFooter();
 
-        if ($parsed->findings !== []) {
-            $parts[] = 'When you have addressed these, resolve the threads or comment /yak review, and Yak will look again.';
-        }
-
         return implode("\n\n", $parts);
     }
 
@@ -932,6 +928,15 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     private function reviewerNotesBlock(ParsedReview $parsed): string
     {
         return "<details>\n<summary>For the reviewer</summary>\n\n" . trim($parsed->summary) . "\n</details>";
+    }
+
+    private function withSecondRoundHint(string $body, ParsedReview $parsed): string
+    {
+        if ($parsed->findings === []) {
+            return $body;
+        }
+
+        return $body . "\n\nWhen you have addressed these, resolve the threads or comment /yak review, and Yak will look again.";
     }
 
     private function reReviewFooter(): string

@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Channels\GitHub\AppService;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\Repository;
@@ -52,6 +53,32 @@ class EnqueuePrReview
             ]),
             'status' => 'pending',
         ]);
+    }
+
+    /**
+     * Why a pull request must not be reviewed, or null when it may be.
+     *
+     * @param  array<string, mixed>  $pr
+     */
+    public function skipReason(Repository $repository, array $pr): ?string
+    {
+        if (! $repository->is_active) {
+            return 'repo not registered or inactive';
+        }
+
+        if (! $repository->settings()->reviewEnabled()) {
+            return 'pr review disabled on repo';
+        }
+
+        if ((bool) ($pr['draft'] ?? false)) {
+            return 'draft PR';
+        }
+
+        if (! config('yak.pr_review.self_review_enabled') && (string) ($pr['user']['login'] ?? '') === app(AppService::class)->appBotLogin()) {
+            return 'yak-authored PR';
+        }
+
+        return null;
     }
 
     /**

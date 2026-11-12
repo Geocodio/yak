@@ -188,6 +188,7 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
         ->and($captured['comments'][0]['body'])->not->toContain('```original')
         ->and($captured['body'])->not->toContain('Nitpicks')
         ->and($captured['body'])->toContain('Request a re-review')
+        ->and($captured['body'])->toEndWith('Yak will look again.')
         ->and($captured['body'])->toContain('When you have addressed these, resolve the threads or comment /yak review, and Yak will look again.')
         ->and($captured['body'])->toContain(route('tasks.show', $task));
 
@@ -440,6 +441,7 @@ it('keeps out-of-diff consider findings in the collapsed nitpicks block', functi
 });
 
 it('falls back to a body-only review when GitHub rejects the line comments', function () {
+    $fallbackBody = null;
     $repo = Repository::factory()->create([
         'slug' => 'geocodio/api',
         'pr_review_enabled' => true,
@@ -497,7 +499,11 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
         ->andThrow(new RuntimeException('GitHub rejected line comments (422)'));
     $github->shouldReceive('createPullRequestReview')
         ->once()
-        ->withArgs(fn ($_i, $_r, $_p, $_b, $_e, $comments) => $comments === [])
+        ->withArgs(function ($_i, $_r, $_p, $body, $_e, $comments) use (&$fallbackBody) {
+            $fallbackBody = $body;
+
+            return $comments === [];
+        })
         ->andReturn(['id' => 42, 'comments' => []]);
     app()->instance(GitHubAppService::class, $github);
 
@@ -505,6 +511,8 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
 
     $review = PrReview::where('yak_task_id', $task->id)->first();
     expect($review)->not->toBeNull()
+        ->and($fallbackBody)->toEndWith('Yak will look again.')
+        ->and($review->risk_assessment['findings_count'])->toBe(1)
         ->and($review->github_review_id)->toBe(42)
         ->and($task->fresh()->status)->toBe(TaskStatus::Success);
 });
