@@ -30,7 +30,7 @@ test('the rail switches between the thread list and the section drawers', functi
 test('the command palette still offers Channels', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/tasks');
+    $page = visit('/threads/new');
 
     $page->keys('[data-testid="app-shell"]', ['Meta+k'])
         ->assertVisible('[data-testid="app-palette"]')
@@ -41,7 +41,7 @@ test('the command palette still offers Channels', function () {
 test('the phone sheet holds the section switcher and the user row', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/tasks')->on()->mobile();
+    $page = visit('/threads/new')->on()->mobile();
 
     $page->click('[data-testid="mobile-nav-trigger"]')
         ->assertVisible('[data-testid="mobile-section-switcher"]')
@@ -60,7 +60,7 @@ test('a private row leads with the lock and a shared row carries the Shared badg
     ThreadShare::factory()->create(['thread_id' => $shared->id, 'user_id' => $guest->id]);
     $this->actingAs($owner);
 
-    $page = visit('/tasks')
+    $page = visit('/threads/new')
         ->assertSeeIn('[data-testid="thread-visibility-' . $alone->id . '"]', 'Private')
         ->assertSeeIn('[data-testid="thread-visibility-' . $shared->id . '"]', 'Shared')
         ->assertNoJavaScriptErrors();
@@ -98,7 +98,7 @@ test('the details sidebar is a sheet behind a header toggle at laptop width', fu
 test('a collapsed thread panel can be reopened from the rail and with the bracket key', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/tasks');
+    $page = visit('/threads/new');
 
     $page->assertMissing('[data-testid="show-threads"]')
         ->click('[data-testid="collapse-thread-list"]')
@@ -113,9 +113,9 @@ test('a collapsed thread panel can be reopened from the rail and with the bracke
 test('the sidebar new thread button opens the dialog and keeps the page', function () {
     $this->actingAs(User::factory()->create());
 
-    visit('/tasks')
+    visit('/')
         ->click('[data-testid="new-thread"]')
         ->assertVisible('[data-testid="new-thread-dialog"]')
-        ->assertPathIs('/tasks')
+        ->assertPathIs('/')
         ->assertNoJavaScriptErrors();
 });

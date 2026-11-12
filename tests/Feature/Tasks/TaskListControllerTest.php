@@ -56,25 +56,6 @@ test('index renders task rows', function () {
                 ->etc()));
 });
 
-test('index exposes active repositories for the new task sheet', function () {
-    Repository::factory()->create(['slug' => 'active-one', 'is_active' => true]);
-    Repository::factory()->create(['slug' => 'inactive-one', 'is_active' => false]);
-
-    $this->get(route('tasks'))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('activeRepos', ['active-one']));
-});
-
-test('index lists the default repository first and names it', function () {
-    Repository::factory()->create(['slug' => 'alpha', 'is_active' => true]);
-    Repository::factory()->default()->create(['slug' => 'zulu', 'is_active' => true]);
-
-    $this->get(route('tasks'))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('activeRepos', ['zulu', 'alpha'])
-            ->where('defaultRepo', 'zulu'));
-});
-
 test('it shows status for every task status', function () {
     foreach (TaskStatus::cases() as $status) {
         YakTask::factory()->create(['status' => $status]);
@@ -469,53 +450,12 @@ test('repo column has no link when no repository record exists', function () {
                 ->etc()));
 });
 
-test('setup card counts the email channel as a connected channel', function () {
-    foreach (['slack', 'linear', 'sentry', 'drone'] as $channel) {
-        config()->set("yak.channels.{$channel}", []);
-    }
-    config()->set('yak.channels.github', []);
-    config()->set('yak.channels.email', ['webhook_password' => 'secret', 'inbound_address' => 'yak@example.test']);
-    User::query()->delete();
-    $this->actingAs(User::factory()->create(['has_seen_setup_card_at' => null]));
-
-    $this->get(route('tasks'))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('setupCard.items.1.title', 'Connect a channel')
-            ->where('setupCard.items.1.done', true));
-});
-
-test('setup card shows until dismissed', function () {
+test('the setup card dismiss route records that the user has seen it', function () {
     User::query()->delete();
     $user = User::factory()->create(['has_seen_setup_card_at' => null]);
     $this->actingAs($user);
-
-    $this->get(route('tasks'))
-        ->assertInertia(fn (Assert $page) => $page->has('setupCard'));
 
     $this->post(route('tasks.setup-card.dismiss'))->assertRedirect();
 
     expect($user->fresh()->has_seen_setup_card_at)->not->toBeNull();
-
-    $this->get(route('tasks'))
-        ->assertInertia(fn (Assert $page) => $page->where('setupCard', null));
-});
-
-test('setup card is hidden once repos and tasks both exist', function () {
-    User::query()->delete();
-    $user = User::factory()->create(['has_seen_setup_card_at' => null]);
-    $this->actingAs($user);
-
-    Repository::factory()->create();
-    YakTask::factory()->create();
-
-    $this->get(route('tasks'))
-        ->assertInertia(fn (Assert $page) => $page->where('setupCard', null));
-});
-
-test('new task query param is passed through', function () {
-    $this->get(route('tasks', ['new' => 1]))
-        ->assertInertia(fn (Assert $page) => $page->where('openNew', true));
-
-    $this->get(route('tasks'))
-        ->assertInertia(fn (Assert $page) => $page->where('openNew', false));
 });

@@ -69,7 +69,7 @@ test('the sidebar shows the Yak brand lockup', function () {
 test('on a phone the sidebar folds into a top bar, a floating tab bar and a navigation drawer', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/tasks')->on()->mobile();
+    $page = visit('/threads/new')->on()->mobile();
 
     // The desktop sidebar is hidden below `lg` and there is no app bar; the
     // floating bar carries the daily pages plus the More slot that opens the

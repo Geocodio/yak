@@ -21,7 +21,7 @@ test('journey 8: share a private thread, the teammate reads it, the owner takes 
         ->assertNoJavaScriptErrors();
 
     $this->actingAs($teammate);
-    visit('/tasks')
+    visit('/threads/new')
         ->click('[data-testid="thread-filter"] button[data-testid="thread-filter-everyone"]')
         ->assertVisible('[data-testid="thread-row-' . $thread->id . '"]')
         ->click('[data-testid="thread-row-' . $thread->id . '"]')
@@ -41,6 +41,6 @@ test('journey 8: share a private thread, the teammate reads it, the owner takes 
     $this->get($threadUrl)->assertNotFound();
     expect(json_encode($this->getJson('/threads/list?filter=everyone')->assertOk()->json()))->not->toContain('Quarterly pricing notes');
     expect(json_encode($this->getJson('/threads/list?search=Quarterly')->assertOk()->json()))->not->toContain('Quarterly pricing notes');
-    visit('/tasks')
+    visit('/threads/new')
         ->assertMissing('[data-testid="thread-row-' . $thread->id . '"]');
 });

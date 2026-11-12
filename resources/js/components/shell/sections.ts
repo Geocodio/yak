@@ -1,13 +1,14 @@
-import { BarChart3, Code2, DollarSign, Eye, Heart, MessageSquare, Rocket } from 'lucide-react';
+import { BarChart3, Code2, DollarSign, Eye, Heart, ListChecks, MessageSquare, Rocket } from 'lucide-react';
 import type { NavItem } from '@/components/Sidebar';
 import { SETTINGS_SECTIONS } from '@/components/shell/settingsSections';
-import { analytics, costs, deployments, health, observations, prReviews, repos } from '@/routes';
+import { analytics, costs, deployments, health, observations, prReviews, repos, tasks } from '@/routes';
 
 export type RailSection = 'threads' | 'operations' | 'insights' | 'settings';
 
 export const RAIL_SECTIONS: RailSection[] = ['threads', 'operations', 'insights', 'settings'];
 
 export const OPERATIONS_ITEMS: NavItem[] = [
+    { label: 'Task log', icon: ListChecks, url: tasks.url() },
     { label: 'Repositories', icon: Code2, url: repos.url() },
     { label: 'Deployments', icon: Rocket, url: deployments.url() },
     { label: 'PR reviews', icon: MessageSquare, url: prReviews.url() },

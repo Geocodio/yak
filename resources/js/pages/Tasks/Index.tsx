@@ -1,14 +1,12 @@
 import { Head, InfiniteScroll, router, usePoll } from '@inertiajs/react';
 import { Button, cn, IconButton, Menu, PageHeader, Spinner } from '@geocodio/console-ui';
-import { ChevronDown, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
 import { FilterMenu } from '@/components/tasks/FilterMenu';
 import { HoverPreview } from '@/components/tasks/HoverPreview';
-import { NewTaskDialog } from '@/components/tasks/NewTaskDialog';
 import { openPalette } from '@/components/Sidebar';
-import { SetupCard } from '@/components/tasks/SetupCard';
 import { TaskCardList } from '@/components/tasks/TaskCardList';
 import { TaskFiltersSheet } from '@/components/tasks/TaskFiltersSheet';
 import { TaskTable } from '@/components/tasks/TaskTable';
@@ -16,16 +14,12 @@ import { STATUS, type TaskStatus } from '@/lib/status';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { tasks as tasksIndex } from '@/routes';
 import type { PageProps } from '@/types/shared';
-import type { SetupCard as SetupCardData, TaskCounts, TaskFilters, TaskPage, TaskTab } from '@/types/tasks';
+import type { TaskCounts, TaskFilters, TaskPage, TaskTab } from '@/types/tasks';
 
 type Props = PageProps<{
     tasks: TaskPage;
     counts: TaskCounts;
     filters: TaskFilters;
-    setupCard: SetupCardData;
-    activeRepos: string[];
-    defaultRepo: string | null;
-    openNew: boolean;
 }>;
 
 const TABS: { key: TaskTab; label: string }[] = [
@@ -91,7 +85,7 @@ function TabStrip({
     );
 }
 
-export default function Index({ tasks, counts, filters, setupCard, activeRepos, defaultRepo, openNew }: Props) {
+export default function Index({ tasks, counts, filters }: Props) {
     // Poll only `tasks` and `counts` -- a full-page poll (no `only`) would be a
     // non-partial reload, and non-partial reloads replace merge props outright
     // instead of merging, which would wipe out any pages the user has already
@@ -102,25 +96,8 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
     // first page only refresh once the user scrolls back over them.
     usePoll(15000, pollInfiniteScroll(['tasks', 'counts']));
     const isDesktop = useMediaQuery('(min-width: 1024px)');
-    const [sheetOpen, setSheetOpen] = useState(openNew);
     const [previewSrc, setPreviewSrc] = useState<string | null>(null);
     const [filtersOpen, setFiltersOpen] = useState(false);
-
-    useEffect(() => {
-        const onNewTask = () => setSheetOpen(true);
-        window.addEventListener('yak:new-task', onNewTask);
-        return () => window.removeEventListener('yak:new-task', onNewTask);
-    }, []);
-
-    const handleSheetOpenChange = (open: boolean) => {
-        setSheetOpen(open);
-
-        if (!open && openNew) {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('new');
-            window.history.replaceState(window.history.state, '', url.toString());
-        }
-    };
 
     const navigate = (next: Partial<Pick<TaskFilters, 'status' | 'source' | 'repo' | 'pr' | 'sort' | 'direction' | 'tab'>>) => {
         router.get(
@@ -170,17 +147,10 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
 
     return (
         <>
-            <Head title="Tasks" />
+            <Head title="Task log" />
             {/* On phones the tab bar already names the page, so the tab strip is the top row and carries search. */}
             {isDesktop ? (
-                <PageHeader
-                    crumbs={['Tasks']}
-                    actions={
-                        <Button variant="primary" icon={<Plus size={13} />} onClick={() => setSheetOpen(true)} data-testid="new-task-trigger">
-                            New task
-                        </Button>
-                    }
-                >
+                <PageHeader crumbs={['Task log']}>
                     <TabStrip fullWidth={false} activeTab={filters.tab} counts={counts} onSelect={onSelectTab} />
                 </PageHeader>
             ) : (
@@ -191,8 +161,6 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                     </IconButton>
                 </div>
             )}
-
-            <SetupCard card={setupCard} />
 
             {isDesktop ? (
                 <div className="flex flex-wrap items-center gap-2 border-b border-hair px-4 py-2 sm:px-5" data-testid="task-filters">
@@ -330,7 +298,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                         </div>
                     ) : (
                         <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
-                            <p>No tasks yet. Yak picks up work from your configured channels.</p>
+                            <p>No tasks yet. Tasks appear here when Yak runs work from a thread or a channel.</p>
                         </div>
                     )
                 )}
@@ -338,7 +306,6 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
 
             <HoverPreview src={previewSrc} />
 
-            <NewTaskDialog open={sheetOpen} onOpenChange={handleSheetOpenChange} repoOptions={activeRepos} defaultRepo={defaultRepo} />
         </>
     );
 }

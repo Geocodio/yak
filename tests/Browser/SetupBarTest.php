@@ -46,3 +46,12 @@ test('nothing is shown once everything is set up', function () {
 
     visit('/settings/devices')->assertMissing('[data-testid="setup-bar"]');
 });
+
+test('the bar stays off the welcome page, which has its own checklist', function () {
+    $this->actingAs(User::factory()->create());
+
+    visit('/')
+        ->assertPresent('[data-testid="welcome-page"]')
+        ->assertMissing('[data-testid="setup-bar"]')
+        ->assertNoJavaScriptErrors();
+});

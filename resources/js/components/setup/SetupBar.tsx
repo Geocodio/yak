@@ -31,16 +31,21 @@ function writeDismissed(userId: number, dismissed: string[]): void {
     }
 }
 
+/** Pages that carry their own setup checklist; the neutral bar would repeat it. */
+const PAGES_WITH_OWN_SETUP = ['Home/Welcome'];
+
 const BAR = 'flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-hair px-3.5 py-2 text-[13px] max-lg:pl-12';
 const OPEN_RING = <span className="size-2 rounded-pill border-[1.5px] border-muted" aria-hidden="true" />;
 
 /** One slim bar above the page that says what is left to set up. The dialogs open in place. */
 export function SetupBar() {
-    const { setup, auth } = usePage<SharedProps>().props;
+    const { props, component } = usePage<SharedProps>();
+    const { setup, auth } = props;
     const userId = auth.user?.id ?? 0;
     const [dismissed, setDismissed] = useState<string[]>(() => readDismissed(userId));
     const [dialog, setDialog] = useState<OpenDialog>(null);
-    const state = resolveSetupBar(setup, dismissed);
+    const resolved = resolveSetupBar(setup, dismissed);
+    const state = resolved !== null && PAGES_WITH_OWN_SETUP.includes(component) && isDismissible(resolved) ? null : resolved;
 
     const dismiss = (current: SetupBarState) => {
         const next = [...dismissed, current];

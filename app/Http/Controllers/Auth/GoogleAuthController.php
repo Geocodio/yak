@@ -50,7 +50,7 @@ class GoogleAuthController extends Controller
 
         Auth::login($user, remember: true);
 
-        return redirect()->intended(route('tasks'));
+        return redirect()->intended(route('home'));
     }
 
     /**
