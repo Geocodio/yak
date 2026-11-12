@@ -3,7 +3,8 @@
      (~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/) and removes the old one after an
      update, and it only puts a plugin's bin/ on the PATH of its own Bash tool. So ~/.local/bin/yak
      is a small wrapper that looks up the newest installed plugin launcher each time it runs,
-     instead of a symlink into a versioned directory. --}}
+     instead of a symlink into a versioned directory. The plugin directory in use at install time
+     (CLAUDE_CONFIG_DIR may point away from ~/.claude) is written into the wrapper. --}}
 set -eu
 
 yak_url={!! $quotedInstanceUrl !!}
@@ -26,9 +27,14 @@ claude plugin install yak@yak
 
 say "Putting yak on your PATH at ~/.local/bin/yak"
 mkdir -p "$HOME/.local/bin"
-cat > "$HOME/.local/bin/yak" <<'WRAPPER'
-#!/bin/sh
-root=${CLAUDE_CODE_PLUGIN_CACHE_DIR:-$HOME/.claude/plugins}
+plugin_root=${CLAUDE_CODE_PLUGIN_CACHE_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins}
+{
+  printf '#!/bin/sh\n'
+  printf 'root=%s\n' "$(printf '%s' "$plugin_root" | sed "s/'/'\\\\''/g; s/^/'/; s/\$/'/")"
+  cat <<'WRAPPER'
+newline='
+'
+IFS=$newline
 for version_dir in $(ls -dt "$root"/cache/yak/yak/*/ 2>/dev/null); do
   [ -e "${version_dir}.orphaned_at" ] && continue
   [ -x "${version_dir}bin/yak" ] && exec "${version_dir}bin/yak" "$@"
@@ -36,6 +42,7 @@ done
 echo "The Yak plugin is not installed. Run: claude plugin install yak@yak" >&2
 exit 1
 WRAPPER
+} > "$HOME/.local/bin/yak"
 chmod +x "$HOME/.local/bin/yak"
 
 case ":$PATH:" in
