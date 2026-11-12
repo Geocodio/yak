@@ -18,7 +18,7 @@ function commandsThread(): Thread
 it('sends start_runner with the placeholder and never a credential', function () {
     $thread = commandsThread();
     $account = ClaudeAccount::factory()->create(['secret' => 'sk-ant-oat01-supersecret']);
-    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7 fd42::1 \n"));
+    app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
 
     $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
     $placeholders->shouldReceive('issue')->once()->with(Mockery::on(fn ($subject) => $subject->is($thread)), Mockery::on(fn ($given) => $given->is($account)), '10.100.0.7')->andReturn('yakph-test');
@@ -55,8 +55,8 @@ it('points the runner at the pushed MCP config only when the host has one', func
     $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
     $placeholders->shouldReceive('issue')->andReturn('yakph');
     $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class));
-    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7 \n"));
-    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7 \n"));
+    app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
+    app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
     $account = ClaudeAccount::factory()->create();
 
     config(['yak.mcp_config_path' => null]);

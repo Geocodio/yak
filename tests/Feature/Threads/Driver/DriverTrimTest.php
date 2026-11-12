@@ -46,7 +46,7 @@ it('deletes the streams when the runner ends for good', function () {
 it('keeps the streams when the runner dies mid-turn', function () {
     [$thread] = runningTurnFor(['prompt_uuid' => 'prompt-1', 'prompt' => 'Go']);
     $thread->forceFill(['sandbox_container' => 'thread-1', 'sandbox_state' => 'running'])->save();
-    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7\n"));
+    app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
     $streams = app(BrokerStreams::class);
     $streams->register('threads:' . $thread->id);
 

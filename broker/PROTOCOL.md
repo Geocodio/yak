@@ -132,7 +132,7 @@ Header injection: the inbound `x-api-key` and `Authorization` headers are remove
 
 Cache: credentials are cached in memory only, per placeholder and sandbox address, for 30 seconds. `AuthProxy.Revoke(placeholder)` drops a placeholder's entries and the broker calls it when a runner exits. An upstream 401 also drops the cached entry so a rotated secret is re-fetched on the next request.
 
-Status mapping: 401 unknown or missing placeholder, 404 path not allowed, 502 upstream failure, 503 credential service down or replying garbage. Error bodies are generic and never contain the secret, the placeholder or the socket path.
+Status mapping: 403 unknown or missing placeholder (never 401, which the app reads as a rejected account), 404 path not allowed, 502 upstream failure, 503 credential service down or replying garbage. Error bodies are generic and never contain the secret, the placeholder or the socket path.
 
 Logging: every non-200 upstream response is logged with its status, safe headers and body shape (JSON key names, `error.type`, length). Body values, the secret and the placeholder are never logged.
 

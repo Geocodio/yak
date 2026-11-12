@@ -234,12 +234,10 @@ class OneShotRuns
     }
 
     /**
-     * The sandbox's first address, which the auth proxy binds the placeholder to.
+     * The sandbox's bridge address, which the auth proxy binds the placeholder to.
      */
     private function containerIp(string $containerName): string
     {
-        $address = explode(' ', trim($this->sandbox->run($containerName, 'hostname -I', timeout: 10, asRoot: true)->output()))[0];
-
-        return $address !== '' ? $address : throw new RuntimeException("Sandbox {$containerName} has no address");
+        return SandboxAddress::fromIpAddr($this->sandbox->run($containerName, SandboxAddress::command(), timeout: 10, asRoot: true)->output());
     }
 }

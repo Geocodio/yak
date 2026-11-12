@@ -936,3 +936,28 @@ test('canRequestReview follows the effective setting from .yak/ config', functio
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('actions.canRequestReview', true));
 });
+
+test('a failed setup task shows its error once and a setup hint', function () {
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Setup,
+        'source' => 'dashboard',
+        'status' => TaskStatus::Failed,
+        'error_log' => 'The Claude account was rejected: authentication failed',
+        'started_at' => now()->subMinute(),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.error', 'The Claude account was rejected: authentication failed')
+            ->where('task.nextSteps', 'Setup failed. Fix the cause shown above, then click Retry.')
+            ->where('composer.note', 'This task failed. Click Retry above to run it again.')
+            ->where('thread', fn ($thread) => collect($thread)->where('kind', 'yak')->every(fn ($entry) => $entry['error'] === null)));
+});
+
+test('a failed slack task still suggests mentioning Yak again', function () {
+    $task = YakTask::factory()->create(['mode' => TaskMode::Fix, 'source' => 'slack', 'status' => TaskStatus::Failed, 'error_log' => 'Boom']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.nextSteps', 'Task failed. Click Retry above, or mention Yak again with more context.'));
+});

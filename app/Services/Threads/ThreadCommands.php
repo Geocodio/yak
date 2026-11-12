@@ -147,12 +147,10 @@ class ThreadCommands
     }
 
     /**
-     * The sandbox's first address, which the auth proxy binds a placeholder to.
+     * The sandbox's bridge address, which the auth proxy binds a placeholder to.
      */
     private function containerIp(Thread $thread): string
     {
-        $output = trim($this->sandbox->exec($thread, ['hostname', '-I'])->output());
-
-        return explode(' ', $output)[0];
+        return SandboxAddress::fromIpAddr($this->sandbox->exec($thread, SandboxAddress::COMMAND)->output());
     }
 }

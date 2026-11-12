@@ -91,7 +91,7 @@ it('keeps an interrupted turn interrupted when the aborted result arrives', func
 it('recovers the runner once after it exits mid-turn', function () {
     [$thread, $run] = fixtureTurn();
     $thread->forceFill(['sandbox_container' => 'thread-1', 'sandbox_state' => 'running'])->save();
-    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7\n"));
+    app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
 
     replayFixtureThroughConsumer($thread, 'runner-exit-mid-turn');
 
@@ -161,7 +161,7 @@ it('completes a turn after the runner exits mid-turn and recovery continues it',
     Event::fake([TurnCompleted::class, TurnFailed::class]);
     [$thread, $run] = fixtureTurn();
     $thread->forceFill(['sandbox_container' => 'thread-1', 'sandbox_state' => 'running'])->save();
-    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7\n"));
+    app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
 
     replayFixtureThroughConsumer($thread, 'runner-exit-mid-turn');
 

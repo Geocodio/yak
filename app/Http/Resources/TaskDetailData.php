@@ -221,7 +221,9 @@ final class TaskDetailData
             TaskStatus::Failed => match (true) {
                 $task->mode === TaskMode::Review => 'Review failed. Click Re-run review above to run it again against the current PR head.',
                 $isResearch => 'Research failed. Click Retry above, or adjust the issue and re-assign Yak.',
-                default => 'Task failed. Click Retry above, or mention Yak again with more context.',
+                $task->mode === TaskMode::Setup => 'Setup failed. Fix the cause shown above, then click Retry.',
+                in_array($task->source, ['slack', 'linear', 'email'], true) => 'Task failed. Click Retry above, or mention Yak again with more context.',
+                default => 'Task failed. Click Retry above to run it again.',
             },
             TaskStatus::Expired => $coOwnerRequest?->status === CoOwnerRequestStatus::Expired
                 ? 'The co-owner request expired after 7 days. Start a new task to try again.'
@@ -276,7 +278,7 @@ final class TaskDetailData
                 'user' => self::withAttachments(self::userEntry($entry), $attachmentsFor($entry)),
                 'clarification' => self::clarificationEntry($entry, $entries, $index),
                 'clarification-answers' => self::clarificationAnswersEntry($entry),
-                'yak' => self::yakEntry($entry, $index, $lastYakIndex, $mediaByRun),
+                'yak' => self::yakEntry($entry, $index, $lastYakIndex, $mediaByRun, $task->status === TaskStatus::Failed ? $task->error_log : null),
                 default => self::systemEntry($entry),
             };
         })->values()->all();
@@ -414,6 +416,7 @@ final class TaskDetailData
         int $index,
         ?int $lastYakIndex,
         Collection $mediaByRun,
+        ?string $bannerError = null,
     ): array {
         $steps = (int) ($entry->runStats['steps'] ?? 0);
         $hasDuration = ! empty($entry->runStats['duration_ms']);
@@ -458,7 +461,8 @@ final class TaskDetailData
             'bodyHtml' => $bodyHtml,
             'live' => $entry->isLive,
             'superseded' => $superseded,
-            'error' => $entry->error !== null ? Str::limit($entry->error, 400) : null,
+            // The banner above the conversation already shows the task's failure; repeating it here says nothing new.
+            'error' => $entry->error !== null && trim($entry->error) !== trim((string) $bannerError) ? Str::limit($entry->error, 400) : null,
             'links' => $links,
             'media' => $media->map(fn (Artifact $artifact) => self::mediaEntry($artifact))->values()->all(),
         ];
@@ -723,8 +727,10 @@ final class TaskDetailData
                 null,
             ],
             'disabled_failed' => $task->mode === TaskMode::Research
-                ? ["This research failed — click {$retryActionLabel} above to try again.", "This research failed. Click {$retryActionLabel} above, or adjust the issue and re-assign Yak."]
-                : ["This task failed — click {$retryActionLabel} above to try again.", "This task failed. Click {$retryActionLabel} above, or mention Yak again with more context."],
+                ? ["This research failed. Click {$retryActionLabel} above to try again.", "This research failed. Click {$retryActionLabel} above, or adjust the issue and re-assign Yak."]
+                : ["This task failed. Click {$retryActionLabel} above to try again.", in_array($task->source, ['slack', 'linear', 'email'], true) && $task->mode !== TaskMode::Setup
+                    ? "This task failed. Click {$retryActionLabel} above, or mention Yak again with more context."
+                    : "This task failed. Click {$retryActionLabel} above to run it again."],
             default => ['This conversation is closed — mention Yak again to start a new task.', null],
         };
 

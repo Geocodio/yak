@@ -98,12 +98,12 @@ func (p *AuthProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	placeholder := presentedPlaceholder(r)
 	if !strings.HasPrefix(placeholder, placeholderPrefix) {
-		deny(w, http.StatusUnauthorized, "unknown placeholder")
+		deny(w, http.StatusForbidden, "unknown placeholder")
 		return
 	}
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		deny(w, http.StatusUnauthorized, "unknown placeholder")
+		deny(w, http.StatusForbidden, "unknown placeholder")
 		return
 	}
 	credential, status, reason := p.credentialFor(r, placeholder, ip)
@@ -125,7 +125,7 @@ func (p *AuthProxy) credentialFor(r *http.Request, placeholder, ip string) (Cred
 	credential, err := p.source.Lookup(r.Context(), placeholder, ip)
 	if err != nil {
 		if err == ErrUnknownPlaceholder {
-			return Credential{}, http.StatusUnauthorized, "unknown placeholder"
+			return Credential{}, http.StatusForbidden, "unknown placeholder"
 		}
 		p.logger.Warn("credential lookup failed")
 		return Credential{}, http.StatusServiceUnavailable, "credential service unavailable"

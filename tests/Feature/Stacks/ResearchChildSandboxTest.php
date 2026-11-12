@@ -40,7 +40,7 @@ function startedResearchChild($test): void
 {
     $test->sandbox->queueExecResult(Process::result());
     $test->sandbox->queueExecResult(Process::result());
-    $test->sandbox->queueExecResult(Process::result("10.0.0.7 \n"));
+    $test->sandbox->queueExecResult(Process::result("2: eth0    inet 10.0.0.7/24 scope global eth0\n"));
     $test->runner->prepare($test->child);
     $test->runner->start($test->child->fresh(), $test->account, 'research prompt');
 }

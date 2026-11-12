@@ -110,7 +110,7 @@ func TestProxyRefusesMissingAndUnknownPlaceholders(t *testing.T) {
 	h := newProxyHarness(t, validCredentials)
 	for _, authorization := range []string{"", "Bearer sk-ant-real", "Bearer yakph-x"} {
 		response := h.do("POST", "/v1/messages", authorization, "10.0.0.5")
-		if response.Code != http.StatusUnauthorized {
+		if response.Code != http.StatusForbidden {
 			t.Fatalf("%q: status %d", authorization, response.Code)
 		}
 		if !strings.Contains(response.Body.String(), `"type":"permission_error"`) || !strings.Contains(response.Body.String(), `"type":"error"`) {
@@ -132,7 +132,7 @@ func TestProxyPassesSourceIPToTheCredentialSource(t *testing.T) {
 
 func TestProxyRefusesAnotherContainersAddress(t *testing.T) {
 	h := newProxyHarness(t, validCredentials)
-	if response := h.do("POST", "/v1/messages", "Bearer yakph-a", "10.0.0.6"); response.Code != http.StatusUnauthorized {
+	if response := h.do("POST", "/v1/messages", "Bearer yakph-a", "10.0.0.6"); response.Code != http.StatusForbidden {
 		t.Fatalf("status %d", response.Code)
 	}
 	if len(h.forwarded()) != 0 {
@@ -149,7 +149,7 @@ func TestProxyIgnoresSpoofedForwardingHeaders(t *testing.T) {
 	request.Header.Set("Forwarded", "for=10.0.0.5")
 	recorder := httptest.NewRecorder()
 	h.proxy.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusUnauthorized {
+	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("status %d", recorder.Code)
 	}
 	if len(h.source.lookups) != 1 || h.source.lookups[0] != "yakph-a|10.0.0.6" {

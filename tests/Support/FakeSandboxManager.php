@@ -5,6 +5,7 @@ namespace Tests\Support;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use App\Services\Threads\SandboxAddress;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 
@@ -124,8 +125,8 @@ class FakeSandboxManager extends IncusSandboxManager
             }
         }
 
-        if ($command === 'hostname -I') {
-            return Process::result($this->containerIp . ' fd00::1');
+        if ($command === SandboxAddress::command()) {
+            return Process::result("4: eth0    inet {$this->containerIp}/24 brd 10.100.0.255 scope global eth0");
         }
 
         if (str_contains($command, 'git rev-list --count origin/')) {

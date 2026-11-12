@@ -82,7 +82,8 @@ class FakeSandboxManager implements SandboxManager
 
         $this->calls[] = ['operation' => 'exec', 'threadId' => $thread->id, 'arguments' => ['command' => $command, 'stdin' => $stdin, 'env' => $env]];
 
-        return array_shift($this->execResults) ?? Process::result();
+        return array_shift($this->execResults)
+            ?? ($command === SandboxAddress::COMMAND ? Process::result("2: eth0    inet 10.100.0.2/24 scope global eth0\n") : Process::result());
     }
 
     public function copyFrom(Thread $source, Thread $target): void

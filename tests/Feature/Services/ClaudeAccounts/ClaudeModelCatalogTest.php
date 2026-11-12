@@ -122,7 +122,7 @@ it('schedules the daily refresh', function () {
 
 it('sends the resolved id to the runner', function () {
     $thread = Thread::factory()->create(['sandbox_container' => 'thread-1', 'sandbox_state' => 'running', 'model' => 'sonnet']);
-    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7 \n"));
+    app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
     $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
     $placeholders->shouldReceive('issue')->andReturn('yakph-test');
 
