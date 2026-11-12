@@ -6,9 +6,9 @@ Welcome! We're glad you're interested in contributing to Yak. This guide will he
 
 ### Requirements
 
-- PHP 8.4+
-- SQLite
-- Node.js 20+
+- PHP 8.5
+- Docker (MariaDB for local development; tests use in-memory SQLite)
+- Node.js 22
 - Composer
 - npm
 

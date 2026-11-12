@@ -1,62 +1,154 @@
-# Claude Accounts
+# Claude accounts
 
-A Claude account is the credential Yak uses to talk to Claude. Every thread runs on exactly one account. There are two kinds: a setup token (from your Claude subscription) and an API key. Accounts you add belong to you. Yak accounts belong to the installation and are used for unattended work.
+A Claude account is the credential Yak uses to talk to Claude. Every thread runs on exactly one account, for its whole life. Add your own account so your work counts against your plan, and read this page when a thread shows "Usage limit reached" or "Token problem".
 
-Yak opens pull requests for human review and serves branch previews. It never merges and never deploys, whichever account it runs on.
+Yak opens pull requests for human review and serves previews. It never merges and never deploys, whichever account it runs on.
 
-## Adding An Account
+## Your accounts and Yak accounts
 
-1. On your own machine, run `claude setup-token` and copy the token it prints. For an API key, copy the key from the Anthropic Console.
-2. In Yak, open Settings > Claude accounts and choose Add account.
-3. Paste the secret and give the account a name, for example "Personal" or "Geocodio work". Setup tokens carry no email or organization, so the name is how you and your teammates tell accounts apart.
-4. Pick an icon and a color. They show next to the account in the thread sidebar and in pickers, so you can see at a glance which account a thread runs on.
+There are two kinds of account owner.
 
-Before saving, Yak checks the secret with one tiny Haiku turn. If the check fails, nothing is saved and the page tells you why. Once saved, the secret is never shown again, not even to you. A setup token is marked to expire one year after you add it. You can edit that date.
+| | Your account | Yak account |
+|---|---|---|
+| Who can add it | Anyone who signs in to Yak | Yak admins only |
+| Who can use it | Only you | Everyone, when they pick it on the new thread page |
+| Who replaces or removes it | You | Yak admins |
+| Used for | Threads you start | Work nobody started (Sentry alerts, Linear automation, flaky tests) and people with no account of their own |
 
-## Defaults
+A Yak admin is a user whose id is listed in `YAK_SYSTEM_ACCOUNT_ADMIN_IDS` (comma separated). Anyone else sees the Yak accounts section with an "Admins only" badge and can read it but not change it. See [Setup](setup.md) for the operator side.
 
-- Overall default: the account Yak uses for you when nothing more specific applies. Mark one account as your default on the Claude accounts page.
-- Per repository: on a repository's page, "Your Claude account for this repo" lets you pick an account, and optionally a model, for that repo only.
-- Model: each account has a default model. A repo default or your choice on a thread overrides it.
+There are two secret types:
 
-## How A Thread Gets Its Account
+- **Setup token**: uses your Claude subscription. Run `claude setup-token` on your own computer and copy the token it prints. Usage counts against your plan.
+- **API key**: a key from the Anthropic Console. Anthropic bills each turn as it runs. Yak sets no spending cap on API keys, so set limits in the Anthropic Console.
+
+## Add an account
+
+1. Open Settings > Claude accounts and choose **Add account**. (Yak admins use **Add Yak account** in the Yak accounts section.)
+2. Pick the **Secret type**: Setup token or API key.
+3. Paste the token or key.
+4. Fill in the other fields (table below) and save.
+
+![The Add a Claude account dialog with the secret type, secret, name and model fields](screenshot-claude-account-add.png)
+
+| Field | What it does |
+|---|---|
+| Secret type | Setup token ("Uses your Claude subscription") or API key ("Billed per use by Anthropic"). |
+| Paste the token / Paste the API key | The secret. Yak never shows it again, not even to you. |
+| Name | How you tell accounts apart, for example "Personal" or "Acme work". Setup tokens carry no email or organization, so the name is the only label. For a Yak account, everyone who can use it sees the name. |
+| Default model | `opus`, `sonnet` or `haiku`. Used when nothing more specific picks a model. |
+| Make this my default account | Your default for every repository without its own setting. It is ticked when you have no default yet. Not shown for Yak accounts. |
+| Icon and color | Shown next to the account in the thread list and in pickers. Change them later under the account's menu, **Edit name and appearance**. |
+
+Before saving, Yak checks the secret with a one-word test message on Haiku ("Sending a one-word test message on Haiku..."). If Claude rejects it, nothing is saved and the dialog shows the reason. A setup token is marked to expire one year after you add it. The **Secret expires** column shows the date.
+
+## Which account a thread uses
 
 When a thread starts, Yak uses the first of these that applies:
 
-1. The account you pick in the picker on the new-task form.
-2. Your default for that repository.
-3. Your overall default account.
-4. The repository's unattended account, then the global Yak account. This is also what a thread uses when nobody started it (Sentry, Linear automation, flaky tests) or when the person who started it has no working account.
+1. The account you pick under **Runs on** on the new thread page. It must be yours or a Yak account.
+2. The account you set for that repository under "Your Claude account for this repo" on the repository's page.
+3. Your default account.
+4. The repository's unattended account.
+5. The global Yak account (the Yak account marked as the default).
 
-The model follows the same order.
+Yak skips any account that is not usable (invalid, expired) and never uses another person's account. Threads that nobody started, such as Sentry alerts and flaky tests, begin at step 4. A thread started from Slack, Linear or email uses the account of the person who started it.
 
-The account is fixed for the life of the thread. Every turn runs on it, including turns sent by other people. This keeps Claude's prompt cache warm. To continue on a different account, start a new thread.
+The account is fixed for the life of the thread. Every turn runs on it, including turns sent by other people. This keeps Claude's prompt cache warm and means a teammate cannot spend your plan on a thread you did not start. To continue on a different account, start a new thread.
 
-## Concurrency
+If no account resolves at all, the task fails with "No Claude account is available. Ask an admin to add a Yak system account."
 
-Each account has a limit on how many turns run at once (1 to 64, default 16). A turn that arrives when the account is full waits and shows its place in the queue. It starts as soon as a slot frees up.
+### Model
 
-## Unattended Work
+The model follows a similar order:
 
-Work nobody asked for directly runs on a Yak account. Admins choose which one per repository, under Unattended account on the repository page. If a repository does not set one, the global Yak account is used. Everyone can see these accounts, only admins can change them.
+1. The model you pick on the new thread page.
+2. The model you set for that repository, when the thread runs on the account you set for that repository.
+3. The account's default model.
+4. `YAK_DEFAULT_MODEL` (default `opus`).
 
-## How Your Token Stays Safe
+### Per repository and unattended work
+
+On a repository's page, "Your Claude account for this repo" sets your own account and model for that repository. Only you see and use it. The Unattended account section sets the Yak account that runs work nobody started. Only admins change it, and when it is unset the global Yak account is used. See [Repositories](repositories.md).
+
+## Turn limit per account
+
+Each account runs at most 1 to 64 turns at once (default 16). To change it for one account, open its menu, choose **Edit name and appearance** and set **Concurrent turns**.
+
+A turn that arrives when the account is full waits. The thread shows **Waiting for the account** with your place in line ("You are number 2 in line"). Your message is saved, nothing needs doing, and the turn starts when a slot frees up.
+
+## Usage limits
+
+Claude can reject a request in two ways, and Yak treats them differently:
+
+- A **usage limit** (HTTP 429 with the `usage_limit_reached` error) means the account has used its plan or quota for now. Yak blocks the thread.
+- A **short rate limit** (a 429 without that error) is a brief slowdown. Yak does not block anything and the turn carries on.
+
+When an account hits a usage limit:
+
+1. Yak interrupts the running turn. It ends as failed and is not replayed.
+2. The thread shows the notice **Usage limit reached** and the status **Token problem**, with the reset time ("Resets at 3:40 PM, in 41 minutes"). Yak uses the reset time Claude reports. If Claude reports none, Yak assumes `YAK_THREADS_USAGE_LIMIT_FALLBACK_MINUTES` minutes (default 60) from the hit.
+3. Every thread on that account is blocked, not only the one that hit the limit.
+4. Yak tells people:
+   - The account owner gets a push notification, an email and, if Slack direct messages are on, a Slack direct message: `Claude account "Personal" hit its usage limit. It resets in 41 minutes.` For a Yak account, the admins get it.
+   - The person who last drove the thread gets the same message, and a "Needs you" push for the thread (see [Notifications](notifications.md)).
+   - Yak sends each of these once per account (and once per driver) per episode of up to six hours, however many threads are blocked.
+5. You can wait, or choose **Start a new thread on another account** in the notice.
+
+When the reset time passes, Yak lifts the block on every thread of that account. The turn that hit the limit does not start again by itself. What happens next depends on what is waiting:
+
+- A message you sent while the thread was blocked is saved. Yak starts it after the block lifts, so Claude reads it after the reset.
+- A task from a channel (Slack, Linear, Sentry, email, GitHub) that tries to start on a blocked account is held and tried again every five minutes until the block lifts.
+- If nothing is waiting, send a message in the thread to continue.
+
+## Invalid and expired tokens
+
+If Claude rejects the token (HTTP 401), Yak marks the account **Needs a new secret**, blocks its threads and tells the owner. Threads show **Token problem**. The owner sees "Your token stopped working" and a link to Settings > Claude accounts. Everyone else on the thread sees "<Owner>'s token stopped working" and can start a new thread on their own account. Yak never falls back to another account, because that would quietly bill someone else.
+
+When a setup token reaches its expiry date, Yak marks the account **Expired** and the thread shows "Your token has expired". Yak warns the owner once, 14 days before the date (Slack direct message and email, "Claude account ... expires soon. Replace its token before it stops working"), and the account row shows an "Expires in N days" badge.
+
+To fix either problem, open the account and choose **Replace secret** (see below). When the new secret passes the check, Yak lifts the token block on the account's threads right away.
+
+## Block reasons
+
+A blocked thread shows one notice above the message box. These are the reasons that relate to accounts and capacity:
+
+| Status pill | Notice | Meaning | What to do |
+|---|---|---|---|
+| Token problem | Usage limit reached | The account hit a usage limit. | Wait for the reset time, or start a new thread on another account. |
+| Token problem | Your token stopped working / Your token has expired | Claude rejected the token, or it passed its expiry date. | Replace the secret under Settings > Claude accounts. |
+| Token problem | "<Owner>'s token stopped working" / "has expired" | The same, on someone else's account. | Ask the owner to replace it, or start a new thread on your own account. |
+| Waiting for the account | Waiting for the account | The account already runs its maximum number of turns. | Nothing. The turn starts when a slot frees up. |
+| Waiting for a sandbox | Waiting for a free sandbox | All sandbox slots are in use. | Nothing, or stop another thread. See [Threads](threads.md). |
+| Token problem | A credential was exposed | A secret appeared where it should not, so Yak stopped the thread. | Replace the secret and ask an admin to check the thread. |
+| Rebuild failed | Rebuilding the sandbox stopped | The sandbox could not be restored. | Retry from the notice. See [Threads](threads.md). |
+
+## Budgets and the runaway guard
+
+Two older budget settings still exist. They apply to Yak's own cost checks, not to the usage of your Claude account:
+
+| Setting | Default | What it gates |
+|---|---|---|
+| `YAK_DAILY_BUDGET_USD` | 50 | Before a task starts a run, a retry, a research run or a follow-up from a channel, Yak compares the cost recorded for today (see Costs in [Dashboard pages](dashboard.md)) with this limit. At or over it, the job fails with "Daily budget of $50.00 exceeded". It never stops a turn that is already running. |
+| `YAK_MAX_BUDGET_PER_TASK` | 5 | A cost cap, in US dollars, for one repository setup run or one PR review run. Thread turns do not use it. |
+
+To stop a single thread turn that runs too long, Yak has a separate runaway guard based on steps and time. See [Threads](threads.md).
+
+## How your token stays safe
 
 The agent in a sandbox has full control of that sandbox, so Yak never puts your real token there.
 
-- Your token stays on the Yak host.
+- Your token stays on the Yak host, stored encrypted.
 - Each running thread gets a random stand-in. It works only from that thread's own sandbox, only for requests to Claude's message API, and only while the thread is alive.
 - A small proxy on the host swaps the stand-in for the real token on each request.
 
-## When An Account Stops Working
+## Teleported threads
 
-If Anthropic rejects the token, Yak marks the account invalid, stops the turn and tells the account's owner in Slack. The message names the account and links to Settings > Claude accounts. Yak never falls back to a different account, because that would quietly bill someone else. If the account runs out of usage, the thread waits and continues when the limit resets.
+When you teleport a thread to your computer, Yak runs no turns on it. Turns you run there use your local Claude login, not the thread's Claude account. When you teleport it back, the thread keeps its account (or gets one by the order above if it had none). See [Teleport](teleport.md).
 
-Yak also warns the owner 14 days before a token expires.
+## Rotate and remove
 
-## Rotating And Removing
+- **Replace secret**: open the account, choose **Replace secret** and paste a new one. Yak checks it the same way as when you add it. If the check fails, the old secret stays.
+- **Remove account**: open the account's menu and choose **Remove account**. The secret is deleted and cannot be recovered. Resting runners on it end. Threads keep their history, are blocked, and their owner starts a new thread on another account to continue. Repositories that used a removed Yak account fall back to the global Yak account.
 
-- Rotate: open the account and paste a new secret. Yak checks it the same way. If the check fails, the old secret stays.
-- Remove: delete the account from the Claude accounts page. Resting runners on it are ended. Threads keep their history and are blocked until their owner starts a new thread on another account.
-
-Only the owner of an account can rotate or remove it. Admins manage the Yak accounts.
+Only the owner of an account can replace or remove it. Admins manage the Yak accounts. Admins also see an **Awake share** card on this page with how many sandboxes each person has awake.
