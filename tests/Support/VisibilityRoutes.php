@@ -189,6 +189,12 @@ class VisibilityRoutes
             'settings.notifications.devices.update', 'settings.notifications.devices.destroy', 'settings.notifications.devices.test',
             // Broker-only SSH protocol behind the internal token: no signed-in user exists to filter for.
             'internal.ssh.authorized-keys', 'internal.ssh.listeners', 'internal.ssh.wake', 'internal.ssh.terminal-redeem', 'internal.ssh.terminal-check', 'internal.ssh.activity',
+            // Home renders the welcome page or redirects to the viewer's most recent thread; the thread query runs under the visibility scope.
+            'home',
+            // Public install script for the CLI; holds no thread data and no secrets.
+            'install',
+            // Admin-only people list and role change; user records only, no thread data.
+            'settings.people', 'settings.people.update',
             // Creates a task; reads nothing of another person's thread.
             'tasks.store', 'tasks.setup-card.dismiss',
             // Token-only public image roles for PR bodies; the route lists nothing and resolves by a 26 character token.
