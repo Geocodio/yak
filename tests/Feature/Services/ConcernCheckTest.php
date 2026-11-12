@@ -55,6 +55,16 @@ test('a file without a patch fails without prompting', function (): void {
     ConcernClassifier::assertNeverPrompted();
 });
 
+test('an empty file list fails without prompting', function (): void {
+    Ai::fakeAgent(ConcernClassifier::class, [classifierAnswer()]);
+
+    $result = (new ConcernCheck)->check(concernList(), []);
+
+    expect($result->isClear())->toBeFalse()
+        ->and($result->failure)->toBe('No changed files to classify.');
+    ConcernClassifier::assertNeverPrompted();
+});
+
 test('a diff over budget fails without prompting', function (): void {
     config(['yak.pr_review.classifier_max_diff_characters' => 100]);
     Ai::fakeAgent(ConcernClassifier::class, [classifierAnswer()]);

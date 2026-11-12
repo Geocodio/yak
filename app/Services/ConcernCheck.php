@@ -19,6 +19,10 @@ class ConcernCheck
      */
     public function check(array $concerns, array $files): ConcernCheckResult
     {
+        if ($files === []) {
+            return ConcernCheckResult::failed('No changed files to classify.');
+        }
+
         foreach ($files as $file) {
             if (! is_string($file['patch'] ?? null)) {
                 return ConcernCheckResult::failed('Diff for ' . ($file['filename'] ?? 'unknown file') . ' is not available.');
