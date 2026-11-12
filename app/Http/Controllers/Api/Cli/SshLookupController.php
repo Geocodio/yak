@@ -63,7 +63,7 @@ class SshLookupController extends Controller
             ],
             'alias' => $thread->name,
             'target' => ['host' => SandboxSshAddress::for($thread), 'port' => 22, 'user' => 'yak'],
-            'host_key_fingerprints' => [],
+            'host_key_fingerprints' => array_values((array) config('yak.ssh.jump_host_key_fingerprints')),
         ]);
     }
 }

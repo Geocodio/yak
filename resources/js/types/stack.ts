@@ -37,6 +37,7 @@ export type StackData = {
     parent: { id: number; name: string; title: string } | null;
     children: StackChild[];
     limit: { current: number; max: number; awake: number; waiting: number };
+    maxChildren: number;
     usage: { turnCount: number; costUsd: number; activeHours: number; note: string };
     messages: StackMessageRow[];
     canDrive: boolean;

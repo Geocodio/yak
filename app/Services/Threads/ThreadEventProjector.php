@@ -50,9 +50,9 @@ class ThreadEventProjector
 
         foreach ((array) ($message['content'] ?? []) as $block) {
             $blocks[] = match ($block['type'] ?? null) {
-                'text' => ['kind' => 'text', 'text' => (string) ($block['text'] ?? '')],
-                'thinking' => ['kind' => 'thinking', 'text' => (string) ($block['thinking'] ?? '')],
-                'tool_use' => ['kind' => 'tool_use', 'toolUseId' => $block['id'] ?? null, 'name' => $block['name'] ?? null, 'input' => $block['input'] ?? (object) []],
+                'text' => ['type' => 'text', 'text' => (string) ($block['text'] ?? '')],
+                'thinking' => ['type' => 'thinking', 'text' => (string) ($block['thinking'] ?? '')],
+                'tool_use' => ['type' => 'tool_use', 'id' => $block['id'] ?? null, 'name' => $block['name'] ?? null, 'input' => $block['input'] ?? (object) []],
                 default => null,
             };
         }

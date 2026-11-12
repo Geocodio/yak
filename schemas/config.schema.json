@@ -22,6 +22,13 @@
       "minimum": 1,
       "description": "Hours a stopped thread sandbox is kept before it is destroyed. Capped by the server (default 168)."
     },
+    "refresh": {
+      "type": "object",
+      "description": "Maps a file glob to the command that runs when a matching file changes.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "ci": {
       "enum": [
         "github_actions",

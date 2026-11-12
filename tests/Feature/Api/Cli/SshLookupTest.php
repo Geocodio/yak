@@ -16,6 +16,14 @@ function sshLookup(int $threadId)
     return test()->getJson("/api/cli/v1/threads/{$threadId}/ssh", cliHeaders(test()->token));
 }
 
+it('returns the configured jump host key fingerprints', function () {
+    config()->set('yak.ssh.jump_host_key_fingerprints', ['SHA256:abc123']);
+    SshKey::factory()->forUser($this->user)->create();
+    $thread = Thread::factory()->paused()->create();
+
+    sshLookup($thread->id)->assertOk()->assertJsonPath('host_key_fingerprints', ['SHA256:abc123']);
+});
+
 it('answers the contract body for a driver with a key', function () {
     SshKey::factory()->forUser($this->user)->create();
     $thread = Thread::factory()->paused()->create();
