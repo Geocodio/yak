@@ -65,6 +65,7 @@ class HandleInertiaRequests extends Middleware
                 return [
                     'success' => $success,
                     'error' => $error,
+                    'connectedAccount' => $request->session()->get('connectedAccount'),
                     'startedThreadId' => $request->session()->get('startedThreadId'),
                     'id' => ($success !== null || $error !== null) ? (string) Str::uuid() : null,
                 ];
