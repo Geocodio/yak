@@ -70,6 +70,9 @@ class ReviewApprovalPolicy
         if ($isYakAuthored) {
             return ['Yak opened this pull request.'];
         }
+        if (trim((string) ($metadata['author'] ?? '')) === '') {
+            return ['Pull request author is unknown.'];
+        }
 
         $concerns = $repository->settings()->concerns();
         if ($concerns === null) {

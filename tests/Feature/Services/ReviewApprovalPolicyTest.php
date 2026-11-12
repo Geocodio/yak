@@ -179,3 +179,14 @@ it('requests changes for a visible must_fix finding in enforce only', function (
     $decision = policyEvaluate(policyFiles(), $review);
     expect($decision['candidate'])->toBe('REQUEST_CHANGES')->and($decision['event'])->toBe('COMMENT');
 });
+
+it('holds when the pull request author is unknown', function (bool $keyPresent) {
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    $metadata = ['pr_number' => 42, 'base_ref' => 'main', 'review_scope' => 'full'];
+    if ($keyPresent) {
+        $metadata['author'] = '';
+    }
+    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, policyReview(), $metadata, policyFiles());
+    expect($decision['candidate'])->not->toBe('APPROVE')->and($decision['reasons'])->toBe(['Pull request author is unknown.']);
+    ConcernClassifier::assertNeverPrompted();
+})->with([true, false]);
