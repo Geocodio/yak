@@ -74,7 +74,9 @@ class User extends Authenticatable
     #[Scope]
     protected function admins(Builder $query): Builder
     {
-        return $query->where('is_admin', true)->orWhereIn($query->getModel()->getQualifiedKeyName(), config('claude-accounts.admin_user_ids'));
+        return $query->where(fn (Builder $admins) => $admins
+            ->where('is_admin', true)
+            ->orWhereIn($query->getModel()->getQualifiedKeyName(), config('claude-accounts.admin_user_ids')));
     }
 
     public function hasLinkedGitHub(): bool

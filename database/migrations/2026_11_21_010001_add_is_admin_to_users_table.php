@@ -13,9 +13,7 @@ return new class extends Migration
             $table->boolean('is_admin')->default(false);
         });
 
-        $configuredAdminIds = array_filter(array_map('intval', explode(',', (string) env('YAK_SYSTEM_ACCOUNT_ADMIN_IDS', ''))));
-
-        if ($configuredAdminIds === []) {
+        if (config('claude-accounts.admin_user_ids') === []) {
             $firstUserId = DB::table('users')->min('id');
 
             if ($firstUserId !== null) {
