@@ -14,22 +14,17 @@ class ClaudeAccountPolicy
 
     public function create(User $user, bool $system = false): bool
     {
-        return ! $system || $this->isAdmin($user);
+        return ! $system || $user->isAdmin();
     }
 
     /** A person manages their own accounts; only an admin manages the Yak-owned ones. */
     public function manage(User $user, ClaudeAccount $account): bool
     {
-        return $account->isSystem() ? $this->isAdmin($user) : $account->owner_user_id === $user->id;
+        return $account->isSystem() ? $user->isAdmin() : $account->owner_user_id === $user->id;
     }
 
     public function useAsUnattended(User $user): bool
     {
-        return $this->isAdmin($user);
-    }
-
-    private function isAdmin(User $user): bool
-    {
-        return in_array($user->id, config('claude-accounts.admin_user_ids'), true);
+        return $user->isAdmin();
     }
 }

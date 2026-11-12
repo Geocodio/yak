@@ -56,7 +56,7 @@ class AccountNotifier
             return [$account->owner];
         }
 
-        return array_values(User::query()->whereKey(config('claude-accounts.admin_user_ids'))->get()->all());
+        return array_values(User::query()->admins()->get()->all());
     }
 
     private function link(): string
