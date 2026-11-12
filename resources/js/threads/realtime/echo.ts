@@ -42,6 +42,9 @@ export function getEcho(env: EchoEnv = import.meta.env): Echo<'reverb'> | null {
             wssPort: port,
             forceTLS: isSecure,
             enabledTransports: ['ws', 'wss'],
+            // A stalled link keeps a dead socket open; ping early so the feed falls back to HTTP within seconds.
+            activityTimeout: 10000,
+            pongTimeout: 8000,
             authEndpoint: '/broadcasting/auth',
             auth: { headers: { 'X-XSRF-TOKEN': xsrfToken(), Accept: 'application/json' } },
         });

@@ -1,4 +1,5 @@
 {{ yak_domain }} {
+    encode zstd gzip
     # Reverb websocket (/app) and signed Pusher HTTP API (/apps); the API
     # is protected by Reverb's HMAC signature check.
     @reverb path /app/* /apps/*

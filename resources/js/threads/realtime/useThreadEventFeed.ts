@@ -2,7 +2,7 @@ import { useEffect, useReducer, useRef } from 'react';
 import type { ThreadEventEnvelope, ThreadEventPointer, ThreadEventState, Viewer } from '../../types/thread-events';
 import { fetchEvent, fetchEventsAfter } from './catchUp';
 import { type ThreadEventFeed } from './feedReducer.ts';
-import { createCatchUpRunner } from './catchUpRunner';
+import { createCatchUpRunner, needsHttpCatchUp } from './catchUpRunner';
 import { getEcho } from './echo';
 import { pollWhileVisible } from './pollWhileVisible';
 import { initialFeed, reduceFeed } from './feedReducer.ts';
@@ -23,6 +23,7 @@ export function useThreadEventFeed(threadId: number): ThreadEventFeed {
     useEffect(() => {
         let isActive = true;
         let hasCaughtUp = false;
+        let lastCatchUpFailed = false;
         dispatch({ kind: 'reset' });
         lastSequence.current = 0;
 
@@ -36,6 +37,8 @@ export function useThreadEventFeed(threadId: number): ThreadEventFeed {
                 }
             },
             onStatus: (connection) => {
+                lastCatchUpFailed = connection === 'offline';
+
                 if (isActive) {
                     dispatch({ kind: 'connection', connection });
                 }
@@ -75,14 +78,12 @@ export function useThreadEventFeed(threadId: number): ThreadEventFeed {
         }
 
         const connection = echo.connector.pusher.connection;
-        let wasDisconnected = false;
 
         const onStateChange = ({ current }: { current: string }): void => {
             if (current === 'unavailable' || current === 'disconnected' || current === 'failed') {
-                wasDisconnected = true;
                 dispatch({ kind: 'connection', connection: 'offline' });
-            } else if (current === 'connected' && wasDisconnected) {
-                wasDisconnected = false;
+            } else if (current === 'connected') {
+                // Every reconnect can hide missed events, also a fast one that never reported the socket as unavailable.
                 void runner.request();
             }
         };
@@ -96,9 +97,8 @@ export function useThreadEventFeed(threadId: number): ThreadEventFeed {
             .leaving((viewer: Viewer) => dispatch({ kind: 'viewers', viewers: viewersRef.current.filter((known) => known.id !== viewer.id) }));
 
         void runner.request();
-        // Until the first catch-up has succeeded, retry over HTTP: the socket only delivers events after it connects.
         const stopPolling = pollWhileVisible(() => {
-            if (!hasCaughtUp) {
+            if (needsHttpCatchUp({ hasCaughtUp, lastCatchUpFailed, socketState: connection.state })) {
                 void runner.request();
             }
         });

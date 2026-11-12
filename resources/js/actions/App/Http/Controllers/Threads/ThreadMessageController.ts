@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::store
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:21
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:22
 * @route '/threads/{thread}/messages'
 */
 export const store = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::store
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:21
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:22
 * @route '/threads/{thread}/messages'
 */
 store.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { thread: number | { id: number } } | [thread: number | { id:
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::store
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:21
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:22
 * @route '/threads/{thread}/messages'
 */
 store.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ store.post = (args: { thread: number | { id: number } } | [thread: number | { id
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:74
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:100
 * @route '/threads/{thread}/stop'
 */
 export const stop = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -74,7 +74,7 @@ stop.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:74
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:100
 * @route '/threads/{thread}/stop'
 */
 stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:74
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:100
 * @route '/threads/{thread}/stop'
 */
 stop.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

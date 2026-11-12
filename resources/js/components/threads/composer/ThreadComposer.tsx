@@ -6,6 +6,7 @@ import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { store as storeMessage } from '@/routes/threads/messages';
 import { stop } from '@/routes/threads';
+import type { SharedProps } from '@/types/shared';
 import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice } from '@/types/threads';
 import { composerCopy } from './composerCopy';
 import { ModelPicker } from './ModelPicker';
@@ -25,6 +26,8 @@ export function ThreadComposer({ thread, composer, notice, teleportState }: { th
         attachment_refs: [],
     });
     const editorRef = useRef<AttachmentTextareaHandle>(null);
+    // One key per draft: a repeat of a send whose answer was lost reaches the server as the same message.
+    const sendKey = useRef<{ text: string; key: string } | null>(null);
     const disabled = composer.state === 'disabled_closed' || composer.state === 'disabled_computer' || composer.state === 'disabled_blocked' || composer.state === 'readonly';
     const working = composer.state === 'working';
     const copy = composerCopy(notice, composer.state, teleportState);
@@ -40,10 +43,19 @@ export function ThreadComposer({ thread, composer, notice, teleportState }: { th
         if (disabled || form.processing || empty) {
             return;
         }
-        form.transform((data) => ({ ...data, attachments: draft.files, attachment_refs: draft.refs }));
+        if (sendKey.current?.text !== form.data.message) {
+            sendKey.current = { text: form.data.message, key: crypto.randomUUID() };
+        }
+        const key = sendKey.current.key;
+        form.transform((data) => ({ ...data, attachments: draft.files, attachment_refs: draft.refs, send_key: key }));
         form.post(storeMessage.url(thread.id), {
             preserveScroll: true,
-            onSuccess: () => {
+            onSuccess: (page) => {
+                // A refusal comes back as a flash error on a successful visit; the draft must survive it.
+                if ((page.props as unknown as SharedProps).flash.error) {
+                    return;
+                }
+                sendKey.current = null;
                 form.setData('message', '');
                 draft.clear();
             },

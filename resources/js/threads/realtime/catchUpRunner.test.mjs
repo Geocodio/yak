@@ -71,3 +71,14 @@ test('a failed fetch goes offline and does not rerun', async () => {
     assert.equal(calls.length, 1);
     assert.equal(statuses.at(-1), 'offline');
 });
+
+test('polls over HTTP until caught up, after a failure, and while the socket is not connected', async () => {
+    const { needsHttpCatchUp } = await import('./catchUpRunner.ts');
+    const healthy = { hasCaughtUp: true, lastCatchUpFailed: false, socketState: 'connected' };
+
+    assert.equal(needsHttpCatchUp(healthy), false);
+    assert.equal(needsHttpCatchUp({ ...healthy, hasCaughtUp: false }), true);
+    assert.equal(needsHttpCatchUp({ ...healthy, lastCatchUpFailed: true }), true);
+    assert.equal(needsHttpCatchUp({ ...healthy, socketState: 'connecting' }), true);
+    assert.equal(needsHttpCatchUp({ ...healthy, socketState: 'unavailable' }), true);
+});

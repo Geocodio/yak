@@ -14,6 +14,7 @@ use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 
 class ThreadMessageController extends Controller
@@ -40,10 +41,19 @@ class ThreadMessageController extends Controller
         $text = (string) $request->validated('message');
         $model = $request->validated('model');
         $task = $thread->tasks()->latest('id')->firstOrFail();
+        $sendKey = $request->validated('send_key');
+        $claim = $sendKey === null ? null : "thread-send:{$thread->id}:{$user?->id}:{$sendKey}";
+
+        // A browser that lost the answer to a send repeats it with the same key; the message is already in.
+        if ($claim !== null && ! Cache::add($claim, true, now()->addMinutes(10))) {
+            return back()->with('success', 'Message sent.');
+        }
 
         try {
             if (ClearCommand::matches($text)) {
                 if (ThreadTurns::activeTurn($thread) !== null) {
+                    $this->release($claim);
+
                     return back()->with('error', 'Stop the running turn before clearing.');
                 }
 
@@ -65,10 +75,26 @@ class ThreadMessageController extends Controller
                 );
             }
         } catch (ThreadBusy) {
+            $this->release($claim);
+
             return back()->with('error', 'This thread is already starting a turn. Give it a moment.');
+        } catch (\Throwable $failure) {
+            $this->release($claim);
+
+            throw $failure;
         }
 
         return back()->with('success', 'Message sent.');
+    }
+
+    /**
+     * A send that did not go through must stay repeatable with the same key.
+     */
+    private function release(?string $claim): void
+    {
+        if ($claim !== null) {
+            Cache::forget($claim);
+        }
     }
 
     public function stop(Request $request, Thread $thread, ThreadTurns $turns): RedirectResponse

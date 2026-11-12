@@ -17,6 +17,7 @@ use App\Services\Threads\ThreadTurns;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Mockery\MockInterface;
 
 function messageThread(array $state = []): array
@@ -152,4 +153,33 @@ it('stores a steer attachment before the runner receives the steer', function ()
         ->assertSessionHas('success');
 
     expect(PendingSteeringMessage::query()->first()->attachments)->toHaveCount(1);
+});
+
+it('takes a repeated send with the same key once', function () {
+    [$thread, , $user] = messageThread();
+    $turns = mockTurns();
+    $turns->shouldReceive('start')->once()->andReturn(new TaskRun);
+    $payload = ['message' => 'hello', 'send_key' => (string) Str::uuid()];
+
+    $this->actingAs($user)->post(route('threads.messages.store', $thread), $payload)->assertSessionHas('success');
+    $this->actingAs($user)->post(route('threads.messages.store', $thread), $payload)->assertSessionHas('success');
+});
+
+it('lets a refused send be repeated with the same key', function () {
+    [$thread, , $user] = messageThread();
+    $turns = mockTurns();
+    $turns->shouldReceive('start')->once()->andThrow(new ThreadBusy('busy'));
+    $turns->shouldReceive('start')->once()->andReturn(new TaskRun);
+    $payload = ['message' => 'hello', 'send_key' => (string) Str::uuid()];
+
+    $this->actingAs($user)->post(route('threads.messages.store', $thread), $payload)->assertSessionHas('error');
+    $this->actingAs($user)->post(route('threads.messages.store', $thread), $payload)->assertSessionHas('success');
+});
+
+it('rejects a send key that is not a uuid', function () {
+    [$thread, , $user] = messageThread();
+    mockTurns()->shouldNotReceive('start');
+
+    $this->actingAs($user)->post(route('threads.messages.store', $thread), ['message' => 'hello', 'send_key' => 'nope'])
+        ->assertSessionHasErrors('send_key');
 });
