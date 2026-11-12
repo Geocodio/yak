@@ -65,3 +65,11 @@ it('scopes admins to the flag or the config list', function () {
         ->and($listed->isAdminByConfig())->toBeTrue()
         ->and($flagged->isAdminByConfig())->toBeFalse();
 });
+
+it('does not make a new user an admin when other users already exist', function () {
+    User::factory()->create();
+
+    signInWithGoogle('late@example.com');
+
+    expect(User::query()->where('email', 'late@example.com')->firstOrFail()->is_admin)->toBeFalse();
+});

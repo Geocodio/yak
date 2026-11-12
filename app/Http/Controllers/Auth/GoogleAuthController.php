@@ -43,7 +43,7 @@ class GoogleAuthController extends Controller
         if (
             $user->wasRecentlyCreated
             && config('claude-accounts.admin_user_ids') === []
-            && User::query()->where('is_admin', true)->doesntExist()
+            && User::query()->count() === 1
         ) {
             $user->forceFill(['is_admin' => true])->save();
         }
