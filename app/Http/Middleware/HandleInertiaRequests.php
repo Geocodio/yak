@@ -57,6 +57,7 @@ class HandleInertiaRequests extends Middleware
                     'name' => $user->name,
                     'email' => $user->email,
                     'initials' => $user->initials(),
+                    'isAdmin' => $user->isAdmin(),
                 ],
             ],
             'flash' => function () use ($request) {

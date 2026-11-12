@@ -14,7 +14,7 @@ export type SetupProps = {
 };
 
 export type SharedProps = {
-    auth: { user: { id: number; name: string; email: string; initials: string } | null };
+    auth: { user: { id: number; name: string; email: string; initials: string; isAdmin: boolean } | null };
     flash: { success?: string | null; error?: string | null; id?: string | null; startedThreadId?: number | null; connectedAccount?: { name: string; kind: string; defaultModel: string | null; expiresAt: string | null } | null };
     nav: { activeTaskCount: number; needsYouCount: number };
     threadList: ThreadListData | null;

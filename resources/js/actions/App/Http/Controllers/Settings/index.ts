@@ -10,6 +10,7 @@ import PushDeviceController from './PushDeviceController'
 import VideoThemeController from './VideoThemeController'
 import ClaudeAccountController from './ClaudeAccountController'
 import DeviceController from './DeviceController'
+import PeopleController from './PeopleController'
 import SshKeyController from './SshKeyController'
 
 const Settings = {
@@ -25,6 +26,7 @@ const Settings = {
     VideoThemeController: Object.assign(VideoThemeController, VideoThemeController),
     ClaudeAccountController: Object.assign(ClaudeAccountController, ClaudeAccountController),
     DeviceController: Object.assign(DeviceController, DeviceController),
+    PeopleController: Object.assign(PeopleController, PeopleController),
     SshKeyController: Object.assign(SshKeyController, SshKeyController),
 }
 

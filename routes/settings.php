@@ -7,6 +7,7 @@ use App\Http\Controllers\Settings\EmailAddressController;
 use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Http\Controllers\Settings\LinearConnectionController;
 use App\Http\Controllers\Settings\NotificationController;
+use App\Http\Controllers\Settings\PeopleController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\PushDeviceController;
 use App\Http\Controllers\Settings\SshKeyController;
@@ -58,6 +59,8 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('settings/claude-accounts/{account}', [ClaudeAccountController::class, 'destroy'])->name('settings.claude-accounts.destroy');
     Route::get('settings/devices', [SettingsDeviceController::class, 'index'])->name('settings.devices');
     Route::delete('settings/devices/{device}', [SettingsDeviceController::class, 'destroy'])->name('settings.devices.destroy');
+    Route::get('settings/people', [PeopleController::class, 'index'])->name('settings.people');
+    Route::patch('settings/people/{user}', [PeopleController::class, 'update'])->name('settings.people.update');
     Route::get('settings/ssh-keys', [SshKeyController::class, 'index'])->name('settings.ssh-keys');
     Route::post('settings/ssh-keys', [SshKeyController::class, 'store'])->name('settings.ssh-keys.store');
     Route::post('settings/ssh-keys/refresh', [SshKeyController::class, 'refresh'])->name('settings.ssh-keys.refresh');

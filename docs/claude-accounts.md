@@ -66,6 +66,6 @@ Only the owner of an account can rotate or remove it. Admins manage the Yak acco
 
 ## Admins
 
-The first person to sign in to a new Yak is its admin. Admins manage the Yak accounts. They also make other people admins in Settings > People (a page added in the same release). Nobody can change their own role.
+The first person to sign in to a new Yak is its admin. Admins manage the Yak accounts. They also promote or demote other people in Settings > People, which only admins can open. Nobody can change their own role, and an admin listed in the server config shows as set there.
 
 `YAK_SYSTEM_ACCOUNT_ADMIN_IDS` is an optional server-side override. It takes a comma-separated list of user ids that count as admins whatever the stored role says. When it is set, the first person to sign in is not made an admin automatically.
