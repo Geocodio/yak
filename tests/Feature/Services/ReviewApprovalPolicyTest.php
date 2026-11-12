@@ -93,6 +93,20 @@ it('holds a floor path and never calls the classifier', function () {
     ConcernClassifier::assertNeverPrompted();
 });
 
+it('holds a file the review path excludes skip, and never calls the classifier', function () {
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    $this->livePullRequest['changed_files'] = 2;
+    $decision = policyEvaluate(policyFiles('app/Thing.php', 'public/build/app.js'), policyReview());
+    expect($decision['reasons'])->toBe(['Not reviewed by Yak: public/build/app.js'])->and($decision['classification'])->toBeNull();
+    ConcernClassifier::assertNeverPrompted();
+});
+
+it('holds a file the repository review path excludes skip', function () {
+    $this->repo->update(['pr_review_path_excludes' => ['generated/**']]);
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    expect(policyEvaluate(policyFiles('generated/schema.php'), policyReview())['reasons'])->toBe(['Not reviewed by Yak: generated/schema.php']);
+});
+
 it('holds an unclean review', function (ParsedReview $review, array $metadata, string $reason) {
     Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
     expect(policyEvaluate(policyFiles(), $review, $metadata)['reasons'])->toContain($reason);

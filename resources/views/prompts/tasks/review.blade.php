@@ -7,7 +7,7 @@ You are reviewing pull request #{{ $prNumber }} in `{{ $baseBranch ?: 'main' }}`
 @if ($reviewScope === 'incremental')
 This is an **incremental review**. Only review changes since the previous Yak review; do NOT re-review code outside that range.
 @endif
-@if ($reviewScope === 'incremental' && ! empty($priorFindings ?? []))
+@if (! empty($priorFindings ?? []))
 ## Prior findings (unresolved threads)
 
 For each finding below, decide its status by reading the new code:

@@ -358,7 +358,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             fn (string $f): bool => ! PathMatcher::matches($f, $pathExcludes),
         ));
 
-        $priorFindings = $scope === 'incremental' && $this->task->pr_url !== null
+        $needsPriorFindings = $scope === 'incremental' || $repository->approvalLevel() >= 2;
+        $priorFindings = $needsPriorFindings && $this->task->pr_url !== null
             ? app(PriorFindingsHydrator::class)->hydrate(
                 $repository->github_full_name,
                 (int) $metadata['pr_number'],
@@ -626,7 +627,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             ]);
         }
 
-        $body = $this->withSecondRoundHint($body, $parsed);
+        $body = $this->withSecondRoundHint($body, $parsed, $repository);
 
         try {
             $response = $github->createPullRequestReview(
@@ -659,7 +660,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             // A rejected submission is never retried as an approval.
             $decision['event'] = 'COMMENT';
             $body .= $policyNote . "\n\nGitHub rejected the original review; posted as a comment only.";
-            $body = $this->withSecondRoundHint($body, $parsed);
+            $body = $this->withSecondRoundHint($body, $parsed, $repository);
             $response = $github->createPullRequestReview(
                 $installationId,
                 $repository->github_full_name,
@@ -736,6 +737,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                     $review->update(['dismissed_at' => now()]);
                 } catch (\Throwable $e) {
                     Log::error('Failed to dismiss stale approval', ['review_id' => $review->id, 'error' => $e->getMessage()]);
+                    DismissYakApprovalJob::dispatch($review->id)->delay(now()->addSeconds(30));
                 }
             }
         }
@@ -756,7 +758,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             foreach ($priorReviews as $prior) {
                 if ($prior->github_review_id !== null) {
                     try {
-                        app(GitHubAppService::class)->dismissPullRequestReview(
+                        app(GitHubAppService::class)->dismissPullRequestReviewOrFail(
                             $installationId,
                             $repository->github_full_name,
                             (int) $metadata['pr_number'],
@@ -768,6 +770,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                             'prior_id' => $prior->id,
                             'error' => $e->getMessage(),
                         ]);
+
+                        continue;
                     }
                 }
 
@@ -930,9 +934,9 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         return "<details>\n<summary>For the reviewer</summary>\n\n" . trim($parsed->summary) . "\n</details>";
     }
 
-    private function withSecondRoundHint(string $body, ParsedReview $parsed): string
+    private function withSecondRoundHint(string $body, ParsedReview $parsed, Repository $repository): string
     {
-        if ($parsed->findings === []) {
+        if ($parsed->findings === [] || $repository->approvalLevel() < 2) {
             return $body;
         }
 

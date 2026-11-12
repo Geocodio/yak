@@ -98,6 +98,7 @@ class ReviewApprovalPolicy
             return ['Changed file list is incomplete.'];
         }
 
+        $reviewExcludes = $repository->settings()->reviewPathExcludes() ?? (array) config('yak.pr_review.default_path_excludes', []);
         $concerns = $repository->settings()->concerns();
         if ($concerns === null) {
             return ['No concerns file (risk-profile.yml version 2) on the default branch.'];
@@ -117,8 +118,18 @@ class ReviewApprovalPolicy
         }
 
         $held = ApprovalFloor::heldPaths($files);
-        if ($held !== []) {
-            return array_map(fn (string $path): string => "Always needs a human: {$path}", $held);
+        $unreviewed = [];
+        foreach ($files as $file) {
+            $path = (string) ($file['filename'] ?? '');
+            if (PathMatcher::matches($path, $reviewExcludes)) {
+                $unreviewed[] = $path;
+            }
+        }
+        if ($held !== [] || $unreviewed !== []) {
+            return [
+                ...array_map(fn (string $path): string => "Always needs a human: {$path}", $held),
+                ...array_map(fn (string $path): string => "Not reviewed by Yak: {$path}", $unreviewed),
+            ];
         }
 
         $reasons = [];

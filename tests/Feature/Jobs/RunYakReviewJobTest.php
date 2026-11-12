@@ -5,10 +5,13 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\IssueFetcher as LinearIssueFetcher;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
+use App\DataTransferObjects\ReviewFinding;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\DismissYakApprovalJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\PrReview;
@@ -188,8 +191,7 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
         ->and($captured['comments'][0]['body'])->not->toContain('```original')
         ->and($captured['body'])->not->toContain('Nitpicks')
         ->and($captured['body'])->toContain('Request a re-review')
-        ->and($captured['body'])->toEndWith('Yak will look again.')
-        ->and($captured['body'])->toContain('When you have addressed these, resolve the threads or comment /yak review, and Yak will look again.')
+        ->and($captured['body'])->not->toContain('Yak will look again.')
         ->and($captured['body'])->toContain(route('tasks.show', $task));
 
     $comment = PrReviewComment::first();
@@ -511,7 +513,7 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
 
     $review = PrReview::where('yak_task_id', $task->id)->first();
     expect($review)->not->toBeNull()
-        ->and($fallbackBody)->toEndWith('Yak will look again.')
+        ->and($fallbackBody)->not->toContain('Yak will look again.')
         ->and($review->risk_assessment['findings_count'])->toBe(1)
         ->and($review->github_review_id)->toBe(42)
         ->and($task->fresh()->status)->toBe(TaskStatus::Success);
@@ -738,7 +740,8 @@ it('dismisses an approval when new commits arrive while it is being submitted', 
     expect(PrReview::where('yak_task_id', $task->id)->firstOrFail()->dismissed_at)->not->toBeNull();
 });
 
-it('leaves dismissed_at null when the stale approval cannot be dismissed', function () {
+it('leaves dismissed_at null and queues a retry when the stale approval cannot be dismissed', function () {
+    Queue::fake();
     [$task, $agent, $github] = approvalHardeningSetup();
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'), approvalLivePullRequest('newer'));
@@ -748,7 +751,9 @@ it('leaves dismissed_at null when the stale approval cannot be dismissed', funct
 
     (new RunYakReviewJob($task))->handle($agent);
 
-    expect(PrReview::where('yak_task_id', $task->id)->firstOrFail()->dismissed_at)->toBeNull();
+    $review = PrReview::where('yak_task_id', $task->id)->firstOrFail();
+    expect($review->dismissed_at)->toBeNull();
+    Queue::assertPushed(DismissYakApprovalJob::class, fn (DismissYakApprovalJob $job): bool => $job->prReviewId === $review->id);
 });
 
 it('never approves when the pull request file list cannot be loaded completely', function () {
@@ -763,4 +768,70 @@ it('never approves when the pull request file list cannot be loaded completely',
     (new RunYakReviewJob($task))->handle($agent);
 
     expect(PrReview::where('yak_task_id', $task->id)->firstOrFail()->risk_assessment['candidate'])->not->toBe('APPROVE');
+});
+
+function runLevelTwoReviewWithPriorFinding(string $status): array
+{
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $previous = PrReview::factory()->create([
+        'yak_task_id' => YakTask::factory()->create(['mode' => TaskMode::Review]),
+        'repo' => 'acme/api', 'pr_number' => 42, 'pr_url' => $task->pr_url, 'github_review_id' => 11,
+        'dismissed_at' => now(),
+    ]);
+    PrReviewComment::factory()->create(['pr_review_id' => $previous->id, 'github_comment_id' => 777]);
+    $parser = mock(ReviewOutputParser::class);
+    $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.', [],
+        priorFindings: [new ParsedPriorFinding(777, $status, 'reply')], risk: 'low'));
+    app()->instance(ReviewOutputParser::class, $parser);
+    $github->shouldReceive('listReviewThreads')->once()->andReturn([]);
+    $github->shouldReceive('replyToReviewComment')->andReturn(['id' => 5]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
+    $event = null;
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(function ($i, $r, $n, $b, $e) use (&$event) {
+        $event = $e;
+
+        return true;
+    })->andReturn(['id' => 123]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    return [$event, PrReview::where('yak_task_id', $task->id)->firstOrFail()];
+}
+
+it('holds a level 2 full re-review while an earlier finding is still outstanding', function () {
+    [$event, $review] = runLevelTwoReviewWithPriorFinding(ParsedPriorFinding::STATUS_STILL_OUTSTANDING);
+
+    expect($event)->toBe('COMMENT')
+        ->and($review->risk_assessment['reasons'])->toContain('An earlier finding is still open.');
+});
+
+it('approves a level 2 full re-review whose earlier findings are fixed', function () {
+    [$event] = runLevelTwoReviewWithPriorFinding(ParsedPriorFinding::STATUS_FIXED);
+
+    expect($event)->toBe('APPROVE');
+});
+
+it('adds the second round hint only at level 2 and up', function () {
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $parser = mock(ReviewOutputParser::class);
+    $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.',
+        [new ReviewFinding('docs/guide.md', 1, 'should_fix', 'Docs', 'Fix it.')], risk: 'low'));
+    app()->instance(ReviewOutputParser::class, $parser);
+    $github->shouldReceive('listReviewThreads')->andReturn([]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
+    $body = null;
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(function ($i, $r, $n, $b) use (&$body) {
+        $body = $b;
+
+        return true;
+    })->andReturn(['id' => 123]);
+    $github->shouldReceive('listReviewComments')->andReturn([]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect($body)->toContain('Yak will look again.');
 });
