@@ -6,6 +6,7 @@ use App\Enums\RunnerState;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
+use App\Services\IncusSandboxManager;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Repos\ThreadRepositoryPrompt;
@@ -60,6 +61,7 @@ class ThreadCommands
                 'placeholder' => $placeholder,
                 'anthropicBaseUrl' => (string) config('yak.threads.auth_proxy_url'),
                 'disallowedTools' => self::DISALLOWED_TOOLS,
+                'passthroughEnv' => IncusSandboxManager::passthroughNames(),
             ],
         ]);
 

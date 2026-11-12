@@ -301,3 +301,13 @@ it('does not forward budget or turn limits to the runner', function () {
 
     expect(($this->sentTo)($this->channel)[0]['start'])->not->toHaveKeys(['maxBudgetUsd', 'maxTurns']);
 });
+
+it('names the operator variables the runner forwards to Claude', function () {
+    config(['yak.agent_passthrough_env' => 'NODE_AUTH_TOKEN, COMPOSER_AUTH']);
+    ($this->feed)('natural-turn-end');
+
+    app(BrokerAgentRunner::class)->run(($this->makeRequest)());
+
+    $start = collect(($this->sentTo)($this->channel))->firstWhere('type', 'start_runner');
+    expect($start['start']['passthroughEnv'])->toBe(['NODE_AUTH_TOKEN', 'COMPOSER_AUTH']);
+});

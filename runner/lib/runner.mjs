@@ -39,7 +39,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
   }
 
   async function run(start) {
-    const secrets = sensitiveValues(environment);
+    const secrets = sensitiveValues(environment, start);
     redactor = createRedactor(secrets);
     hasSecrets = secrets.length > 0;
     activeQuery = query({ prompt: promptStream(), options: buildOptions(start, environment, { yak: yak.server }) });

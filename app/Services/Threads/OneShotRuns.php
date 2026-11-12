@@ -229,6 +229,7 @@ class OneShotRuns
                 'placeholder' => $placeholder,
                 'anthropicBaseUrl' => (string) config('yak.threads.auth_proxy_url'),
                 'disallowedTools' => ['ScheduleWakeup', 'CronCreate', 'CronDelete', 'CronList'],
+                'passthroughEnv' => IncusSandboxManager::passthroughNames(),
             ],
         ];
     }

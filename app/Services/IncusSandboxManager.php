@@ -701,6 +701,17 @@ class IncusSandboxManager implements SandboxShell
     }
 
     /**
+     * The operator's extra variable names (Ansible `agent_extra_env`). The container
+     * holds their values; the agent runner forwards exactly these names to Claude.
+     *
+     * @return list<string>
+     */
+    public static function passthroughNames(): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', (string) config('yak.agent_passthrough_env', '')))));
+    }
+
+    /**
      * Inject opted-in env vars into the Incus container via
      * `incus config set environment.*`. These values are passed to
      * every process started by `incus exec`, so `claude` and anything

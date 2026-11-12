@@ -33,3 +33,16 @@ test('it lists GH_TOKEN as the only sensitive passthrough value', () => {
   assert.deepEqual(sensitiveValues({ GH_TOKEN: 'gh', PATH: '/usr/bin', ANTHROPIC_API_KEY: 'k' }), ['gh']);
   assert.deepEqual(sensitiveValues({ GH_TOKEN: '' }), []);
 });
+
+test('it forwards the operator variables named in the start command and redacts them', () => {
+  const processEnvironment = { PATH: '/usr/bin', NODE_AUTH_TOKEN: 'npm-secret', OTHER: 'kept-out', ANTHROPIC_API_KEY: 'nope', CLAUDE_CODE_OAUTH_TOKEN: 'nope' };
+  const begin = { ...start(), passthroughEnv: ['NODE_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'HOME', 'bad-name', 42] };
+  const environment = buildChildEnvironment(begin, processEnvironment);
+
+  assert.equal(environment.NODE_AUTH_TOKEN, 'npm-secret');
+  assert.equal(environment.OTHER, undefined);
+  assert.equal(environment.ANTHROPIC_API_KEY, undefined);
+  assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN, PLACEHOLDER);
+  assert.equal(environment.HOME, '/home/yak');
+  assert.ok(sensitiveValues(processEnvironment, begin).includes('npm-secret'));
+});

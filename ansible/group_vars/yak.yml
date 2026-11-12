@@ -63,7 +63,8 @@ incus_version_pin: "7.6"
 # 4: playwright 1.62.1 pinned + PLAYWRIGHT_BROWSERS_PATH, required by `yak-browser shoot`.
 # 5: PHP 8.5 from ppa:ondrej/php (patched for CVE-2026-109618 and CVE-2026-109619).
 # 6: the agent runner baked at /opt/yak-runner for thread sandboxes.
-yak_sandbox_base_version: 6
+# 7: the runner forwards the operator variables named in agent_extra_env.
+yak_sandbox_base_version: 7
 
 # Hard ceiling for yak:drain before a container recreate: every in-flight
 # task (Running or Retrying) is force-failed once this many seconds have
