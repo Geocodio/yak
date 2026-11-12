@@ -15,7 +15,7 @@ class EnqueuePrReview
      */
     public function __invoke(Repository $repository, array $prPayload, string $reviewScope, ?string $incrementalBaseSha = null): ?YakTask
     {
-        if (in_array($repository->settings()->reviewPolicy()['mode'], ['shadow', 'enforce'], true)) {
+        if ($repository->approvalLevel() >= 2) {
             $reviewScope = 'full';
             $incrementalBaseSha = null;
         }

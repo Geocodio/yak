@@ -147,7 +147,7 @@ class PromptDefinitions
                 'variables' => [
                     'prNumber', 'prTitle', 'prBody', 'prAuthor',
                     'baseBranch', 'headBranch', 'diffSummary',
-                    'reviewScope', 'changedFiles', 'reviewBase', 'approvedRiskProfile',
+                    'reviewScope', 'changedFiles', 'reviewBase',
                     'repoAgentInstructions', 'pathExcludes', 'linearTicket',
                 ],
             ],

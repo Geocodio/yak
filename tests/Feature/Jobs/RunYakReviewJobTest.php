@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\ConcernClassifier;
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\IssueFetcher as LinearIssueFetcher;
 use App\Contracts\AgentRunner;
@@ -13,13 +14,12 @@ use App\Jobs\SendNotificationJob;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
-use App\Models\RiskProfile;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
-use App\Services\RepositoryRiskProfiles;
 use App\Services\ReviewOutputParser;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+use Laravel\Ai\Ai;
 
 beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 12345);
@@ -613,19 +613,15 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
     expect(PrReview::where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
 
-it('carries the reviewed profile through a full approval and fails closed if it changes', function (bool $changeProfile) {
+it('records the level-based decision and approves a clean docs change at level 2', function () {
+    config(['ai.providers.anthropic.key' => 'sk-ant-test']);
+    Ai::fakeAgent(ConcernClassifier::class, array_fill(0, 2, ['touched_concerns' => [], 'change_kind' => 'no_runtime_change', 'is_uncertain' => false]));
     $repo = Repository::factory()->create([
         'slug' => 'acme/api', 'github_full_name' => 'acme/api',
         'pr_review_enabled' => true, 'is_active' => true,
-        'pr_review_policy' => ['mode' => 'enforce', 'allowed_paths' => ['docs/**'],
-            'required_checks' => [['name' => 'ci', 'app_id' => 123]]],
     ]);
-    $profiles = app(RepositoryRiskProfiles::class);
-    $draft = $profiles->draft($repo->slug, str_repeat('a', 40), json_encode([
-        'areas' => [['name' => 'Docs', 'paths' => ['docs/**'], 'symbols' => [],
-            'risk' => 'low', 'rationale' => 'Docs only.', 'evidence' => ['docs/guide.md:1']]], 'unknowns' => [],
-    ]));
-    $profiles->approve($repo->slug, $draft['version'], 'human');
+    $repo->setApproval(2, 'enforce', null);
+    fakeYakFiles(['risk-profile.yml' => concernsYaml()]);
     $task = YakTask::factory()->create([
         'mode' => TaskMode::Review, 'repo' => $repo->slug,
         'pr_url' => 'https://github.com/acme/api/pull/42',
@@ -637,39 +633,33 @@ it('carries the reviewed profile through a full approval and fails closed if it 
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: "docs/guide.md\n", exitCode: 0));
     app()->instance(IncusSandboxManager::class, $sandbox);
     $agent = mock(AgentRunner::class);
-    $agent->shouldReceive('run')->once()->andReturnUsing(function ($request) use ($draft, $repo, $changeProfile) {
-        expect($request->prompt)->toContain($draft['version']);
-        if ($changeProfile) {
-            RiskProfile::where('repo', $repo->slug)->where('version', $draft['version'])
-                ->update(['approved_by' => null, 'approved_at' => null]);
-        }
-
-        return new AgentRunResult(sessionId: 'approval', resultSummary: 'review', costUsd: 0.01,
-            numTurns: 1, durationMs: 10, isError: false, rawOutput: '');
-    });
-    $signals = ['model_confidence' => 90, 'uncertainties' => [], 'human_review_reasons' => []];
-    foreach (['impact' => 1, 'blast_radius' => 1, 'behavior_change' => 0, 'verification_strength' => 3, 'context_completeness' => 3] as $key => $value) {
-        $signals[$key] = ['value' => $value, 'explanation' => 'Verified.', 'references' => ['docs/guide.md:1']];
-    }
+    $agent->shouldReceive('run')->once()->andReturn(new AgentRunResult(sessionId: 'approval', resultSummary: 'review', costUsd: 0.01,
+        numTurns: 1, durationMs: 10, isError: false, rawOutput: ''));
     $parser = mock(ReviewOutputParser::class);
-    $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.', [], risk: 'low', signals: $signals));
+    $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.', [], risk: 'low'));
     app()->instance(ReviewOutputParser::class, $parser);
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'additions' => 1, 'deletions' => 0, 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
     $github->shouldReceive('getPullRequest')->andReturn(['state' => 'open', 'draft' => false, 'changed_files' => 1,
         'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']], 'base' => ['sha' => 'base', 'ref' => 'main'], 'user' => ['login' => 'alice']]);
     $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
-    $github->shouldReceive('approvalEvidence')->andReturn(['dismiss_stale_reviews' => true, 'threads_clear' => true,
-        'check_runs' => [['name' => 'ci', 'app' => ['id' => 123], 'status' => 'completed', 'conclusion' => 'success']],
-        'total_count' => 1, 'statuses' => [], 'status_count' => 0]);
-    $event = $changeProfile ? 'COMMENT' : 'APPROVE';
-    $github->shouldReceive('createPullRequestReview')->once()->with(12345, 'acme/api', 42, Mockery::type('string'), $event, [], 'head')->andReturn(['id' => 123]);
+    $github->shouldReceive('hasRequiredStatusChecks')->andReturn(true);
+    $github->shouldReceive('createPullRequestReview')->once()
+        ->with(12345, 'acme/api', 42, Mockery::on(fn (string $body): bool => str_contains($body, 'Mode: enforce. DEFCON 2. Decision: APPROVE.')
+            && str_contains($body, 'Approval is not merge authorization.')), 'APPROVE', [], 'head')
+        ->andReturn(['id' => 123]);
     app()->instance(GitHubAppService::class, $github);
+
     (new RunYakReviewJob($task))->handle($agent);
+
     expect($task->fresh()->error_log)->toBeNull();
+    $review = PrReview::where('yak_task_id', $task->id)->firstOrFail();
     expect($task->fresh()->status)->toBe(TaskStatus::Success)
-        ->and(PrReview::where('yak_task_id', $task->id)->firstOrFail()->risk_assessment['event'])->toBe($event);
-})->with([false, true]);
+        ->and($review->risk_assessment['event'])->toBe('APPROVE')
+        ->and($review->risk_assessment['level'])->toBe(2)
+        ->and($review->risk_assessment['classification']['change_kind'])->toBe('no_runtime_change')
+        ->and($review->risk_assessment['head_sha'])->toBe('head');
+});
 
 it('reports a review on a repository with review turned off as a failure', function () {
     Queue::fake([SendNotificationJob::class]);

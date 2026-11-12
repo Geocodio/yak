@@ -31,7 +31,6 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\PriorFindingsHydrator;
 use App\Services\PriorFindingsRollup;
-use App\Services\RepositoryRiskProfiles;
 use App\Services\ReviewApprovalPolicy;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;
@@ -155,7 +154,6 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
             $this->checkoutPrHead($sandbox, $containerName, $repository, $metadata);
             $promptContext = $this->buildPromptContext($sandbox, $containerName, $repository, $metadata);
-            $metadata['risk_profile_version'] = $promptContext['approvedRiskProfile']['version'] ?? null;
             $recorder->mark('git_prepare');
 
             $prompt = YakPromptBuilder::taskPrompt($this->task, $promptContext);
@@ -369,12 +367,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             )
             : [];
 
-        $riskProfile = app(RepositoryRiskProfiles::class)->active($repository->slug);
-        $metadata['risk_profile_version'] = $riskProfile['version'] ?? null;
-        $this->task->update(['context' => json_encode($metadata)]);
-
         return [
-            'approvedRiskProfile' => $riskProfile,
             'prNumber' => (int) $metadata['pr_number'],
             'prTitle' => (string) $metadata['title'],
             'prBody' => (string) $metadata['body'],
@@ -449,7 +442,6 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             findings: $allowed,
             priorFindings: $parsed->priorFindings,
             risk: $parsed->risk,
-            signals: $parsed->signals,
         );
     }
 
@@ -618,14 +610,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         $policyNote = '';
         if ($decision['mode'] !== 'off') {
             $policyNote = "\n\n<details><summary>Yak review policy</summary>\n\n"
-                . "Mode: {$decision['mode']}. Decision: {$decision['candidate']}.\n\n"
-                . 'Risk score: ' . ($decision['risk_score'] ?? 'unknown') . '/100. '
-                . 'Model confidence (subjective): ' . ($decision['model_confidence'] ?? 'unknown') . '/100. '
-                . 'Profile: ' . ($decision['profile_version'] ?? 'missing') . ".\n\n"
+                . "Mode: {$decision['mode']}. DEFCON {$decision['level']}. Decision: {$decision['candidate']}.\n\n"
                 . implode("\n", array_map(fn (string $reason): string => '- ' . $reason, $decision['reasons']))
-                . "\n\nSignals and observed evidence:\n```json\n"
-                . json_encode(['signals' => $unfiltered->signals, 'components' => $decision['score_components'], 'observed' => $decision['observed']], JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE)
-                . "\n```"
                 . "\n\nApproval is not merge authorization. A human still merges.\n</details>";
             $body .= $policyNote;
             TaskLogger::info($this->task, 'Review approval policy evaluated', $decision + [
@@ -689,8 +675,9 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'incremental_base_sha' => $metadata['incremental_base_sha'] ?? null,
             'summary' => $parsed->summary,
             'verdict' => $parsed->verdict,
-            'risk_assessment' => $decision + ['signals' => $unfiltered->signals,
-                'head_sha' => $metadata['head_sha'], 'base_sha' => $metadata['base_sha']],
+            'risk_assessment' => $decision + [
+                'head_sha' => $metadata['head_sha'], 'base_sha' => $metadata['base_sha'],
+            ],
             'submitted_at' => now(),
         ]);
 
@@ -707,10 +694,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'approval_mode' => $decision['mode'],
             'approval_reasons' => $decision['reasons'],
             'risk' => $unfiltered->risk,
-            'risk_score' => $decision['risk_score'],
-            'model_confidence' => $decision['model_confidence'],
-            'risk_profile_version' => $decision['profile_version'],
-            'risk_signals' => $unfiltered->signals,
+            'approval_level' => $decision['level'],
+            'concerns_version' => $decision['concerns_version'],
+            'touched_concerns' => array_column($decision['classification']['touched_concerns'] ?? [], 'name'),
+            'change_kind' => $decision['classification']['change_kind'] ?? null,
             'scope' => (string) ($metadata['review_scope'] ?? 'full'),
             'verdict' => $parsed->verdict,
             'findings' => count($parsed->findings),
