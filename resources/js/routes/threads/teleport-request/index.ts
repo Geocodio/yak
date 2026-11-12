@@ -1,0 +1,123 @@
+import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
+/**
+* @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::store
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
+* @route '/threads/{thread}/teleport-request'
+*/
+export const store = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(args, options),
+    method: 'post',
+})
+
+store.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/teleport-request',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::store
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
+* @route '/threads/{thread}/teleport-request'
+*/
+store.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { thread: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.id
+        : args.thread,
+    }
+
+    return store.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::store
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
+* @route '/threads/{thread}/teleport-request'
+*/
+store.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::destroy
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
+* @route '/threads/{thread}/teleport-request'
+*/
+export const destroy = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+    url: destroy.url(args, options),
+    method: 'delete',
+})
+
+destroy.definition = {
+    methods: ["delete"],
+    url: '/threads/{thread}/teleport-request',
+} satisfies RouteDefinition<["delete"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::destroy
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
+* @route '/threads/{thread}/teleport-request'
+*/
+destroy.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { thread: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.id
+        : args.thread,
+    }
+
+    return destroy.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::destroy
+* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
+* @route '/threads/{thread}/teleport-request'
+*/
+destroy.delete = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+    url: destroy.url(args, options),
+    method: 'delete',
+})
+
+const teleportRequest = {
+    store: Object.assign(store, store),
+    destroy: Object.assign(destroy, destroy),
+}
+
+export default teleportRequest

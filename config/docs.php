@@ -50,7 +50,7 @@ return [
         'channels.sentry' => 'channels/#sentry-optional',
         'channels.email' => 'channels/#email-optional',
         'channels.drone' => 'channels/#drone-ci-optional',
-        'channels.manual' => 'channels/#manual-cli-always-available',
+        'channels.manual' => 'channels/#the-yakrun-command-always-available',
         'channels.adding' => 'channels/#adding-a-new-channel',
 
         // Repositories
@@ -66,15 +66,24 @@ return [
         'repositories.rerun-setup' => 'repositories/#re-running-setup',
         'repositories.routing' => 'repositories/#routing-tasks-to-repos',
 
+        // Teleport
+        'teleport' => 'teleport/',
+        'teleport.install' => 'teleport/#install',
+        'teleport.sign-in' => 'teleport/#sign-in',
+        'teleport.first-teleport' => 'teleport/#first-teleport',
+
+        // Claude accounts
+        'accounts' => 'claude-accounts/',
+
         // PR review
         'pr-review' => 'pr-review/',
 
         // Architecture
         'architecture' => 'architecture/',
-        'architecture.core-loop' => 'architecture/#the-core-loop',
-        'architecture.state-machine' => 'architecture/#the-state-machine',
-        'architecture.sandbox' => 'architecture/#sandbox-isolation-incus',
-        'architecture.jobs' => 'architecture/#jobs-and-queues',
+        'architecture.core-loop' => 'architecture/#the-life-of-a-turn',
+        'architecture.state-machine' => 'architecture/#the-task-state-machine',
+        'architecture.sandbox' => 'architecture/#sandboxes',
+        'architecture.jobs' => 'operations/#queues-and-workers',
 
         // Prompting
         'prompting' => 'prompting/',
@@ -83,10 +92,10 @@ return [
 
         // Troubleshooting
         'troubleshooting' => 'troubleshooting/',
-        'troubleshooting.stuck' => 'troubleshooting/#task-stuck-in-running',
+        'troubleshooting.stuck' => 'troubleshooting/#a-task-is-stuck-in-running',
         'troubleshooting.setup' => 'troubleshooting/#setup-task-fails-for-a-repo',
         'troubleshooting.webhooks' => 'troubleshooting/#webhooks-not-arriving',
-        'troubleshooting.cli' => 'troubleshooting/#claude-cli-errors',
+        'troubleshooting.cli' => 'troubleshooting/#claude-errors',
         'troubleshooting.ci' => 'troubleshooting/#ci-integration-issues',
         'troubleshooting.costs' => 'troubleshooting/#high-costs',
 

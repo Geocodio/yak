@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\SandboxShell;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -21,7 +22,7 @@ class SandboxArtifactCollector
      * Files are stored at {task_id}/{filename} on the artifacts disk,
      * ready for ProcessCIResultJob to process them.
      */
-    public static function collect(IncusSandboxManager $sandbox, string $containerName, YakTask $task): void
+    public static function collect(SandboxShell $sandbox, string $containerName, YakTask $task): void
     {
         $workspacePath = IncusSandboxManager::workspacePath();
         $remotePath = "{$workspacePath}/.yak-artifacts";

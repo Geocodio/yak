@@ -4,6 +4,7 @@ import GitHubCiDetectController from './GitHubCiDetectController'
 import RiskProfileController from './RiskProfileController'
 import RepositoryActionController from './RepositoryActionController'
 import ManifestController from './ManifestController'
+import RepositoryClaudeAccountController from './RepositoryClaudeAccountController'
 
 const Repositories = {
     RepositoryController: Object.assign(RepositoryController, RepositoryController),
@@ -12,6 +13,7 @@ const Repositories = {
     RiskProfileController: Object.assign(RiskProfileController, RiskProfileController),
     RepositoryActionController: Object.assign(RepositoryActionController, RepositoryActionController),
     ManifestController: Object.assign(ManifestController, ManifestController),
+    RepositoryClaudeAccountController: Object.assign(RepositoryClaudeAccountController, RepositoryClaudeAccountController),
 }
 
 export default Repositories

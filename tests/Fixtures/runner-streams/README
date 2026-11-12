@@ -1,0 +1,16 @@
+Scrubbed runner stream recordings. Line 1 of each .jsonl is a header {"fixture","source","scrubbed":true}; every later line is one runner stdout/driver line with an added "_ms" field (milliseconds since the run began; seconds for cutoff-synthetic-user-message). Text, file contents, prompts, names and ids are synthetic; structure and usage numbers are untouched. Uuids are re-generated consistently per file. stream_event partials are dropped where noted.
+
+natural-turn-end.jsonl: one prompt, one assistant reply, one success result, lifecycle completed.
+background-bash-task.jsonl: the model backgrounds a Bash command (background_tasks_changed, task_started) and the turn ends when it finishes.
+background-bash-wake-result.jsonl: background Bash tasks that finish after the first result and wake the model for later results.
+background-subagent.jsonl: background subagents (local_agent tasks), task_progress and task_notification, several results.
+steer-in-grace-window.jsonl: a steer message sent a few seconds after the first result, inside the grace window, starting a new turn.
+steer-during-final-text.jsonl: a steer sent while the final text streams, producing a second result in the same turn (stream_event lines dropped).
+interrupt-priority-now.jsonl: an interrupt with priority "now" cancelling a queued command (command_lifecycle cancelled).
+interrupt-result-without-result-key.jsonl: an interrupted turn whose result is error_during_execution and has no "result" key.
+usage-limit.jsonl: 429 with api_error usage_limit_reached and a rejected rate_limit_event (five_hour), result is_error with terminal_reason api_error.
+transient-429.jsonl: repeated api_retry lines for a plain 429 (no api_error), then a failing result.
+authentication-failed.jsonl: 401 with assistant error authentication_failed from an expired token.
+cutoff-synthetic-user-message.jsonl: a long stall then a synthetic user message ("Your response above was cut off mid-stream") with isSynthetic true (stream_event lines dropped, _ms in seconds).
+runner-exit-mid-turn.jsonl: a real turn prefix followed by a synthetic broker.runner_exited line (exit_code 137) and no result.
+compaction.jsonl: a manual compaction: status compacting, a synthetic compact_boundary line, and the real compact result (local_command "compact").

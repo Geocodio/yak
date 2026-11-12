@@ -2,6 +2,9 @@
 - name: Provision Yak server
   hosts: all
   become: true
+  # A failed task must not drop handlers an earlier task notified: a Caddyfile
+  # written before a failure would otherwise never be loaded.
+  force_handlers: true
   vars_files:
     - vault/secrets.yml
     - group_vars/yak.yml
@@ -67,6 +70,10 @@
           - redis_password is defined and redis_password | length > 0
           - telemetryd_ingest_token is defined and telemetryd_ingest_token | length > 0
           - telemetryd_query_token is defined and telemetryd_query_token | length > 0
+          - yak_session_store_key is defined and yak_session_store_key is match('^[A-Za-z0-9+/]{43}=$')
+          - reverb_app_id is defined and reverb_app_id | length > 0
+          - reverb_app_key is defined and reverb_app_key | length > 0
+          - reverb_app_secret is defined and reverb_app_secret | length > 0
         fail_msg: "Required variables are missing. Check vault/secrets.yml."
       tags: always
 
@@ -120,11 +127,17 @@
     - role: redis
       tags: [redis, yak-container]
 
+    - role: yak-broker
+      tags: [yak-broker]
+
     - role: telemetryd
       tags: [telemetryd, yak-container]
 
     - role: yak-container
       tags: [yak-container, yak-app, secrets]
+
+    - role: yak-ssh
+      tags: [yak-ssh]
 
     # yak-container is included deliberately: the standard deploy runs
     # `--tags yak-container`, and this role installs /usr/local/bin/yak-claude-login,

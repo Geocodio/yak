@@ -478,6 +478,36 @@ class AppService
     }
 
     /**
+     * The name, conclusion and duration of every check run on a commit.
+     *
+     * @return list<array{name: string, conclusion: ?string, durationSeconds: ?int}>
+     */
+    public function getCheckRunSummaries(int $installationId, string $repoSlug, string $commitSha): array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/commits/{$commitSha}/check-runs", ['per_page' => 100]);
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $summaries = [];
+
+        foreach ((array) $response->json('check_runs', []) as $run) {
+            $started = isset($run['started_at']) ? strtotime((string) $run['started_at']) : false;
+            $completed = isset($run['completed_at']) ? strtotime((string) $run['completed_at']) : false;
+
+            $summaries[] = [
+                'name' => (string) ($run['name'] ?? ''),
+                'conclusion' => $run['conclusion'] ?? null,
+                'durationSeconds' => $started !== false && $completed !== false ? max(0, $completed - $started) : null,
+            ];
+        }
+
+        return $summaries;
+    }
+
+    /**
      * The lines of a GitHub Actions job log leading up to its failure.
      *
      * Actions leaves the check run's output empty, so the log is the only
@@ -1610,11 +1640,14 @@ GRAPHQL;
 
     /**
      * A short-lived installation token that can only read, for the agent's
-     * `gh` CLI. It covers every repository the installation sees, so the
-     * agent can also read linked issues and PRs in sibling repositories.
-     * Each call mints a new token, so every agent run gets the full hour.
+     * `gh` CLI. Without `$repositories` it covers every repository the
+     * installation sees; with it (short names, no owner) the token is limited
+     * to those repositories. Each call mints a new token, so every agent run
+     * gets the full hour.
+     *
+     * @param  list<string>|null  $repositories
      */
-    public function getReadOnlyInstallationToken(int $installationId): string
+    public function getReadOnlyInstallationToken(int $installationId, ?array $repositories = null): string
     {
         $client = Http::withToken($this->generateJwt())
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
@@ -1628,6 +1661,10 @@ GRAPHQL;
             throw new \RuntimeException("GitHub installation {$installationId} grants none of the read-only permissions");
         }
 
+        if ($repositories !== null) {
+            return $this->getScopedInstallationToken($installationId, $repositories, $permissions);
+        }
+
         $token = $client->post("https://api.github.com/app/installations/{$installationId}/access_tokens", ['permissions' => $permissions])->json('token');
 
         if (! is_string($token) || $token === '') {
@@ -1635,6 +1672,68 @@ GRAPHQL;
         }
 
         return $token;
+    }
+
+    /**
+     * A short-lived installation token limited to the named repositories (short
+     * names, no owner) and permissions. The response is checked against the
+     * request, and anything wider than asked for throws, so a token is never
+     * installation-wide by accident.
+     *
+     * @param  list<string>  $repositoryNames
+     * @param  array<string, string>  $permissions  permission name to `read`, `write` or `admin`
+     */
+    public function getScopedInstallationToken(int $installationId, array $repositoryNames, array $permissions): string
+    {
+        if ($repositoryNames === [] || $permissions === []) {
+            throw new \RuntimeException('A scoped GitHub token needs at least one repository and one permission');
+        }
+
+        $response = Http::withToken($this->generateJwt())
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->throw()
+            ->post("https://api.github.com/app/installations/{$installationId}/access_tokens", [
+                'repositories' => $repositoryNames,
+                'permissions' => $permissions,
+            ]);
+
+        $token = $response->json('token');
+
+        if (! is_string($token) || $token === '') {
+            throw new \RuntimeException("GitHub returned an empty scoped installation token for installation {$installationId}");
+        }
+
+        $this->assertTokenIsScoped($response->json(), $repositoryNames, $permissions);
+
+        return $token;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $body
+     * @param  list<string>  $repositoryNames
+     * @param  array<string, string>  $permissions
+     */
+    private function assertTokenIsScoped(?array $body, array $repositoryNames, array $permissions): void
+    {
+        $levels = ['read' => 1, 'write' => 2, 'admin' => 3];
+        $allowedNames = array_map('strtolower', $repositoryNames);
+        $returnedNames = array_map(fn (mixed $repository): string => strtolower((string) (is_array($repository) ? ($repository['name'] ?? '') : '')), (array) ($body['repositories'] ?? []));
+
+        if (($body['repository_selection'] ?? null) !== 'selected' || $returnedNames === [] || array_diff($returnedNames, $allowedNames) !== []) {
+            throw new \RuntimeException('GitHub returned a token that is not limited to the requested repositories');
+        }
+
+        $returnedPermissions = $body['permissions'] ?? null;
+
+        if (! is_array($returnedPermissions)) {
+            throw new \RuntimeException('GitHub returned a token without a permission list');
+        }
+
+        foreach ($returnedPermissions as $name => $level) {
+            if (($levels[$level] ?? PHP_INT_MAX) > ($levels[$permissions[$name] ?? ''] ?? 0)) {
+                throw new \RuntimeException("GitHub returned a token with wider permissions than requested ({$name})");
+            }
+        }
     }
 
     private function requestInstallationToken(int $installationId): string

@@ -28,6 +28,7 @@ use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
+use App\Services\Threads\ThreadRetryReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,6 +75,10 @@ class TaskActionController extends Controller
             TaskMode::Review => RunYakReviewJob::class,
             default => RunYakJob::class,
         };
+
+        if ($jobClass === RunYakJob::class) {
+            app(ThreadRetryReset::class)->prepare($task);
+        }
 
         Telemetry::feature('dashboard.retry', ['mode' => $mode->value], task: $task);
 

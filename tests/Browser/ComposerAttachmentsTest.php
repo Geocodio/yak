@@ -5,7 +5,9 @@ use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\ParseMultipartBody;
 
 /**
  * Builds a 1x1 PNG `File` in the page and fires `eventType` at `selector`
@@ -18,7 +20,9 @@ function fireFileEvent(string $selector, string $eventType, string $name = 'imag
 
     return <<<JS
         (() => {
-            const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
+            const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
+            // Trailing bytes derived from the name make differently named files differ in content, which the draft would otherwise merge into one.
+            const bytes = new Uint8Array([...png, ...new TextEncoder().encode('{$name}')]);
             const transfer = new DataTransfer();
             transfer.items.add(new File([bytes], '{$name}', { type: 'image/png' }));
             const target = document.querySelector('{$selector}');
@@ -34,6 +38,7 @@ function fireFileEvent(string $selector, string $eventType, string $name = 'imag
 
 beforeEach(function () {
     Storage::fake('artifacts');
+    app(HttpKernel::class)->prependMiddleware(ParseMultipartBody::class);
     $this->actingAs(User::factory()->create());
 });
 
@@ -323,7 +328,8 @@ test('pasting an image that is already attached adds another token for it, not a
 test('code files preview read-only with highlighting picked from the extension', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
     $php = TaskAttachment::factory()->for($task, 'task')->file('Invoice.php', 'text/x-php')->create(['reference' => 'File #1']);
-    Storage::disk('artifacts')->put($php->disk_path, "<?php\n\nfunction total(\$items) {\n    return array_sum(\$items); // cents\n}\n");
+    // No trailing newline: the browser plugin's server trims streamed file bodies, which would make them shorter than their Content-Length.
+    Storage::disk('artifacts')->put($php->disk_path, "<?php\n\nfunction total(\$items) {\n    return array_sum(\$items); // cents\n}\necho total([1, 2]);");
 
     $page = visit(route('tasks.show', $task))
         ->click("[data-testid=\"sent-attachment-{$php->id}\"] button")

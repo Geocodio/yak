@@ -10,13 +10,12 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
+use App\Exceptions\AccountSlotUnavailable;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
-use App\Jobs\Middleware\EnsureDailyBudget;
-use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\Repository;
@@ -28,6 +27,7 @@ use App\Services\RepositoryConfig;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
+use App\Services\Threads\SetupScriptHash;
 use App\Services\YakConfigFiles;
 use App\Support\MarkdownText;
 use App\Support\TaskContext;
@@ -36,6 +36,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
 class SetupYakJob implements ShouldBeUnique, ShouldQueue
@@ -44,6 +45,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
     use HandlesAgentJobFailure {
         failed as handleAgentJobFailure;
     }
+    use InteractsWithQueue;
     use NotifiesSourceOfFailure;
     use Queueable;
 
@@ -64,14 +66,14 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
     public int $tries = 1;
 
     /**
-     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * Releases from PausesDuringDrain and from a busy Claude account
      * increment the attempt counter, so the worker's --tries=3 would fail a
      * held job after three minutes. This method takes precedence over tries
      * and lets a job wait out a drain or a re-authentication.
      *
      * retryUntil() and $tries=1 only actually collide on the hard-kill path
      * (worker timeout / SIGKILL / OOM): a release from PausesDuringDrain or
-     * HoldsForClaudeAuth never reaches handle(), so it costs nothing but a
+     * a busy account never reaches the agent, so it costs nothing but a
      * queue row and isn't a "retry" in the budget-spending sense $tries=1
      * guards against. A hard kill after the agent has already started is a
      * real retry, and with a 3600s+ timeout on this job that path is the
@@ -118,9 +120,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
     {
         return [
             new PausesDuringDrain,
-            new HoldsForClaudeAuth,
             new ClaimsTaskAtomically,
-            new EnsureDailyBudget,
         ];
     }
 
@@ -238,6 +238,11 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
 
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
             $recorder->mark('post_agent');
+        } catch (AccountSlotUnavailable) {
+            // Every turn slot of the account is taken: back to Pending, so the retry claims the task again.
+            $this->task->update(['status' => TaskStatus::Pending]);
+            TaskLog::query()->where('yak_task_id', $this->task->id)->where('message', 'Starting Claude agent')->delete();
+            $this->release(30);
         } catch (ClaudeAuthException $e) {
             Log::error('SetupYakJob auth failure', [
                 'task_id' => $this->task->id,
@@ -321,6 +326,8 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         // Promote the setup container to a repo template with snapshot.
         // Future tasks for this repo will clone from this snapshot (instant CoW).
         // This also bumps current_template_version to 1+ so DeployBranchJob can proceed.
+        $this->runSetupScript($repository, $sandbox, $containerName);
+        $setupScriptHash = app(SetupScriptHash::class)->forSandbox($containerName);
         $snapshotRef = $sandbox->promoteToTemplate($containerName, $repository);
 
         $this->task->update([
@@ -336,6 +343,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         $repository->update([
             'setup_status' => 'ready',
             'sandbox_snapshot' => $snapshotRef,
+            'setup_script_hash' => $setupScriptHash,
         ]);
 
         app(EnqueuePrReview::class)->releaseHeld($repository);
@@ -347,6 +355,38 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         }
 
         SendNotificationJob::dispatch($this->task, NotificationType::Result, "Repository {$repository->name} is set up. I can work on tasks there now.");
+    }
+
+    /**
+     * Runs the repository's `.yak/setup.sh` in the template sandbox so the
+     * promoted template carries what the script installs. Build credentials
+     * reach it through the exec environment only. A failing script throws, which
+     * fails the setup before the sandbox is promoted.
+     */
+    private function runSetupScript(Repository $repository, IncusSandboxManager $sandbox, string $containerName): void
+    {
+        $workspacePath = IncusSandboxManager::workspacePath();
+
+        if ($sandbox->run($containerName, "[ -f {$workspacePath}/.yak/setup.sh ]", timeout: 30)->exitCode() !== 0) {
+            return;
+        }
+
+        $credentials = array_map('strval', $repository->build_credentials ?? []);
+        $result = $sandbox->run($containerName, "cd {$workspacePath} && bash .yak/setup.sh", timeout: 900, env: $credentials);
+
+        if ($result->failed()) {
+            $output = trim($result->output() . "\n" . $result->errorOutput());
+
+            foreach ($credentials as $credential) {
+                if ($credential !== '') {
+                    $output = str_replace($credential, '[redacted]', $output);
+                }
+            }
+
+            $output = (string) preg_replace('#(://)[^/@\s]+@#', '$1[redacted]@', $output);
+
+            throw new \RuntimeException(".yak/setup.sh failed (exit {$result->exitCode()}): " . mb_strcut($output, 0, 4000));
+        }
     }
 
     /**

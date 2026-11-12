@@ -9,11 +9,18 @@ use App\Providers\ChannelServiceProvider;
 use App\Services\PreviewAccess;
 use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
+use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\FakeBrokerStreams;
+use App\Services\Threads\FakeSandboxManager;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Str;
 use Pest\Browser\Api\AwaitableWebpage;
+use Tests\Support\FakeSessionFileSync;
 use Tests\TestCase;
 
 /*
@@ -30,6 +37,12 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function () {
+        // Thread tests never reach Incus or the pipe broker. Tests that need
+        // the real Redis streams construct RedisBrokerStreams themselves.
+        app()->singleton(SandboxManager::class, FakeSandboxManager::class);
+        app()->singleton(BrokerStreams::class, FakeBrokerStreams::class);
+        app()->singleton(SessionFileSync::class, FakeSessionFileSync::class);
+
         // Slack webhook tests post as arbitrary user IDs. The sender policy
         // tests swap the real SenderPolicy back in with faked Slack lookups.
         app()->instance(SenderPolicy::class, new class extends SenderPolicy
@@ -61,6 +74,10 @@ pest()->extend(TestCase::class)
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function (): void {
+        // Thread ids restart at 1 in every test while Redis outlives them, so each test gets its own event-window key space.
+        config(['yak.threads.realtime_key_prefix' => uniqid('browser-', true) . ':']);
+    })
     ->in('Browser');
 
 /*
@@ -91,6 +108,9 @@ expect()->extend('toBeOne', function () {
 
 require_once __DIR__ . '/Helpers/ClaudeHelpers.php';
 require_once __DIR__ . '/Helpers/AssertionHelpers.php';
+require_once __DIR__ . '/Helpers/LinearHelpers.php';
+require_once __DIR__ . '/Helpers/SlackHelpers.php';
+require_once __DIR__ . '/Helpers/RunnerStreamFixture.php';
 
 /**
  * The card's description is a stretched link (its `::after` pseudo-element
@@ -444,3 +464,17 @@ function previewCookie(string $host, ?int $userId = null): string
 
     return $matches[1];
 }
+
+/**
+ * The ParaTest worker token ("1", "2", ... or "0" outside a parallel run),
+ * for prefixing Redis keys so parallel workers never share state.
+ */
+function parallelToken(): string
+{
+    return (string) (ParallelTesting::token() ?: '0');
+}
+
+pest()->group('browser')->in('Browser');
+pest()->group('contract')->in('Contract');
+
+require_once __DIR__ . '/Feature/Teleport/CliTestHelpers.php';

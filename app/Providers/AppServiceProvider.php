@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
-use App\Agents\SandboxedAgentRunner;
+use App\Agents\BrokerAgentRunner;
 use App\Contracts\AgentRunner;
+use App\Models\Device;
+use App\Models\Thread;
 use App\Models\User;
+use App\Observers\ThreadBlockedPushObserver;
 use App\Services\AppDiskUsage;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxPoolUsage;
@@ -12,14 +15,19 @@ use App\Services\Telemetry\Contracts\TelemetrySink;
 use App\Services\Telemetry\Sinks\DatabaseSink;
 use App\Services\Telemetry\Sinks\NullSink;
 use App\Services\Telemetry\Telemetry;
+use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\RedisBrokerStreams;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
 use Carbon\CarbonImmutable;
 use Cbox\TelemetryUi\Facades\TelemetryUi;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -37,8 +45,9 @@ class AppServiceProvider extends ServiceProvider
         config(['prometheus.enabled' => false]);
 
         $this->app->singleton(IncusSandboxManager::class);
+        $this->app->singleton(BrokerStreams::class, RedisBrokerStreams::class);
 
-        $this->app->bind(AgentRunner::class, fn () => new SandboxedAgentRunner(app(IncusSandboxManager::class)));
+        $this->app->bind(AgentRunner::class, BrokerAgentRunner::class);
 
         // VideoRenderer's constructor takes a primitive `string $videoDir`
         // which Laravel's container can't auto-resolve; without a binding,
@@ -72,10 +81,13 @@ class AppServiceProvider extends ServiceProvider
         app(AppDiskUsage::class)->registerGauges();
         app(SandboxPoolUsage::class)->registerGauges();
         $this->configureTelemetryUi();
+        $this->configureCliRateLimiters();
 
         // Flux previously registered this namespace so `<x-layouts::auth.simple>`
         // resolves to resources/views/layouts/auth/simple.blade.php.
         Blade::anonymousComponentNamespace('layouts', 'layouts');
+
+        Thread::observe(ThreadBlockedPushObserver::class);
 
         // Listeners in app/Listeners are auto-discovered. Registering
         // RecordAiUsage here as well made every AI SDK call write two
@@ -132,5 +144,26 @@ class AppServiceProvider extends ServiceProvider
             by: 'state',
             subtitle: 'Used and size of the Incus ZFS pool that holds the sandboxes',
         );
+    }
+
+    protected function configureCliRateLimiters(): void
+    {
+        RateLimiter::for('cli-device', function (Request $request): Limit {
+            $device = $request->attributes->get('device');
+
+            if ($request->is('api/cli/v1/threads/*/session/*')) {
+                return Limit::none();
+            }
+
+            return Limit::perMinute(120)->by($device instanceof Device ? 'device:' . $device->id : 'ip:' . $request->ip());
+        });
+
+        RateLimiter::for('cli-session', function (Request $request): Limit {
+            $device = $request->attributes->get('device');
+
+            return Limit::perMinute(1200)->by($device instanceof Device ? 'device:' . $device->id : 'ip:' . $request->ip());
+        });
+
+        RateLimiter::for('cli-device-code', fn (Request $request): Limit => Limit::perMinute(10)->by('ip:' . $request->ip()));
     }
 }

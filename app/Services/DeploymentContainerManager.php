@@ -7,6 +7,7 @@ use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
 use App\Models\DeploymentLog;
+use App\Services\Datasets\DatasetClones;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
@@ -29,6 +30,7 @@ class DeploymentContainerManager
     public function __construct(
         private IncusSandboxManager $sandbox,
         private PreviewManifestResolver $manifests,
+        private DatasetClones $datasetClones,
     ) {}
 
     public function createFromTemplate(BranchDeployment $deployment): void
@@ -51,6 +53,8 @@ class DeploymentContainerManager
         // template. Best-effort — never fail the deployment over this.
         Process::timeout(self::QUERY_TIMEOUT)->run("incus config device remove {$deployment->container_name} claude 2>/dev/null");
         Process::timeout(self::QUERY_TIMEOUT)->run("incus config unset {$deployment->container_name} raw.idmap 2>/dev/null");
+
+        $this->datasetClones->attach($deployment, $deployment->repository, $deployment->container_name);
     }
 
     /**
@@ -230,6 +234,8 @@ class DeploymentContainerManager
         if (! $result->successful() && ! str_contains(strtolower($result->errorOutput()), 'not found')) {
             throw new RuntimeException("Failed to destroy container: {$result->errorOutput()}");
         }
+
+        $this->datasetClones->destroyFor($deployment);
     }
 
     private function exec(BranchDeployment $deployment, string $phase, string $command, int $timeoutSeconds, bool $asRoot = false): void

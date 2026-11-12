@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\AwakeShareData;
+use App\Models\ClaudeAccount;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,7 +28,7 @@ class SystemController extends Controller
      */
     private const PATH_PATTERN = '#^(p|explore|entities|entity|traces|errors)/(?!\.\.?$)[A-Za-z0-9_.:-]+$#';
 
-    public function __invoke(?string $path = null): Response
+    public function __invoke(Request $request, ?string $path = null): Response
     {
         $path ??= self::DEFAULT_PATH;
 
@@ -34,6 +37,7 @@ class SystemController extends Controller
         return Inertia::render('System/Index', [
             'telemetryBase' => '/' . trim((string) config('telemetry-ui.path'), '/'),
             'path' => $path,
+            'awakeSlots' => $request->user()?->can('create', [ClaudeAccount::class, true]) ? AwakeShareData::slots() : null,
         ]);
     }
 }

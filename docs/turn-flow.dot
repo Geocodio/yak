@@ -1,0 +1,69 @@
+digraph YakTurnFlow {
+  rankdir=TB;
+  nodesep=0.35;
+  ranksep=0.5;
+  bgcolor="#fafafa";
+  node [fontname="Helvetica", fontsize=11, style="filled,rounded", shape=box, penwidth=1.2];
+  edge [fontname="Helvetica", fontsize=9, color="#555555", penwidth=1.1];
+
+  // amber: entry, indigo: Laravel app, green: host and sandbox, lavender: state, gray: external
+
+  subgraph cluster_entry {
+    label="Entry";
+    style=rounded; color="#9ca3af"; fontname="Helvetica-Bold";
+    channels [label="Channels\nSlack, Linear, Sentry, email,\nGitHub, Drone", fillcolor="#fde68a"];
+    web      [label="Thread page\nCLI, plugin", fillcolor="#fde68a"];
+  }
+
+  task    [label="YakTask\n(or a message on a thread)", fillcolor="#ddd6fe"];
+  entry   [label="Entry job on yak-claude\nRunYakJob, RunFollowUpJob, ...\nmiddleware: drain, claim, repo ready, daily budget", fillcolor="#c7d2fe"];
+  turns   [label="ThreadTurns\nresolve account, take a slot,\nwake the sandbox", fillcolor="#c7d2fe", fontname="Helvetica-Bold"];
+  waiting [label="WaitingForAccount\nWaitingForSandbox", fillcolor="#ddd6fe"];
+
+  channels -> task;
+  web -> task;
+  task -> entry [label="dispatch"];
+  entry -> turns [label="start turn"];
+  turns -> waiting [label="no slot or\nno sandbox", style=dashed];
+  waiting -> turns [label="yak:thread-sandboxes\nretries", style=dashed];
+
+  subgraph cluster_host {
+    label="Host";
+    style=rounded; color="#9ca3af"; fontname="Helvetica-Bold";
+    redis  [label="Redis streams\nthreads:{id}:in / :out", fillcolor="#bbf7d0"];
+    broker [label="yak-broker\nincus exec, auth proxy", fillcolor="#bbf7d0", fontname="Helvetica-Bold"];
+    sandbox [label="Thread sandbox\nyak-thread-{id}\nrunner + Agent SDK", fillcolor="#bbf7d0"];
+    claude [label="Claude API", fillcolor="#e5e7eb"];
+  }
+
+  turns -> redis [label="start_runner, turn"];
+  redis -> broker [label=":in"];
+  broker -> sandbox [label="stdin"];
+  sandbox -> broker [label="JSON lines"];
+  broker -> redis [label=":out"];
+  sandbox -> broker [label="placeholder", style=dashed, constraint=false];
+  broker -> claude [label="real credential", style=dashed];
+
+  drivers [label="yak:thread-drivers\nThreadDriver, TurnTracker\nThreadEventProjector, RunawayGuard\nYakToolRouter", fillcolor="#c7d2fe", fontname="Helvetica-Bold"];
+  reverb  [label="Reverb\nthread page updates", fillcolor="#e5e7eb"];
+  redis -> drivers [label="read, ack"];
+  drivers -> reverb;
+  drivers -> redis [label="tool_result, steer", style=dashed, constraint=false];
+
+  finisher [label="TurnFinisher\nCompleted / Failed / StoppedByGuard", fillcolor="#ddd6fe"];
+  drivers -> finisher [label="grace window\nelapsed"];
+
+  after [label="DispatchAfterTurnWork\none Finish*TurnJob per run kind", fillcolor="#c7d2fe"];
+  finisher -> after [label="TurnCompleted\nTurnFailed"];
+
+  push [label="Push branch\nstatus = AwaitingCi", fillcolor="#bbf7d0"];
+  ci   [label="CI result\nwebhook or poll", fillcolor="#fde68a"];
+  pr   [label="ProcessCIResultJob\nCreatePullRequestJob\nPR opened for review", fillcolor="#c7d2fe", fontname="Helvetica-Bold"];
+  retry [label="Red CI: one retry turn", fillcolor="#e5e7eb"];
+
+  after -> push;
+  push -> ci;
+  ci -> pr [label="green"];
+  ci -> retry [label="red"];
+  retry -> turns [style=dashed, constraint=false];
+}

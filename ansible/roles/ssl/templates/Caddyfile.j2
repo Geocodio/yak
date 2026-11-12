@@ -1,5 +1,21 @@
 {{ yak_domain }} {
-    reverse_proxy localhost:8080
+    encode zstd gzip
+    # Reverb websocket (/app) and signed Pusher HTTP API (/apps); the API
+    # is protected by Reverb's HMAC signature check.
+    @reverb path /app/* /apps/*
+    handle @reverb {
+        reverse_proxy localhost:8080
+    }
+
+    # Browser terminal websocket. The bridge redeems the ticket in the query
+    # string against Yak itself and checks the Origin header.
+    handle /terminal/ws {
+        reverse_proxy {{ yak_ssh_bridge_listen | default('127.0.0.1:8090') }}
+    }
+
+    handle {
+        reverse_proxy localhost:8080
+    }
     tls {
         protocols tls1.2 tls1.3
     }
@@ -15,6 +31,7 @@
         dns {{ caddy_dns_provider }} {{ caddy_dns_provider_api_token }}
     }
 
+{% include 'thread-preview.caddy.j2' %}
     @preview host *.{{ yak_domain }}
     handle @preview {
         # Preview cookie handshake. The dashboard bounce sends the browser

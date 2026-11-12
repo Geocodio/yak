@@ -1,41 +1,57 @@
 <?php
 
+use App\Models\BranchDeployment;
+use App\Models\ClaudeAccount;
+use App\Models\Repository;
 use App\Models\User;
 
 test('the app shell renders the sidebar nav and the command palette opens', function () {
     $this->actingAs(User::factory()->create());
+    Repository::factory()->create(['slug' => 'acme/widgets', 'name' => 'Acme Widgets']);
+    BranchDeployment::factory()->running()->count(3)->create();
 
-    $page = visit('/tasks');
+    $page = visit('/repos');
 
     $page->assertNoJavaScriptErrors();
 
-    foreach ([
-        'Tasks',
-        'Repositories',
-        'Deployments',
-        'PR Reviews',
-        'Prompts',
-        'Costs',
-        'Skills',
-        'MCP servers',
-        'Health',
-        'System',
-        'Settings',
-    ] as $label) {
-        $page->assertSee($label);
+    // The rail groups the destinations into sections; each section drawer
+    // lists its pages, and the thread list is the default.
+    $sections = [
+        'operations' => ['Repositories', 'Deployments', 'PR reviews'],
+        'insights' => ['Analytics', 'Costs', 'Health'],
+        'settings' => ['Prompts', 'Skills', 'MCP servers', 'System'],
+    ];
+
+    $page->click('[data-testid="rail-operations"]')
+        ->assertVisible('[data-testid="ops-repo-acme/widgets"]')
+        ->assertSee('3 running')
+        ->assertSee('Quiet');
+
+    foreach ($sections as $section => $labels) {
+        $page->click('[data-testid="rail-' . $section . '"]')
+            ->assertVisible('[data-testid="section-panel-' . $section . '"]');
+
+        foreach ($labels as $label) {
+            $page->assertSee($label);
+        }
     }
 
-    // Channels lives under Settings, so it is deliberately absent from the
-    // sidebar nav -- but the command palette must still offer it. Scoped to
-    // the nav because unrelated page copy mentions channels.
-    $page->assertMissing('aside nav a[href="/channels"]');
+    // Channels lives in the Settings drawer, which is still open here.
+    $page->assertVisible('[data-testid="section-panel-settings"] a[href="/channels"]');
+
+    $page->assertSee('Account')
+        ->assertSee('Agent')
+        ->assertSee('Workspace')
+        ->assertDontSee('Your profile, prompts')
+        ->click('[data-testid="section-panel-collapse"]')
+        ->assertAttribute('[data-testid="sidebar-panel"]', 'aria-hidden', 'true');
 
     $page->keys('[data-testid="app-shell"]', ['Meta+k']);
 
     $page->assertVisible('[data-testid="app-palette"]');
 
-    // The palette lists every destination, so Channels is still reachable
-    // from anywhere despite leaving the sidebar.
+    // The palette lists every destination, so Channels is reachable from
+    // any page.
     $page->assertVisible('[data-testid="palette-item-Channels"]');
 
     $page->assertNoJavaScriptErrors();
@@ -54,7 +70,7 @@ test('the sidebar shows the Yak brand lockup', function () {
 test('on a phone the sidebar folds into a top bar, a floating tab bar and a navigation drawer', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/tasks')->on()->mobile();
+    $page = visit('/threads/new')->on()->mobile();
 
     // The desktop sidebar is hidden below `lg` and there is no app bar; the
     // floating bar carries the daily pages plus the More slot that opens the
@@ -67,9 +83,11 @@ test('on a phone the sidebar folds into a top bar, a floating tab bar and a navi
         ->assertMissing('[data-testid="mobile-nav"]')
         ->click('[data-testid="mobile-nav-trigger"]')
         ->assertVisible('[data-testid="mobile-nav"]')
-        ->assertVisible('[data-testid="mobile-nav-search"]')
-        ->assertVisible('[data-testid="mobile-nav"] a[href="/repos"]')
+        ->assertVisible('[data-testid="mobile-section-switcher"]')
+        ->click('[data-testid="mobile-section-insights"]')
         ->assertVisible('[data-testid="mobile-nav"] a[href="/health"]')
+        ->click('[data-testid="mobile-section-operations"]')
+        ->assertVisible('[data-testid="mobile-nav"] a[href="/repos"]')
         ->click('[data-testid="mobile-nav"] a[href="/repos"]')
         ->assertPathIs('/repos')
         ->assertMissing('[data-testid="mobile-nav"]')
@@ -77,13 +95,16 @@ test('on a phone the sidebar folds into a top bar, a floating tab bar and a navi
         ->assertNoJavaScriptErrors();
 });
 
-test('on a phone the round button opens the new task dialog from any page', function () {
-    $this->actingAs(User::factory()->create());
+test('on a phone the round button opens the new thread dialog from any page', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
 
     $page = visit('/repos')->on()->mobile();
 
     $page->click('[data-testid="tab-new-task"]')
-        ->assertPathIs('/tasks')
-        ->assertVisible('[data-testid="new-task-dialog"]')
+        ->assertVisible('[data-testid="new-thread-dialog"]')
+        ->assertVisible('[data-testid="start-thread-description"]')
         ->assertNoJavaScriptErrors();
 });

@@ -4,8 +4,11 @@ namespace App\Models;
 
 use App\Enums\TaskRunKind;
 use App\Enums\TaskRunOutcome;
+use App\Enums\TurnState;
+use App\Models\Scopes\VisibleTaskRunScope;
 use Carbon\CarbonImmutable;
 use Database\Factories\TaskRunFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +21,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property TaskRunKind $kind
  * @property TaskRunOutcome|null $outcome
+ * @property TurnState $turn_state
+ * @property int|null $claude_account_id
+ * @property CarbonImmutable|null $account_slot_held_at
+ * @property CarbonImmutable|null $oneshot_heartbeat_at
+ * @property CarbonImmutable|null $oneshot_deadline_at
  * @property CarbonImmutable|null $dispatched_at
  * @property CarbonImmutable $started_at
  * @property CarbonImmutable|null $agent_started_at
@@ -27,13 +35,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<string, array<string, int|float>>|null $model_usage
  * @property array<string, array{calls: int, errors: int, ms: int}>|null $tool_breakdown
  * @property array<string, int>|null $api_retry_breakdown
+ * @property array<string, mixed>|null $last_result_event
+ * @property CarbonImmutable|null $completion_dispatched_at
+ * @property CarbonImmutable|null $child_outcome_recorded_at
  */
+#[ScopedBy(VisibleTaskRunScope::class)]
 class TaskRun extends Model
 {
     /** @use HasFactory<TaskRunFactory> */
     use HasFactory;
 
     protected $guarded = [];
+
+    /** @var array<string, mixed> */
+    protected $attributes = ['turn_state' => 'pending'];
 
     /**
      * @return array<string, string>
@@ -43,6 +58,12 @@ class TaskRun extends Model
         return [
             'kind' => TaskRunKind::class,
             'outcome' => TaskRunOutcome::class,
+            'turn_state' => TurnState::class,
+            'account_slot_held_at' => 'immutable_datetime',
+            'oneshot_heartbeat_at' => 'immutable_datetime',
+            'oneshot_deadline_at' => 'immutable_datetime',
+            'completion_event_emitted_at' => 'datetime',
+            'child_outcome_recorded_at' => 'datetime',
             'resumed' => 'boolean',
             'stale_session_retry' => 'boolean',
             'synthesized_result' => 'boolean',
@@ -55,7 +76,10 @@ class TaskRun extends Model
             'model_usage' => 'json',
             'tool_breakdown' => 'json',
             'api_retry_breakdown' => 'json',
+            'last_result_event' => 'array',
+            'completion_dispatched_at' => 'datetime',
             'cost_usd' => 'decimal:4',
+            'recorded_cost_usd' => 'decimal:4',
         ];
     }
 
@@ -65,5 +89,31 @@ class TaskRun extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(YakTask::class, 'yak_task_id');
+    }
+
+    /**
+     * @return BelongsTo<Thread, $this>
+     */
+    public function thread(): BelongsTo
+    {
+        return $this->belongsTo(Thread::class);
+    }
+
+    /**
+     * @return BelongsTo<ClaudeAccount, $this>
+     */
+    public function claudeAccount(): BelongsTo
+    {
+        return $this->belongsTo(ClaudeAccount::class);
+    }
+
+    /**
+     * The person whose message started the turn; null for unattended work.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'driver_user_id');
     }
 }

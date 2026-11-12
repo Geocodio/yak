@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PendingSteeringMessage extends Model
 {
-    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name'];
+    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'uuid', 'model', 'delivered_at', 'absorbed_at'];
 
     /**
      * @return array<string, string>
@@ -26,6 +26,8 @@ class PendingSteeringMessage extends Model
     {
         return [
             'mode' => SteeringMode::class,
+            'delivered_at' => 'datetime',
+            'absorbed_at' => 'datetime',
         ];
     }
 

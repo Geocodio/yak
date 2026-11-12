@@ -15,15 +15,23 @@ use App\Jobs\FlushFollowUpBatchJob;
 use App\Jobs\HandlePullRequestSummonJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RunConfigCheckJob;
+use App\Jobs\Threads\StartRepositoryTurnJob;
 use App\Jobs\TriageReviewJob;
 use App\Models\BranchDeployment;
 use App\Models\FollowUpPendingComment;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Services\BranchDeploymentProvisioner;
 use App\Services\RepositoryConfig;
 use App\Services\TaskLogger;
+use App\Services\Threads\PullRequests\CiCheckDetails;
+use App\Services\Threads\PullRequests\RepositoryCiRetry;
+use App\Services\Threads\PullRequests\RepositoryTurnPrompts;
+use App\Services\Threads\PullRequests\RoutedPullRequest;
+use App\Services\Threads\PullRequests\SiblingFeedbackGate;
+use App\Services\Threads\PullRequests\ThreadPullRequestRouter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -142,6 +150,18 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'not a yak branch']);
         }
 
+        $routed = $this->routeSiblingEvent(
+            $request,
+            $this->checkSuitePullRequestNumbers($request),
+            $branch,
+            (string) $request->input('check_suite.head_sha', ''),
+            (string) $request->input('check_suite.head_repository.full_name', ''),
+        );
+
+        if ($routed !== null) {
+            return $this->handleSiblingCheckSuite($request, $github, $routed);
+        }
+
         // Follow-ups push to their parent's branch, so the newest task on the
         // branch is the one that pushed the commit CI just reported on.
         $task = YakTask::where('branch_name', $branch)->latest('id')->first();
@@ -176,7 +196,171 @@ class WebhookController extends Controller
 
         $headSha = (string) $request->input('check_suite.head_sha', '');
 
+        if ($task->thread_id !== null) {
+            ThreadRepository::query()
+                ->where('thread_id', $task->thread_id)
+                ->where('role', 'primary')
+                ->update(['ci_checks' => json_encode(CiCheckDetails::collect($github, $repository->github_full_name, $headSha, $output))]);
+        }
+
         ProcessCIResultJob::dispatch($task, $passed, $output, $headSha !== '' ? $headSha : null);
+
+        return response()->json(['ok' => true, 'dispatched' => true]);
+    }
+
+    /**
+     * The thread repo row a PR event belongs to when it is not the primary
+     * repo's: an extra changes repo or a context repo. Null sends the event
+     * down the single-repo task path.
+     *
+     * @param  list<int>  $prNumbers
+     */
+    private function routeSiblingEvent(Request $request, array $prNumbers, ?string $branch = null, ?string $headSha = null, ?string $headRepositoryFullName = null): ?RoutedPullRequest
+    {
+        $repoFullName = (string) $request->input('repository.full_name', '');
+
+        if ($repoFullName === '') {
+            return null;
+        }
+
+        $router = app(ThreadPullRequestRouter::class);
+
+        foreach ($prNumbers !== [] ? $prNumbers : [null] as $number) {
+            $routed = $router->route($repoFullName, $number, $branch, $headSha, $headRepositoryFullName);
+
+            if ($routed !== null) {
+                return $routed->isPrimary ? null : $routed;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function checkSuitePullRequestNumbers(Request $request): array
+    {
+        return array_values(array_filter(
+            array_map(fn (mixed $pullRequest): int => (int) data_get($pullRequest, 'number', 0), (array) $request->input('check_suite.pull_requests', [])),
+        ));
+    }
+
+    private function handleSiblingCheckSuite(Request $request, AppService $github, RoutedPullRequest $routed): JsonResponse
+    {
+        if (! $routed->row->isChangesRepo()) {
+            return response()->json(['ok' => true, 'skipped' => 'context repo']);
+        }
+
+        $repository = Repository::resolveFromGitHub(null, (string) $request->input('repository.full_name'));
+
+        if (! $repository || $repository->settings()->ciSystem() !== 'github_actions') {
+            return response()->json(['ok' => true, 'skipped' => 'wrong CI system']);
+        }
+
+        $passed = $request->input('check_suite.conclusion', 'failure') === 'success';
+        $commitSha = (string) $request->input('check_suite.head_sha', '');
+        $output = null;
+
+        if (! $passed) {
+            $installationId = (int) config('yak.channels.github.installation_id');
+
+            if ($installationId > 0 && $commitSha !== '') {
+                if ($routed->headTask !== null && $this->rerunFailedWorkflowsOnce($github, $routed->headTask, $installationId, $repository->github_full_name, $commitSha)) {
+                    return response()->json(['ok' => true, 'skipped' => 'rerunning failed jobs']);
+                }
+
+                $output = $github->getFailedCheckRunOutput($installationId, $repository->github_full_name, $commitSha);
+            }
+        }
+
+        app(RepositoryCiRetry::class)->handleResult(
+            $routed->row,
+            $passed,
+            $output,
+            $commitSha !== '' ? $commitSha : null,
+            CiCheckDetails::collect($github, $repository->github_full_name, $commitSha, $output),
+        );
+
+        return response()->json(['ok' => true, 'dispatched' => true]);
+    }
+
+    /**
+     * A /yak comment or a review on an extra repo's PR starts a turn on the
+     * thread that names the repo.
+     *
+     * @param  array<string, mixed>  $comment  the `comment` or `review` object
+     */
+    private function handleSiblingFeedback(Request $request, AppService $github, RoutedPullRequest $routed, array $comment, bool $isReview, bool $isReviewComment): JsonResponse
+    {
+        $row = $routed->row;
+
+        if (! $row->isChangesRepo()) {
+            return response()->json(['ok' => true, 'skipped' => 'context repo']);
+        }
+
+        /** @var array<string, mixed> $author */
+        $author = (array) ($comment['user'] ?? []);
+
+        if ($this->isBotAuthor($author, $github)) {
+            return response()->json(['ok' => true, 'skipped' => 'yak authored comment']);
+        }
+
+        $login = (string) ($author['login'] ?? '');
+        $body = (string) ($comment['body'] ?? '');
+        $id = (int) ($comment['id'] ?? 0);
+
+        if ($isReview) {
+            $state = strtolower((string) ($comment['state'] ?? ''));
+            $instructions = app(FollowUpCommentParser::class)->parse($body);
+
+            if ($instructions === null) {
+                return response()->json(['ok' => true, 'skipped' => 'no yak prefix']);
+            }
+
+            $prompt = RepositoryTurnPrompts::review($row, $state, $instructions, $login);
+        } else {
+            $instructions = app(FollowUpCommentParser::class)->parse($body);
+
+            if ($instructions === null) {
+                return response()->json(['ok' => true, 'skipped' => 'no yak prefix']);
+            }
+
+            $prompt = RepositoryTurnPrompts::comment(
+                $row,
+                $instructions,
+                $login,
+                $isReviewComment ? ($comment['path'] ?? null) : null,
+                $isReviewComment ? ($comment['line'] ?? $comment['original_line'] ?? null) : null,
+            );
+        }
+
+        $repoFullName = (string) $request->input('repository.full_name');
+
+        if (! app(SiblingFeedbackGate::class)->permits($repoFullName, [...$author, 'id' => (int) ($request->input('sender.id') ?? $author['id'] ?? 0)])) {
+            return response()->json(['ok' => true, 'skipped' => 'commenter lacks write access']);
+        }
+
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if ($installationId > 0 && $id > 0 && ! $isReview) {
+            $github->addReaction($installationId, $repoFullName, $id, 'eyes', isReviewComment: $isReviewComment);
+        }
+
+        if (! $row->hasOpenPullRequest()) {
+            if ($installationId > 0 && $row->pull_request_number !== null) {
+                $github->commentOnPullRequest(
+                    $installationId,
+                    $repoFullName,
+                    $row->pull_request_number,
+                    "This PR is already merged or closed, so I can't push more changes here. Open a new issue or task and I'll pick it up.",
+                );
+            }
+
+            return response()->json(['ok' => true, 'skipped' => 'pr not open']);
+        }
+
+        StartRepositoryTurnJob::dispatch($row->id, $prompt, $id ?: null);
 
         return response()->json(['ok' => true, 'dispatched' => true]);
     }
@@ -298,7 +482,16 @@ class WebhookController extends Controller
             $sha = (string) $request->input('pull_request.head.sha');
             $prNumber = (int) $request->input('pull_request.number');
 
-            $deployment = app(BranchDeploymentProvisioner::class)->provision($repo, $branch);
+            $headRepository = (string) $request->input('pull_request.head.repo.full_name', '');
+
+            // A deleted fork sends no head repo; the sentinel keeps it unlinked.
+            $deployment = app(BranchDeploymentProvisioner::class)->provision(
+                $repo,
+                $branch,
+                $prNumber,
+                $headRepository !== '' ? $headRepository : 'unknown/unknown',
+                $sha,
+            );
             $deployment->update([
                 'pr_number' => $prNumber,
                 'pr_state' => 'open',
@@ -416,6 +609,12 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'not a PR comment']);
         }
 
+        $routed = $this->routeSiblingEvent($request, [(int) $request->input('issue.number')]);
+
+        if ($routed !== null) {
+            return $this->handleSiblingFeedback($request, $github, $routed, (array) $request->input('comment', []), isReview: false, isReviewComment: false);
+        }
+
         $prUrl = (string) data_get($request->all(), 'issue.pull_request.html_url', '');
 
         $root = $prUrl !== '' ? YakTask::followUpRootForPr($prUrl) : null;
@@ -465,6 +664,12 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'not a created comment']);
         }
 
+        $routed = $this->routeSiblingEvent($request, [(int) $request->input('pull_request.number')]);
+
+        if ($routed !== null) {
+            return $this->handleSiblingFeedback($request, $github, $routed, (array) $request->input('comment', []), isReview: false, isReviewComment: true);
+        }
+
         $prUrl = (string) $request->input('pull_request.html_url', '');
 
         return $this->processFollowUpComment($request, $github, $prUrl, isReviewComment: true);
@@ -494,6 +699,12 @@ class WebhookController extends Controller
 
         if ($this->isBotAuthor($reviewer, $github)) {
             return response()->json(['ok' => true, 'skipped' => 'yak authored review']);
+        }
+
+        $routed = $this->routeSiblingEvent($request, [(int) $request->input('pull_request.number')]);
+
+        if ($routed !== null) {
+            return $this->handleSiblingFeedback($request, $github, $routed, $review, isReview: true, isReviewComment: false);
         }
 
         $prUrl = (string) $request->input('pull_request.html_url', '');

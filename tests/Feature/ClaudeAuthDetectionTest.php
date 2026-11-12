@@ -4,17 +4,11 @@ use App\Contracts\AgentRunner;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
-use App\Jobs\ResearchYakJob;
-use App\Jobs\RetryYakJob;
-use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
-use App\Services\HealthCheck\ClaudeAuthCheck;
-use App\Services\HealthCheck\HealthStatus;
-use App\Services\HealthCheck\Registry;
 use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -171,113 +165,6 @@ test('formats auth error message with details', function () {
 
 /*
 |--------------------------------------------------------------------------
-| RunYakJob Auth Error Detection
-|--------------------------------------------------------------------------
-*/
-
-test('RunYakJob detects auth error and fails task with notification', function () {
-    Queue::fake([SendNotificationJob::class]);
-
-    $fake = (new FakeAgentRunner)->queueException(
-        new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
-    );
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-
-    Process::fake(['*' => Process::result('')]);
-
-    $repository = Repository::factory()->create(['slug' => 'auth-repo', 'path' => '/home/yak/repos/auth-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'auth-repo', 'source' => 'slack']);
-
-    $job = new RunYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-
-    expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->error_log)->toContain('Claude CLI authentication error')
-        ->and($task->completed_at)->not->toBeNull();
-
-    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) use ($task) {
-        return $job->task->id === $task->id
-            && $job->type === NotificationType::Error
-            && str_contains($job->message, 'authentication');
-    });
-});
-
-/*
-|--------------------------------------------------------------------------
-| RetryYakJob Auth Error Detection
-|--------------------------------------------------------------------------
-*/
-
-test('RetryYakJob detects auth error and fails task with notification', function () {
-    Queue::fake([SendNotificationJob::class]);
-
-    $fake = (new FakeAgentRunner)->queueException(
-        new ClaudeAuthException('Claude CLI authentication error: token expired')
-    );
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-
-    Process::fake(['*' => Process::result('')]);
-
-    $repository = Repository::factory()->create(['slug' => 'retry-repo', 'path' => '/home/yak/repos/retry-repo']);
-    $task = YakTask::factory()->create([
-        'repo' => 'retry-repo',
-        'status' => TaskStatus::Retrying,
-        'session_id' => 'sess_old',
-        'source' => 'linear',
-    ]);
-
-    $job = new RetryYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-
-    expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->error_log)->toContain('Claude CLI authentication error');
-
-    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
-        return $job->type === NotificationType::Error;
-    });
-});
-
-/*
-|--------------------------------------------------------------------------
-| ResearchYakJob Auth Error Detection
-|--------------------------------------------------------------------------
-*/
-
-test('ResearchYakJob detects auth error and fails task with notification', function () {
-    Queue::fake([SendNotificationJob::class]);
-
-    $fake = (new FakeAgentRunner)->queueException(
-        new ClaudeAuthException('Claude CLI authentication error: authentication_error: invalid_api_key')
-    );
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-
-    Process::fake(['*' => Process::result('')]);
-
-    $repository = Repository::factory()->create(['slug' => 'research-repo', 'path' => '/home/yak/repos/research-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'research-repo', 'source' => 'slack']);
-
-    $job = new ResearchYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-
-    expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->error_log)->toContain('Claude CLI authentication error');
-
-    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
-        return $job->type === NotificationType::Error;
-    });
-});
-
-/*
-|--------------------------------------------------------------------------
 | SetupYakJob Auth Error Detection
 |--------------------------------------------------------------------------
 */
@@ -314,53 +201,3 @@ test('SetupYakJob detects auth error and fails task with notification', function
 | Health Check Claude Auth Verification
 |--------------------------------------------------------------------------
 */
-
-test('health check reports healthy when claude auth is valid', function () {
-    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
-    mkdir($configDir);
-    file_put_contents(dirname($configDir) . '/' . basename($configDir) . '.json', '{}');
-    file_put_contents(dirname($configDir) . '/.claude.json', '{}');
-    config()->set('yak.sandbox.claude_config_source', $configDir);
-
-    Process::fake([
-        '*claude --model claude-haiku-4-5*' => Process::result(output: 'ok'),
-    ]);
-
-    $result = (new ClaudeAuthCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Ok);
-
-    @unlink(dirname($configDir) . '/.claude.json');
-    @rmdir($configDir);
-});
-
-test('health check classifies a bare 401 in its own narrow probe output as an auth failure', function () {
-    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
-    mkdir($configDir);
-    file_put_contents(dirname($configDir) . '/' . basename($configDir) . '.json', '{}');
-    file_put_contents(dirname($configDir) . '/.claude.json', '{}');
-    config()->set('yak.sandbox.claude_config_source', $configDir);
-
-    Process::fake([
-        '*claude --model claude-haiku-4-5*' => Process::result(
-            output: '',
-            errorOutput: 'API Error: 401',
-            exitCode: 1,
-        ),
-    ]);
-
-    $result = (new ClaudeAuthCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->detail)->toContain('re-authenticate');
-
-    @unlink(dirname($configDir) . '/.claude.json');
-    @rmdir($configDir);
-});
-
-test('registry includes claude auth check', function () {
-    $check = collect(app(Registry::class)->all())
-        ->first(fn ($c) => $c->id() === 'claude-auth');
-
-    expect($check)->not->toBeNull();
-});

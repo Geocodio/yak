@@ -1,3 +1,5 @@
+import type { ModelFamily, PickerAccount } from '@/types/claudeAccounts';
+
 export type RepositorySummary = {
     slug: string;
     name: string;
@@ -165,4 +167,15 @@ export type CoOwnerGateStatus = {
     owners: { resolvable: string[]; total: number; resolvedEntries: number; teamsSkipped: string[] };
     fallbackOwner: { name: string; resolves: boolean } | null;
     appSettingsUrl: string | null;
+};
+
+/** Mirrors the array shape returned by App\Http\Resources\RepositoryClaudeAccountData. */
+export type RepositoryClaudeAccounts = {
+    accounts: PickerAccount[];
+    mySetting: { accountId: number | null; model: string | null };
+    unattendedAccountId: number | null;
+    globalSystemAccountId: number | null;
+    canChangeUnattended: boolean;
+    models: ModelFamily[];
+    docsUrl: string;
 };

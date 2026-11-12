@@ -1,25 +1,24 @@
 <?php
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Enums\TurnState;
+use App\Jobs\AfterTurn\FinishResearchFollowUpTurnJob;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
 use App\Models\Artifact;
-use App\Models\Repository;
+use App\Models\TaskRun;
+use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\FollowUpTaskFactory;
-use App\Services\IncusSandboxManager;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
-use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
+
+require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
 
 function finishedResearchTask(array $overrides = []): YakTask
 {
@@ -31,19 +30,6 @@ function finishedResearchTask(array $overrides = []): YakTask
         'result_summary' => 'Three retry strategies fit the client.',
         'pr_url' => null,
     ]);
-}
-
-function researchAnswer(string $summary = 'Backoff is cheapest.'): AgentRunResult
-{
-    return new AgentRunResult(
-        sessionId: 'sess_research',
-        resultSummary: $summary,
-        costUsd: 0.5,
-        numTurns: 4,
-        durationMs: 5000,
-        isError: false,
-        rawOutput: '{}',
-    );
 }
 
 /*
@@ -142,65 +128,60 @@ test('the research artifact link points at the newest report in the conversation
 |--------------------------------------------------------------------------
 */
 
-function runResearchFollowUp(FakeAgentRunner $agent, FakeSandboxManager $sandbox, YakTask $child): void
+/**
+ * Writes a research follow-up turn for the child and finishes it with the given answer.
+ *
+ * @param  array{task: YakTask, thread: Thread, shell: FakeSandboxManager, sent: array<int, array<string, string>>}  $context
+ */
+function runResearchFollowUp(array $context, string $answer = 'Backoff is cheapest.', bool $isError = false): void
 {
-    app()->instance(AgentRunner::class, $agent);
-    app()->instance(IncusSandboxManager::class, $sandbox);
-    Process::fake(['*' => Process::result('')]);
-    Http::fake();
+    (new ResearchFollowUpJob($context['task']->refresh()))->handle();
 
-    (new ResearchFollowUpJob($child))->handle($agent);
+    $run = TaskRun::query()->where('yak_task_id', $context['task']->id)->sole();
+    $run->forceFill([
+        'turn_state' => $isError ? TurnState::Failed : TurnState::Completed,
+        'last_result_event' => resultEvent($answer, $isError ? ['is_error' => true, 'subtype' => 'error_during_execution'] : []),
+        'assistant_turns' => 1,
+    ])->save();
+    runFinisher($run, FinishResearchFollowUpTurnJob::class);
 }
 
-function researchFollowUpFixture(): YakTask
+/**
+ * @return array{task: YakTask, thread: Thread, shell: FakeSandboxManager, sent: array<int, array<string, string>>}
+ */
+function researchFollowUpFixture(?FakeSandboxManager $shell = null): array
 {
-    Repository::factory()->create(['slug' => 'research-repo', 'path' => '/home/yak/repos/research-repo']);
+    Queue::fake();
     Storage::fake('artifacts');
+    $context = pendingRunYak(['mode' => TaskMode::Research, 'source' => 'dashboard', 'description' => 'Which is cheapest?'], $shell);
 
-    $head = finishedResearchTask();
+    $head = finishedResearchTask(['repo' => 'test-repo', 'thread_id' => $context['thread']->id]);
     Storage::disk('artifacts')->put("{$head->id}/research.html", '<html>first report</html>');
     Artifact::create(['yak_task_id' => $head->id, 'type' => 'research', 'role' => null, 'filename' => 'research.html', 'disk_path' => "{$head->id}/research.html", 'size_bytes' => 10]);
+    $context['task']->update(['parent_task_id' => $head->id]);
 
-    return YakTask::factory()->pending()->create([
-        'parent_task_id' => $head->id,
-        'mode' => TaskMode::Research,
-        'source' => 'dashboard',
-        'repo' => 'research-repo',
-        'session_id' => 'sess_research',
-        'description' => 'Which is cheapest?',
-    ]);
+    return $context;
 }
 
-test('a research follow-up resumes the session and carries the previous answer and report', function () {
-    $child = researchFollowUpFixture();
-    $agent = (new FakeAgentRunner)->queueResult(researchAnswer());
-    $sandbox = new FakeSandboxManager;
+test('a research follow-up resumes the thread and carries the previous answer and report', function () {
+    $context = researchFollowUpFixture();
 
-    runResearchFollowUp($agent, $sandbox, $child);
+    runResearchFollowUp($context);
 
-    $request = $agent->lastCall();
-    expect($request->resumeSessionId)->toBe('sess_research')
-        ->and($request->prompt)->toContain('Which is cheapest?')
-        ->and($request->prompt)->toContain('Three retry strategies fit the client.')
-        ->and($request->prompt)->toContain('.yak-artifacts/previous-research.html');
-
-    expect($sandbox->pushedTranscripts)->toBe(['sess_research'])
-        ->and($sandbox->pulledTranscripts)->not->toBeEmpty()
-        ->and($sandbox->destroyedContainers)->toHaveCount(1);
-
-    $child->refresh();
-    expect($child->status)->toBe(TaskStatus::Success)
+    $child = $context['task']->fresh();
+    expect($context['sent'][1]['text'])->toContain('Which is cheapest?')
+        ->toContain('Three retry strategies fit the client.')
+        ->toContain('.yak-artifacts/previous-research.html')
+        ->and($context['shell']->commandsMatching('.yak-artifacts'))->not->toBe([])
+        ->and($child->status)->toBe(TaskStatus::Success)
         ->and($child->result_summary)->toBe('Backoff is cheapest.')
         ->and($child->started_at)->not->toBeNull()
         ->and($child->completed_at)->not->toBeNull()
-        ->and($child->claimed_job_class)->toBe(ResearchFollowUpJob::class)
         ->and(Artifact::where('yak_task_id', $child->id)->count())->toBe(0);
 });
 
 test('a research follow-up that writes a revised report stores it as a new research artifact', function () {
-    $child = researchFollowUpFixture();
-    $agent = (new FakeAgentRunner)->queueResult(researchAnswer());
-    $sandbox = new class extends FakeSandboxManager
+    $shell = new class extends FakeSandboxManager
     {
         public function fileExists(string $containerName, string $path): bool
         {
@@ -215,9 +196,11 @@ test('a research follow-up that writes a revised report stores it as a new resea
             file_put_contents($localPath, '<html>revised</html>');
         }
     };
+    $context = researchFollowUpFixture($shell);
 
-    runResearchFollowUp($agent, $sandbox, $child);
+    runResearchFollowUp($context);
 
+    $child = $context['task']->fresh();
     $artifact = Artifact::where('yak_task_id', $child->id)->first();
     expect($artifact)->not->toBeNull()
         ->and($artifact->type)->toBe('research')
@@ -226,40 +209,30 @@ test('a research follow-up that writes a revised report stores it as a new resea
 });
 
 test('a research follow-up fails the task when the agent errors', function () {
-    $child = researchFollowUpFixture();
-    $agent = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_research', resultSummary: 'boom', costUsd: 0.0, numTurns: 1, durationMs: 1,
-        isError: true, rawOutput: '{}',
-    ));
+    $context = researchFollowUpFixture();
 
-    runResearchFollowUp($agent, new FakeSandboxManager, $child);
+    runResearchFollowUp($context, 'boom', isError: true);
 
-    expect($child->fresh()->status)->toBe(TaskStatus::Failed);
+    expect($context['task']->fresh()->status)->toBe(TaskStatus::Failed);
 });
 
 test('a research follow-up that asks parks the child task', function () {
-    Queue::fake();
-    $child = researchFollowUpFixture();
-    $agent = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_research', resultSummary: 'Need a call', costUsd: 0.1, numTurns: 1, durationMs: 10,
-        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
-    ));
+    $context = researchFollowUpFixture();
+    $block = "```clarification\n" . json_encode(['questions' => [sampleQuestion('scope')->toArray()]]) . "\n```";
 
-    runResearchFollowUp($agent, new FakeSandboxManager, $child);
+    runResearchFollowUp($context, "Need a call\n\n{$block}");
 
-    expect($child->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
-        ->and(Artifact::where('yak_task_id', $child->id)->count())->toBe(0);
+    expect($context['task']->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and(Artifact::where('yak_task_id', $context['task']->id)->count())->toBe(0);
 });
 
-test('a research follow-up resumed with answers uses the answers prompt', function () {
-    Queue::fake();
-    $child = researchFollowUpFixture();
+test('a research follow-up resumed with answers sends the answers prompt', function () {
+    $context = researchFollowUpFixture();
+    $child = $context['task'];
     $child->update(['clarification_rounds' => YakTask::factory()->withClarificationQuestions()->make()->clarification_rounds]);
     $child->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
-    $agent = (new FakeAgentRunner)->queueResult(researchAnswer());
 
-    runResearchFollowUp($agent, new FakeSandboxManager, $child->fresh());
+    (new ResearchFollowUpJob($child->fresh()))->handle();
 
-    expect($agent->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small")
-        ->and($agent->lastCall()->resumeSessionId)->toBe('sess_research');
+    expect($context['sent'][1]['text'])->toContain("Q: Which scope?\nA: Small");
 });

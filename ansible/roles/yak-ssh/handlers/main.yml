@@ -1,0 +1,19 @@
+---
+- name: Reload systemd (yak-ssh)
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart yak-jump-sshd
+  ansible.builtin.systemd:
+    name: yak-jump-sshd
+    state: restarted
+
+- name: Restart yak-wake
+  ansible.builtin.systemd:
+    name: yak-wake
+    state: restarted
+
+- name: Restart yak-termbridge
+  ansible.builtin.systemd:
+    name: yak-termbridge
+    state: restarted

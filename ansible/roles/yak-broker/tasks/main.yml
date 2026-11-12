@@ -1,0 +1,112 @@
+---
+- name: Ensure /etc/yak directory exists
+  ansible.builtin.file:
+    path: /etc/yak
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+
+- name: Create the broker group
+  ansible.builtin.group:
+    name: "{{ yak_broker_user }}"
+    system: true
+
+# incus-admin lets the broker run `incus exec`; it needs no other privilege.
+- name: Create the broker user
+  ansible.builtin.user:
+    name: "{{ yak_broker_user }}"
+    group: "{{ yak_broker_user }}"
+    groups: incus-admin
+    append: true
+    system: true
+    create_home: true
+    home: /var/lib/yak-broker
+    shell: /usr/sbin/nologin
+
+- name: Ensure /var/lib/yak exists
+  ansible.builtin.file:
+    path: /var/lib/yak
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+# The app (www-data in its container) creates the credential socket in here.
+# root owns the directory; www-data in the Yak container joins the broker group
+# through entrypoint.sh, so only root, the broker and the app can touch it. The
+# socket is created 0660 in the broker group through the setgid bit.
+- name: Create the credential socket directory
+  ansible.builtin.file:
+    path: "{{ yak_credentials_path }}"
+    state: directory
+    mode: "2770"
+    owner: root
+    group: "{{ yak_broker_user }}"
+
+# Always built (cached, so fast): a stale broker/dist binary is never installed.
+- name: Build the broker on the controller
+  ansible.builtin.command:
+    cmd: go build -o {{ playbook_dir }}/../broker/dist/yak-broker .
+    chdir: "{{ playbook_dir }}/../broker"
+  environment:
+    CGO_ENABLED: "0"
+    GOOS: linux
+    GOARCH: amd64
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  run_once: true
+
+- name: Install the broker binary
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../broker/dist/yak-broker"
+    dest: /usr/local/bin/yak-broker
+    mode: "0755"
+    owner: root
+    group: root
+  notify: Restart yak-broker
+
+- name: Write the broker environment
+  ansible.builtin.template:
+    src: broker.env.j2
+    dest: /etc/yak/broker.env
+    mode: "0600"
+    owner: "{{ yak_broker_user }}"
+    group: "{{ yak_broker_user }}"
+  notify: Restart yak-broker
+
+- name: Install the broker unit
+  ansible.builtin.template:
+    src: yak-broker.service.j2
+    dest: /etc/systemd/system/yak-broker.service
+    mode: "0644"
+    owner: root
+    group: root
+  notify:
+    - Reload systemd
+    - Restart yak-broker
+
+# UFW denies incoming traffic by default, and the bridge address is on the host,
+# so the auth proxy needs explicit allows: sandboxes on the Incus bridge, and the
+# Yak container's fixed address for account validation. Nothing else may reach it.
+- name: Allow sandboxes and the Yak container to reach the auth proxy
+  community.general.ufw:
+    rule: allow
+    direction: in
+    proto: tcp
+    from_ip: "{{ item.from }}"
+    to_ip: "{{ yak_auth_proxy_address.split(':')[0] }}"
+    to_port: "{{ yak_auth_proxy_address.split(':')[1] }}"
+    comment: "{{ item.comment }}"
+  loop:
+    - { from: "{{ yak_sandbox_subnet }}", comment: "Incus sandboxes to the Yak auth proxy" }
+    - { from: "{{ yak_container_address }}", comment: "Yak container to the auth proxy (account validation)" }
+  tags: [yak-broker, auth-proxy-ufw]
+
+- name: Enable and start the broker
+  ansible.builtin.systemd:
+    name: yak-broker
+    enabled: true
+    state: started
+    daemon_reload: true

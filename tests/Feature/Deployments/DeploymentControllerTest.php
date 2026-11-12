@@ -1,9 +1,11 @@
 <?php
 
+use App\Jobs\Deployments\RebuildDeploymentJob;
 use App\Models\BranchDeployment;
 use App\Models\DeploymentLog;
 use App\Models\User;
 use App\Support\HibernationDuration;
+use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -138,6 +140,14 @@ test('show reports longLived true for a long-lived deployment', function () {
         ->assertInertia(fn (Assert $page) => $page->where('hibernation.longLived', true));
 });
 
+test('show reports the configured destroy days', function () {
+    config(['yak.deployments.destroy_days' => 9]);
+    $deployment = BranchDeployment::factory()->running()->create();
+
+    $this->get(route('deployments.show', $deployment))
+        ->assertInertia(fn (Assert $page) => $page->where('hibernation.destroyDays', 9));
+});
+
 test('show reports autoLongLived true for an active release branch', function () {
     $deployment = BranchDeployment::factory()->running()->longLived()->create([
         'branch_name' => 'release/1.0',
@@ -178,4 +188,20 @@ test('deployments is served as a scroll/merge prop for infinite scroll', functio
             'currentPage' => 2,
         ])
         ->and($response['props']['deployments']['data'])->toHaveCount(1);
+});
+
+test('show renders a destroyed row as destroyed and still queues a rebuild', function () {
+    Queue::fake();
+    $deployment = BranchDeployment::factory()->destroyed()->create();
+
+    $this->get(route('deployments.show', $deployment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Deployments/Show')
+            ->where('deployment.status', 'destroyed')
+            ->where('deployment.statusLabel', 'Destroyed')
+            ->where('deployment.tone', 'idle'));
+
+    $this->post(route('deployments.rebuild', $deployment))->assertRedirect(route('deployments.show', $deployment));
+    Queue::assertPushed(RebuildDeploymentJob::class);
 });

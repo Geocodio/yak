@@ -1,0 +1,90 @@
+name: browser
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+      - master
+  pull_request:
+    branches:
+      - develop
+      - main
+      - master
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    environment: Testing
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      REDIS_HOST: 127.0.0.1
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_ID: yak-e2e
+      REVERB_APP_KEY: yak-e2e-key
+      REVERB_APP_SECRET: yak-e2e-secret
+      REVERB_HOST: 127.0.0.1
+      REVERB_PORT: "18080"
+      REVERB_SCHEME: http
+      VITE_REVERB_APP_KEY: yak-e2e-key
+      VITE_REVERB_HOST: 127.0.0.1
+      VITE_REVERB_PORT: "18080"
+      VITE_REVERB_SCHEME: http
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup app
+        uses: ./.github/actions/setup-php-app
+        with:
+          flux-username: ${{ secrets.FLUX_USERNAME }}
+          flux-license-key: ${{ secrets.FLUX_LICENSE_KEY }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Composer first: package.json installs @cboxdk/telemetry-ui from vendor/.
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Cache built assets
+        id: assets
+        uses: actions/cache@v4
+        with:
+          path: public/build
+          key: assets-${{ hashFiles('resources/**', 'package-lock.json', 'vite.config.ts', '.github/workflows/browser.yml') }}
+
+      - name: Build assets
+        if: steps.assets.outputs.cache-hit != 'true'
+        run: npm run build
+
+      - name: Cache Playwright browsers
+        id: playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: ./vendor/bin/pest tests/Browser --shard=${{ matrix.shard }}/4

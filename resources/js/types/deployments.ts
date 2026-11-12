@@ -34,6 +34,7 @@ export type HibernationData = {
     longLived: boolean;
     autoLongLived: boolean;
     timeout: string;
+    destroyDays: number;
 };
 
 export type ShareLinkData = {

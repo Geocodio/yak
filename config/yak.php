@@ -11,6 +11,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | CLI Protocol
+    |--------------------------------------------------------------------------
+    */
+
+    'cli' => [
+        'protocol' => 1,
+        'min_protocol' => 1,
+    ],
+
+    'teleport' => [
+        'marketplace' => env('YAK_TELEPORT_MARKETPLACE', 'Geocodio/yak'),
+        'expiry_minutes' => (int) env('YAK_TELEPORT_EXPIRY_MINUTES', 30),
+        'complete_wait_seconds' => (int) env('YAK_TELEPORT_COMPLETE_WAIT_SECONDS', 30),
+        'slot_wait_minutes' => (int) env('YAK_TELEPORT_SLOT_WAIT_MINUTES', 20),
+        'slot_poll_seconds' => (int) env('YAK_TELEPORT_SLOT_POLL_SECONDS', 5),
+        'held_event_tint_hours' => (int) env('YAK_TELEPORT_HELD_EVENT_TINT_HOURS', 24),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Budget Configuration
     |--------------------------------------------------------------------------
     */
@@ -45,6 +65,7 @@ return [
         'max_file_kb' => (int) env('YAK_ATTACHMENTS_MAX_FILE_KB', 10240),
     ],
 
+    // A family alias follows the newest model of that family; an exact model id pins one.
     'default_model' => env('YAK_DEFAULT_MODEL', 'opus'),
 
     'clarification_ttl_days' => (int) env('YAK_CLARIFICATION_TTL_DAYS', 7),
@@ -88,6 +109,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Datasets
+    |--------------------------------------------------------------------------
+    |
+    | A repo declares a dataset in `.yak/config.yml`; it is fetched once from a
+    | generic S3-compatible store into one Incus volume per repo. The S3
+    | credential is only ever handed to the one-shot data sandbox.
+    |
+    */
+
+    'datasets' => [
+        's3' => [
+            'endpoint' => env('YAK_DATASETS_S3_ENDPOINT'),
+            'region' => env('YAK_DATASETS_S3_REGION', 'us-east-1'),
+            'bucket' => env('YAK_DATASETS_S3_BUCKET'),
+            'access_key' => env('YAK_DATASETS_S3_ACCESS_KEY'),
+            'secret' => env('YAK_DATASETS_S3_SECRET'),
+            'use_path_style_endpoint' => (bool) env('YAK_DATASETS_S3_PATH_STYLE', true),
+        ],
+        'fetch_timeout_minutes' => (int) env('YAK_DATASETS_FETCH_TIMEOUT_MINUTES', 720),
+        'cli' => env('YAK_DATASETS_CLI', 'aws'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Sandbox Configuration (Incus)
     |--------------------------------------------------------------------------
     |
@@ -109,22 +154,16 @@ return [
         // bumped in the same commit. On the next task clone, any repo
         // template whose stored `sandbox_base_version` differs gets
         // destroyed and re-provisioned from the fresh yak-base.
-        'base_version' => (int) env('YAK_SANDBOX_BASE_VERSION', 5),
+        'base_version' => (int) env('YAK_SANDBOX_BASE_VERSION', 6),
 
         'cpu_limit' => (int) env('YAK_SANDBOX_CPU_LIMIT', 4),
         'memory_limit' => env('YAK_SANDBOX_MEMORY_LIMIT', '8GB'),
         'disk_limit' => env('YAK_SANDBOX_DISK_LIMIT', '30GB'),
         'workspace_path' => env('YAK_SANDBOX_WORKSPACE_PATH', '/workspace'),
+        // A family alias, resolved to the newest model of that family when a child starts.
+        'default_child_model' => env('YAK_SANDBOX_DEFAULT_CHILD_MODEL', 'sonnet'),
         'results_path' => env('YAK_SANDBOX_RESULTS_PATH', '/results'),
         'claude_config_source' => env('YAK_SANDBOX_CLAUDE_CONFIG', '/home/yak/.claude'),
-
-        // uid of the `yak` user inside sandbox containers, and the uid that
-        // owns the host config dir. Mapped to each other via raw.idmap so the
-        // agent can read and write the shared credential file. The host uid is
-        // normally derived with fileowner(); this is the fallback when the
-        // directory is absent (e.g. in tests).
-        'claude_sandbox_uid' => (int) env('YAK_SANDBOX_CLAUDE_UID', 1001),
-        'claude_host_uid' => (int) env('YAK_SANDBOX_CLAUDE_HOST_UID', 33),
 
         // Host directory where Claude session transcripts are persisted
         // between sandboxes, so follow-ups can `--resume` a session whose
@@ -133,6 +172,9 @@ return [
         'docker_config_source' => env('YAK_SANDBOX_DOCKER_CONFIG', '/home/yak/.docker/config.json'),
         'network' => env('YAK_SANDBOX_NETWORK', 'yak-sandbox'),
         'cleanup_after_hours' => (int) env('YAK_SANDBOX_CLEANUP_HOURS', 24),
+        'incus_remote' => env('YAK_SANDBOX_INCUS_REMOTE', 'local'),
+        'incus_pool' => env('YAK_SANDBOX_INCUS_POOL', 'default'),
+        'ready_timeout_seconds' => (int) env('YAK_SANDBOX_READY_TIMEOUT_SECONDS', 60),
     ],
 
     /*
@@ -548,6 +590,115 @@ return [
         // been reported merged or closed, so a missed webhook cannot leave
         // a PR looking open forever. Also counts human commits on the PR.
         'reconcile_pr_state' => (bool) env('YAK_TELEMETRY_RECONCILE_PR_STATE', true),
+    ],
+
+    'ssh' => [
+        'github_ttl_seconds' => (int) env('YAK_SSH_GITHUB_TTL_SECONDS', 300),
+        'github_negative_ttl_seconds' => (int) env('YAK_SSH_GITHUB_NEGATIVE_TTL_SECONDS', 900),
+        'github_stale_days' => (int) env('YAK_SSH_GITHUB_STALE_DAYS', 7),
+        'jump_host' => env('YAK_SSH_JUMP_HOST'),
+        'jump_port' => (int) env('YAK_SSH_JUMP_PORT', 2222),
+        'jump_host_key_fingerprints' => array_values(array_filter(array_map('trim', explode(',', (string) env('YAK_SSH_JUMP_HOST_KEY_FINGERPRINTS', ''))))),
+        'jump_user' => env('YAK_SSH_JUMP_USER', 'yak-jump'),
+        'internal_token' => env('YAK_SSH_INTERNAL_TOKEN'),
+        'terminal_ws_url' => env('YAK_SSH_TERMINAL_WS_URL'),
+        'terminal_allowed_origins' => array_values(array_filter(array_map('trim', explode(',', (string) env('YAK_SSH_TERMINAL_ALLOWED_ORIGINS', ''))))),
+        'terminal_token_ttl' => (int) env('YAK_SSH_TERMINAL_TOKEN_TTL', 60),
+        'terminal_key_ttl' => (int) env('YAK_SSH_TERMINAL_KEY_TTL', 900),
+        'wake_wait_timeout' => (int) env('YAK_SSH_WAKE_WAIT_TIMEOUT', 120),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Thread files
+    |--------------------------------------------------------------------------
+    |
+    | File browser and editor limits: largest file opened for editing, and the
+    | most entries listed for one folder.
+    |
+    */
+
+    'files' => [
+        'max_edit_bytes' => (int) env('YAK_FILES_MAX_EDIT_BYTES', 1_000_000),
+        'tree_limit' => (int) env('YAK_FILES_TREE_LIMIT', 2000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Threads
+    |--------------------------------------------------------------------------
+    |
+    | Thread sandbox lifecycle, turn guards, stacks and the session store.
+    |
+    */
+
+    'threads' => [
+        'auth_proxy_validation_address' => env('YAK_THREADS_AUTH_PROXY_VALIDATION_ADDRESS'),
+        'usage_limit_fallback_minutes' => (int) env('YAK_THREADS_USAGE_LIMIT_FALLBACK_MINUTES', 60),
+        'terminal_close_hours' => (int) env('YAK_THREADS_TERMINAL_CLOSE_HOURS', 24),
+        'turn_grace_seconds' => (int) env('YAK_THREADS_TURN_GRACE_SECONDS', 30),
+        'session_activity_seconds' => (int) env('YAK_THREAD_SESSION_ACTIVITY_SECONDS', 120),
+        'turn_wall_clock_minutes' => (int) env('YAK_THREADS_TURN_WALL_CLOCK_MINUTES', 240),
+        'pause_to_stop_minutes' => (int) env('YAK_THREADS_PAUSE_TO_STOP_MINUTES', 30),
+        'stop_to_destroy_hours' => (int) env('YAK_THREADS_STOP_TO_DESTROY_HOURS', 72),
+        'max_destroy_after_hours' => (int) env('YAK_THREADS_MAX_DESTROY_AFTER_HOURS', 168),
+        'destroy_days' => (int) env('YAK_THREADS_DESTROY_DAYS', 30),
+        'session_retention_days' => (int) env('YAK_THREADS_SESSION_RETENTION_DAYS', 30),
+        'stream_catchup_minutes' => (int) env('YAK_THREADS_STREAM_CATCHUP_MINUTES', 10),
+        'awake_cap' => (int) env('YAK_THREADS_AWAKE_CAP', 8),
+        'person_awake_cap' => (int) env('YAK_THREADS_PERSON_AWAKE_CAP', 4),
+        'memory_floor_gb' => (int) env('YAK_THREADS_MEMORY_FLOOR_GB', 8),
+        'pool_watermark_percent' => (int) env('YAK_THREADS_POOL_WATERMARK_PERCENT', 80),
+        'eviction_grace_minutes' => (int) env('YAK_THREADS_EVICTION_GRACE_MINUTES', 10),
+        'stop_timeout_seconds' => (int) env('YAK_THREADS_STOP_TIMEOUT_SECONDS', 60),
+        'wake_pause_grace_minutes' => (int) env('YAK_THREADS_WAKE_PAUSE_GRACE_MINUTES', 5),
+        'max_children' => (int) env('YAK_THREADS_MAX_CHILDREN', 12),
+        'child_awake_limit' => (int) env('YAK_THREADS_CHILD_AWAKE_LIMIT', 3),
+        'child_result_wait_minutes' => (int) env('YAK_THREADS_CHILD_RESULT_WAIT_MINUTES', 10),
+        'pair_message_throttle_per_minute' => (int) env('YAK_THREADS_PAIR_MESSAGE_THROTTLE_PER_MINUTE', 6),
+        'stack_alert_turns' => (int) env('YAK_THREADS_STACK_ALERT_TURNS', 50),
+        'stack_alert_hours' => (int) env('YAK_THREADS_STACK_ALERT_HOURS', 3),
+        'stack_alert_children' => (int) env('YAK_THREADS_STACK_ALERT_CHILDREN', 12),
+        'runner_restart_cap' => (int) env('YAK_THREADS_RUNNER_RESTART_CAP', 3),
+        'diff_max_bytes' => (int) env('YAK_THREADS_DIFF_MAX_BYTES', 1048576),
+
+        'session_store_path' => env('YAK_THREADS_SESSION_STORE_PATH', storage_path('app/session-store')),
+
+        // Base64 encoded 32 byte libsodium secretbox key. Never stored in the database.
+        'session_store_key' => env('YAK_SESSION_STORE_KEY'),
+
+        'credential_socket' => env('YAK_THREADS_CREDENTIAL_SOCKET', '/run/yak/credentials.sock'),
+
+        // Uid of the broker system user, the only peer allowed on the credential socket.
+        'credential_socket_uid' => env('YAK_THREADS_CREDENTIAL_SOCKET_UID') === null ? null : (int) env('YAK_THREADS_CREDENTIAL_SOCKET_UID'),
+        'credential_socket_directory_gid' => env('YAK_THREADS_CREDENTIAL_SOCKET_DIRECTORY_GID') === null ? null : (int) env('YAK_THREADS_CREDENTIAL_SOCKET_DIRECTORY_GID'),
+
+        // Cache store holding placeholder bindings (sha256 only). Keep it off Redis.
+        'placeholder_store' => env('YAK_THREADS_PLACEHOLDER_STORE', 'database'),
+
+        // Address of the auth proxy on the Incus bridge (10.100.0.1, see the incus Ansible role).
+        'auth_proxy_url' => env('YAK_THREADS_AUTH_PROXY_URL', 'http://10.100.0.1:8787'),
+
+        'preview_hold_seconds' => (int) env('YAK_THREADS_PREVIEW_HOLD_SECONDS', 10),
+
+        'preview_activity_minutes' => (int) env('YAK_THREADS_PREVIEW_ACTIVITY_MINUTES', 5),
+
+        // Desktop Safari blocks the cross-site preview iframe cookie handshake; the panel shows an open-in-new-tab card instead.
+        'preview_safari_fallback' => (bool) env('YAK_THREADS_PREVIEW_SAFARI_FALLBACK', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Web push
+    |--------------------------------------------------------------------------
+    |
+    | VAPID keys live in config/webpush.php. ios_supported hides the iOS
+    | install steps on the settings page when push is not offered there.
+    |
+    */
+
+    'push' => [
+        'ios_supported' => (bool) env('YAK_PUSH_IOS_SUPPORTED', true),
     ],
 
 ];

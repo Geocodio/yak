@@ -5,7 +5,13 @@ import EmailAddressController from './EmailAddressController'
 import GitHubAccountController from './GitHubAccountController'
 import AccountController from './AccountController'
 import LinearConnectionController from './LinearConnectionController'
+import NotificationController from './NotificationController'
+import PushDeviceController from './PushDeviceController'
 import VideoThemeController from './VideoThemeController'
+import ClaudeAccountController from './ClaudeAccountController'
+import DeviceController from './DeviceController'
+import PeopleController from './PeopleController'
+import SshKeyController from './SshKeyController'
 
 const Settings = {
     McpServerController: Object.assign(McpServerController, McpServerController),
@@ -15,7 +21,13 @@ const Settings = {
     GitHubAccountController: Object.assign(GitHubAccountController, GitHubAccountController),
     AccountController: Object.assign(AccountController, AccountController),
     LinearConnectionController: Object.assign(LinearConnectionController, LinearConnectionController),
+    NotificationController: Object.assign(NotificationController, NotificationController),
+    PushDeviceController: Object.assign(PushDeviceController, PushDeviceController),
     VideoThemeController: Object.assign(VideoThemeController, VideoThemeController),
+    ClaudeAccountController: Object.assign(ClaudeAccountController, ClaudeAccountController),
+    DeviceController: Object.assign(DeviceController, DeviceController),
+    PeopleController: Object.assign(PeopleController, PeopleController),
+    SshKeyController: Object.assign(SshKeyController, SshKeyController),
 }
 
 export default Settings

@@ -22,19 +22,34 @@ class DeploymentWakeController
 
     public function __invoke(Request $request): Response
     {
-        $hostname = $request->header('X-Forwarded-Host') ?? $request->getHost();
+        $hostname = strtolower($request->header('X-Forwarded-Host') ?? $request->getHost());
         $forwardedUri = $request->header('X-Forwarded-Uri', '/');
 
+        $previewCookie = $request->cookie(PreviewAccess::COOKIE_NAME);
         $deployment = BranchDeployment::where('hostname', $hostname)->first();
-        if ($deployment === null) {
+
+        // A cookie of someone who may not see the preview's thread gets the
+        // answer an unknown host gets.
+        if ($deployment === null || (is_string($previewCookie) && $this->previewAccess->cookieIsHidden($hostname, $previewCookie))) {
             return response()->view('deployments.errors.unknown_hostname', [
                 'hostname' => $hostname,
             ], 404);
         }
 
+        // A non-team thread is for its owner and named people only; share
+        // credentials identify nobody, so they are refused. The bounce below
+        // stays reachable so the owner can still obtain a preview cookie.
+        $shareRefused = $this->previewAccess->refusesShareCredentials($hostname);
+
         // Branch 1: share token in the URL path → 302 + Set-Cookie.
         $shareToken = $this->extractShareToken($forwardedUri);
         if ($shareToken !== null) {
+            if ($shareRefused) {
+                return response()->view('deployments.errors.unknown_hostname', [
+                    'hostname' => $hostname,
+                ], 404);
+            }
+
             if (! $this->tokens->verify($deployment, $shareToken)) {
                 return response()->view('deployments.errors.invalid_share', [
                     'hostname' => $hostname,
@@ -62,10 +77,9 @@ class DeploymentWakeController
 
         // Branch 2: share-session cookie.
         $cookieIn = $request->cookie(self::SHARE_COOKIE_NAME);
-        $cookieOk = is_string($cookieIn) && $this->tokens->verifyCookie($deployment, $cookieIn);
+        $cookieOk = ! $shareRefused && is_string($cookieIn) && $this->tokens->verifyCookie($deployment, $cookieIn);
 
         // Branch 3: per-preview, host-only cookie issued by /_yak/auth.
-        $previewCookie = $request->cookie(PreviewAccess::COOKIE_NAME);
         $previewOk = is_string($previewCookie) && $this->previewAccess->verifyCookie($hostname, $previewCookie);
 
         // Branch 4: no valid credential. Redirect to the dashboard's auth-bounce

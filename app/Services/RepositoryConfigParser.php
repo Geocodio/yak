@@ -23,6 +23,8 @@ class RepositoryConfigParser
     /** Most errors parse() returns; the rest collapse into one summary line. */
     public const MAX_ERRORS = 100;
 
+    private const OBJECT_KEY = '#^(?!/)(?!.*\.\.)[A-Za-z0-9_./-]+$#';
+
     private const PATH_GLOB = '#^[A-Za-z0-9_./*?\-]+$#';
 
     /**
@@ -33,10 +35,11 @@ class RepositoryConfigParser
      */
     private const KEYS = [
         'config.yml' => [
-            'version' => [], 'description' => [], 'ci' => [],
+            'version' => [], 'description' => [], 'ci' => [], 'destroy_after_hours' => [], 'refresh' => [],
             'walkthrough' => ['public_site_url' => []],
             'pull_requests' => ['large_change_lines' => []],
             'co_owner_gate' => ['mode' => []],
+            'data' => ['name' => [], 'prefix' => [], 'version_key' => [], 'mount_path' => [], 'size_gb' => []],
             'review' => [
                 'enabled' => [], 'exclude_paths' => [],
                 'approval' => [
@@ -154,12 +157,19 @@ class RepositoryConfigParser
                 'version' => ['required', 'integer', 'in:1'],
                 'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
                 'ci' => ['sometimes', Rule::in(['github_actions', 'drone', 'none'])],
+                'destroy_after_hours' => ['sometimes', 'integer', 'min:1'],
                 'walkthrough' => ['sometimes', 'array'],
                 'walkthrough.public_site_url' => ['sometimes', 'nullable', 'url', 'max:255'],
                 'pull_requests' => ['sometimes', 'array'],
                 'pull_requests.large_change_lines' => ['sometimes', 'integer', 'min:1'],
                 'co_owner_gate' => ['sometimes', 'array'],
                 'co_owner_gate.mode' => ['sometimes', Rule::in(['off', 'enforce'])],
+                'data' => ['sometimes', 'array'],
+                'data.name' => ['required_with:data', 'string', 'max:40', 'regex:/^[a-z0-9-]+$/'],
+                'data.prefix' => ['required_with:data', 'string', 'max:500', 'regex:' . self::OBJECT_KEY],
+                'data.version_key' => ['required_with:data', 'string', 'max:500', 'regex:' . self::OBJECT_KEY],
+                'data.mount_path' => ['required_with:data', 'string', 'max:200', 'regex:#^/(?!.*\.\.)[A-Za-z0-9_./-]+$#', 'not_in:/,/workspace,/results'],
+                'data.size_gb' => ['sometimes', 'integer', 'min:1'],
                 'review' => ['sometimes', 'array'],
                 'review.enabled' => ['sometimes', 'boolean'],
                 'review.exclude_paths' => ['sometimes', 'array', 'max:100'],

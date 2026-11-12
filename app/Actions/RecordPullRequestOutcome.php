@@ -6,9 +6,15 @@ use App\Facades\Telemetry;
 use App\Jobs\Deployments\ResolvePreviewRepairJob;
 use App\Models\PreviewRepair;
 use App\Models\PrReview;
+use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Services\PreviewRepair\PreviewFailureReporter;
+use App\Services\Threads\PullRequests\ThreadPullRequestSync;
+use App\Services\Threads\ThreadCloser;
+use Carbon\CarbonInterface;
 use DateTimeInterface;
+use Illuminate\Support\Collection;
 
 /**
  * Stamp a PR's merge or close onto every task in its follow-up chain and
@@ -36,7 +42,9 @@ class RecordPullRequestOutcome
         $tasks = YakTask::where('pr_url', $prUrl)->orderBy('id')->get();
         $prReviews = PrReview::where('pr_url', $prUrl)->get();
 
-        if ($tasks->isEmpty() && $prReviews->isEmpty()) {
+        $rows = ThreadRepository::query()->where('pull_request_url', $prUrl)->get();
+
+        if ($tasks->isEmpty() && $prReviews->isEmpty() && $rows->isEmpty()) {
             return false;
         }
 
@@ -65,6 +73,8 @@ class RecordPullRequestOutcome
             }
             $review->update($updates);
         }
+
+        $this->closeThreads($tasks, $rows, $merged, $closedAt);
 
         $root = $tasks->first();
 
@@ -99,5 +109,36 @@ class RecordPullRequestOutcome
         }
 
         return true;
+    }
+
+    /**
+     * Records the outcome on the matching repo rows and closes each thread
+     * once none of its pull requests is still open. A thread whose task has
+     * no repo row (older data) closes straight away.
+     *
+     * @param  Collection<int, YakTask>  $tasks
+     * @param  Collection<int, ThreadRepository>  $rows
+     */
+    private function closeThreads(Collection $tasks, Collection $rows, bool $merged, CarbonInterface $closedAt): void
+    {
+        $sync = app(ThreadPullRequestSync::class);
+        $closer = app(ThreadCloser::class);
+
+        foreach ($rows as $row) {
+            $sync->recordOutcome($row, $merged, $closedAt);
+        }
+
+        $rowThreadIds = $rows->pluck('thread_id');
+        $threadIds = $tasks->pluck('thread_id')->merge($rowThreadIds)->filter()->unique();
+
+        Thread::withoutGlobalScopes()->whereIn('id', $threadIds)->get()->each(function (Thread $thread) use ($sync, $closer, $rowThreadIds, $merged): void {
+            if ($rowThreadIds->contains($thread->id)) {
+                $sync->closeThreadIfAllEnded($thread);
+
+                return;
+            }
+
+            $closer->close($thread, $merged ? 'pr_merged' : 'pr_closed');
+        });
     }
 }

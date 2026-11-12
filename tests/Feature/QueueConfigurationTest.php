@@ -45,12 +45,13 @@ test('yak-claude jobs dispatch to yak-claude queue', function () {
     }
 });
 
-test('per-task yak-claude jobs share a 3600 second timeout', function () {
+test('the before-turn job has a short timeout and the agent jobs share 3600 seconds', function () {
+    expect((new RunYakJob(YakTask::factory()->pending()->make()))->timeout)->toBe(900);
+
     // Laravel enforces $timeout via pcntl_alarm → posix_kill(getmypid(), SIGKILL).
     // Agent sessions with browser capture regularly exceed 10 minutes; a lower
     // cap silently murders the worker mid-stream (tasks 4406/4407/4408 hit this).
     $jobs = [
-        new RunYakJob(YakTask::factory()->pending()->make()),
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob(YakTask::factory()->pending()->make()),
     ];
@@ -168,21 +169,21 @@ test('retry_after exceeds default job timeout', function () {
 */
 
 test('supervisord config exists', function () {
-    expect(file_exists(base_path('supervisord.conf')))->toBeTrue();
+    expect(file_exists(base_path('docker/supervisord.conf')))->toBeTrue();
 });
 
 test('supervisord config has yak-claude worker with correct settings', function () {
-    $config = file_get_contents(base_path('supervisord.conf'));
+    $config = file_get_contents(base_path('docker/supervisord.conf'));
 
     expect($config)
         ->toContain('[program:yak-claude-worker]')
         ->toContain('--queue=yak-claude')
-        ->toContain('--timeout=600')
-        ->toContain('numprocs=1');
+        ->toContain('--timeout=3600')
+        ->toContain('numprocs=4');
 });
 
 test('supervisord config has default worker with correct settings', function () {
-    $config = file_get_contents(base_path('supervisord.conf'));
+    $config = file_get_contents(base_path('docker/supervisord.conf'));
 
     expect($config)
         ->toContain('[program:default-worker]')
@@ -198,7 +199,7 @@ test('supervisord config has default worker with correct settings', function () 
 |
 | docker/supervisord.conf is the file that actually ships — Dockerfile
 | copies it to /etc/supervisor/conf.d/yak.conf and runs it as the CMD.
-| (base_path('supervisord.conf') above is a local-dev leftover.)
+| (base_path('docker/supervisord.conf') above is a local-dev leftover.)
 |
 */
 
@@ -267,11 +268,9 @@ test('every supervisord program that runs artisan runs as www-data', function ()
     }
 });
 
-test('scheduler runs as www-data so healthchecks cannot leave root-owned claude state', function () {
-    // yak:healthcheck runs every 15 minutes and shells the Claude CLI out
-    // against /home/yak/.claude (ClaudeAuthCheck). As root it leaves a
-    // root-owned .oauth_refresh.lock behind, which blocks every subsequent
-    // www-data OAuth refresh until someone re-authenticates by hand.
+test('scheduler runs as www-data so scheduled commands cannot leave root-owned state', function () {
+    // Scheduled commands write files the www-data workers read later; as
+    // root they would leave root-owned files behind.
     $programs = productionSupervisordPrograms();
 
     expect($programs)->toHaveKey('scheduler');

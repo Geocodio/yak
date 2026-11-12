@@ -47,7 +47,7 @@ final class RunRecorder
 
     private bool $finished = false;
 
-    private function __construct(private readonly ?TaskRun $run)
+    private function __construct(private readonly ?TaskRun $run, private readonly bool $overwritesTiming = true)
     {
         $this->startedAtNs = hrtime(true);
         $this->lastMarkNs = $this->startedAtNs;
@@ -100,6 +100,15 @@ final class RunRecorder
 
             return new self(null);
         }
+    }
+
+    /**
+     * A recorder over a turn row the thread driver already wrote. It adds the
+     * outcome and git stats after the turn; the driver's timing columns stay.
+     */
+    public static function forTurn(TaskRun $run): self
+    {
+        return new self(Telemetry::enabled() ? $run : null, overwritesTiming: false);
     }
 
     public function id(): ?int
@@ -191,6 +200,14 @@ final class RunRecorder
             }
         }
 
+        $this->recordOutcome($result);
+    }
+
+    /**
+     * Sets the outcome the run ends with from what the agent returned.
+     */
+    public function recordOutcome(AgentRunResult $result): void
+    {
         if ($result->isError) {
             $this->outcome = TaskRunOutcome::Error;
             $this->pending['error_subtype'] = $result->failureCategory();
@@ -259,10 +276,12 @@ final class RunRecorder
 
             $update = $this->pending + [
                 'outcome' => $this->outcome ?? TaskRunOutcome::Exception,
-                'finished_at' => now(),
-                'total_ms' => $totalMs,
                 'worker_peak_mb' => (int) round(memory_get_peak_usage(true) / 1024 / 1024),
             ];
+
+            if ($this->overwritesTiming) {
+                $update += ['finished_at' => now(), 'total_ms' => $totalMs];
+            }
 
             if ($this->outcome === null && ! isset($update['error_message'])) {
                 $update['error_subtype'] = 'unknown';

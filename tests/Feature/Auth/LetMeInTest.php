@@ -13,7 +13,7 @@ test('letmein logs in the first user in the local environment', function () {
 
     $user = User::factory()->create();
 
-    $this->get('/letmein')->assertRedirect(route('tasks'));
+    $this->get('/letmein')->assertRedirect(route('home'));
 
     $this->assertAuthenticatedAs($user);
 });
@@ -21,7 +21,7 @@ test('letmein logs in the first user in the local environment', function () {
 test('letmein creates a user when none exist in the local environment', function () {
     $this->app['env'] = 'local';
 
-    $this->get('/letmein')->assertRedirect(route('tasks'));
+    $this->get('/letmein')->assertRedirect(route('home'));
 
     $this->assertAuthenticated();
     expect(User::count())->toBe(1);

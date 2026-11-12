@@ -5,6 +5,7 @@ use App\Channels\ChannelRegistry;
 use App\Channels\GitHub\AppService;
 use App\Enums\DeploymentStatus;
 use App\Enums\NotificationType;
+use App\Enums\ThreadStatus;
 use App\Jobs\CreatePullRequestJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\SendNotificationJob;
@@ -15,6 +16,8 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\TelemetryEvent;
+use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use App\Services\FollowUpTaskFactory;
@@ -233,6 +236,32 @@ test('the reconciler backfills a merged PR the webhook missed and counts human c
         ->and($open->pr_state_checked_at)->not->toBeNull()
         ->and($recentlyChecked->refresh()->human_commits)->toBeNull()
         ->and(telemetryEvent('pr.merged')->properties['via'])->toBe('reconcile');
+});
+
+test('the reconciler records an extra repo pull request that closed and closes the thread', function () {
+    config()->set('yak.channels.github.installation_id', 99);
+    GitHubInstallationToken::create(['installation_id' => 99, 'token' => 'ghs', 'expires_at' => now()->addHour()]);
+
+    $thread = Thread::factory()->create();
+    $primary = ThreadRepository::factory()->for($thread)->create(['repo' => 'acme/widgets', 'pull_request_number' => 1, 'pull_request_url' => 'https://github.com/acme/widgets/pull/1', 'pull_request_state' => 'merged']);
+    $extra = ThreadRepository::factory()->changes()->withPullRequest(7)->for($thread)->create(['repo' => 'acme/gadgets']);
+    $stillOpen = ThreadRepository::factory()->changes()->withPullRequest(8)->create(['repo' => 'acme/gadgets']);
+    $failing = ThreadRepository::factory()->changes()->withPullRequest(9)->create(['repo' => 'acme/gadgets']);
+
+    Http::fake([
+        'api.github.com/repos/acme/gadgets/pulls/7' => Http::response(['state' => 'closed', 'merged' => true, 'merged_at' => '2026-09-15T10:00:00Z', 'closed_at' => '2026-09-15T10:00:00Z']),
+        'api.github.com/repos/acme/gadgets/pulls/8' => Http::response(['state' => 'open']),
+        'api.github.com/repos/acme/gadgets/pulls/9' => Http::response('boom', 500),
+        'api.github.com/*' => Http::response([]),
+    ]);
+
+    $this->artisan('yak:reconcile-pr-state')->assertSuccessful();
+
+    expect($extra->refresh()->pull_request_state)->toBe('merged')
+        ->and($primary->refresh()->pull_request_state)->toBe('merged')
+        ->and($thread->refresh()->status)->toBe(ThreadStatus::Closed)
+        ->and($stillOpen->refresh()->pull_request_state)->toBe('open')
+        ->and($failing->refresh()->pull_request_state)->toBe('open');
 });
 
 test('the reconciler is a no-op when disabled or when GitHub is not configured', function () {

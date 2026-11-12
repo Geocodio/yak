@@ -1,0 +1,133 @@
+import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
+/**
+* @see \App\Http\Controllers\Threads\ThreadShareController::show
+* @see app/Http/Controllers/Threads/ThreadShareController.php:22
+* @route '/threads/{thread}/share'
+*/
+export const show = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show.url(args, options),
+    method: 'get',
+})
+
+show.definition = {
+    methods: ["get","head"],
+    url: '/threads/{thread}/share',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadShareController::show
+* @see app/Http/Controllers/Threads/ThreadShareController.php:22
+* @route '/threads/{thread}/share'
+*/
+show.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { thread: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.id
+        : args.thread,
+    }
+
+    return show.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadShareController::show
+* @see app/Http/Controllers/Threads/ThreadShareController.php:22
+* @route '/threads/{thread}/share'
+*/
+show.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadShareController::show
+* @see app/Http/Controllers/Threads/ThreadShareController.php:22
+* @route '/threads/{thread}/share'
+*/
+show.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: show.url(args, options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadShareController::update
+* @see app/Http/Controllers/Threads/ThreadShareController.php:39
+* @route '/threads/{thread}/share'
+*/
+export const update = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+    url: update.url(args, options),
+    method: 'put',
+})
+
+update.definition = {
+    methods: ["put"],
+    url: '/threads/{thread}/share',
+} satisfies RouteDefinition<["put"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadShareController::update
+* @see app/Http/Controllers/Threads/ThreadShareController.php:39
+* @route '/threads/{thread}/share'
+*/
+update.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { thread: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.id
+        : args.thread,
+    }
+
+    return update.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadShareController::update
+* @see app/Http/Controllers/Threads/ThreadShareController.php:39
+* @route '/threads/{thread}/share'
+*/
+update.put = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+    url: update.url(args, options),
+    method: 'put',
+})
+
+const share = {
+    show: Object.assign(show, show),
+    update: Object.assign(update, update),
+}
+
+export default share

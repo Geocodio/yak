@@ -10,10 +10,13 @@ use App\Jobs\FlushSteeringMessagesJob;
 use App\Jobs\ReRequestReviewJob;
 use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Models\Concerns\HasClarificationRounds;
+use App\Models\Scopes\VisibleTaskScope;
 use App\Services\TaskDescriptionSummary;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\YakTaskFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -59,12 +62,19 @@ use Illuminate\Support\Str;
  * @property string|null $slack_follow_up_user_id
  * @property CarbonImmutable|null $clarification_reminder_at
  */
+#[ScopedBy(VisibleTaskScope::class)]
 class YakTask extends Model
 {
     /** @use HasFactory<YakTaskFactory> */
     use HasClarificationRounds, HasFactory, ModelHasStateMachine;
 
     public const MAX_CLARIFICATION_ROUNDS = 3;
+
+    /** Source of a task that carries a local machine's work onto Yak. */
+    public const string SOURCE_TELEPORT = 'teleport';
+
+    /** Source of a task that carries a sub-thread's brief. */
+    public const string SOURCE_STACK = 'stack';
 
     protected $table = 'tasks';
 
@@ -116,6 +126,11 @@ class YakTask extends Model
         ];
     }
 
+    public function isTeleport(): bool
+    {
+        return $this->source === self::SOURCE_TELEPORT;
+    }
+
     protected static function booted(): void
     {
         static::created(function (YakTask $task): void {
@@ -150,11 +165,30 @@ class YakTask extends Model
     }
 
     /**
+     * Drops only the visibility scope, for internal code that must see hidden rows.
+     *
+     * @param  Builder<covariant YakTask>  $query
+     * @return Builder<covariant YakTask>
+     */
+    public function scopeWithoutVisibilityScope(Builder $query): Builder
+    {
+        return $query->withoutGlobalScope(VisibleTaskScope::class);
+    }
+
+    /**
      * @return BelongsTo<Repository, $this>
      */
     public function repository(): BelongsTo
     {
         return $this->belongsTo(Repository::class, 'repo', 'slug');
+    }
+
+    /**
+     * @return BelongsTo<Thread, $this>
+     */
+    public function thread(): BelongsTo
+    {
+        return $this->belongsTo(Thread::class);
     }
 
     /**

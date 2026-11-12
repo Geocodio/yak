@@ -26,12 +26,6 @@ class FakeSandboxManager extends IncusSandboxManager
     public array $snapshots = [];
 
     /** @var array<int, string> */
-    public array $pulledTranscripts = [];
-
-    /** @var array<int, string> */
-    public array $pushedTranscripts = [];
-
-    /** @var array<int, string> */
     public array $promotedTemplates = [];
 
     /** @var array<int, string> */
@@ -44,6 +38,9 @@ class FakeSandboxManager extends IncusSandboxManager
      * @var array<int, string>
      */
     public array $commands = [];
+
+    /** @var array<string, array<string, string>> Environment passed with each command, keyed by command. */
+    public array $environments = [];
 
     /**
      * Substring => [error output, exit code], for commands that should come back non-zero.
@@ -61,6 +58,8 @@ class FakeSandboxManager extends IncusSandboxManager
      * exercise the answered-fix safety net.
      */
     private int $commitCount = 1;
+
+    public string $containerIp = '10.0.0.7';
 
     public function setHasSnapshot(bool $value): self
     {
@@ -114,14 +113,19 @@ class FakeSandboxManager extends IncusSandboxManager
         return $name;
     }
 
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
     {
         $this->commands[] = $command;
+        $this->environments[$command] = $env;
 
         foreach ($this->failingCommands as $substring => [$errorOutput, $exitCode]) {
             if (str_contains($command, $substring)) {
                 return Process::result('', $errorOutput, $exitCode);
             }
+        }
+
+        if ($command === 'hostname -I') {
+            return Process::result($this->containerIp . ' fd00::1');
         }
 
         if (str_contains($command, 'git rev-list --count origin/')) {
@@ -155,24 +159,6 @@ class FakeSandboxManager extends IncusSandboxManager
     public function pullFile(string $containerName, string $remotePath, string $localPath): void
     {
         // No-op in tests
-    }
-
-    public function pullSessionTranscript(string $containerName, ?string $sessionId): void
-    {
-        if ($sessionId !== null && $sessionId !== '') {
-            $this->pulledTranscripts[] = $sessionId;
-        }
-    }
-
-    public function pushSessionTranscript(string $containerName, ?string $sessionId): bool
-    {
-        if ($sessionId === null || $sessionId === '') {
-            return false;
-        }
-
-        $this->pushedTranscripts[] = $sessionId;
-
-        return true;
     }
 
     public function pullDirectory(string $containerName, string $remotePath, string $localPath): void

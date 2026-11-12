@@ -12,15 +12,14 @@ use App\DataTransferObjects\ParsedReview;
 use App\DataTransferObjects\ReviewFinding;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
+use App\Exceptions\AccountSlotUnavailable;
 use App\Exceptions\ClaudeAuthException;
 use App\Facades\Telemetry;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
-use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
-use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\LinearOauthConnection;
@@ -46,22 +45,26 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
 class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 {
     use ClaimsTask;
     use GuardsTerminalTaskStatus;
+    use InteractsWithQueue;
     use NotifiesSourceOfFailure;
     use Queueable;
 
     public int $timeout = 3600;
 
+    private const AGENT_SHUTDOWN_BUFFER_SECONDS = 180;
+
     /** @var array<int, int> */
     public array $backoff = [1, 5, 10];
 
     /**
-     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * Releases from PausesDuringDrain and from a busy Claude account
      * increment the attempt counter, so the worker's --tries=3 would fail a
      * held job after three minutes. This method takes precedence over tries
      * and lets a job wait out a drain or a re-authentication.
@@ -105,10 +108,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     {
         return [
             new PausesDuringDrain,
-            new HoldsForClaudeAuth,
             new ClaimsTaskAtomically,
             new EnsureRepoReady,
-            new EnsureDailyBudget,
         ];
     }
 
@@ -164,7 +165,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                 prompt: $prompt,
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
-                timeoutSeconds: $this->timeout - 30,
+                timeoutSeconds: $this->timeout - self::AGENT_SHUTDOWN_BUFFER_SECONDS,
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
                 model: (string) config('yak.default_model'),
@@ -217,6 +218,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             ]);
 
             TaskLogger::info($this->task, 'Review posted', ['findings' => count($parsed->findings)]);
+        } catch (AccountSlotUnavailable) {
+            // Every turn slot of the account is taken: back to Pending, so the retry claims the task again.
+            $this->task->update(['status' => TaskStatus::Pending]);
+            $this->release(30);
         } catch (ClaudeAuthException $e) {
             Log::error('RunYakReviewJob auth failure', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
             $recorder->failed($e, 'claude_auth');

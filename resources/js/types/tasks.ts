@@ -60,18 +60,6 @@ export type TaskFilters = {
     };
 };
 
-export type SetupCardItem = {
-    title: string;
-    body: string;
-    done: boolean;
-    url: string;
-    external: boolean;
-};
-
-export type SetupCard = {
-    items: SetupCardItem[];
-} | null;
-
 export type TaskPage = {
     data: TaskRow[];
     current_page: number;

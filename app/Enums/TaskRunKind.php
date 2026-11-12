@@ -17,4 +17,5 @@ enum TaskRunKind: string
     case Research = 'research';
     case Review = 'review';
     case Setup = 'setup';
+    case RepositoryEvent = 'repository_event';
 }

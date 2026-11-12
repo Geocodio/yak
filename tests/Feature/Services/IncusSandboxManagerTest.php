@@ -86,7 +86,7 @@ it('reclaims a stale container before creating a new one', function () {
     Process::assertRan("incus delete {$container} --force 2>/dev/null");
 });
 
-it('mounts the shared claude config directory instead of pushing credentials', function () {
+it('gives the sandbox no claude config mount and no credentials', function () {
     $repo = Repository::factory()->create([
         'slug' => 'demo',
         'sandbox_snapshot' => 'yak-tpl-demo/ready',
@@ -105,71 +105,9 @@ it('mounts the shared claude config directory instead of pushing credentials', f
 
     app(IncusSandboxManager::class)->create($task, $repo);
 
-    Process::assertRan(fn ($p) => str_contains($p->command, 'raw.idmap')
-        && str_contains($p->command, 'both 33 1001'));
-
-    Process::assertRan(fn ($p) => str_contains($p->command, "incus config device add '{$container}' claude disk")
-        && str_contains($p->command, "source='/home/yak/.claude'")
-        && str_contains($p->command, "path='/home/yak/.claude'"));
-
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'raw.idmap'));
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'device add') && str_contains($p->command, ' claude disk'));
     Process::assertDidntRun(fn ($p) => str_contains($p->command, '.credentials.json'));
-    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'oauth_refresh.lock'));
-    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'incus file push -r'));
-});
-
-it('removes any pre-existing claude device before adding it, so a sandbox cloned from a poisoned template self-heals', function () {
-    $repo = Repository::factory()->create([
-        'slug' => 'demo',
-        'sandbox_snapshot' => 'yak-tpl-demo/ready',
-        'sandbox_base_version' => 2,
-    ]);
-    $task = YakTask::factory()->create(['repo' => 'demo']);
-    $container = "task-{$task->id}";
-
-    Process::fake([
-        "incus info *{$container}*" => Process::result(exitCode: 1),
-        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
-        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
-        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
-        '*' => Process::result(exitCode: 0),
-    ]);
-
-    app(IncusSandboxManager::class)->create($task, $repo);
-
-    Process::assertRan(fn ($p) => str_contains($p->command, "incus config device remove '{$container}' claude")
-        && str_contains($p->command, '2>/dev/null'));
-
-    $removeIndex = firstCommandIndexContaining("incus config device remove '{$container}' claude");
-    $addIndex = firstCommandIndexContaining("incus config device add '{$container}' claude disk");
-
-    expect($removeIndex)->toBeGreaterThanOrEqual(0);
-    expect($addIndex)->toBeGreaterThan($removeIndex);
-});
-
-it('falls back to the configured host uid when the claude config source directory is absent', function () {
-    config()->set('yak.sandbox.claude_config_source', '/home/yak/.claude-does-not-exist');
-    config()->set('yak.sandbox.claude_host_uid', 33);
-
-    $repo = Repository::factory()->create([
-        'slug' => 'demo',
-        'sandbox_snapshot' => 'yak-tpl-demo/ready',
-        'sandbox_base_version' => 2,
-    ]);
-    $task = YakTask::factory()->create(['repo' => 'demo']);
-    $container = "task-{$task->id}";
-
-    Process::fake([
-        "incus info *{$container}*" => Process::result(exitCode: 1),
-        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
-        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
-        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
-        '*' => Process::result(exitCode: 0),
-    ]);
-
-    app(IncusSandboxManager::class)->create($task, $repo);
-
-    Process::assertRan(fn ($p) => str_contains($p->command, 'raw.idmap')
-        && str_contains($p->command, 'both 33 1001'));
 });
 
 it('skips reclaim when no stale container is present', function () {
@@ -268,6 +206,15 @@ it('runs sandbox commands as the yak user by default', function () {
     app(IncusSandboxManager::class)->run('box', 'git status');
 
     Process::assertRan(fn ($process) => str_contains($process->command, "incus exec 'box' -- sudo -u yak -H bash -c 'git status'"));
+});
+
+it('passes the environment as incus exec flags and preserves it through sudo', function () {
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+
+    app(IncusSandboxManager::class)->run('box', 'bash setup.sh', env: ['NPM_TOKEN' => 'tok en']);
+
+    Process::assertRan(fn ($process) => str_contains($process->command, "incus exec 'box' --env 'NPM_TOKEN=tok en' -- sudo -u yak --preserve-env='NPM_TOKEN'")
+        && ! str_contains($process->command, "bash -c 'bash setup.sh' tok"));
 });
 
 it('runs sandbox commands as root when asRoot is set', function () {

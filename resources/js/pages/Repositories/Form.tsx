@@ -14,6 +14,7 @@ import { ToggleRow } from '@/components/repositories/ToggleRow';
 import { ConfigSourceBadge, LockedField, LockedValue, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
 import { CoOwnerGateStatus, CoOwnerGateStatusSkeleton } from '@/components/repositories/CoOwnerGateStatus';
 import { YakConfigStrip, YakConfigStripSkeleton } from '@/components/repositories/YakConfigStrip';
+import { ClaudeAccountSection } from '@/components/repositories/ClaudeAccountSection';
 import { ReviewApprovalSettings } from '@/components/repositories/ReviewApprovalSettings';
 import type { ReviewPolicy } from '@/types/repositories';
 import repos from '@/routes/repos';
@@ -30,6 +31,7 @@ import type {
     SetupHistoryRow,
     YakConfig,
     CoOwnerGateStatus as CoOwnerGateStatusData,
+    RepositoryClaudeAccounts,
 } from '@/types/repositories';
 
 type Props = PageProps<{
@@ -42,6 +44,7 @@ type Props = PageProps<{
     canDelete: boolean;
     deleteBlockedReason: string | null;
     docsLinks: RepositoryDocsLinks;
+    claudeAccounts?: RepositoryClaudeAccounts;
     yakConfig?: YakConfig;
     coOwnerGate?: CoOwnerGateStatusData | null;
 }>;
@@ -279,7 +282,7 @@ function LockedManifest({ manifest, fallback, config }: { manifest: Record<strin
     );
 }
 
-export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsLinks, yakConfig, coOwnerGate }: Props) {
+export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsLinks, claudeAccounts, yakConfig, coOwnerGate }: Props) {
     const isEditing = repository !== null;
     const showManifest = isEditing && repository.deploymentsEnabled && manifest !== null;
 
@@ -642,6 +645,8 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             </div>
                         )}
                     </Section>
+
+                    {isEditing && repository && claudeAccounts && <ClaudeAccountSection slug={repository.slug} data={claudeAccounts} />}
 
                     <Section id="automation" title="Automation" description="What Yak does on its own for this repository." docsHref={docsLinks.prReview}>
                         {isEditing && (

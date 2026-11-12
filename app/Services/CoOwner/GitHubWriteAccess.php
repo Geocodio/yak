@@ -42,7 +42,7 @@ class GitHubWriteAccess
                 if ($login !== $user->github_login) {
                     $user->update(['github_login' => $login]);
                 }
-                $result = $this->resultFor($this->github->collaboratorPermission($installationId, $repository->github_full_name, $login));
+                $result = self::grantsWrite($this->github->collaboratorPermission($installationId, $repository->github_full_name, $login)) ? 'write' : 'read';
             }
         } catch (\Throwable $exception) {
             report($exception);
@@ -67,16 +67,14 @@ class GitHubWriteAccess
     }
 
     /** @param array<string, mixed>|null $permission */
-    private function resultFor(?array $permission): string
+    public static function grantsWrite(?array $permission): bool
     {
         if ($permission === null) {
-            return 'read';
+            return false;
         }
 
-        $canWrite = in_array($permission['role_name'] ?? null, self::WRITE_ROLES, true)
+        return in_array($permission['role_name'] ?? null, self::WRITE_ROLES, true)
             || data_get($permission, 'user.permissions.push') === true;
-
-        return $canWrite ? 'write' : 'read';
     }
 
     private function cacheKey(Repository $repository, User $user): string

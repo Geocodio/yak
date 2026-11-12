@@ -12,10 +12,10 @@ A repository can keep Yak's settings in a `.yak/` directory on its default branc
   risk-profile.yml    # risk areas used by the co-owner gate and the PR reviewer
   AGENTS.md           # Yak-only agent rules; general guidance stays in the root AGENTS.md / CLAUDE.md
 .github/
-  CODEOWNERS          # who is asked to co-own a held change (step 4)
+  CODEOWNERS          # who is asked to co-own a held change
 ```
 
-CODEOWNERS support arrives later. The file is listed here because the co-owner gate will read it.
+The co-owner gate reads CODEOWNERS from the default branch (see [The co-owner gate](#the-co-owner-gate)). The file lives outside `.yak/`.
 
 ## Where config comes from
 
@@ -56,6 +56,14 @@ co_owner_gate:
   # Once any valid version says enforce, a broken file keeps the gate on.
   mode: enforce                                             # off | enforce
 
+data:
+  # A dataset Yak fetches once and clones into every sandbox and preview of this repository.
+  name: addresses                                           # lowercase letters, digits and dashes, max 40
+  prefix: datasets/addresses                                # object key prefix in the bucket
+  version_key: datasets/addresses/CURRENT                   # object whose first line is the current version
+  mount_path: /data/addresses                               # absolute path inside the sandbox
+  size_gb: 40                                               # optional hint for admins
+
 review:
   # Yak reviews every open, non-draft PR on this repository.
   enabled: true
@@ -94,11 +102,17 @@ co_owner_gate:
 | `version` | The file format version. Always `1`. Required. |
 | `description` | A short description of what the repository is, shown to Yak as context. Up to 1000 characters. |
 | `ci` | The CI system Yak reads build results from: `github_actions`, `drone` or `none`. When absent, it falls back to the CI system stored in Yak, which setup detects. |
+| `destroy_after_hours` | Hours a stopped thread sandbox is kept before it is destroyed. At least 1. Without it, the host default applies (`YAK_THREADS_STOP_TO_DESTROY_HOURS`, 72). The host caps the value (`YAK_THREADS_MAX_DESTROY_AFTER_HOURS`, 168). |
 | `walkthrough.public_site_url` | The public origin shown in the mock URL bar of walkthrough videos. Up to 255 characters. |
-| `pull_requests.large_change_lines` | The number of changed lines above which a PR counts as large. At least 1. |
-| `co_owner_gate.mode` | `off` or `enforce`. See the note below. |
+| `pull_requests.large_change_lines` | The number of changed lines above which a PR counts as large. At least 1. Without it, the host default applies (`YAK_LARGE_CHANGE_THRESHOLD`, 200). |
+| `co_owner_gate.mode` | `off` (default) or `enforce`. See [The co-owner gate](#the-co-owner-gate). |
+| `data.name` | The dataset name: lowercase letters, digits and dashes, up to 40 characters. Required when `data` is set. |
+| `data.prefix` | The object key prefix in the dataset bucket. No leading slash and no `..`, up to 500 characters. The data for version `V` is under `<prefix>/V/`. Required when `data` is set. |
+| `data.version_key` | The object whose first line is the current version string. Same character rules as `prefix`. Required when `data` is set. |
+| `data.mount_path` | Where the dataset is mounted in the sandbox. Absolute, no `..`, up to 200 characters, and not `/`, `/workspace` or `/results`. Required when `data` is set. |
+| `data.size_gb` | An optional size hint in GB, at least 1, shown to admins. An admin sets the enforced cap. |
 | `review.enabled` | Whether Yak reviews pull requests in this repository. |
-| `review.exclude_paths` | Path globs Yak leaves out of reviews. Up to 100, each up to 500 characters. |
+| `review.exclude_paths` | Path globs Yak leaves out of reviews. Up to 100, each up to 500 characters. When the key is present it replaces the dashboard list and the host defaults. |
 | `review.approval.mode` | Required when `approval` is set. `off`, `shadow` (record what Yak would decide without acting) or `enforce`. |
 | `review.approval.allowed_paths` | Path globs a change must stay within to be approved. Up to 100. |
 | `review.approval.blocked_paths` | Path globs that always need a human. Up to 100. They are added to the host floor, never replace it. |
@@ -111,6 +125,10 @@ co_owner_gate:
 Required checks match by name. A check run or commit status counts if its name equals the entry, whichever app reported it.
 
 Path globs may contain letters, digits, `_`, `.`, `/`, `-`, `*` and `?`.
+
+### Datasets
+
+The `data` block gives a repository a large read-only dataset, such as a database fixture. An admin configures the S3-compatible store on the host (see [Operations](operations.md)). Yak fetches the dataset once, when the version named in `version_key` changes, and clones it into every sandbox and preview of the repository at `mount_path`. A missing or failed dataset never blocks a sandbox from starting.
 
 ### The co-owner gate
 
@@ -157,24 +175,36 @@ checkout_refresh: |
   docker compose exec -T app npm run build
 wake_timeout_seconds: 120                    # at least 1
 
-# Optional. Defaults come from Yak's host config.
-cold_start_timeout_seconds: 300
+# Optional. Each defaults to the host value shown in the table below.
+cold_start_timeout_seconds: 60
 checkout_refresh_timeout_seconds: 900
-health_probe_timeout_seconds: 5
+health_probe_timeout_seconds: 60
 ```
 
-| Key | Meaning |
-|---|---|
-| `port` | The port the app listens on inside the preview. 1 to 65535. Required. |
-| `health_probe_path` | The path Yak requests to check the preview is up. Starts with a slash. Required. |
-| `cold_start` | The command that starts the app from a stopped preview. |
-| `checkout_refresh` | The command that refreshes a preview after a new commit. |
-| `wake_timeout_seconds` | Seconds to wait for a sleeping preview to wake. At least 1. |
-| `cold_start_timeout_seconds` | Seconds to wait for the cold start command to finish. At least 1. |
-| `checkout_refresh_timeout_seconds` | Seconds to wait for the checkout refresh command to finish. At least 1. |
-| `health_probe_timeout_seconds` | Seconds to wait for the health probe to answer. At least 1. |
+| Key | Meaning | Default when absent |
+|---|---|---|
+| `port` | The port the app listens on inside the preview. 1 to 65535. Required in the file. | `80` (`YAK_DEPLOYMENTS_DEFAULT_PORT`) |
+| `health_probe_path` | The path Yak requests to check the preview is up. Starts with a slash. Required in the file. | `/` |
+| `cold_start` | The command that starts the app from a stopped preview. | none |
+| `checkout_refresh` | The command that refreshes a preview after a new commit. | none |
+| `wake_timeout_seconds` | Seconds to wait for a sleeping preview to wake. At least 1. | `120` |
+| `cold_start_timeout_seconds` | Seconds to wait for the cold start command to finish. At least 1. | `60` |
+| `checkout_refresh_timeout_seconds` | Seconds to wait for the checkout refresh command to finish. At least 1. | `900` |
+| `health_probe_timeout_seconds` | Seconds to wait for the health probe to answer. At least 1. | `60` |
+
+The defaults are the host's `YAK_DEPLOYMENTS_DEFAULT_*` settings.
 
 If the repository also has an existing `.yak/preview.sh` hook, it wins over `checkout_refresh`.
+
+### Which preview.yml a preview uses
+
+Config normally comes from the default branch only, but previews are the exception:
+
+- A pull request that changes `.yak/preview.yml` previews with its own copy of the file, so a change to the recipe proves itself before it merges.
+- Every other branch uses the default branch's `preview.yml`, so a fix there reaches older branches once it merges.
+- If the pull request's copy is missing, invalid or unreadable, the preview falls back to the default branch's recipe. Without a file there, it uses the manifest stored in Yak (the **Branch deployments** section of the repository page), then the host defaults above.
+
+See [Previews](previews.md#branch-deployments).
 
 ## risk-profile.yml
 
@@ -269,7 +299,7 @@ guidance lives in the root CLAUDE.md.
 
 ## CODEOWNERS
 
-CODEOWNERS support arrives later, together with the co-owner gate. Use placeholders like these until then:
+The co-owner gate asks CODEOWNERS owners to co-own a held change. Yak reads `CODEOWNERS`, `.github/CODEOWNERS` or `docs/CODEOWNERS` from the default branch, in standard GitHub syntax. Example:
 
 ```
 # Last matching line wins.
@@ -286,6 +316,8 @@ CODEOWNERS support arrives later, together with the co-owner gate. Use placehold
 /.yak/                     @your-login
 /.github/CODEOWNERS        @your-login
 ```
+
+Only owners who linked their GitHub account in Yak and have write access count. See [The co-owner gate](#the-co-owner-gate).
 
 ## The yak / config check
 

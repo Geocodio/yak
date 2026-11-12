@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
+use App\Contracts\SandboxShell;
 use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Enums\DeploymentStatus;
 use App\Enums\TaskStatus;
@@ -22,7 +23,7 @@ use RuntimeException;
  * Containers have their own Docker daemon, network namespace, and filesystem
  * via ZFS copy-on-write — providing full isolation from the yak host.
  */
-class IncusSandboxManager
+class IncusSandboxManager implements SandboxShell
 {
     /**
      * Wall-clock ceiling for incus commands that move real data — `copy`,
@@ -89,10 +90,6 @@ class IncusSandboxManager
         // any the agent spawns — sees them.
         $this->configureEnvironment($containerName);
 
-        // Share the host Claude config directory. Must precede `incus start`:
-        // raw.idmap is only applied when the container boots.
-        $this->configureClaudeMount($containerName);
-
         // Start the container
         $this->exec("incus start {$containerName}");
 
@@ -139,10 +136,14 @@ class IncusSandboxManager
      * for the rare privileged operations (chown of pushed files, etc.).
      *
      * Returns the raw process result for callers that need stdout/stderr.
+     * `$env` reaches the command as `incus exec --env` flags, so values never
+     * appear in the shell command string.
+     *
+     * @param  array<string, string>  $env
      */
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
     {
-        $cmd = $this->buildExecCommand($containerName, $command, $asRoot);
+        $cmd = $this->buildExecCommand($containerName, $command, $asRoot, $env);
 
         $process = Process::timeout($timeout ?? 600);
 
@@ -265,6 +266,12 @@ class IncusSandboxManager
         $token = app(GitHubAppService::class)->getReadOnlyInstallationToken($installationId);
 
         $this->run($containerName, 'mkdir -p /home/yak/.config/yak && umask 077 && cat > /home/yak/.config/yak/gh-token', timeout: 10, input: $token);
+        $this->installGhWrapper($containerName);
+    }
+
+    /** Puts the `gh` wrapper on PATH; it reads the token file on every call. */
+    public function installGhWrapper(string $containerName): void
+    {
         $this->run(
             $containerName,
             'cat > /usr/local/bin/gh && chmod 755 /usr/local/bin/gh',
@@ -771,162 +778,6 @@ class IncusSandboxManager
     }
 
     /**
-     * Share the host's Claude config directory with the sandbox instead of
-     * copying it.
-     *
-     * Claude Code's OAuth refresh tokens are single-use: each refresh
-     * invalidates the previous one server-side. Handing every sandbox a
-     * private copy meant the first sandbox to refresh stranded every other
-     * copy, which is the "OAuth session expired and could not be refreshed"
-     * failure. With one shared directory there is exactly one credential
-     * file, and the CLI's own `.oauth_refresh.lock` — which lives in that
-     * directory — serializes concurrent refreshes the way it was designed to.
-     *
-     * `raw.idmap` maps the host uid that owns the directory onto the
-     * container's `yak` user, so the agent can read and write it and its
-     * writes land host-side owned by www-data. It only takes effect at
-     * container start, so this must run before `incus start`.
-     */
-    private function configureClaudeMount(string $containerName): void
-    {
-        $source = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
-
-        // fileowner() can return false on a stat failure even when is_dir()
-        // is true; (int) false is 0, which would idmap the container's yak
-        // user onto host root. Only trust it when it actually resolved.
-        $owner = is_dir($source) ? fileowner($source) : false;
-
-        $hostUid = is_int($owner)
-            ? $owner
-            : (int) config('yak.sandbox.claude_host_uid', 33);
-
-        $sandboxUid = (int) config('yak.sandbox.claude_sandbox_uid', 1001);
-
-        $this->exec(sprintf(
-            'incus config set %s raw.idmap %s',
-            escapeshellarg($containerName),
-            escapeshellarg(sprintf('both %d %d', $hostUid, $sandboxUid)),
-        ));
-
-        // Idempotent: a sandbox cloned from a template that was poisoned by
-        // an earlier build of this feature (see promoteToTemplate()) may
-        // already carry the device. Remove it first so the add below
-        // doesn't fail with "Device already exists".
-        Process::timeout(self::QUERY_TIMEOUT)->run(sprintf(
-            'incus config device remove %s claude 2>/dev/null',
-            escapeshellarg($containerName),
-        ));
-
-        $this->exec(sprintf(
-            'incus config device add %s claude disk source=%s path=%s',
-            escapeshellarg($containerName),
-            escapeshellarg($source),
-            escapeshellarg($source),
-        ));
-    }
-
-    /**
-     * Pull a Claude session transcript out of a sandbox before teardown so
-     * a later follow-up or clarification reply can `--resume` the session
-     * in a fresh sandbox. Transcripts live under `~/.claude/projects/`
-     * inside the container and are destroyed with it otherwise.
-     *
-     * Best-effort: any failure is logged and swallowed — teardown must not
-     * be blocked by transcript bookkeeping.
-     */
-    public function pullSessionTranscript(string $containerName, ?string $sessionId): void
-    {
-        if ($sessionId === null || $sessionId === '') {
-            return;
-        }
-
-        try {
-            $findResult = $this->run(
-                $containerName,
-                sprintf('find /home/yak/.claude/projects -name %s 2>/dev/null | head -1', escapeshellarg($sessionId . '.jsonl')),
-                timeout: 15,
-            );
-
-            $remotePath = trim((string) $findResult->output());
-
-            if ($remotePath === '') {
-                return;
-            }
-
-            $localDir = self::sessionTranscriptDir();
-            if (! is_dir($localDir)) {
-                mkdir($localDir, 0755, true);
-            }
-
-            $this->pullFile($containerName, $remotePath, $localDir . '/' . $sessionId . '.jsonl');
-
-            Log::channel('yak')->info('Persisted Claude session transcript', [
-                'container' => $containerName,
-                'session_id' => $sessionId,
-            ]);
-        } catch (\Throwable $e) {
-            Log::channel('yak')->warning('pullSessionTranscript failed', [
-                'container' => $containerName,
-                'session_id' => $sessionId,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    /**
-     * Push a previously persisted session transcript into a fresh sandbox
-     * so `claude --resume {sessionId}` can find the conversation. Returns
-     * whether a transcript was pushed; when false the caller's resume will
-     * fail with "No conversation found" and should fall back to a fresh run.
-     */
-    public function pushSessionTranscript(string $containerName, ?string $sessionId): bool
-    {
-        if ($sessionId === null || $sessionId === '') {
-            return false;
-        }
-
-        $localPath = self::sessionTranscriptDir() . '/' . $sessionId . '.jsonl';
-
-        if (! is_file($localPath)) {
-            return false;
-        }
-
-        try {
-            // Claude Code keys project transcript dirs by the CWD with every
-            // non-alphanumeric character replaced by '-' (e.g. /workspace
-            // becomes -workspace). The agent always runs from workspacePath().
-            $projectDir = '/home/yak/.claude/projects/' . preg_replace('/[^a-zA-Z0-9]/', '-', self::workspacePath());
-
-            $this->run($containerName, 'mkdir -p ' . escapeshellarg($projectDir), timeout: 10, asRoot: true);
-            $this->pushFile($containerName, $localPath, $projectDir . '/' . $sessionId . '.jsonl');
-            $this->run($containerName, 'chown -R yak:yak /home/yak/.claude/projects', timeout: 10, asRoot: true);
-
-            Log::channel('yak')->info('Restored Claude session transcript into sandbox', [
-                'container' => $containerName,
-                'session_id' => $sessionId,
-            ]);
-
-            return true;
-        } catch (\Throwable $e) {
-            Log::channel('yak')->warning('pushSessionTranscript failed', [
-                'container' => $containerName,
-                'session_id' => $sessionId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
-    }
-
-    /**
-     * Host directory holding persisted session transcripts.
-     */
-    public static function sessionTranscriptDir(): string
-    {
-        return (string) config('yak.sandbox.session_transcript_path', storage_path('app/claude-sessions'));
-    }
-
-    /**
      * Write a global git ignore file that excludes sandbox-only artifacts
      * from every commit inside the container.
      *
@@ -996,7 +847,7 @@ class IncusSandboxManager
         }
     }
 
-    private function pushMcpConfig(string $containerName): void
+    public function pushMcpConfig(string $containerName): void
     {
         $mcpConfigPath = config('yak.mcp_config_path');
 
@@ -1090,8 +941,10 @@ class IncusSandboxManager
     /**
      * Build the `incus exec` shell command, wrapping the payload in
      * `sudo -u yak` unless the caller explicitly needs root.
+     *
+     * @param  array<string, string>  $env
      */
-    private function buildExecCommand(string $containerName, string $command, bool $asRoot): string
+    private function buildExecCommand(string $containerName, string $command, bool $asRoot, array $env = []): string
     {
         if ($asRoot) {
             // `incus exec` runs as root by default and preserves the
@@ -1102,13 +955,20 @@ class IncusSandboxManager
             // small allowlist, which would eat the agent passthrough
             // vars we just set on the container. --preserve-env=<list>
             // whitelists exactly the ones we forwarded.
-            $preserve = $this->preserveEnvFlag();
+            $preserve = $this->preserveEnvFlag(array_keys($env));
             $shell = 'sudo -u yak' . $preserve . ' -H bash -c ' . escapeshellarg($command);
         }
 
+        $envFlags = '';
+
+        foreach ($env as $name => $value) {
+            $envFlags .= ' --env ' . escapeshellarg("{$name}={$value}");
+        }
+
         return sprintf(
-            'incus exec %s -- %s',
+            'incus exec %s%s -- %s',
             escapeshellarg($containerName),
+            $envFlags,
             $shell,
         );
     }
@@ -1135,15 +995,14 @@ class IncusSandboxManager
      * Build the `--preserve-env=NAME1,NAME2` flag for sudo, based on
      * `yak.agent_passthrough_env`. Returns an empty string when
      * nothing is configured so the sudo invocation stays clean.
+     *
+     * @param  list<string|int>  $extraNames
      */
-    private function preserveEnvFlag(): string
+    private function preserveEnvFlag(array $extraNames = []): string
     {
         $passthrough = (string) config('yak.agent_passthrough_env', '');
-        if ($passthrough === '') {
-            return '';
-        }
+        $names = array_merge(array_filter(array_map('trim', explode(',', $passthrough))), array_map('strval', $extraNames));
 
-        $names = array_filter(array_map('trim', explode(',', $passthrough)));
         if ($names === []) {
             return '';
         }

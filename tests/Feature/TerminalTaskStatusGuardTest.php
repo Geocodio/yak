@@ -100,7 +100,7 @@ test('RunYakJob does not overwrite a terminal task when the repo cannot be resol
         'completed_at' => now(),
     ]);
 
-    (new RunYakJob($task))->handle(new FakeAgentRunner);
+    (new RunYakJob($task))->handle();
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Failed)

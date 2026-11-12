@@ -27,7 +27,7 @@ beforeEach(function () {
 it('system section includes all 6 system checks', function () {
     $ids = array_map(fn ($c) => $c->id(), app(Registry::class)->forSection(HealthSection::System));
 
-    expect($ids)->toContain('queue-worker', 'last-task-completed', 'repositories', 'claude-cli', 'claude-auth', 'webhook-signatures');
+    expect($ids)->toContain('queue-worker', 'last-task-completed', 'repositories', 'claude-accounts', 'webhook-signatures');
 });
 
 it('channel section is empty when no channels are enabled', function () {

@@ -1,29 +1,41 @@
 # Yak Documentation
 
-User-facing documentation for running and operating Yak. Source of truth lives here as plain markdown — the hosted docs site at [geocodio.github.io/yak](https://geocodio.github.io/yak) renders these same files.
+Documentation for using and running Yak. These markdown files are the source. The hosted site at [geocodio.github.io/yak](https://geocodio.github.io/yak) renders the same files.
 
-## Getting Started
+## Start here
 
-- **[Setup](setup.md)** — provisioning a fresh server with Ansible, vault configuration, verification
-- **[Channels](channels.md)** — configuring Slack, Linear, Sentry, email, GitHub, Drone, and the manual CLI
-- **[Repositories](repositories.md)** — adding repos, the setup task, CLAUDE.md guidance, multi-repo routing
-- **[Repository config](repo-config.md)**: the `.yak/` directory: config.yml, preview.yml, risk-profile.yml, the `yak / config` check
-- **[PR Review](pr-review.md)** — enabling Yak to review pull requests, path filters, dashboard, reactions
-- **[Video Walkthroughs](video-walkthroughs.md)** — the walkthrough render pipeline and the installation-wide theme editor
+- **[Concepts](concepts.md)**: threads, turns, tasks, sandboxes and Claude accounts, and how they relate
 
-## Reference
+## Work with Yak
 
-- **[Architecture](architecture.md)** — two-tier AI, channel drivers, state machine, jobs and queues, safety model
-- **[Prompting](prompting.md)** — the three prompt layers, system prompt, task templates, MCP servers, customization
+- **[Threads](threads.md)**: start a thread, steer Claude, read the thread page, share a thread or keep it private
+- **[Multi-repo threads](multi-repo.md)**: several repositories in one thread, one pull request per changed repository
+- **[Sub-threads](sub-threads.md)**: split work into sub-threads that report back to the parent
+- **[Previews](previews.md)**: thread previews of live work, branch deployments for pull requests, preview repair
+- **[Teleport](teleport.md)**: move a Claude Code session between your computer and a Yak thread
+- **[SSH and terminal](ssh.md)**: open a shell in a thread sandbox from the browser or with `yak ssh`
+- **[yak CLI](cli.md)**: command and flag reference
+- **[Claude accounts](claude-accounts.md)**: add accounts, choose which one a thread uses, handle usage limits
+- **[Notifications](notifications.md)**: push notifications, Slack direct messages, email
+- **[PR Review](pr-review.md)**: let Yak review pull requests
+- **[Video walkthroughs](video-walkthroughs.md)**: recorded walkthroughs of UI changes and the video theme
+- **[Dashboard pages](dashboard.md)**: what each dashboard page shows
 
-## Operations
+## Configure
 
-- **[Troubleshooting](troubleshooting.md)** — common issues and how to diagnose them
+- **[Channels](channels.md)**: Slack, Linear, Sentry, email, GitHub and Drone
+- **[Repositories](repositories.md)**: add and manage repositories, setup, routing, per-repository settings
+- **[Repository config](repo-config.md)**: the `.yak/` directory in a repository
+- **[Prompting](prompting.md)**: prompt layers, templates, tools and MCP servers
 
-## Contributing
+## Run Yak
 
-- **[Development](development.md)** — local dev setup, running tests, code style, adding new channel drivers
+- **[Setup](setup.md)**: provision a server with Ansible
+- **[Upgrading to threads](upgrading.md)**: move an existing installation to the thread model
+- **[Operations](operations.md)**: host components, scheduled commands, capacity settings, datasets
+- **[Architecture](architecture.md)**: the thread model, the life of a turn, sandboxes, safety
+- **[Troubleshooting](troubleshooting.md)**: common problems and how to diagnose them
 
----
+## Contribute
 
-Looking for the internal design specs instead? Those live in [`spec/`](../spec/) at the repo root. The `spec/` files are the source of the user-facing docs here — they describe the target state and design rationale, while these docs describe how to use the running system.
+- **[Development](development.md)**: local setup, tests, code style, adding a channel, working on the docs

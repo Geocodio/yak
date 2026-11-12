@@ -29,7 +29,7 @@ export function HibernationCard({ deploymentId, hibernation: data }: { deploymen
             </div>
             <div className="p-4">
                 <p className="text-[12px] text-muted">
-                    {data.longLived ? `Hibernates after ${data.timeout} of inactivity. Exempt from the 30-day cleanup.` : `Hibernates after ${data.timeout} of inactivity.`}
+                    {data.longLived ? `Hibernates after ${data.timeout} of inactivity. Exempt from the ${data.destroyDays}-day cleanup.` : `Hibernates after ${data.timeout} of inactivity.`}
                 </p>
                 <div className="mt-3 flex items-center justify-between">
                     <span className="text-[12.5px]">Keep this branch long-lived</span>
