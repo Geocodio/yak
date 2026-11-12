@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ClaudeAccount;
 use App\Services\HealthCheck\HealthCheck;
 use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\HealthSection;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Redis;
  * can drive the command through a failing/recovering sequence without
  * depending on the real system checks.
  */
-function fakeHealthCheck(callable $result, string $id = 'claude-auth', string $name = 'Claude Max Session'): HealthCheck
+function fakeHealthCheck(callable $result, string $id = 'claude-accounts', string $name = 'Claude accounts'): HealthCheck
 {
     return new class($result, $id, $name) implements HealthCheck
     {
@@ -52,10 +53,7 @@ function bindHealthCheckRegistry(HealthCheck ...$checks): void
 }
 
 beforeEach(function () {
-    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
-    mkdir($configDir);
-    file_put_contents(dirname($configDir) . '/.claude.json', '{}');
-    config()->set('yak.sandbox.claude_config_source', $configDir);
+    ClaudeAccount::factory()->system()->create();
 
     Process::fake([
         'pgrep *' => Process::result(output: '12345'),
@@ -193,10 +191,7 @@ test('healthcheck command includes the agent queue count and the runbook in the 
     $this->artisan('yak:healthcheck')->assertExitCode(1);
     $this->artisan('yak:healthcheck')->assertExitCode(1);
 
-    Http::assertSent(function ($request) {
-        return str_contains($request['text'], 'Agent jobs queued:')
-            && str_contains($request['text'], 'yak-claude-login');
-    });
+    Http::assertSent(fn ($request) => str_contains($request['text'], 'Agent jobs queued:'));
 });
 
 test('healthcheck command alerts on a newly-failing check without a false recovery for the rest', function () {

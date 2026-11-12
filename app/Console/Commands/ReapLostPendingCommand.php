@@ -12,7 +12,6 @@ use App\Jobs\RunYakReviewJob;
 use App\Jobs\SetupYakJob;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
-use App\Services\HealthCheck\ClaudeAuthCheck;
 use App\Services\QueuedJobLocator;
 use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
@@ -53,23 +52,14 @@ class ReapLostPendingCommand extends Command
      * hit a `ShouldBeUnique` lock, or ran on the `sync` driver), fall back
      * to `dispatched_at` age alone, which the query already filtered on.
      *
-     * Skips entirely while a deploy is draining or the shared Claude
-     * session is unusable — those flags make every Pending task look
-     * stale by the same threshold, and re-dispatching under either
-     * condition would either be dispatched into a container about to be
-     * recreated or held by HoldsForClaudeAuth anyway, so it's simplest
-     * (and quietest) to no-op the whole sweep.
+     * Skips entirely while a deploy is draining: that flag makes every
+     * Pending task look stale by the same threshold, and re-dispatching
+     * would send the job into a container about to be recreated.
      */
     public function handle(AgentJobDispatcher $dispatcher): int
     {
         if (Cache::has(PausesDuringDrain::CACHE_KEY)) {
             $this->components->info('Drain in progress — skipping.');
-
-            return self::SUCCESS;
-        }
-
-        if (Cache::has(ClaudeAuthCheck::UNUSABLE_CACHE_KEY)) {
-            $this->components->info('Claude session unusable — skipping.');
 
             return self::SUCCESS;
         }

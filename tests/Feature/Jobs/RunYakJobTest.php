@@ -6,7 +6,6 @@ use App\Enums\TaskStatus;
 use App\Enums\TurnState;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
-use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
@@ -174,13 +173,12 @@ it('fails the task when no Claude account is available', function () {
         ->and($context['task']->error_log)->toBe('No Claude account is available. Ask an admin to add a Yak system account.');
 });
 
-it('runs on the yak-claude queue with the budget and repo middleware but no CLI auth hold', function () {
+it('runs on the yak-claude queue with the budget and repo middleware', function () {
     $job = new RunYakJob(YakTask::factory()->pending()->make());
     $classes = array_map(fn ($middleware) => $middleware::class, $job->middleware());
 
     expect($job->queue)->toBe('yak-claude')
-        ->and($classes)->toContain(EnsureDailyBudget::class)->toContain(EnsureRepoReady::class)
-        ->not->toContain(HoldsForClaudeAuth::class);
+        ->and($classes)->toContain(EnsureDailyBudget::class)->toContain(EnsureRepoReady::class);
 });
 
 it('emits a start progress notification on the first attempt', function () {

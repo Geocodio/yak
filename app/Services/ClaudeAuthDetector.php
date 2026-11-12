@@ -15,9 +15,8 @@ use Illuminate\Contracts\Process\ProcessResult;
  * fragment, a `duration_ms` value, an HTTP 401 the agent legitimately hit
  * in the repo it's working on, or the `.oauth_refresh.lock` path. Keep
  * patterns anchored to real auth-error phrasing (`http 401`, `oauth
- * token`, ...); callers with a narrower, more controlled haystack (e.g.
- * ClaudeAuthCheck's own probe output) that need looser matching should do
- * that classification locally rather than loosening this shared list.
+ * token`, ...); callers with a narrower, more controlled haystack that need
+ * looser matching should do that classification locally rather than loosening this shared list.
  */
 class ClaudeAuthDetector
 {

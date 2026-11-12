@@ -268,11 +268,9 @@ test('every supervisord program that runs artisan runs as www-data', function ()
     }
 });
 
-test('scheduler runs as www-data so healthchecks cannot leave root-owned claude state', function () {
-    // yak:healthcheck runs every 15 minutes and shells the Claude CLI out
-    // against /home/yak/.claude (ClaudeAuthCheck). As root it leaves a
-    // root-owned .oauth_refresh.lock behind, which blocks every subsequent
-    // www-data OAuth refresh until someone re-authenticates by hand.
+test('scheduler runs as www-data so scheduled commands cannot leave root-owned state', function () {
+    // Scheduled commands write files the www-data workers read later; as
+    // root they would leave root-owned files behind.
     $programs = productionSupervisordPrograms();
 
     expect($programs)->toHaveKey('scheduler');
