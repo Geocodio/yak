@@ -205,6 +205,8 @@ func TestProxyAllowsOnlyTheCLIsPaths(t *testing.T) {
 		{"POST", "/v1/messages/count_tokens", true},
 		{"GET", "/v1/messages", false},
 		{"GET", "/v1/models", true},
+		{"GET", "/v1/models?limit=1000&after_id=claude-opus-5", true},
+		{"GET", "/v1/organizations", false},
 		{"POST", "/v1/models", false},
 		{"GET", "/v1/models/claude-opus-5", false},
 		{"POST", "/v1/messages/../x", false},
