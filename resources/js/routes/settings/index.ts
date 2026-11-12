@@ -184,7 +184,7 @@ claudeAccounts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @see app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 export const devices = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -199,7 +199,7 @@ devices.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @see app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 devices.url = (options?: RouteQueryOptions) => {
@@ -208,7 +208,7 @@ devices.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @see app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 devices.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -218,7 +218,7 @@ devices.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @see app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 devices.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

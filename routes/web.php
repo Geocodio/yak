@@ -22,6 +22,7 @@ use App\Http\Controllers\Deployments\DeploymentController;
 use App\Http\Controllers\Deployments\ShareLinkController;
 use App\Http\Controllers\Devices\DeviceApprovalController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\InstallScriptController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
 use App\Http\Controllers\Internal\PreviewAuthController;
@@ -109,6 +110,8 @@ Route::get('/', function () {
 
     return view('welcome');
 })->name('home');
+
+Route::get('install', InstallScriptController::class)->name('install');
 
 Route::get('letmein', function () {
     abort_unless(app()->environment('local'), 404);
