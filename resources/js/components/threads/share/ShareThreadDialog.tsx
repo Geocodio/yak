@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { Button, Checkbox, Dialog } from '@geocodio/console-ui';
 import { AlertCircle, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useDocsUrl } from '@/lib/docsUrl';
 import { fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
 import { csrfToken } from '@/lib/csrfToken';
 import { show, update } from '@/routes/threads/share';
@@ -15,6 +16,7 @@ const MODES: { value: ThreadShareMode; label: string; description: string }[] = 
 ];
 
 export function ShareThreadDialog({ thread, onClose }: { thread: ThreadData; onClose: () => void }) {
+    const sharingDocsUrl = useDocsUrl('threads/#sharing-and-private-threads');
     const [state, setState] = useState<ThreadShareState | null>(null);
     const [hasLoadFailed, setHasLoadFailed] = useState(false);
     const [mode, setMode] = useState<ThreadShareMode>('only_me');
@@ -68,7 +70,7 @@ export function ShareThreadDialog({ thread, onClose }: { thread: ThreadData; onC
             data-testid="share-dialog"
             footer={
                 <div className="flex items-center justify-between gap-2">
-                    <a href="https://yak.build/docs/sharing" target="_blank" rel="noreferrer" className="text-[12.5px] text-accent-text hover:underline">How sharing works</a>
+                    <a href={sharingDocsUrl} target="_blank" rel="noreferrer" className="text-[12.5px] text-accent-text hover:underline">How sharing works</a>
                     <div className="flex items-center gap-2">
                         <Button variant="tertiary" disabled={isSubmitting} onClick={onClose}>Cancel</Button>
                         <Button variant="primary" disabled={!canSubmit} pending={isSubmitting} onClick={save} data-testid="share-submit">Share</Button>

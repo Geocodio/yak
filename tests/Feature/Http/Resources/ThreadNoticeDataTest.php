@@ -156,6 +156,12 @@ it('shows restore progress while the sandbox starts', function () {
         ->and(ThreadNoticeData::for($thread)['restoreSteps'])->toHaveCount(1);
 });
 
+it('says messages sent during a usage limit start after the reset', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]);
+
+    expect(ThreadNoticeData::for($thread)['body'])->toContain('start when the limit resets')->not->toContain('on its own');
+});
+
 it('reads the usage limit reset time from the run', function () {
     $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]);
     $task = YakTask::factory()->create(['thread_id' => $thread->id]);

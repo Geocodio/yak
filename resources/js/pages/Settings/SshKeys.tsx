@@ -39,7 +39,7 @@ export default function SshKeys({ githubKeys, uploadedKeys, github, config }: Pr
             <div className="flex flex-col gap-8">
                 <div>
                     <p className="max-w-[620px] text-[13px] leading-relaxed text-muted">
-                        These keys can run <code className="font-mono">yak ssh &lt;thread&gt;</code> and use <code className="font-mono">scp</code> or an editor&apos;s remote mode against the sandboxes of threads you can drive.{' '}
+                        These keys can run <code className="font-mono">yak ssh &lt;thread id&gt;</code> and use <code className="font-mono">scp</code> or an editor&apos;s remote mode against the sandboxes of threads you can drive.{' '}
                         <a href={config.docsUrl} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">How yak ssh works</a>
                     </p>
                 </div>

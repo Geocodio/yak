@@ -9,9 +9,10 @@ test('maps notice kinds to a label and tone', () => {
     assert.deepEqual(threadStatus(notice('restore_failed'), 'idle'), { label: 'Rebuild failed', tone: 'fail' });
     assert.deepEqual(threadStatus(notice('waiting_for_account'), 'idle'), { label: 'Waiting for the account', tone: 'warn' });
     assert.deepEqual(threadStatus(notice('waiting_for_sandbox'), 'idle'), { label: 'Waiting for a sandbox', tone: 'warn' });
-    for (const kind of ['account_invalid', 'account_expired', 'usage_limit', 'credential_exposure']) {
+    for (const kind of ['account_invalid', 'account_expired', 'credential_exposure']) {
         assert.deepEqual(threadStatus(notice(kind), 'idle'), { label: 'Token problem', tone: 'fail' });
     }
+    assert.deepEqual(threadStatus(notice('usage_limit'), 'idle'), { label: 'Usage limit', tone: 'fail' });
     for (const kind of ['guard_turns', 'guard_time']) {
         assert.deepEqual(threadStatus(notice(kind), 'idle'), { label: 'Stopped', tone: 'warn' });
     }

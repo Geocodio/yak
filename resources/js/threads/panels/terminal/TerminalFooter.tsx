@@ -4,9 +4,9 @@ import { Copy } from 'lucide-react';
 import { sshKeys } from '@/routes/settings';
 import type { SharedProps } from '@/types/shared';
 
-export function TerminalFooter({ threadName }: { threadName: string }) {
+export function TerminalFooter({ threadId }: { threadId: number }) {
     const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
-    const command = `yak ssh ${threadName}`;
+    const command = `yak ssh ${threadId}`;
     const copy = () => {
         navigator.clipboard.writeText(command).then(
             () => toast.success('Copied'),

@@ -8,8 +8,8 @@ import type { PushEventKey } from '@/types/notifications';
 const EVENTS: { key: PushEventKey; title: string; body: string }[] = [
     { key: 'needs_you', title: 'Needs you', body: 'Claude asked a question, a thread is blocked, an unattended event is waiting for approval, or a child thread escalated.' },
     { key: 'turn_finished', title: 'Turn finished', body: 'Claude finished a turn on a thread while you were looking at something else.' },
-    { key: 'stack_usage', title: 'Stack usage alerts', body: 'A Claude account you use is close to its limit or has been rate limited.' },
-    { key: 'pull_request', title: 'Pull request and CI events', body: 'A review, a failing check or a merge on a thread you own.' },
+    { key: 'stack_usage', title: 'Stack usage alerts', body: 'A stack of threads you own passes a turn, active-hours or sub-thread mark.' },
+    { key: 'pull_request', title: 'Pull request and CI events', body: 'A pull request opened, or CI failed or passed, on a thread you own.' },
 ];
 
 export function EventToggles({ events, isDisabled }: { events: Record<PushEventKey, boolean>; isDisabled: boolean }) {

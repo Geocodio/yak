@@ -40,7 +40,7 @@ it('shows keys, the github account and the config snippet', function () {
             ->where('github.profileUrl', 'https://github.com/dana-whitfield')
             ->where('github.status', 'ok')
             ->where('github.isStale', false)
-            ->where('config.command', 'yak ssh --config')
+            ->where('config.command', 'yak ssh --config <thread id>')
             ->where('config.jumpHost', 'ssh.geocodio.yak.build:2222')
             ->where('config.snippet', fn (string $snippet) => str_contains($snippet, 'Host *.geocodio.yak.build') && str_contains($snippet, 'ProxyJump yak-jump@ssh.geocodio.yak.build:2222'))
             ->etc());

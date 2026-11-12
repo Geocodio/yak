@@ -6,6 +6,7 @@ import { LocationChip } from '@/components/threads/share/LocationChip';
 import { VisibilityRow } from '@/components/threads/share/VisibilityRow';
 import { PersonAvatar } from '@/components/threads/environment/PersonAvatar';
 import { CopyableAddress } from '@/components/CopyableAddress';
+import { useDocsUrl } from '@/lib/docsUrl';
 import { sshKeys } from '@/routes/settings';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadEnvironment } from '@/types/thread-changes';
@@ -102,6 +103,7 @@ function formatStartedAt(iso: string): string {
 }
 
 export function EnvironmentPanel({ thread, canDrive, notice, composerState, capacity = null, accountName = null, environmentSwitch = null }: PanelProps) {
+    const threadsDocsUrl = useDocsUrl('threads/');
     const { environment, isLoading, error, reload } = useThreadEnvironment(thread);
     const isSettingUp = environment?.repositories.some((repository) => ['pending', 'cloning', 'setup'].includes(repository.setupStatus)) ?? false;
 
@@ -214,7 +216,7 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
                 )}
 
                 <Row label="Terminal" testId="environment-terminal">
-                    <CopyableAddress address={`yak ssh ${thread.name}`} label={null} />
+                    <CopyableAddress address={`yak ssh ${thread.id}`} label={null} />
                     <p className="mt-0.5 text-[12px] text-muted">From your computer, with your GitHub keys.</p>
                     <a href={sshKeys().url} className="text-[12px] text-accent-text hover:underline" data-testid="environment-ssh-link">
                         Set up SSH
@@ -267,7 +269,7 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
                 </section>
             )}
 
-            <a href="https://yak.build/docs/threads" target="_blank" rel="noreferrer" className="text-[12px] text-accent-text hover:underline">
+            <a href={threadsDocsUrl} target="_blank" rel="noreferrer" className="text-[12px] text-accent-text hover:underline">
                 How threads and sandboxes work
             </a>
         </div>

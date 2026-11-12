@@ -80,11 +80,22 @@ func friendly(err error) error {
 	case "thread_not_found":
 		return userErrorf(err, "Yak does not know that thread.")
 	case "teleport_expired":
-		return userErrorf(err, "That teleport expired after 30 minutes without activity. Nothing changed. Run yak teleport again.")
+		return userErrorf(err, "That teleport expired after %s without activity. Nothing changed. Run yak teleport again.", expiryPhrase(detail(e, "minutes")))
 	case "session_incomplete":
 		return userErrorf(err, "Yak did not receive the whole session. Nothing changed. Run yak teleport again.")
 	}
 	return err
+}
+
+// expiryPhrase names the idle window the server reported, such as "45 minutes".
+func expiryPhrase(minutes string) string {
+	switch minutes {
+	case "":
+		return "a while"
+	case "1":
+		return "1 minute"
+	}
+	return minutes + " minutes"
 }
 
 func osArch() (string, string) {

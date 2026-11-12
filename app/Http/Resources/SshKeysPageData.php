@@ -47,8 +47,8 @@ final class SshKeysPageData
                     "  ProxyJump yak-jump@{$jumpHost}",
                     '  IdentityFile ~/.ssh/id_ed25519',
                 ]),
-                'command' => 'yak ssh --config',
-                'docsUrl' => (string) config('yak.ssh.docs_url'),
+                'command' => 'yak ssh --config <thread id>',
+                'docsUrl' => config('docs.base_url') . 'ssh/',
                 'jumpHost' => $jumpHost,
             ],
         ];

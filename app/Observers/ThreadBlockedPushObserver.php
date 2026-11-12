@@ -33,7 +33,7 @@ class ThreadBlockedPushObserver
         }
 
         $body = match ($reason) {
-            ThreadBlockReason::UsageLimit => 'The thread hit its usage limit and continues when it resets.',
+            ThreadBlockReason::UsageLimit => 'The thread hit its usage limit. Messages you send now start when it resets.',
             ThreadBlockReason::CredentialExposure => 'A credential may have been exposed. Open the thread to review.',
             ThreadBlockReason::RestoreFailed => 'The thread could not be restored. Open it to retry.',
             default => null,

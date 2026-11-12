@@ -67,12 +67,13 @@ it('expires stale teleports and clears marks', function () {
 });
 
 it('answers calls on an expired teleport with teleport_expired', function () {
+    config(['yak.teleport.expiry_minutes' => 45]);
     $teleport = Teleport::factory()->up()->create(['thread_id' => $this->thread->id, 'device_id' => $this->device->id, 'expires_at' => now()->subMinute()]);
     Artisan::call('yak:expire-teleports');
     expect($teleport->refresh()->state)->toBe(TeleportState::Expired);
 
     $this->getJson("/api/cli/v1/threads/{$this->thread->id}/session/length?session_id=a0a0a0a0-0000-4000-8000-000000000001&rel_path=a0a0a0a0-0000-4000-8000-000000000001.jsonl", cliHeaders($this->token))
-        ->assertStatus(409)->assertJsonPath('error', 'teleport_expired');
+        ->assertStatus(409)->assertJsonPath('error', 'teleport_expired')->assertJsonPath('details.minutes', 45);
 });
 
 it('expires lazily when a stale teleport is read', function () {
