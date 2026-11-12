@@ -857,6 +857,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
         $parts[] = $this->reReviewFooter();
 
+        if ($parsed->findings !== []) {
+            $parts[] = 'When you have addressed these, resolve the threads or comment /yak review, and Yak will look again.';
+        }
+
         return implode("\n\n", $parts);
     }
 
@@ -912,6 +916,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         $parts[] = $this->reviewerNotesBlock($parsed);
 
         $parts[] = $this->reReviewFooter();
+
+        if ($parsed->findings !== []) {
+            $parts[] = 'When you have addressed these, resolve the threads or comment /yak review, and Yak will look again.';
+        }
 
         return implode("\n\n", $parts);
     }

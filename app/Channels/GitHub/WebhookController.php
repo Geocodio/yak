@@ -4,6 +4,7 @@ namespace App\Channels\GitHub;
 
 use App\Actions\EnqueuePrReview;
 use App\Actions\RecordPullRequestOutcome;
+use App\Actions\StartSecondRound;
 use App\Actions\WithdrawApprovalOnPush;
 use App\Enums\DeploymentStatus;
 use App\Http\Concerns\RecordsWebhookTelemetry;
@@ -15,11 +16,13 @@ use App\Jobs\Deployments\UpdateDeploymentJob;
 use App\Jobs\FlushFollowUpBatchJob;
 use App\Jobs\HandlePullRequestSummonJob;
 use App\Jobs\ProcessCIResultJob;
+use App\Jobs\QuietPeriodReviewJob;
 use App\Jobs\RunConfigCheckJob;
 use App\Jobs\TriageReviewJob;
 use App\Models\BranchDeployment;
 use App\Models\FollowUpPendingComment;
 use App\Models\PrReview;
+use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\BranchDeploymentProvisioner;
@@ -80,6 +83,10 @@ class WebhookController extends Controller
             return $this->handlePullRequestReviewComment($request, $github);
         }
 
+        if ($event === 'pull_request_review_thread') {
+            return $this->handleReviewThread($request, $github);
+        }
+
         if ($event === 'pull_request_review') {
             return $this->handlePullRequestReview($request, $github);
         }
@@ -110,9 +117,16 @@ class WebhookController extends Controller
 
             $repository = $this->resolveRepositoryFromPayload($request);
 
-            if ($repository !== null && $repository->is_active
-                && app(WithdrawApprovalOnPush::class)->handle($repository, (array) $request->input('pull_request'))) {
-                return response()->json(['ok' => true, 'withdrawn' => true]);
+            if ($repository !== null && $repository->is_active) {
+                QuietPeriodReviewJob::dispatch(
+                    $repository->id,
+                    (int) $request->input('pull_request.number'),
+                    (string) $request->input('pull_request.head.sha'),
+                )->delay(now()->addMinutes(60));
+
+                if (app(WithdrawApprovalOnPush::class)->handle($repository, (array) $request->input('pull_request'))) {
+                    return response()->json(['ok' => true, 'withdrawn' => true]);
+                }
             }
 
             return response()->json(['ok' => true, 'skipped' => 'synchronize does not trigger review']);
@@ -412,6 +426,60 @@ class WebhookController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    private function handleReviewThread(Request $request, AppService $github): JsonResponse
+    {
+        if ($request->input('action') !== 'resolved') {
+            return response()->json(['ok' => true, 'skipped' => 'not a resolved thread']);
+        }
+
+        $repository = $this->resolveRepositoryFromPayload($request);
+        $prNumber = (int) $request->input('pull_request.number');
+
+        if ($repository === null || ! $repository->is_active) {
+            return response()->json(['ok' => true, 'skipped' => 'repo not found']);
+        }
+
+        $yakCommentIds = PrReviewComment::query()
+            ->whereHas('review', fn ($query) => $query->where('pr_url', (string) $request->input('pull_request.html_url')))
+            ->pluck('github_comment_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $threads = $github->listReviewThreads(
+            (int) config('yak.channels.github.installation_id'),
+            $repository->github_full_name,
+            $prNumber,
+        );
+
+        foreach ($threads as $thread) {
+            if (! $thread['is_resolved'] && array_intersect($thread['comment_database_ids'], $yakCommentIds) !== []) {
+                return response()->json(['ok' => true, 'skipped' => 'yak threads still unresolved']);
+            }
+        }
+
+        return $this->startSecondRound($request, $github, $prNumber, 'threads_resolved');
+    }
+
+    private function startSecondRound(Request $request, AppService $github, int $prNumber, string $trigger): JsonResponse
+    {
+        $repository = $this->resolveRepositoryFromPayload($request);
+
+        if ($repository === null || ! $repository->is_active) {
+            return response()->json(['ok' => true, 'skipped' => 'repo not found']);
+        }
+
+        $pullRequest = $github->getPullRequestOrFail(
+            (int) config('yak.channels.github.installation_id'),
+            $repository->github_full_name,
+            $prNumber,
+        );
+
+        $started = $pullRequest !== null
+            && app(StartSecondRound::class)->handle($repository, $pullRequest, $trigger);
+
+        return response()->json(['ok' => true, 'second_round' => $started]);
+    }
+
     private function handleIssueComment(Request $request, AppService $github): JsonResponse
     {
         if ($request->input('action') !== 'created') {
@@ -425,6 +493,10 @@ class WebhookController extends Controller
         }
 
         $prUrl = (string) data_get($request->all(), 'issue.pull_request.html_url', '');
+
+        if (strcasecmp(trim((string) $request->input('comment.body', '')), '/yak review') === 0) {
+            return $this->startSecondRound($request, $github, (int) $request->input('issue.number'), 'comment');
+        }
 
         $root = $prUrl !== '' ? YakTask::followUpRootForPr($prUrl) : null;
 

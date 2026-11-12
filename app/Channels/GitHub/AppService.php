@@ -849,6 +849,25 @@ class AppService
     }
 
     /**
+     * Whether every check run on a commit has completed. Throws on API
+     * failure so an outage is not read as finished checks.
+     */
+    public function allCheckRunsCompleted(int $installationId, string $repoSlug, string $sha): bool
+    {
+        $checks = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/commits/{$sha}/check-runs", ['per_page' => 100, 'filter' => 'latest'])
+            ->throw()->json();
+
+        foreach ((array) ($checks['check_runs'] ?? []) as $run) {
+            if (($run['status'] ?? null) !== 'completed') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Bounded evidence reads: large or incomplete responses prevent approval.
      * Branch protection is read, never changed by Yak.
      *
