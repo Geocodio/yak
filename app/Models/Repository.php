@@ -232,6 +232,14 @@ class Repository extends Model
     }
 
     /**
+     * @return BelongsTo<User, $this>
+     */
+    public function approvalChangedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approval_changed_by_user_id');
+    }
+
+    /**
      * @return HasMany<YakTask, $this>
      */
     public function tasks(): HasMany

@@ -21,6 +21,7 @@ use App\Http\Controllers\PromptPreviewController;
 use App\Http\Controllers\PromptVersionController;
 use App\Http\Controllers\PrReviews\PrReviewFeedbackController;
 use App\Http\Controllers\PrReviews\PrReviewForPrController;
+use App\Http\Controllers\Repositories\ApprovalSettingsController;
 use App\Http\Controllers\Repositories\GitHubCiDetectController;
 use App\Http\Controllers\Repositories\GitHubRepoSearchController;
 use App\Http\Controllers\Repositories\ManifestController;
@@ -114,6 +115,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('repos/{repository}/risk-profile', RiskProfileController::class)
         ->name('repos.risk-profile.show')
         ->middleware('throttle:30,1')
+        ->where('repository', '.+');
+    Route::get('repos/{repository}/approvals', [ApprovalSettingsController::class, 'show'])
+        ->name('repos.approvals.show')
+        ->where('repository', '.+');
+    Route::put('repos/{repository}/approvals', [ApprovalSettingsController::class, 'update'])
+        ->name('repos.approvals.update')
         ->where('repository', '.+');
     Route::patch('repos/{repository}', [RepositoryController::class, 'update'])
         ->name('repos.update')

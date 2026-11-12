@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
 import { show as showPrompt } from '@/routes/prompts';
+import { show as showApprovals } from '@/routes/repos/approvals';
 import { show as showRiskProfile } from '@/routes/repos/risk-profile';
 import { ConfigSourceBadge, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
 import type { RepositoryDetail, ReviewPolicy, YakConfig } from '@/types/repositories';
@@ -33,6 +34,7 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository, ya
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-risk-profile')}>Edit risk profile prompt</Link>
             {' · '}
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-review')}>Edit PR review prompt</Link>
+            {repository && <>{' · '}<Link className="text-[12px] text-accent-text hover:underline" href={showApprovals(repository.slug)}>Review approvals</Link></>}
             {yakConfig && repository && lockedRisk ? <LockedRiskProfile profile={lockedRisk} config={yakConfig} branch={repository.defaultBranch} repositorySlug={repository.slug} /> : repository ? <RiskProfiles key={JSON.stringify(repository.riskProfiles)} repository={repository} /> : <p className="text-[12px] text-muted">Save the repository before generating a risk profile.</p>}
         </div>
     );

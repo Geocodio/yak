@@ -225,3 +225,70 @@ html #nprogress .bar {
         --risk-none-hatch: #62666e66;
     }
 }
+
+/*
+ * DEFCON levels on the review approvals page. `-fill` is the badge colour,
+ * `-ink` the text on it, `-text` the level colour on a panel, `-tint` a whole
+ * surface and `-glow` the halo. The theme follows the OS.
+ */
+:root {
+    --defcon-1-fill: #0f172a;
+    --defcon-1-ink: #ffffff;
+    --defcon-1-text: #0f172a;
+    --defcon-1-tint: #eef2f6;
+    --defcon-1-glow: rgba(15,23,42,.20);
+    --defcon-2-fill: #dc2626;
+    --defcon-2-ink: #ffffff;
+    --defcon-2-text: #b91c1c;
+    --defcon-2-tint: #fef2f2;
+    --defcon-2-glow: rgba(220,38,38,.26);
+    --defcon-3-fill: #facc15;
+    --defcon-3-ink: #1c1400;
+    --defcon-3-text: #854d0e;
+    --defcon-3-tint: #fefce8;
+    --defcon-3-glow: rgba(234,179,8,.40);
+    --defcon-4-fill: #15803d;
+    --defcon-4-ink: #ffffff;
+    --defcon-4-text: #166534;
+    --defcon-4-tint: #f0fdf4;
+    --defcon-4-glow: rgba(21,128,61,.26);
+    --defcon-5-fill: #1d4ed8;
+    --defcon-5-ink: #ffffff;
+    --defcon-5-text: #1d4ed8;
+    --defcon-5-tint: #eff6ff;
+    --defcon-5-glow: rgba(29,78,216,.26);
+    --approval-armed: #dc2626;
+    --approval-armed-ink: #ffffff;
+    --approval-armed-glow: rgba(220, 38, 38, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --defcon-1-fill: #f8fafc;
+        --defcon-1-ink: #0b0f14;
+        --defcon-1-text: #f8fafc;
+        --defcon-1-tint: #1a212d;
+        --defcon-1-glow: rgba(248,250,252,.30);
+        --defcon-2-fill: #ef4444;
+        --defcon-2-ink: #0b0f14;
+        --defcon-2-text: #f87171;
+        --defcon-2-tint: #240e0e;
+        --defcon-2-glow: rgba(239,68,68,.42);
+        --defcon-3-fill: #eab308;
+        --defcon-3-ink: #0b0f14;
+        --defcon-3-text: #facc15;
+        --defcon-3-tint: #211b07;
+        --defcon-3-glow: rgba(234,179,8,.40);
+        --defcon-4-fill: #22c55e;
+        --defcon-4-ink: #0b0f14;
+        --defcon-4-text: #4ade80;
+        --defcon-4-tint: #0c2014;
+        --defcon-4-glow: rgba(34,197,94,.40);
+        --defcon-5-fill: #3b82f6;
+        --defcon-5-ink: #0b0f14;
+        --defcon-5-text: #60a5fa;
+        --defcon-5-tint: #0c1a30;
+        --defcon-5-glow: rgba(59,130,246,.45);
+        --approval-armed-glow: rgba(239, 68, 68, 0.6);
+    }
+}
