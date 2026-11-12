@@ -48,14 +48,6 @@ export type RepositoryOptions = {
 };
 
 export type ReviewPolicy = {
-    allowed_paths: string[];
-    blocked_paths: string[];
-    required_checks: { name: string; app_id?: number | null; match_any_app?: boolean }[];
-    required_statuses: { name: string; creator_id: number }[];
-    max_files: number;
-    max_lines: number;
-    max_risk_score: number;
-    min_confidence: number;
     profile_max_age_days: number;
 };
 

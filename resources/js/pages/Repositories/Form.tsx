@@ -327,7 +327,6 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
         if (isEditing && repository) {
             form.transform((data) => ({
                 ...data,
-                pr_review_policy: { ...data.pr_review_policy, allowed_paths: data.pr_review_policy.allowed_paths.map((path) => path.trim()).filter(Boolean), blocked_paths: data.pr_review_policy.blocked_paths.map((path) => path.trim()).filter(Boolean) },
                 manifest: showManifest && data.manifest
                     ? {
                           port: data.manifest.port,

@@ -1,12 +1,12 @@
-import { Button, Field, Select, Textarea, TextInput } from '@geocodio/console-ui';
+import { Button, Field, Select, TextInput } from '@geocodio/console-ui';
 import { Link, useForm } from '@inertiajs/react';
 import { Map, TriangleAlert } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
 import { show as showPrompt } from '@/routes/prompts';
 import { show as showRiskProfile } from '@/routes/repos/risk-profile';
-import { ConfigSourceBadge, LockedField, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
+import { ConfigSourceBadge, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
 import type { RepositoryDetail, ReviewPolicy, YakConfig } from '@/types/repositories';
 
 export function ReviewApprovalSettings({ value, onChange, errors, repository, yakConfig }: {
@@ -16,7 +16,6 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository, ya
     repository: RepositoryDetail | null;
     yakConfig?: YakConfig;
 }) {
-    const lockedPolicy = yakConfig?.values.reviewPolicy as ReviewPolicy | null | undefined;
     const lockedRisk = yakConfig?.values.riskProfile;
     const set = <K extends keyof ReviewPolicy>(key: K, next: ReviewPolicy[K]) => onChange({ ...value, [key]: next });
     return (
@@ -24,89 +23,17 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository, ya
             <div>
                 <h3 className="flex flex-wrap items-center gap-2 text-[13px] font-semibold">
                     Risk-based approval
-                    {yakConfig && lockedPolicy && <ConfigSourceBadge field="reviewPolicy" config={yakConfig} fileName="config.yml" />}
                 </h3>
                 <p className="mt-1 text-[12px] text-muted">Yak can approve eligible PRs by other authors. Yak-authored PRs need a human approval. Yak never merges.</p>
             </div>
-            {yakConfig && lockedPolicy ? <LockedPolicy policy={lockedPolicy} config={yakConfig} /> : <>
-            {(['allowed_paths', 'blocked_paths'] as const).map((key) => (
-                <Field key={key} label={key === 'allowed_paths' ? 'Allowed paths' : 'Additional blocked paths'} description="One glob per line, for example docs/**. Built-in security exclusions always apply." error={errors[`pr_review_policy.${key}`]}>
-                    <Textarea value={value[key].join('\n')} onChange={(e) => set(key, e.target.value.split('\n'))} />
-                </Field>
-            ))}
-            <Field label="Required GitHub checks" description="Use the exact check name and trusted GitHub App ID.">
-                <div className="space-y-2">
-                    {value.required_checks.map((check, index) => (
-                        <div key={index} className="flex flex-wrap gap-2">
-                            <TextInput aria-label={`Check ${index + 1} name`} value={check.name} onChange={(e) => set('required_checks', value.required_checks.map((row, i) => i === index ? { ...row, name: e.target.value } : row))} />
-                            <TextInput aria-label={`Check ${index + 1} app ID`} type="number" min={1} value={check.app_id || ''} onChange={(e) => set('required_checks', value.required_checks.map((row, i) => i === index ? { ...row, app_id: Number(e.target.value) } : row))} />
-                            <Button type="button" variant="secondary" onClick={() => set('required_checks', value.required_checks.filter((_, i) => i !== index))}>Remove</Button>
-                        </div>
-                    ))}
-                    <Button type="button" variant="secondary" onClick={() => set('required_checks', [...value.required_checks, { name: '', app_id: 0 }])}>Add required check</Button>
-                </div>
+                        <Field label="Profile validity (days)" error={errors['pr_review_policy.profile_max_age_days']}>
+                <TextInput type="number" min={1} max={90} value={value.profile_max_age_days} onChange={(e) => set('profile_max_age_days', Number(e.target.value))} />
             </Field>
-            <Field label="Required commit statuses" description="For Drone and similar providers: exact context and trusted creator user ID.">
-                <div className="space-y-2">
-                    {value.required_statuses.map((status, index) => (
-                        <div key={index} className="flex flex-wrap gap-2">
-                            <TextInput aria-label={`Status ${index + 1} context`} value={status.name} onChange={(e) => set('required_statuses', value.required_statuses.map((row, i) => i === index ? { ...row, name: e.target.value } : row))} />
-                            <TextInput aria-label={`Status ${index + 1} creator ID`} type="number" min={1} value={status.creator_id || ''} onChange={(e) => set('required_statuses', value.required_statuses.map((row, i) => i === index ? { ...row, creator_id: Number(e.target.value) } : row))} />
-                            <Button type="button" variant="secondary" onClick={() => set('required_statuses', value.required_statuses.filter((_, i) => i !== index))}>Remove</Button>
-                        </div>
-                    ))}
-                    <Button type="button" variant="secondary" onClick={() => set('required_statuses', [...value.required_statuses, { name: '', creator_id: 0 }])}>Add required status</Button>
-                </div>
-            </Field>
-            {([
-                ['max_files', 'Maximum changed files', 1, 100],
-                ['max_lines', 'Maximum changed lines', 1, 5000],
-                ['max_risk_score', 'Maximum risk score', 0, 30],
-                ['min_confidence', 'Minimum model confidence', 80, 100],
-                ['profile_max_age_days', 'Profile validity (days)', 1, 90],
-            ] as const).map(([key, label, min, max]) => (
-                <Field key={key} label={label} error={errors[`pr_review_policy.${key}`]}>
-                    <TextInput type="number" min={min} max={max} value={value[key]} onChange={(e) => set(key, Number(e.target.value))} />
-                </Field>
-            ))}
-            </>}
             {Object.entries(errors).filter(([key, error]) => key.startsWith('pr_review_policy.') && error).map(([key, error]) => <p key={key} role="alert" className="text-[12px] text-fail">{error}</p>)}
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-risk-profile')}>Edit risk profile prompt</Link>
             {' · '}
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-review')}>Edit PR review prompt</Link>
             {yakConfig && repository && lockedRisk ? <LockedRiskProfile profile={lockedRisk} config={yakConfig} branch={repository.defaultBranch} repositorySlug={repository.slug} /> : repository ? <RiskProfiles key={JSON.stringify(repository.riskProfiles)} repository={repository} /> : <p className="text-[12px] text-muted">Save the repository before generating a risk profile.</p>}
-        </div>
-    );
-}
-
-function LockedPolicy({ policy, config }: { policy: ReviewPolicy; config: YakConfig }) {
-    const approval = config.values.reviewApproval ?? {};
-    const lines = (items: string[]) => (items.length > 0 ? items.join('\n') : 'None');
-    const checks = [...policy.required_checks.map((check) => check.name), ...policy.required_statuses.map((status) => status.name)];
-    const fromFile = (key: string) => key in approval;
-    const show = (key: string, value: ReactNode) => (fromFile(key) ? value : <>{value} <span className="text-faint">(from Yak)</span></>);
-    const field = (key: string, name: string, label: string, value: ReactNode, fileKey = key) => (
-        fromFile(fileKey)
-            ? <LockedField key={name} label={label} field={name} config={config} fileName="config.yml" mono>{value}</LockedField>
-            : <LockedField key={name} label={label} field={name} config={config} fileName="config.yml" mono hideBadge>{show(fileKey, value)}</LockedField>
-    );
-
-    return (
-        <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {field('required_checks', 'reviewPolicyChecks', 'Required checks', lines(checks))}
-                {field('allowed_paths', 'reviewPolicyAllowed', 'Allowed paths', lines(policy.allowed_paths))}
-                {field('blocked_paths', 'reviewPolicyBlocked', 'Additional blocked paths', lines(policy.blocked_paths))}
-            </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {([
-                    ['max_files', 'Max files'],
-                    ['max_lines', 'Max lines'],
-                    ['max_risk_score', 'Max risk score'],
-                    ['min_confidence', 'Min confidence'],
-                ] as const).map(([key, label]) => field(key, `reviewPolicy-${key}`, label, policy[key]))}
-            </div>
-            <ProposeChangeLink config={config} fileName="config.yml" />
         </div>
     );
 }
