@@ -11,6 +11,7 @@ Set up the development environment for this repository.
 4. Run database migrations and seed data if applicable.
 5. Verify the environment. **Default:** start the dev server and run the full test suite. **BUT** if the repo-specific notes say NOT to run the full suite (common for repos with large fixtures, long-running suites, or external dependencies), do NOT run it — substitute the lighter verification the notes recommend (smoke test, `--filter=` a single test, type/lint checks, or just confirming the dev server responds). When in doubt, err on the side of the repo notes — they exist because running the full suite was a problem before.
 6. Report success or failure with details about what was set up and any issues encountered. If you deviated from step 5's default because of repo notes, say so explicitly.
+7. End your response with a fenced code block tagged `setup_result`, after the preview manifest if there is one. Write `{"status": "ready"}` when the environment is up and verified. Write `{"status": "failed", "reason": "<one sentence naming what blocked you>"}` when it is not, for example a missing credential or a build that does not finish. Yak marks the setup failed from this block and keeps the reason, so be specific.
 
 **Important:**
 - The dev environment must persist after setup — subsequent tasks will use `docker-compose start` / `docker-compose stop`.

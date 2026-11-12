@@ -64,6 +64,28 @@ class ClaudeCodeOutputParser
     }
 
     /**
+     * The reason a setup run reports it could not finish, from its fenced setup_result block,
+     * or null when the block says ready, is missing, or is malformed. Prose alone never fails
+     * a setup; only an explicit `"status": "failed"` does.
+     */
+    public static function extractSetupFailure(string $resultText): ?string
+    {
+        if (preg_match_all('/```setup_result\s*\n(.+?)\n```/s', $resultText, $matches) < 1) {
+            return null;
+        }
+
+        $decoded = json_decode(trim((string) end($matches[1])), true);
+
+        if (! is_array($decoded) || ($decoded['status'] ?? null) !== 'failed') {
+            return null;
+        }
+
+        $reason = is_string($decoded['reason'] ?? null) ? trim($decoded['reason']) : '';
+
+        return $reason !== '' ? mb_substr($reason, 0, 500) : 'The setup agent reported that it could not finish.';
+    }
+
+    /**
      * Extract a preview repair task's verdict from a fenced preview_repair code block.
      *
      * A missing block, invalid JSON, or a verdict that is not one of recipe,

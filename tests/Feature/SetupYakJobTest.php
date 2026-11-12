@@ -410,6 +410,31 @@ test('claude error marks task failed and repo setup_status failed', function () 
         ->and($repository->setup_status)->toBe('failed');
 });
 
+test('a setup that reports failure in its setup_result block fails with the reason', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_blocked',
+        resultSummary: "I could not finish the setup.\n\n```setup_result\n{\"status\": \"failed\", \"reason\": \"npm ci cannot read @geocodio/upload-tool without NODE_AUTH_TOKEN.\"}\n```",
+        costUsd: 0.4,
+        numTurns: 9,
+        durationMs: 90000,
+        isError: false,
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+    Process::fake(['*' => Process::result('')]);
+
+    $repository = Repository::factory()->create(['slug' => 'blocked-repo', 'path' => '/home/yak/repos/blocked-repo', 'setup_status' => 'pending']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'blocked-repo', 'mode' => TaskMode::Setup]);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->error_log)->toBe('Setup could not finish: npm ci cannot read @geocodio/upload-tool without NODE_AUTH_TOKEN.')
+        ->and($repository->refresh()->setup_status)->toBe('failed');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Queue Configuration

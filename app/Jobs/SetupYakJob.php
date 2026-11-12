@@ -236,6 +236,15 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
+            $setupFailure = ClaudeCodeOutputParser::extractSetupFailure($result->resultSummary);
+
+            if ($setupFailure !== null) {
+                TaskMetricsAccumulator::record($this->task, $result);
+                $this->handleError($repository, "Setup could not finish: {$setupFailure}");
+
+                return;
+            }
+
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
             $recorder->mark('post_agent');
         } catch (AccountSlotUnavailable) {
