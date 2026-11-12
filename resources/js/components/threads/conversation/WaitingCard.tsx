@@ -1,11 +1,12 @@
 import { Hourglass, Users } from 'lucide-react';
 import { cn } from '@geocodio/console-ui';
 import type { ThreadNotice, ThreadWaiting } from '@/types/threads';
+import { useDocsUrl } from '@/lib/docsUrl';
 import { CapacityMeter } from './CapacityMeter';
 
-const DOCS = 'https://yak.build/docs/threads';
 
 function AccountBody({ waiting }: { waiting: ThreadWaiting }) {
+    const docsUrl = useDocsUrl('threads/');
     const { accountName, turnsLimit, turnsRunning, position } = waiting;
     const queued = position !== null && position > 1;
     const waitingCount = Math.max(position ?? 1, 1);
@@ -22,7 +23,7 @@ function AccountBody({ waiting }: { waiting: ThreadWaiting }) {
                 </CapacityMeter>
                 <p className="mt-2 text-[12px] text-muted">Only account admins can change this limit.</p>
             </div>
-            <a href={DOCS} target="_blank" rel="noreferrer" className="mt-3 inline-block text-[13px] text-accent-text hover:underline">
+            <a href={docsUrl} target="_blank" rel="noreferrer" className="mt-3 inline-block text-[13px] text-accent-text hover:underline">
                 About account limits
             </a>
         </>
@@ -50,6 +51,7 @@ function SlotStrip({ waiting }: { waiting: ThreadWaiting }) {
 }
 
 function SandboxBody({ waiting }: { waiting: ThreadWaiting }) {
+    const docsUrl = useDocsUrl('threads/');
     const awake = waiting.slots.length;
 
     return (
@@ -68,7 +70,7 @@ function SandboxBody({ waiting }: { waiting: ThreadWaiting }) {
                     <span>Paused, with minutes idle</span>
                 </p>
             </div>
-            <a href={DOCS} target="_blank" rel="noreferrer" className="mt-3 inline-block text-[13px] text-accent-text hover:underline">
+            <a href={docsUrl} target="_blank" rel="noreferrer" className="mt-3 inline-block text-[13px] text-accent-text hover:underline">
                 How sandbox capacity works
             </a>
         </>
@@ -76,6 +78,7 @@ function SandboxBody({ waiting }: { waiting: ThreadWaiting }) {
 }
 
 function ShareBody({ waiting }: { waiting: ThreadWaiting }) {
+    const docsUrl = useDocsUrl('threads/');
     const mine = waiting.slots.filter((slot) => slot.isMine);
 
     return (
@@ -94,7 +97,7 @@ function ShareBody({ waiting }: { waiting: ThreadWaiting }) {
                     ))}
                 </ul>
             </div>
-            <a href={DOCS} target="_blank" rel="noreferrer" className="mt-3 inline-block text-[13px] text-accent-text hover:underline">
+            <a href={docsUrl} target="_blank" rel="noreferrer" className="mt-3 inline-block text-[13px] text-accent-text hover:underline">
                 Why there is a share
             </a>
         </>

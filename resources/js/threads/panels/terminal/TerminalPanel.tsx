@@ -144,7 +144,7 @@ export function TerminalPanel({ thread, canDrive }: PanelProps) {
                     onState={(state) => setStates((current) => (current[tab.id] === state ? current : { ...current, [tab.id]: state }))}
                 />
             ))}
-            <TerminalFooter threadName={thread.name} />
+            <TerminalFooter threadId={thread.id} />
         </div>
     );
 }

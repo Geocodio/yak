@@ -22,7 +22,7 @@ export type SshKeysPageData = {
     };
     config: {
         snippet: string;
-        command: 'yak ssh --config';
+        command: 'yak ssh --config <thread id>';
         docsUrl: string;
         jumpHost: string;
     };

@@ -37,7 +37,7 @@ class TeleportDownCompleter
             case TeleportState::Cancelled:
                 throw new TeleportError('teleport_cancelled', 'This teleport was cancelled.');
             case TeleportState::Expired:
-                throw new TeleportError('teleport_expired', 'This teleport expired. Start it again.');
+                throw new TeleportError('teleport_expired', 'This teleport expired. Start it again.', 409, ['minutes' => (int) config('yak.teleport.expiry_minutes')]);
             case TeleportState::Ready:
                 break;
             default:

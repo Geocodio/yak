@@ -2,9 +2,11 @@ import { Spinner, cn } from '@geocodio/console-ui';
 import { AlertTriangle } from 'lucide-react';
 import { newMethod } from '@/routes/threads';
 import type { ThreadNotice } from '@/types/threads';
+import { useDocsUrl } from '@/lib/docsUrl';
 import { RestoreProgress, RetryRestoreButton } from './RestoreProgress';
 
 export function RebuildCard({ notice, threadId, repo, branch, readonly }: { notice: ThreadNotice; threadId: number; repo: string; branch: string | null; readonly: boolean }) {
+    const threadsDocsUrl = useDocsUrl('threads/');
     const steps = notice.restoreSteps;
     const failedIndex = steps.findIndex((step) => step.status === 'failed');
     const isFailed = notice.kind === 'restore_failed';
@@ -50,7 +52,7 @@ export function RebuildCard({ notice, threadId, repo, branch, readonly }: { noti
                                 <a href={scriptUrl} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">
                                     Open the script on GitHub
                                 </a>
-                                <a href="https://yak.build/docs/threads" target="_blank" rel="noreferrer" className="text-accent-text hover:underline">
+                                <a href={threadsDocsUrl} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">
                                     About .yak/setup.sh
                                 </a>
                                 <a href={newMethod.url({ query: branch === null ? { repo } : { repo, branch } })} className="text-accent-text hover:underline">

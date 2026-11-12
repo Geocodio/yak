@@ -24,7 +24,7 @@ class TeleportAuthorizer
             ->first();
 
         if ($teleport === null && Teleport::query()->where('thread_id', $thread->id)->where('device_id', $device->id)->latest('id')->value('state') === TeleportState::Expired) {
-            throw new TeleportError('teleport_expired', 'This teleport expired. Start it again.');
+            throw new TeleportError('teleport_expired', 'This teleport expired. Start it again.', 409, ['minutes' => (int) config('yak.teleport.expiry_minutes')]);
         }
 
         $allowed = $teleport !== null && ($write

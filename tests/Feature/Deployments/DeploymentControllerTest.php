@@ -140,6 +140,14 @@ test('show reports longLived true for a long-lived deployment', function () {
         ->assertInertia(fn (Assert $page) => $page->where('hibernation.longLived', true));
 });
 
+test('show reports the configured destroy days', function () {
+    config(['yak.deployments.destroy_days' => 9]);
+    $deployment = BranchDeployment::factory()->running()->create();
+
+    $this->get(route('deployments.show', $deployment))
+        ->assertInertia(fn (Assert $page) => $page->where('hibernation.destroyDays', 9));
+});
+
 test('show reports autoLongLived true for an active release branch', function () {
     $deployment = BranchDeployment::factory()->running()->longLived()->create([
         'branch_name' => 'release/1.0',

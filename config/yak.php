@@ -603,7 +603,6 @@ return [
         'terminal_token_ttl' => (int) env('YAK_SSH_TERMINAL_TOKEN_TTL', 60),
         'terminal_key_ttl' => (int) env('YAK_SSH_TERMINAL_KEY_TTL', 900),
         'wake_wait_timeout' => (int) env('YAK_SSH_WAKE_WAIT_TIMEOUT', 120),
-        'docs_url' => env('YAK_SSH_DOCS_URL', 'https://yak.build/docs/ssh'),
     ],
 
     /*

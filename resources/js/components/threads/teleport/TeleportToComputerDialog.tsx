@@ -114,7 +114,7 @@ export function TeleportToComputerDialog({ thread, teleport, open, onClose }: { 
                     <summary className="cursor-pointer font-medium text-body">What happens when you run it</summary>
                     <ol className="mt-1.5 list-decimal space-y-0.5 pl-4">
                         <li>
-                            Yak commits any unsaved sandbox work as &ldquo;WIP: teleport to computer&rdquo; and pushes <code className="font-mono text-[11.5px]">{thread.branch}</code>.
+                            Yak commits any unsaved sandbox work as &ldquo;WIP: teleport to local machine&rdquo; and pushes <code className="font-mono text-[11.5px]">{thread.branch}</code>.
                         </li>
                         <li>Your computer fetches and fast-forwards. It never merges or rebases.</li>
                         <li>If your checkout has changes, you choose what happens to them first.</li>

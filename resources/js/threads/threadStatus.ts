@@ -16,9 +16,10 @@ export function threadStatus(notice: ThreadNotice | null, composerState: ThreadC
                 return { label: 'Waiting for a sandbox', tone: 'warn' };
             case 'account_invalid':
             case 'account_expired':
-            case 'usage_limit':
             case 'credential_exposure':
                 return { label: 'Token problem', tone: 'fail' };
+            case 'usage_limit':
+                return { label: 'Usage limit', tone: 'fail' };
             case 'guard_turns':
             case 'guard_time':
                 return { label: 'Stopped', tone: 'warn' };

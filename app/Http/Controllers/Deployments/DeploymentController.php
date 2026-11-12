@@ -123,7 +123,7 @@ class DeploymentController extends Controller
     }
 
     /**
-     * @return array{longLived: bool, autoLongLived: bool, timeout: string}
+     * @return array{longLived: bool, autoLongLived: bool, timeout: string, destroyDays: int}
      */
     private function hibernationData(BranchDeployment $deployment): array
     {
@@ -131,6 +131,7 @@ class DeploymentController extends Controller
             'longLived' => (bool) $deployment->long_lived,
             'autoLongLived' => ReleaseBranch::matches($deployment->branch_name),
             'timeout' => HibernationDuration::toShorthand($deployment->effectiveIdleMinutes()),
+            'destroyDays' => (int) config('yak.deployments.destroy_days'),
         ];
     }
 

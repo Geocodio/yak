@@ -42,7 +42,7 @@ final class ThreadNoticeData
         if ($thread->blocked_reason !== null) {
             [$title, $body] = match ($thread->blocked_reason) {
                 ThreadBlockReason::AccountInvalid, ThreadBlockReason::AccountExpired => self::accountProblem($thread->blocked_reason, $accountName, $isOwnerOfAccount, $ownerFirstName),
-                ThreadBlockReason::UsageLimit => ['Usage limit reached', "{$accountName} has used its Claude limit for now. This thread continues on its own when the limit resets. Messages you send now are read after the reset."],
+                ThreadBlockReason::UsageLimit => ['Usage limit reached', "{$accountName} has used its Claude limit for now. Messages you send now start when the limit resets."],
                 ThreadBlockReason::WaitingForAccount => ['Waiting for the account', "{$accountName} is running its maximum number of turns. " . self::queuePositionSentence($thread) . 'Yak starts this one as soon as a slot frees up. Your message is saved and nothing needs doing.'],
                 ThreadBlockReason::WaitingForSandbox => ['Waiting for a free sandbox', 'All ' . (int) config('yak.threads.awake_cap') . ' thread sandboxes are in use. Yak stops a paused one after 5 idle minutes and starts this one soon. Your message is saved and nothing needs doing.'],
                 ThreadBlockReason::CredentialExposure => ['A credential was exposed', 'A secret showed up where it should not, so Yak stopped this thread. Replace the secret and ask an admin to check the thread before it continues.'],
