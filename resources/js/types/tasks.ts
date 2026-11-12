@@ -242,13 +242,21 @@ export type FindingsData = {
         event: string;
         candidate: string;
         mode: string;
-        risk_score: number | null;
-        model_confidence: number | null;
-        profile_version: string | null;
-        scoring_version: number;
+        level?: number;
+        concerns_version?: string | null;
+        classification?: {
+            touched_concerns: { name: string }[];
+            change_kind: string | null;
+            is_uncertain: boolean;
+            failure: string | null;
+        } | null;
+        risk_score?: number | null;
+        model_confidence?: number | null;
+        profile_version?: string | null;
+        scoring_version?: number;
         reasons: string[];
-        score_components: Record<string, number>;
-        signals: Record<string, unknown>;
+        score_components?: Record<string, number>;
+        signals?: Record<string, unknown>;
         observed: Record<string, unknown>;
     } | null;
     counts: { mustFix: number; shouldFix: number; consider: number };
