@@ -29,16 +29,26 @@ class ConcernsDraft
             throw new \RuntimeException('Concerns draft must be an object with only a "concerns" list.');
         }
 
+        $count = count($data['concerns']);
+        if ($count < 1 || $count > 8) {
+            throw new \RuntimeException("Concerns draft must have 1 to 8 concerns, got {$count}.");
+        }
+
         foreach ($data['concerns'] as $concern) {
             if (! is_array($concern) || array_diff(array_keys($concern), ['name', 'approval', 'description']) !== []) {
                 throw new \RuntimeException('Each concern may only have name, approval and description.');
             }
+            foreach (['name', 'approval', 'description'] as $field) {
+                if (! is_string($concern[$field] ?? null)) {
+                    throw new \RuntimeException("Each concern needs a string {$field}.");
+                }
+            }
         }
 
         $concerns = array_map(fn (array $concern): array => [
-            'name' => (string) ($concern['name'] ?? ''),
-            'approval' => (string) ($concern['approval'] ?? ''),
-            'description' => (string) ($concern['description'] ?? ''),
+            'name' => $concern['name'],
+            'approval' => $concern['approval'],
+            'description' => $concern['description'],
         ], $data['concerns']);
 
         // Rendering validates the file against the parser and throws RuntimeException.

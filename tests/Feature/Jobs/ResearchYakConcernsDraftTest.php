@@ -67,6 +67,7 @@ test('valid concerns open a PR whose file parses as version 2', function () {
         && $request['head'] === 'yak/risk-profile'
         && $request['title'] === 'Add Yak risk concerns'
         && str_contains($request['body'], 'Merging approves them.')
+        && str_contains($request['body'], str_repeat('b', 7))
         && str_contains($request['body'], '| Customer charges | Added, **always_human** |'));
     Http::assertSent(function (Request $request): bool {
         if (! str_ends_with($request->url(), '/git/blobs')) {
@@ -130,8 +131,43 @@ test('a concern name cannot inject markdown into the PR body', function () {
         && ! str_contains($request['body'], "\n## Approved"));
 });
 
-test('parse rejects invalid tiers and too many concerns', function () {
+test('parse rejects invalid tiers and malformed JSON', function () {
     expect(fn () => ConcernsDraft::parse('{"concerns":[{"name":"a","approval":"never","description":"d"}]}'))->toThrow(RuntimeException::class)
         ->and(fn () => ConcernsDraft::parse('not json'))->toThrow(RuntimeException::class)
         ->and(ConcernsDraft::parse('{"concerns":[{"name":"a","approval":"when_tested","description":"d"}]}'))->toHaveCount(1);
+});
+
+test('parse rejects loosely typed fields', function () {
+    expect(fn () => ConcernsDraft::parse('{"concerns":[{"name":5,"approval":"when_tested","description":"d"}]}'))->toThrow(RuntimeException::class)
+        ->and(fn () => ConcernsDraft::parse('{"concerns":[{"name":"a","approval":"when_tested","description":["d"]}]}'))->toThrow(RuntimeException::class);
+});
+
+test('parse requires 1 to 8 concerns', function () {
+    $draft = fn (int $count): string => json_encode(['concerns' => array_map(
+        fn (int $i): array => ['name' => "c{$i}", 'approval' => 'when_tested', 'description' => 'd'], range(1, $count)
+    )]);
+
+    expect(fn () => ConcernsDraft::parse('{"concerns":[]}'))->toThrow(RuntimeException::class)
+        ->and(fn () => ConcernsDraft::parse($draft(9)))->toThrow(RuntimeException::class)
+        ->and(ConcernsDraft::parse($draft(8)))->toHaveCount(8);
+});
+
+test('loosely typed and empty drafts open no PR', function () {
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi();
+
+    $task = runConcernsDraft(['name' => 123]);
+
+    expect($task->result_summary)->toContain('No risk concerns PR was opened')
+        ->and(pullRequestWasOpened())->toBeFalse();
+});
+
+test('unchanged concerns render the no-changes row', function () {
+    fakeYakFiles(['risk-profile.yml' => "version: 2\nconcerns:\n  - name: Customer charges\n    approval: always_human\n    description: What customers are charged.\n"]);
+    fakeGithubConfigPullRequestApi();
+
+    runConcernsDraft();
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/pulls')
+        && str_contains($request['body'], "| --- | --- |\n| No concern changes | |"));
 });
