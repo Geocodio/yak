@@ -1333,6 +1333,37 @@ GRAPHQL;
         return $response->throw()->status() === 204;
     }
 
+    /**
+     * Whether the branch requires status checks, through classic branch
+     * protection or a ruleset. A 404 from protection means none is configured;
+     * any other failure throws.
+     */
+    public function hasRequiredStatusChecks(int $installationId, string $repoSlug, string $branch): bool
+    {
+        $client = $this->installationClient($installationId)->timeout(20);
+        $encodedBranch = self::encodeRef($branch);
+
+        $protection = $client->get("https://api.github.com/repos/{$repoSlug}/branches/{$encodedBranch}/protection");
+
+        if ($protection->status() !== 404) {
+            $required = $protection->throw()->json('required_status_checks');
+
+            if (! empty($required['checks'] ?? []) || ! empty($required['contexts'] ?? [])) {
+                return true;
+            }
+        }
+
+        $rules = $client->get("https://api.github.com/repos/{$repoSlug}/rules/branches/{$encodedBranch}")->throw()->json();
+
+        foreach ((array) $rules as $rule) {
+            if (($rule['type'] ?? null) === 'required_status_checks' && ! empty($rule['parameters']['required_status_checks'] ?? [])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** A ref for a URL path: every segment is percent-encoded and the slashes are too. */
     public static function encodeRef(string $ref): string
     {
