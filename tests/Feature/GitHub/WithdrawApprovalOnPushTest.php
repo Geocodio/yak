@@ -113,3 +113,28 @@ it('leaves dismissed_at null but still enqueues a review when GitHub rejects the
 
     expect($review->fresh()->dismissed_at)->toBeNull()->and(enqueuedReviews())->toBe(1);
 });
+
+it('dismisses an older live approval even when a newer review is a comment', function () {
+    $approval = pushReview('APPROVE');
+    pushReview('COMMENT', ['github_review_id' => 5151]);
+
+    sendSynchronize();
+
+    expect(dismissalRequests())->toBe(1)
+        ->and($approval->fresh()->dismissed_at)->not->toBeNull()
+        ->and(enqueuedReviews())->toBe(1);
+});
+
+it('retries a failed dismissal on the next push', function () {
+    Http::swap(new Factory);
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/acme/app/pulls/7/reviews/4242/dismissals' => Http::sequence()
+        ->push([], 422)->push([], 200)]);
+    $approval = pushReview('APPROVE');
+    pushReview('COMMENT', ['github_review_id' => 5151]);
+
+    sendSynchronize('sha-one');
+    expect($approval->fresh()->dismissed_at)->toBeNull();
+
+    sendSynchronize('sha-two');
+    expect($approval->fresh()->dismissed_at)->not->toBeNull();
+});

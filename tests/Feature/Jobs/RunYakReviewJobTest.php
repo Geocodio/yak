@@ -748,6 +748,7 @@ it('never approves when the pull request file list cannot be loaded completely',
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
     $github->shouldReceive('createPullRequestReview')->once()->withArgs(fn ($i, $r, $n, $b, $event) => $event === 'COMMENT')->andReturn(['id' => 123]);
     $github->shouldNotReceive('dismissPullRequestReview');
+    $github->shouldNotReceive('dismissPullRequestReviewOrFail');
     app()->instance(GitHubAppService::class, $github);
 
     (new RunYakReviewJob($task))->handle($agent);

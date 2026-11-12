@@ -22,28 +22,30 @@ class WithdrawApprovalOnPush
      */
     public function handle(Repository $repository, array $pullRequest): bool
     {
-        $approval = PrReview::query()
+        $approvals = PrReview::query()
             ->where('pr_url', (string) $pullRequest['html_url'])
             ->whereNull('dismissed_at')
-            ->latest('id')
-            ->first();
+            ->get()
+            ->filter(fn (PrReview $review): bool => ($review->risk_assessment['event'] ?? null) === 'APPROVE');
 
-        if ($approval === null || ($approval->risk_assessment['event'] ?? null) !== 'APPROVE') {
+        if ($approvals->isEmpty()) {
             return false;
         }
 
-        try {
-            $this->github->dismissPullRequestReviewOrFail(
-                (int) config('yak.channels.github.installation_id'),
-                $repository->github_full_name,
-                (int) $pullRequest['number'],
-                (int) $approval->github_review_id,
-                'New commits since Yak approved. Reviewing again.',
-            );
+        foreach ($approvals as $approval) {
+            try {
+                $this->github->dismissPullRequestReviewOrFail(
+                    (int) config('yak.channels.github.installation_id'),
+                    $repository->github_full_name,
+                    (int) $pullRequest['number'],
+                    (int) $approval->github_review_id,
+                    'New commits since Yak approved. Reviewing again.',
+                );
 
-            $approval->update(['dismissed_at' => now()]);
-        } catch (Throwable $exception) {
-            report($exception);
+                $approval->update(['dismissed_at' => now()]);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         }
 
         $this->enqueuePrReview->dispatch($repository, $pullRequest, 'full', null);
