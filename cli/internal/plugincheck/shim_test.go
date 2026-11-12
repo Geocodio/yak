@@ -70,11 +70,35 @@ func TestShimRejectsUnsupported(t *testing.T) {
 	}
 }
 
-func TestShimMissingBinary(t *testing.T) {
+func TestShimMissingBinaryWithoutManifest(t *testing.T) {
 	shim, env := shimEnv(t, "Darwin", "arm64", "")
 	out, err := runShim(t, shim, env)
-	if err == nil || !strings.Contains(out, "The yak binary for darwin/arm64 is missing. Reinstall the Yak plugin.") {
+	if err == nil || !strings.Contains(out, "Cannot read the plugin version") {
 		t.Fatalf("%q %v", out, err)
+	}
+}
+
+func TestShimMissingBinaryDownloadFails(t *testing.T) {
+	shim, env := shimEnv(t, "Darwin", "arm64", "")
+	binDir := filepath.Dir(shim)
+	manifestDir := filepath.Join(filepath.Dir(binDir), ".claude-plugin")
+	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(manifestDir, "plugin.json"), []byte(`{"name": "yak", "version": "9.9.9"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stubs := filepath.Join(filepath.Dir(filepath.Dir(binDir)), "stubs")
+	if err := os.WriteFile(filepath.Join(stubs, "curl"), []byte("#!/bin/sh\nexit 22\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runShim(t, shim, env)
+	if err == nil || !strings.Contains(out, "Could not download yak 9.9.9") {
+		t.Fatalf("%q %v", out, err)
+	}
+	entries, _ := os.ReadDir(binDir)
+	if len(entries) != 1 {
+		t.Fatalf("download left files behind: %v", entries)
 	}
 }
 
