@@ -34,7 +34,7 @@ export function ConnectedState({ account, isSystem, hasDevice, onSetUpTeleport }
                 {rows.map(([label, value]) => <div key={label} className="contents"><dt className="text-muted">{label}</dt><dd>{value}</dd></div>)}
             </dl>
 
-            {onSetUpTeleport && !hasDevice && (
+            {onSetUpTeleport && !hasDevice && !isSystem && (
                 <div className="flex flex-col gap-2.5 rounded-card border border-hair p-4" data-testid="connected-teleport-card">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Next, optional</span>
                     <h4 className="text-[14px] font-semibold">Set up Teleport</h4>

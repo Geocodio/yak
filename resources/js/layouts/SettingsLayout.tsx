@@ -6,7 +6,7 @@ import { AppLayout } from '@/layouts/AppLayout';
 export function SettingsLayout({ slug, children }: { slug: SettingsSlug; children: ReactNode }) {
     const item = SETTINGS_SECTIONS.flatMap((section) => section.items).find((candidate) => candidate.slug === slug);
     const label = item?.label ?? 'Settings';
-    const isWide = slug === 'video' || slug === 'channels';
+    const isWide = slug === 'video' || slug === 'channels' || slug === 'claude-accounts' || slug === 'people';
 
     return (
         <AppLayout>

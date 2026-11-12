@@ -94,3 +94,21 @@ test('an admin with a Yak account sees the add button in the section header', fu
     visit('/settings/claude-accounts')
         ->assertScript('document.querySelectorAll(\'[data-testid="add-yak-account"]\').length', 1);
 });
+
+test('adding a personal account offers Teleport and adding a Yak account does not', function () {
+    $this->user->forceFill(['is_admin' => true])->save();
+
+    visit('/settings/claude-accounts')
+        ->click('Use an API key')
+        ->type('[data-testid="account-secret"]', 'sk-ant-api03-' . str_repeat('a', 30))
+        ->fill('[data-testid="account-name"]', 'Mine')
+        ->click('[data-testid="account-save"]')
+        ->assertPresent('[data-testid="account-connected"]')
+        ->assertPresent('[data-testid="connected-set-up-teleport"]')
+        ->click('[data-testid="account-connected-done"]')
+        ->click('[data-testid="add-yak-account"]')
+        ->type('[data-testid="account-secret"]', 'sk-ant-api03-' . str_repeat('c', 30))
+        ->click('[data-testid="account-save"]')
+        ->assertPresent('[data-testid="account-connected"]')
+        ->assertNotPresent('[data-testid="connected-set-up-teleport"]');
+});
