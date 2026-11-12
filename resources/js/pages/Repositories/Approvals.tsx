@@ -20,8 +20,14 @@ export default function Approvals({ repository, approval, concerns, shadow, gith
     const isDirty = draft.level !== live.level || draft.mode !== live.mode;
     const isArmed = draft.level > 1 && draft.mode === 'enforce';
 
-    const pickLevel = (level: ApprovalLevel) => form.setData({ level, mode: level === 1 ? 'shadow' : draft.mode });
-    const setArmed = (armed: boolean) => form.setData('mode', armed ? 'enforce' : 'shadow');
+    const pickLevel = (level: ApprovalLevel) => {
+        form.clearErrors();
+        form.setData({ level, mode: level === 1 ? 'shadow' : draft.mode });
+    };
+    const setArmed = (armed: boolean) => {
+        form.clearErrors();
+        form.setData('mode', armed ? 'enforce' : 'shadow');
+    };
     const save = () =>
         form.put(repository.updateUrl, {
             preserveScroll: true,
@@ -55,13 +61,13 @@ export default function Approvals({ repository, approval, concerns, shadow, gith
                 <div className="flex flex-wrap items-start gap-5">
                     <LevelLever liveLevel={live.level} draftLevel={draft.level} isArmed={isArmed} onPick={pickLevel} />
                     <LaunchControl repository={repository} github={github} concerns={concerns} shadow={shadow} draftLevel={draft.level} isArmed={isArmed} onArmedChange={setArmed}>
-                        <StandDown isAlreadyDown={live.level === 1} isPending={isStandingDown} onStandDown={standDown} />
+                        <StandDown isAlreadyDown={live.level === 1} isPending={isStandingDown} isBusy={form.processing} onStandDown={standDown} />
                     </LaunchControl>
                 </div>
                 <ShadowLog shadow={shadow} liveLevel={live.level} />
                 <ProtectedAssets repository={repository} concerns={concerns} github={github} />
                 {isDirty && (
-                    <OrderBar live={live} draft={draft} slug={repository.slug} isSaving={form.processing} error={form.errors.mode ?? form.errors.level} onDiscard={() => { form.setData(live); form.clearErrors(); }} onTransmit={save} />
+                    <OrderBar live={live} draft={draft} slug={repository.slug} isSaving={form.processing || isStandingDown} error={form.errors.mode ?? form.errors.level} onDiscard={() => { form.setData(live); form.clearErrors(); }} onTransmit={save} />
                 )}
             </div>
         </>

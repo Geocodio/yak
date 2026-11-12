@@ -33,7 +33,7 @@ class ApprovalSettingsController extends Controller
         $level = $request->integer('level');
         $mode = $level === 1 ? 'shadow' : $request->string('mode')->toString();
 
-        if ($mode === 'enforce') {
+        if ($mode === 'enforce' && $repository->approvalMode() !== 'enforce') {
             $this->ensureRequiredChecks($repository);
         }
 

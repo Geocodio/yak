@@ -141,14 +141,16 @@ it('stores level 1 as shadow', function () {
     expect($repository->approval_level)->toBe(1)->and($repository->approval_mode)->toBe('shadow');
 });
 
-it('counts shadow decisions', function () {
+it('counts shadow decisions at the live level', function () {
     $repository = Repository::factory()->create();
+    $repository->setApproval(2, 'shadow', null);
     fakeYakFiles([]);
-    shadowReview($repository, ['mode' => 'shadow', 'candidate' => 'APPROVE']);
-    shadowReview($repository, ['mode' => 'enforce', 'candidate' => 'APPROVE']);
-    shadowReview($repository, ['mode' => 'shadow', 'candidate' => 'COMMENT', 'reasons' => ['Always needs a human: Customer charges']]);
-    shadowReview($repository, ['mode' => 'shadow', 'candidate' => 'APPROVE'], 20);
-    shadowReview($repository, ['mode' => 'off', 'candidate' => 'APPROVE']);
+    shadowReview($repository, ['mode' => 'shadow', 'level' => 2, 'candidate' => 'APPROVE']);
+    shadowReview($repository, ['mode' => 'enforce', 'level' => 2, 'candidate' => 'APPROVE']);
+    shadowReview($repository, ['mode' => 'shadow', 'level' => 2, 'candidate' => 'COMMENT', 'reasons' => ['Always needs a human: Customer charges']]);
+    shadowReview($repository, ['mode' => 'shadow', 'level' => 2, 'candidate' => 'APPROVE'], 20);
+    shadowReview($repository, ['mode' => 'off', 'level' => 2, 'candidate' => 'APPROVE']);
+    shadowReview($repository, ['mode' => 'shadow', 'level' => 4, 'candidate' => 'APPROVE']);
 
     $this->actingAs(User::factory()->create())->get(route('repos.approvals.show', $repository))
         ->assertInertia(fn (AssertableInertia $page) => $page
@@ -156,6 +158,31 @@ it('counts shadow decisions', function () {
             ->where('shadow.wouldApprove', 2)
             ->where('shadow.heldByConcern', 1)
             ->has('shadow.recent', 2));
+});
+
+it('lets an armed repository tighten while GitHub is down', function () {
+    $repository = Repository::factory()->create();
+    $repository->setApproval(5, 'enforce', null);
+    fakeBranchProtectionFailure();
+    Exceptions::fake();
+
+    $this->actingAs(User::factory()->create())->put(route('repos.approvals.update', $repository), ['level' => 2, 'mode' => 'enforce'])
+        ->assertSessionHasNoErrors();
+
+    $repository->refresh();
+    expect($repository->approval_level)->toBe(2)->and($repository->approval_mode)->toBe('enforce');
+});
+
+it('still refuses to arm while GitHub is down', function () {
+    $repository = Repository::factory()->create();
+    $repository->setApproval(2, 'shadow', null);
+    fakeBranchProtectionFailure();
+    Exceptions::fake();
+
+    $this->actingAs(User::factory()->create())->put(route('repos.approvals.update', $repository), ['level' => 2, 'mode' => 'enforce'])
+        ->assertSessionHasErrors('mode');
+
+    expect($repository->fresh()->approval_mode)->toBe('shadow');
 });
 
 it('shows the command line as the changer when the user was deleted', function () {

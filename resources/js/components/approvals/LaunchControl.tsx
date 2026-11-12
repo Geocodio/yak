@@ -45,9 +45,9 @@ export function LaunchControl({ repository, github, concerns, shadow, draftLevel
     const isOff = draftLevel === 1;
     const checks = github?.requiredChecks;
     const isLocked = checks !== 'present';
-    const isDisabled = isOff || isLocked;
-    const armed = isArmed && !isDisabled;
-    const help = isOff ? ARM_HELP.off : isLocked ? ARM_HELP.locked : armed ? ARM_HELP.armed : ARM_HELP.shadow;
+    const armed = isArmed && !isOff;
+    const isDisabled = isOff || (isLocked && !armed);
+    const help = isOff ? ARM_HELP.off : armed ? ARM_HELP.armed : isLocked ? ARM_HELP.locked : ARM_HELP.shadow;
     const days = shadow.firstRecordedAt ? Math.floor((Date.now() - new Date(shadow.firstRecordedAt).getTime()) / 86_400_000) : 0;
     const branch = repository.defaultBranch;
 

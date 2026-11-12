@@ -30,8 +30,14 @@ export function ProtectedAssets({ repository, concerns, github }: { repository: 
                     </p>
                 </div>
                 {isReady && concerns.editFileUrl && (
-                    <a href={concerns.editFileUrl} target="_blank" rel="noopener noreferrer">
-                        <Button icon={<FilePen size={14} />}>Edit in a pull request</Button>
+                    <a
+                        href={concerns.editFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-control border border-hair-strong bg-panel px-3.5 text-[13px] font-medium hover:bg-panel-2"
+                    >
+                        <FilePen size={14} aria-hidden="true" />
+                        Edit in a pull request
                     </a>
                 )}
             </div>

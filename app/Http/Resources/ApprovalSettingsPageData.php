@@ -93,20 +93,23 @@ final class ApprovalSettingsPageData
 
     /**
      * Counts reviews of the last {@see self::SHADOW_DAYS} days that ran in shadow
-     * or enforce mode. `recent` lists the latest 10 would-be approvals, one per
+     * or enforce mode at the repository's live level. `recent` lists the latest 10 would-be approvals, one per
      * pull request.
      *
      * @return array{days: int, reviews: int, wouldApprove: int, heldByConcern: int, firstRecordedAt: ?string, recent: list<array{number: ?int, title: ?string, url: string, createdAt: string}>}
      */
     public static function shadow(Repository $repository): array
     {
+        $liveLevel = $repository->approvalLevel();
+
         $reviews = PrReview::where('repo', $repository->slug)
             ->where('created_at', '>=', now()->subDays(self::SHADOW_DAYS))
             ->whereNotNull('risk_assessment')
             ->latest('created_at')
             ->latest('id')
-            ->get()
-            ->filter(fn (PrReview $review): bool => in_array($review->risk_assessment['mode'] ?? null, ['shadow', 'enforce'], true));
+            ->get(['id', 'repo', 'pr_url', 'pr_number', 'risk_assessment', 'created_at'])
+            ->filter(fn (PrReview $review): bool => in_array($review->risk_assessment['mode'] ?? null, ['shadow', 'enforce'], true)
+                && ($review->risk_assessment['level'] ?? null) === $liveLevel);
 
         $wouldApprove = $reviews->filter(fn (PrReview $review): bool => ($review->risk_assessment['candidate'] ?? null) === 'APPROVE');
 
