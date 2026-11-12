@@ -6,8 +6,34 @@
   "additionalProperties": false,
   "properties": {
     "version": {
-      "const": 1,
-      "description": "The file format version. Always 1."
+      "enum": [1, 2],
+      "description": "The file format version. 1 describes path-based areas, 2 describes plain-language concerns."
+    },
+    "concerns": {
+      "type": "array",
+      "description": "Version 2 only. Kinds of change a human must look at before Yak approves.",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "A unique name for the concern."
+          },
+          "approval": {
+            "enum": ["always_human", "when_tested"],
+            "description": "always_human: never approve a change that touches it. when_tested: approve only when the change includes a test."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "What kind of change counts as touching the concern."
+          }
+        },
+        "required": ["name", "approval", "description"]
+      }
     },
     "areas": {
       "type": "array",
@@ -90,8 +116,18 @@
       }
     }
   },
-  "required": [
-    "version",
-    "areas"
+  "oneOf": [
+    {
+      "properties": { "version": { "const": 1 } },
+      "required": ["version", "areas"],
+      "not": { "required": ["concerns"] }
+    },
+    {
+      "properties": { "version": { "const": 2 } },
+      "required": ["version", "concerns"],
+      "not": {
+        "anyOf": [{ "required": ["areas"] }, { "required": ["unknowns"] }]
+      }
+    }
   ]
 }

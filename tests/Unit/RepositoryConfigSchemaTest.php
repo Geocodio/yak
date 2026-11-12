@@ -94,6 +94,7 @@ it('requires exactly the keys the parser requires', function () {
     expect($config['required'])->toBe(['version'])
         ->and($config['properties']['review']['properties']['approval']['required'])->toBe(['mode'])
         ->and($load('preview.yml')['required'])->toBe(['port', 'health_probe_path'])
-        ->and($risk['required'])->toBe(['version', 'areas'])
+        ->and($risk['oneOf'][0]['required'])->toBe(['version', 'areas'])
+        ->and($risk['oneOf'][1]['required'])->toBe(['version', 'concerns'])
         ->and($risk['properties']['areas']['items']['required'])->toBe(['name', 'paths', 'symbols', 'risk', 'rationale', 'evidence']);
 });

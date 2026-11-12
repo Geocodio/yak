@@ -85,7 +85,7 @@ final readonly class RepositorySettings
     {
         $file = $this->snapshot->file('risk-profile.yml');
 
-        if ($file === null || ! is_array($file->data)) {
+        if ($file === null || ! is_array($file->data) || ($file->data['version'] ?? 1) !== 1) {
             return null;
         }
 
@@ -98,6 +98,31 @@ final readonly class RepositorySettings
             'unknowns' => $file->data['unknowns'] ?? [],
             'version' => hash('sha256', (string) $file->content),
         ];
+    }
+
+    /**
+     * The plain-language concerns from a version 2 `.yak/risk-profile.yml`.
+     * Null when the file is missing, invalid or version 1.
+     *
+     * @return list<array{name: string, approval: 'always_human'|'when_tested', description: string}>|null
+     */
+    public function concerns(): ?array
+    {
+        $file = $this->snapshot->file('risk-profile.yml');
+
+        if ($file === null || ! is_array($file->data) || ($file->data['version'] ?? null) !== 2) {
+            return null;
+        }
+
+        return $file->data['concerns'];
+    }
+
+    /** The sha256 of the concerns file content, null when `concerns()` is null. */
+    public function concernsVersion(): ?string
+    {
+        return $this->concerns() === null
+            ? null
+            : hash('sha256', (string) $this->snapshot->file('risk-profile.yml')?->content);
     }
 
     /**

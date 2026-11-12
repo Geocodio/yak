@@ -117,6 +117,19 @@ class YakConfigFiles
         ]);
     }
 
+    /** @param list<array{name: string, approval: string, description: string}> $concerns */
+    public function concerns(array $concerns): string
+    {
+        return $this->render('risk-profile.yml', [
+            'version' => 2,
+            'concerns' => array_map(fn (array $concern): array => [
+                'name' => $concern['name'],
+                'approval' => $concern['approval'],
+                'description' => $concern['description'],
+            ], $concerns),
+        ]);
+    }
+
     /** @return array{0: ?array<string, mixed>, 1: bool, 2: ?string} */
     private function profileToMigrate(Repository $repository): array
     {
