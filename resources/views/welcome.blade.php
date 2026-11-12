@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Yak — Papercuts, handled.</title>
-    <meta name="description" content="Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, forwarded email, and our CI and delivers reviewable pull requests — or answers questions about the codebase.">
+    <title>Yak: start it on your laptop, beam it up</title>
+    <meta name="description" content="Yak is an open source coding agent that runs Claude Code in remote sandboxes. Hand it tasks from Slack, Linear, Sentry, GitHub, or email, or teleport your own session from your terminal. It opens pull requests for you to review.">
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
@@ -12,1374 +12,381 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <style>
+    /* Layout: mascot-led hero, then one column of alternating copy and product mocks
+       on the dashboard's cool neutrals. Hovering the mascot calls the UFO. */
+    :root {
+        --bg: #fbfbfc;
+        --panel: #ffffff;
+        --panel-2: #eef0f2;
+        --border: #e0e1e6;
+        --text: #282a30;
+        --text-2: #62666d;
+        --brand: #4a6580;        /* the dashboard's slate: identity */
+        --brand-soft: rgba(74, 101, 128, 0.10);
+        --accent: #503ba3;       /* the dashboard's purple: actions and the beam */
+        --accent-soft: rgba(80, 59, 163, 0.09);
+        --accent-ink: #ffffff;
+        --warm: #c4744a;         /* the mascot's orange: wordmark and emphasis only */
+        --ok: #3e8e38;
+        --term-bg: #17181c;
+        --term-text: #d9dbe1;
+        --term-dim: #8a8f99;
+        --band-bg: #2c3a47;
+        --band-text: #eef1f4;
+        --shadow: 0 1px 2px rgba(40, 42, 48, 0.05), 0 12px 32px rgba(40, 42, 48, 0.08);
+
+        --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+        --font-sans: 'IBM Plex Sans', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
+        --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
         :root {
-            --yak-slate:        #3d4f5f;
-            --yak-brown:        #5c4a3a;
-            --yak-blue:         #6b8fa3;
-            --yak-blue-light:   #8fb3c4;
-            --yak-green:        #7a8c5e;
-            --yak-green-muted:  #9aaa7e;
-            --yak-orange:       #c4744a;
-            --yak-orange-warm:  #d4915e;
-            --yak-tan:          #c8b89a;
-            --yak-cream:        #f5f0e8;
-            --yak-cream-dark:   #e8e0d2;
-            --yak-danger:       #b85450;
+            --bg: #0f1011; --panel: #171819; --panel-2: #232427; --border: #303137;
+            --text: #e6e7ea; --text-2: #9499a1;
+            --brand: #7f9cb4; --brand-soft: rgba(127, 156, 180, 0.16);
+            --accent: #a99ce3; --accent-soft: rgba(139, 123, 216, 0.16); --accent-ink: #1a1620;
+            --warm: #d4915e; --ok: #6fbe68;
+            --term-bg: #08090a; --term-text: #d9dbe1; --term-dim: #7b808a;
+            --band-bg: #171d24; --band-text: #e6e7ea;
+            --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.45);
+            color-scheme: dark;
+        }
+    }
 
-            --font-sans:  'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
-            --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    * { box-sizing: border-box; }
+    img { max-width: 100%; }
+    body { margin: 0; overflow-x: hidden; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+    h1, h2, h3 { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.015em; margin: 0; text-wrap: balance; }
+    h1 { font-size: clamp(44px, 6.4vw, 78px); line-height: 1.02; }
+    h2 { font-size: clamp(34px, 4.4vw, 52px); line-height: 1.06; }
+    h3 { font-size: 27px; line-height: 1.15; }
+    h1 em, h2 em, h3 em { color: var(--warm); }
+    p { margin: 0; }
+    code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+    p code { background: var(--panel-2); padding: 2px 6px; border-radius: 5px; }
+    a { color: inherit; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-            --radius-btn:  14px;
-            --radius-card: 28px;
-            --radius-sm:   8px;
+    .eyebrow { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--brand); }
+    .pill { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.04em; }
+    .pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 
-            --shadow-1: 0 4px 6px rgba(61, 79, 95, 0.03), 0 12px 24px rgba(61, 79, 95, 0.06);
-            --shadow-2: 0 4px 6px rgba(61, 79, 95, 0.03), 0 12px 24px rgba(61, 79, 95, 0.06), 0 32px 64px rgba(61, 79, 95, 0.08);
-        }
+    /* nav */
+    .nav { display: flex; align-items: center; justify-content: space-between; padding-block: 22px; }
+    .wordmark { font-family: var(--font-display); font-size: 34px; line-height: 1; text-decoration: none; }
+    .wordmark i, .wordmark b { color: var(--warm); font-weight: 400; }
+    .nav-links { display: flex; align-items: center; gap: 22px; font-size: 15px; color: var(--text-2); }
+    .nav-links a { text-decoration: none; }
+    .nav-links a:hover { color: var(--text); }
 
-        * { box-sizing: border-box; }
-        html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    .btn { display: inline-flex; align-items: center; gap: 9px; padding: 12px 20px; border-radius: 8px; font: 500 16px var(--font-sans); text-decoration: none; border: 1px solid transparent; cursor: pointer; }
+    .btn-primary { background: var(--accent); color: var(--accent-ink); }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-quiet { border-color: var(--border); background: var(--panel); color: var(--text); padding: 8px 14px; font-size: 14.5px; }
 
-        body {
-            margin: 0;
-            font-family: var(--font-sans);
-            color: var(--yak-slate);
-            background: var(--yak-cream);
-            line-height: 1.55;
-            font-size: 17px;
-            overflow-x: hidden;
-        }
+    /* hero */
+    .hero { padding-block: 36px 72px; }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 48px; align-items: center; }
+    .hero-copy { display: flex; flex-direction: column; gap: 22px; align-items: flex-start; }
+    .lede { font-size: 20px; color: var(--text); max-width: 34em; }
+    .sub { color: var(--text-2); max-width: 36em; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; margin-top: 6px; max-width: 100%; }
+    .install { display: inline-flex; align-items: center; gap: 12px; min-width: 0; max-width: 100%; padding: 6px 6px 6px 14px; border-radius: 8px; background: var(--term-bg); color: var(--term-text); font-family: var(--font-mono); font-size: 13.5px; }
+    .install span { overflow-x: auto; white-space: nowrap; min-width: 0; }
+    .install .dollar { color: var(--term-dim); }
+    .install button { flex: none; border: 0; border-radius: 6px; padding: 7px 11px; background: rgba(255, 255, 255, 0.12); color: var(--term-text); font: 500 12.5px var(--font-sans); cursor: pointer; }
+    .install button:hover { background: rgba(255, 255, 255, 0.2); }
 
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 0;
-            opacity: 0.035;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-            background-repeat: repeat;
-            background-size: 256px 256px;
-        }
+    /* hero scene. The UFO beams the yak up once on load; hovering the mascot replays it. */
+    .scene { position: relative; width: 100%; max-width: 460px; justify-self: center; }
+    .scene::before { content: ''; position: absolute; inset: -6%; background: radial-gradient(ellipse at center, var(--brand-soft), transparent 66%); }
+    .scene .mascot { position: relative; z-index: 2; width: 100%; display: block; filter: drop-shadow(0 26px 34px rgba(40, 42, 48, 0.2)); animation: float 6s ease-in-out infinite; transition: translate 0.9s cubic-bezier(0.22, 1, 0.36, 1), rotate 0.9s cubic-bezier(0.22, 1, 0.36, 1), scale 0.8s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease; }
+    .scene .ufo { position: absolute; top: 0; left: 50%; width: 42%; z-index: 4; pointer-events: none; opacity: 0; translate: -50% -650%; filter: drop-shadow(0 14px 20px rgba(40, 42, 48, 0.3)); transition: opacity 0.8s ease 0.55s, translate 1.4s cubic-bezier(0.42, 0, 1, 1); }
+    .scene .beam { position: absolute; top: -6%; left: 50%; width: 30%; height: 120%; z-index: 1; pointer-events: none; translate: -50% 0; transform-origin: top center; transform: scaleY(0); opacity: 0; clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 70%, transparent), color-mix(in srgb, var(--accent) 30%, transparent) 55%, transparent); filter: blur(2px); transition: transform 0.12s ease, opacity 0.12s ease; }
+    .scene:is(:hover, .beaming) .ufo { opacity: 1; translate: -50% -118%; animation: wobble 2.6s ease-in-out 1.1s infinite; transition: opacity 0.35s ease, translate 1s cubic-bezier(0.34, 1.2, 0.64, 1); }
+    .scene:is(:hover, .beaming) .beam { opacity: 1; transform: scaleY(1); transition: transform 0.5s ease 0.55s, opacity 0.5s ease 0.55s; }
+    .scene:is(:hover, .beaming) .mascot { translate: 0 -56%; rotate: -2deg; scale: 0.1; opacity: 0; transition: translate 1.8s cubic-bezier(0.42, 0, 0.58, 1) 2s, rotate 1.4s cubic-bezier(0.42, 0, 0.58, 1) 2s, scale 1.5s cubic-bezier(0.42, 0, 0.58, 1) 1s, opacity 0.6s ease-in 3s; }
+    @keyframes wobble { 0%, 100% { transform: translateY(0); rotate: 0deg; } 25% { transform: translateY(-5px); rotate: 3deg; } 75% { transform: translateY(-4px); rotate: -3deg; } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    @media (prefers-reduced-motion: reduce) { .scene .ufo, .scene .beam, .scene .mascot { animation: none; transition: none; } }
 
-        main, header, footer, section { position: relative; z-index: 1; }
+    /* channel ribbon */
+    .ribbon { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin-top: 56px; padding-block: 18px; border-block: 1px solid var(--border); }
+    .channels { display: flex; flex-wrap: wrap; gap: 8px 24px; font-family: var(--font-display); font-size: 23px; }
+    .channels span { display: inline-flex; align-items: center; gap: 9px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--brand); }
+    .dot.slack { background: #8a3f93; } .dot.sentry { background: #c25a55; } .dot.email { background: var(--warm); } .dot.ci { background: var(--ok); } .dot.github { background: var(--text); } .dot.linear { background: var(--accent); }
 
-        .serif { font-family: var(--font-serif); font-weight: 400; letter-spacing: -0.01em; }
-        .mono  { font-family: var(--font-mono); }
-        .italic { font-style: italic; }
+    section { padding-block: 84px; }
+    .head { display: flex; flex-direction: column; gap: 14px; max-width: 760px; margin-bottom: 44px; }
+    .head p { color: var(--text-2); font-size: 19px; }
 
-        .eyebrow {
-            font-size: 12px;
-            font-weight: 500;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--yak-blue);
-        }
+    /* terminals */
+    .term { border-radius: 10px; background: var(--term-bg); color: var(--term-text); box-shadow: var(--shadow); overflow: hidden; min-width: 0; }
+    .term-bar { display: flex; align-items: center; gap: 7px; padding: 10px 14px; color: var(--term-dim); font-family: var(--font-mono); font-size: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+    .term-bar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); }
+    .term-bar span { margin-left: 8px; }
+    .term pre { margin: 0; padding: 16px; font-family: var(--font-mono); font-size: 13px; line-height: 1.7; overflow-x: auto; }
+    .term .p { color: #b5a8f0; } .term .d { color: var(--term-dim); } .term .g { color: #7fcf78; }
 
-        .caption {
-            font-size: 12px;
-            font-weight: 500;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--yak-tan);
-        }
+    .duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+    .dir { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .dir p { color: var(--text-2); }
+    .dir .tag { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+    .dir .tag svg { width: 16px; height: 16px; }
 
-        h1, h2, h3 { margin: 0; font-family: var(--font-serif); font-weight: 400; letter-spacing: -0.02em; color: var(--yak-slate); }
-        p { margin: 0; }
-        a  { color: inherit; }
+    .takeover { margin-top: 56px; display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 2fr); gap: 32px; padding-top: 36px; border-top: 1px solid var(--border); }
+    .ways { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+    .ways div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .ways strong { font-weight: 600; }
+    .ways p { color: var(--text-2); font-size: 15.5px; }
 
-        .wordmark {
-            font-family: var(--font-serif);
-            font-weight: 400;
-            color: var(--yak-slate);
-            letter-spacing: -0.04em;
-            line-height: 0.85;
-        }
-        .wordmark .a { font-style: italic; color: var(--yak-orange); }
+    /* thread mock, drawn in the dashboard's own style */
+    .split { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 48px; align-items: start; }
+    .points { display: flex; flex-direction: column; gap: 22px; list-style: none; margin: 0; padding: 0; }
+    .points li { display: flex; flex-direction: column; gap: 4px; }
+    .points strong { font-weight: 600; }
+    .points span { color: var(--text-2); font-size: 16px; }
+    .thread { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); box-shadow: var(--shadow); font-size: 14px; overflow: hidden; min-width: 0; }
+    .thread-head { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+    .thread-head b { font-weight: 600; font-size: 15px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; color: var(--text-2); font-family: var(--font-mono); font-size: 12px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); }
+    .badge.ok { background: color-mix(in srgb, var(--ok) 13%, transparent); color: var(--ok); }
+    .badge.idle { background: var(--panel-2); color: var(--text-2); }
+    .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .tabs { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .tabs span { flex: none; padding: 4px 10px; border-radius: 6px; color: var(--text-2); font-size: 13px; }
+    .tabs .on { background: var(--panel-2); color: var(--text); font-weight: 500; }
+    .msgs { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+    .msg { display: flex; flex-direction: column; gap: 3px; }
+    .msg small { color: var(--text-2); font-family: var(--font-mono); font-size: 11.5px; }
+    .msg.you { align-self: flex-end; max-width: 85%; padding: 8px 12px; border-radius: 8px; background: var(--panel-2); }
+    .stack { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 16px; border-top: 1px solid var(--border); }
+    .stack-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); }
+    .stack-row span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        .divider {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin: 0 auto;
-            max-width: 460px;
-        }
-        .divider .line {
-            flex: 1;
-            height: 1px;
-            background: linear-gradient(to right, transparent, var(--yak-tan), transparent);
-        }
-        .divider .star {
-            width: 18px; height: 18px;
-            color: var(--yak-tan);
-        }
+    /* channels */
+    .at { color: var(--accent); background: var(--accent-soft); padding: 0 4px; border-radius: 4px; }
+    .grid6 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+    .chan { display: flex; flex-direction: column; gap: 8px; padding: 24px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-width: 0; }
+    .chan h3 { display: flex; align-items: center; gap: 10px; }
+    .chan p { color: var(--text-2); font-size: 16px; }
 
-        .container {
-            max-width: 1180px;
-            margin: 0 auto;
-            padding: 0 28px;
-        }
+    .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; }
+    .grid4 div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .grid4 p { color: var(--text-2); font-size: 16px; }
 
-        section { padding: 110px 0; }
+    /* safety band */
+    .band { background: var(--band-bg); color: var(--band-text); }
+    .band .eyebrow { color: color-mix(in srgb, var(--band-text) 65%, transparent); }
+    .band h2 em { color: #e0a377; }
+    .band-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: center; }
+    .band ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; }
+    .band li { display: flex; gap: 12px; color: color-mix(in srgb, var(--band-text) 82%, transparent); }
+    .band li::before { content: ''; flex: none; width: 8px; height: 8px; margin-top: 9px; border-radius: 50%; background: #e0a377; }
 
-        header {
-            padding: 28px 0 0;
-        }
-        .topbar {
-            max-width: 1180px;
-            margin: 0 auto;
-            padding: 0 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .topbar .mark {
-            font-family: var(--font-serif);
-            font-size: 28px;
-            line-height: 1;
-            letter-spacing: -0.04em;
-            color: var(--yak-slate);
-            text-decoration: none;
-        }
-        .topbar .mark .a { font-style: italic; color: var(--yak-orange); }
+    /* get started */
+    .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; counter-reset: step; }
+    .step { display: flex; flex-direction: column; gap: 12px; min-width: 0; counter-increment: step; }
+    .step h3::before { content: counter(step) '. '; color: var(--warm); font-style: italic; }
+    .step p { color: var(--text-2); font-size: 16px; }
+    .cmd { padding: 12px 14px; border-radius: 8px; background: var(--term-bg); color: var(--term-text); font-family: var(--font-mono); font-size: 13px; overflow-x: auto; white-space: nowrap; }
 
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            border-radius: var(--radius-btn);
-            padding: 14px 22px;
-            font-family: var(--font-sans);
-            font-size: 15px;
-            font-weight: 500;
-            letter-spacing: 0.01em;
-            text-decoration: none;
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
-        }
-        .btn-primary {
-            background: var(--yak-slate);
-            color: #fff;
-        }
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-2);
-            background: linear-gradient(135deg, var(--yak-slate) 0%, var(--yak-blue) 35%, var(--yak-green) 70%, var(--yak-orange) 100%);
-        }
-        .btn-ghost {
-            color: var(--yak-slate);
-            background: transparent;
-            border-color: color-mix(in srgb, var(--yak-tan) 60%, transparent);
-        }
-        .btn-ghost:hover {
-            background: rgba(255,255,255,0.55);
-            border-color: var(--yak-tan);
-        }
-        .btn-compact {
-            padding: 10px 18px;
-            font-size: 14px;
-        }
-        .btn .arrow { transition: transform .2s; }
-        .btn:hover .arrow { transform: translateX(3px); }
+    .closing { text-align: center; padding-block: 72px 96px; }
+    .closing .wrap { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+    .closing img { width: 150px; }
+    .closing p { color: var(--text-2); max-width: 30em; }
+    footer { border-top: 1px solid var(--border); color: var(--text-2); font-size: 14px; }
+    footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding-block: 22px; }
 
-        .hero {
-            padding: 80px 0 70px;
-            position: relative;
-        }
-        .hero-grid {
-            display: grid;
-            grid-template-columns: 1.35fr 1fr;
-            gap: 48px;
-            align-items: center;
-        }
-        .hero h1 {
-            font-size: clamp(68px, 11vw, 168px);
-            line-height: 0.84;
-            letter-spacing: -0.045em;
-            margin: 18px 0 26px;
-        }
-        .hero h1 .a { font-style: italic; color: var(--yak-orange); }
-        .hero .lede {
-            font-family: var(--font-serif);
-            font-size: clamp(22px, 2.3vw, 30px);
-            line-height: 1.3;
-            letter-spacing: -0.015em;
-            color: var(--yak-slate);
-            max-width: 560px;
-            margin-bottom: 28px;
-        }
-        .hero .lede em {
-            color: var(--yak-orange);
-            font-style: italic;
-        }
-        .hero .subline {
-            font-size: 16.5px;
-            color: color-mix(in srgb, var(--yak-slate) 70%, transparent);
-            max-width: 520px;
-            line-height: 1.6;
-        }
-        .hero-cta {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            margin-top: 36px;
-            flex-wrap: wrap;
-        }
-        .hero-cta .tagline {
-            font-size: 13px;
-            color: color-mix(in srgb, var(--yak-slate) 55%, transparent);
-            letter-spacing: 0.02em;
-        }
-
-        .hero-mascot {
-            position: relative;
-            justify-self: center;
-            cursor: default;
-        }
-        .hero-mascot .mascot-img {
-            width: 100%;
-            max-width: 520px;
-            height: auto;
-            filter: drop-shadow(0 30px 40px rgba(92, 74, 58, 0.18));
-            position: relative;
-            z-index: 2;
-            transform-origin: 50% 50%;
-            /* Hover-out: scale back quickly, no delay. Hover-in delay is on :hover. */
-            transition: translate 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                        rotate    0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                        scale     0.8s cubic-bezier(0.22, 1, 0.36, 1),
-                        opacity   0.4s ease;
-        }
-        .hero-mascot::before {
-            content: '';
-            position: absolute;
-            inset: -40px;
-            background: radial-gradient(ellipse at center, color-mix(in srgb, var(--yak-tan) 35%, transparent), transparent 65%);
-            z-index: -1;
-            filter: blur(30px);
-        }
-
-        /* Easter egg: hovering the mascot sends a UFO down to abduct the yak. */
-        .hero-mascot .ufo {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            width: 42%;
-            height: auto;
-            pointer-events: none;
-            opacity: 0;
-            translate: -50% -650%;
-            filter: drop-shadow(0 14px 20px rgba(61, 79, 95, 0.28));
-            /* Hover-out: ease-in accel off-screen, opacity fades late so the UFO
-               stays visible while flying away. Entrance transition is set on :hover. */
-            transition: opacity 0.8s ease 0.55s,
-                        translate 1.4s cubic-bezier(0.42, 0, 1, 1);
-            z-index: 4;
-        }
-        .hero-mascot .abduction-beam {
-            position: absolute;
-            top: -6%;
-            left: 50%;
-            width: 30%;
-            height: 120%;
-            pointer-events: none;
-            translate: -50% 0;
-            transform-origin: top center;
-            transform: scaleY(0);
-            opacity: 0;
-            background: linear-gradient(to bottom,
-                rgba(255, 255, 255, 0.95) 0%,
-                rgba(255, 251, 230, 0.80) 18%,
-                rgba(255, 243, 180, 0.45) 55%,
-                rgba(255, 243, 180, 0.15) 85%,
-                rgba(255, 243, 180, 0.00) 100%);
-            clip-path: polygon(40% 0%, 60% 0%, 100% 100%, 0% 100%);
-            filter: blur(2px) drop-shadow(0 0 14px rgba(255, 236, 170, 0.55));
-            /* Hover-out: snap off instantly. Hover-in delay + ease is set on :hover. */
-            transition: transform 0.12s ease 0s,
-                        opacity   0.12s ease 0s;
-            z-index: 1;
-        }
-        .hero-mascot:hover .ufo {
-            opacity: 1;
-            translate: -50% -118%;
-            animation: ufo-wobble 2.6s ease-in-out 1.1s infinite;
-            transition: opacity 0.35s ease,
-                        translate 1.0s cubic-bezier(0.34, 1.2, 0.64, 1);
-        }
-        .hero-mascot:hover .abduction-beam {
-            opacity: 1;
-            transform: scaleY(1);
-            transition: transform 0.5s ease 0.55s,
-                        opacity   0.5s ease 0.55s;
-        }
-        .hero-mascot:hover .mascot-img {
-            translate: 0 -56%;
-            rotate: -2deg;
-            scale: 0.1;
-            opacity: 0;
-            /* Choreography on hover-in:
-               1.0s → UFO in place, yak starts shrinking
-               2.0s → yak starts drifting up into the beam (while still shrinking)
-               3.0s → yak starts fading as it nears the saucer
-               3.6s → yak fully faded, just before it reaches the saucer at 3.8s
-               Hover-out uses the default transition (no delay, quick). */
-            transition: translate 1.8s cubic-bezier(0.42, 0, 0.58, 1) 2.0s,
-                        rotate    1.4s cubic-bezier(0.42, 0, 0.58, 1) 2.0s,
-                        scale     1.5s cubic-bezier(0.42, 0, 0.58, 1) 1.0s,
-                        opacity   0.6s ease-in 3.0s;
-        }
-        /* Wobble only touches transform + rotate so translate stays owned by the
-           CSS transition (otherwise the UFO snaps on unhover). The 0%/100% frame
-           matches the UFO's neutral state so there's no jerk when the animation
-           kicks in after its delay. */
-        @keyframes ufo-wobble {
-            0%, 100% { transform: translateY(0);    rotate:  0deg;   }
-            25%      { transform: translateY(-5px); rotate:  3deg;   }
-            75%      { transform: translateY(-4px); rotate: -3deg;   }
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .hero-mascot .ufo,
-            .hero-mascot .abduction-beam,
-            .hero-mascot .mascot-img { transition: none; animation: none; }
-        }
-
-        .papercut {
-            position: absolute;
-            background: #fff;
-            box-shadow: 0 6px 14px rgba(61,79,95,0.08), 0 1px 3px rgba(61,79,95,0.05);
-            border: 1px solid color-mix(in srgb, var(--yak-tan) 30%, transparent);
-        }
-        .papercut::after {
-            content: '';
-            display: block;
-            position: absolute;
-            top: 24%;
-            left: 15%;
-            right: 35%;
-            height: 2px;
-            background: var(--yak-danger);
-            border-radius: 2px;
-        }
-        .papercut-1 {
-            top: 6%; left: -30px;
-            width: 120px; height: 80px;
-            transform: rotate(-8deg);
-            border-radius: 3px;
-        }
-        .papercut-2 {
-            top: 46%; right: -24px;
-            width: 96px; height: 62px;
-            transform: rotate(11deg);
-            border-radius: 3px;
-        }
-        .papercut-2::after { top: 34%; }
-
-        .ribbon {
-            margin-top: 60px;
-            padding: 22px 30px;
-            background: rgba(255,255,255,0.7);
-            backdrop-filter: blur(30px) saturate(1.4);
-            border: 1px solid rgba(255,255,255,0.7);
-            border-radius: var(--radius-card);
-            box-shadow: var(--shadow-1);
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 28px;
-            justify-content: space-between;
-        }
-        .ribbon .label {
-            font-size: 12px;
-            font-weight: 500;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            color: var(--yak-blue);
-        }
-        .ribbon .channels {
-            display: flex;
-            align-items: center;
-            gap: 34px;
-            flex-wrap: wrap;
-            font-family: var(--font-serif);
-            font-size: 22px;
-            color: var(--yak-slate);
-        }
-        .ribbon .channels span { display: inline-flex; align-items: center; gap: 10px; }
-        .ribbon .dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: var(--yak-tan);
-        }
-        .ribbon .d-slack  { background: #611f69; }
-        .ribbon .d-linear { background: var(--yak-slate); }
-        .ribbon .d-sentry { background: var(--yak-danger); }
-        .ribbon .d-github { background: #1a1612; }
-
-        .section-head {
-            max-width: 780px;
-            margin: 0 auto 60px;
-            text-align: center;
-        }
-        .section-head .eyebrow { margin-bottom: 14px; display: inline-block; }
-        .section-head h2 {
-            font-size: clamp(40px, 5.5vw, 68px);
-            line-height: 1.04;
-            letter-spacing: -0.025em;
-        }
-        .section-head h2 em {
-            font-style: italic;
-            color: var(--yak-orange);
-        }
-        .section-head .sub {
-            margin-top: 18px;
-            font-size: 18px;
-            line-height: 1.55;
-            color: color-mix(in srgb, var(--yak-slate) 72%, transparent);
-            max-width: 620px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .channel-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 22px;
-        }
-        .channel-card {
-            background: rgba(255,255,255,0.85);
-            border: 1px solid rgba(255,255,255,0.7);
-            border-radius: var(--radius-card);
-            padding: 26px;
-            box-shadow: var(--shadow-1);
-            backdrop-filter: blur(20px);
-            transition: transform .25s ease, box-shadow .25s ease;
-        }
-        .channel-card:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-2);
-        }
-        .channel-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-        .channel-name {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            font-family: var(--font-serif);
-            font-size: 22px;
-            color: var(--yak-slate);
-        }
-        .channel-name .chip {
-            width: 26px; height: 26px;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 13px;
-            font-weight: 700;
-        }
-        .chip-slack  { background: #611f69; }
-        .chip-linear { background: var(--yak-slate); }
-        .chip-sentry { background: var(--yak-danger); }
-        .chip-email  { background: var(--yak-orange); }
-
-        .chat {
-            font-family: var(--font-mono);
-            font-size: 12.5px;
-            line-height: 1.6;
-            background: var(--yak-cream);
-            border-radius: 14px;
-            padding: 16px 18px;
-            border: 1px solid color-mix(in srgb, var(--yak-tan) 30%, transparent);
-            color: var(--yak-slate);
-            min-height: 180px;
-        }
-        .chat .user    { color: var(--yak-blue); font-weight: 600; }
-        .chat .yak     { color: var(--yak-orange); font-weight: 600; }
-        .chat .mention { color: var(--yak-green); }
-        .chat .meta    { color: color-mix(in srgb, var(--yak-slate) 50%, transparent); font-size: 11px; }
-        .chat-line + .chat-line { margin-top: 8px; }
-
-        .label-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 3px 10px;
-            border-radius: 6px;
-            background: color-mix(in srgb, var(--yak-orange) 15%, transparent);
-            color: var(--yak-orange);
-            font-family: var(--font-mono);
-            font-size: 11px;
-            font-weight: 600;
-        }
-        .label-tag.green {
-            background: color-mix(in srgb, var(--yak-green) 18%, transparent);
-            color: var(--yak-green);
-        }
-
-        .channel-foot {
-            margin-top: 18px;
-            font-size: 13.5px;
-            color: color-mix(in srgb, var(--yak-slate) 72%, transparent);
-        }
-        .channel-foot strong {
-            font-weight: 600;
-            color: var(--yak-slate);
-        }
-
-        .pull-row {
-            display: grid;
-            grid-template-columns: 1.1fr 1fr;
-            gap: 60px;
-            align-items: center;
-        }
-        .pull-row.rev { grid-template-columns: 1fr 1.1fr; }
-        .pull-row h3 {
-            font-size: clamp(34px, 4.2vw, 54px);
-            line-height: 1.06;
-            letter-spacing: -0.025em;
-            margin-bottom: 18px;
-        }
-        .pull-row h3 em { font-style: italic; color: var(--yak-orange); }
-        .pull-row p {
-            font-size: 17px;
-            line-height: 1.6;
-            color: color-mix(in srgb, var(--yak-slate) 76%, transparent);
-            margin-bottom: 18px;
-        }
-
-        .bullets {
-            list-style: none;
-            padding: 0;
-            margin: 26px 0 0;
-            display: grid;
-            gap: 12px;
-        }
-        .bullets li {
-            position: relative;
-            padding-left: 20px;
-            font-size: 15.5px;
-            line-height: 1.5;
-            color: var(--yak-slate);
-        }
-        .bullets li::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 10px;
-            width: 8px; height: 8px;
-            border-radius: 2px;
-            background: var(--yak-orange);
-            transform: rotate(45deg);
-        }
-
-        .autopickup {
-            background: rgba(255,255,255,0.85);
-            border: 1px solid rgba(255,255,255,0.7);
-            border-radius: var(--radius-card);
-            padding: 30px;
-            box-shadow: var(--shadow-1);
-        }
-        .autopickup h4 {
-            margin: 0 0 4px;
-            font-family: var(--font-serif);
-            font-size: 20px;
-            color: var(--yak-slate);
-        }
-
-        .event-row {
-            display: grid;
-            grid-template-columns: 90px 1fr auto;
-            align-items: center;
-            gap: 18px;
-            padding: 16px 0;
-            border-top: 1px dashed color-mix(in srgb, var(--yak-tan) 50%, transparent);
-        }
-        .event-row:first-of-type { border-top: 0; padding-top: 8px; }
-        .event-row .tag {
-            font-family: var(--font-mono);
-            font-size: 10.5px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 999px;
-            text-align: center;
-        }
-        .tag-sentry { background: color-mix(in srgb, var(--yak-danger) 12%, transparent); color: var(--yak-danger); }
-        .tag-flaky  { background: color-mix(in srgb, var(--yak-orange) 14%, transparent); color: var(--yak-orange); }
-        .tag-alert  { background: color-mix(in srgb, var(--yak-blue) 14%, transparent); color: var(--yak-blue); }
-        .event-body .title {
-            font-size: 15.5px;
-            color: var(--yak-slate);
-            font-weight: 500;
-        }
-        .event-body .sub {
-            font-family: var(--font-mono);
-            font-size: 12px;
-            color: color-mix(in srgb, var(--yak-slate) 58%, transparent);
-            margin-top: 4px;
-        }
-        .event-row .status {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-            padding: 5px 10px;
-            border-radius: 6px;
-            text-transform: uppercase;
-            background: color-mix(in srgb, var(--yak-green) 14%, transparent);
-            color: var(--yak-green);
-        }
-
-        .research-card {
-            background: #fff;
-            border: 1px solid color-mix(in srgb, var(--yak-tan) 40%, transparent);
-            border-radius: 18px;
-            box-shadow: var(--shadow-2);
-            overflow: hidden;
-        }
-        .research-chrome {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 16px;
-            border-bottom: 1px solid color-mix(in srgb, var(--yak-tan) 30%, transparent);
-            background: linear-gradient(to bottom, rgba(232,224,210,0.4), rgba(232,224,210,0.1));
-        }
-        .research-chrome .dots { display: inline-flex; gap: 6px; }
-        .research-chrome .dots span {
-            width: 10px; height: 10px; border-radius: 50%;
-            background: color-mix(in srgb, var(--yak-tan) 60%, transparent);
-        }
-        .research-chrome .url {
-            margin-left: 14px;
-            font-family: var(--font-mono);
-            font-size: 11.5px;
-            color: color-mix(in srgb, var(--yak-slate) 65%, transparent);
-        }
-        .research-body { padding: 28px 32px 32px; }
-        .research-body .badge {
-            display: inline-block;
-            font-family: var(--font-mono);
-            font-size: 10.5px;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--yak-orange);
-            background: color-mix(in srgb, var(--yak-orange) 12%, transparent);
-            padding: 4px 10px;
-            border-radius: 4px;
-            margin-bottom: 14px;
-        }
-        .research-body h5 {
-            font-family: var(--font-serif);
-            font-size: 26px;
-            letter-spacing: -0.015em;
-            margin: 0 0 8px;
-            color: var(--yak-slate);
-        }
-        .research-body .summary {
-            font-size: 14.5px;
-            color: color-mix(in srgb, var(--yak-slate) 70%, transparent);
-            margin-bottom: 20px;
-            line-height: 1.5;
-        }
-
-        .chart {
-            display: grid;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .chart-row {
-            display: grid;
-            grid-template-columns: 140px 1fr 50px;
-            align-items: center;
-            gap: 12px;
-            font-size: 13px;
-        }
-        .chart-row .k {
-            font-family: var(--font-mono);
-            font-size: 11.5px;
-            color: var(--yak-slate);
-        }
-        .chart-row .bar-wrap {
-            height: 10px;
-            background: var(--yak-cream-dark);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .chart-row .bar {
-            height: 100%;
-            background: linear-gradient(to right, var(--yak-orange), var(--yak-orange-warm));
-            border-radius: 4px;
-        }
-        .chart-row .n {
-            font-family: var(--font-mono);
-            font-size: 11.5px;
-            color: var(--yak-blue);
-            text-align: right;
-        }
-
-        .safety {
-            background: linear-gradient(180deg, var(--yak-cream-dark) 0%, var(--yak-cream) 100%);
-            position: relative;
-        }
-        .safety::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 1px;
-            background: linear-gradient(to right, transparent, color-mix(in srgb, var(--yak-tan) 60%, transparent), transparent);
-        }
-        .safety::after {
-            content: '';
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            height: 1px;
-            background: linear-gradient(to right, transparent, color-mix(in srgb, var(--yak-tan) 60%, transparent), transparent);
-        }
-
-        .safety-statement {
-            max-width: 920px;
-            margin: 0 auto;
-            text-align: center;
-        }
-        .safety-statement h2 {
-            font-size: clamp(42px, 6vw, 80px);
-            line-height: 1.04;
-            letter-spacing: -0.03em;
-        }
-        .safety-statement h2 em { font-style: italic; color: var(--yak-orange); }
-        .safety-statement h2 .strike {
-            position: relative;
-            color: color-mix(in srgb, var(--yak-slate) 45%, transparent);
-        }
-        .safety-statement h2 .strike::after {
-            content: '';
-            position: absolute;
-            left: -4%;
-            right: -4%;
-            top: 54%;
-            height: 3px;
-            background: var(--yak-danger);
-            transform: rotate(-3deg);
-            border-radius: 3px;
-        }
-
-        .flow {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 18px;
-            margin: 72px auto 0;
-            max-width: 1020px;
-        }
-        .flow-step {
-            background: #fff;
-            border-radius: 18px;
-            border: 1px solid color-mix(in srgb, var(--yak-tan) 35%, transparent);
-            padding: 20px 18px;
-            position: relative;
-            text-align: left;
-        }
-        .flow-step .num {
-            position: absolute;
-            top: -14px;
-            left: 18px;
-            background: var(--yak-slate);
-            color: var(--yak-cream);
-            font-family: var(--font-serif);
-            font-size: 14px;
-            line-height: 1;
-            padding: 6px 10px;
-            border-radius: 8px;
-        }
-        .flow-step .k {
-            font-family: var(--font-mono);
-            font-size: 10.5px;
-            letter-spacing: 0.1em;
-            color: var(--yak-blue);
-            text-transform: uppercase;
-            margin-top: 6px;
-            margin-bottom: 10px;
-            display: block;
-        }
-        .flow-step h6 {
-            font-family: var(--font-serif);
-            font-size: 18px;
-            margin: 0 0 6px;
-            color: var(--yak-slate);
-            letter-spacing: -0.01em;
-        }
-        .flow-step p {
-            font-size: 13px;
-            line-height: 1.5;
-            color: color-mix(in srgb, var(--yak-slate) 70%, transparent);
-        }
-        .flow-step.human {
-            background: color-mix(in srgb, var(--yak-orange) 12%, white);
-            border-color: color-mix(in srgb, var(--yak-orange) 35%, transparent);
-        }
-        .flow-step.human .num { background: var(--yak-orange); color: #fff; }
-
-        .guarantees {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            margin-top: 60px;
-        }
-        .guarantee {
-            padding: 22px;
-            background: rgba(255,255,255,0.65);
-            border: 1px solid color-mix(in srgb, var(--yak-tan) 35%, transparent);
-            border-radius: 18px;
-        }
-        .guarantee .icon {
-            display: inline-flex;
-            width: 38px; height: 38px;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-            background: color-mix(in srgb, var(--yak-green) 16%, transparent);
-            color: var(--yak-green);
-            margin-bottom: 12px;
-        }
-        .guarantee h6 {
-            font-family: var(--font-serif);
-            font-size: 18px;
-            margin: 0 0 6px;
-            letter-spacing: -0.01em;
-            color: var(--yak-slate);
-        }
-        .guarantee p {
-            font-size: 13.5px;
-            color: color-mix(in srgb, var(--yak-slate) 72%, transparent);
-            line-height: 1.5;
-        }
-
-        .proof-row {
-            display: grid;
-            grid-template-columns: 1fr 1.05fr;
-            gap: 60px;
-            align-items: center;
-        }
-        .proof-frame {
-            position: relative;
-        }
-        .proof-screenshot {
-            background: #fff;
-            border-radius: 18px;
-            border: 1px solid color-mix(in srgb, var(--yak-tan) 40%, transparent);
-            box-shadow: var(--shadow-2);
-            padding: 6px;
-            position: relative;
-            z-index: 2;
-        }
-        .proof-screenshot .stripe {
-            display: flex;
-            gap: 6px;
-            padding: 10px 12px;
-        }
-        .proof-screenshot .stripe span {
-            width: 9px; height: 9px; border-radius: 50%;
-            background: color-mix(in srgb, var(--yak-tan) 55%, transparent);
-        }
-        .proof-screenshot .canvas {
-            border-radius: 14px;
-            aspect-ratio: 16 / 10;
-            background:
-                linear-gradient(135deg, color-mix(in srgb, var(--yak-blue-light) 55%, white), color-mix(in srgb, var(--yak-green) 25%, white)),
-                var(--yak-cream-dark);
-            position: relative;
-            overflow: hidden;
-        }
-        .proof-screenshot .canvas::before {
-            content: '';
-            position: absolute;
-            inset: 20px 24px auto 24px;
-            height: 34px;
-            background: rgba(255,255,255,0.9);
-            border-radius: 10px;
-            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--yak-tan) 45%, transparent);
-        }
-        .proof-screenshot .canvas::after {
-            content: '';
-            position: absolute;
-            left: 24px; right: 24px;
-            bottom: 22px;
-            top: 74px;
-            background:
-                linear-gradient(180deg, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.9) 30%, transparent 30%, transparent 100%),
-                linear-gradient(180deg, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.9) 60%, transparent 60%, transparent 65%, rgba(255,255,255,0.9) 65%, rgba(255,255,255,0.9) 100%);
-            border-radius: 8px;
-            backdrop-filter: blur(6px);
-            background-color: rgba(255,255,255,0.25);
-        }
-
-        .proof-video {
-            position: absolute;
-            bottom: -44px;
-            right: -36px;
-            width: 50%;
-            background: #1a1612;
-            border-radius: 16px;
-            border: 6px solid #fff;
-            box-shadow: var(--shadow-2);
-            padding-bottom: 32%;
-            z-index: 3;
-            overflow: hidden;
-        }
-        .proof-video::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background:
-                radial-gradient(circle at 35% 40%, rgba(196, 116, 74, 0.6), transparent 60%),
-                radial-gradient(circle at 75% 70%, rgba(122, 140, 94, 0.5), transparent 55%),
-                #2a2420;
-        }
-        .proof-video::after {
-            content: '';
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 44px; height: 44px;
-            transform: translate(-50%, -50%);
-            background: rgba(255,255,255,0.95);
-            border-radius: 50%;
-            clip-path: polygon(35% 25%, 35% 75%, 78% 50%);
-        }
-        .proof-video .rec {
-            position: absolute;
-            top: 10px; left: 12px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-family: var(--font-mono);
-            font-size: 10px;
-            color: #fff;
-            font-weight: 600;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            z-index: 4;
-        }
-        .proof-video .rec::before {
-            content: '';
-            width: 7px; height: 7px; border-radius: 50%;
-            background: var(--yak-danger);
-            box-shadow: 0 0 0 2px color-mix(in srgb, var(--yak-danger) 30%, transparent);
-        }
-
-        .proof-tag {
-            position: absolute;
-            top: -18px;
-            left: 20px;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--yak-green);
-            background: #fff;
-            padding: 5px 11px;
-            border-radius: 999px;
-            border: 1px solid color-mix(in srgb, var(--yak-green) 30%, transparent);
-            z-index: 5;
-        }
-        .proof-tag::before {
-            content: '✓';
-            margin-right: 6px;
-            color: var(--yak-green);
-        }
-
-        .setup-row {
-            display: grid;
-            grid-template-columns: 1fr 1.1fr;
-            gap: 60px;
-            align-items: center;
-        }
-        .terminal {
-            background: #1a1612;
-            border-radius: 18px;
-            border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: var(--shadow-2);
-            overflow: hidden;
-            font-family: var(--font-mono);
-            font-size: 12.5px;
-            color: #e8e0d2;
-        }
-        .terminal-head {
-            padding: 12px 14px;
-            background: #24201c;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .terminal-head .dots { display: inline-flex; gap: 6px; }
-        .terminal-head .dots span {
-            width: 10px; height: 10px; border-radius: 50%;
-            background: #3a342e;
-        }
-        .terminal-head .title {
-            font-size: 11px;
-            font-weight: 500;
-            letter-spacing: 0.06em;
-            color: #9a938a;
-            text-transform: uppercase;
-            margin-left: 4px;
-        }
-        .terminal-body {
-            padding: 22px 24px 24px;
-            line-height: 1.75;
-        }
-        .term-line {
-            display: flex;
-            align-items: baseline;
-            gap: 10px;
-        }
-        .term-line .pfx { color: var(--yak-green-muted); flex-shrink: 0; }
-        .term-line .cmd { flex: 1; min-width: 0; }
-        .term-line .cmt { color: #6f6a62; }
-        .term-line .tag-ok { color: var(--yak-green-muted); font-weight: 600; flex-shrink: 0; }
-        .term-line .tag-run { color: var(--yak-orange-warm); font-weight: 600; flex-shrink: 0; }
-        .term-line .b { color: var(--yak-blue-light); }
-        .term-line .o { color: var(--yak-orange-warm); }
-        .term-line .dim { color: #8b847b; }
-        .term-spacer { display: block; height: 1.75em; }
-
-        .closing {
-            text-align: center;
-            padding: 140px 0 130px;
-        }
-        .closing h2 {
-            font-size: clamp(46px, 7vw, 108px);
-            line-height: 0.92;
-            letter-spacing: -0.035em;
-            margin-bottom: 32px;
-        }
-        .closing h2 em { font-style: italic; color: var(--yak-orange); }
-        .closing .sub {
-            font-size: 18px;
-            color: color-mix(in srgb, var(--yak-slate) 72%, transparent);
-            max-width: 560px;
-            margin: 0 auto 36px;
-            line-height: 1.55;
-        }
-
-        footer {
-            padding: 36px 0 48px;
-            border-top: 1px solid color-mix(in srgb, var(--yak-tan) 45%, transparent);
-            font-size: 13px;
-            color: color-mix(in srgb, var(--yak-slate) 65%, transparent);
-        }
-        footer .row {
-            max-width: 1180px;
-            margin: 0 auto;
-            padding: 0 28px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        footer .mark {
-            font-family: var(--font-serif);
-            font-size: 22px;
-            color: var(--yak-slate);
-            letter-spacing: -0.04em;
-            text-decoration: none;
-        }
-        footer .mark .a { font-style: italic; color: var(--yak-orange); }
-        footer .tagline {
-            font-family: var(--font-serif);
-            font-style: italic;
-            font-size: 16px;
-            color: color-mix(in srgb, var(--yak-slate) 70%, transparent);
-            letter-spacing: -0.01em;
-        }
-
-        .reveal {
-            animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-        .reveal.d1 { animation-delay: 0.10s; }
-        .reveal.d2 { animation-delay: 0.20s; }
-        .reveal.d3 { animation-delay: 0.30s; }
-        .reveal.d4 { animation-delay: 0.40s; }
-        .reveal.d5 { animation-delay: 0.55s; }
-        .reveal.d6 { animation-delay: 0.70s; }
-
-        @keyframes rise {
-            from { opacity: 0; transform: translateY(18px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .float {
-            animation: float 8s ease-in-out infinite;
-        }
-        @keyframes float {
-            0%,100% { transform: translateY(0); }
-            50%     { transform: translateY(-10px); }
-        }
-
-        @media (max-width: 960px) {
-            section { padding: 78px 0; }
-            .hero { padding: 48px 0 40px; }
-            .hero-grid { grid-template-columns: 1fr; gap: 20px; }
-            .hero-mascot { order: -1; max-width: 360px; margin: 0 auto; }
-            .pull-row, .pull-row.rev { grid-template-columns: 1fr; gap: 36px; }
-            .channel-grid { grid-template-columns: 1fr; }
-            .flow { grid-template-columns: repeat(2, 1fr); }
-            .guarantees { grid-template-columns: repeat(2, 1fr); }
-            .proof-row, .setup-row { grid-template-columns: 1fr; gap: 50px; }
-            .proof-video { bottom: -30px; right: -16px; }
-        }
-        @media (max-width: 520px) {
-            .flow { grid-template-columns: 1fr; }
-            .guarantees { grid-template-columns: 1fr; }
-            .ribbon .channels { gap: 18px; font-size: 18px; }
-        }
+    @media (max-width: 860px) {
+        .hero-grid, .duo, .split, .band-grid, .takeover, .steps { grid-template-columns: minmax(0, 1fr); }
+        .scene { order: -1; max-width: 340px; }
+        .ways, .grid4 { grid-template-columns: minmax(0, 1fr); }
+        .grid6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .nav-links a:not(.btn) { display: none; }
+        section { padding-block: 60px; }
+    }
+    @media (max-width: 520px) { .grid6 { grid-template-columns: minmax(0, 1fr); } }
     </style>
 </head>
 <body>
 
-<header>
-    <div class="topbar">
-        <a href="{{ route('home') }}" class="mark" aria-label="Yak">Y<span class="a">a</span>k</a>
-        <a href="{{ route('login') }}" class="btn btn-ghost btn-compact">
-            Sign in
-            <svg class="arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-        </a>
+<div class="wrap">
+    <nav class="nav">
+        <a class="wordmark" href="{{ route('home') }}" aria-label="Yak">Y<i>a</i>k<b>.</b></a>
+        <div class="nav-links">
+            <a href="#channels">Channels</a>
+            <a href="#teleport">Teleport</a>
+            <a href="#threads">Threads</a>
+            <a class="btn btn-quiet" href="{{ route('login') }}">Sign in</a>
+        </div>
+    </nav>
+</div>
+
+<header class="hero">
+    <div class="wrap">
+        <div class="hero-grid">
+            <div class="hero-copy">
+                <span class="eyebrow">An open source coding agent for your team</span>
+                <h1>Start it on your laptop. <em>Beam it up to Yak.</em></h1>
+                <p class="lede">
+                    Yak runs Claude Code in remote sandboxes. Hand it a task from Slack, Linear, Sentry,
+                    GitHub, or email. Or teleport your own session from your terminal and it keeps
+                    working there. Take over any thread whenever you want.
+                </p>
+                <p class="sub">
+                    Either way, you get a pull request to review, with screenshots, a video walkthrough,
+                    and a live preview of the branch.
+                </p>
+                <div class="cta-row">
+                    <a class="btn btn-primary" href="{{ route('login') }}">Sign in to the dashboard
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                    </a>
+                    <div class="install">
+                        <span><span class="dollar">$</span> <span id="install-command">curl -fsSL {{ route('install') }} | sh</span></span>
+                        <button type="button" id="copy-install">Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scene">
+                <div class="beam"></div>
+                <img class="ufo" src="{{ asset('ufo.png') }}" alt="">
+                <img class="mascot" src="{{ asset('mascot.png') }}" alt="Yak mascot">
+            </div>
+        </div>
+
+        <div class="ribbon">
+            <span class="eyebrow">Meets you where you are</span>
+            <div class="channels">
+                <span><i class="dot slack"></i>Slack</span>
+                <span><i class="dot linear"></i>Linear</span>
+                <span><i class="dot sentry"></i>Sentry</span>
+                <span><i class="dot github"></i>GitHub</span>
+                <span><i class="dot email"></i>Email</span>
+                <span><i class="dot ci"></i>CI</span>
+                <span><i class="dot"></i>Your terminal</span>
+            </div>
+        </div>
     </div>
 </header>
 
-<section class="hero">
-    <div class="container">
-        <div class="hero-grid">
-            <div>
-                <div class="eyebrow reveal">An autonomous coding agent for papercuts</div>
-
-                <h1 class="wordmark reveal d1">Y<span class="a">a</span>k<span style="color:var(--yak-orange)">.</span></h1>
-
-                <p class="lede reveal d2">
-                    The small stuff — <em>flaky tests, Sentry bugs,
-                    copy tweaks, broken CSV exports</em> — handled while
-                    you work on what matters.
-                </p>
-
-                <p class="subline reveal d3">
-                    Yak watches Slack, Linear, Sentry, forwarded email, and our CI.
-                    When something small breaks, it opens a branch, writes
-                    the fix, verifies it in CI, and hands you a pull request
-                    with screenshots and a video walkthrough. Got a question
-                    about the codebase instead? You'll get an answer back,
-                    not a PR.
-                </p>
-
-                <div class="hero-cta reveal d4">
-                    <a href="{{ route('login') }}" class="btn btn-primary">
-                        Sign in to the dashboard
-                        <svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-                    </a>
+<section id="channels">
+    <div class="wrap">
+        <div class="head">
+            <span class="eyebrow">Meets you where you are</span>
+            <h2>Mention it. <em>Assign it.</em> Forward it.</h2>
+            <p>Flaky tests, Sentry bugs, copy tweaks, broken CSV exports. Hand Yak the small stuff from the tools your team already uses. It reports back in the same place.</p>
+        </div>
+        <div class="split">
+            <div class="thread" aria-label="Example Slack conversation">
+                <div class="thread-head"><div class="meta"><i class="dot slack"></i><span># support-eng</span></div></div>
+                <div class="msgs">
+                    <div class="msg"><small>Sam · 10:42</small><span><span class="at">@yak</span> the CSV export times out for accounts with 10k+ rows. Can you take a look?</span></div>
+                    <div class="msg"><small>Yak · 10:42</small>On it. I will report back in this thread.</div>
+                    <div class="msg"><small>Yak · 11:07</small><span>The PR is open: <span class="at">Geocodio/geocodio#2841</span> Chunk the export query. CI is green. A video walkthrough and a preview link are in the PR.</span></div>
+                    <div class="msg"><small>Sam · 11:15</small>Looks right. Reviewing now.</div>
                 </div>
             </div>
-
-            <div class="hero-mascot reveal d3">
-                <div class="papercut papercut-1"></div>
-                <div class="papercut papercut-2"></div>
-                <div class="abduction-beam" aria-hidden="true"></div>
-                <img src="{{ asset('ufo.png') }}" alt="" class="ufo" aria-hidden="true">
-                <img src="{{ asset('mascot.png') }}" alt="Yak mascot" class="mascot-img float">
-            </div>
-        </div>
-
-        <div class="ribbon reveal d5">
-            <span class="label">Meets you where you are</span>
-            <div class="channels">
-                <span><span class="dot d-slack"></span>Slack</span>
-                <span><span class="dot d-linear"></span>Linear</span>
-                <span><span class="dot d-sentry"></span>Sentry</span>
-                <span><span class="dot d-github"></span>GitHub</span>
-                <span style="color: color-mix(in srgb, var(--yak-slate) 55%, transparent); font-style: italic;">+ flaky tests, research mode, PR reviews</span>
+            <div class="grid6">
+                <div class="chan"><h3><i class="dot slack"></i>Slack</h3><p>Mention <code>@yak</code> in any thread. It replies there with the PR or the answer.</p></div>
+                <div class="chan"><h3><i class="dot linear"></i>Linear</h3><p>Assign an issue to Yak. It comments back when the PR is open.</p></div>
+                <div class="chan"><h3><i class="dot sentry"></i>Sentry</h3><p>When an alert fires, Yak investigates and opens a PR with a fix.</p></div>
+                <div class="chan"><h3><i class="dot github"></i>GitHub</h3><p>Comment <code>/yak</code> on a pull request, or let Yak review every open PR.</p></div>
+                <div class="chan"><h3><i class="dot email"></i>Email</h3><p>Forward any email to Yak and move on. Only DKIM-verified senders get through.</p></div>
+                <div class="chan"><h3><i class="dot ci"></i>CI</h3><p>Yak scans builds for flaky tests and drafts the fix before someone has to ask.</p></div>
             </div>
         </div>
     </div>
 </section>
 
-<section>
-    <div class="container">
-        <div class="section-head">
-            <span class="eyebrow">Input channels</span>
-            <h2>Mention it. <em>Assign it.</em> Forget it.</h2>
-            <p class="sub">
-                Yak plugs into the tools the team already lives in. Tag a Slack
-                thread, assign a Linear issue, let a Sentry alert fire, forward an email — the
-                routing layer takes it from there.
-            </p>
+<section id="teleport">
+    <div class="wrap">
+        <div class="head">
+            <span class="eyebrow">Teleport</span>
+            <h2>Two directions. <em>One conversation.</em></h2>
+            <p>A thread moves between your computer and Yak with its full conversation. Only committed work travels, through GitHub, as a fast-forward.</p>
         </div>
 
-        <div class="channel-grid">
-            <div class="channel-card">
-                <div class="channel-header">
-                    <span class="channel-name">
-                        <span class="chip chip-slack">#</span>
-                        Slack
-                    </span>
-                    <span class="caption">@yak</span>
+        <div class="duo">
+            <div class="dir">
+                <span class="tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Up: your terminal to Yak</span>
+                <h3>Out of time? Hand the session to a sandbox.</h3>
+                <div class="term">
+                    <div class="term-bar"><i></i><i></i><i></i><span>claude · ~/code/geocodio</span></div>
+<pre><span class="p">&gt;</span> /yak teleport "finish the CSV export fix"
+
+<span class="d">  Pushed yak/csv-export-fix to github.com/Geocodio/geocodio
+  Uploaded the session (412 KB)</span>
+<span class="g">  Yak has the thread. This session is now read-only.</span></pre>
                 </div>
-                <div class="chat">
-                    <div class="chat-line"><span class="meta">#engineering · 10:42</span></div>
-                    <div class="chat-line"><span class="user">maria</span> <span class="mention">@yak</span> the CSV export is dropping the trailing zip digit again 🙃</div>
-                    <div class="chat-line"><span class="yak">yak</span> On it. I see three ways this could read — picking the right one first…</div>
-                    <div class="chat-line"><span class="yak">yak</span> <span style="color: var(--yak-green)">✓ PR #284 opened</span> — full regression test + screenshot attached.</div>
-                </div>
-                <p class="channel-foot">
-                    <strong>Ambiguity-aware.</strong> If the ask could be read
-                    two ways, Yak replies with grounded options before
-                    writing a single line of code.
-                </p>
+                <p>Yak commits your work, pushes a branch, and continues the same conversation in its own sandbox. Follow along in the dashboard.</p>
             </div>
 
-            <div class="channel-card">
-                <div class="channel-header">
-                    <span class="channel-name">
-                        <span class="chip chip-linear">L</span>
-                        Linear
-                    </span>
-                    <span class="caption">assign · @yak</span>
-                </div>
-                <div class="chat">
-                    <div class="chat-line" style="color: var(--yak-slate);"><strong>GEO-1284</strong> · Dark mode contrast on pricing cards</div>
-                    <div class="chat-line" style="margin: 10px 0;">
-                        <span class="label-tag">assigned · Yak</span>
-                        <span class="label-tag green">in‑review</span>
-                    </div>
-                    <div class="chat-line"><span class="yak">yak</span> → acknowledged in the agent session</div>
-                    <div class="chat-line"><span class="yak">yak</span> → In&nbsp;Review · <span style="color: var(--yak-green);">PR ready for human review</span></div>
-                    <div class="chat-line"><span class="meta">Runs via Linear's Agents API · no seat required</span></div>
-                </div>
-                <p class="channel-foot">
-                    <strong>Assign-driven.</strong> Assign any issue to the
-                    <span class="mono" style="color:var(--yak-orange); font-size: 13px;">Yak</span>
-                    agent — fix or question, Yak classifies it upfront.
-                    A <span class="mono" style="color:var(--yak-green); font-size: 13px;">research</span>
-                    label is optional, just a shortcut past the classifier.
-                </p>
-            </div>
+            <div class="dir">
+                <span class="tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Down: Yak to your terminal</span>
+                <h3>Want the last mile? Pull the thread down.</h3>
+                <div class="term">
+                    <div class="term-bar"><i></i><i></i><i></i><span>zsh · ~/code/geocodio</span></div>
+<pre><span class="p">$</span> yak teleport 4812
 
-            <div class="channel-card">
-                <div class="channel-header">
-                    <span class="channel-name">
-                        <span class="chip chip-sentry">!</span>
-                        Sentry
-                    </span>
-                    <span class="caption">auto-triage</span>
+<span class="d">  Yak committed its work and pushed yak/csv-export-fix</span>
+<span class="g">  Thread 4812 is now on this computer.</span>
+<span class="d">  Starting claude --resume 7c1e52aa in ~/code/geocodio</span></pre>
                 </div>
-                <div class="chat">
-                    <div class="chat-line" style="color: var(--yak-danger); font-weight: 600;">TypeError: Cannot read 'accuracy' of undefined</div>
-                    <div class="chat-line"><span class="meta">events: 43 · users: 12 · first seen 2h ago</span></div>
-                    <div class="chat-line"><span class="yak">yak</span> filter: <span style="color: var(--yak-green);">actionable ✓</span> · not CSP · not transient infra</div>
-                    <div class="chat-line"><span class="yak">yak</span> pulling breadcrumbs via Sentry MCP…</div>
-                    <div class="chat-line"><span class="yak">yak</span> <span style="color:var(--yak-green)">✓ fix + regression test pushed</span></div>
-                </div>
-                <p class="channel-foot">
-                    <strong>Filters the noise.</strong> CSP violations, redis
-                    blips, and one-off user errors get dropped — only real,
-                    actionable issues with enough signal get a task.
-                </p>
+                <p>Works for any thread, including one Yak started from a Sentry alert or a Slack mention. If your checkout is dirty, Yak offers a stash or a worktree.</p>
             </div>
+        </div>
 
-            <div class="channel-card">
-                <div class="channel-header">
-                    <span class="channel-name">
-                        <span class="chip chip-email">@</span>
-                        Email
-                    </span>
-                    <span class="caption">forward · note on top</span>
-                </div>
-                <div class="chat">
-                    <div class="chat-line" style="color: var(--yak-slate);"><strong>Fwd:</strong> You've consumed 82% of your errors budget</div>
-                    <div class="chat-line"><span class="meta">"Why is error volume so high? Is it the geocodio repo?"</span></div>
-                    <div class="chat-line"><span class="yak">yak</span> sender verified · DKIM <span style="color: var(--yak-green);">✓</span> · routed to geocodio</div>
-                    <div class="chat-line"><span class="yak">yak</span> <span style="color: var(--yak-green);">✓ task started</span> · link in your inbox</div>
-                </div>
-                <p class="channel-foot">
-                    <strong>Forward and move on.</strong> Send any email to Yak
-                    with a note on top. Yak checks the sender's signature,
-                    starts the task, and replies once with a link. Everything
-                    after that happens in Yak.
-                </p>
+        <div class="takeover">
+            <h3>Three ways to <em>take over</em> a thread</h3>
+            <div class="ways">
+                <div><strong>Teleport to your computer</strong><p>One button on the thread page, or <code>yak teleport</code> from your checkout.</p></div>
+                <div><strong>Browser terminal</strong><p>A shell inside the thread's sandbox, right on the thread page.</p></div>
+                <div><strong>Plain SSH</strong><p><code>yak ssh 4812</code> connects with the keys you already have on GitHub.</p></div>
             </div>
         </div>
     </div>
 </section>
 
-<section style="background: linear-gradient(180deg, var(--yak-cream) 0%, var(--yak-cream-dark) 100%); padding-top: 90px; padding-bottom: 120px;">
-    <div class="container">
-        <div class="pull-row">
-            <div>
-                <span class="eyebrow">Goes looking for trouble</span>
-                <h3 style="margin-top:14px;">Picks up <em>Sentry</em> issues and <em>flaky tests</em> on its own.</h3>
-                <p>
-                    Yak watches Sentry and CI in the background. It wakes up
-                    when an actionable issue crosses the threshold or when a
-                    test starts failing on <span class="mono" style="font-size: 15px; color: var(--yak-slate); background: var(--yak-cream); padding: 2px 6px; border-radius: 4px;">main</span>.
-                    Then it reads the stacktrace, forms a hypothesis, and
-                    writes a fix plus a regression test.
-                </p>
-                <ul class="bullets">
-                    <li>Aggressive pre-filters: CSP, transient infra, low-signal events dropped before they cost a dime.</li>
-                    <li>Flaky test triage: <em>real bug or racey test?</em> — Yak reports back honestly instead of papering over it.</li>
-                    <li>Per-repo budget and daily cost caps keep alert storms from wreaking havoc.</li>
-                </ul>
-            </div>
+<section id="threads">
+    <div class="wrap">
+        <div class="head">
+            <span class="eyebrow">Threads</span>
+            <h2>Every piece of work is a <em>thread.</em></h2>
+            <p>A thread is one conversation with its own sandbox. The task, the follow-ups, and the retries all live in one place.</p>
+        </div>
 
-            <div>
-                <div class="autopickup">
-                    <div style="display:flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                        <h4>Recent auto-pickups</h4>
-                        <span class="caption">last 24 h</span>
-                    </div>
+        <div class="split">
+            <ul class="points">
+                <li><strong>A sandbox that sleeps and wakes</strong><span>Each thread keeps its environment. It hibernates when idle and comes back when you send a message.</span></li>
+                <li><strong>Steer it mid-turn</strong><span>Send a message while Yak works and it changes course. Stop it or tell it to continue at any time.</span></li>
+                <li><strong>Sub-threads</strong><span>A thread can start child threads for research, implementation, or a mockup, and keep working while they run.</span></li>
+                <li><strong>Several repos, one thread</strong><span>Each changed repo gets its own PR, linked to its siblings with a merge order.</span></li>
+                <li><strong>Private when you want</strong><span>A private thread is visible only to you. Push notifications tell you when a thread needs you.</span></li>
+            </ul>
 
-                    <div class="event-row">
-                        <span class="tag tag-sentry">Sentry</span>
-                        <div class="event-body">
-                            <div class="title">TypeError in <span class="mono" style="font-size: 13px;">GeocodeController@show</span></div>
-                            <div class="sub">events 43 · users 12 · sentry-priority: medium</div>
-                        </div>
-                        <span class="status">PR opened</span>
-                    </div>
-
-                    <div class="event-row">
-                        <span class="tag tag-flaky">Flaky</span>
-                        <div class="event-body">
-                            <div class="title">BatchUploadTest::<span class="mono" style="font-size: 13px;">it_handles_merged_headers</span></div>
-                            <div class="sub">fails 3/10 builds · racy fixture timestamp</div>
-                        </div>
-                        <span class="status">fixed</span>
-                    </div>
-
-                    <div class="event-row">
-                        <span class="tag tag-alert">Linear</span>
-                        <div class="event-body">
-                            <div class="title">Dark-mode contrast on pricing cards</div>
-                            <div class="sub">GEO-1284 · assigned to Yak</div>
-                        </div>
-                        <span class="status">in review</span>
-                    </div>
-
-                    <div class="event-row">
-                        <span class="tag tag-sentry">Sentry</span>
-                        <div class="event-body">
-                            <div class="title">Null dereference in <span class="mono" style="font-size: 13px;">AccuracyScorer</span></div>
-                            <div class="sub">events 18 · seer: actionable ✓</div>
-                        </div>
-                        <span class="status">PR opened</span>
-                    </div>
+            <div class="thread" aria-label="Example thread page">
+                <div class="thread-head">
+                    <b>Fix CSV export for accounts with 10k+ rows</b>
+                    <div class="meta"><span class="badge">Running turn 3</span><span>Geocodio/geocodio</span><span>yak/csv-export-fix</span></div>
+                </div>
+                <div class="tabs"><span class="on">Conversation</span><span>Changes</span><span>Preview</span><span>Terminal</span><span>Files</span><span>Pull requests</span></div>
+                <div class="msgs">
+                    <div class="msg"><small>Yak</small>The export job loads every row into memory. I am switching it to a chunked query and adding a test with 25,000 rows.</div>
+                    <div class="msg you"><small>You, mid-turn</small>Keep the column order the same as the old export.</div>
+                    <div class="msg"><small>Yak</small>Understood. I kept the original column order and added an assertion for it.</div>
+                </div>
+                <div class="stack">
+                    <div class="stack-row"><span>Research: where else is the exporter used?</span><span class="badge ok">Done</span></div>
+                    <div class="stack-row"><span>Implement: chunked query in ExportJob</span><span class="badge">Running</span></div>
+                    <div class="stack-row"><span>Mockup: progress bar on the export page</span><span class="badge idle">Asleep</span></div>
                 </div>
             </div>
         </div>
@@ -1387,346 +394,76 @@
 </section>
 
 <section>
-    <div class="container">
-        <div class="pull-row rev">
-            <div class="research-card">
-                <div class="research-chrome">
-                    <div class="dots"><span></span><span></span><span></span></div>
-                    <div class="url">.yak-artifacts/research.html</div>
-                </div>
-                <div class="research-body">
-                    <span class="badge">Research findings</span>
-                    <h5>Deprecated <span style="font-style:italic;">accuracy_type</span> usage across the API.</h5>
-                    <p class="summary">
-                        7 endpoints still read <span class="mono" style="font-size:12.5px; color: var(--yak-orange);">accuracy_type</span>
-                        directly. Two customer-facing, five internal. Estimated
-                        migration: 2 PRs, ~180 LOC. No blocking callers.
-                    </p>
-
-                    <div class="chart">
-                        <div class="chart-row">
-                            <span class="k">GeocodeCtrl</span>
-                            <div class="bar-wrap"><div class="bar" style="width: 92%;"></div></div>
-                            <span class="n">42</span>
-                        </div>
-                        <div class="chart-row">
-                            <span class="k">BatchCtrl</span>
-                            <div class="bar-wrap"><div class="bar" style="width: 64%;"></div></div>
-                            <span class="n">28</span>
-                        </div>
-                        <div class="chart-row">
-                            <span class="k">ReverseCtrl</span>
-                            <div class="bar-wrap"><div class="bar" style="width: 48%;"></div></div>
-                            <span class="n">19</span>
-                        </div>
-                        <div class="chart-row">
-                            <span class="k">LookupSvc</span>
-                            <div class="bar-wrap"><div class="bar" style="width: 38%;"></div></div>
-                            <span class="n">14</span>
-                        </div>
-                        <div class="chart-row">
-                            <span class="k">ExportSvc</span>
-                            <div class="bar-wrap"><div class="bar" style="width: 22%;"></div></div>
-                            <span class="n">7</span>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 22px; padding-top: 18px; border-top: 1px dashed color-mix(in srgb, var(--yak-tan) 55%, transparent); display:flex; gap: 22px; font-family: var(--font-mono); font-size: 12px; color: color-mix(in srgb, var(--yak-slate) 65%, transparent);">
-                        <span>→ file refs w/ line numbers</span>
-                        <span>→ risk: low</span>
-                        <span>→ effort: 2 PRs</span>
-                    </div>
-                </div>
-            </div>
-
-            <div>
-                <span class="eyebrow">Ask a question</span>
-                <h3 style="margin-top:14px;">Not every ask is a <em>fix.</em> Sometimes you just want an <em>answer.</em></h3>
-                <p>
-                    <em style="color: var(--yak-orange);">"When is the welcome email triggered?"</em>
-                    <em style="color: var(--yak-orange);">"How bad would this refactor be?"</em>
-                    Just ask. A lightweight classifier decides up front
-                    whether your request is a fix or a research question,
-                    so there are no magic prefixes to remember.
-                </p>
-                <ul class="bullets">
-                    <li>Quick factual questions come back as a conversational answer in the same thread — no branch, no CI, no PR.</li>
-                    <li>Bigger investigations produce a self-contained HTML findings page with file references, charts, risks, and an effort estimate.</li>
-                    <li>Explicit overrides still work: a <span class="mono" style="color: var(--yak-orange); font-size: 14.5px;">research</span> label on Linear or a <span class="mono" style="color: var(--yak-orange); font-size: 14.5px;">research:</span> prefix in Slack skips the classifier.</li>
-                </ul>
-            </div>
+    <div class="wrap">
+        <div class="head">
+            <span class="eyebrow">Proof of work</span>
+            <h2>Every PR comes with <em>proof.</em></h2>
+        </div>
+        <div class="grid4">
+            <div><h3>Screenshots and video</h3><p>Every UI change arrives with a screenshot and a video walkthrough.</p></div>
+            <div><h3>Live preview</h3><p>Each thread serves a preview of its own branch. Click around before you read the diff.</p></div>
+            <div><h3>Answers, not only PRs</h3><p>Ask how something works. Yak researches the codebase and writes back.</p></div>
+            <div><h3>PR reviews</h3><p>Rubric-driven reviews on open PRs, with suggestion blocks you can apply.</p></div>
         </div>
     </div>
 </section>
 
-<section>
-    <div class="container">
-        <div class="pull-row">
-            <div>
-                <span class="eyebrow">Reviews PRs, too</span>
-                <h3 style="margin-top:14px;">Every open PR gets a <em>rubric-driven</em> review — with <em>suggestion</em> blocks.</h3>
-                <p>
-                    Flip a switch on a repo and Yak reviews every non-draft PR.
-                    Findings land as GitHub line-level comments with category
-                    and severity labels; one-to-ten-line fixes come through as
-                    native <span class="mono" style="color: var(--yak-orange); font-size: 14.5px;">suggestion</span> blocks you can commit with a click.
-                </p>
-                <ul class="bullets">
-                    <li>Incremental on <span class="mono" style="color: var(--yak-orange); font-size: 14.5px;">synchronize</span>: only new commits get re-reviewed. Force-pushes safely fall back to a full review.</li>
-                    <li>Runs in the same sandbox as fixes, so it can actually run the tests and linters for the files the PR touches.</li>
-                    <li>Reaction counts (👍 / 👎) are tracked — the dashboard shows which kinds of feedback your team finds useful.</li>
-                </ul>
+<section class="band">
+    <div class="wrap">
+        <div class="band-grid">
+            <div class="head" style="margin-bottom:0">
+                <span class="eyebrow">The safety model</span>
+                <h2>Yak opens PRs. <em>Humans merge.</em></h2>
             </div>
-
-            <div class="autopickup">
-                <h4>Yak · <span class="mono" style="color: var(--yak-orange);">geocodio/api #412</span></h4>
-                <p style="margin: 14px 0 10px; font-family: var(--font-mono); font-size: 12.5px; color: color-mix(in srgb, var(--yak-slate) 70%, transparent);">
-                    app/Services/GeocodeClient.php:87
-                </p>
-                <p style="margin: 0 0 14px;">
-                    <span class="mono" style="padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--yak-orange) 18%, transparent); color: var(--yak-orange); font-size: 11.5px;">Performance</span>
-                    <span class="mono" style="padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--yak-slate) 18%, transparent); color: var(--yak-slate); font-size: 11.5px; margin-left: 6px;">should_fix</span>
-                </p>
-                <p style="margin: 0 0 10px;">
-                    Retry loop re-creates the <span class="mono" style="font-size:12.5px; color: var(--yak-orange);">Http::withHeaders</span> call on each attempt, losing connection reuse.
-                </p>
-                <pre style="margin: 0; padding: 10px 12px; background: color-mix(in srgb, var(--yak-slate) 6%, transparent); border-radius: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--yak-slate); overflow: auto;">```suggestion
-$client = Http::withHeaders($headers);
-foreach (range(1, 3) as $attempt) {
-    $response = $client->get($url);
-}
-```</pre>
-            </div>
+            <ul>
+                <li>Yak never merges and never touches production. Its output is a pull request and a preview.</li>
+                <li>Each thread runs in an isolated sandbox with its own environment.</li>
+                <li>Teleport moves committed work only, through GitHub. Uncommitted files stay on your computer unless you choose to commit them.</li>
+            </ul>
         </div>
     </div>
 </section>
 
-<section class="safety">
-    <div class="container">
-        <div class="safety-statement">
-            <span class="eyebrow">The safety model</span>
-            <h2 style="margin-top: 14px;">
-                Yak opens pull requests.<br>
-                <em>Humans</em> merge them.<br>
-                <span class="strike">No auto-merge.</span> No exceptions.
-            </h2>
+<section id="start">
+    <div class="wrap">
+        <div class="head">
+            <span class="eyebrow">Get teleport</span>
+            <h2>Three commands to your <em>first beam-up.</em></h2>
         </div>
-
-        <div class="flow">
-            <div class="flow-step">
-                <span class="num">1</span>
-                <span class="k">Yak</span>
-                <h6>Writes&nbsp;the&nbsp;fix</h6>
-                <p>Branch, commit, local tests — every run in a fresh sandbox. Never pushes to <span class="mono" style="font-size: 12px;">main</span>.</p>
-            </div>
-            <div class="flow-step">
-                <span class="num">2</span>
-                <span class="k">CI</span>
-                <h6>Proves&nbsp;it</h6>
-                <p>Full test suite runs on real CI. If it fails, Yak retries once. If that fails, a human takes over.</p>
-            </div>
-            <div class="flow-step">
-                <span class="num">3</span>
-                <span class="k">Yak</span>
-                <h6>Opens&nbsp;the&nbsp;PR</h6>
-                <p>Screenshots, video, summary, cost, session id. Large diffs get a <span class="mono" style="font-size:11.5px;">yak-large-change</span> label.</p>
-            </div>
-            <div class="flow-step human">
-                <span class="num">4</span>
-                <span class="k">You</span>
-                <h6>Reviews&nbsp;&amp;&nbsp;iterates</h6>
-                <p>Push follow-up commits, request changes, or take over entirely. Yak's branch is just a starting point.</p>
-            </div>
-            <div class="flow-step human">
-                <span class="num">5</span>
-                <span class="k">You</span>
-                <h6>Merges</h6>
-                <p>Always. The Yak GitHub App has no merge authority and is never on your bypass list by design.</p>
-            </div>
-        </div>
-
-        <div class="guarantees">
-            <div class="guarantee">
-                <div class="icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.6 9.3 8 11 4.4-1.7 8-6 8-11V5l-8-3Z"/></svg>
-                </div>
-                <h6>No merge authority</h6>
-                <p>The Yak GitHub App can push branches and open PRs — nothing more. Branch protection stays on.</p>
-            </div>
-            <div class="guarantee">
-                <div class="icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
-                </div>
-                <h6>One sandbox per task</h6>
-                <p>Every run lives in its own Incus container, cloned from a ZFS snapshot. Firewalled off from Yak itself, its database, and every other task.</p>
-            </div>
-            <div class="guarantee">
-                <div class="icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                </div>
-                <h6>Bounded retries</h6>
-                <p>At most one retry on CI failure. Two strikes and a human picks up — no endless flailing.</p>
-            </div>
-            <div class="guarantee">
-                <div class="icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/></svg>
-                </div>
-                <h6>Per-task + daily budgets</h6>
-                <p>Every run is capped. The daily routing budget is enforced by job middleware before a single token is spent.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section>
-    <div class="container">
-        <div class="proof-row">
-            <div class="proof-frame">
-                <span class="proof-tag">Visual capture: done</span>
-                <div class="proof-screenshot">
-                    <div class="stripe"><span></span><span></span><span></span></div>
-                    <div class="canvas"></div>
-                </div>
-                <div class="proof-video">
-                    <span class="rec">REC · 00:12</span>
-                </div>
-            </div>
-
-            <div>
-                <span class="eyebrow">Proof of work</span>
-                <h3 style="margin-top:14px;">Every UI change comes with a <em>screenshot</em> and a <em>video walkthrough.</em></h3>
-                <p>
-                    When Yak touches the frontend, it spins up the dev
-                    server, logs in as a seeded test user, drives the
-                    affected page through the exact flow it just changed,
-                    and attaches the recordings to the PR.
-                </p>
-                <ul class="bullets">
-                    <li>Real Chromium navigation, authenticated session, video recorded end-to-end.</li>
-                    <li>Partial captures when something blocks the full flow — never a silent skip.</li>
-                    <li>Every PR clearly states whether the capture was complete, partial, or skipped.</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section>
-    <div class="container">
-        <div class="setup-row">
-            <div>
-                <span class="eyebrow">Add a repo</span>
-                <h3 style="margin-top:14px;">Dev environment, <em>frozen on a snapshot.</em></h3>
-                <p>
-                    Paste the clone URL. Yak dispatches a one-time setup
-                    task inside a fresh Incus container — docker-compose
-                    up, dependencies, migrations, test suite — then
-                    freezes the result as a <strong>ZFS copy-on-write
-                    snapshot</strong>. Every future task on this repo
-                    clones that snapshot in about two seconds.
-                </p>
-                <ul class="bullets">
-                    <li>Setup runs once. After that, tasks start from a warm, verified template.</li>
-                    <li>Sandboxes are destroyed at the end of every task — nothing leaks between runs.</li>
-                    <li>Up to four tasks run in parallel, each in its own container with its own network.</li>
-                    <li>New deps broke the environment? <strong>Re-run setup</strong> and Yak builds a fresh snapshot.</li>
-                </ul>
-            </div>
-
-            <div class="terminal">
-                <div class="terminal-head">
-                    <div class="dots"><span></span><span></span><span></span></div>
-                    <div class="title">yak · setup task — api</div>
-                </div>
-                <div class="terminal-body">
-                    <span class="term-line"><span class="cmt"># One-time setup inside a fresh Incus container</span></span>
-                    <span class="term-line">
-                        <span class="pfx">›</span>
-                        <span class="cmd">incus launch <span class="b">yak-base</span> <span class="o">yak-setup-api</span></span>
-                        <span class="tag-ok">ok</span>
-                    </span>
-                    <span class="term-line">
-                        <span class="pfx">›</span>
-                        <span class="cmd">reading <span class="b">README.md</span>, <span class="b">CLAUDE.md</span>, <span class="b">docker-compose.yml</span></span>
-                    </span>
-                    <span class="term-line">
-                        <span class="pfx">›</span>
-                        <span class="cmd">docker-compose up -d <span class="dim">· mysql · redis · meilisearch</span></span>
-                        <span class="tag-ok">ok</span>
-                    </span>
-                    <span class="term-line">
-                        <span class="pfx">›</span>
-                        <span class="cmd">composer install &amp;&amp; npm ci &amp;&amp; npm run build</span>
-                        <span class="tag-ok">ok</span>
-                    </span>
-                    <span class="term-line">
-                        <span class="pfx">›</span>
-                        <span class="cmd">php artisan migrate --seed</span>
-                        <span class="tag-ok">ok</span>
-                    </span>
-                    <span class="term-line">
-                        <span class="pfx">›</span>
-                        <span class="cmd">pest --compact</span>
-                        <span class="tag-ok">432 passed</span>
-                    </span>
-                    <span class="term-spacer"></span>
-                    <span class="term-line"><span class="cmt"># Promote to a ZFS snapshot</span></span>
-                    <span class="term-line">
-                        <span class="pfx">›</span>
-                        <span class="cmd">incus snapshot create yak-setup-api <span class="b">ready</span></span>
-                        <span class="tag-ok">ok</span>
-                    </span>
-                    <span class="term-line">
-                        <span class="pfx">›</span>
-                        <span class="cmd">status: <span class="o">setup → ready</span></span>
-                    </span>
-                    <span class="term-spacer"></span>
-                    <span class="term-line"><span class="cmt"># Future tasks clone from snapshot → live in ~2s</span></span>
-                    <span class="term-line">
-                        <span class="pfx">›</span>
-                        <span class="cmd">incus copy yak-tpl-api/ready <span class="o">task-42</span></span>
-                        <span class="tag-ok">1.8s</span>
-                    </span>
-                </div>
-            </div>
+        <div class="steps">
+            <div class="step"><h3>Install</h3><div class="cmd">curl -fsSL {{ route('install') }} | sh</div><p>Adds the Yak plugin to Claude Code and the <code>yak</code> command. macOS and Linux.</p></div>
+            <div class="step"><h3>Sign in</h3><div class="cmd">yak login</div><p>Shows a code and opens an approval page in your browser.</p></div>
+            <div class="step"><h3>Teleport</h3><div class="cmd">/yak teleport</div><p>Run it inside any Claude Code session in a repo that Yak knows.</p></div>
         </div>
     </div>
 </section>
 
 <section class="closing">
-    <div class="container">
-        <div class="divider" style="margin-bottom: 36px;">
-            <span class="line"></span>
-            <svg class="star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            <span class="line"></span>
-        </div>
-
-        <h2 class="wordmark">
-            Let Yak <em style="font-style:italic; color: var(--yak-orange);">do</em><br>
-            the <em style="font-style: italic;">boring</em> bit.
-        </h2>
-
-        <p class="sub" style="margin-top: 28px;">
-            Papercuts, handled. Sign in to watch tasks in flight,
-            read Claude sessions, inspect sandbox artifacts, and
-            tweak the prompts Yak runs on your behalf.
-        </p>
-
-        <div style="display:flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
-            <a href="{{ route('login') }}" class="btn btn-primary">
-                Sign in to the dashboard
-                <svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-            </a>
-        </div>
+    <div class="wrap">
+        <img src="{{ asset('mascot.png') }}" alt="">
+        <h2>Y<em>a</em>k<em style="font-style:normal">.</em></h2>
+        <p>Sign in to watch your threads, steer them, or beam one down.</p>
+        <a class="btn btn-primary" href="{{ route('login') }}">Sign in to the dashboard</a>
     </div>
 </section>
 
-<footer>
-    <div class="row">
-        <a href="{{ route('home') }}" class="mark">Y<span class="a">a</span>k</a>
-        <span class="tagline">Papercuts, handled.</span>
-    </div>
-</footer>
+<footer><div class="wrap"><span>Yak is open source.</span><a href="https://github.com/Geocodio/yak">GitHub</a></div></footer>
+
+<script>
+// Play the beam-up once on load. After that, only hover replays it.
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    var scene = document.querySelector('.scene');
+    setTimeout(function () { scene.classList.add('beaming'); }, 1200);
+    setTimeout(function () { scene.classList.remove('beaming'); }, 6200);
+}
+document.getElementById('copy-install').addEventListener('click', function (event) {
+    var button = event.currentTarget;
+    navigator.clipboard.writeText(document.getElementById('install-command').textContent).then(
+        function () { button.textContent = 'Copied'; setTimeout(function () { button.textContent = 'Copy'; }, 1500); },
+        function () { window.getSelection().selectAllChildren(document.getElementById('install-command')); }
+    );
+});
+</script>
 
 </body>
 </html>
