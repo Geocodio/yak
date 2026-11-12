@@ -341,6 +341,23 @@ it('caddy routes the Reverb paths on the dashboard host', function () {
         ->and($caddy)->toContain('forward_auth localhost:8080')->toContain('/_yak/auth');
 });
 
+it('caddy routes the terminal websocket to the bridge on the dashboard host', function () {
+    $caddy = file_get_contents(base_path('ansible/roles/ssl/templates/Caddyfile.j2'));
+    $dashboard = explode('*.{{ yak_domain }}', $caddy)[0];
+
+    expect($dashboard)->toContain('handle /terminal/ws {')
+        ->toContain('reverse_proxy {{ yak_ssh_bridge_listen')
+        ->and(strpos($dashboard, 'handle /terminal/ws'))->toBeLessThan(strpos($dashboard, "handle {\n        reverse_proxy localhost:8080"));
+});
+
+it('env template writes VAPID, system admin and dataset settings only when set', function () {
+    $env = file_get_contents(base_path('ansible/roles/yak-container/templates/env.j2'));
+
+    foreach (['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'YAK_SYSTEM_ACCOUNT_ADMIN_IDS', 'YAK_DATASETS_S3_BUCKET', 'YAK_DATASETS_S3_SECRET'] as $key) {
+        expect($env)->toMatch('/\{% if [^\n]*\| length > 0[^\n]*%\}\n(?:[^\n]*\n)*?' . $key . '=/');
+    }
+});
+
 it('nginx proxies the Reverb paths with websocket upgrade', function () {
     $nginx = file_get_contents(base_path('docker/nginx.conf'));
 
