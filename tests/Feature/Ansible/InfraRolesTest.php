@@ -455,3 +455,8 @@ it('keeps the sandbox base version in step between Ansible and the app', functio
     expect($ansibleVersion)->toBe(6)
         ->and(config('yak.sandbox.base_version'))->toBe($ansibleVersion);
 });
+
+it('creates the sandbox yak user with the uid the app runs the agent as', function () use ($incusTasks) {
+    expect($incusTasks())->toContain('useradd -m -u 1001 -s /bin/bash yak')
+        ->and(file_get_contents(base_path('app/Services/Threads/OneShotRuns.php')))->toContain('SANDBOX_USER_ID = 1001');
+});

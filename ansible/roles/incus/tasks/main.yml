@@ -474,7 +474,7 @@
       npm install -g @anthropic-ai/claude-code agent-browser playwright@1.62.1
 
       # Create yak user (mirrors the host setup)
-      useradd -m -s /bin/bash yak
+      useradd -m -u 1001 -s /bin/bash yak
       usermod -aG docker yak
       echo "yak ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/yak
       chmod 440 /etc/sudoers.d/yak
