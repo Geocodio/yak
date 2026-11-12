@@ -1,9 +1,15 @@
 import { router } from '@inertiajs/react';
-import { Fragment, useState } from 'react';
+import { ArrowDown } from 'lucide-react';
+import { Fragment, useEffect, useState } from 'react';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage, ThreadNotice as ThreadNoticeData } from '@/types/threads';
+import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
+import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { ChildCard } from './ChildCard';
+import { ConnectionStrip } from './ConnectionStrip';
+import { UnsentMessage } from './UnsentMessage';
+import { useStickToBottom } from './useStickToBottom';
 import { RepositoryCard } from './RepositoryCard';
 import { ClaudeMessage } from './ClaudeMessage';
 import { DayDivider } from './DayDivider';
@@ -55,15 +61,26 @@ function EventRow({ item, canDrive, isLast, threadId }: { item: ConversationItem
     return item.kind === 'edits' ? <EditsBlock item={item} /> : <ClaudeMessage item={item} />;
 }
 
-export function Conversation({ threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null }: { title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: number; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
-    const { entries, lastSequence, connection } = useConversation(threadId, messages);
+export function Conversation({ threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent }: { onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: number; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+    const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
+    const unsent = useUnsentMessages(threadId);
+    const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(threadId);
+
+    useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
+    // The person's own message always comes into view, also after they scrolled up.
+    useEffect(() => {
+        if (unsent.length > 0) {
+            jumpToNewest();
+        }
+    }, [unsent.length, jumpToNewest]);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     let previousDay = '';
 
     return (
-        <div className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-8">
-            <div className="mx-auto flex max-w-[760px] flex-col gap-4">
+        <>
+        <div ref={scroller} className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-8" data-testid="thread-conversation-scroller">
+            <div ref={content} className="mx-auto flex max-w-[760px] flex-col gap-4">
                 {title && <ThreadTitleBlock title={title} repo={repo} branch={branch} />}
                 {entries.map((entry, index) => {
                     if (entry.type === 'event') {
@@ -88,6 +105,9 @@ export function Conversation({ threadId, repo, branch, messages, notice, readonl
                         </Fragment>
                     );
                 })}
+                {unsent.map((message) => (
+                    <UnsentMessage key={message.key} message={message} onRetry={() => outbox.retry(threadId, message.key)} onEdit={() => onEditUnsent?.(outbox.cancel(threadId, message.key))} />
+                ))}
                 {environmentSwitch && <SideSwitchDivider {...environmentSwitch} />}
                 {environmentNote && <EnvironmentNoteCard threadId={threadId} text={environmentNote.text} from={environmentNote.from} to={environmentNote.to} />}
                 {pullRequestCount > 1 && <PullRequestChips threadId={threadId} lastActivityAt={lastActivityAt} />}
@@ -100,7 +120,15 @@ export function Conversation({ threadId, repo, branch, messages, notice, readonl
                 />
                 {notice && <ThreadNotice notice={notice} threadId={threadId} repo={repo} branch={branch} readonly={readonly} />}
             </div>
+            {hasNew && (
+                <button type="button" onClick={jumpToNewest} data-testid="thread-jump-to-newest" className="sticky bottom-1 mx-auto mt-3 flex w-fit cursor-pointer items-center gap-1.5 rounded-pill border border-hair bg-panel px-3 py-1.5 text-[12px] font-medium text-body shadow-card">
+                    <ArrowDown size={13} aria-hidden />
+                    New reply
+                </button>
+            )}
             <MediaLightbox media={lightboxMedia} index={lightboxIndex} onOpenChange={(open) => !open && setLightboxMedia(null)} onIndexChange={setLightboxIndex} />
         </div>
+        <ConnectionStrip link={link} />
+        </>
     );
 }

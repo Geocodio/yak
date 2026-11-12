@@ -23,6 +23,7 @@ import { PrivateThreadBanner } from '@/components/threads/share/PrivateThreadBan
 import { ShareButton } from '@/components/threads/share/ShareButton';
 import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
 import { show } from '@/routes/threads';
+import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import type { PageProps } from '@/types/shared';
 import type { ThreadPageData } from '@/types/threads';
 
@@ -39,6 +40,8 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, brief,
     const activeDock = dockPanels.find((panel) => panel.id === dock.activeId) ?? null;
     const [phoneTab, setPhoneTab] = useState<PhoneTabId>(() => (activeDock === null ? 'chat' : activeDock.id === 'files' ? 'terminal' : activeDock.id === 'preview' || activeDock.id === 'terminal' ? activeDock.id : 'chat'));
     const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
+    const [linkKind, setLinkKind] = useState<LinkState['kind']>('ok');
+    const [restoredDraft, setRestoredDraft] = useState<{ text: string } | null>(null);
     const selectPhoneTab = (id: PhoneTabId) => {
         setPhoneTab(id);
         const dockId = phoneDockIdFor(id, phoneTerminalMode);
@@ -119,8 +122,8 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, brief,
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
-                    <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} />
+                    <Conversation threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} />
+                    <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} />
                 </div>
 
                 <ThreadDockPanel thread={thread} canDrive={canDrive} active={activeDock} isPhoneVisible={isPhoneDockVisible} />

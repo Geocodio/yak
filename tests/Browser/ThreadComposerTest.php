@@ -6,6 +6,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadTurns;
 
 function composerThread(): array
@@ -98,4 +99,25 @@ it('keeps the composer enabled on a waiting thread and a sent message shows as n
         ->fill('[data-testid="thread-composer-input"]', 'Hello')
         ->click('[data-testid="thread-send"]');
     $page->wait(3)->assertVisible('[data-testid="thread-message-pending"]')->assertNoJavaScriptErrors();
+});
+
+it('shows a refused message with its reason and puts the text back on Edit', function () {
+    [$user, $thread] = composerThread();
+    $this->actingAs($user);
+    $this->mock(ThreadTurns::class, function ($mock) {
+        $mock->shouldReceive('start')->once()->andThrow(new ThreadBusy('busy'));
+    });
+
+    $page = visit("/threads/{$thread->id}");
+    $page->fill('[data-testid="thread-composer-input"]', 'Hello')
+        ->click('[data-testid="thread-send"]');
+    $page->wait(2)
+        ->assertSeeIn('[data-testid="thread-message-unsent"]', 'Hello')
+        ->assertSeeIn('[data-testid="thread-message-unsent-status"]', 'Not sent. This thread is already starting a turn.')
+        ->assertScript("document.querySelector('[data-testid=\"thread-composer-input\"]').value", '')
+        ->click('[data-testid="thread-message-unsent-edit"]');
+    $page->wait(1)
+        ->assertMissing('[data-testid="thread-message-unsent"]')
+        ->assertScript("document.querySelector('[data-testid=\"thread-composer-input\"]').value", 'Hello')
+        ->assertNoJavaScriptErrors();
 });

@@ -1,7 +1,10 @@
 import type { ThreadEventEnvelope } from '../../types/thread-events';
 
+/** A stalled link holds a request open without failing it; past this the request counts as failed and is retried. */
+const REQUEST_TIMEOUT_MS = 15000;
+
 async function getJson<T>(url: string, fetchImpl: typeof fetch): Promise<T> {
-    const response = await fetchImpl(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+    const response = await fetchImpl(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
 
     if (!response.ok) {
         throw new Error(`Thread events request failed with ${response.status}`);

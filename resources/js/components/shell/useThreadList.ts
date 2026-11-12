@@ -4,11 +4,13 @@ import type { ThreadListData, ThreadListFilter } from '@/types/shell';
 
 const SEARCH_DEBOUNCE_MS = 250;
 const REFRESH_INTERVAL_MS = 5000;
+const REQUEST_TIMEOUT_MS = 20000;
 
 /**
  * The sidebar thread list: starts from the shared first-paint data, then
  * refetches on filter or search change (search debounced) and every five
- * seconds. A newer request aborts the one still in flight.
+ * seconds. A filter or search change aborts the request in flight; a timed
+ * refresh waits for it, so a link slower than the interval still gets answers.
  */
 export function useThreadList(initial: ThreadListData | null) {
     const [data, setData] = useState<ThreadListData | null>(initial);
@@ -16,6 +18,7 @@ export function useThreadList(initial: ThreadListData | null) {
     const [search, setSearch] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const controllerRef = useRef<AbortController | null>(null);
+    const isFetching = useRef(false);
     const isFirstRun = useRef(true);
 
     useEffect(() => {
@@ -34,6 +37,7 @@ export function useThreadList(initial: ThreadListData | null) {
             if (showLoading) {
                 setIsLoading(true);
             }
+            isFetching.current = true;
             try {
                 const query: { filter: ThreadListFilter; search?: string } = { filter };
                 if (search !== '') {
@@ -42,7 +46,7 @@ export function useThreadList(initial: ThreadListData | null) {
                 const response = await fetch(list.url({ query }), {
                     headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin',
-                    signal: controller.signal,
+                    signal: AbortSignal.any([controller.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
                 });
                 if (response.ok) {
                     setData((await response.json()) as ThreadListData);
@@ -51,6 +55,7 @@ export function useThreadList(initial: ThreadListData | null) {
                 // Aborted or offline: keep the rows already on screen.
             } finally {
                 if (controllerRef.current === controller) {
+                    isFetching.current = false;
                     setIsLoading(false);
                 }
             }
@@ -60,7 +65,7 @@ export function useThreadList(initial: ThreadListData | null) {
         isFirstRun.current = false;
         const delay = search === '' ? 0 : SEARCH_DEBOUNCE_MS;
         const timeout = isInitialState ? null : window.setTimeout(() => void fetchList(true), delay);
-        const interval = window.setInterval(() => void fetchList(false), REFRESH_INTERVAL_MS);
+        const interval = window.setInterval(() => !isFetching.current && void fetchList(false), REFRESH_INTERVAL_MS);
 
         return () => {
             if (timeout !== null) {
