@@ -385,7 +385,7 @@ export function AttachmentDropOverlay({ draft }: { draft: AttachmentDraft }) {
 }
 
 /** The paperclip that opens the file picker, plus the hidden input it drives. */
-export function AttachButton({ draft, disabled = false }: { draft: AttachmentDraft; disabled?: boolean }) {
+export function AttachButton({ draft, disabled = false, className, size = 15 }: { draft: AttachmentDraft; disabled?: boolean; className?: string; size?: number }) {
     const count = draft.items.length;
 
     return (
@@ -396,9 +396,10 @@ export function AttachButton({ draft, disabled = false }: { draft: AttachmentDra
                     label={count > 0 ? `Attach files (${count} attached)` : 'Attach files'}
                     onClick={draft.openPicker}
                     disabled={disabled || count >= draft.limits.maxFiles}
+                    className={className}
                     data-testid="attachment-button"
                 >
-                    <Paperclip size={15} aria-hidden />
+                    <Paperclip size={size} aria-hidden />
                 </IconButton>
             </Tooltip>
         </>

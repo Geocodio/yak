@@ -1,8 +1,10 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { Button } from '@geocodio/console-ui';
-import { FolderPlus, Loader2, TriangleAlert, UserRound } from 'lucide-react';
+import { Loader2, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AccountDialog } from '@/components/accounts/AccountDialog';
+import { YakMark } from '@/components/brand/YakMark';
+import type { StartExample } from '@/components/start/StartFieldContext';
 import { useDocsUrl } from '@/lib/docsUrl';
 import { create as createRepository, edit as editRepository } from '@/routes/repos';
 import { repositorySetup } from '@/routes/threads';
@@ -17,17 +19,19 @@ type Props = Omit<NewThreadPageData, 'emailToYakAddress'> & {
     reloadOnly: string[];
     onStarted?: () => void;
     autoFocus?: boolean;
+    /** A request dropped into the composer by an example chip. */
+    example?: StartExample;
 };
 
 type SetupSnapshot = { status: RepositorySetupState; step: string | null };
 
 const POLL_INTERVAL_MS = 3000;
 
-function BlockingState({ testId, icon, tone, title, body, children }: { testId: string; icon: ReactNode; tone: 'brand' | 'warn'; title: string; body: string; children: ReactNode }) {
+function BlockingState({ testId, title, body, children }: { testId: string; title: string; body: string; children: ReactNode }) {
     return (
         <div className="flex flex-col items-center px-6 py-10 text-center" data-testid={testId}>
-            <span className={`flex size-[52px] items-center justify-center rounded-pill ${tone === 'warn' ? 'bg-warn-soft text-warn' : 'bg-brand-soft text-brand'}`}>{icon}</span>
-            <h2 className="mt-4 text-[18px] font-semibold text-body">{title}</h2>
+            <YakMark className="size-14 drop-shadow-[0_6px_10px_rgba(26,26,31,0.14)]" />
+            <h2 className="mt-4 text-[18px] font-semibold tracking-[-0.01em] text-body">{title}</h2>
             <p className="mt-2 max-w-[440px] text-[13.5px] leading-[1.55] text-muted">{body}</p>
             {children}
         </div>
@@ -38,8 +42,6 @@ function NoRepositoryState({ onDismiss }: { onDismiss?: () => void }) {
     return (
         <BlockingState
             testId="new-thread-no-repository"
-            icon={<FolderPlus size={24} aria-hidden="true" />}
-            tone="brand"
             title="Add a repository first"
             body="Every thread works in a repository. Yak clones it, runs it in a sandbox, and opens its pull requests there. Setup takes a few minutes, once."
         >
@@ -65,8 +67,6 @@ function NoAccountState({ onDismiss, onAddAccount }: { onDismiss?: () => void; o
     return (
         <BlockingState
             testId="new-thread-no-account"
-            icon={<UserRound size={24} aria-hidden="true" />}
-            tone="warn"
             title="Connect a Claude account"
             body="Threads run on a Claude account. Add your own, and your usage counts against your plan. Or ask an admin to add the shared Yak account."
         >

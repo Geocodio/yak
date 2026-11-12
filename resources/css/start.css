@@ -1,0 +1,186 @@
+:root {
+    --composer-shadow: 0 1px 2px rgba(26, 26, 31, 0.05), 0 14px 36px -14px rgba(26, 26, 31, 0.22);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -12px rgba(0, 0, 0, 0.7);
+    }
+}
+
+/*
+ * The start screen's contour field. The rings breathe and drift with CSS
+ * transforms only, so nothing runs per frame in script while the screen is
+ * idle. The field is decoration: it never takes pointer events and never
+ * affects layout.
+ */
+.contour-field {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    color: var(--accent-text);
+}
+
+.contour-layer {
+    position: absolute;
+    inset: 0;
+}
+
+.contour-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    will-change: transform;
+}
+
+.contour-even {
+    animation: contour-breathe var(--contour-period) ease-in-out infinite alternate;
+}
+
+.contour-odd {
+    animation: contour-breathe var(--contour-period) ease-in-out var(--contour-phase) infinite alternate;
+}
+
+.contour-drift {
+    animation: contour-drift var(--contour-drift) linear infinite;
+}
+
+.contour-wave {
+    opacity: 0;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 0 0;
+    mask-size: 0 0;
+}
+
+.contour-field.is-waving .contour-wave {
+    opacity: var(--contour-wave-intensity);
+    animation: contour-wave var(--contour-wave-time) cubic-bezier(0.25, 0.6, 0.4, 1);
+}
+
+.contour-halo {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, var(--bg) 0, var(--bg) 40%, transparent 100%);
+    opacity: 0.9;
+}
+
+@keyframes contour-breathe {
+    from {
+        transform: scale(1);
+    }
+    to {
+        transform: scale(calc(1 + var(--contour-depth)));
+    }
+}
+
+@keyframes contour-drift {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes contour-wave {
+    from {
+        -webkit-mask-size: 160px 160px;
+        mask-size: 160px 160px;
+    }
+    to {
+        -webkit-mask-size: calc(var(--contour-radius) * 2.8) calc(var(--contour-radius) * 2.8);
+        mask-size: calc(var(--contour-radius) * 2.8) calc(var(--contour-radius) * 2.8);
+    }
+}
+
+/* The "Thread started" peak: rings that rise out of the terrain, and a label. */
+.contour-peak {
+    position: absolute;
+    opacity: 0;
+}
+
+.contour-peak svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    overflow: visible;
+}
+
+.contour-peak path {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(0);
+}
+
+.contour-peak span {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font: 600 11px/1 var(--font-sans, system-ui, sans-serif);
+    white-space: nowrap;
+    color: var(--accent-ink);
+    background: var(--accent);
+    border-radius: 999px;
+    padding: 6px 10px;
+    opacity: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.contour-field.is-erupted .contour-peak {
+    opacity: 1;
+}
+
+.contour-field.is-erupted .contour-peak path {
+    transform: scale(1);
+}
+
+.contour-field.is-erupted .contour-peak span {
+    opacity: 1;
+}
+
+.contour-field.is-rising .contour-peak path {
+    animation: contour-rise 0.9s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+}
+
+.contour-field.is-rising .contour-peak span {
+    animation: contour-label 0.5s ease-out var(--contour-label-delay) backwards;
+}
+
+@keyframes contour-rise {
+    from {
+        transform: scale(0);
+    }
+}
+
+@keyframes contour-label {
+    from {
+        opacity: 0;
+    }
+}
+
+/* A hidden tab keeps its place in the animation and costs nothing. */
+.contour-field.is-paused,
+.contour-field.is-paused * {
+    animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contour-field,
+    .contour-field * {
+        animation: none !important;
+    }
+}
+
+/* The headline and subline sit on a soft glow of the page colour so the rings never cut through the words. */
+.start-glow {
+    text-shadow:
+        0 0 14px var(--bg),
+        0 0 5px var(--bg),
+        0 0 2px var(--bg);
+}

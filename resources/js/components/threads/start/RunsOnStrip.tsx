@@ -1,4 +1,4 @@
-import { ArrowUpRight, CircleHelp } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AccountPicker } from '@/components/accounts/AccountPicker';
 import { ModelPicker } from '@/components/accounts/ModelPicker';
@@ -31,16 +31,13 @@ export function RunsOnStrip({
     defaultAccount?: Picker['accounts'][number];
 }) {
     return (
-        <div className="border-t border-hair bg-panel-2 px-[18px] py-2.5 text-[12px] text-muted" data-testid="start-thread-runs-on">
-            <div className="flex flex-wrap items-center gap-2">
-                <span>Runs on</span>
-                <AccountPicker label="Claude account" value={accountId} accounts={picker.accounts} onChange={onAccountChange} disabled={disabled} defaultLabel={defaultLabel} defaultAccount={defaultAccount} className="h-7 min-w-[160px]" />
+        <div className="border-t border-hair bg-panel-2/50 px-3 py-2 text-[12.5px] text-muted" data-testid="start-thread-runs-on">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1.5 sm:flex sm:flex-wrap">
+                <span className="mr-0.5">Runs on</span>
+                <AccountPicker variant="chip" label="Claude account" value={accountId} accounts={picker.accounts} onChange={onAccountChange} disabled={disabled} defaultLabel={defaultLabel} defaultAccount={defaultAccount} className="justify-self-start" />
                 <span>with</span>
-                <ModelPicker variant="inline" models={picker.models} value={model} onChange={onModelChange} disabled={disabled} testId="composer-model" />
-                <span title="The model runs on the chosen account" className="inline-flex text-faint">
-                    <CircleHelp size={13} aria-hidden="true" />
-                </span>
-                <a href={accountsHelpUrl} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-0.5 underline">
+                <ModelPicker variant="chip" models={picker.models} value={model} onChange={onModelChange} disabled={disabled} testId="composer-model" className="justify-self-start" />
+                <a href={accountsHelpUrl} target="_blank" rel="noreferrer" className="col-span-2 mt-0.5 inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-body sm:ml-auto sm:mt-0">
                     How accounts work <ArrowUpRight size={12} aria-hidden="true" />
                 </a>
             </div>

@@ -1,7 +1,8 @@
 import { Popover } from '@base-ui/react/popover';
-import { Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import type { ModelFamily } from '@/types/claudeAccounts';
+import { CHIP_TAG, CHIP_TRIGGER } from '@/components/threads/start/chipStyles';
 import { findModel } from './accountAppearance';
 
 type Props = {
@@ -13,8 +14,8 @@ type Props = {
     defaultLabel?: string;
     disabled?: boolean;
     ariaLabel?: string;
-    /** `field` is a bordered control for forms, `inline` is plain text for toolbars and table rows. */
-    variant?: 'field' | 'inline';
+    /** `field` is a bordered control for forms, `inline` is plain text for toolbars and table rows, `chip` is the raised composer chip. */
+    variant?: 'field' | 'inline' | 'chip';
     className?: string;
     testId?: string;
 };
@@ -72,16 +73,31 @@ export function ModelPicker({ models, value, onChange, defaultLabel, disabled, a
 
     const triggerClass = variant === 'field'
         ? 'flex h-9 w-full items-center justify-between gap-2 rounded-control border border-hair-strong bg-panel px-3 text-[13px] text-body shadow-card hover:border-faint disabled:opacity-50'
-        : 'inline-flex items-center gap-1 text-[12px] text-muted disabled:opacity-50';
+        : variant === 'chip'
+          ? CHIP_TRIGGER
+          : 'inline-flex items-center gap-1 text-[12px] text-muted disabled:opacity-50';
 
     return (
         <Popover.Root open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (open) { setExpanded(pinnedFamily(value)); } }}>
             <Popover.Trigger disabled={disabled} aria-label={ariaLabel} className={`${triggerClass} ${className}`} data-testid={testId}>
-                <span className="truncate">
-                    {triggerLabel}
-                    {isPinned && <span className="text-muted"> · pinned</span>}
-                </span>
-                <ChevronDown size={12} className="shrink-0 text-faint" aria-hidden="true" />
+                {variant === 'chip' ? (
+                    <>
+                        <span className="grid size-5 shrink-0 place-items-center rounded-[6px] bg-[var(--accent-tint-strong)] text-accent-text" aria-hidden="true">
+                            <Sparkles size={12} />
+                        </span>
+                        <span className="truncate pl-0.5">{triggerLabel}</span>
+                        {isPinned && <span className={CHIP_TAG}>Pinned</span>}
+                        <ChevronDown size={13} className="shrink-0 text-faint" aria-hidden="true" />
+                    </>
+                ) : (
+                    <>
+                        <span className="truncate">
+                            {triggerLabel}
+                            {isPinned && <span className="text-muted"> · pinned</span>}
+                        </span>
+                        <ChevronDown size={12} className="shrink-0 text-faint" aria-hidden="true" />
+                    </>
+                )}
             </Popover.Trigger>
             <Popover.Portal>
                 <Popover.Positioner align="start" sideOffset={4} className="z-50 outline-none">

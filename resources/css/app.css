@@ -2,6 +2,7 @@
 /* Must precede styles.css: the strict palette resets --color-* before the package defines its own. */
 @import '@geocodio/console-ui/strict-palette.css';
 @import '@geocodio/console-ui/styles.css';
+@import './start.css';
 @plugin '@tailwindcss/typography';
 
 @source '../../node_modules/@geocodio/console-ui/dist';
@@ -22,6 +23,31 @@
 :root {
     --brand: light-dark(#4a6580, #7f9cb4);
     --brand-soft: light-dark(rgba(74, 101, 128, 0.12), rgba(127, 156, 180, 0.16));
+}
+
+/*
+ * Rust is the primary colour. Console-ui's accent tokens are overridden here
+ * so buttons, links, focus rings, selection and every `accent` utility follow.
+ * Brand #c4643a; the fill is the button step #b45c35 (4.64:1 with white text);
+ * link text is a deeper step, #a8552f (5.24:1 on the panel, 5.07:1 on the app
+ * background, 4.54:1 on the soft tint over the app background). Dark mode uses
+ * #d58f71 (6.77:1 on the panel) with ink text on fills (6.78:1). The soft tint
+ * is the button colour at 9% (dark: 14%) so it works over any surface, and the
+ * ring is the button colour at 34% alpha.
+ */
+:root {
+    --accent: light-dark(#b45c35, #d58f71);
+    --accent-soft: light-dark(rgba(180, 92, 53, 0.09), rgba(213, 143, 113, 0.14));
+    --accent-text: light-dark(#a8552f, #d58f71);
+    --accent-ink: light-dark(#ffffff, #101014);
+    --accent-ring: color-mix(in srgb, var(--accent) 34%, transparent);
+    --accent-edge: color-mix(in srgb, var(--accent) 42%, var(--border));
+    --accent-tint: color-mix(in srgb, var(--accent) 9%, var(--panel));
+    --accent-tint-strong: color-mix(in srgb, var(--accent) 16%, var(--panel));
+}
+
+::selection {
+    background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
 #app {

@@ -1,7 +1,9 @@
 import { router, useForm, usePage } from '@inertiajs/react';
-import { BrandMarkIcon, Button, Kbd, cn } from '@geocodio/console-ui';
-import { ExternalLink, Info, Search, Wrench } from 'lucide-react';
+import { cn } from '@geocodio/console-ui';
+import { ArrowUp, ExternalLink, Info, Loader2, Search, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { YakMarkFace } from '@/components/brand/YakMark';
+import { useStartField, type StartExample } from '@/components/start/StartFieldContext';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
@@ -11,7 +13,7 @@ import { StartErrorBanner } from './StartErrorBanner';
 import { BrokenDefaultNote, NoOwnAccountNote, resolveAccountNote } from './accountNotes';
 import { RepositoryPicker, type PickerRepository } from './RepositoryPicker';
 import { RepositoryProgress } from './RepositoryProgress';
-import { YAK_MARK } from '@/lib/brand';
+import { CONTOUR } from '@/lib/contour';
 import { show, store } from '@/routes/threads';
 import { claudeAccounts } from '@/routes/settings';
 import type { SharedProps } from '@/types/shared';
@@ -39,6 +41,7 @@ export function StartThreadForm({
     onRepoChange,
     isQueueing = false,
     isRepoBlocked = false,
+    example,
 }: Omit<NewThreadPageData, 'emailToYakAddress'> & {
     onStarted?: () => void;
     autoFocus?: boolean;
@@ -48,8 +51,11 @@ export function StartThreadForm({
     isQueueing?: boolean;
     /** The selected repository cannot take a thread, so Start stays disabled. */
     isRepoBlocked?: boolean;
+    /** A request an example chip dropped in: it replaces the description and mode, and the composer takes focus. */
+    example?: StartExample;
 }) {
     const { docs } = usePage<SharedProps>().props;
+    const field = useStartField();
     const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[]; repositories: PickerRepository[] }>({
         repo: defaultRepo ?? '',
         mode: 'fix',
@@ -64,6 +70,8 @@ export function StartThreadForm({
     const [startedThreadId, setStartedThreadId] = useState<number | null>(null);
     useEffect(() => onRepoChange?.(form.data.repo), [form.data.repo, onRepoChange]);
     const editorRef = useRef<AttachmentTextareaHandle>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const lastLength = useRef(0);
     const draft = useAttachmentDraft({ enabled: true, onAdd: (added) => editorRef.current?.insertTokens(added) });
     const errors = form.errors as Record<string, string | undefined>;
 
@@ -81,11 +89,35 @@ export function StartThreadForm({
     const contextRepos = extras.filter((extra) => isResearch || extra.role === 'context');
     const expectedPullRequests = 1 + extras.filter((extra) => extra.role === 'changes').length;
     const isStarting = form.processing || startedThreadId !== null;
+    // The start screen lets the eruption finish before it leaves the page.
     const openThread = useCallback(() => {
         if (startedThreadId !== null) {
-            router.visit(show.url(startedThreadId));
+            window.setTimeout(() => router.visit(show.url(startedThreadId)), field?.settleMs() ?? 0);
         }
-    }, [startedThreadId]);
+    }, [startedThreadId, field]);
+
+    useEffect(() => {
+        if (example === undefined) {
+            return;
+        }
+        form.setData((data) => ({ ...data, description: example.text, mode: example.mode }));
+        lastLength.current = example.text.length;
+        field?.wave();
+        requestAnimationFrame(() => {
+            textareaRef.current?.focus();
+            textareaRef.current?.setSelectionRange(example.text.length, example.text.length);
+        });
+        // Only a new example id should replace the description.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [example?.id]);
+
+    const changeDescription = (value: string) => {
+        form.setData('description', value);
+        if (value.length > lastLength.current && value.length % CONTOUR.typeEvery === 0) {
+            field?.wave();
+        }
+        lastLength.current = value.length;
+    };
 
     const submit = () => {
         if (!canSubmit || form.processing) {
@@ -100,6 +132,7 @@ export function StartThreadForm({
         }));
         form.post(store.url(), {
             onSuccess: (page) => {
+                field?.erupt();
                 const startedId = (page.props as unknown as SharedProps).flash.startedThreadId;
                 if (startedId) {
                     setStartedThreadId(startedId);
@@ -119,59 +152,92 @@ export function StartThreadForm({
 
     const error = Object.entries(errors).find(([key]) => key.startsWith('repositories'))?.[1] ?? errors.claude_account_id ?? errors.repo ?? errors.description ?? errors.model ?? errors.mode;
 
+    const startLabel = `${isQueueing ? 'Queue' : 'Start'} ${isResearch ? 'research' : 'change'}`;
+    const isStartDisabled = !canSubmit || isStarting;
+
     return (
         <div data-testid="start-thread-form">
-            <div className="relative overflow-hidden rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
+            <div
+                className="relative overflow-hidden rounded-2xl border border-hair bg-panel shadow-[var(--composer-shadow)] transition-[border-color,box-shadow] duration-200 focus-within:border-[var(--accent-edge)] focus-within:shadow-[var(--composer-shadow),0_0_0_4px_var(--accent-ring)] motion-reduce:transition-none"
+                {...draft.dropzoneProps}
+            >
                 <AttachmentDropOverlay draft={draft} />
-                <div className="flex items-start gap-3 px-[18px] pb-2 pt-4">
-                    <BrandMarkIcon mark={YAK_MARK} size={26} className="mt-[3px] shrink-0" />
+                <div className="flex items-start gap-3 px-4 pb-1 pt-4">
+                    <YakMarkFace className="-mt-px size-[30px] shrink-0" />
                     <AttachmentTextarea
                         ref={editorRef}
+                        inputRef={textareaRef}
                         draft={draft}
-                        rows={5}
+                        rows={3}
                         autoFocus={autoFocus}
                         placeholder="What should Yak do? Say what is wrong or what you want, and where to look if you know."
                         value={form.data.description}
-                        onValueChange={(value) => form.setData('description', value)}
+                        onValueChange={changeDescription}
+                        onFocus={() => field?.wave()}
                         onKeyDown={onKeyDown}
                         onPaste={draft.onPaste}
                         aria-invalid={errors.description ? true : undefined}
                         wrapperClassName="min-w-0 flex-1"
-                        className="min-h-24 w-full resize-none rounded-none border-0 bg-transparent px-0 py-0 text-[16px] leading-[1.55] shadow-none outline-none hover:border-0 focus:shadow-none focus:ring-0"
+                        className="min-h-[78px] w-full resize-none rounded-none border-0 bg-transparent px-0 py-[3px] text-[16px] leading-[1.5] tracking-[-0.006em] shadow-none outline-none caret-accent-text hover:border-0 focus:shadow-none focus:ring-0"
                         data-testid="start-thread-description"
                     />
                 </div>
                 <DraftAttachments draft={draft} errors={errors} progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null} onOpenMedia={() => {}} />
-                <div className="flex flex-wrap items-center gap-2 border-t border-hair py-2.5 pl-[18px] pr-3">
-                    <div className="inline-flex h-7 gap-0.5 rounded-control bg-panel-2 p-0.5" role="group" aria-label="Mode">
-                        {MODES.map(({ mode, label, icon: Icon }) => (
-                            <button
-                                key={mode}
-                                type="button"
-                                aria-pressed={form.data.mode === mode}
-                                onClick={() => form.setData('mode', mode)}
-                                className={cn(
-                                    'inline-flex items-center gap-1.5 rounded-[5px] px-2.5 text-[12.5px] font-medium transition-colors',
-                                    form.data.mode === mode ? 'bg-accent-soft text-body' : 'text-muted hover:text-body',
-                                )}
-                                data-testid={`start-mode-${mode}`}
-                            >
-                                <Icon size={13} aria-hidden="true" />
-                                {label}
-                            </button>
-                        ))}
+                <div className="flex flex-wrap items-center gap-2 px-3 pb-3 pt-2">
+                    <div className="inline-flex gap-0.5 rounded-[10px] border border-hair bg-panel-2/60 p-0.5" role="group" aria-label="Mode">
+                        {MODES.map(({ mode, label, icon: Icon }) => {
+                            const isActive = form.data.mode === mode;
+
+                            return (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    aria-pressed={isActive}
+                                    onClick={() => form.setData('mode', mode)}
+                                    className={cn(
+                                        'inline-flex h-[30px] items-center gap-1.5 rounded-lg pl-[9px] pr-[11px] text-[13px] font-medium transition-[color,background-color,transform] duration-150 active:scale-[0.97] motion-reduce:transition-none',
+                                        isActive ? 'bg-panel text-body shadow-[0_1px_2px_rgba(0,0,0,0.1),0_0_0_1px_var(--border)]' : 'text-muted hover:text-body',
+                                    )}
+                                    data-testid={`start-mode-${mode}`}
+                                >
+                                    <Icon size={14} className={isActive ? 'text-accent-text' : undefined} aria-hidden="true" />
+                                    {label}
+                                </button>
+                            );
+                        })}
                     </div>
-                    <AttachButton draft={draft} disabled={form.processing} />
                     {isBlocked && (
-                        <span className="ml-auto text-[12px] text-fail" data-testid="start-thread-blocked">
+                        <span className="order-last basis-full text-[12px] text-fail sm:order-none sm:basis-auto" data-testid="start-thread-blocked">
                             Remove {extras.find((extra) => extra.blocked !== undefined)?.repo} or fix its access to start.
                         </span>
                     )}
-                    <div className={cn('flex items-center gap-2.5', !isBlocked && 'ml-auto')}>
-                        <Kbd keys={['⌘', '↵']} className="hidden pointer-fine:inline-flex" />
-                        <Button variant="primary" className="h-7" pending={isStarting} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
-                            {isStarting ? 'Starting...' : `${isQueueing ? 'Queue' : 'Start'} ${isResearch ? 'research' : 'change'}`}
-                        </Button>
+                    <div className="ml-auto flex items-center gap-2">
+                        <AttachButton draft={draft} disabled={form.processing} size={17} className="size-[34px] rounded-[9px] text-muted hover:text-body active:scale-[0.94]" />
+                        <span className="hidden gap-[3px] sm:pointer-fine:inline-flex" aria-hidden="true">
+                            {['⌘', '↵'].map((key) => (
+                                <kbd key={key} className="inline-grid h-5 min-w-5 place-items-center rounded-md border border-b-2 border-hair bg-app px-[5px] font-sans text-[11px] font-medium leading-none text-muted">
+                                    {key}
+                                </kbd>
+                            ))}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={submit}
+                            disabled={isStartDisabled}
+                            aria-label={isStarting ? 'Starting' : startLabel}
+                            aria-busy={isStarting || undefined}
+                            className={cn(
+                                'inline-flex h-[34px] items-center gap-1.5 whitespace-nowrap rounded-[10px] pl-[11px] pr-[13px] text-[13px] font-semibold tracking-[-0.005em] transition-[transform,filter,background-color] duration-150 motion-reduce:transition-none',
+                                isStartDisabled && !isStarting
+                                    ? 'cursor-not-allowed bg-hair text-faint'
+                                    : 'bg-accent text-accent-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.16)] hover:brightness-[1.07] active:translate-y-px active:scale-[0.98] active:brightness-95 disabled:cursor-progress',
+                            )}
+                            data-testid="start-thread-submit"
+                        >
+                            {isStarting ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <ArrowUp size={15} aria-hidden="true" />}
+                            <span className="max-sm:hidden">{isStarting ? 'Starting...' : startLabel}</span>
+                            <span className="sm:hidden">{isStarting ? 'Starting' : isQueueing ? 'Queue' : 'Start'}</span>
+                        </button>
                     </div>
                 </div>
                 <RunsOnStrip
@@ -192,42 +258,42 @@ export function StartThreadForm({
                         ) : undefined
                     }
                 />
+                {startedThreadId !== null ? (
+                    <div className="border-t border-hair px-3 py-2">
+                        <RepositoryProgress threadId={startedThreadId} onReady={openThread} />
+                    </div>
+                ) : (
+                    !noRepos && (
+                        <div className="border-t border-hair px-3 py-2">
+                            <RepositoryPicker
+                                primary={form.data.repo}
+                                extras={extras}
+                                available={repos.map((repo) => repo.slug)}
+                                onBlockedChange={setIsBlocked}
+                                docsUrl={docs.baseUrl}
+                                onPrimaryChange={(slug) => form.setData((data) => ({ ...data, repo: slug, repositories: data.repositories.filter((extra) => extra.repo !== slug) }))}
+                                isResearch={isResearch}
+                                disabled={form.processing || form.data.repo === ''}
+                                onChange={(next) => form.setData('repositories', next)}
+                            />
+                        </div>
+                    )
+                )}
                 {error && <StartErrorBanner message={error} />}
                 <StartHints isResearch={isResearch} />
             </div>
 
-            {startedThreadId !== null ? (
-                <div className="mt-3">
-                    <RepositoryProgress threadId={startedThreadId} onReady={openThread} />
-                </div>
-            ) : (
-                !noRepos && (
-                    <div className="mt-3 flex flex-col gap-2">
-                        <RepositoryPicker
-                            primary={form.data.repo}
-                            extras={extras}
-                            available={repos.map((repo) => repo.slug)}
-                            onBlockedChange={setIsBlocked}
-                            docsUrl={docs.baseUrl}
-                            onPrimaryChange={(slug) => form.setData((data) => ({ ...data, repo: slug, repositories: data.repositories.filter((extra) => extra.repo !== slug) }))}
-                            isResearch={isResearch}
-                            disabled={form.processing || form.data.repo === ''}
-                            onChange={(next) => form.setData('repositories', next)}
-                        />
-                        {extras.length > 0 && (
-                            <p className="flex items-start gap-1.5 text-[12px] text-muted" data-testid="repo-note">
-                                <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-                                <span>
-                                    {contextRepos.length > 0 && <>{contextRepos.map((extra) => extra.repo).join(', ')} {contextRepos.length > 1 ? 'are' : 'is'} throwaway, with no pull request. </>}
-                                    Yak starts from {form.data.repo}'s template, then clones the others and runs their setup, so the first start takes longer.{' '}
-                                    <a href={docs.baseUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline">
-                                        How multi-repo threads work <ExternalLink size={11} aria-hidden="true" />
-                                    </a>
-                                </span>
-                            </p>
-                        )}
-                    </div>
-                )
+            {startedThreadId === null && !noRepos && extras.length > 0 && (
+                <p className="mt-3 flex items-start gap-1.5 text-[12px] text-muted" data-testid="repo-note">
+                    <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>
+                        {contextRepos.length > 0 && <>{contextRepos.map((extra) => extra.repo).join(', ')} {contextRepos.length > 1 ? 'are' : 'is'} throwaway, with no pull request. </>}
+                        Yak starts from {form.data.repo}'s template, then clones the others and runs their setup, so the first start takes longer.{' '}
+                        <a href={docs.baseUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline">
+                            How multi-repo threads work <ExternalLink size={11} aria-hidden="true" />
+                        </a>
+                    </span>
+                </p>
             )}
 
             {!isResearch && extras.length > 0 && (

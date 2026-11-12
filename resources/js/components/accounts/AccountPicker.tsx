@@ -1,13 +1,14 @@
-import { Menu } from '@geocodio/console-ui';
+import { Menu, cn } from '@geocodio/console-ui';
 import { ChevronDown } from 'lucide-react';
 import type { AccountPickerProps, PickerAccount } from '@/types/claudeAccounts';
+import { CHIP_TAG, CHIP_TRIGGER } from '@/components/threads/start/chipStyles';
 import { AccountMark } from './AccountMark';
 
 /**
  * A menu-based picker: console-ui's Select has no room for icons, Menu does.
  * With `defaultLabel` the first entry means "use the default" and its value is the empty string.
  */
-export function AccountPicker({ value, accounts, onChange, disabled, label, className, defaultLabel, defaultAccount }: AccountPickerProps) {
+export function AccountPicker({ value, accounts, onChange, disabled, label, className, defaultLabel, defaultAccount, variant = 'plain' }: AccountPickerProps) {
     const current = accounts.find((account) => String(account.id) === value) ?? (defaultLabel ? undefined : accounts[0]);
     const mine = accounts.filter((account) => !account.isSystem);
     const shared = accounts.filter((account) => account.isSystem);
@@ -24,18 +25,29 @@ export function AccountPicker({ value, accounts, onChange, disabled, label, clas
     });
 
     const shown = current ?? defaultAccount;
+    const isChip = variant === 'chip';
+    const isDefault = isChip && shown !== undefined && (current === undefined || current.id === defaultAccount?.id);
 
     return (
         <Menu
             aria-label={label}
             disabled={disabled}
-            className={className}
+            className={isChip ? cn(CHIP_TRIGGER, className) : className}
             trigger={
-                <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                    {shown && <AccountMark appearance={shown} size={18} />}
-                    <span className="truncate">{current ? current.name : defaultLabel}</span>
-                    <ChevronDown size={12} className="ml-auto shrink-0 text-faint" aria-hidden="true" />
-                </span>
+                isChip ? (
+                    <>
+                        {shown && <AccountMark appearance={shown} size={20} />}
+                        <span className="truncate pl-0.5">{shown?.name ?? defaultLabel}</span>
+                        {isDefault && <span className={CHIP_TAG}>Default</span>}
+                        <ChevronDown size={13} className="shrink-0 text-faint" aria-hidden="true" />
+                    </>
+                ) : (
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                        {shown && <AccountMark appearance={shown} size={18} />}
+                        <span className="truncate">{current ? current.name : defaultLabel}</span>
+                        <ChevronDown size={12} className="ml-auto shrink-0 text-faint" aria-hidden="true" />
+                    </span>
+                )
             }
             items={[
                 ...(defaultLabel ? [{ key: 'default', label: defaultLabel, icon: defaultAccount ? <AccountMark appearance={defaultAccount} size={18} /> : undefined, checked: value === '', onSelect: () => onChange('') }] : []),

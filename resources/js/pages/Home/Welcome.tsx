@@ -3,7 +3,8 @@ import { Button, cn } from '@geocodio/console-ui';
 import { Check } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { AccountDialog } from '@/components/accounts/AccountDialog';
-import { StartThreadPanel } from '@/components/threads/start/StartThreadPanel';
+import { YakMark } from '@/components/brand/YakMark';
+import { StartScreen } from '@/components/start/StartScreen';
 import { AppLayout } from '@/layouts/AppLayout';
 import type { WelcomePageData } from '@/types/home';
 import type { PageProps } from '@/types/shared';
@@ -52,11 +53,21 @@ export default function Welcome({ welcome, repos, picker, defaultRepo, auth, set
     ];
     const firstUndoneRequired = steps.find((step) => !step.isDone && step.isOptional !== true)?.key;
 
+    if (welcome.hasRepository && welcome.hasClaudeAccount) {
+        return (
+            <>
+                <Head title="Welcome" />
+                <StartScreen testId="welcome-page" repos={repos} picker={picker} defaultRepo={defaultRepo} reloadOnly={['repos', 'picker', 'defaultRepo', 'welcome']} />
+            </>
+        );
+    }
+
     return (
         <>
             <Head title="Welcome" />
             <div className="mx-auto w-full max-w-[640px] px-4 py-10 sm:px-6 sm:py-14" data-testid="welcome-page">
-                <h1 className="text-[22px] font-semibold text-body">Welcome to Yak</h1>
+                <YakMark className="mb-3 size-12 drop-shadow-[0_6px_10px_rgba(26,26,31,0.14)]" />
+                <h1 className="text-[22px] font-semibold tracking-[-0.015em] text-body">Welcome to Yak</h1>
                 <p className="mt-2 text-[14px] text-muted">
                     Two steps and you can start your first thread. Yak works in its own sandbox, serves a preview, and opens a PR for you to review.
                 </p>
@@ -100,13 +111,9 @@ export default function Welcome({ welcome, repos, picker, defaultRepo, auth, set
                 </ul>
 
                 <div className="mt-8" data-testid="welcome-start-thread">
-                    {welcome.hasRepository && welcome.hasClaudeAccount ? (
-                        <StartThreadPanel repos={repos} picker={picker} defaultRepo={defaultRepo} reloadOnly={['repos', 'picker', 'defaultRepo', 'welcome']} />
-                    ) : (
-                        <p className="rounded-card border border-dashed border-hair px-4 py-5 text-center text-[13px] text-muted" data-testid="welcome-start-locked">
-                            Finish the steps above and you can start your first thread here.
-                        </p>
-                    )}
+                    <p className="rounded-card border border-dashed border-hair px-4 py-5 text-center text-[13px] text-muted" data-testid="welcome-start-locked">
+                        Finish the steps above and you can start your first thread here.
+                    </p>
                 </div>
 
                 <p className="mt-8 text-[12.5px] text-muted">

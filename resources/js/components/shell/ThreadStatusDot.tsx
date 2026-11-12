@@ -1,7 +1,7 @@
 import { cn } from '@geocodio/console-ui';
 import type { ThreadListRow } from '@/types/shell';
 
-/** Running purple filled, paused hollow, stopped grey hollow, blocked red, needs-you question orange. */
+/** Running accent filled, paused hollow, stopped grey hollow, blocked red, needs-you question orange. */
 export function ThreadStatusDot({ row }: { row: Pick<ThreadListRow, 'status' | 'needsYouReason'> }) {
     const isQuestion = row.needsYouReason === 'question';
     const className = isQuestion

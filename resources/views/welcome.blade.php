@@ -26,8 +26,8 @@
         --text-2: #62666d;
         --brand: #4a6580;        /* the dashboard's slate: identity */
         --brand-soft: rgba(74, 101, 128, 0.10);
-        --accent: #503ba3;       /* the dashboard's purple: actions and the beam */
-        --accent-soft: rgba(80, 59, 163, 0.09);
+        --accent: #b45c35;       /* rust: actions and the beam */
+        --accent-soft: rgba(180, 92, 53, 0.09);
         --accent-ink: #ffffff;
         --warm: #c4744a;         /* the mascot's orange: wordmark and emphasis only */
         --ok: #3e8e38;
@@ -47,7 +47,7 @@
             --bg: #0f1011; --panel: #171819; --panel-2: #232427; --border: #303137;
             --text: #e6e7ea; --text-2: #9499a1;
             --brand: #7f9cb4; --brand-soft: rgba(127, 156, 180, 0.16);
-            --accent: #a99ce3; --accent-soft: rgba(139, 123, 216, 0.16); --accent-ink: #1a1620;
+            --accent: #d58f71; --accent-soft: rgba(213, 143, 113, 0.16); --accent-ink: #101014;
             --warm: #d4915e; --ok: #6fbe68;
             --term-bg: #08090a; --term-text: #d9dbe1; --term-dim: #7b808a;
             --band-bg: #171d24; --band-text: #e6e7ea;

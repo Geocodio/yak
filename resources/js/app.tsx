@@ -82,5 +82,5 @@ createInertiaApp({
     },
     // A short delay keeps fast visits from flashing the bar, while a slow
     // phone round trip still shows it well before a second tap.
-    progress: { color: '#503ba3', delay: 100 },
+    progress: { color: '#c4643a', delay: 100 },
 });

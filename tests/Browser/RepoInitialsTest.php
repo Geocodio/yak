@@ -4,7 +4,7 @@ use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\User;
 
-it('renders the repo chip for single-segment and empty slugs', function (?string $slug, string $initials) {
+it('renders the repo chip with the owner initial for two-segment, single-segment and empty slugs', function (?string $slug, string $initials) {
     $user = User::factory()->create();
     if ($slug !== null) {
         Repository::factory()->create(['slug' => $slug, 'is_default' => true]);
@@ -18,7 +18,7 @@ it('renders the repo chip for single-segment and empty slugs', function (?string
     }
     $page->assertNoJavaScriptErrors();
 })->with([
-    'two segments' => ['acme/web', 'WE'],
-    'single segment' => ['solo', 'SO'],
+    'two segments' => ['acme/web', 'A'],
+    'single segment' => ['solo', 'S'],
     'no repository' => [null, ''],
 ]);

@@ -38,6 +38,8 @@ export type AccountPickerProps = {
     className?: string;
     defaultLabel?: string;
     defaultAccount?: PickerAccount;
+    /** `chip` is the raised composer chip with the account's mark and a Default tag. */
+    variant?: 'plain' | 'chip';
 };
 
 /** One model family in a picker: `latest` is the family alias, `older` are exact ids newest first. Mirrors App\Services\ClaudeAccounts\ClaudeModelCatalog::families(). */
