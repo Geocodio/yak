@@ -4,6 +4,7 @@ namespace App\Channels\GitHub;
 
 use App\Actions\EnqueuePrReview;
 use App\Actions\RecordPullRequestOutcome;
+use App\Actions\WithdrawApprovalOnPush;
 use App\Enums\DeploymentStatus;
 use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
@@ -106,6 +107,13 @@ class WebhookController extends Controller
             // auto-trigger a re-review — the author asks for one via
             // GitHub's "Re-request review" button when they're ready.
             $this->maybeDispatchDeployment($request, $action);
+
+            $repository = $this->resolveRepositoryFromPayload($request);
+
+            if ($repository !== null && $repository->is_active
+                && app(WithdrawApprovalOnPush::class)->handle($repository, (array) $request->input('pull_request'))) {
+                return response()->json(['ok' => true, 'withdrawn' => true]);
+            }
 
             return response()->json(['ok' => true, 'skipped' => 'synchronize does not trigger review']);
         }
