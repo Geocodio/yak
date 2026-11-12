@@ -7,7 +7,13 @@ use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('a guest sees the landing page', function () {
-    $this->get('/')->assertOk()->assertViewIs('welcome');
+    $this->get('/')
+        ->assertOk()
+        ->assertViewIs('welcome')
+        ->assertSee('Beam it up to Yak')
+        ->assertSee('Meets you where you are')
+        ->assertSee('curl -fsSL ' . route('install') . ' | sh')
+        ->assertSee(route('login'));
 });
 
 test('a person with no visible threads sees the welcome page with an empty checklist', function () {
