@@ -22,6 +22,9 @@ class UpdateUserRoleRequest extends FormRequest
         ];
     }
 
+    /**
+     * @return array<int, \Closure(Validator): void>
+     */
     public function after(): array
     {
         return [

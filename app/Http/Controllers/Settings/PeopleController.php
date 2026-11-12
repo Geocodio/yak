@@ -16,7 +16,7 @@ class PeopleController extends Controller
     public function index(Request $request): Response
     {
         $viewer = $request->user();
-        abort_unless($viewer?->isAdmin(), 403);
+        abort_unless($viewer?->isAdmin() === true, 403);
 
         return Inertia::render('Settings/People', [
             'people' => User::query()
