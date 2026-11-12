@@ -17,6 +17,7 @@ use App\Services\TaskLogger;
 use App\Support\ApprovalFloor;
 use App\Support\CodeOwners;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -258,6 +259,10 @@ class CoOwnerGate
      */
     private function judgeByConcerns(array $concerns, array $changed): ?array
     {
+        if (count($changed) >= self::LISTING_CAP) {
+            return $this->outcome(['listing'], true, changed: $changed, isEverythingHeld: true);
+        }
+
         $floorPaths = ApprovalFloor::heldPaths($changed);
 
         if ($floorPaths !== []) {
@@ -284,7 +289,7 @@ class CoOwnerGate
         $matchedAreas = array_map(fn (array $touched): array => [
             'name' => $touched['name'],
             'risk' => 'critical',
-            'rationale' => $touched['evidence'],
+            'rationale' => Str::limit($touched['evidence'], 297),
             'paths' => $paths,
         ], $result->touchedConcerns);
 
