@@ -38,18 +38,6 @@ class YakConfigFiles
         if ($repository->pr_review_path_excludes !== null) {
             $config['review']['exclude_paths'] = array_values($repository->pr_review_path_excludes);
         }
-        if ($repository->pr_review_policy !== null) {
-            $config['review']['approval'] = [
-                'mode' => $policy['mode'],
-                'allowed_paths' => $policy['allowed_paths'],
-                'blocked_paths' => $policy['blocked_paths'],
-                'max_files' => $policy['max_files'],
-                'max_lines' => $policy['max_lines'],
-                'max_risk_score' => $policy['max_risk_score'],
-                'min_confidence' => $policy['min_confidence'],
-                'required_checks' => array_values(array_unique(array_column($checks, 'name'))),
-            ];
-        }
 
         $files = ['.yak/config.yml' => $this->render('config.yml', $config)];
 
