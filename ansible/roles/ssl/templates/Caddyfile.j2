@@ -6,6 +6,12 @@
         reverse_proxy localhost:8080
     }
 
+    # Browser terminal websocket. The bridge redeems the ticket in the query
+    # string against Yak itself and checks the Origin header.
+    handle /terminal/ws {
+        reverse_proxy {{ yak_ssh_bridge_listen | default('127.0.0.1:8090') }}
+    }
+
     handle {
         reverse_proxy localhost:8080
     }

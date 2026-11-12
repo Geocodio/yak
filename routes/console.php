@@ -37,6 +37,7 @@ Schedule::job(BackfillOpenPrDeploymentsJob::class)->hourly()->name('deployments:
 Schedule::command('yak:co-owner:sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:preview-repair:sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:prune-session-store')->daily();
+Schedule::command('yak:prune-thread-events')->daily();
 Schedule::command('yak:claude-accounts-expiry')->daily();
 Schedule::command('yak:deliver-stack-results')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:check-stack-usage')->everyFiveMinutes()->withoutOverlapping();
