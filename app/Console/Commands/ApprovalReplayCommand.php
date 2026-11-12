@@ -226,7 +226,7 @@ class ApprovalReplayCommand extends Command
                 return $this->inner->appBotLogin();
             }
 
-            public function getPullRequestOrFail(int $installationId, string $repoSlug, int $prNumber): ?array
+            public function getPullRequestOrFail(int $installationId, string $repoSlug, int $prNumber): array
             {
                 return $this->pullRequest;
             }
@@ -260,6 +260,7 @@ class ApprovalReplayCommand extends Command
                 throw new LogicException('The replay repository is read-only.');
             }
 
+            /** @param  array<string, mixed>  $options */
             public function saveQuietly(array $options = []): bool
             {
                 throw new LogicException('The replay repository is read-only.');

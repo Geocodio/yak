@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Ai\Agents\ConcernClassifier;
 use App\DataTransferObjects\ConcernCheckResult;
 use Illuminate\Support\Str;
+use Laravel\Ai\Responses\StructuredAgentResponse;
 
 class ConcernCheck
 {
@@ -42,7 +43,9 @@ class ConcernCheck
 
         try {
             for ($run = 0; $run < self::RUNS; $run++) {
-                $structured = ConcernClassifier::make()->prompt($prompt)->structured;
+                /** @var StructuredAgentResponse $response */
+                $response = ConcernClassifier::make()->prompt($prompt);
+                $structured = $response->structured;
                 $rank = array_search($structured['change_kind'] ?? null, self::CHANGE_KINDS, true);
 
                 if ($rank === false || ! is_array($structured['touched_concerns'] ?? null)) {

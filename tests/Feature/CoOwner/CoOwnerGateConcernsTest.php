@@ -26,7 +26,7 @@ function gatePatched(array $names): array
     return array_map(fn (string $name): array => ['filename' => $name, 'status' => 'modified', 'additions' => 2, 'deletions' => 1, 'patch' => '@@ -1 +1 @@'], $names);
 }
 
-function fakeClassifier(array $touched, string $kind = 'no_runtime_change', bool $isUncertain = false): void
+function fakeGateClassifier(array $touched, string $kind = 'no_runtime_change', bool $isUncertain = false): void
 {
     Ai::fakeAgent(ConcernClassifier::class, array_fill(0, 2, ['touched_concerns' => $touched, 'change_kind' => $kind, 'is_uncertain' => $isUncertain]));
 }
@@ -51,7 +51,7 @@ it('holds a floor path per path and skips the classifier', function () {
 });
 
 it('holds every file when a concern is touched', function () {
-    fakeClassifier([['name' => 'Customer charges and Stripe writes', 'evidence' => 'charges']]);
+    fakeGateClassifier([['name' => 'Customer charges and Stripe writes', 'evidence' => 'charges']]);
     Http::fake(gitHubTokenFake() + concernsGateCompare(gatePatched(['src/a.php', 'src/b.php'])));
 
     $request = app(CoOwnerGate::class)->hold($this->task, $this->repository);
@@ -62,7 +62,7 @@ it('holds every file when a concern is touched', function () {
 });
 
 it('passes a clear change', function () {
-    fakeClassifier([]);
+    fakeGateClassifier([]);
     Http::fake(gitHubTokenFake() + concernsGateCompare(gatePatched(['src/a.php'])));
 
     expect(app(CoOwnerGate::class)->hold($this->task, $this->repository))->toBeNull()
@@ -70,7 +70,7 @@ it('passes a clear change', function () {
 });
 
 it('holds an uncertain classification', function () {
-    fakeClassifier([], isUncertain: true);
+    fakeGateClassifier([], isUncertain: true);
     Http::fake(gitHubTokenFake() + concernsGateCompare(gatePatched(['src/a.php'])));
 
     expect(app(CoOwnerGate::class)->hold($this->task, $this->repository)->hold_reasons)->toBe(['concern']);
@@ -97,7 +97,7 @@ it('holds everything when the compare listing is at the cap, without classifying
 });
 
 it('caps concern evidence at 300 characters', function () {
-    fakeClassifier([['name' => 'Customer charges and Stripe writes', 'evidence' => str_repeat('x', 500)]]);
+    fakeGateClassifier([['name' => 'Customer charges and Stripe writes', 'evidence' => str_repeat('x', 500)]]);
     Http::fake(gitHubTokenFake() + concernsGateCompare(gatePatched(['src/a.php'])));
 
     $request = app(CoOwnerGate::class)->hold($this->task, $this->repository);

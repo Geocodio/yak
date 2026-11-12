@@ -141,7 +141,7 @@ class ReviewApprovalPolicy
             return $reasons;
         }
 
-        $result = app(ConcernCheck::class)->check($concerns, $files);
+        $result = app(ConcernCheck::class)->check($concerns, array_values($files));
         $decision['classification'] = ['touched_concerns' => $result->touchedConcerns, 'change_kind' => $result->changeKind,
             'is_uncertain' => $result->isUncertain, 'failure' => $result->failure];
         if ($result->isUncertain || $result->failure !== null || $result->changeKind === null) {

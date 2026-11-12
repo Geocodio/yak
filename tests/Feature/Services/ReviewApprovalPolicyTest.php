@@ -36,7 +36,7 @@ function policyEvaluate(array $files, ParsedReview $review, array $metadata = []
     );
 }
 
-function fakeClassifier(string $kind = 'presentation_or_internal', array $touched = []): void
+function fakePolicyClassifier(string $kind = 'presentation_or_internal', array $touched = []): void
 {
     Ai::fakeAgent(ConcernClassifier::class, [policyAnswer($kind, $touched), policyAnswer($kind, $touched)]);
 }
@@ -106,7 +106,7 @@ it('holds an unclean review', function (ParsedReview $review, array $metadata, s
 ]);
 
 it('approves a second round whose prior findings are fixed or withdrawn', function () {
-    fakeClassifier();
+    fakePolicyClassifier();
     $review = policyReview(priorFindings: [new ParsedPriorFinding(1, 'fixed', ''), new ParsedPriorFinding(2, 'withdrawn', '')]);
     expect(policyEvaluate(policyFiles(), $review)['candidate'])->toBe('APPROVE');
 });
@@ -120,24 +120,24 @@ it('holds when the concern check is uncertain or failed', function () {
 });
 
 it('approves a clean behavior change at level 5, only as a comment in shadow', function () {
-    fakeClassifier('behavior_change');
+    fakePolicyClassifier('behavior_change');
     $decision = policyEvaluate(policyFiles(), policyReview());
     expect($decision['candidate'])->toBe('APPROVE')->and($decision['event'])->toBe('COMMENT')
         ->and($decision['classification']['change_kind'])->toBe('behavior_change')
         ->and($decision['level'])->toBe(5)->and($decision['concerns_version'])->not->toBeNull();
 
     $this->repo->setApproval(5, 'enforce', null);
-    fakeClassifier('behavior_change');
+    fakePolicyClassifier('behavior_change');
     expect(policyEvaluate(policyFiles(), policyReview())['event'])->toBe('APPROVE');
 });
 
 it('allows behavior changes at level 4 only with a test file', function () {
     $this->repo->setApproval(4, 'enforce', null);
-    fakeClassifier('behavior_change');
+    fakePolicyClassifier('behavior_change');
     $decision = policyEvaluate(policyFiles(), policyReview());
     expect($decision['event'])->toBe('COMMENT')->and($decision['reasons'])->toBe(['DEFCON 4 does not cover behavior_change changes.']);
 
-    fakeClassifier('behavior_change');
+    fakePolicyClassifier('behavior_change');
     $this->livePullRequest['changed_files'] = 2;
     $decision = policyEvaluate(policyFiles('app/Thing.php', 'tests/Feature/XTest.php'), policyReview());
     expect($decision['event'])->toBe('APPROVE')->and($decision['observed']['has_test_change'])->toBeTrue();
@@ -145,34 +145,34 @@ it('allows behavior changes at level 4 only with a test file', function () {
 
 it('does not count a removed test file as a test change', function () {
     $this->repo->setApproval(4, 'enforce', null);
-    fakeClassifier('behavior_change');
+    fakePolicyClassifier('behavior_change');
     $files = [...policyFiles(), ['filename' => 'tests/Feature/XTest.php', 'status' => 'removed', 'patch' => '-x']];
     expect(policyEvaluate($files, policyReview())['event'])->toBe('COMMENT');
 });
 
 it('fits the change kind to levels 2 and 3', function () {
     $this->repo->setApproval(3, 'enforce', null);
-    fakeClassifier('presentation_or_internal');
+    fakePolicyClassifier('presentation_or_internal');
     expect(policyEvaluate(policyFiles(), policyReview())['event'])->toBe('APPROVE');
-    fakeClassifier('behavior_change');
+    fakePolicyClassifier('behavior_change');
     expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['DEFCON 3 does not cover behavior_change changes.']);
 
     $this->repo->setApproval(2, 'enforce', null);
-    fakeClassifier('presentation_or_internal');
+    fakePolicyClassifier('presentation_or_internal');
     expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['DEFCON 2 does not cover presentation_or_internal changes.']);
-    fakeClassifier('no_runtime_change');
+    fakePolicyClassifier('no_runtime_change');
     expect(policyEvaluate(policyFiles(), policyReview())['event'])->toBe('APPROVE');
 });
 
 it('holds a touched always_human concern, and a when_tested one without a test change', function () {
     $this->repo->setApproval(5, 'enforce', null);
-    fakeClassifier('behavior_change', [['name' => BILLING, 'evidence' => 'charges']]);
+    fakePolicyClassifier('behavior_change', [['name' => BILLING, 'evidence' => 'charges']]);
     expect(policyEvaluate(policyFiles('tests/Feature/XTest.php'), policyReview())['reasons'])->toBe(['Always needs a human: ' . BILLING]);
 
-    fakeClassifier('behavior_change', [['name' => METERING, 'evidence' => 'meter']]);
+    fakePolicyClassifier('behavior_change', [['name' => METERING, 'evidence' => 'meter']]);
     expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Touches ' . METERING . ' without a test change.']);
 
-    fakeClassifier('behavior_change', [['name' => METERING, 'evidence' => 'meter']]);
+    fakePolicyClassifier('behavior_change', [['name' => METERING, 'evidence' => 'meter']]);
     $this->livePullRequest['changed_files'] = 2;
     expect(policyEvaluate(policyFiles('app/Thing.php', 'tests/Feature/XTest.php'), policyReview())['event'])->toBe('APPROVE');
 });

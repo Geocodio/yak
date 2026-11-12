@@ -285,7 +285,7 @@ class CoOwnerGate
             return null;
         }
 
-        $paths = array_values(array_map(fn (array $file): string => (string) ($file['filename'] ?? ''), $changed));
+        $paths = array_map(fn (array $file): string => (string) ($file['filename'] ?? ''), $changed);
         $matchedAreas = array_map(fn (array $touched): array => [
             'name' => $touched['name'],
             'risk' => 'critical',

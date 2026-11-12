@@ -52,7 +52,7 @@ it('dispatches the config check for pull request events that move the head', fun
 it('keeps the synchronize response unchanged', function () {
     Repository::factory()->create(['slug' => 'example-org/example-repo', 'is_active' => true, 'deployments_enabled' => false]);
 
-    $payload = ['action' => 'synchronize', 'pull_request' => ['number' => 42, 'head' => ['ref' => 'feat/x', 'sha' => 'abcd1234']], 'repository' => ['full_name' => 'example-org/example-repo']];
+    $payload = ['action' => 'synchronize', 'pull_request' => ['number' => 42, 'html_url' => 'https://github.com/example-org/example-repo/pull/42', 'head' => ['ref' => 'feat/x', 'sha' => 'abcd1234']], 'repository' => ['full_name' => 'example-org/example-repo']];
     $this->postJson('/webhooks/ci/github', $payload, [
         'X-GitHub-Event' => 'pull_request',
         'X-Hub-Signature-256' => 'sha256=' . hash_hmac('sha256', json_encode($payload), 'secret'),
