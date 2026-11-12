@@ -63,3 +63,4 @@ broker/dist/
 runner/dist/
 /ansible/vault/next.yml
 /ansible/inventory/next.yml
+/storage/artifacts/
