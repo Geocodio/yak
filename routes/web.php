@@ -1,19 +1,39 @@
 <?php
 
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\Api\Cli\SessionFileController;
+use App\Http\Controllers\Api\Cli\SshLookupController;
+use App\Http\Controllers\Api\Cli\StackMessageController;
+use App\Http\Controllers\Api\Cli\TeleportController;
+use App\Http\Controllers\Api\Cli\ThreadLookupController;
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
 use App\Http\Controllers\ChannelController;
+use App\Http\Controllers\Cli\DeviceCodeController;
+use App\Http\Controllers\Cli\DeviceController;
+use App\Http\Controllers\Cli\DeviceTokenController;
+use App\Http\Controllers\Cli\MeController;
+use App\Http\Controllers\Cli\RepositoryResolveController;
 use App\Http\Controllers\CostDashboardController;
 use App\Http\Controllers\Deployments\AuthBounceController;
 use App\Http\Controllers\Deployments\DeploymentActionController;
 use App\Http\Controllers\Deployments\DeploymentController;
 use App\Http\Controllers\Deployments\ShareLinkController;
+use App\Http\Controllers\Devices\DeviceApprovalController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
 use App\Http\Controllers\Internal\PreviewAuthController;
+use App\Http\Controllers\Internal\SessionStoreController;
+use App\Http\Controllers\Internal\SshActivityController;
+use App\Http\Controllers\Internal\SshAuthorizedKeysController;
+use App\Http\Controllers\Internal\SshListenersController;
+use App\Http\Controllers\Internal\SshTerminalCheckController;
+use App\Http\Controllers\Internal\SshTerminalRedeemController;
+use App\Http\Controllers\Internal\SshWakeController;
+use App\Http\Controllers\Internal\ThreadPreviewHostStatusController;
+use App\Http\Controllers\Internal\ThreadPreviewWakeController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\ObservationController;
 use App\Http\Controllers\PromptController;
@@ -25,6 +45,7 @@ use App\Http\Controllers\Repositories\GitHubCiDetectController;
 use App\Http\Controllers\Repositories\GitHubRepoSearchController;
 use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
+use App\Http\Controllers\Repositories\RepositoryClaudeAccountController;
 use App\Http\Controllers\Repositories\RepositoryController;
 use App\Http\Controllers\Repositories\RiskProfileController;
 use App\Http\Controllers\Settings\McpLoginController;
@@ -44,7 +65,40 @@ use App\Http\Controllers\Tasks\TaskClarificationAnswerController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
+use App\Http\Controllers\Threads\ContinueTurnController;
+use App\Http\Controllers\Threads\NewThreadController;
+use App\Http\Controllers\Threads\Preview\ThreadPreviewHeartbeatController;
+use App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController;
+use App\Http\Controllers\Threads\Preview\ThreadPreviewStatusController;
+use App\Http\Controllers\Threads\Preview\ThreadPreviewWarmController;
+use App\Http\Controllers\Threads\PullRequests\AskToFixController;
+use App\Http\Controllers\Threads\PullRequests\MergeOrderController;
+use App\Http\Controllers\Threads\PullRequests\PullRequestsShowController;
+use App\Http\Controllers\Threads\RepositoryAccessController;
+use App\Http\Controllers\Threads\RestoreRetryController;
+use App\Http\Controllers\Threads\Stack\ChildDiffController;
+use App\Http\Controllers\Threads\Stack\ChildOverrideController;
+use App\Http\Controllers\Threads\Stack\StackChildStoreController;
+use App\Http\Controllers\Threads\Stack\StackLimitController;
+use App\Http\Controllers\Threads\Stack\StackShowController;
+use App\Http\Controllers\Threads\Stack\StackStopController;
+use App\Http\Controllers\Threads\StoreThreadController;
+use App\Http\Controllers\Threads\TerminalSessionController;
+use App\Http\Controllers\Threads\ThreadController;
+use App\Http\Controllers\Threads\ThreadDiffController;
+use App\Http\Controllers\Threads\ThreadEnvironmentController;
+use App\Http\Controllers\Threads\ThreadEventController;
+use App\Http\Controllers\Threads\ThreadFileController;
+use App\Http\Controllers\Threads\ThreadListController;
+use App\Http\Controllers\Threads\ThreadMessageController;
+use App\Http\Controllers\Threads\ThreadPullRequestController;
+use App\Http\Controllers\Threads\ThreadRepositoryController;
+use App\Http\Controllers\Threads\ThreadRepositoryProgressController;
+use App\Http\Controllers\Threads\ThreadSeenController;
+use App\Http\Controllers\Threads\ThreadShareController;
+use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
+use App\Http\Middleware\CliProtocol;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -232,22 +286,238 @@ Route::middleware(['auth'])->group(function () {
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
 
-    // Each next-gen track adds its routes in its own file here.
-    foreach (glob(__DIR__ . '/next-gen/*.php') ?: [] as $nextGenRoutes) {
-        require $nextGenRoutes;
-    }
+    // Threads and the thread page.
+    Route::post('threads/{thread}/messages', [ThreadMessageController::class, 'store'])
+        ->name('threads.messages.store')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/stop', [ThreadMessageController::class, 'stop'])
+        ->name('threads.stop')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/continue', ContinueTurnController::class)
+        ->name('threads.continue')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/restore/retry', RestoreRetryController::class)
+        ->name('threads.restore.retry')
+        ->where('thread', '[0-9]+');
+    Route::get('threads/new', NewThreadController::class)->name('threads.new');
+    Route::post('threads', StoreThreadController::class)->name('threads.store');
+    Route::get('threads/{thread}', [ThreadController::class, 'show'])
+        ->name('threads.show')
+        ->where('thread', '[0-9]+');
+
+    // Claude accounts.
+    Route::put('repos/{repository}/claude-account', [RepositoryClaudeAccountController::class, 'updateMine'])->name('repos.claude-account.update');
+    Route::put('repos/{repository}/unattended-claude-account', [RepositoryClaudeAccountController::class, 'updateUnattended'])->name('repos.unattended-claude-account.update');
+
+    // Shell and thread list.
+    Route::get('threads/list', ThreadListController::class)->name('threads.list');
+    Route::post('threads/{thread}/seen', ThreadSeenController::class)
+        ->name('threads.seen')
+        ->where('thread', '[0-9]+');
+
+    // Changes.
+    Route::get('threads/{thread}/diff', [ThreadDiffController::class, 'show'])
+        ->name('threads.diff.show')
+        ->where('thread', '[0-9]+');
+    Route::get('threads/{thread}/diff/files/{file}', [ThreadDiffController::class, 'showFile'])
+        ->name('threads.diff.files.show')
+        ->where(['thread' => '[0-9]+', 'file' => '[0-9]+']);
+    Route::get('threads/{thread}/environment', [ThreadEnvironmentController::class, 'show'])
+        ->name('threads.environment.show')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/pull-request', [ThreadPullRequestController::class, 'store'])
+        ->name('threads.pull-request.store')
+        ->where('thread', '[0-9]+');
+
+    // Realtime.
+    Route::get('threads/{thread}/events', [ThreadEventController::class, 'index'])
+        ->name('threads.events.index')
+        ->where('thread', '[0-9]+');
+    Route::get('threads/{thread}/events/{sequence}', [ThreadEventController::class, 'show'])
+        ->name('threads.events.show')
+        ->where(['thread' => '[0-9]+', 'sequence' => '[0-9]+']);
+
+    // Visibility and sharing.
+    Route::get('threads/{thread}/share', [ThreadShareController::class, 'show'])
+        ->name('threads.share.show')
+        ->where('thread', '[0-9]+');
+    Route::put('threads/{thread}/share', [ThreadShareController::class, 'update'])
+        ->name('threads.share.update')
+        ->where('thread', '[0-9]+');
+
+    // Device approval and teleport requests.
+    Route::get('device', [DeviceApprovalController::class, 'show'])->name('device.show');
+    Route::post('device/approve', [DeviceApprovalController::class, 'approve'])->name('device.approve');
+    Route::post('device/deny', [DeviceApprovalController::class, 'deny'])->name('device.deny');
+
+    Route::post('threads/{thread}/teleport-request', [ThreadTeleportRequestController::class, 'store'])
+        ->name('threads.teleport-request.store')
+        ->where('thread', '[0-9]+');
+    Route::delete('threads/{thread}/teleport-request', [ThreadTeleportRequestController::class, 'destroy'])
+        ->name('threads.teleport-request.destroy')
+        ->where('thread', '[0-9]+');
+
+    // Stacks.
+    Route::post('threads/{thread}/stack/take-over', [ChildOverrideController::class, 'takeOver'])
+        ->name('threads.stack.take-over')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/stack/split', [ChildOverrideController::class, 'split'])
+        ->name('threads.stack.split')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/stack/drop', [ChildOverrideController::class, 'drop'])
+        ->name('threads.stack.drop')
+        ->where('thread', '[0-9]+');
+
+    Route::patch('threads/{thread}/stack/limit', StackLimitController::class)
+        ->name('threads.stack.limit')
+        ->where('thread', '[0-9]+');
+
+    Route::post('threads/{thread}/stack/stop', StackStopController::class)
+        ->name('threads.stack.stop')
+        ->where('thread', '[0-9]+');
+
+    Route::get('threads/{thread}/stack', StackShowController::class)
+        ->name('threads.stack.show')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/stack/children', StackChildStoreController::class)
+        ->name('threads.stack.children.store')
+        ->where('thread', '[0-9]+');
+    Route::get('threads/{thread}/stack/children/{child}/diff', ChildDiffController::class)
+        ->name('threads.stack.children.diff')
+        ->where(['thread' => '[0-9]+', 'child' => '[0-9]+']);
+
+    // Previews.
+    Route::get('threads/{thread}/preview/status', ThreadPreviewStatusController::class)
+        ->name('threads.preview.status')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/preview/heartbeat', ThreadPreviewHeartbeatController::class)
+        ->name('threads.preview.heartbeat')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/preview/warm', ThreadPreviewWarmController::class)
+        ->name('threads.preview.warm')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/preview/restore', ThreadPreviewRestoreController::class)
+        ->name('threads.preview.restore')
+        ->where('thread', '[0-9]+');
+
+    // Files.
+    Route::get('threads/{thread}/files', [ThreadFileController::class, 'tree'])
+        ->name('threads.files.tree')
+        ->where('thread', '[0-9]+');
+    Route::get('threads/{thread}/files/content', [ThreadFileController::class, 'show'])
+        ->name('threads.files.show')
+        ->where('thread', '[0-9]+');
+    Route::put('threads/{thread}/files/content', [ThreadFileController::class, 'update'])
+        ->name('threads.files.update')
+        ->where('thread', '[0-9]+');
+
+    // Terminal sessions (ssh).
+    Route::post('threads/{thread}/terminal-sessions', [TerminalSessionController::class, 'store'])
+        ->name('threads.terminal-sessions.store')
+        ->where('thread', '[0-9]+');
+
+    // Multi-repo and pull requests.
+    Route::get('threads/new/repository-access', RepositoryAccessController::class)
+        ->middleware('throttle:30,1')
+        ->name('threads.repository-access');
+
+    Route::get('threads/{thread}/repositories', ThreadRepositoryProgressController::class)
+        ->name('threads.repositories.progress')
+        ->where('thread', '[0-9]+');
+
+    Route::patch('threads/{thread}/repositories/{repository}', [ThreadRepositoryController::class, 'update'])
+        ->name('threads.repositories.update')
+        ->where(['thread' => '[0-9]+', 'repository' => '[0-9]+'])
+        ->scopeBindings();
+
+    Route::post('threads/{thread}/repositories/{repository}/retry', [ThreadRepositoryController::class, 'retry'])
+        ->name('threads.repositories.retry')
+        ->where(['thread' => '[0-9]+', 'repository' => '[0-9]+'])
+        ->scopeBindings();
+
+    Route::get('threads/{thread}/pull-requests', PullRequestsShowController::class)
+        ->name('threads.pull-requests.show')
+        ->where('thread', '[0-9]+');
+    Route::put('threads/{thread}/pull-requests/order', MergeOrderController::class)
+        ->name('threads.pull-requests.order')
+        ->where('thread', '[0-9]+');
+    Route::post('threads/{thread}/pull-requests/{repository}/fix', AskToFixController::class)
+        ->name('threads.pull-requests.fix')
+        ->where(['thread' => '[0-9]+', 'repository' => '[0-9]+']);
 });
 
-// Next-gen routes that need no session (signed or token-authenticated).
-foreach (glob(__DIR__ . '/next-gen-public/*.php') ?: [] as $nextGenPublicRoutes) {
-    require $nextGenPublicRoutes;
-}
+// Device flow and CLI API: no session, authenticated by signed codes or device tokens.
+Route::prefix('api/cli/v1')->middleware('cli.protocol')->withoutMiddleware(CliProtocol::WITHOUT_WEB_STATE)->group(function (): void {
+    Route::post('device/code', DeviceCodeController::class)->middleware('throttle:cli-device-code')->name('cli.device.code');
+    Route::post('device/token', DeviceTokenController::class)->name('cli.device.token');
 
-// Next-gen host-only endpoints, served to the ingress and the broker only.
+    Route::middleware('auth.device')->group(function (): void {
+        Route::get('me', MeController::class)->name('cli.me');
+        Route::delete('device', [DeviceController::class, 'destroy'])->name('cli.device.destroy');
+        Route::post('repos/resolve', RepositoryResolveController::class)->name('cli.repos.resolve');
+    });
+});
+
+Route::prefix('api/cli/v1')
+    ->middleware(['cli.protocol', 'auth.device'])
+    ->withoutMiddleware(CliProtocol::WITHOUT_WEB_STATE)
+    ->group(function (): void {
+        Route::get('threads/by-session/{sessionId}', [ThreadLookupController::class, 'bySession']);
+        Route::get('threads/{thread}', [ThreadLookupController::class, 'show'])->where('thread', '[0-9]+');
+
+        Route::post('teleports', [TeleportController::class, 'begin']);
+        Route::get('teleports/{teleport}', [TeleportController::class, 'show']);
+        Route::post('teleports/{teleport}/complete', [TeleportController::class, 'complete']);
+        Route::post('teleports/{teleport}/cancel', [TeleportController::class, 'cancel']);
+
+        Route::get('threads/{thread}/stack-messages', [StackMessageController::class, 'index'])->where('thread', '[0-9]+');
+        Route::post('threads/{thread}/stack-messages/ack', [StackMessageController::class, 'ack'])->where('thread', '[0-9]+');
+        Route::get('threads/{thread}/ssh', [SshLookupController::class, 'show'])->where('thread', '[0-9]+');
+
+        Route::prefix('threads/{thread}/session')
+            ->where(['thread' => '[0-9]+'])
+            ->middleware('throttle:cli-session')
+            ->group(function (): void {
+                Route::get('length', [SessionFileController::class, 'length']);
+                Route::post('append', [SessionFileController::class, 'append']);
+                Route::post('checkpoint', [SessionFileController::class, 'checkpoint']);
+                Route::put('file', [SessionFileController::class, 'file']);
+                Route::get('files', [SessionFileController::class, 'files']);
+                Route::get('read', [SessionFileController::class, 'read']);
+                Route::get('tree', [SessionFileController::class, 'tree']);
+            });
+    });
+
+// Host-only endpoints, served to the ingress and the broker only.
 Route::middleware(['restrict-to-ingress'])->group(function (): void {
-    foreach (glob(__DIR__ . '/next-gen-internal/*.php') ?: [] as $nextGenInternalRoutes) {
-        require $nextGenInternalRoutes;
-    }
+    Route::middleware('session-store-token')
+        ->prefix('/internal/session-store/{thread}')
+        ->where(['thread' => '[0-9]+'])
+        ->name('session-store.')
+        ->group(function (): void {
+            Route::post('append', [SessionStoreController::class, 'append'])->name('append');
+            Route::get('length', [SessionStoreController::class, 'length'])->name('length');
+            Route::post('checkpoint', [SessionStoreController::class, 'checkpoint'])->name('checkpoint');
+            Route::put('file', [SessionStoreController::class, 'file'])->name('file');
+            Route::get('read', [SessionStoreController::class, 'read'])->name('read');
+            Route::get('files', [SessionStoreController::class, 'files'])->name('files');
+            Route::get('tree', [SessionStoreController::class, 'tree'])->name('tree');
+        });
+
+    Route::get('/internal/threads/preview/wake', ThreadPreviewWakeController::class)->name('threads.preview.wake');
+    Route::get('/internal/threads/preview/status', ThreadPreviewHostStatusController::class)->name('threads.preview.host-status');
+
+    Route::middleware('ssh-internal-token')
+        ->prefix('/internal/ssh')
+        ->name('internal.ssh.')
+        ->group(function (): void {
+            Route::post('authorized-keys', SshAuthorizedKeysController::class)->name('authorized-keys');
+            Route::get('listeners', SshListenersController::class)->name('listeners');
+            Route::post('wake', SshWakeController::class)->name('wake');
+            Route::post('terminal/redeem', SshTerminalRedeemController::class)->name('terminal-redeem');
+            Route::post('terminal/check', SshTerminalCheckController::class)->name('terminal-check');
+            Route::post('activity', SshActivityController::class)->name('activity');
+        });
 });
 
 Route::get('artifacts/public/{token}', [ArtifactController::class, 'publicImage'])

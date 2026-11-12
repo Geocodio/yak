@@ -1,12 +1,15 @@
 <?php
 
 use App\Http\Controllers\Settings\AccountController;
+use App\Http\Controllers\Settings\ClaudeAccountController;
+use App\Http\Controllers\Settings\DeviceController as SettingsDeviceController;
 use App\Http\Controllers\Settings\EmailAddressController;
 use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Http\Controllers\Settings\LinearConnectionController;
 use App\Http\Controllers\Settings\NotificationController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\PushDeviceController;
+use App\Http\Controllers\Settings\SshKeyController;
 use App\Http\Controllers\Settings\VideoThemeController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,4 +49,17 @@ Route::middleware(['auth'])->group(function () {
     Route::post('settings/video/reset', [VideoThemeController::class, 'reset'])->name('settings.video.reset');
     Route::delete('settings/video/logo', [VideoThemeController::class, 'destroyLogo'])->name('settings.video.logo.destroy');
     Route::post('settings/video/sample', [VideoThemeController::class, 'sample'])->name('settings.video.sample');
+
+    // Claude accounts, devices and ssh keys.
+    Route::get('settings/claude-accounts', [ClaudeAccountController::class, 'index'])->name('settings.claude-accounts');
+    Route::post('settings/claude-accounts', [ClaudeAccountController::class, 'store'])->name('settings.claude-accounts.store');
+    Route::post('settings/claude-accounts/{account}/rotate', [ClaudeAccountController::class, 'rotate'])->name('settings.claude-accounts.rotate');
+    Route::patch('settings/claude-accounts/{account}', [ClaudeAccountController::class, 'update'])->name('settings.claude-accounts.update');
+    Route::delete('settings/claude-accounts/{account}', [ClaudeAccountController::class, 'destroy'])->name('settings.claude-accounts.destroy');
+    Route::get('settings/devices', [SettingsDeviceController::class, 'index'])->name('settings.devices');
+    Route::delete('settings/devices/{device}', [SettingsDeviceController::class, 'destroy'])->name('settings.devices.destroy');
+    Route::get('settings/ssh-keys', [SshKeyController::class, 'index'])->name('settings.ssh-keys');
+    Route::post('settings/ssh-keys', [SshKeyController::class, 'store'])->name('settings.ssh-keys.store');
+    Route::post('settings/ssh-keys/refresh', [SshKeyController::class, 'refresh'])->name('settings.ssh-keys.refresh');
+    Route::delete('settings/ssh-keys/{key}', [SshKeyController::class, 'destroy'])->name('settings.ssh-keys.destroy');
 });
