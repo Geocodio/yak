@@ -27,8 +27,8 @@ it('renders the review prompt against the fixture', function () {
 it('registers and resolves an editable repository risk profile prompt', function () {
     expect(PromptDefinitions::has('tasks-risk-profile'))->toBeTrue();
     $resolver = app(PromptResolver::class);
-    expect($resolver->render('tasks-risk-profile'))->toContain('areas')
-        ->toContain('Do not use brace expansion such as `{a,b}`');
+    expect($resolver->render('tasks-risk-profile'))->toContain('critical concerns')
+        ->toContain('always_human');
     Prompt::updateOrCreate(['slug' => 'tasks-risk-profile'], [
         'content' => 'Custom repository risk research instructions.', 'is_customized' => true,
     ]);
@@ -43,10 +43,10 @@ it('saves and resets the risk prompt through the versioned editor', function () 
     expect($prompt->versions()->count())->toBe(2)
         ->and(app(PromptResolver::class)->render('tasks-risk-profile'))->toBe('Custom risk profile prompt.');
     $this->delete(route('prompts.reset', 'tasks-risk-profile'))->assertSessionHas('success');
-    expect(app(PromptResolver::class)->render('tasks-risk-profile'))->toContain('areas');
+    expect(app(PromptResolver::class)->render('tasks-risk-profile'))->toContain('critical concerns');
 });
 
 it('tells the risk profile prompt to start from the existing file', function () {
     expect(app(PromptResolver::class)->render('tasks-risk-profile'))
-        ->toContain('If `.yak/risk-profile.yml` exists in the checkout, start from it');
+        ->toContain('If `.yak/risk-profile.yml` exists in the checkout with `version: 2`, start from its concerns');
 });

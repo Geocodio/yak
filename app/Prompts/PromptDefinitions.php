@@ -93,7 +93,7 @@ class PromptDefinitions
             'tasks-risk-profile' => [
                 'view' => 'prompts.tasks.risk-profile',
                 'label' => 'Repository Risk Profile',
-                'description' => 'Researches repository risk areas and produces a draft for human review. Does not activate the profile or grant approval permissions.',
+                'description' => 'Researches the critical concerns of a repository and drafts them for human review as a pull request. Merging the pull request approves them.',
                 'category' => 'high_touch',
                 'type' => 'task',
                 'variables' => [],
