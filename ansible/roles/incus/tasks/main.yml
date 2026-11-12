@@ -358,6 +358,27 @@
     mode: "0755"
   when: base_template_check.rc != 0
 
+- name: Package the agent runner on the controller
+  # The SDK runner (runner/) runs inside every thread sandbox at /opt/yak-runner,
+  # where the broker starts it. Its dependencies are installed inside yak-base.
+  ansible.builtin.shell:
+    cmd: mkdir -p dist && tar --exclude=node_modules -czf dist/yak-runner.tgz runner.mjs lib hooks package.json package-lock.json
+    chdir: "{{ playbook_dir }}/../runner"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: false
+  when: base_template_check.rc != 0
+
+- name: Stage the agent runner on the host for baking into yak-base
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../runner/dist/yak-runner.tgz"
+    dest: /tmp/yak-runner.tgz
+    owner: root
+    group: root
+    mode: "0644"
+  when: base_template_check.rc != 0
+
 - name: Set UFW default forward policy to ACCEPT (sandboxes need outbound NAT)
   ansible.builtin.lineinfile:
     path: /etc/default/ufw
@@ -508,6 +529,15 @@
     # this baked copy guarantees video walkthroughs still work if the
     # push-on-launch step ever fails.
     incus file push /tmp/yak-browser.js yak-base/usr/local/bin/yak-browser --mode=0755
+
+    # Bake the agent runner at the path the broker starts it from, with its
+    # pinned dependencies. A runner change needs a yak_sandbox_base_version bump.
+    incus exec yak-base -- mkdir -p /opt/yak-runner
+    incus file push /tmp/yak-runner.tgz yak-base/tmp/yak-runner.tgz
+    incus exec yak-base -- tar -xzf /tmp/yak-runner.tgz -C /opt/yak-runner
+    incus exec yak-base -- rm /tmp/yak-runner.tgz
+    incus exec yak-base -- bash -c 'cd /opt/yak-runner && npm ci --omit=dev --no-audit --no-fund'
+    incus exec yak-base -- test -f /opt/yak-runner/node_modules/@anthropic-ai/claude-agent-sdk/package.json
 
     # Install the curated Claude Code skills as the yak user
     for skill_def in \

@@ -438,3 +438,20 @@ it('reads the broker ids from the host before writing the app env', function () 
         ->and($names->search('Template env file'))->toBeGreaterThan($names->search('Use the broker user\'s ids for the credential socket'))
         ->and($ansibleYaml('ansible/group_vars/yak.yml'))->not->toHaveKey('yak_broker_uid');
 });
+
+it('bakes the agent runner into yak-base where the broker starts it', function () use ($incusTasks) {
+    $tasks = $incusTasks();
+
+    expect($tasks)
+        ->toContain('dist/yak-runner.tgz runner.mjs lib hooks package.json package-lock.json')
+        ->toContain('tar -xzf /tmp/yak-runner.tgz -C /opt/yak-runner')
+        ->toContain('cd /opt/yak-runner && npm ci --omit=dev')
+        ->and(file_get_contents(base_path('broker/runner.go')))->toContain('"/opt/yak-runner/runner.mjs"');
+});
+
+it('keeps the sandbox base version in step between Ansible and the app', function () {
+    $ansibleVersion = Yaml::parseFile(base_path('ansible/group_vars/yak.yml'))['yak_sandbox_base_version'];
+
+    expect($ansibleVersion)->toBe(6)
+        ->and(config('yak.sandbox.base_version'))->toBe($ansibleVersion);
+});

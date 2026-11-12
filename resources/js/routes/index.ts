@@ -427,7 +427,7 @@ observations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 export const health = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -442,7 +442,7 @@ health.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 health.url = (options?: RouteQueryOptions) => {
@@ -451,7 +451,7 @@ health.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 health.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -461,7 +461,7 @@ health.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 health.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
