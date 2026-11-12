@@ -28,6 +28,7 @@ it('reports a fresh member as having nothing set up', function () {
         'installCommand' => 'curl -fsSL https://yak.example.com/install | sh',
         'loginCommand' => 'yak login --url https://yak.example.com',
         'models' => ['opus', 'sonnet', 'haiku'],
+        'appName' => config('app.name'),
     ]);
 });
 

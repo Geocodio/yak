@@ -74,7 +74,7 @@ export function AccountRow({ account, models, readOnly, onRotate, onEdit, onRemo
                             align="end"
                             items={[
                                 { key: 'edit', label: 'Edit name and appearance', icon: <Pencil size={13} />, onSelect: () => onEdit(account) },
-                                ...(!account.isSystem && isUsable && !account.isDefault ? [{ key: 'default', label: 'Make default', icon: <Star size={13} />, onSelect: () => patch({ is_default: true }) }] : []),
+                                ...(isUsable && !account.isDefault ? [{ key: 'default', label: 'Make default', icon: <Star size={13} />, onSelect: () => patch({ is_default: true }) }] : []),
                                 { key: 'remove', label: 'Remove account', icon: <Trash2 size={13} />, danger: true, dividerAbove: true, onSelect: () => onRemove(account) },
                             ]}
                         />

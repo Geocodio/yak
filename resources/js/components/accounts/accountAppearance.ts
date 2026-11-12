@@ -33,8 +33,6 @@ export const ACCOUNT_COLORS: Record<AccountColorName, { label: string; fg: strin
 
 export const KIND_LABEL = { setup_token: 'Setup token', api_key: 'API key' } as const;
 
-export const TOKEN_PREFIX = { setup_token: 'sk-ant-oat01-', api_key: 'sk-ant-api03-' } as const;
-
 export function modelOptions(models: string[]): { value: string; label: string }[] {
     return models.map((model) => ({ value: model, label: model.charAt(0).toUpperCase() + model.slice(1) }));
 }

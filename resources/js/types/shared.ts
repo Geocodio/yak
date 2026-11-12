@@ -9,6 +9,7 @@ export type SetupProps = {
     installCommand: string;
     loginCommand: string;
     models: string[];
+    appName: string;
 };
 
 export type SharedProps = {

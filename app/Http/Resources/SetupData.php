@@ -22,6 +22,7 @@ final class SetupData
      *     installCommand: string,
      *     loginCommand: string,
      *     models: list<string>,
+     *     appName: string,
      * }
      */
     public static function for(User $user): array
@@ -41,6 +42,7 @@ final class SetupData
             'installCommand' => "curl -fsSL {$instanceUrl}/install | sh",
             'loginCommand' => "yak login --url {$instanceUrl}",
             'models' => array_values(config('claude-accounts.models')),
+            'appName' => (string) config('app.name'),
         ];
     }
 }
