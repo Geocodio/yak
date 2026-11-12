@@ -19,7 +19,7 @@ it('matches a name-only required check against any app or a commit status', func
         ->and($policy->evidenceReasons($evidence, ['tests' => 1]))->toBe(['Required CI check missing from trusted app: tests']);
 });
 
-it('takes the review switch and approval mode from .yak/config.yml', function () {
+it('takes the review switch from .yak/config.yml and ignores its approval mode', function () {
     $repository = Repository::factory()->create(['pr_review_enabled' => false, 'is_active' => true]);
     fakeYakFiles(['config.yml' => "version: 1\nreview:\n  enabled: true\n  approval:\n    mode: shadow\n"]);
 
@@ -28,7 +28,7 @@ it('takes the review switch and approval mode from .yak/config.yml', function ()
     );
 
     expect($repository->settings()->reviewEnabled())->toBeTrue()
-        ->and($decision['mode'])->toBe('shadow');
+        ->and($decision['mode'])->toBe('off');
 });
 
 it('uses the .yak/ risk profile as the active profile without approval columns', function () {

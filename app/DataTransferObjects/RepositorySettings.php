@@ -44,29 +44,14 @@ final readonly class RepositorySettings
     }
 
     /**
-     * A key the file's approval block leaves out falls back to the repository's
-     * database policy. File required_checks are names only (match_any_app) and
-     * replace the database checks and statuses; without them both stay as stored.
+     * The database policy. The file's `review.approval` block still parses but
+     * is ignored; the approval level lives in the dashboard.
      *
      * @return array<string, mixed>
      */
     public function reviewPolicy(): array
     {
-        $approval = $this->config()['review']['approval'] ?? null;
-
-        if (! is_array($approval)) {
-            return $this->repository->reviewPolicy();
-        }
-
-        if (array_key_exists('required_checks', $approval)) {
-            $approval['required_checks'] = array_map(
-                fn (string $name): array => ['name' => $name, 'match_any_app' => true],
-                $approval['required_checks'],
-            );
-            $approval['required_statuses'] = [];
-        }
-
-        return array_replace($this->repository->reviewPolicy(), $approval);
+        return $this->repository->reviewPolicy();
     }
 
     public function agentInstructions(): string

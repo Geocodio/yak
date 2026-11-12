@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use InvalidArgumentException;
 
 /**
  * Cast-backed attributes are declared here because Larastan resolves casts
@@ -35,6 +36,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $public_site_url
  * @property CarbonImmutable|null $config_read_at
  * @property CarbonImmutable|null $co_owner_gate_enforced_at
+ * @property int $approval_level
+ * @property string $approval_mode
+ * @property int|null $approval_changed_by_user_id
+ * @property CarbonImmutable|null $approval_changed_at
  * @property string|null $config_commit_sha
  * @property string|null $config_read_error
  */
@@ -73,6 +78,8 @@ class Repository extends Model
             'current_template_version' => 'integer',
             'config_read_at' => 'immutable_datetime',
             'co_owner_gate_enforced_at' => 'immutable_datetime',
+            'approval_level' => 'integer',
+            'approval_changed_at' => 'immutable_datetime',
         ];
     }
 
@@ -100,6 +107,42 @@ class Repository extends Model
             'max_files' => 5, 'max_lines' => 150, 'max_risk_score' => 30,
             'min_confidence' => 80, 'profile_max_age_days' => 90,
         ], $this->pr_review_policy ?? []);
+    }
+
+    /** The DEFCON level, 1 to 5; anything else reads as 1. */
+    public function approvalLevel(): int
+    {
+        $level = (int) $this->approval_level;
+
+        return $level >= 1 && $level <= 5 ? $level : 1;
+    }
+
+    /** `off` at level 1, otherwise `shadow` or `enforce`. */
+    public function approvalMode(): string
+    {
+        if ($this->approvalLevel() === 1) {
+            return 'off';
+        }
+
+        return $this->approval_mode === 'enforce' ? 'enforce' : 'shadow';
+    }
+
+    public function setApproval(int $level, string $mode, ?User $changedBy): void
+    {
+        if ($level < 1 || $level > 5) {
+            throw new InvalidArgumentException('The approval level must be 1 to 5.');
+        }
+
+        if (! in_array($mode, ['shadow', 'enforce'], true)) {
+            throw new InvalidArgumentException('The approval mode must be shadow or enforce.');
+        }
+
+        $this->forceFill([
+            'approval_level' => $level,
+            'approval_mode' => $mode,
+            'approval_changed_by_user_id' => $changedBy?->id,
+            'approval_changed_at' => now(),
+        ])->save();
     }
 
     public function getRouteKeyName(): string
