@@ -656,7 +656,6 @@ return [
         'stack_alert_turns' => (int) env('YAK_THREADS_STACK_ALERT_TURNS', 50),
         'stack_alert_hours' => (int) env('YAK_THREADS_STACK_ALERT_HOURS', 3),
         'stack_alert_children' => (int) env('YAK_THREADS_STACK_ALERT_CHILDREN', 12),
-        'account_max_concurrent_turns' => (int) env('YAK_THREADS_ACCOUNT_MAX_CONCURRENT_TURNS', 16),
         'runner_restart_cap' => (int) env('YAK_THREADS_RUNNER_RESTART_CAP', 3),
         'diff_max_bytes' => (int) env('YAK_THREADS_DIFF_MAX_BYTES', 1048576),
 

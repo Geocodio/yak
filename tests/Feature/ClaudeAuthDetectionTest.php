@@ -9,9 +9,6 @@ use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
-use App\Services\HealthCheck\ClaudeAuthCheck;
-use App\Services\HealthCheck\HealthStatus;
-use App\Services\HealthCheck\Registry;
 use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -204,53 +201,3 @@ test('SetupYakJob detects auth error and fails task with notification', function
 | Health Check Claude Auth Verification
 |--------------------------------------------------------------------------
 */
-
-test('health check reports healthy when claude auth is valid', function () {
-    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
-    mkdir($configDir);
-    file_put_contents(dirname($configDir) . '/' . basename($configDir) . '.json', '{}');
-    file_put_contents(dirname($configDir) . '/.claude.json', '{}');
-    config()->set('yak.sandbox.claude_config_source', $configDir);
-
-    Process::fake([
-        '*claude --model claude-haiku-4-5*' => Process::result(output: 'ok'),
-    ]);
-
-    $result = (new ClaudeAuthCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Ok);
-
-    @unlink(dirname($configDir) . '/.claude.json');
-    @rmdir($configDir);
-});
-
-test('health check classifies a bare 401 in its own narrow probe output as an auth failure', function () {
-    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
-    mkdir($configDir);
-    file_put_contents(dirname($configDir) . '/' . basename($configDir) . '.json', '{}');
-    file_put_contents(dirname($configDir) . '/.claude.json', '{}');
-    config()->set('yak.sandbox.claude_config_source', $configDir);
-
-    Process::fake([
-        '*claude --model claude-haiku-4-5*' => Process::result(
-            output: '',
-            errorOutput: 'API Error: 401',
-            exitCode: 1,
-        ),
-    ]);
-
-    $result = (new ClaudeAuthCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->detail)->toContain('re-authenticate');
-
-    @unlink(dirname($configDir) . '/.claude.json');
-    @rmdir($configDir);
-});
-
-test('registry includes claude auth check', function () {
-    $check = collect(app(Registry::class)->all())
-        ->first(fn ($c) => $c->id() === 'claude-auth');
-
-    expect($check)->not->toBeNull();
-});

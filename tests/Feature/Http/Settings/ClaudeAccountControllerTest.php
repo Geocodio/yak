@@ -199,3 +199,25 @@ it('lets a flagged admin create system accounts', function () {
 
     $this->post(route('settings.claude-accounts.store'), storePayload(['is_system' => true]))->assertRedirect();
 });
+
+it('makes the first Yak account the global default and leaves it when a second is added', function () {
+    $this->actingAs(User::factory()->admin()->create());
+
+    $this->post(route('settings.claude-accounts.store'), storePayload(['is_system' => true, 'name' => 'Shared one']))->assertRedirect();
+    $this->post(route('settings.claude-accounts.store'), storePayload(['is_system' => true, 'name' => 'Shared two']))->assertRedirect();
+
+    expect(ClaudeAccount::globalSystemAccount()?->name)->toBe('Shared one');
+});
+
+it('lets an admin move the global Yak default and keeps non-admins out', function () {
+    $first = ClaudeAccount::factory()->system()->default()->create();
+    $second = ClaudeAccount::factory()->system()->create();
+
+    $this->patch(route('settings.claude-accounts.update', $second), ['is_default' => true])->assertForbidden();
+    expect(ClaudeAccount::globalSystemAccount()?->id)->toBe($first->id);
+
+    $this->actingAs(User::factory()->admin()->create());
+    $this->patch(route('settings.claude-accounts.update', $second), ['is_default' => true])->assertRedirect();
+
+    expect(ClaudeAccount::globalSystemAccount()?->id)->toBe($second->id)->and($first->fresh()->is_default)->toBeFalse();
+});

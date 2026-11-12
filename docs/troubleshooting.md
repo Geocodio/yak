@@ -246,8 +246,7 @@ The `/health` page (and the scheduled `yak:healthcheck` command) runs these chec
 | **Queue worker running** | Supervisord crash — `docker restart yak` |
 | **Last task completed within N hours** | No traffic, or workers hung on a stuck task |
 | **All repos fetchable** | Git auth issue — re-run `yak:refresh-repos` manually, check SSH key |
-| **Claude CLI responding** | See [Claude CLI errors](#claude-cli-errors) above |
-| **Claude CLI authenticated** | Token expired — run `docker exec -it yak claude login` |
+| **Claude accounts** | No usable account — add one or replace an expired secret under Settings, Claude accounts |
 | **Enabled channel MCP servers reachable** | Network issue or external service down |
 
 Failed health checks post to Slack if the Slack channel is enabled. If Slack isn't available, check the health page manually or set up external monitoring against `/health`.
