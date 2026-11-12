@@ -1,7 +1,7 @@
 import { ArrowUpRight, CircleHelp } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AccountPicker } from '@/components/accounts/AccountPicker';
-import { ModelPicker } from '@/components/threads/composer/ModelPicker';
+import { ModelPicker } from '@/components/accounts/ModelPicker';
 import type { NewThreadPageData } from '@/types/threads';
 
 type Picker = NewThreadPageData['picker'];
@@ -36,7 +36,7 @@ export function RunsOnStrip({
                 <span>Runs on</span>
                 <AccountPicker label="Claude account" value={accountId} accounts={picker.accounts} onChange={onAccountChange} disabled={disabled} defaultLabel={defaultLabel} defaultAccount={defaultAccount} className="h-7 min-w-[160px]" />
                 <span>with</span>
-                <ModelPicker models={picker.models} value={model} onChange={onModelChange} disabled={disabled} />
+                <ModelPicker variant="inline" models={picker.models} value={model} onChange={onModelChange} disabled={disabled} testId="composer-model" />
                 <span title="The model runs on the chosen account" className="inline-flex text-faint">
                     <CircleHelp size={13} aria-hidden="true" />
                 </span>

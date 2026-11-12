@@ -15,6 +15,7 @@ use App\Http\Resources\ClaudeAccountData;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Services\ClaudeAccounts\ClaudeAccountValidator;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Threads\ThreadBlockClearer;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadTurns;
@@ -41,7 +42,7 @@ class ClaudeAccountController extends Controller
             'yakAccounts' => Inertia::defer(fn () => $this->present(ClaudeAccount::query()->whereNull('owner_user_id')), 'accounts'),
             'canManageYakAccounts' => $canManageYakAccounts,
             'awakeShare' => $canManageYakAccounts ? AwakeShareData::forAdmin() : null,
-            'models' => config('claude-accounts.models'),
+            'models' => app(ClaudeModelCatalog::class)->families(),
             'docsUrl' => Docs::url('accounts'),
         ]);
     }
@@ -65,6 +66,8 @@ class ClaudeAccountController extends Controller
             'validated_at' => now(),
             'expires_at' => $this->expiryFor($request, $kind),
         ]);
+
+        dispatch(fn () => app(ClaudeModelCatalog::class)->refresh())->afterResponse();
 
         $isFirstPersonalAccount = ! $isSystem
             && ClaudeAccount::query()->where('owner_user_id', $user?->id)->whereKeyNot($account->id)->doesntExist();

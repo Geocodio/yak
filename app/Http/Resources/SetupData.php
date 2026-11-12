@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Models\ClaudeAccount;
 use App\Models\Device;
 use App\Models\User;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 
 /**
  * What is left to set up for one person: drives the setup bar and the Teleport
@@ -22,7 +23,7 @@ final class SetupData
      *     installCommand: string,
      *     loginCommand: string,
      *     manualInstallCommands: list<string>,
-     *     models: list<string>,
+     *     models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>,
      *     appName: string,
      * }
      */
@@ -46,7 +47,7 @@ final class SetupData
                 'claude plugin marketplace add ' . config('yak.teleport.marketplace'),
                 'claude plugin install yak@yak',
             ],
-            'models' => array_values(config('claude-accounts.models')),
+            'models' => app(ClaudeModelCatalog::class)->families(),
             'appName' => (string) config('app.name'),
         ];
     }

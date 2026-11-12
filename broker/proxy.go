@@ -69,6 +69,7 @@ func NewAuthProxy(source CredentialSource, upstream *url.URL, logger *slog.Logge
 var allowedRoutes = map[string]bool{
 	"POST /v1/messages":              true,
 	"POST /v1/messages/count_tokens": true,
+	"GET /v1/models":                 true,
 	"HEAD /api/hello":                true,
 }
 

@@ -1,4 +1,4 @@
-import type { PickerAccount } from '@/types/claudeAccounts';
+import type { ModelFamily, PickerAccount } from '@/types/claudeAccounts';
 import type { AttachmentData } from '@/types/tasks';
 export type ThreadRepositoryData = {
     repo: string;
@@ -133,7 +133,7 @@ export type ThreadMessage = {
 export type ThreadComposer = {
     state: 'idle' | 'working' | 'disabled_closed' | 'disabled_computer' | 'disabled_blocked' | 'readonly';
     model: string | null;
-    models: string[];
+    models: ModelFamily[];
     accountName: string | null;
     nextAttachmentNumber: number;
 };
@@ -195,7 +195,7 @@ export type NewThreadPageData = {
     picker: {
         accounts: PickerAccount[];
         defaultsByRepo: Record<string, { accountId: number | null; brokenDefaultAccountId: number | null; model: string | null }>;
-        models: string[];
+        models: ModelFamily[];
     };
     defaultRepo: string | null;
     emailToYakAddress: string | null;

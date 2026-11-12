@@ -4,6 +4,7 @@ namespace App\Http\Requests\Threads;
 
 use App\Enums\RepositoryRole;
 use App\Models\TaskAttachment;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,7 +26,7 @@ class StoreThreadRequest extends FormRequest
             'repositories.*.role' => ['required', Rule::in([RepositoryRole::Changes->value, RepositoryRole::Context->value])],
             'description' => ['required', 'string', 'min:3', 'max:10000'],
             'claude_account_id' => ['nullable', 'integer'],
-            'model' => ['nullable', 'string', Rule::in((array) config('claude-accounts.models'))],
+            'model' => ['nullable', 'string', ClaudeModelCatalog::rule()],
             ...TaskAttachment::rules(),
         ];
     }

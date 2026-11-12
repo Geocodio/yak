@@ -10,14 +10,14 @@ import { RemoveAccountDialog } from '@/components/accounts/RemoveAccountDialog';
 import { TeleportSetupDialog } from '@/components/teleport/TeleportSetupDialog';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
 import type { PageProps } from '@/types/shared';
-import type { ClaudeAccount } from '@/types/claudeAccounts';
+import type { ClaudeAccount, ModelFamily } from '@/types/claudeAccounts';
 
 type Props = PageProps<{
     accounts?: ClaudeAccount[];
     yakAccounts?: ClaudeAccount[];
     canManageYakAccounts: boolean;
     awakeShare: AwakeShareRow[] | null;
-    models: string[];
+    models: ModelFamily[];
     docsUrl: string;
 }>;
 

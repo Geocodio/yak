@@ -4,8 +4,8 @@ namespace App\Http\Requests\Threads;
 
 use App\Http\Requests\Concerns\AuthorizesThreadDriving;
 use App\Models\TaskAttachment;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class SendThreadMessageRequest extends FormRequest
 {
@@ -16,7 +16,7 @@ class SendThreadMessageRequest extends FormRequest
     {
         return [
             'message' => ['required', 'string', 'max:20000'],
-            'model' => ['nullable', 'string', Rule::in((array) config('claude-accounts.models'))],
+            'model' => ['nullable', 'string', ClaudeModelCatalog::rule()],
             'send_key' => ['nullable', 'uuid'],
             ...TaskAttachment::rules(),
         ];

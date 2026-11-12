@@ -1,11 +1,12 @@
 import { useForm } from '@inertiajs/react';
-import { Badge, Button, Field, Select, Tooltip } from '@geocodio/console-ui';
+import { Badge, Button, Field, Tooltip } from '@geocodio/console-ui';
 import { AlertTriangle, Lock, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AccountMark } from '@/components/accounts/AccountMark';
 import { AccountName } from '@/components/accounts/AccountName';
 import { AccountPicker } from '@/components/accounts/AccountPicker';
-import { KIND_LABEL, modelLabel, modelOptions } from '@/components/accounts/accountAppearance';
+import { KIND_LABEL, modelLabel } from '@/components/accounts/accountAppearance';
+import { ModelPicker } from '@/components/accounts/ModelPicker';
 import claudeAccount from '@/routes/repos/claude-account';
 import unattendedClaudeAccount from '@/routes/repos/unattended-claude-account';
 import { claudeAccounts as claudeAccountsPage } from '@/routes/settings';
@@ -50,7 +51,7 @@ export function ClaudeAccountSection({ slug, data }: { slug: string; data: Repos
     const chosen = mine.find((account) => String(account.id) === mineForm.data.claude_account_id) ?? overallDefault;
     const brokenChoice = chosen && !(chosen.usable ?? chosen.status === 'active') ? chosen : null;
     const working: PickerAccount | undefined = (brokenChoice ? overallDefault : chosen) ?? globalYak;
-    const effectiveModel = mineForm.data.model || working?.defaultModel || data.models[0] || 'sonnet';
+    const effectiveModel = mineForm.data.model || working?.defaultModel || data.models[0]?.family || 'sonnet';
 
     const unattended = yakAccounts.find((account) => String(account.id) === unattendedForm.data.claude_account_id) ?? globalYak;
 
@@ -102,10 +103,12 @@ export function ClaudeAccountSection({ slug, data }: { slug: string; data: Repos
                                 />
                             </Field>
                             <Field label="Model">
-                                <Select
+                                <ModelPicker
+                                    models={data.models}
                                     value={mineForm.data.model}
-                                    onChange={(value) => saveMine({ ...mineForm.data, model: value ?? '' })}
-                                    options={[{ value: '', label: `Account default (${modelLabel(working?.defaultModel ?? data.models[0] ?? null)})` }, ...modelOptions(data.models)]}
+                                    onChange={(value) => saveMine({ ...mineForm.data, model: value })}
+                                    defaultLabel={`Account default (${modelLabel(working?.defaultModel ?? data.models[0]?.family ?? null, data.models)})`}
+                                    testId="repo-model"
                                 />
                             </Field>
                         </div>
@@ -117,7 +120,7 @@ export function ClaudeAccountSection({ slug, data }: { slug: string; data: Repos
                         )}
                         {working && (
                             <p className="text-[12px] leading-relaxed text-muted" data-testid="resolved">
-                                Tasks you start here run on <AccountName account={working} className="align-middle font-medium text-body" /> with <span className="font-medium text-body">{modelLabel(effectiveModel)}</span>. You can pick a different account or model for one task in the new task form. A task keeps its account for its whole life.{' '}
+                                Tasks you start here run on <AccountName account={working} className="align-middle font-medium text-body" /> with <span className="font-medium text-body">{modelLabel(effectiveModel, data.models)}</span>. You can pick a different account or model for one task in the new task form. A task keeps its account for its whole life.{' '}
                                 <a href={data.docsUrl} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">How accounts work</a>
                             </p>
                         )}
@@ -142,7 +145,7 @@ export function ClaudeAccountSection({ slug, data }: { slug: string; data: Repos
                         </Field>
                         {unattended && (
                             <p className="text-[12px] text-muted">
-                                Currently runs on <AccountName account={unattended} className="align-middle font-medium text-body" /> with {modelLabel(unattended.defaultModel)}. Add or replace Yak accounts in{' '}
+                                Currently runs on <AccountName account={unattended} className="align-middle font-medium text-body" /> with {modelLabel(unattended.defaultModel, data.models)}. Add or replace Yak accounts in{' '}
                                 <a href={claudeAccountsPage.url()} className="text-accent-text hover:underline">Claude accounts</a>.
                             </p>
                         )}
@@ -158,7 +161,7 @@ export function ClaudeAccountSection({ slug, data }: { slug: string; data: Repos
                                             {unattended.name}
                                             {data.unattendedAccountId === null && <span className="ml-2 text-[12px] font-normal text-muted">Global default</span>}
                                         </div>
-                                        <div className="text-[12px] text-muted">{KIND_LABEL[unattended.kind]} · {modelLabel(unattended.defaultModel)}</div>
+                                        <div className="text-[12px] text-muted">{KIND_LABEL[unattended.kind]} · {modelLabel(unattended.defaultModel, data.models)}</div>
                                     </div>
                                 </>
                             ) : (

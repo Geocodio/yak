@@ -3,9 +3,9 @@
 namespace App\Http\Requests\Repositories;
 
 use App\Models\ClaudeAccount;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class SaveRepositoryClaudeAccountRequest extends FormRequest
 {
@@ -37,7 +37,7 @@ class SaveRepositoryClaudeAccountRequest extends FormRequest
                     $fail('Pick one of your own accounts or a Yak account that is working.');
                 }
             }],
-            'model' => ['nullable', 'string', Rule::in(config('claude-accounts.models'))],
+            'model' => ['nullable', 'string', ClaudeModelCatalog::rule()],
         ];
     }
 }

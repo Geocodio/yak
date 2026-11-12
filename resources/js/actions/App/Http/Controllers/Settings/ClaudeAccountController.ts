@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::index
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:33
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::index
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:33
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::index
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:33
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::index
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:33
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::store
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:49
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:50
 * @route '/settings/claude-accounts'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -60,7 +60,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::store
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:49
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:50
 * @route '/settings/claude-accounts'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::store
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:49
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:50
 * @route '/settings/claude-accounts'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -79,7 +79,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::rotate
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:90
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:93
 * @route '/settings/claude-accounts/{account}/rotate'
 */
 export const rotate = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ rotate.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::rotate
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:90
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:93
 * @route '/settings/claude-accounts/{account}/rotate'
 */
 rotate.url = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -127,7 +127,7 @@ rotate.url = (args: { account: string | number | { id: string | number } } | [ac
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::rotate
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:90
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:93
 * @route '/settings/claude-accounts/{account}/rotate'
 */
 rotate.post = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -137,7 +137,7 @@ rotate.post = (args: { account: string | number | { id: string | number } } | [a
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::update
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:109
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:112
 * @route '/settings/claude-accounts/{account}'
 */
 export const update = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -152,7 +152,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::update
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:109
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:112
 * @route '/settings/claude-accounts/{account}'
 */
 update.url = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -185,7 +185,7 @@ update.url = (args: { account: string | number | { id: string | number } } | [ac
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::update
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:109
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:112
 * @route '/settings/claude-accounts/{account}'
 */
 update.patch = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -195,7 +195,7 @@ update.patch = (args: { account: string | number | { id: string | number } } | [
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::destroy
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:122
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:125
 * @route '/settings/claude-accounts/{account}'
 */
 export const destroy = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -210,7 +210,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::destroy
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:122
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:125
 * @route '/settings/claude-accounts/{account}'
 */
 destroy.url = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -243,7 +243,7 @@ destroy.url = (args: { account: string | number | { id: string | number } } | [a
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::destroy
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:122
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:125
 * @route '/settings/claude-accounts/{account}'
 */
 destroy.delete = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

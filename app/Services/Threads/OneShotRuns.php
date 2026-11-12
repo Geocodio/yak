@@ -14,6 +14,7 @@ use App\Models\TaskRun;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\ClaudeAccounts\AccountFailure;
 use App\Services\ClaudeAccounts\AccountFailureKind;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\IncusSandboxManager;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Support\SecretRedactor;
@@ -48,6 +49,7 @@ class OneShotRuns
         private readonly AccountConcurrency $concurrency,
         private readonly IncusSandboxManager $sandbox,
         private readonly RunawayGuard $guard,
+        private readonly ClaudeModelCatalog $models,
     ) {}
 
     /**
@@ -211,7 +213,7 @@ class OneShotRuns
             'cwd' => self::WORKING_DIRECTORY,
             'start' => [
                 'type' => 'start',
-                'model' => $request->model,
+                'model' => $this->models->resolve($request->model),
                 'appendSystemPrompt' => $request->systemPrompt,
                 'permissionMode' => 'bypassPermissions',
                 'cwd' => self::WORKING_DIRECTORY,

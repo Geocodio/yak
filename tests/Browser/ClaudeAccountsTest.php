@@ -5,8 +5,10 @@ use App\Models\ClaudeAccount;
 use App\Models\User;
 use App\Services\ClaudeAccounts\ClaudeAccountValidator;
 use App\Services\Threads\ThreadCommands;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
+    Http::fake();
     $validator = Mockery::mock(ClaudeAccountValidator::class);
     $validator->shouldReceive('validate')->andReturn(new AccountValidation(true, null));
     app()->instance(ClaudeAccountValidator::class, $validator);

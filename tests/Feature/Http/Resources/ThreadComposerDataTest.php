@@ -10,6 +10,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 
 it('is idle on an open thread without a running turn', function () {
     $account = ClaudeAccount::factory()->create(['name' => 'Work']);
@@ -18,7 +19,7 @@ it('is idle on an open thread without a running turn', function () {
     expect(ThreadComposerData::for($thread, User::factory()->create()))->toBe([
         'state' => 'idle',
         'model' => 'opus',
-        'models' => ['opus', 'sonnet', 'haiku'],
+        'models' => app(ClaudeModelCatalog::class)->families(),
         'accountName' => 'Work',
         'nextAttachmentNumber' => 1,
     ]);

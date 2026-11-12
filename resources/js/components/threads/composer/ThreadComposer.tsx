@@ -10,7 +10,7 @@ import { stop } from '@/routes/threads';
 import type { SharedProps } from '@/types/shared';
 import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice } from '@/types/threads';
 import { composerCopy } from './composerCopy';
-import { ModelPicker } from './ModelPicker';
+import { ModelPicker } from '@/components/accounts/ModelPicker';
 
 const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
     disabled_closed: 'This thread is closed.',
@@ -124,7 +124,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
                     <div className="flex items-center justify-between gap-3 border-t border-hair px-3 py-2">
                         <div className="flex min-w-0 items-center gap-3">
                             {!disabled && <AttachButton draft={draft} disabled={form.processing} />}
-                            <ModelPicker models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} disabled={disabled} />
+                            <ModelPicker variant="inline" models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} disabled={disabled} testId="composer-model" />
                             <span className="truncate text-[11px] text-faint" data-testid="thread-composer-hint">
                                 {DISABLED_COPY[composer.state] ?? copy.hint}
                             </span>

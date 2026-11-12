@@ -4,6 +4,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\ClaudeAccount;
 use App\Models\Device;
 use App\Models\User;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use Illuminate\Http\Request;
 
 function setupProp(User $user): array
@@ -28,7 +29,7 @@ it('reports a fresh member as having nothing set up', function () {
         'installCommand' => 'curl -fsSL https://yak.example.com/install | sh',
         'loginCommand' => 'yak login --url https://yak.example.com',
         'manualInstallCommands' => ['claude plugin marketplace add Geocodio/yak', 'claude plugin install yak@yak'],
-        'models' => ['opus', 'sonnet', 'haiku'],
+        'models' => app(ClaudeModelCatalog::class)->families(),
         'appName' => config('app.name'),
     ]);
 });

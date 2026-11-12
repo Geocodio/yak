@@ -1,12 +1,12 @@
 import { useForm, usePage } from '@inertiajs/react';
-import { Button, Checkbox, Dialog, Field, Kbd, Select, TextInput, toast } from '@geocodio/console-ui';
+import { Button, Checkbox, Dialog, Field, Kbd, TextInput, toast } from '@geocodio/console-ui';
 import { AlertTriangle, Check, ChevronRight, Copy } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { rotate, store } from '@/routes/settings/claude-accounts';
 import { useDocsUrl } from '@/lib/docsUrl';
-import type { ClaudeAccount } from '@/types/claudeAccounts';
+import type { ClaudeAccount, ModelFamily } from '@/types/claudeAccounts';
 import type { SharedProps } from '@/types/shared';
-import { modelOptions } from './accountAppearance';
+import { ModelPicker } from './ModelPicker';
 import { AppearanceFields } from './AppearanceFields';
 import { ConnectedState, type ConnectedAccount } from './ConnectedState';
 import { cleanSecret, detectKind } from './secretKind';
@@ -49,7 +49,7 @@ function DocsLink({ href, children }: { href: string; children: ReactNode }) {
 type Props = {
     mode: AccountDialogMode;
     account?: Pick<ClaudeAccount, 'id' | 'name'>;
-    models: string[];
+    models: ModelFamily[];
     hasDefault: boolean;
     onClose: () => void;
     /** When set, the connected state offers Teleport setup to people without a paired computer. */
@@ -127,7 +127,7 @@ export function AccountDialog({ mode, account, models, hasDefault, onClose, onSe
                 width="w-[min(560px,100vw)]"
                 footer={<div className="flex justify-end"><Button variant="secondary" onClick={onClose} data-testid="account-connected-done">Done</Button></div>}
             >
-                <ConnectedState account={connected} isSystem={isSystem} hasDevice={setup?.hasDevice ?? false} onSetUpTeleport={onSetUpTeleport ? () => { onClose(); onSetUpTeleport(); } : undefined} />
+                <ConnectedState account={connected} isSystem={isSystem} hasDevice={setup?.hasDevice ?? false} models={models} onSetUpTeleport={onSetUpTeleport ? () => { onClose(); onSetUpTeleport(); } : undefined} />
             </Dialog>
         );
     }
@@ -230,7 +230,7 @@ export function AccountDialog({ mode, account, models, hasDefault, onClose, onSe
                         {isDetailsOpen && (
                             <div id="account-details" className="flex flex-col gap-4" data-testid="account-details">
                                 <Field label="Default model" description="Used when a task does not pick one.">
-                                    <Select disabled={form.processing} value={form.data.default_model} onChange={(value) => form.setData('default_model', value)} options={modelOptions(models)} />
+                                    <ModelPicker disabled={form.processing} models={models} value={form.data.default_model} onChange={(value) => form.setData('default_model', value)} testId="account-default-model" />
                                 </Field>
                                 <AppearanceFields value={{ icon: form.data.icon, color: form.data.color }} onChange={(next) => form.setData((data) => ({ ...data, ...next }))} />
                                 {!isSystem && <Checkbox checked={form.data.make_default} onCheckedChange={(checked) => form.setData('make_default', checked)} label="Make this my default account" />}

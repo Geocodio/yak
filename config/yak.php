@@ -65,6 +65,7 @@ return [
         'max_file_kb' => (int) env('YAK_ATTACHMENTS_MAX_FILE_KB', 10240),
     ],
 
+    // A family alias follows the newest model of that family; an exact model id pins one.
     'default_model' => env('YAK_DEFAULT_MODEL', 'opus'),
 
     'clarification_ttl_days' => (int) env('YAK_CLARIFICATION_TTL_DAYS', 7),
@@ -159,6 +160,7 @@ return [
         'memory_limit' => env('YAK_SANDBOX_MEMORY_LIMIT', '8GB'),
         'disk_limit' => env('YAK_SANDBOX_DISK_LIMIT', '30GB'),
         'workspace_path' => env('YAK_SANDBOX_WORKSPACE_PATH', '/workspace'),
+        // A family alias, resolved to the newest model of that family when a child starts.
         'default_child_model' => env('YAK_SANDBOX_DEFAULT_CHILD_MODEL', 'sonnet'),
         'results_path' => env('YAK_SANDBOX_RESULTS_PATH', '/results'),
         'claude_config_source' => env('YAK_SANDBOX_CLAUDE_CONFIG', '/home/yak/.claude'),

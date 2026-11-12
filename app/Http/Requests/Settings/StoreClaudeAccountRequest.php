@@ -6,6 +6,7 @@ use App\Enums\ClaudeAccountColor;
 use App\Enums\ClaudeAccountIcon;
 use App\Http\Concerns\ValidatesClaudeSecretFormat;
 use App\Models\ClaudeAccount;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -35,7 +36,7 @@ class StoreClaudeAccountRequest extends FormRequest
                 fn ($query) => $ownerId === null ? $query->whereNull('owner_user_id') : $query->where('owner_user_id', $ownerId),
             )],
             'secret' => ['required', 'string', 'max:2000', $this->secretFormatRule()],
-            'default_model' => ['nullable', 'string', Rule::in(config('claude-accounts.models'))],
+            'default_model' => ['nullable', 'string', ClaudeModelCatalog::rule()],
             'icon' => ['sometimes', Rule::enum(ClaudeAccountIcon::class)],
             'color' => ['sometimes', Rule::enum(ClaudeAccountColor::class)],
             'is_system' => ['sometimes', 'boolean'],

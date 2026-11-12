@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { ClaudeAccount } from '@/types/claudeAccounts';
+import type { ClaudeAccount, ModelFamily } from '@/types/claudeAccounts';
 import { AccountRow, ColumnHeads } from './AccountRow';
 
 export const Card = ({ children, className = '', ...rest }: { children: ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) => (
@@ -8,7 +8,7 @@ export const Card = ({ children, className = '', ...rest }: { children: ReactNod
 
 type Props = {
     accounts: ClaudeAccount[];
-    models: string[];
+    models: ModelFamily[];
     readOnly?: boolean;
     onRotate: (account: ClaudeAccount) => void;
     onEdit: (account: ClaudeAccount) => void;

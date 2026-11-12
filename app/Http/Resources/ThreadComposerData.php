@@ -7,6 +7,7 @@ use App\Enums\ThreadOwnerSide;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadTurns;
 
@@ -25,7 +26,7 @@ final class ThreadComposerData
     ];
 
     /**
-     * @return array{state: 'idle'|'working'|'disabled_closed'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, models: list<string>, accountName: ?string, nextAttachmentNumber: int}
+     * @return array{state: 'idle'|'working'|'disabled_closed'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>, accountName: ?string, nextAttachmentNumber: int}
      */
     public static function for(Thread $thread, ?User $viewer): array
     {
@@ -38,9 +39,6 @@ final class ThreadComposerData
             default => 'idle',
         };
 
-        /** @var list<string> $models */
-        $models = array_values(config('claude-accounts.models'));
-
         $taskIds = $thread->tasks()->pluck('id');
         $attachments = TaskAttachment::query()
             ->whereIn('yak_task_id', $taskIds)
@@ -50,7 +48,7 @@ final class ThreadComposerData
         return [
             'state' => $state,
             'model' => $thread->model,
-            'models' => $models,
+            'models' => app(ClaudeModelCatalog::class)->families(),
             'accountName' => $thread->claudeAccount?->name,
             'nextAttachmentNumber' => $attachments + 1,
         ];

@@ -11,6 +11,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeAccountValidator;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Threads\ThreadCommands;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -46,7 +47,7 @@ it('renders the page with deferred account groups', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Settings/ClaudeAccounts')
             ->where('canManageYakAccounts', false)
-            ->where('models', ['opus', 'sonnet', 'haiku'])
+            ->where('models', app(ClaudeModelCatalog::class)->families())
             ->has('docsUrl')
             ->missing('accounts')
             ->missing('yakAccounts')

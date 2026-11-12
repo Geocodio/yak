@@ -1,4 +1,4 @@
-import type { PickerAccount } from '@/types/claudeAccounts';
+import type { ModelFamily, PickerAccount } from '@/types/claudeAccounts';
 
 export type RepositorySummary = {
     slug: string;
@@ -176,6 +176,6 @@ export type RepositoryClaudeAccounts = {
     unattendedAccountId: number | null;
     globalSystemAccountId: number | null;
     canChangeUnattended: boolean;
-    models: string[];
+    models: ModelFamily[];
     docsUrl: string;
 };

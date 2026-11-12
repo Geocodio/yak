@@ -6,8 +6,10 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Support\Facades\Cache;
 
 function composerThread(): array
 {
@@ -19,7 +21,6 @@ function composerThread(): array
 }
 
 it('sends with the picked model', function () {
-    config(['claude-accounts.models' => ['sonnet', 'opus']]);
     [$user, $thread] = composerThread();
     $this->actingAs($user);
     $this->mock(ThreadTurns::class, function ($mock) {
@@ -29,10 +30,36 @@ it('sends with the picked model', function () {
     $page = visit("/threads/{$thread->id}");
     $page->click('[data-testid="composer-model"]')
         ->click('[data-testid="composer-model-opus"]')
-        ->assertSeeIn('[data-testid="composer-model"]', 'opus')
+        ->assertSeeIn('[data-testid="composer-model"]', 'Opus 5.5')
         ->fill('[data-testid="thread-composer-input"]', 'Hello')
         ->click('[data-testid="thread-send"]');
     $page->wait(3)->assertNoJavaScriptErrors();
+});
+
+it('picks a family, then pins an older version from the expanded family', function () {
+    Cache::forever(ClaudeModelCatalog::CACHE_KEY, [
+        ['id' => 'claude-opus-5-5', 'family' => 'opus', 'label' => 'Opus 5.5', 'createdAt' => '2026-05-01T00:00:00Z'],
+        ['id' => 'claude-opus-5', 'family' => 'opus', 'label' => 'Opus 5', 'createdAt' => '2026-02-01T00:00:00Z'],
+        ['id' => 'claude-sonnet-5-5', 'family' => 'sonnet', 'label' => 'Sonnet 5.5', 'createdAt' => '2026-05-01T00:00:00Z'],
+        ['id' => 'claude-sonnet-5', 'family' => 'sonnet', 'label' => 'Sonnet 5', 'createdAt' => '2026-02-01T00:00:00Z'],
+    ]);
+    [$user, $thread] = composerThread();
+    $this->actingAs($user);
+
+    $page = visit("/threads/{$thread->id}");
+    $page->click('[data-testid="composer-model"]')
+        ->click('[data-testid="composer-model-opus"]')
+        ->assertSeeIn('[data-testid="composer-model"]', 'Opus 5.5')
+        ->click('[data-testid="composer-model"]')
+        ->click('[data-testid="composer-model-expand-sonnet"]')
+        ->assertPresent('[data-testid="composer-model-claude-sonnet-5"]')
+        ->assertMissing('[data-testid="composer-model-claude-opus-5"]')
+        ->click('[data-testid="composer-model-expand-opus"]')
+        ->assertMissing('[data-testid="composer-model-claude-sonnet-5"]')
+        ->click('[data-testid="composer-model-claude-opus-5"]')
+        ->assertSeeIn('[data-testid="composer-model"]', 'Opus 5')
+        ->assertSeeIn('[data-testid="composer-model"]', 'pinned')
+        ->assertNoJavaScriptErrors();
 });
 
 it('Send looks enabled with text and dimmed when empty', function () {

@@ -1,3 +1,4 @@
+import type { ModelFamily } from './claudeAccounts';
 import type { NewThreadPageData } from './threads';
 import type { OperationsPanelData, ThreadListData } from './shell';
 
@@ -10,7 +11,7 @@ export type SetupProps = {
     installCommand: string;
     loginCommand: string;
     manualInstallCommands: string[];
-    models: string[];
+    models: ModelFamily[];
     appName: string;
 };
 

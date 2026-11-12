@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\Enums\RunnerState;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Repos\ThreadRepositoryPrompt;
@@ -26,6 +27,7 @@ class ThreadCommands
         private readonly BrokerStreams $streams,
         private readonly SandboxManager $sandbox,
         private readonly AuthProxyPlaceholders $placeholders,
+        private readonly ClaudeModelCatalog $models,
     ) {}
 
     public function channel(Thread $thread): string
@@ -45,7 +47,7 @@ class ThreadCommands
             'cwd' => $workingDirectory,
             'start' => [
                 'type' => 'start',
-                'model' => $thread->model,
+                'model' => $thread->model === null ? null : $this->models->resolve($thread->model),
                 'appendSystemPrompt' => $appendSystemPrompt,
                 'permissionMode' => 'bypassPermissions',
                 'cwd' => $workingDirectory,
@@ -100,7 +102,7 @@ class ThreadCommands
 
     public function setModel(Thread $thread, string $model): void
     {
-        $this->send($thread, ['type' => 'set_model', 'model' => $model]);
+        $this->send($thread, ['type' => 'set_model', 'model' => $this->models->resolve($model)]);
 
         $thread->forceFill(['runner_model' => $model])->save();
     }

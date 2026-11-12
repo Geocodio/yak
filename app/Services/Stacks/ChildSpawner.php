@@ -10,6 +10,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Threads\ThreadTurns;
 use App\YakPromptBuilder;
 use Illuminate\Support\Facades\DB;
@@ -47,10 +48,10 @@ class ChildSpawner
             throw new StackRuleViolation('A sub-thread needs a brief.');
         }
 
-        $allowedModels = config('claude-accounts.models');
+        $allowedModels = app(ClaudeModelCatalog::class)->acceptedValues();
 
         if ($model !== null && ! in_array($model, $allowedModels, true)) {
-            throw new StackRuleViolation('Unknown model. Use one of: ' . implode(', ', $allowedModels) . '.');
+            throw new StackRuleViolation('Unknown model. Use one of: ' . implode(', ', ClaudeModelCatalog::FAMILIES) . ', or an exact model id.');
         }
 
         $child = DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy, $repo, $actor): Thread {

@@ -5,6 +5,7 @@ use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\UserRepositorySetting;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 
 function checked(ClaudeAccount $account): ClaudeAccount
 {
@@ -23,7 +24,7 @@ it('lists the person own and system accounts, never another person', function ()
 
     expect(collect($data['accounts'])->pluck('id')->all())->toBe([$system->id, $mine->id])
         ->and($data['accounts'][0]['usable'])->toBeTrue()
-        ->and($data['models'])->toBe(['opus', 'sonnet', 'haiku'])
+        ->and($data['models'])->toBe(app(ClaudeModelCatalog::class)->families())
         ->and(json_encode($data))->not->toContain('secret');
 });
 

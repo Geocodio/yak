@@ -7,6 +7,7 @@ use App\Models\Repository;
 use App\Models\User;
 use App\Models\UserRepositorySetting;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 
 /**
  * What an account picker needs: the accounts a person may start a thread on
@@ -20,7 +21,7 @@ final class AccountPickerData
      * @return array{
      *     accounts: list<array{id: int, name: string, kind: string, icon: string, color: string, isSystem: bool, isDefault: bool, defaultModel: ?string, usable: bool, status: string}>,
      *     defaultsByRepo: array<string, array{accountId: int|null, brokenDefaultAccountId: int|null, model: string|null}>,
-     *     models: list<string>,
+     *     models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>,
      * }
      */
     public static function forUser(?User $user): array
@@ -57,9 +58,6 @@ final class AccountPickerData
             })
             ->all();
 
-        /** @var list<string> $models */
-        $models = array_values(config('claude-accounts.models'));
-
-        return ['accounts' => $accounts, 'defaultsByRepo' => $defaultsByRepo, 'models' => $models];
+        return ['accounts' => $accounts, 'defaultsByRepo' => $defaultsByRepo, 'models' => app(ClaudeModelCatalog::class)->families()];
     }
 }

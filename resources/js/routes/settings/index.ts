@@ -141,7 +141,7 @@ video.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::claudeAccounts
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:33
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 export const claudeAccounts = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -156,7 +156,7 @@ claudeAccounts.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::claudeAccounts
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:33
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 claudeAccounts.url = (options?: RouteQueryOptions) => {
@@ -165,7 +165,7 @@ claudeAccounts.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::claudeAccounts
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:33
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 claudeAccounts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -175,7 +175,7 @@ claudeAccounts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::claudeAccounts
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:33
+* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 claudeAccounts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

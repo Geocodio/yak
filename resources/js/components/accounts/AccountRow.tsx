@@ -1,13 +1,14 @@
 import { router } from '@inertiajs/react';
-import { Badge, Button, Menu, Select, Tooltip, cn } from '@geocodio/console-ui';
+import { Badge, Button, Menu, Tooltip, cn } from '@geocodio/console-ui';
 import { KeyRound, MoreHorizontal, Pencil, RefreshCw, Star, Terminal, Trash2 } from 'lucide-react';
 import { update } from '@/routes/settings/claude-accounts';
-import type { ClaudeAccount } from '@/types/claudeAccounts';
-import { daysUntil, formatAgo, formatDate, KIND_LABEL, modelLabel, modelOptions } from './accountAppearance';
+import type { ClaudeAccount, ModelFamily } from '@/types/claudeAccounts';
+import { daysUntil, formatAgo, formatDate, KIND_LABEL, modelLabel } from './accountAppearance';
+import { ModelPicker } from './ModelPicker';
 import { AccountMark } from './AccountMark';
 import { StatusBadge } from './StatusBadge';
 
-export const ACCOUNT_GRID = 'grid-cols-2 md:grid-cols-[minmax(0,1fr)_112px_150px_216px]';
+export const ACCOUNT_GRID = 'grid-cols-2 md:grid-cols-[minmax(0,1fr)_150px_150px_216px]';
 
 export function ColumnHeads() {
     return (
@@ -19,7 +20,7 @@ export function ColumnHeads() {
 
 type Props = {
     account: ClaudeAccount;
-    models: string[];
+    models: ModelFamily[];
     readOnly?: boolean;
     onRotate: (account: ClaudeAccount) => void;
     onEdit: (account: ClaudeAccount) => void;
@@ -53,9 +54,9 @@ export function AccountRow({ account, models, readOnly, onRotate, onEdit, onRemo
                 </div>
             </div>
             <div className="text-[12.5px]">
-                {readOnly ? <span className="text-muted">{modelLabel(account.defaultModel)}</span> : (
+                {readOnly ? <span className="text-muted">{modelLabel(account.defaultModel, models)}</span> : (
                     <Tooltip label="The model tasks use on this account unless they pick another." side="top">
-                        <Select aria-label={`Default model for ${account.name}`} className="w-[104px]" value={account.defaultModel} onChange={(value) => value && patch({ default_model: value })} options={modelOptions(models)} />
+                        <ModelPicker ariaLabel={`Default model for ${account.name}`} variant="inline" className="text-[12.5px] text-body" models={models} value={account.defaultModel} onChange={(value) => patch({ default_model: value })} testId={`account-row-model-${account.id}`} />
                     </Tooltip>
                 )}
             </div>

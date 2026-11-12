@@ -1,5 +1,5 @@
 import { Bot, Briefcase, Building2, Code2, Coffee, FlaskConical, Globe, GraduationCap, Heart, Home, Rocket, Shield, Sparkles, Terminal, User, Zap, type LucideIcon } from 'lucide-react';
-import type { AccountColorName, AccountIconName } from '@/types/claudeAccounts';
+import type { AccountColorName, AccountIconName, ModelFamily } from '@/types/claudeAccounts';
 
 export const ACCOUNT_ICONS: Record<AccountIconName, { icon: LucideIcon; label: string }> = {
     briefcase: { icon: Briefcase, label: 'Briefcase' },
@@ -33,12 +33,26 @@ export const ACCOUNT_COLORS: Record<AccountColorName, { label: string; fg: strin
 
 export const KIND_LABEL = { setup_token: 'Setup token', api_key: 'API key' } as const;
 
-export function modelOptions(models: string[]): { value: string; label: string }[] {
-    return models.map((model) => ({ value: model, label: model.charAt(0).toUpperCase() + model.slice(1) }));
+/** The family or older version behind a model value, or null when the catalog does not know it. */
+export function findModel(models: ModelFamily[], model: string): { label: string; isPinned: boolean } | null {
+    for (const family of models) {
+        if (family.latest.value === model) {
+            return { label: family.latest.label, isPinned: false };
+        }
+
+        const older = family.older.find((entry) => entry.value === model);
+
+        if (older) {
+            return { label: older.label, isPinned: true };
+        }
+    }
+
+    return null;
 }
 
-export function modelLabel(model: string | null): string {
-    return model === null ? 'Default' : model.charAt(0).toUpperCase() + model.slice(1);
+/** A family alias reads as its current version, an exact id as that version, anything unknown as the raw value. */
+export function modelLabel(model: string | null, models: ModelFamily[]): string {
+    return model === null ? 'Default' : (findModel(models, model)?.label ?? model);
 }
 
 export function formatDate(iso: string | null): string {

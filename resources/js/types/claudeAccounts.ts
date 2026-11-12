@@ -39,3 +39,10 @@ export type AccountPickerProps = {
     defaultLabel?: string;
     defaultAccount?: PickerAccount;
 };
+
+/** One model family in a picker: `latest` is the family alias, `older` are exact ids newest first. Mirrors App\Services\ClaudeAccounts\ClaudeModelCatalog::families(). */
+export type ModelFamily = {
+    family: string;
+    latest: { value: string; label: string; description: string };
+    older: { value: string; label: string }[];
+};

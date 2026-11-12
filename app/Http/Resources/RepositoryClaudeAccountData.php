@@ -20,7 +20,7 @@ final class RepositoryClaudeAccountData
      *     unattendedAccountId: int|null,
      *     globalSystemAccountId: int|null,
      *     canChangeUnattended: bool,
-     *     models: list<string>,
+     *     models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>,
      *     docsUrl: string,
      * }
      */
