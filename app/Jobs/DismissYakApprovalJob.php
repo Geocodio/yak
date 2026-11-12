@@ -7,6 +7,7 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -46,13 +47,20 @@ class DismissYakApprovalJob implements ShouldQueue
             return;
         }
 
-        $github->dismissPullRequestReviewOrFail(
-            (int) config('yak.channels.github.installation_id'),
-            $repository->github_full_name,
-            (int) $review->pr_number,
-            (int) $review->github_review_id,
-            'New commits since Yak approved. Reviewing again.',
-        );
+        try {
+            $github->dismissPullRequestReviewOrFail(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                (int) $review->pr_number,
+                (int) $review->github_review_id,
+                'New commits since Yak approved. Reviewing again.',
+            );
+        } catch (RequestException $exception) {
+            // A 422 means GitHub will not dismiss it: already dismissed or not dismissable.
+            if ($exception->response->status() !== 422) {
+                throw $exception;
+            }
+        }
 
         $review->update(['dismissed_at' => now()]);
     }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Channels\GitHub\AppService;
 use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
+use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Support\ApprovalFloor;
 use App\Support\PathMatcher;
@@ -148,6 +149,7 @@ class ReviewApprovalPolicy
                 break;
             }
         }
+        array_push($reasons, ...$this->earlierFindingReasons($repository, $review, $metadata, $github));
         if ($reasons !== []) {
             return $reasons;
         }
@@ -180,6 +182,64 @@ class ReviewApprovalPolicy
         };
 
         return in_array($result->changeKind, $allowed, true) ? [] : ["DEFCON {$level} does not cover {$result->changeKind} changes."];
+    }
+
+    /**
+     * Holds while any stored earlier Yak finding on this pull request is open. A
+     * finding is closed once its GitHub thread is resolved, unless Yak last judged
+     * it still outstanding and this round does not report it fixed or withdrawn.
+     * Independent of what the reviewer chose to report.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return list<string>
+     */
+    private function earlierFindingReasons(Repository $repository, ParsedReview $review, array $metadata, AppService $github): array
+    {
+        $prUrl = (string) ($metadata['pr_url'] ?? '');
+        if ($prUrl === '') {
+            return ['Could not verify earlier findings on GitHub.'];
+        }
+
+        $comments = PrReviewComment::query()
+            ->whereHas('review', fn ($query) => $query->where('pr_url', $prUrl))
+            ->get(['github_comment_id', 'resolution_status']);
+        if ($comments->isEmpty()) {
+            return [];
+        }
+
+        try {
+            $threads = $github->listReviewThreads(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                (int) ($metadata['pr_number'] ?? 0),
+            );
+        } catch (\Throwable) {
+            return ['Could not verify earlier findings on GitHub.'];
+        }
+
+        $reportedClosed = [];
+        foreach ($review->priorFindings as $prior) {
+            if (in_array($prior->status, [ParsedPriorFinding::STATUS_FIXED, ParsedPriorFinding::STATUS_WITHDRAWN], true)) {
+                $reportedClosed[$prior->commentId] = true;
+            }
+        }
+        $resolvedThreads = [];
+        foreach ($threads as $thread) {
+            foreach ($thread['comment_database_ids'] as $commentId) {
+                $resolvedThreads[(int) $commentId] = (bool) $thread['is_resolved'];
+            }
+        }
+
+        foreach ($comments as $comment) {
+            $commentId = (int) $comment->github_comment_id;
+            $isResolved = $resolvedThreads[$commentId] ?? false;
+            $isStillOutstanding = $comment->resolution_status === ParsedPriorFinding::STATUS_STILL_OUTSTANDING && ! isset($reportedClosed[$commentId]);
+            if (! $isResolved || $isStillOutstanding) {
+                return ['An earlier Yak finding is still open.'];
+            }
+        }
+
+        return [];
     }
 
     /**

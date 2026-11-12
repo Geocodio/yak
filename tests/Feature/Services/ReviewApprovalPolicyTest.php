@@ -5,10 +5,13 @@ use App\Channels\GitHub\AppService;
 use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
 use App\DataTransferObjects\ReviewFinding;
+use App\Models\PrReview;
+use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Services\ReviewApprovalPolicy;
 use Laravel\Ai\Ai;
 
+const POLICY_PR_URL = 'https://github.com/acme/api/pull/42';
 const BILLING = 'Customer charges and Stripe writes';
 const METERING = 'Usage metering and credit accounting';
 
@@ -31,7 +34,7 @@ function policyEvaluate(array $files, ParsedReview $review, array $metadata = []
 {
     return app(ReviewApprovalPolicy::class)->evaluate(
         test()->repo, $review,
-        array_merge(['pr_number' => 42, 'head_sha' => 'head', 'base_ref' => 'main', 'review_scope' => 'full', 'author' => 'alice'], $metadata),
+        array_merge(['pr_number' => 42, 'head_sha' => 'head', 'base_ref' => 'main', 'review_scope' => 'full', 'author' => 'alice', 'pr_url' => POLICY_PR_URL], $metadata),
         $files,
     );
 }
@@ -232,3 +235,52 @@ it('holds when the live pull request no longer matches the review', function (ca
     'live author is the bot' => [fn ($t) => $t->livePullRequest['user']['login'] = 'yak[bot]', 'Yak opened this pull request.'],
     'live author empty' => [fn ($t) => $t->livePullRequest['user'] = [], 'Pull request author is unknown.'],
 ]);
+
+function earlierComment(?string $status, int $commentId = 900): void
+{
+    $review = PrReview::factory()->create(['repo' => 'acme/api', 'pr_number' => 42, 'pr_url' => POLICY_PR_URL]);
+    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'github_comment_id' => $commentId, 'resolution_status' => $status]);
+}
+
+function fakeThreads(bool $isResolved, int $commentId = 900): void
+{
+    test()->github->shouldReceive('listReviewThreads')->andReturn([['is_resolved' => $isResolved, 'comment_database_ids' => [$commentId]]]);
+}
+
+it('holds while an earlier finding the reviewer omitted is still open', function (?string $status) {
+    earlierComment($status);
+    fakeThreads(false);
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toContain('An earlier Yak finding is still open.');
+    ConcernClassifier::assertNeverPrompted();
+})->with([null, 'untouched', 'still_outstanding', 'fixed']);
+
+it('holds a sticky still_outstanding finding even when its thread is resolved', function () {
+    earlierComment('still_outstanding');
+    fakeThreads(true);
+
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toContain('An earlier Yak finding is still open.');
+});
+
+it('holds when the earlier finding threads cannot be fetched', function () {
+    earlierComment('fixed');
+    $this->github->shouldReceive('listReviewThreads')->andThrow(new RuntimeException('502'));
+
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Could not verify earlier findings on GitHub.']);
+});
+
+it('approves when every earlier finding is closed and its thread resolved', function () {
+    earlierComment('fixed', 900);
+    earlierComment('still_outstanding', 901);
+    earlierComment(null, 902);
+    $this->github->shouldReceive('listReviewThreads')->andReturn([
+        ['is_resolved' => true, 'comment_database_ids' => [900]],
+        ['is_resolved' => true, 'comment_database_ids' => [901]],
+        ['is_resolved' => true, 'comment_database_ids' => [902]],
+    ]);
+    fakePolicyClassifier();
+    $review = policyReview(priorFindings: [new ParsedPriorFinding(901, 'fixed', '')]);
+
+    expect(policyEvaluate(policyFiles(), $review)['candidate'])->toBe('APPROVE');
+});

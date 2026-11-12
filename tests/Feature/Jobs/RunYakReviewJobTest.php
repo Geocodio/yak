@@ -783,7 +783,7 @@ function runLevelTwoReviewWithPriorFinding(string $status): array
     $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.', [],
         priorFindings: [new ParsedPriorFinding(777, $status, 'reply')], risk: 'low'));
     app()->instance(ReviewOutputParser::class, $parser);
-    $github->shouldReceive('listReviewThreads')->once()->andReturn([]);
+    $github->shouldReceive('listReviewThreads')->andReturn([['is_resolved' => $status === ParsedPriorFinding::STATUS_FIXED, 'comment_database_ids' => [777]]]);
     $github->shouldReceive('replyToReviewComment')->andReturn(['id' => 5]);
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
@@ -834,4 +834,27 @@ it('adds the second round hint only at level 2 and up', function () {
     (new RunYakReviewJob($task))->handle($agent);
 
     expect($body)->toContain('Yak will look again.');
+});
+
+it('holds a level 2 review when hydrating prior findings fails', function () {
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $previous = PrReview::factory()->create([
+        'yak_task_id' => YakTask::factory()->create(['mode' => TaskMode::Review]),
+        'repo' => 'acme/api', 'pr_number' => 42, 'pr_url' => $task->pr_url, 'github_review_id' => 11, 'dismissed_at' => now(),
+    ]);
+    PrReviewComment::factory()->create(['pr_review_id' => $previous->id, 'github_comment_id' => 777]);
+    $github->shouldReceive('listReviewThreads')->andThrow(new RuntimeException('502'));
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
+    $event = null;
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(function ($i, $r, $n, $b, $e) use (&$event) {
+        $event = $e;
+
+        return true;
+    })->andReturn(['id' => 123]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect($event)->toBe('COMMENT');
 });

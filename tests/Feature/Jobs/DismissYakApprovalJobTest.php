@@ -26,7 +26,7 @@ it('dismisses the approval and records it', function () {
 it('succeeds on a retry after a failure', function () {
     Http::swap(new Factory);
     Http::fake(gitHubTokenFake() + ['api.github.com/repos/acme/app/pulls/7/reviews/4242/dismissals' => Http::sequence()
-        ->push([], 422)->push([], 200)]);
+        ->push([], 500)->push([], 200)]);
     $job = new DismissYakApprovalJob($this->review->id);
 
     expect(fn () => $job->handle(app(AppService::class)))->toThrow(RequestException::class);
@@ -58,4 +58,12 @@ it('logs an error after the last attempt fails', function () {
     (new DismissYakApprovalJob($this->review->id))->failed(new RuntimeException('422'));
 
     Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context): bool => ($context['pr_review_id'] ?? null) === $this->review->id);
+});
+
+it('treats a 422 as already dismissed', function () {
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/acme/app/pulls/7/reviews/4242/dismissals' => Http::response([], 422)]);
+
+    (new DismissYakApprovalJob($this->review->id))->handle(app(AppService::class));
+
+    expect($this->review->fresh()->dismissed_at)->not->toBeNull();
 });
