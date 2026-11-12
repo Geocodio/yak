@@ -97,7 +97,7 @@ class OneShotRuns
         $deadline = $startedAt->addSeconds($request->timeoutSeconds);
         $tracker = new TurnTracker((int) config('yak.threads.turn_grace_seconds'));
         $handler = new StreamEventHandler($request->task ?? throw new RuntimeException('A one-shot run needs a task to log to'));
-        $failure = $resultEvent = $exitCode = null;
+        $failure = $resultEvent = $exitCode = $runnerError = null;
         $assistantMessages = 0;
         $ended = false;
         $lastHeartbeat = $startedAt;
@@ -124,6 +124,7 @@ class OneShotRuns
                         $exitCode = (int) ($line['exit_code'] ?? 0);
                     } else {
                         $handler->handle($line);
+                        $runnerError ??= StreamEventHandler::runnerError($line);
                         $assistantMessages += ($line['type'] ?? null) === 'assistant' ? 1 : 0;
                         $resultEvent = ($line['type'] ?? null) === 'result' ? $line : $resultEvent;
                     }
@@ -155,7 +156,9 @@ class OneShotRuns
         }
 
         if ($resultEvent === null) {
-            return AgentRunResult::failure("The agent runner exited before the turn ended (exit code {$exitCode})", '{}');
+            $reason = $runnerError === null || $runnerError === '' ? '' : ": {$runnerError}";
+
+            return AgentRunResult::failure("The agent runner exited before the turn ended (exit code {$exitCode}){$reason}", '{}');
         }
 
         return TurnResult::fromEvent(

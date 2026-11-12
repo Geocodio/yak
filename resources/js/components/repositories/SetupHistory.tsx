@@ -1,6 +1,7 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { Button, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tr } from '@geocodio/console-ui';
 import { STATUS, type TaskStatus } from '@/lib/status';
+import { rowLinkHandlers } from '@/lib/visitRow';
 import type { SetupHistoryRow } from '@/types/repositories';
 
 export function SetupHistory({ rows, viewAllHref }: { rows: SetupHistoryRow[]; viewAllHref: string | null }) {
@@ -31,12 +32,14 @@ export function SetupHistory({ rows, viewAllHref }: { rows: SetupHistoryRow[]; v
                         {rows.map((row) => {
                             const status = STATUS[row.status as TaskStatus];
                             return (
-                                <StackedTr key={row.id}>
+                                <StackedTr key={row.id} className="cursor-pointer hover:bg-panel-2" data-testid={`setup-history-row-${row.id}`} {...rowLinkHandlers(row.url)}>
                                     <StackedTd label="Status">
                                         <StatusPill tone={status?.tone ?? 'idle'} label={status?.label ?? row.status} pulse={status?.live} />
                                     </StackedTd>
                                     <StackedTd label="ID" className="font-mono text-[12px]">
-                                        {row.id}
+                                        <Link href={row.url} className="hover:text-accent-text hover:underline">
+                                            {row.id}
+                                        </Link>
                                     </StackedTd>
                                     <StackedTd label="Started" className="text-muted">
                                         {row.startedAgo}

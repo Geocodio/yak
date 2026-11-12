@@ -529,3 +529,23 @@ test('keeps the full text of the most recent assistant message', function () {
     // The task log truncates at 500 chars; the handler keeps the whole message.
     expect($this->handler->getLastAssistantText())->toBe($longText);
 });
+
+test('logs a runner error with secrets redacted and only its first line', function () {
+    $this->handler->handle([
+        'type' => 'runner',
+        'event' => 'error',
+        'error' => "Error: Claude Code process exited with code 1 for sk-ant-api03-abcdefghijklmnopqrstuvwxyz\n    at ChildProcess.<anonymous> (file:///opt/yak-runner/sdk.mjs:1:1)",
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->firstOrFail();
+    expect($log->level)->toBe('error')
+        ->and($log->message)->toStartWith('Agent runner error: Error: Claude Code process exited with code 1')
+        ->and($log->message)->not->toContain('sk-ant-api03-abcdef')
+        ->and($log->message)->not->toContain('ChildProcess');
+});
+
+test('ignores runner events that are not errors', function () {
+    $this->handler->handle(['type' => 'runner', 'event' => 'started', 'pid' => 12]);
+
+    expect(TaskLog::where('yak_task_id', $this->task->id)->count())->toBe(0);
+});

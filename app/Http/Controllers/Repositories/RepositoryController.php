@@ -305,7 +305,7 @@ class RepositoryController extends Controller
     }
 
     /**
-     * @return array<int, array{status: string, id: string, startedAgo: string, duration: string}>
+     * @return array<int, array{status: string, id: string, url: string, startedAgo: string, duration: string}>
      */
     private function setupHistory(Repository $repository): array
     {
@@ -318,6 +318,7 @@ class RepositoryController extends Controller
             ->map(fn (YakTask $task): array => [
                 'status' => $task->status->value,
                 'id' => (string) $task->external_id,
+                'url' => route('tasks.show', $task),
                 'startedAgo' => $task->created_at?->diffForHumans() ?? '—',
                 'duration' => $this->formatDuration($task->duration_ms),
             ])

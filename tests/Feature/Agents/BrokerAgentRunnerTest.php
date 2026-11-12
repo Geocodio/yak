@@ -151,6 +151,18 @@ it('fails when the runner exits before the turn ends', function () {
         ->and($result->resultSummary)->toContain('exited before the turn ended');
 });
 
+it('names the runner error when the runner exits without a result', function () {
+    $this->streams->pushOut($this->channel, 1, 1, ['type' => 'runner', 'event' => 'started']);
+    $this->streams->pushOut($this->channel, 1, 2, ['type' => 'runner', 'event' => 'error', 'error' => "Error: Claude Code process exited with code 1\n    at sdk.mjs:1:1"]);
+    $this->streams->pushOut($this->channel, 1, 3, ['type' => 'broker.runner_exited', 'event' => 'runner_exited', 'exit_code' => 1], fromBroker: true);
+
+    $result = app(BrokerAgentRunner::class)->run(($this->makeRequest)(30));
+
+    expect($result->isError)->toBeTrue()
+        ->and($result->resultSummary)->toContain('exited before the turn ended (exit code 1): Error: Claude Code process exited with code 1')
+        ->and($result->resultSummary)->not->toContain('sdk.mjs');
+});
+
 it('writes kill when the run times out', function () {
     $this->streams->pushOut($this->channel, 1, 1, ['type' => 'runner', 'event' => 'started']);
 

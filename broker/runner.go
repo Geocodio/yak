@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -67,6 +68,7 @@ func (IncusSpawner) Start(_ context.Context, container string, uid int, cwd, cha
 	if err != nil {
 		return nil, err
 	}
+	cmd.Stderr = &stderrLog{channel: sanitizeChannel(channel), logger: slog.Default()}
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -194,4 +196,43 @@ func firstGlobalIPv4(state []byte) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no global IPv4 address on %s", sandboxInterface)
+}
+
+// stderrLog writes a runner's stderr to the broker log, one record per line, so a runner
+// that dies before it can report on stdout still leaves a trace. Lines are cut to
+// maxStderrLine bytes; no real credential exists inside a sandbox to leak.
+type stderrLog struct {
+	channel string
+	logger  *slog.Logger
+	partial []byte
+}
+
+const maxStderrLine = 2000
+
+func (l *stderrLog) Write(chunk []byte) (int, error) {
+	l.partial = append(l.partial, chunk...)
+	for {
+		index := strings.IndexByte(string(l.partial), '\n')
+		if index < 0 {
+			break
+		}
+		l.emit(l.partial[:index])
+		l.partial = l.partial[index+1:]
+	}
+	if len(l.partial) > maxStderrLine {
+		l.emit(l.partial)
+		l.partial = nil
+	}
+	return len(chunk), nil
+}
+
+func (l *stderrLog) emit(line []byte) {
+	text := strings.TrimSpace(string(line))
+	if text == "" {
+		return
+	}
+	if len(text) > maxStderrLine {
+		text = text[:maxStderrLine]
+	}
+	l.logger.Warn("runner stderr", "channel", l.channel, "line", text)
 }

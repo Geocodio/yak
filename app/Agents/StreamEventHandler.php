@@ -6,6 +6,7 @@ use App\DataTransferObjects\RunStats;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
+use App\Support\SecretRedactor;
 
 class StreamEventHandler
 {
@@ -121,8 +122,38 @@ class StreamEventHandler
             'tool_result' => $this->handleToolResult($event),
             'result' => $this->handleResult($event),
             'system' => $this->handleSystem($event),
+            'runner' => $this->handleRunner($event),
             default => null,
         };
+    }
+
+    /**
+     * The first line of a runner error, redacted and cut to a readable length, or null for any
+     * other runner event. The runner reports SDK start failures this way before any turn output.
+     *
+     * @param  array<string, mixed>  $event
+     */
+    public static function runnerError(array $event): ?string
+    {
+        if (($event['type'] ?? null) !== 'runner' || ($event['event'] ?? null) !== 'error' || ! is_string($event['error'] ?? null)) {
+            return null;
+        }
+
+        $firstLine = strtok(SecretRedactor::redact($event['error']), "\n");
+
+        return mb_substr(trim($firstLine === false ? '' : $firstLine), 0, 400);
+    }
+
+    /**
+     * @param  array<string, mixed>  $event
+     */
+    private function handleRunner(array $event): void
+    {
+        $error = self::runnerError($event);
+
+        if ($error !== null && $error !== '') {
+            TaskLogger::error($this->task, "Agent runner error: {$error}");
+        }
     }
 
     /**

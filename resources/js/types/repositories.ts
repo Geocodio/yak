@@ -88,6 +88,7 @@ export type SandboxData = {
 export type SetupHistoryRow = {
     status: string;
     id: string;
+    url: string;
     startedAgo: string;
     duration: string;
 };

@@ -13,6 +13,7 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	slog.SetDefault(logger)
 	address := os.Getenv("YAK_BROKER_REDIS_ADDR")
 	if address == "" {
 		address = "127.0.0.1:6379"
