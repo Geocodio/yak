@@ -847,7 +847,7 @@ class IncusSandboxManager implements SandboxShell
         }
     }
 
-    private function pushMcpConfig(string $containerName): void
+    public function pushMcpConfig(string $containerName): void
     {
         $mcpConfigPath = config('yak.mcp_config_path');
 
