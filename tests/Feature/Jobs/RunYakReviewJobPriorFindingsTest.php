@@ -94,7 +94,7 @@ function bootIncrementalScenario(callable $configureGithub): array
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([
         ['filename' => 'app/Foo.php', 'patch' => "@@ -5,1 +5,1 @@\n-old\n+new"],
         ['filename' => 'app/Bar.php', 'patch' => "@@ -9,1 +9,1 @@\n-old\n+new"],
     ]);
@@ -210,7 +210,7 @@ it('falls back to today\'s incremental flow when GraphQL fetch fails', function 
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([]);
     $github->shouldReceive('listReviewThreads')->andThrow(new RuntimeException('graphql exploded'));
     $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 9, 'comments' => []]);
     $github->shouldNotReceive('replyToReviewComment');

@@ -54,6 +54,7 @@ class RepositoryConfigParser
             'version' => [],
             'areas' => ['*' => ['name' => [], 'paths' => [], 'symbols' => [], 'risk' => [], 'rationale' => [], 'evidence' => []]],
             'unknowns' => [],
+            'concerns' => ['*' => ['name' => [], 'approval' => [], 'description' => []]],
         ],
     ];
 
@@ -122,7 +123,7 @@ class RepositoryConfigParser
 
         $errors = $this->unknownKeys($data, self::KEYS[$file]);
 
-        $validator = Validator::make($data, $this->rules($file));
+        $validator = Validator::make($data, $this->rules($file, $data['version'] ?? null));
         foreach ($validator->errors()->messages() as $key => $messages) {
             foreach ($messages as $message) {
                 $errors[] = "{$key}: {$message}";
@@ -147,7 +148,7 @@ class RepositoryConfigParser
     }
 
     /** @return array<string, array<int, mixed>> */
-    private function rules(string $file): array
+    private function rules(string $file, mixed $version = null): array
     {
         return match ($file) {
             'config.yml' => [
@@ -187,8 +188,18 @@ class RepositoryConfigParser
                 'checkout_refresh_timeout_seconds' => ['sometimes', 'integer', 'min:1'],
                 'health_probe_timeout_seconds' => ['sometimes', 'integer', 'min:1'],
             ],
-            'risk-profile.yml' => [
-                'version' => ['required', 'integer', 'in:1'],
+            'risk-profile.yml' => $version === 2 ? [
+                'version' => ['required', 'integer', 'in:1,2'],
+                'areas' => ['missing'],
+                'unknowns' => ['missing'],
+                'concerns' => ['present', 'array', 'max:10'],
+                'concerns.*' => ['required', 'array'],
+                'concerns.*.name' => ['required', 'string', 'max:120', 'distinct'],
+                'concerns.*.approval' => ['required', Rule::in(['always_human', 'when_tested'])],
+                'concerns.*.description' => ['required', 'string', 'max:1000'],
+            ] : [
+                'version' => ['required', 'integer', 'in:1,2'],
+                'concerns' => ['missing'],
                 ...RepositoryRiskProfiles::areaRules(),
                 'areas.*.paths.*' => ['required', 'string', 'max:500', 'regex:' . self::PATH_GLOB],
                 'areas.*' => ['required', 'array'],

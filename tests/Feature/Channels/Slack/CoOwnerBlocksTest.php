@@ -314,3 +314,12 @@ it('says only that the tagged person has no write access when nobody else was as
         ->toContain('Tag Er, who you tagged, has no write access to acme/web now.')
         ->not->toContain('so I asked');
 });
+
+it('renders concern evidence with channel pings and links inert', function () {
+    $request = heldRequest(['matched_areas' => [['name' => 'Charges', 'risk' => 'critical', 'rationale' => '<!channel> see <https://evil|click>', 'paths' => ['a.php']]]]);
+
+    $text = allText([...CoOwnerBlocks::threadHeld($request), ...CoOwnerBlocks::directMessage($request, User::factory()->create())]);
+
+    expect($text)->toContain('&lt;!channel&gt;')->toContain('&lt;https://evil|click&gt;')
+        ->not->toContain('<!channel>')->not->toContain('<https://evil');
+});

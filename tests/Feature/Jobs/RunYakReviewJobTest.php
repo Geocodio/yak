@@ -1,25 +1,28 @@
 <?php
 
+use App\Ai\Agents\ConcernClassifier;
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\IssueFetcher as LinearIssueFetcher;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
+use App\DataTransferObjects\ReviewFinding;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\DismissYakApprovalJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
-use App\Models\RiskProfile;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
-use App\Services\RepositoryRiskProfiles;
 use App\Services\ReviewOutputParser;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+use Laravel\Ai\Ai;
 
 beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 12345);
@@ -84,7 +87,7 @@ it('runs a full-scope review end to end', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([[
         'filename' => 'app/Foo.php',
         'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
     ]]);
@@ -159,7 +162,7 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([[
         'filename' => 'app/Foo.php',
         'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
     ]]);
@@ -188,6 +191,7 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
         ->and($captured['comments'][0]['body'])->not->toContain('```original')
         ->and($captured['body'])->not->toContain('Nitpicks')
         ->and($captured['body'])->toContain('Request a re-review')
+        ->and($captured['body'])->not->toContain('Yak will look again.')
         ->and($captured['body'])->toContain(route('tasks.show', $task));
 
     $comment = PrReviewComment::first();
@@ -249,7 +253,7 @@ function postSuggestionReview(array $finding, string $fileAtHead, string $patch)
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([[
         'filename' => $finding['file'],
         'patch' => $patch,
     ]]);
@@ -415,7 +419,7 @@ it('keeps out-of-diff consider findings in the collapsed nitpicks block', functi
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([[
         'filename' => 'app/Foo.php',
         'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
     ]]);
@@ -439,6 +443,7 @@ it('keeps out-of-diff consider findings in the collapsed nitpicks block', functi
 });
 
 it('falls back to a body-only review when GitHub rejects the line comments', function () {
+    $fallbackBody = null;
     $repo = Repository::factory()->create([
         'slug' => 'geocodio/api',
         'pr_review_enabled' => true,
@@ -486,7 +491,7 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
     // re-post with no line comments.
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([[
         'filename' => 'app/Foo.php',
         'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
     ]]);
@@ -496,7 +501,11 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
         ->andThrow(new RuntimeException('GitHub rejected line comments (422)'));
     $github->shouldReceive('createPullRequestReview')
         ->once()
-        ->withArgs(fn ($_i, $_r, $_p, $_b, $_e, $comments) => $comments === [])
+        ->withArgs(function ($_i, $_r, $_p, $body, $_e, $comments) use (&$fallbackBody) {
+            $fallbackBody = $body;
+
+            return $comments === [];
+        })
         ->andReturn(['id' => 42, 'comments' => []]);
     app()->instance(GitHubAppService::class, $github);
 
@@ -504,6 +513,8 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
 
     $review = PrReview::where('yak_task_id', $task->id)->first();
     expect($review)->not->toBeNull()
+        ->and($fallbackBody)->not->toContain('Yak will look again.')
+        ->and($review->risk_assessment['findings_count'])->toBe(1)
         ->and($review->github_review_id)->toBe(42)
         ->and($task->fresh()->status)->toBe(TaskStatus::Success);
 });
@@ -551,7 +562,7 @@ it('does not fetch Linear ticket when no identifier is present', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('t');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
     $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 1, 'comments' => []]);
     app()->instance(GitHubAppService::class, $github);
 
@@ -604,7 +615,7 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('t');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
     $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 1, 'comments' => []]);
     app()->instance(GitHubAppService::class, $github);
 
@@ -613,19 +624,15 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
     expect(PrReview::where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
 
-it('carries the reviewed profile through a full approval and fails closed if it changes', function (bool $changeProfile) {
+it('records the level-based decision and approves a clean docs change at level 2', function () {
+    config(['ai.providers.anthropic.key' => 'sk-ant-test']);
+    Ai::fakeAgent(ConcernClassifier::class, array_fill(0, 2, ['touched_concerns' => [], 'change_kind' => 'no_runtime_change', 'is_uncertain' => false]));
     $repo = Repository::factory()->create([
         'slug' => 'acme/api', 'github_full_name' => 'acme/api',
         'pr_review_enabled' => true, 'is_active' => true,
-        'pr_review_policy' => ['mode' => 'enforce', 'allowed_paths' => ['docs/**'],
-            'required_checks' => [['name' => 'ci', 'app_id' => 123]]],
     ]);
-    $profiles = app(RepositoryRiskProfiles::class);
-    $draft = $profiles->draft($repo->slug, str_repeat('a', 40), json_encode([
-        'areas' => [['name' => 'Docs', 'paths' => ['docs/**'], 'symbols' => [],
-            'risk' => 'low', 'rationale' => 'Docs only.', 'evidence' => ['docs/guide.md:1']]], 'unknowns' => [],
-    ]));
-    $profiles->approve($repo->slug, $draft['version'], 'human');
+    $repo->setApproval(2, 'enforce', null);
+    fakeYakFiles(['risk-profile.yml' => concernsYaml()]);
     $task = YakTask::factory()->create([
         'mode' => TaskMode::Review, 'repo' => $repo->slug,
         'pr_url' => 'https://github.com/acme/api/pull/42',
@@ -637,39 +644,33 @@ it('carries the reviewed profile through a full approval and fails closed if it 
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: "docs/guide.md\n", exitCode: 0));
     app()->instance(IncusSandboxManager::class, $sandbox);
     $agent = mock(AgentRunner::class);
-    $agent->shouldReceive('run')->once()->andReturnUsing(function ($request) use ($draft, $repo, $changeProfile) {
-        expect($request->prompt)->toContain($draft['version']);
-        if ($changeProfile) {
-            RiskProfile::where('repo', $repo->slug)->where('version', $draft['version'])
-                ->update(['approved_by' => null, 'approved_at' => null]);
-        }
-
-        return new AgentRunResult(sessionId: 'approval', resultSummary: 'review', costUsd: 0.01,
-            numTurns: 1, durationMs: 10, isError: false, rawOutput: '');
-    });
-    $signals = ['model_confidence' => 90, 'uncertainties' => [], 'human_review_reasons' => []];
-    foreach (['impact' => 1, 'blast_radius' => 1, 'behavior_change' => 0, 'verification_strength' => 3, 'context_completeness' => 3] as $key => $value) {
-        $signals[$key] = ['value' => $value, 'explanation' => 'Verified.', 'references' => ['docs/guide.md:1']];
-    }
+    $agent->shouldReceive('run')->once()->andReturn(new AgentRunResult(sessionId: 'approval', resultSummary: 'review', costUsd: 0.01,
+        numTurns: 1, durationMs: 10, isError: false, rawOutput: ''));
     $parser = mock(ReviewOutputParser::class);
-    $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.', [], risk: 'low', signals: $signals));
+    $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.', [], risk: 'low'));
     app()->instance(ReviewOutputParser::class, $parser);
     $github = mock(GitHubAppService::class);
-    $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'additions' => 1, 'deletions' => 0, 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
-    $github->shouldReceive('getPullRequest')->andReturn(['state' => 'open', 'draft' => false, 'changed_files' => 1,
-        'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']], 'base' => ['sha' => 'base', 'ref' => 'main'], 'user' => ['login' => 'alice']]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'additions' => 1, 'deletions' => 0, 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(['state' => 'open', 'draft' => false, 'changed_files' => 1,
+        'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']], 'base' => ['sha' => 'base', 'ref' => 'main', 'repo' => ['full_name' => 'acme/api']], 'user' => ['login' => 'alice']]);
     $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
-    $github->shouldReceive('approvalEvidence')->andReturn(['dismiss_stale_reviews' => true, 'threads_clear' => true,
-        'check_runs' => [['name' => 'ci', 'app' => ['id' => 123], 'status' => 'completed', 'conclusion' => 'success']],
-        'total_count' => 1, 'statuses' => [], 'status_count' => 0]);
-    $event = $changeProfile ? 'COMMENT' : 'APPROVE';
-    $github->shouldReceive('createPullRequestReview')->once()->with(12345, 'acme/api', 42, Mockery::type('string'), $event, [], 'head')->andReturn(['id' => 123]);
+    $github->shouldReceive('hasRequiredStatusChecks')->andReturn(true);
+    $github->shouldReceive('createPullRequestReview')->once()
+        ->with(12345, 'acme/api', 42, Mockery::on(fn (string $body): bool => str_contains($body, 'Mode: enforce. DEFCON 2. Decision: APPROVE.')
+            && str_contains($body, 'Approval is not merge authorization.')), 'APPROVE', [], 'head')
+        ->andReturn(['id' => 123]);
     app()->instance(GitHubAppService::class, $github);
+
     (new RunYakReviewJob($task))->handle($agent);
+
     expect($task->fresh()->error_log)->toBeNull();
+    $review = PrReview::where('yak_task_id', $task->id)->firstOrFail();
     expect($task->fresh()->status)->toBe(TaskStatus::Success)
-        ->and(PrReview::where('yak_task_id', $task->id)->firstOrFail()->risk_assessment['event'])->toBe($event);
-})->with([false, true]);
+        ->and($review->risk_assessment['event'])->toBe('APPROVE')
+        ->and($review->risk_assessment['level'])->toBe(2)
+        ->and($review->risk_assessment['classification']['change_kind'])->toBe('no_runtime_change')
+        ->and($review->risk_assessment['head_sha'])->toBe('head');
+});
 
 it('reports a review on a repository with review turned off as a failure', function () {
     Queue::fake([SendNotificationJob::class]);
@@ -688,4 +689,172 @@ it('reports a review on a repository with review turned off as a failure', funct
     expect($task->fresh()->status)->toBe(TaskStatus::Failed);
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Error
         && $notification->message === 'Repository missing or PR review not enabled');
+});
+
+function approvalHardeningSetup(): array
+{
+    config(['ai.providers.anthropic.key' => 'sk-ant-test']);
+    Ai::fakeAgent(ConcernClassifier::class, array_fill(0, 2, ['touched_concerns' => [], 'change_kind' => 'no_runtime_change', 'is_uncertain' => false]));
+    $repo = Repository::factory()->create(['slug' => 'acme/api', 'github_full_name' => 'acme/api', 'pr_review_enabled' => true, 'is_active' => true]);
+    $repo->setApproval(2, 'enforce', null);
+    fakeYakFiles(['risk-profile.yml' => concernsYaml()]);
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review, 'repo' => $repo->slug, 'pr_url' => 'https://github.com/acme/api/pull/42',
+        'context' => json_encode(['pr_number' => 42, 'head_sha' => 'head', 'base_sha' => 'base',
+            'base_ref' => 'main', 'author' => 'alice', 'title' => 'Docs', 'body' => '', 'review_scope' => 'full']),
+    ]);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
+    $sandbox->shouldReceive('create')->andReturn('yak-task-' . $task->id);
+    $sandbox->shouldReceive('run')->andReturn(Process::result(output: "docs/guide.md\n", exitCode: 0));
+    app()->instance(IncusSandboxManager::class, $sandbox);
+    $agent = mock(AgentRunner::class);
+    $agent->shouldReceive('run')->once()->andReturn(new AgentRunResult(sessionId: 'a', resultSummary: 'review', costUsd: 0.01,
+        numTurns: 1, durationMs: 10, isError: false, rawOutput: ''));
+    $parser = mock(ReviewOutputParser::class);
+    $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.', [], risk: 'low'));
+    app()->instance(ReviewOutputParser::class, $parser);
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
+    $github->shouldReceive('hasRequiredStatusChecks')->andReturn(true);
+
+    return [$task, $agent, $github];
+}
+
+function approvalLivePullRequest(string $headSha): array
+{
+    return ['state' => 'open', 'draft' => false, 'changed_files' => 1, 'user' => ['login' => 'alice'],
+        'head' => ['sha' => $headSha, 'repo' => ['full_name' => 'acme/api']], 'base' => ['ref' => 'main', 'repo' => ['full_name' => 'acme/api']]];
+}
+
+it('dismisses an approval when new commits arrive while it is being submitted', function () {
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'), approvalLivePullRequest('newer'));
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(fn ($i, $r, $n, $b, $event) => $event === 'APPROVE')->andReturn(['id' => 123]);
+    $github->shouldReceive('dismissPullRequestReviewOrFail')->once()
+        ->with(12345, 'acme/api', 42, 123, 'New commits arrived while Yak was approving. Reviewing again.');
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect(PrReview::where('yak_task_id', $task->id)->firstOrFail()->dismissed_at)->not->toBeNull();
+});
+
+it('leaves dismissed_at null and queues a retry when the stale approval cannot be dismissed', function () {
+    Queue::fake();
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'), approvalLivePullRequest('newer'));
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(fn ($i, $r, $n, $b, $event) => $event === 'APPROVE')->andReturn(['id' => 123]);
+    $github->shouldReceive('dismissPullRequestReviewOrFail')->once()->andThrow(new RuntimeException('422'));
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    $review = PrReview::where('yak_task_id', $task->id)->firstOrFail();
+    expect($review->dismissed_at)->toBeNull();
+    Queue::assertPushed(DismissYakApprovalJob::class, fn (DismissYakApprovalJob $job): bool => $job->prReviewId === $review->id);
+});
+
+it('never approves when the pull request file list cannot be loaded completely', function () {
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $github->shouldReceive('listPullRequestFilesOrFail')->andThrow(new RuntimeException('502'));
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(fn ($i, $r, $n, $b, $event) => $event === 'COMMENT')->andReturn(['id' => 123]);
+    $github->shouldNotReceive('dismissPullRequestReview');
+    $github->shouldNotReceive('dismissPullRequestReviewOrFail');
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect(PrReview::where('yak_task_id', $task->id)->firstOrFail()->risk_assessment['candidate'])->not->toBe('APPROVE');
+});
+
+function runLevelTwoReviewWithPriorFinding(string $status): array
+{
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $previous = PrReview::factory()->create([
+        'yak_task_id' => YakTask::factory()->create(['mode' => TaskMode::Review]),
+        'repo' => 'acme/api', 'pr_number' => 42, 'pr_url' => $task->pr_url, 'github_review_id' => 11,
+        'dismissed_at' => now(),
+    ]);
+    PrReviewComment::factory()->create(['pr_review_id' => $previous->id, 'github_comment_id' => 777]);
+    $parser = mock(ReviewOutputParser::class);
+    $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.', [],
+        priorFindings: [new ParsedPriorFinding(777, $status, 'reply')], risk: 'low'));
+    app()->instance(ReviewOutputParser::class, $parser);
+    $github->shouldReceive('listReviewThreads')->andReturn([['is_resolved' => $status === ParsedPriorFinding::STATUS_FIXED, 'comment_database_ids' => [777]]]);
+    $github->shouldReceive('replyToReviewComment')->andReturn(['id' => 5]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
+    $event = null;
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(function ($i, $r, $n, $b, $e) use (&$event) {
+        $event = $e;
+
+        return true;
+    })->andReturn(['id' => 123]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    return [$event, PrReview::where('yak_task_id', $task->id)->firstOrFail()];
+}
+
+it('holds a level 2 full re-review while an earlier finding is still outstanding', function () {
+    [$event, $review] = runLevelTwoReviewWithPriorFinding(ParsedPriorFinding::STATUS_STILL_OUTSTANDING);
+
+    expect($event)->toBe('COMMENT')
+        ->and($review->risk_assessment['reasons'])->toContain('An earlier finding is still open.');
+});
+
+it('approves a level 2 full re-review whose earlier findings are fixed', function () {
+    [$event] = runLevelTwoReviewWithPriorFinding(ParsedPriorFinding::STATUS_FIXED);
+
+    expect($event)->toBe('APPROVE');
+});
+
+it('adds the second round hint only at level 2 and up', function () {
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $parser = mock(ReviewOutputParser::class);
+    $parser->shouldReceive('parse')->andReturn(new ParsedReview('Docs.', 'Approve', 'Verified.',
+        [new ReviewFinding('docs/guide.md', 1, 'should_fix', 'Docs', 'Fix it.')], risk: 'low'));
+    app()->instance(ReviewOutputParser::class, $parser);
+    $github->shouldReceive('listReviewThreads')->andReturn([]);
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
+    $body = null;
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(function ($i, $r, $n, $b) use (&$body) {
+        $body = $b;
+
+        return true;
+    })->andReturn(['id' => 123]);
+    $github->shouldReceive('listReviewComments')->andReturn([]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect($body)->toContain('Yak will look again.');
+});
+
+it('holds a level 2 review when hydrating prior findings fails', function () {
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $previous = PrReview::factory()->create([
+        'yak_task_id' => YakTask::factory()->create(['mode' => TaskMode::Review]),
+        'repo' => 'acme/api', 'pr_number' => 42, 'pr_url' => $task->pr_url, 'github_review_id' => 11, 'dismissed_at' => now(),
+    ]);
+    PrReviewComment::factory()->create(['pr_review_id' => $previous->id, 'github_comment_id' => 777]);
+    $github->shouldReceive('listReviewThreads')->andThrow(new RuntimeException('502'));
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
+    $event = null;
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(function ($i, $r, $n, $b, $e) use (&$event) {
+        $event = $e;
+
+        return true;
+    })->andReturn(['id' => 123]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect($event)->toBe('COMMENT');
 });

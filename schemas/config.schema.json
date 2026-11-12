@@ -88,7 +88,8 @@
         },
         "approval": {
           "type": "object",
-          "description": "Rules for when Yak may approve a pull request.",
+          "description": "Ignored. The approval level is set in Yak's dashboard.",
+          "deprecated": true,
           "additionalProperties": false,
           "properties": {
             "mode": {

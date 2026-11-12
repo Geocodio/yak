@@ -482,6 +482,9 @@ return [
     */
 
     'pr_review' => [
+        // Largest classifier prompt (concerns plus diff), in characters.
+        'classifier_max_diff_characters' => 200000,
+
         // Files that decide how Yak itself behaves in a repository. A diff
         // touching them always needs a human, whatever the repository says.
         'config_floor_paths' => [
@@ -500,6 +503,17 @@ return [
             '*Billing*', '*Payment*', '*Review*', '*Approval*', '*Permission*', '*Risk*', '*Prompt*',
             'app/Channels/GitHub/**', 'app/Jobs/ResearchYakJob.php', 'app/Support/PathMatcher.php',
             'resources/views/prompts/**',
+        ],
+        // The hard floor: a diff touching any of these always needs a human.
+        // Repository-agnostic and not repository editable.
+        'approval_veto_paths' => [
+            '.yak/**', 'AGENTS.md', 'CLAUDE.md', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS',
+            '.claude/**', '.github/**', '.drone*', '.gitlab-ci.yml', '.circleci/**', 'Jenkinsfile',
+            'Dockerfile*', '**/Dockerfile*', 'docker/**', 'docker-compose*', 'compose.yml', 'compose.yaml',
+            '.dockerignore', 'ansible/**', '*.tf', '*.tfvars', 'Procfile',
+            'database/migrations/**', 'migrations/**', '**/migrations/**', 'db/migrate/**',
+            '.env*', '*.pem', '*.key', 'auth.json',
+            'config/auth.php', 'config/sanctum.php', 'config/fortify.php',
         ],
         // What counts as a test file for the approval gate. Not repository
         // editable: widening this makes approval easier, so it stays with the

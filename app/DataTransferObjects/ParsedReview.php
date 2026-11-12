@@ -7,7 +7,6 @@ final readonly class ParsedReview
     /**
      * @param  array<int, ReviewFinding>  $findings
      * @param  array<int, ParsedPriorFinding>  $priorFindings
-     * @param  array<string, mixed>  $signals
      */
     public function __construct(
         public string $summary,
@@ -16,6 +15,5 @@ final readonly class ParsedReview
         public array $findings,
         public array $priorFindings = [],
         public string $risk = 'unknown',
-        public array $signals = [],
     ) {}
 }

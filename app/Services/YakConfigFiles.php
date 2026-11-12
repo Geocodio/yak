@@ -38,18 +38,6 @@ class YakConfigFiles
         if ($repository->pr_review_path_excludes !== null) {
             $config['review']['exclude_paths'] = array_values($repository->pr_review_path_excludes);
         }
-        if ($repository->pr_review_policy !== null) {
-            $config['review']['approval'] = [
-                'mode' => $policy['mode'],
-                'allowed_paths' => $policy['allowed_paths'],
-                'blocked_paths' => $policy['blocked_paths'],
-                'max_files' => $policy['max_files'],
-                'max_lines' => $policy['max_lines'],
-                'max_risk_score' => $policy['max_risk_score'],
-                'min_confidence' => $policy['min_confidence'],
-                'required_checks' => array_values(array_unique(array_column($checks, 'name'))),
-            ];
-        }
 
         $files = ['.yak/config.yml' => $this->render('config.yml', $config)];
 
@@ -114,6 +102,19 @@ class YakConfigFiles
             'version' => 1,
             'areas' => $areas,
             'unknowns' => $profile['unknowns'] ?? [],
+        ]);
+    }
+
+    /** @param list<array{name: string, approval: string, description: string}> $concerns */
+    public function concerns(array $concerns): string
+    {
+        return $this->render('risk-profile.yml', [
+            'version' => 2,
+            'concerns' => array_map(fn (array $concern): array => [
+                'name' => $concern['name'],
+                'approval' => $concern['approval'],
+                'description' => $concern['description'],
+            ], $concerns),
         ]);
     }
 

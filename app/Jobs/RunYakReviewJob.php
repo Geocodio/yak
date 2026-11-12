@@ -31,7 +31,6 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\PriorFindingsHydrator;
 use App\Services\PriorFindingsRollup;
-use App\Services\RepositoryRiskProfiles;
 use App\Services\ReviewApprovalPolicy;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;
@@ -155,7 +154,6 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
             $this->checkoutPrHead($sandbox, $containerName, $repository, $metadata);
             $promptContext = $this->buildPromptContext($sandbox, $containerName, $repository, $metadata);
-            $metadata['risk_profile_version'] = $promptContext['approvedRiskProfile']['version'] ?? null;
             $recorder->mark('git_prepare');
 
             $prompt = YakPromptBuilder::taskPrompt($this->task, $promptContext);
@@ -360,7 +358,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             fn (string $f): bool => ! PathMatcher::matches($f, $pathExcludes),
         ));
 
-        $priorFindings = $scope === 'incremental' && $this->task->pr_url !== null
+        $needsPriorFindings = $scope === 'incremental' || $repository->approvalLevel() >= 2;
+        $priorFindings = $needsPriorFindings && $this->task->pr_url !== null
             ? app(PriorFindingsHydrator::class)->hydrate(
                 $repository->github_full_name,
                 (int) $metadata['pr_number'],
@@ -369,12 +368,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             )
             : [];
 
-        $riskProfile = app(RepositoryRiskProfiles::class)->active($repository->slug);
-        $metadata['risk_profile_version'] = $riskProfile['version'] ?? null;
-        $this->task->update(['context' => json_encode($metadata)]);
-
         return [
-            'approvedRiskProfile' => $riskProfile,
             'prNumber' => (int) $metadata['pr_number'],
             'prTitle' => (string) $metadata['title'],
             'prBody' => (string) $metadata['body'],
@@ -449,7 +443,6 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             findings: $allowed,
             priorFindings: $parsed->priorFindings,
             risk: $parsed->risk,
-            signals: $parsed->signals,
         );
     }
 
@@ -541,7 +534,14 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         // Ask GitHub which (file, line) pairs live inside a diff hunk —
         // only those can carry a review comment without being rejected
         // with a 422. Everything else gets rolled into the review body.
-        $prFiles = $github->listPullRequestFiles($installationId, $repository->github_full_name, $prNumber);
+        // An incomplete list never reaches the approval policy: on failure the
+        // empty list holds approval and every finding goes into the review body.
+        try {
+            $prFiles = $github->listPullRequestFilesOrFail($installationId, $repository->github_full_name, $prNumber);
+        } catch (\Throwable $e) {
+            TaskLogger::warning($this->task, 'Could not list pull request files; approval is held', ['error' => $e->getMessage()]);
+            $prFiles = [];
+        }
         $validLines = GitHubDiffLines::buildMap($prFiles);
 
         $lineComments = [];
@@ -618,20 +618,16 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         $policyNote = '';
         if ($decision['mode'] !== 'off') {
             $policyNote = "\n\n<details><summary>Yak review policy</summary>\n\n"
-                . "Mode: {$decision['mode']}. Decision: {$decision['candidate']}.\n\n"
-                . 'Risk score: ' . ($decision['risk_score'] ?? 'unknown') . '/100. '
-                . 'Model confidence (subjective): ' . ($decision['model_confidence'] ?? 'unknown') . '/100. '
-                . 'Profile: ' . ($decision['profile_version'] ?? 'missing') . ".\n\n"
+                . "Mode: {$decision['mode']}. DEFCON {$decision['level']}. Decision: {$decision['candidate']}.\n\n"
                 . implode("\n", array_map(fn (string $reason): string => '- ' . $reason, $decision['reasons']))
-                . "\n\nSignals and observed evidence:\n```json\n"
-                . json_encode(['signals' => $unfiltered->signals, 'components' => $decision['score_components'], 'observed' => $decision['observed']], JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE)
-                . "\n```"
                 . "\n\nApproval is not merge authorization. A human still merges.\n</details>";
             $body .= $policyNote;
             TaskLogger::info($this->task, 'Review approval policy evaluated', $decision + [
                 'head_sha' => $metadata['head_sha'], 'base_sha' => $metadata['base_sha'],
             ]);
         }
+
+        $body = $this->withSecondRoundHint($body, $parsed, $repository);
 
         try {
             $response = $github->createPullRequestReview(
@@ -664,6 +660,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             // A rejected submission is never retried as an approval.
             $decision['event'] = 'COMMENT';
             $body .= $policyNote . "\n\nGitHub rejected the original review; posted as a comment only.";
+            $body = $this->withSecondRoundHint($body, $parsed, $repository);
             $response = $github->createPullRequestReview(
                 $installationId,
                 $repository->github_full_name,
@@ -689,8 +686,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'incremental_base_sha' => $metadata['incremental_base_sha'] ?? null,
             'summary' => $parsed->summary,
             'verdict' => $parsed->verdict,
-            'risk_assessment' => $decision + ['signals' => $unfiltered->signals,
-                'head_sha' => $metadata['head_sha'], 'base_sha' => $metadata['base_sha']],
+            'risk_assessment' => $decision + [
+                'head_sha' => $metadata['head_sha'], 'base_sha' => $metadata['base_sha'],
+                'findings_count' => count($parsed->findings),
+            ],
             'submitted_at' => now(),
         ]);
 
@@ -707,10 +706,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'approval_mode' => $decision['mode'],
             'approval_reasons' => $decision['reasons'],
             'risk' => $unfiltered->risk,
-            'risk_score' => $decision['risk_score'],
-            'model_confidence' => $decision['model_confidence'],
-            'risk_profile_version' => $decision['profile_version'],
-            'risk_signals' => $unfiltered->signals,
+            'approval_level' => $decision['level'],
+            'concerns_version' => $decision['concerns_version'],
+            'touched_concerns' => array_column($decision['classification']['touched_concerns'] ?? [], 'name'),
+            'change_kind' => $decision['classification']['change_kind'] ?? null,
             'scope' => (string) ($metadata['review_scope'] ?? 'full'),
             'verdict' => $parsed->verdict,
             'findings' => count($parsed->findings),
@@ -722,6 +721,26 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'pr_number' => (int) $metadata['pr_number'],
             'pr_author' => (string) ($metadata['author'] ?? ''),
         ], task: $this->task, subject: $review);
+
+        if ($decision['event'] === 'APPROVE' && isset($response['id'])) {
+            try {
+                $currentHead = $github->getPullRequestOrFail($installationId, $repository->github_full_name, $prNumber)['head']['sha'] ?? null;
+            } catch (\Throwable) {
+                $currentHead = null;
+            }
+            if ($currentHead !== (string) $metadata['head_sha']) {
+                try {
+                    $github->dismissPullRequestReviewOrFail(
+                        $installationId, $repository->github_full_name, $prNumber, (int) $response['id'],
+                        'New commits arrived while Yak was approving. Reviewing again.',
+                    );
+                    $review->update(['dismissed_at' => now()]);
+                } catch (\Throwable $e) {
+                    Log::error('Failed to dismiss stale approval', ['review_id' => $review->id, 'error' => $e->getMessage()]);
+                    DismissYakApprovalJob::dispatch($review->id)->delay(now()->addSeconds(30));
+                }
+            }
+        }
 
         if ($priorFindings !== []) {
             PrReviewComment::query()
@@ -739,7 +758,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             foreach ($priorReviews as $prior) {
                 if ($prior->github_review_id !== null) {
                     try {
-                        app(GitHubAppService::class)->dismissPullRequestReview(
+                        app(GitHubAppService::class)->dismissPullRequestReviewOrFail(
                             $installationId,
                             $repository->github_full_name,
                             (int) $metadata['pr_number'],
@@ -751,6 +770,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                             'prior_id' => $prior->id,
                             'error' => $e->getMessage(),
                         ]);
+
+                        continue;
                     }
                 }
 
@@ -911,6 +932,15 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     private function reviewerNotesBlock(ParsedReview $parsed): string
     {
         return "<details>\n<summary>For the reviewer</summary>\n\n" . trim($parsed->summary) . "\n</details>";
+    }
+
+    private function withSecondRoundHint(string $body, ParsedReview $parsed, Repository $repository): string
+    {
+        if ($parsed->findings === [] || $repository->approvalLevel() < 2) {
+            return $body;
+        }
+
+        return $body . "\n\nWhen you have addressed these, resolve the threads or comment /yak review, and Yak will look again.";
     }
 
     private function reReviewFooter(): string

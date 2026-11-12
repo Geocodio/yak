@@ -251,6 +251,20 @@ unknowns: ["Does launcher/ touch production credentials?"]
 YAML;
 }
 
+function concernsYaml(): string
+{
+    return <<<'YAML'
+version: 2
+concerns:
+  - name: Customer charges and Stripe writes
+    approval: always_human
+    description: Code that decides how much a customer is charged or credited.
+  - name: Usage metering and credit accounting
+    approval: when_tested
+    description: Counting and attributing billable requests to accounts.
+YAML;
+}
+
 /**
  * Fake the GitHub calls behind the risk map: the head tree, CODEOWNERS, the
  * last commit of the profile file and the pull request that merged it.

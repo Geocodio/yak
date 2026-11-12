@@ -19,6 +19,7 @@ use App\Services\RepositoryConfig;
 use App\Services\RepositoryRiskProfiles;
 use App\Support\Docs;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -239,7 +240,7 @@ class RepositoryController extends Controller
             'ciSystem' => $repository->ci_system,
             'sentryProject' => $repository->sentry_project,
             'prReviewEnabled' => (bool) $repository->pr_review_enabled,
-            'reviewPolicy' => $repository->reviewPolicy(),
+            'reviewPolicy' => Arr::only($repository->reviewPolicy(), 'profile_max_age_days'),
             'riskProfiles' => app(RepositoryRiskProfiles::class)->forSettings($repository->slug),
             'riskProfileActionUrl' => route('repos.risk-profile', $repository),
             'deploymentsEnabled' => (bool) $repository->deployments_enabled,
@@ -270,7 +271,7 @@ class RepositoryController extends Controller
                 ->map(fn (User $user): array => ['value' => (string) $user->id, 'label' => $user->name])
                 ->all(),
             'defaultPathExcludes' => config('yak.pr_review.default_path_excludes'),
-            'defaultReviewPolicy' => (new Repository)->reviewPolicy(),
+            'defaultReviewPolicy' => Arr::only((new Repository)->reviewPolicy(), 'profile_max_age_days'),
         ];
     }
 

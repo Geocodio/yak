@@ -11,10 +11,13 @@ use App\Jobs\SendCoOwnerMessagesJob;
 use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ConcernCheck;
 use App\Services\RiskProfileVerdict;
 use App\Services\TaskLogger;
+use App\Support\ApprovalFloor;
 use App\Support\CodeOwners;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -37,6 +40,7 @@ class CoOwnerGate
         private TaskRequester $requesters,
         private GitHubWriteAccess $writeAccess,
         private CoOwnerResolver $resolver,
+        private ConcernCheck $concernCheck,
     ) {}
 
     /**
@@ -175,6 +179,12 @@ class CoOwnerGate
         }
 
         $settings = $repository->settings();
+        $concerns = $settings->concerns();
+
+        if ($concerns !== null) {
+            return $this->judgeByConcerns($concerns, $changed);
+        }
+
         $profile = RiskProfilePageData::effectiveProfile($repository, $settings);
 
         if ($profile === null) {
@@ -236,6 +246,54 @@ class CoOwnerGate
             askEntries: $verdict['asks'],
             attempts: $attempts,
         );
+    }
+
+    /**
+     * Floor paths are held per path. Otherwise any touched concern, an unsure
+     * classifier or a classifier failure holds every file, whatever the
+     * concern's approval tier. An empty concern list never calls the classifier.
+     *
+     * @param  list<array{name: string, approval: string, description: string}>  $concerns
+     * @param  list<array<string, mixed>>  $changed
+     * @return array<string, mixed>|null
+     */
+    private function judgeByConcerns(array $concerns, array $changed): ?array
+    {
+        if (count($changed) >= self::LISTING_CAP) {
+            return $this->outcome(['listing'], true, changed: $changed, isEverythingHeld: true);
+        }
+
+        $floorPaths = ApprovalFloor::heldPaths($changed);
+
+        if ($floorPaths !== []) {
+            $isHeldByPath = [];
+            foreach ($changed as $file) {
+                $isHeldByPath[(string) ($file['filename'] ?? '')] = in_array($file['filename'] ?? null, $floorPaths, true)
+                    || in_array($file['previous_filename'] ?? null, $floorPaths, true);
+            }
+
+            return $this->outcome(['floor'], true, changed: $changed, isHeldByPath: $isHeldByPath);
+        }
+
+        if ($concerns === []) {
+            return null;
+        }
+
+        $result = $this->concernCheck->check($concerns, $changed);
+
+        if ($result->isClear()) {
+            return null;
+        }
+
+        $paths = array_map(fn (array $file): string => (string) ($file['filename'] ?? ''), $changed);
+        $matchedAreas = array_map(fn (array $touched): array => [
+            'name' => $touched['name'],
+            'risk' => 'critical',
+            'rationale' => Str::limit($touched['evidence'], 297),
+            'paths' => $paths,
+        ], $result->touchedConcerns);
+
+        return $this->outcome(['concern'], true, changed: $changed, isEverythingHeld: true, matchedAreas: $matchedAreas);
     }
 
     /**

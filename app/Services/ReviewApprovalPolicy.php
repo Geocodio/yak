@@ -3,201 +3,55 @@
 namespace App\Services;
 
 use App\Channels\GitHub\AppService;
+use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
-use App\Enums\TaskMode;
+use App\Models\PrReviewComment;
 use App\Models\Repository;
-use App\Models\YakTask;
+use App\Support\ApprovalFloor;
 use App\Support\PathMatcher;
 
 class ReviewApprovalPolicy
 {
     /**
-     * Evaluate the unfiltered review and complete PR file list, not the incremental
-     * diff or the capped list of comments shown to the author. Fail closed.
+     * Decide whether the latest review of a pull request may be approved. Checks run
+     * in order and the first failing stage ends the evaluation. Fail closed.
      *
      * @param  array<string, mixed>  $metadata
-     * @param  array<int, array<string, mixed>>  $files
+     * @param  array<int, array<string, mixed>>  $files  The complete PR file list
      * @return array<string, mixed>
      */
     public function evaluate(Repository $repository, ParsedReview $review, array $metadata, array $files): array
     {
         $repository->refresh();
         $settings = $repository->settings();
-        $policy = $settings->reviewPolicy();
-        $mode = $repository->is_active && $settings->reviewEnabled() ? ($policy['mode'] ?? 'off') : 'off';
-        $assessment = app(ReviewRiskScorer::class)->assess($review->signals, (int) $policy['min_confidence']);
-        $decision = ['event' => 'COMMENT', 'candidate' => 'COMMENT', 'reasons' => [], 'mode' => $mode,
-            'risk_score' => $assessment['score'], 'model_confidence' => $assessment['model_confidence'],
-            'score_components' => $assessment['components'], 'scoring_version' => ReviewRiskScorer::VERSION,
-            'profile_version' => null, 'observed' => ['files' => count($files), 'ci_verified' => false]];
+        $level = $repository->approvalLevel();
+        $mode = $repository->is_active && $settings->reviewEnabled() ? $repository->approvalMode() : 'off';
+        $hasTestChange = $this->hasTestChange($files);
+        $decision = ['event' => 'COMMENT', 'candidate' => 'COMMENT', 'reasons' => [], 'mode' => $mode, 'level' => $level,
+            'concerns_version' => $settings->concernsVersion(), 'classification' => null,
+            'observed' => ['files' => count($files), 'has_test_change' => $hasTestChange, 'required_checks_present' => null]];
 
-        if (! in_array($mode, ['shadow', 'enforce'], true)) {
+        if (! in_array($mode, ['shadow', 'enforce'], true) || $level < 2) {
+            $decision['mode'] = 'off';
+
             return $decision;
         }
 
-        $reasons = $assessment['reasons'];
-        $profile = app(RepositoryRiskProfiles::class)->active($repository->slug);
-        $decision['profile_version'] = $profile['version'] ?? null;
-        if ($profile === null || ($metadata['risk_profile_version'] ?? null) !== $profile['version']) {
-            $reasons[] = 'Approved risk profile is missing, expired or changed during review.';
-        }
-        if (($profile['unknowns'] ?? []) !== []) {
-            $reasons[] = 'Repository risk profile has unresolved context gaps.';
-        }
+        $github = app(AppService::class);
+        $isYakAuthored = strcasecmp((string) ($metadata['author'] ?? ''), $github->appBotLogin()) === 0;
         $excludes = $settings->reviewPathExcludes() ?? (array) config('yak.pr_review.default_path_excludes', []);
         $mustFix = false;
         foreach ($review->findings as $finding) {
-            // Every finding blocks approval, but only a finding the author can
-            // actually see is allowed to turn the review into a change request
-            // — an excluded path is never shown in the review body.
-            $mustFix = $mustFix || ($finding->severity === 'must_fix'
-                && ! PathMatcher::matches($finding->file, $excludes));
-            $reasons[] = 'Review contains findings.';
+            // Only a finding the author can see may turn the review into a change
+            // request; an excluded path is never shown in the review body.
+            $mustFix = $mustFix || ($finding->severity === 'must_fix' && ! PathMatcher::matches($finding->file, $excludes));
         }
 
-        if ($review->verdict !== 'Approve') {
-            $reasons[] = 'Review verdict is not a clean approval.';
-        }
-        if ($review->risk !== 'low') {
-            $reasons[] = 'Reviewer risk is high or unknown.';
-        }
-        if (($metadata['review_scope'] ?? '') !== 'full') {
-            $reasons[] = 'Approval requires a full review; request another review.';
-        }
-        if ($review->priorFindings !== []) {
-            $reasons[] = 'Prior findings require a fresh full review.';
-        }
-
-        $allowed = (array) ($policy['allowed_paths'] ?? []);
-        $blocked = array_merge((array) config('yak.pr_review.approval_blocked_paths', []), (array) config('yak.pr_review.config_floor_paths', []), $policy['blocked_paths']);
-        $lines = 0;
-        $hasCode = false;
-        $hasTests = false;
-        $testDeletions = 0;
-        $testSkips = false;
-
-        if ($files === [] || count($files) > (int) $policy['max_files']) {
-            $reasons[] = 'Missing files or file-count limit exceeded.';
-        }
-        foreach ($files as $file) {
-            $path = (string) ($file['filename'] ?? '');
-            $areaRisk = null;
-            foreach (($profile['areas'] ?? []) as $area) {
-                if (PathMatcher::matches($path, $area['paths'])) {
-                    $floor = match ($area['risk']) {
-                        'low' => 0, 'medium' => 50, 'high' => 75, default => 100,
-                    };
-                    $areaRisk = max($areaRisk ?? 0, $floor);
-                }
-            }
-            if ($areaRisk === null || $areaRisk > 0) {
-                $reasons[] = "Profile requires human review: {$path}";
-            }
-            if ($decision['risk_score'] !== null) {
-                $decision['risk_score'] = max($decision['risk_score'], $areaRisk ?? 100);
-            }
-            if ($path === '' || ! PathMatcher::matches($path, $allowed)
-                || PathMatcher::matches($path, $blocked) || PathMatcher::matches($path, $excludes)) {
-                $reasons[] = "Path requires human review: {$path}";
-            }
-            if (! in_array($file['status'] ?? '', ['added', 'modified'], true)) {
-                $reasons[] = 'Deleted, renamed or unknown file status.';
-            }
-            if (! isset($file['patch'], $file['additions'], $file['deletions'])
-                || ! is_int($file['additions']) || ! is_int($file['deletions'])
-                || $file['additions'] < 0 || $file['deletions'] < 0) {
-                $reasons[] = 'Missing or invalid diff evidence.';
-
-                continue;
-            }
-            $patch = $file['patch'];
-            if (! is_string($patch) || trim($patch) === ''
-                || preg_match_all('/^\+/m', $patch) !== $file['additions']
-                || preg_match_all('/^-/m', $patch) !== $file['deletions']) {
-                $reasons[] = 'Diff is empty, malformed or truncated.';
-            }
-            $lines += $file['additions'] + $file['deletions'];
-            $test = PathMatcher::matches($path, (array) config('yak.pr_review.approval_test_paths', []));
-            $hasTests = $hasTests || ($test && $file['additions'] > 0);
-            $hasCode = $hasCode || (! $test && ! str_ends_with($path, '.md'));
-            if ($test && $file['deletions'] > 0) {
-                $testDeletions += $file['deletions'];
-                $reasons[] = 'Existing tests were modified or removed.';
-            }
-            if ($test && preg_match('/^\+[^+].*(?:->skip\s*\(|\.(?:skip|todo)\s*\(|markTestSkipped\s*\()/m', (string) $file['patch']) === 1) {
-                $testSkips = true;
-                $reasons[] = 'Test skips or TODOs were introduced.';
-            }
-        }
-        if ($lines > (int) $policy['max_lines']) {
-            $reasons[] = 'Changed-line limit exceeded.';
-        }
-        if ($hasCode && ! $hasTests) {
-            $reasons[] = 'Code change has no added test coverage.';
-        }
-        $decision['observed']['changed_lines'] = $lines;
-        $decision['observed']['test_additions_present'] = $hasTests;
-        $decision['observed']['test_lines_deleted'] = $testDeletions;
-        $decision['observed']['test_skips_added'] = $testSkips;
-        $writerAttempts = isset($metadata['pr_url']) ? YakTask::query()
-            ->where('repo', $repository->slug)->where('pr_url', $metadata['pr_url'])
-            ->where('mode', '!=', TaskMode::Review)->max('attempts') : null;
-        $decision['observed']['writer_attempts'] = $writerAttempts === null ? null : (int) $writerAttempts;
-        if ($writerAttempts !== null && (int) $writerAttempts > 1) {
-            $reasons[] = 'Yak required multiple implementation attempts.';
-        }
-        $decision['observed']['reviewed_head_sha'] = $metadata['head_sha'] ?? null;
-        if ($decision['risk_score'] === null || $decision['risk_score'] > (int) $policy['max_risk_score']) {
-            $reasons[] = 'Risk score is unknown or exceeds the approval threshold of ' . $policy['max_risk_score'] . '.';
-        }
-
-        try {
-            $github = app(AppService::class);
-            $installationId = (int) config('yak.channels.github.installation_id');
-            $pr = $github->getPullRequest($installationId, $repository->github_full_name, (int) $metadata['pr_number']);
-            $current = ($pr['state'] ?? '') === 'open' && ($pr['draft'] ?? true) === false
-                && ($pr['auto_merge'] ?? null) === null
-                && ($pr['head']['sha'] ?? null) === ($metadata['head_sha'] ?? '')
-                && ($pr['base']['sha'] ?? null) === ($metadata['base_sha'] ?? '')
-                && ($pr['base']['ref'] ?? null) === ($metadata['base_ref'] ?? '')
-                && ($pr['changed_files'] ?? null) === count($files)
-                && ($pr['head']['repo']['full_name'] ?? null) === $repository->github_full_name;
-            $author = (string) ($pr['user']['login'] ?? '');
-            $canReview = $current && $author !== '' && strcasecmp($author, $github->appBotLogin()) !== 0;
-
-            if (! $canReview) {
-                $reasons[] = 'PR is stale, incomplete, draft, closed, forked, has auto-merge enabled or is authored by this reviewer.';
-            } elseif ($mustFix) {
-                $decision['candidate'] = 'REQUEST_CHANGES';
-            } elseif ($reasons === []) {
-                $evidence = $github->approvalEvidence(
-                    $installationId, $repository->github_full_name, (int) $metadata['pr_number'],
-                    (string) $metadata['head_sha'], (string) $pr['base']['ref'],
-                );
-                $reasons = $this->evidenceReasons(
-                    $evidence, $this->requiredCheckMap($policy),
-                    array_map('intval', array_column($policy['required_statuses'], 'creator_id', 'name')),
-                );
-                if ($reasons === []) {
-                    $latest = $github->getPullRequest($installationId, $repository->github_full_name, (int) $metadata['pr_number']);
-                    $identity = fn (array $pr): array => [
-                        $pr['state'] ?? null, $pr['draft'] ?? null, $pr['auto_merge'] ?? null,
-                        $pr['changed_files'] ?? null, $pr['head']['sha'] ?? null,
-                        $pr['head']['repo']['full_name'] ?? null, $pr['base']['sha'] ?? null,
-                        $pr['base']['ref'] ?? null, $pr['user']['login'] ?? null,
-                    ];
-                    if ($identity($latest) !== $identity($pr)) {
-                        $reasons[] = 'PR changed while verifying CI; request a fresh review.';
-                    }
-                }
-                if ($reasons === []) {
-                    $decision['candidate'] = 'APPROVE';
-                    $decision['observed']['ci_verified'] = true;
-                    $decision['observed']['ci'] = $evidence;
-                }
-            }
-        } catch (\Throwable $e) {
-            $reasons[] = 'GitHub approval evidence unavailable; human review required.';
+        $reasons = $this->holdReasons($repository, $review, $metadata, $files, $level, $isYakAuthored, $github, $decision);
+        if ($mustFix && ! $isYakAuthored) {
+            $decision['candidate'] = 'REQUEST_CHANGES';
+        } elseif ($reasons === []) {
+            $decision['candidate'] = 'APPROVE';
         }
 
         $decision['reasons'] = array_values(array_unique($reasons));
@@ -207,81 +61,200 @@ class ReviewApprovalPolicy
     }
 
     /**
-     * A file-backed check (match_any_app) matches by name from any app; a database
-     * check without an app ID maps to 0 and never matches.
-     *
-     * @param  array<string, mixed>  $policy
-     * @return array<string, int|null>
+     * @param  array<string, mixed>  $metadata
+     * @param  array<int, array<string, mixed>>  $files
+     * @param  array<string, mixed>  $decision
+     * @return list<string>
      */
-    public function requiredCheckMap(array $policy): array
+    private function holdReasons(Repository $repository, ParsedReview $review, array $metadata, array $files, int $level, bool $isYakAuthored, AppService $github, array &$decision): array
     {
-        $map = [];
-        foreach ($policy['required_checks'] as $check) {
-            $map[$check['name']] = ($check['match_any_app'] ?? false) === true ? null : (int) ($check['app_id'] ?? 0);
+        if ($isYakAuthored) {
+            return ['Yak opened this pull request.'];
+        }
+        $installationId = (int) config('yak.channels.github.installation_id');
+        try {
+            $live = $github->getPullRequestOrFail($installationId, $repository->github_full_name, (int) ($metadata['pr_number'] ?? 0));
+        } catch (\Throwable) {
+            $live = null;
+        }
+        if ($live === null) {
+            return ['Could not verify the pull request on GitHub.'];
         }
 
-        return $map;
+        $liveAuthor = (string) ($live['user']['login'] ?? '');
+        if (strcasecmp($liveAuthor, $github->appBotLogin()) === 0) {
+            return ['Yak opened this pull request.'];
+        }
+        if (trim($liveAuthor) === '' || trim((string) ($metadata['author'] ?? '')) === '') {
+            return ['Pull request author is unknown.'];
+        }
+        if (($live['state'] ?? '') !== 'open' || ($live['draft'] ?? true) !== false || ($live['auto_merge'] ?? null) !== null
+            || ($live['head']['repo']['full_name'] ?? null) !== ($live['base']['repo']['full_name'] ?? '')) {
+            return ['Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'];
+        }
+        if (($live['head']['sha'] ?? null) !== ($metadata['head_sha'] ?? '') || ($live['base']['ref'] ?? null) !== ($metadata['base_ref'] ?? '')) {
+            return ['Pull request changed since the review; Yak will review again.'];
+        }
+        if (($live['changed_files'] ?? null) !== count($files)) {
+            return ['Changed file list is incomplete.'];
+        }
+
+        $reviewExcludes = $repository->settings()->reviewPathExcludes() ?? (array) config('yak.pr_review.default_path_excludes', []);
+        $concerns = $repository->settings()->concerns();
+        if ($concerns === null) {
+            return ['No concerns file (risk-profile.yml version 2) on the default branch.'];
+        }
+
+        $baseRef = (string) ($metadata['base_ref'] ?? '');
+        try {
+            $hasChecks = $github->hasRequiredStatusChecks(
+                $installationId, $repository->github_full_name, $baseRef,
+            );
+        } catch (\Throwable) {
+            $hasChecks = false;
+        }
+        $decision['observed']['required_checks_present'] = $hasChecks;
+        if (! $hasChecks) {
+            return ["Branch protection on {$baseRef} has no required status checks."];
+        }
+
+        $held = ApprovalFloor::heldPaths($files);
+        $unreviewed = [];
+        foreach ($files as $file) {
+            $path = (string) ($file['filename'] ?? '');
+            if (PathMatcher::matches($path, $reviewExcludes)) {
+                $unreviewed[] = $path;
+            }
+        }
+        if ($held !== [] || $unreviewed !== []) {
+            return [
+                ...array_map(fn (string $path): string => "Always needs a human: {$path}", $held),
+                ...array_map(fn (string $path): string => "Not reviewed by Yak: {$path}", $unreviewed),
+            ];
+        }
+
+        $reasons = [];
+        if ($review->findings !== []) {
+            $reasons[] = 'Review contains findings.';
+        }
+        if ($review->verdict !== 'Approve') {
+            $reasons[] = 'Review verdict is not a clean approval.';
+        }
+        if (($metadata['review_scope'] ?? '') !== 'full') {
+            $reasons[] = 'Approval requires a full review; request another review.';
+        }
+        foreach ($review->priorFindings as $prior) {
+            if (in_array($prior->status, [ParsedPriorFinding::STATUS_STILL_OUTSTANDING, ParsedPriorFinding::STATUS_UNTOUCHED], true)) {
+                $reasons[] = 'An earlier finding is still open.';
+                break;
+            }
+        }
+        array_push($reasons, ...$this->earlierFindingReasons($repository, $review, $metadata, $github));
+        if ($reasons !== []) {
+            return $reasons;
+        }
+
+        $result = app(ConcernCheck::class)->check($concerns, array_values($files));
+        $decision['classification'] = ['touched_concerns' => $result->touchedConcerns, 'change_kind' => $result->changeKind,
+            'is_uncertain' => $result->isUncertain, 'failure' => $result->failure];
+        if ($result->isUncertain || $result->failure !== null || $result->changeKind === null) {
+            return [$result->failure ?? 'Concern check is uncertain.'];
+        }
+
+        $approvals = array_column($concerns, 'approval', 'name');
+        $hasTestChange = $decision['observed']['has_test_change'];
+        foreach ($result->touchedConcerns as $touched) {
+            if (($approvals[$touched['name']] ?? 'always_human') !== 'when_tested') {
+                $reasons[] = "Always needs a human: {$touched['name']}";
+            } elseif (! $hasTestChange) {
+                $reasons[] = "Touches {$touched['name']} without a test change.";
+            }
+        }
+        if ($reasons !== []) {
+            return $reasons;
+        }
+
+        $allowed = match ($level) {
+            2 => ['no_runtime_change'],
+            3 => ['no_runtime_change', 'presentation_or_internal'],
+            4 => $hasTestChange ? ['no_runtime_change', 'presentation_or_internal', 'behavior_change'] : ['no_runtime_change', 'presentation_or_internal'],
+            default => ['no_runtime_change', 'presentation_or_internal', 'behavior_change'],
+        };
+
+        return in_array($result->changeKind, $allowed, true) ? [] : ["DEFCON {$level} does not cover {$result->changeKind} changes."];
     }
 
     /**
-     * @param  array<string, mixed>  $evidence
-     * @param  array<string, int|null>  $requiredChecks
-     * @param  array<string, int>  $requiredStatuses
-     * @return array<int, string>
+     * Holds while any stored earlier Yak finding on this pull request is open. A
+     * finding is closed once its GitHub thread is resolved, unless Yak last judged
+     * it still outstanding and this round does not report it fixed or withdrawn.
+     * Independent of what the reviewer chose to report.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return list<string>
      */
-    public function evidenceReasons(array $evidence, array $requiredChecks, array $requiredStatuses = []): array
+    private function earlierFindingReasons(Repository $repository, ParsedReview $review, array $metadata, AppService $github): array
     {
-        if (($evidence['dismiss_stale_reviews'] ?? false) !== true) {
-            return ['Branch protection must dismiss stale approvals.'];
-        }
-        if (($evidence['threads_clear'] ?? false) !== true) {
-            return ['Review threads are unresolved or evidence is incomplete.'];
-        }
-        $checks = $evidence['check_runs'] ?? [];
-        if (($requiredChecks === [] && $requiredStatuses === []) || ! is_array($checks) || count($checks) !== ($evidence['total_count'] ?? -1)) {
-            return ['Required CI checks are unconfigured or evidence is incomplete.'];
-        }
-        foreach ($checks as $check) {
-            if (($check['status'] ?? '') !== 'completed' || ($check['conclusion'] ?? '') !== 'success') {
-                return ['CI contains pending, failed or skipped checks.'];
-            }
-        }
-        foreach ($requiredChecks as $name => $appId) {
-            if ($appId === null) {
-                $matches = array_merge(
-                    array_filter($checks, fn (array $check): bool => ($check['name'] ?? '') === $name),
-                    array_filter((array) ($evidence['statuses'] ?? []), fn (array $status): bool => ($status['context'] ?? '') === $name),
-                );
-                if ($matches === []) {
-                    return ["Required CI check missing: {$name}"];
-                }
-
-                continue;
-            }
-            $matches = array_filter($checks, fn (array $check): bool => ($check['name'] ?? '') === $name
-                && (int) ($check['app']['id'] ?? 0) === $appId && $appId > 0);
-            if ($matches === []) {
-                return ["Required CI check missing from trusted app: {$name}"];
-            }
+        $prUrl = (string) ($metadata['pr_url'] ?? '');
+        if ($prUrl === '') {
+            return ['Could not verify earlier findings on GitHub.'];
         }
 
-        $statuses = $evidence['statuses'] ?? [];
-        if (! is_array($statuses) || count($statuses) !== ($evidence['status_count'] ?? -1)) {
-            return ['Commit status evidence is incomplete.'];
+        $comments = PrReviewComment::query()
+            ->whereHas('review', fn ($query) => $query->where('pr_url', $prUrl))
+            ->get(['github_comment_id', 'resolution_status']);
+        if ($comments->isEmpty()) {
+            return [];
         }
-        foreach ($statuses as $status) {
-            if (($status['state'] ?? '') !== 'success') {
-                return ['Commit statuses contain pending or failed CI.'];
+
+        try {
+            $threads = $github->listReviewThreads(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                (int) ($metadata['pr_number'] ?? 0),
+            );
+        } catch (\Throwable) {
+            return ['Could not verify earlier findings on GitHub.'];
+        }
+
+        $reportedClosed = [];
+        foreach ($review->priorFindings as $prior) {
+            if (in_array($prior->status, [ParsedPriorFinding::STATUS_FIXED, ParsedPriorFinding::STATUS_WITHDRAWN], true)) {
+                $reportedClosed[$prior->commentId] = true;
             }
         }
-        foreach ($requiredStatuses as $context => $creatorId) {
-            $matches = array_filter($statuses, fn (array $status): bool => ($status['context'] ?? '') === $context
-                && (int) ($status['creator']['id'] ?? 0) === $creatorId && $creatorId > 0);
-            if ($matches === []) {
-                return ["Required CI status missing from trusted creator: {$context}"];
+        $resolvedThreads = [];
+        foreach ($threads as $thread) {
+            foreach ($thread['comment_database_ids'] as $commentId) {
+                $resolvedThreads[(int) $commentId] = (bool) $thread['is_resolved'];
+            }
+        }
+
+        foreach ($comments as $comment) {
+            $commentId = (int) $comment->github_comment_id;
+            $isResolved = $resolvedThreads[$commentId] ?? false;
+            $isStillOutstanding = $comment->resolution_status === ParsedPriorFinding::STATUS_STILL_OUTSTANDING && ! isset($reportedClosed[$commentId]);
+            if (! $isResolved || $isStillOutstanding) {
+                return ['An earlier Yak finding is still open.'];
             }
         }
 
         return [];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $files
+     */
+    private function hasTestChange(array $files): bool
+    {
+        $testPaths = (array) config('yak.pr_review.approval_test_paths', []);
+        foreach ($files as $file) {
+            if (in_array($file['status'] ?? '', ['added', 'modified'], true)
+                && PathMatcher::matches((string) ($file['filename'] ?? ''), $testPaths)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

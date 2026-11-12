@@ -849,6 +849,25 @@ class AppService
     }
 
     /**
+     * Whether every check run on a commit has completed. Throws on API
+     * failure so an outage is not read as finished checks.
+     */
+    public function allCheckRunsCompleted(int $installationId, string $repoSlug, string $sha): bool
+    {
+        $checks = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/commits/{$sha}/check-runs", ['per_page' => 100, 'filter' => 'latest'])
+            ->throw()->json();
+
+        foreach ((array) ($checks['check_runs'] ?? []) as $run) {
+            if (($run['status'] ?? null) !== 'completed') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Bounded evidence reads: large or incomplete responses prevent approval.
      * Branch protection is read, never changed by Yak.
      *
@@ -1333,6 +1352,37 @@ GRAPHQL;
         return $response->throw()->status() === 204;
     }
 
+    /**
+     * Whether the branch requires status checks, through classic branch
+     * protection or a ruleset. A 404 from protection means none is configured;
+     * any other failure throws.
+     */
+    public function hasRequiredStatusChecks(int $installationId, string $repoSlug, string $branch): bool
+    {
+        $client = $this->installationClient($installationId)->timeout(20);
+        $encodedBranch = self::encodeRef($branch);
+
+        $protection = $client->get("https://api.github.com/repos/{$repoSlug}/branches/{$encodedBranch}/protection");
+
+        if ($protection->status() !== 404) {
+            $required = $protection->throw()->json('required_status_checks');
+
+            if (! empty($required['checks'] ?? []) || ! empty($required['contexts'] ?? [])) {
+                return true;
+            }
+        }
+
+        $rules = $client->get("https://api.github.com/repos/{$repoSlug}/rules/branches/{$encodedBranch}")->throw()->json();
+
+        foreach ((array) $rules as $rule) {
+            if (($rule['type'] ?? null) === 'required_status_checks' && ! empty($rule['parameters']['required_status_checks'] ?? [])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** A ref for a URL path: every segment is percent-encoded and the slashes are too. */
     public static function encodeRef(string $ref): string
     {
@@ -1548,6 +1598,46 @@ GRAPHQL;
                 'message' => $message,
                 'event' => 'DISMISS',
             ]);
+    }
+
+    /**
+     * Same request as dismissPullRequestReview, but a non-2xx response throws
+     * so callers only record the dismissal once GitHub confirmed it.
+     */
+    public function dismissPullRequestReviewOrFail(
+        int $installationId,
+        string $repoSlug,
+        int $prNumber,
+        int $reviewId,
+        string $message,
+    ): void {
+        $token = $this->getInstallationToken($installationId);
+
+        Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->put("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews/{$reviewId}/dismissals", [
+                'message' => $message,
+                'event' => 'DISMISS',
+            ])
+            ->throw();
+    }
+
+    /**
+     * One pull request review, or null when it does not exist. Any other
+     * failure throws, so an outage is not mistaken for a deleted review.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getPullRequestReview(int $installationId, string $repoSlug, int $prNumber, int $reviewId): ?array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews/{$reviewId}");
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        return (array) $response->throw()->json();
     }
 
     public function createDeployment(

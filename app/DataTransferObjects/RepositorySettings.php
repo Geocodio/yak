@@ -44,29 +44,14 @@ final readonly class RepositorySettings
     }
 
     /**
-     * A key the file's approval block leaves out falls back to the repository's
-     * database policy. File required_checks are names only (match_any_app) and
-     * replace the database checks and statuses; without them both stay as stored.
+     * The database policy. The file's `review.approval` block still parses but
+     * is ignored; the approval level lives in the dashboard.
      *
      * @return array<string, mixed>
      */
     public function reviewPolicy(): array
     {
-        $approval = $this->config()['review']['approval'] ?? null;
-
-        if (! is_array($approval)) {
-            return $this->repository->reviewPolicy();
-        }
-
-        if (array_key_exists('required_checks', $approval)) {
-            $approval['required_checks'] = array_map(
-                fn (string $name): array => ['name' => $name, 'match_any_app' => true],
-                $approval['required_checks'],
-            );
-            $approval['required_statuses'] = [];
-        }
-
-        return array_replace($this->repository->reviewPolicy(), $approval);
+        return $this->repository->reviewPolicy();
     }
 
     public function agentInstructions(): string
@@ -100,7 +85,7 @@ final readonly class RepositorySettings
     {
         $file = $this->snapshot->file('risk-profile.yml');
 
-        if ($file === null || ! is_array($file->data)) {
+        if ($file === null || ! is_array($file->data) || ($file->data['version'] ?? 1) !== 1) {
             return null;
         }
 
@@ -113,6 +98,31 @@ final readonly class RepositorySettings
             'unknowns' => $file->data['unknowns'] ?? [],
             'version' => hash('sha256', (string) $file->content),
         ];
+    }
+
+    /**
+     * The plain-language concerns from a version 2 `.yak/risk-profile.yml`.
+     * Null when the file is missing, invalid or version 1.
+     *
+     * @return list<array{name: string, approval: 'always_human'|'when_tested', description: string}>|null
+     */
+    public function concerns(): ?array
+    {
+        $file = $this->snapshot->file('risk-profile.yml');
+
+        if ($file === null || ! is_array($file->data) || ($file->data['version'] ?? null) !== 2) {
+            return null;
+        }
+
+        return $file->data['concerns'];
+    }
+
+    /** The sha256 of the concerns file content, null when `concerns()` is null. */
+    public function concernsVersion(): ?string
+    {
+        return $this->concerns() === null
+            ? null
+            : hash('sha256', (string) $this->snapshot->file('risk-profile.yml')?->content);
     }
 
     /**
