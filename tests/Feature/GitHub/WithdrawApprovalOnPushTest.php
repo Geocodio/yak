@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TaskMode;
+use App\Jobs\DismissYakApprovalJob;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -21,6 +22,7 @@ beforeEach(function () {
         'slug' => 'app',
         'github_full_name' => 'acme/app',
         'github_repo_id' => 555,
+        'pr_review_enabled' => true,
     ]);
 });
 
@@ -36,10 +38,10 @@ function pushReview(string $event, array $attributes = []): PrReview
     ] + $attributes);
 }
 
-function sendSynchronize(string $headSha = 'sha-new'): void
+function sendSynchronize(string $headSha = 'sha-new', array $overrides = [], string $action = 'synchronize'): void
 {
     $payload = [
-        'action' => 'synchronize',
+        'action' => $action,
         'repository' => ['id' => 555, 'full_name' => 'acme/app'],
         'pull_request' => [
             'number' => 7,
@@ -49,7 +51,10 @@ function sendSynchronize(string $headSha = 'sha-new'): void
             'head' => ['sha' => $headSha, 'ref' => 'feature'],
             'base' => ['sha' => 'base-sha', 'ref' => 'main'],
         ],
-    ];
+    ] + $overrides;
+    if (isset($overrides['pull_request'])) {
+        $payload['pull_request'] = $overrides['pull_request'] + $payload['pull_request'];
+    }
 
     test()->postJson('/webhooks/github', $payload, [
         'X-GitHub-Event' => 'pull_request',
@@ -137,4 +142,50 @@ it('retries a failed dismissal on the next push', function () {
 
     sendSynchronize('sha-two');
     expect($approval->fresh()->dismissed_at)->not->toBeNull();
+});
+
+it('still dismisses the approval but starts no review for an inactive repository', function () {
+    $this->repository->update(['is_active' => false]);
+    $review = pushReview('APPROVE');
+
+    sendSynchronize();
+
+    expect(dismissalRequests())->toBe(1)
+        ->and($review->fresh()->dismissed_at)->not->toBeNull()
+        ->and(enqueuedReviews())->toBe(0);
+});
+
+it('still dismisses the approval but starts no review for a draft pull request', function () {
+    $review = pushReview('APPROVE');
+
+    sendSynchronize('sha-new', ['pull_request' => ['draft' => true]]);
+
+    expect($review->fresh()->dismissed_at)->not->toBeNull()
+        ->and(enqueuedReviews())->toBe(0);
+});
+
+it('withdraws the approval when the base branch changes', function () {
+    $review = pushReview('APPROVE');
+
+    sendSynchronize('sha-old', ['changes' => ['base' => ['ref' => ['from' => 'side']]]], 'edited');
+
+    expect($review->fresh()->dismissed_at)->not->toBeNull()->and(enqueuedReviews())->toBe(1);
+});
+
+it('keeps the approval when a pull request edit does not change the base', function () {
+    $review = pushReview('APPROVE');
+
+    sendSynchronize('sha-old', ['changes' => ['title' => ['from' => 'Old']]], 'edited');
+
+    expect($review->fresh()->dismissed_at)->toBeNull();
+});
+
+it('queues a retry when the dismissal fails', function () {
+    Http::swap(new Factory);
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/acme/app/pulls/7/reviews/4242/dismissals' => Http::response([], 422)]);
+    $review = pushReview('APPROVE');
+
+    sendSynchronize();
+
+    Queue::assertPushed(DismissYakApprovalJob::class, fn (DismissYakApprovalJob $job): bool => $job->prReviewId === $review->id);
 });

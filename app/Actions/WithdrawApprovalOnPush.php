@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Channels\GitHub\AppService;
+use App\Jobs\DismissYakApprovalJob;
 use App\Models\PrReview;
 use App\Models\Repository;
 use Throwable;
@@ -16,7 +17,8 @@ class WithdrawApprovalOnPush
 
     /**
      * Withdraws Yak's standing approval of a pull request that received a new
-     * commit and starts a full review of the new head.
+     * commit and starts a full review of the new head when the repository still reviews pull requests.
+     * Withdrawing is always safe, so it never depends on the repository being active.
      *
      * @param  array<string, mixed>  $pullRequest
      */
@@ -45,10 +47,13 @@ class WithdrawApprovalOnPush
                 $approval->update(['dismissed_at' => now()]);
             } catch (Throwable $exception) {
                 report($exception);
+                DismissYakApprovalJob::dispatch($approval->id)->delay(now()->addSeconds(30));
             }
         }
 
-        $this->enqueuePrReview->dispatch($repository, $pullRequest, 'full', null);
+        if ($this->enqueuePrReview->skipReason($repository, $pullRequest) === null) {
+            $this->enqueuePrReview->dispatch($repository, $pullRequest, 'full', null);
+        }
 
         return true;
     }

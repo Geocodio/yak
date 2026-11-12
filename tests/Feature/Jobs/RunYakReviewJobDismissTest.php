@@ -94,7 +94,7 @@ it('dismisses prior non-dismissed reviews on a full-scope run', function () {
         'id' => 5678,
         'comments' => [],
     ]);
-    $github->shouldReceive('dismissPullRequestReview')
+    $github->shouldReceive('dismissPullRequestReviewOrFail')
         ->once()
         ->with(12345, 'geocodio/api', 99, 1234, 'Superseded by newer commits');
     app()->instance(GitHubAppService::class, $github);
@@ -129,7 +129,27 @@ it('does NOT dismiss prior reviews on an incremental-scope run', function () {
         'id' => 5678,
         'comments' => [],
     ]);
-    $github->shouldNotReceive('dismissPullRequestReview');
+    $github->shouldNotReceive('dismissPullRequestReviewOrFail');
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle(app(AgentRunner::class));
+
+    expect($prior->fresh()->dismissed_at)->toBeNull();
+});
+
+it('keeps dismissed_at null when a superseded review cannot be dismissed', function () {
+    $task = setUpReviewJobMocks('full');
+    $priorTask = YakTask::factory()->create(['mode' => TaskMode::Review, 'repo' => 'geocodio/api', 'pr_url' => $task->pr_url]);
+    $prior = PrReview::factory()->create([
+        'yak_task_id' => $priorTask->id, 'repo' => 'geocodio/api', 'pr_number' => 99,
+        'pr_url' => $task->pr_url, 'github_review_id' => 1234, 'commit_sha_reviewed' => 'old-head',
+    ]);
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
+    $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 5678, 'comments' => []]);
+    $github->shouldReceive('dismissPullRequestReviewOrFail')->once()->andThrow(new RuntimeException('422'));
     app()->instance(GitHubAppService::class, $github);
 
     (new RunYakReviewJob($task))->handle(app(AgentRunner::class));

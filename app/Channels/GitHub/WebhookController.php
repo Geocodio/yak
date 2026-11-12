@@ -117,8 +117,8 @@ class WebhookController extends Controller
 
             $repository = $this->resolveRepositoryFromPayload($request);
 
-            if ($repository !== null && $repository->is_active) {
-                if ($repository->approvalLevel() >= 2) {
+            if ($repository !== null) {
+                if ($repository->is_active && $repository->approvalLevel() >= 2) {
                     QuietPeriodReviewJob::dispatch(
                         $repository->id,
                         (int) $request->input('pull_request.number'),
@@ -132,6 +132,17 @@ class WebhookController extends Controller
             }
 
             return response()->json(['ok' => true, 'skipped' => 'synchronize does not trigger review']);
+        }
+
+        if ($action === 'edited' && $request->has('changes.base')) {
+            // A new base branch changes the diff without moving the head.
+            $repository = $this->resolveRepositoryFromPayload($request);
+
+            if ($repository !== null && app(WithdrawApprovalOnPush::class)->handle($repository, (array) $request->input('pull_request'))) {
+                return response()->json(['ok' => true, 'withdrawn' => true]);
+            }
+
+            return response()->json(['ok' => true, 'skipped' => 'edit did not change the base branch approval']);
         }
 
         if (in_array($action, ['opened', 'ready_for_review', 'reopened'], true)) {
