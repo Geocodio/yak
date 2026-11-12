@@ -43,6 +43,9 @@ export function sectionForUrl(url: string): RailSection {
     return 'threads';
 }
 
+/** Settings pages only admins can open; the nav hides them for members. */
+export const ADMIN_ONLY_URL = '/settings/people';
+
 export const SETTINGS_PANEL_GROUPS: { title: string; items: NavItem[] }[] = SETTINGS_SECTIONS.map((section) => ({
     title: section.title,
     items: section.items.map((item) => ({ label: item.label, icon: () => item.icon, url: item.href })),

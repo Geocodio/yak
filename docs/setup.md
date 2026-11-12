@@ -58,7 +58,7 @@ Then fill in `elevenlabs_api_key` (and optionally `elevenlabs_voice_id`) in the 
 
 ## Quick Start
 
-You run steps 1–5 **on your own machine** (laptop or workstation). Ansible reads the inventory file, connects to your target server over SSH, and provisions everything remotely. You only SSH into the server itself for step 6 (the one-time Claude Code login). Step 7 happens in your browser.
+You run steps 1–5 **on your own machine** (laptop or workstation). Ansible reads the inventory file, connects to your target server over SSH, and provisions everything remotely. Steps 6 and 7 happen in your browser.
 
 ### 1. Install Ansible (on your local machine)
 
@@ -326,21 +326,31 @@ This single command runs the following roles in order:
 8. **redis** -- runs the Redis container that holds every queue, with an append-only file and a password
 9. **telemetryd** -- runs the telemetryd container that keeps 30 days of metrics, traces and logs for the System page
 10. **yak-container** — pulls the pre-built Docker image from ghcr.io, starts the container with env vars
-11. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
+11. **claude-code-config** -- installs the Claude CLI and configures slash commands
 
 Total time: about 10 minutes.
 
-### 6. Log In To Claude Code (on the server)
+### 6. Add The Shared Yak Account (in your browser)
 
-This is the first step that runs **on the Yak server itself**, not your local machine. Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, the playbook prints instructions — SSH into the server and run:
+The first person to sign in to a new Yak is its admin. Sign in at `https://{your-domain}` with Google, then go to **Settings > Claude accounts > Add Yak account**.
+
+The shared Yak account does work nobody started: Sentry alerts, Linear automation and flaky tests. People without their own account run on it too. Use a Claude seat that belongs to the team, not your personal one.
+
+1. On your own computer, run `claude setup-token`. It only prints a token. It does not change your local Claude login.
+2. The command opens a sign-in page that uses your browser's current Claude session. Copy the page's address into a private browser window and sign in to the team seat there.
+3. Paste the token into the Add Yak account dialog and connect.
+
+To run the command on the server instead, over SSH:
 
 ```bash
-docker exec -it yak claude login
+ssh <your-server> docker exec -it yak claude setup-token
 ```
 
-Follow the browser-based OAuth flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.
+Logins for shared MCP servers still use the host-side login flow, not this dialog.
 
-The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls — separate from the CLI subscription auth.
+The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls, separate from the Claude account.
+
+See [Claude Accounts](claude-accounts.md) for how accounts are chosen for each thread.
 
 ### 7. Add Your Repositories (in your browser)
 

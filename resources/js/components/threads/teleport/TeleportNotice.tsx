@@ -3,7 +3,7 @@ import { Button, ConfirmDialog } from '@geocodio/console-ui';
 import { CloudUpload, Hourglass, Laptop, Square, Terminal } from 'lucide-react';
 import { useState } from 'react';
 import { timeAgo } from '@/components/settings/ssh/KeyRow';
-import { TELEPORT_DOCS } from '@/components/threads/teleport/TeleportToYakDialog';
+import { useDocsUrl } from '@/lib/docsUrl';
 import { formatTime } from '@/components/shell/formatTime';
 import { destroy, store } from '@/routes/threads/teleport-request';
 import { show, stop } from '@/routes/threads';
@@ -47,6 +47,7 @@ export function TeleportNotice({
     onShowCommand: () => void;
     onTeleportToYak: () => void;
 }) {
+    const teleportDocs = useDocsUrl('teleport/');
     const [confirmingStop, setConfirmingStop] = useState(false);
     const since = formatTime(teleport.since);
     const cancel = () => router.delete(destroy.url(thread.id), { preserveScroll: true });
@@ -126,7 +127,7 @@ export function TeleportNotice({
                 {teleport.viewerIsOwner ? (
                     <>
                         You are working on this in Claude Code. This page shows the thread as it was when it left Yak. New work appears here after you teleport it back.{' '}
-                        <a href={TELEPORT_DOCS} className="text-accent-text hover:underline" target="_blank" rel="noreferrer">How teleport works</a>
+                        <a href={teleportDocs} className="text-accent-text hover:underline" target="_blank" rel="noreferrer">How teleport works</a>
                     </>
                 ) : (
                     `${teleport.ownerName ?? 'Its owner'} is working on this in Claude Code${since ? ` since ${since}` : ''}. This page shows the thread as it was when it left Yak. Only ${firstName(teleport)} can teleport it back.`

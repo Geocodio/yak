@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Channels\ChannelRegistry;
 use App\Enums\TaskStatus;
 use App\Http\Resources\OperationsPanelData;
+use App\Http\Resources\SetupData;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadList;
@@ -56,6 +57,7 @@ class HandleInertiaRequests extends Middleware
                     'name' => $user->name,
                     'email' => $user->email,
                     'initials' => $user->initials(),
+                    'isAdmin' => $user->isAdmin(),
                 ],
             ],
             'flash' => function () use ($request) {
@@ -65,6 +67,7 @@ class HandleInertiaRequests extends Middleware
                 return [
                     'success' => $success,
                     'error' => $error,
+                    'connectedAccount' => $request->session()->get('connectedAccount'),
                     'startedThreadId' => $request->session()->get('startedThreadId'),
                     'id' => ($success !== null || $error !== null) ? (string) Str::uuid() : null,
                 ];
@@ -77,6 +80,7 @@ class HandleInertiaRequests extends Middleware
             'operationsPanel' => fn () => $user instanceof User && $request->is('repos', 'repos/*', 'deployments', 'deployments/*', 'pr-reviews', 'pr-reviews/*', 'observations', 'observations/*')
                 ? OperationsPanelData::for($user)
                 : null,
+            'setup' => fn () => $user instanceof User ? SetupData::for($user) : null,
             'docs' => ['baseUrl' => (string) config('docs.base_url')],
             // The address to forward email to, shown wherever tasks start; null while the email channel is off.
             'emailToYakAddress' => fn () => app(ChannelRegistry::class)->for('email')?->enabled() === true

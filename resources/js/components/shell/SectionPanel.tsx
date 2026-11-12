@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { PanelLeftClose } from 'lucide-react';
 import { IconButton, cn } from '@geocodio/console-ui';
-import { SECTION_COPY } from '@/components/shell/sections';
+import { ADMIN_ONLY_URL, SECTION_COPY } from '@/components/shell/sections';
 import type { RailSection } from '@/components/shell/sections';
 import { isActive } from '@/components/Sidebar';
 import { deployments, observations, prReviews, repos } from '@/routes';
@@ -31,7 +31,11 @@ export function SectionPanel({ section, touch = false, onNavigate, onCollapse }:
     const operationsPanel = section === 'operations' ? props.operationsPanel : null;
     const trailing = operationsTrailing(operationsPanel);
     const { title, description, items, groups } = SECTION_COPY[section];
-    const navGroups = groups ?? [{ title: '', items: items ?? [] }];
+    const isAdmin = props.auth.user?.isAdmin ?? false;
+    const navGroups = (groups ?? [{ title: '', items: items ?? [] }]).map((group) => ({
+        ...group,
+        items: group.items.filter((item) => isAdmin || item.url !== ADMIN_ONLY_URL),
+    }));
 
     return (
         <div className="flex min-h-0 flex-1 flex-col" data-testid={`section-panel-${section}`}>

@@ -1,11 +1,11 @@
 import type { SettingsNavSection } from '@geocodio/console-ui';
-import { Activity, Bell, Inbox, KeyRound, Monitor, Puzzle, Server, Type, User, UserRound, Video as VideoIcon, Zap } from 'lucide-react';
+import { Activity, Bell, Inbox, KeyRound, Monitor, Puzzle, Server, Type, User, UserRound, Users, Video as VideoIcon, Zap } from 'lucide-react';
 import { createElement } from 'react';
 import { channels, mcp, prompts, skills, system } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
 import { linear, notifications, video } from '@/routes/settings';
 
-export type SettingsSlug = 'profile' | 'claude-accounts' | 'devices' | 'ssh-keys' | 'notifications' | 'prompts' | 'skills' | 'mcp' | 'linear' | 'video' | 'channels' | 'system';
+export type SettingsSlug = 'profile' | 'claude-accounts' | 'devices' | 'people' | 'ssh-keys' | 'notifications' | 'prompts' | 'skills' | 'mcp' | 'linear' | 'video' | 'channels' | 'system';
 
 const icon = (component: typeof User) => createElement(component, { size: 15 });
 
@@ -85,6 +85,14 @@ export const SETTINGS_SECTIONS: SettingsNavSection[] = [
                 icon: icon(VideoIcon),
                 description: 'How the walkthrough attached to every PR looks. Changes apply to the next render.',
                 keywords: ['theme', 'fonts', 'logo', 'voiceover'],
+            },
+            {
+                slug: 'people',
+                href: '/settings/people',
+                label: 'People',
+                icon: icon(Users),
+                description: 'Who can sign in to this Yak, and who is an admin.',
+                keywords: ['admin', 'role', 'members', 'users'],
             },
             { slug: 'channels', href: channels.url(), label: 'Channels', icon: icon(Inbox), description: 'Slack, Linear, Sentry, and email inputs.' },
             { slug: 'system', href: system.url(), label: 'System', icon: icon(Activity), description: 'Health and logs of the Yak installation.' },

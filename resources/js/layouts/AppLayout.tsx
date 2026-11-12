@@ -6,6 +6,7 @@ import { FlashToasts } from '@/components/FlashToasts';
 import { MobileNavSheet } from '@/components/MobileNavSheet';
 import { MobileTabBar } from '@/components/MobileTabBar';
 import { MobileNavToggle } from '@/components/shell/MobileNavToggle';
+import { SetupBar } from '@/components/setup/SetupBar';
 import { Sidebar } from '@/components/Sidebar';
 import { YAK_ACTIVITY_PIP, YAK_BRAND_COLOR, YAK_MARK } from '@/lib/brand';
 import type { SharedProps } from '@/types/shared';
@@ -25,6 +26,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Sidebar />
             <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-app max-lg:pt-[env(safe-area-inset-top)] max-lg:[&>header]:pl-12">
                 <MobileNavToggle />
+                <SetupBar />
                 {children}
             </div>
             <MobileTabBar />

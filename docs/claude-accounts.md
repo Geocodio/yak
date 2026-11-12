@@ -8,10 +8,13 @@ Yak opens pull requests for human review and serves branch previews. It never me
 
 1. On your own machine, run `claude setup-token` and copy the token it prints. For an API key, copy the key from the Anthropic Console.
 2. In Yak, open Settings > Claude accounts and choose Add account.
-3. Paste the secret and give the account a name, for example "Personal" or "Geocodio work". Setup tokens carry no email or organization, so the name is how you and your teammates tell accounts apart.
-4. Pick an icon and a color. They show next to the account in the thread sidebar and in pickers, so you can see at a glance which account a thread runs on.
+3. Paste the secret into the one box. It takes a setup token or an API key. Yak detects which one it is. Line breaks and spaces from your terminal are removed for you.
+4. Give the account a name, for example "Personal" or "Geocodio work". Setup tokens carry no email or organization, so the name is how you and your teammates tell accounts apart.
+5. Optionally open "Model, icon and colour". The icon and color show next to the account in the thread sidebar and in pickers.
 
-Before saving, Yak checks the secret with one tiny Haiku turn. If the check fails, nothing is saved and the page tells you why. Once saved, the secret is never shown again, not even to you. A setup token is marked to expire one year after you add it. You can edit that date.
+Before saving, Yak checks the secret with one tiny Haiku turn. If the check fails, nothing is saved and the page tells you why. Once saved, the secret is never shown again, not even to you. A setup token is marked to expire one year after you add it. You can edit that date. Yak sets no spending cap on API keys.
+
+Admins add the shared Yak account the same way, from Settings > Claude accounts > Add Yak account. The first Yak account you add becomes the default for unattended work. Use a Claude seat that belongs to the team. `claude setup-token` only prints a token and leaves your own Claude login alone, but its sign-in page uses your browser's current Claude session. Copy the page's address into a private browser window and sign in to the team seat there.
 
 ## Defaults
 
@@ -60,3 +63,9 @@ Yak also warns the owner 14 days before a token expires.
 - Remove: delete the account from the Claude accounts page. Resting runners on it are ended. Threads keep their history and are blocked until their owner starts a new thread on another account.
 
 Only the owner of an account can rotate or remove it. Admins manage the Yak accounts.
+
+## Admins
+
+The first person to sign in to a new Yak is its admin. Admins manage the Yak accounts. They also promote or demote other people in Settings > People, which only admins can open. Nobody can change their own role, and an admin listed in the server config shows as set there.
+
+`YAK_SYSTEM_ACCOUNT_ADMIN_IDS` is an optional server-side override. It takes a comma-separated list of user ids that count as admins whatever the stored role says. When it is set, the first person to sign in is not made an admin automatically.

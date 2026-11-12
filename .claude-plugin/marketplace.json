@@ -1,0 +1,12 @@
+{
+  "name": "yak",
+  "owner": { "name": "Geocodio" },
+  "description": "Yak for Claude Code: move sessions between your computer and Yak.",
+  "plugins": [
+    {
+      "name": "yak",
+      "source": "./plugin",
+      "description": "Move Claude Code sessions between your computer and Yak."
+    }
+  ]
+}

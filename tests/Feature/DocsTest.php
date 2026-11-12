@@ -32,3 +32,10 @@ it('respects the YAK_DOCS_URL env override', function () {
 it('resolves the repository config anchor', function () {
     expect(Docs::url('repositories.config'))->toEndWith('repo-config/');
 });
+
+it('resolves the teleport anchors', function () {
+    expect(Docs::url('teleport'))->toEndWith('teleport/')
+        ->and(Docs::url('teleport.install'))->toEndWith('teleport/#install')
+        ->and(Docs::url('teleport.sign-in'))->toEndWith('teleport/#sign-in')
+        ->and(Docs::url('teleport.first-teleport'))->toEndWith('teleport/#first-teleport');
+});

@@ -66,6 +66,12 @@ return [
         'repositories.rerun-setup' => 'repositories/#re-running-setup',
         'repositories.routing' => 'repositories/#routing-tasks-to-repos',
 
+        // Teleport
+        'teleport' => 'teleport/',
+        'teleport.install' => 'teleport/#install',
+        'teleport.sign-in' => 'teleport/#sign-in',
+        'teleport.first-teleport' => 'teleport/#first-teleport',
+
         // Claude accounts
         'accounts' => 'claude-accounts/',
 

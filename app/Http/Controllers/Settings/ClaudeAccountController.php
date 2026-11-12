@@ -69,11 +69,22 @@ class ClaudeAccountController extends Controller
         $isFirstPersonalAccount = ! $isSystem
             && ClaudeAccount::query()->where('owner_user_id', $user?->id)->whereKeyNot($account->id)->doesntExist();
 
-        if ($request->boolean('make_default') || $isFirstPersonalAccount) {
+        $currentSystemDefault = ClaudeAccount::globalSystemAccount();
+        $isFirstUsableSystemAccount = $isSystem
+            && ($currentSystemDefault === null || ! $currentSystemDefault->isUsable());
+
+        if ($request->boolean('make_default') || $isFirstPersonalAccount || $isFirstUsableSystemAccount) {
             $account->markDefaultFor($account->owner);
         }
 
-        return redirect()->route('settings.claude-accounts')->with('success', 'Account added.');
+        return redirect()->route('settings.claude-accounts')
+            ->with('success', 'Account added.')
+            ->with('connectedAccount', [
+                'name' => $account->name,
+                'kind' => $account->kind->value,
+                'defaultModel' => $account->default_model,
+                'expiresAt' => $account->expires_at?->toIso8601String(),
+            ]);
     }
 
     public function rotate(RotateClaudeAccountRequest $request, ClaudeAccount $account, ClaudeAccountValidator $validator): RedirectResponse

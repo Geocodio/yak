@@ -17,6 +17,11 @@ class RotateClaudeAccountRequest extends FormRequest
         return $account instanceof ClaudeAccount && ($this->user()?->can('manage', $account) ?? false);
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->prepareSecretForValidation();
+    }
+
     /**
      * @return array<string, array<int, mixed>>
      */

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::destroy
-* @see app/Http/Controllers/Settings/DeviceController.php:35
+* @see app/Http/Controllers/Settings/DeviceController.php:37
 * @route '/settings/devices/{device}'
 */
 export const destroy = (args: { device: number | { id: number } } | [device: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -16,7 +16,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::destroy
-* @see app/Http/Controllers/Settings/DeviceController.php:35
+* @see app/Http/Controllers/Settings/DeviceController.php:37
 * @route '/settings/devices/{device}'
 */
 destroy.url = (args: { device: number | { id: number } } | [device: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ destroy.url = (args: { device: number | { id: number } } | [device: number | { i
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::destroy
-* @see app/Http/Controllers/Settings/DeviceController.php:35
+* @see app/Http/Controllers/Settings/DeviceController.php:37
 * @route '/settings/devices/{device}'
 */
 destroy.delete = (args: { device: number | { id: number } } | [device: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

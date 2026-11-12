@@ -1,3 +1,4 @@
+import InstallScriptController from './InstallScriptController'
 import Auth from './Auth'
 import Tasks from './Tasks'
 import TaskAttachmentController from './TaskAttachmentController'
@@ -25,6 +26,7 @@ import ArtifactController from './ArtifactController'
 import VideoThemeAssetController from './VideoThemeAssetController'
 
 const Controllers = {
+    InstallScriptController: Object.assign(InstallScriptController, InstallScriptController),
     Auth: Object.assign(Auth, Auth),
     Tasks: Object.assign(Tasks, Tasks),
     TaskAttachmentController: Object.assign(TaskAttachmentController, TaskAttachmentController),

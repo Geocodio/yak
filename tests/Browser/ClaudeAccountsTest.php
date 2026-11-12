@@ -21,10 +21,11 @@ test('a person adds an account and replaces a secret', function () {
     $page->assertNoJavaScriptErrors()
         ->assertPresent('[data-testid="no-accounts"]')
         ->click('Use an API key')
-        ->click('API key')
         ->type('[data-testid="account-secret"]', 'sk-ant-api03-' . str_repeat('a', 30))
-        ->type('input[placeholder="Geocodio work"]', 'Work')
+        ->fill('[data-testid="account-name"]', 'Work')
         ->click('[data-testid="account-save"]')
+        ->assertPresent('[data-testid="account-connected"]')
+        ->click('[data-testid="account-connected-done"]')
         ->assertSee('Work');
 
     $account = ClaudeAccount::query()->firstOrFail();
@@ -47,6 +48,20 @@ test('a person adds an account and replaces a secret', function () {
         ->assertPresent('[data-testid="no-accounts"]');
 
     expect(ClaudeAccount::query()->count())->toBe(0);
+});
+
+test('a pasted token with a line break connects and shows the connected state', function () {
+    $page = visit('/settings/claude-accounts');
+
+    $page->assertNoJavaScriptErrors()
+        ->click('Use your Claude subscription')
+        ->fill('[data-testid="account-secret"]', 'sk-ant-oat01-' . str_repeat('a', 20) . "\n" . str_repeat('b', 20))
+        ->assertSee('Setup token. It works for one year')
+        ->click('[data-testid="account-save"]')
+        ->assertPresent('[data-testid="account-connected"]')
+        ->assertSee('Claude account connected');
+
+    expect(ClaudeAccount::query()->firstOrFail()->name)->toBe('Personal');
 });
 
 test('a non-admin sees no Yak account buttons', function () {
