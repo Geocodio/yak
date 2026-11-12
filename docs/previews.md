@@ -88,7 +88,7 @@ How long the first request takes: a new deployment up to about 2 minutes, a warm
 
 ### Long-lived branches
 
-A branch whose name contains `release/` is long-lived (`YAK_DEPLOYMENTS_RELEASE_BRANCH_PREFIX`). It hibernates after 3 days of inactivity instead of 15 minutes (`YAK_DEPLOYMENTS_LONG_LIVED_IDLE_MINUTES`, 4320) and is not destroyed by the 7-day idle sweep.
+A branch whose name starts with `release/` is long-lived (`YAK_DEPLOYMENTS_RELEASE_BRANCH_PREFIX`). It hibernates after 3 days of inactivity instead of 15 minutes (`YAK_DEPLOYMENTS_LONG_LIVED_IDLE_MINUTES`, 4320) and is not destroyed by the 7-day idle sweep.
 
 You can change this per deployment in the Hibernation card on the deployment page. Turn on "Keep this branch long-lived" and set a "Hibernation timeout" such as `3d`, `12h` or `2w`.
 

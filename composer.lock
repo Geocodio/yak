@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "82a117ecf36ebaa191050c226edfab6e",
+    "content-hash": "38aa6f1090ac1b0613b5671c495cef38",
     "packages": [
         {
             "name": "artisan-build/fat-enums",
@@ -12858,7 +12858,8 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-04-01T09:25:14+00:00"
+            "time": "2026-04-01T09:25:14+00:00",
+            "published-time": "2026-04-01T09:25:26+00:00"
         },
         {
             "name": "phpunit/php-code-coverage",
@@ -14542,8 +14543,8 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.3"
+        "php": "^8.5"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.11.0"
 }

@@ -9,7 +9,7 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.5",
         "artisan-build/fat-enums": "^1.0",
         "cboxdk/laravel-queue-metrics": "^3.5",
         "cboxdk/laravel-telemetry": "^3.9",
