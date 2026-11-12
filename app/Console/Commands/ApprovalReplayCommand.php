@@ -14,11 +14,11 @@ use App\Models\TelemetryEvent;
 use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
 use App\Services\ReviewApprovalPolicy;
-use Carbon\CarbonImmutable;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Foundation\Application;
+use LogicException;
 use Throwable;
 
 /**
@@ -53,11 +53,45 @@ class ApprovalReplayCommand extends Command
             return self::FAILURE;
         }
 
-        if ($this->option('concerns') !== null && ! $this->bindConcernsFile((string) $this->option('concerns'))) {
+        $limit = $this->option('limit');
+        if (! ctype_digit((string) $limit) || (int) $limit < 1) {
+            $this->components->error('The limit must be a positive integer.');
+
             return self::FAILURE;
         }
 
-        $replayRepository = $this->replayRepository($repository, $level === null ? $repository->approvalLevel() : (int) $level);
+        $originalGitHub = $this->laravel->make(AppService::class);
+        $originalConfig = $this->laravel->make(RepositoryConfig::class);
+
+        try {
+            return $this->replayAll($github, $policy, $repository, $level === null ? $repository->approvalLevel() : (int) $level);
+        } finally {
+            $this->laravel->instance(AppService::class, $originalGitHub);
+            $this->laravel->instance(RepositoryConfig::class, $originalConfig);
+        }
+    }
+
+    private function replayAll(AppService $github, ReviewApprovalPolicy $policy, Repository $repository, int $level): int
+    {
+        $snapshot = $this->laravel->make(RepositoryConfig::class)->snapshot($repository);
+        if ($this->option('concerns') !== null) {
+            $file = $this->concernsFile((string) $this->option('concerns'));
+            if ($file === null) {
+                return self::FAILURE;
+            }
+            $snapshot = new ConfigSnapshot($snapshot->state, $snapshot->commitSha, $snapshot->readAt, $snapshot->readError, ['risk-profile.yml' => $file] + $snapshot->files);
+        }
+        $this->laravel->instance(RepositoryConfig::class, new class($snapshot) extends RepositoryConfig
+        {
+            public function __construct(private ConfigSnapshot $fixedSnapshot) {}
+
+            public function snapshot(Repository $repository): ConfigSnapshot
+            {
+                return $this->fixedSnapshot;
+            }
+        });
+
+        $replayRepository = $this->replayRepository($repository, $level);
         $installationId = (int) config('yak.channels.github.installation_id');
 
         $reviews = PrReview::query()
@@ -221,6 +255,21 @@ class ApprovalReplayCommand extends Command
                 return $this;
             }
 
+            public function save(array $options = []): bool
+            {
+                throw new LogicException('The replay repository is read-only.');
+            }
+
+            public function saveQuietly(array $options = []): bool
+            {
+                throw new LogicException('The replay repository is read-only.');
+            }
+
+            public function update(array $attributes = [], array $options = []): bool
+            {
+                throw new LogicException('The replay repository is read-only.');
+            }
+
             public function approvalLevel(): int
             {
                 return $this->replayLevel;
@@ -240,37 +289,23 @@ class ApprovalReplayCommand extends Command
         return $copy;
     }
 
-    private function bindConcernsFile(string $path): bool
+    private function concernsFile(string $path): ?ConfigFile
     {
         $content = is_file($path) ? file_get_contents($path) : false;
         if ($content === false) {
             $this->components->error("Cannot read {$path}.");
 
-            return false;
+            return null;
         }
 
         $result = (new RepositoryConfigParser)->parse('risk-profile.yml', $content);
         if ($result['errors'] !== [] || ($result['data']['version'] ?? null) !== 2) {
             $this->components->error('Not a valid risk-profile.yml version 2: ' . implode('; ', $result['errors']));
 
-            return false;
+            return null;
         }
 
-        $sha = str_repeat('0', 40);
-        $snapshot = new ConfigSnapshot('read', $sha, CarbonImmutable::now(), null, [
-            'risk-profile.yml' => new ConfigFile('risk-profile.yml', $result['data'], $content, $sha, null, null, null),
-        ]);
-        $this->app()->instance(RepositoryConfig::class, new class($snapshot) extends RepositoryConfig
-        {
-            public function __construct(private ConfigSnapshot $fixedSnapshot) {}
-
-            public function snapshot(Repository $repository): ConfigSnapshot
-            {
-                return $this->fixedSnapshot;
-            }
-        });
-
-        return true;
+        return new ConfigFile('risk-profile.yml', $result['data'], $content, str_repeat('0', 40), null, null, null);
     }
 
     private function app(): Application
