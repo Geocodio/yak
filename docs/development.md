@@ -45,7 +45,7 @@ composer run dev
 
 This runs four processes together with `concurrently`: `php artisan serve`, `php artisan queue:listen --tries=1 --timeout=0`, `php artisan pail --timeout=0` (logs) and `npm run dev` (Vite). It does not start the scheduler, Reverb or the thread drivers. Start them in their own terminals when you need them: `php artisan schedule:work`, `php artisan reverb:start`, `php artisan yak:thread-drivers`.
 
-Open `http://localhost:8000`. Login is Google-only, so visit `http://localhost:8000/letmein`. In a `local` environment it signs you in as the first user (creating one if there is none). The route does not exist in other environments.
+Open `http://localhost:8000`. Login is Google-only, so visit `http://localhost:8000/letmein`. In a `local` environment it signs you in as the first user (creating one if there is none) and lands on home: the most recent thread, or the Welcome page on an empty database. The route does not exist in other environments.
 
 ## Repository Layout
 

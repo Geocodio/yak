@@ -2,7 +2,7 @@ import { router } from '@inertiajs/react';
 import { CommandPalette, type CommandPaletteSection } from '@geocodio/console-ui';
 import { useEffect, useState } from 'react';
 import type React from 'react';
-import { NAV_ITEMS, SECONDARY_NAV_ITEMS, SETTINGS_ITEM, openNewTask } from '@/components/Sidebar';
+import { NAV_ITEMS, SECONDARY_NAV_ITEMS, SETTINGS_ITEM, openNewThread } from '@/components/Sidebar';
 
 const ALL_NAV = [...NAV_ITEMS, ...SECONDARY_NAV_ITEMS, SETTINGS_ITEM];
 
@@ -45,7 +45,7 @@ export function AppCommandPalette() {
         {
             title: 'Actions',
             items: [
-                { id: 'new', label: 'New task', shortcut: ['C'], onSelect: () => { openNewTask(); setOpen(false); } },
+                { id: 'new', label: 'New task', shortcut: ['C'], onSelect: () => { openNewThread(); setOpen(false); } },
             ].filter((action) => action.label.toLowerCase().includes(query.toLowerCase())),
         },
     ];

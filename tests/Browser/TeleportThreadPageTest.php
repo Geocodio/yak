@@ -10,6 +10,7 @@ use App\Models\User;
 
 it('shows the teleport dialog with the command for a Yak-owned thread', function () {
     $user = User::factory()->create();
+    Device::factory()->forUser($user)->create();
     $thread = Thread::factory()->create();
     $this->actingAs($user);
 
@@ -24,6 +25,20 @@ it('shows the teleport dialog with the command for a Yak-owned thread', function
         ->assertSeeIn('@teleport-command', "yak teleport {$thread->id}")
         ->assertSeeIn('@teleport-dialog', "\$ yak teleport {$thread->id}")
         ->assertAttribute('@teleport-link', 'href', "yak://teleport/{$thread->id}")
+        ->assertNoJavascriptErrors();
+});
+
+it('shows the Teleport setup instead of the command when the person has no computer', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create();
+    $this->actingAs($user);
+
+    visit(route('threads.show', $thread))
+        ->click('@thread-panel-tab-teleport')
+        ->click('@teleport-button')
+        ->assertVisible('@teleport-dialog')
+        ->assertPresent('[data-testid="teleport-install-command"]')
+        ->assertMissing('@teleport-command')
         ->assertNoJavascriptErrors();
 });
 

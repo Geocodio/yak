@@ -131,7 +131,7 @@ continueMethod.post = (args: { thread: number | { id: number } } | [thread: numb
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @see app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 export const newMethod = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -146,7 +146,7 @@ newMethod.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @see app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 newMethod.url = (options?: RouteQueryOptions) => {
@@ -155,7 +155,7 @@ newMethod.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @see app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 newMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -165,7 +165,7 @@ newMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @see app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 newMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

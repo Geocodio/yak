@@ -6,6 +6,8 @@ use App\Services\Push\PushEvent;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -44,10 +46,37 @@ class User extends Authenticatable
             'has_seen_setup_card_at' => 'datetime',
             'has_seen_pr_review_intro_at' => 'datetime',
             'direct_messages_enabled' => 'boolean',
+            'is_admin' => 'boolean',
             'github_linked_at' => 'datetime',
             'password' => 'hashed',
             'push_event_preferences' => 'array',
         ];
+    }
+
+    /**
+     * Whether this person manages Yak-wide settings: the stored flag, or a
+     * listed id in YAK_SYSTEM_ACCOUNT_ADMIN_IDS.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->is_admin || $this->isAdminByConfig();
+    }
+
+    public function isAdminByConfig(): bool
+    {
+        return in_array($this->id, config('claude-accounts.admin_user_ids'), true);
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    #[Scope]
+    protected function admins(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $admins) => $admins
+            ->where('is_admin', true)
+            ->orWhereIn($query->getModel()->getQualifiedKeyName(), config('claude-accounts.admin_user_ids')));
     }
 
     public function hasLinkedGitHub(): bool

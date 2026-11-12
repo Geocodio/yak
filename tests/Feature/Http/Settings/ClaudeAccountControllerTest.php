@@ -193,3 +193,9 @@ it('never puts the secret in a response body or the session', function () {
 
     expect($body)->not->toContain(NEW_SECRET)->and(json_encode(session()->all()))->not->toContain(NEW_SECRET);
 });
+
+it('lets a flagged admin create system accounts', function () {
+    $this->actingAs(User::factory()->admin()->create());
+
+    $this->post(route('settings.claude-accounts.store'), storePayload(['is_system' => true]))->assertRedirect();
+});

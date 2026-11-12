@@ -4,12 +4,15 @@ The `yak` command signs your computer in to Yak, teleports Claude Code sessions,
 
 ## Install
 
-`yak` comes with the Claude Code plugin for Yak.
+`yak` comes with the Claude Code plugin for Yak. The plugin is published in a GitHub marketplace (`Geocodio/yak` by default, set by `YAK_TELEPORT_MARKETPLACE`). Run the install command from Settings > Devices, or by hand:
 
 ```
-claude plugin install yak
+claude plugin marketplace add Geocodio/yak
+claude plugin install yak@yak
 claude plugin update yak
 ```
+
+The install script described in [teleport.md](teleport.md#install) also puts a `yak` launcher at `~/.local/bin/yak`, so `yak` works in your own terminal and not only in Claude Code.
 
 The plugin carries one binary per platform: macOS on Apple silicon (`darwin-arm64`), macOS on Intel (`darwin-x86_64`) and Linux on x86_64 (`linux-x86_64`). A small shell script picks the right one. On any other platform it prints `yak does not support <os>/<arch>`. There is no Windows build.
 

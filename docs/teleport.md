@@ -13,12 +13,36 @@ Only committed work travels, through GitHub. The session transcript travels thro
 
 Teleport needs the Yak plugin for Claude Code. The plugin carries the `yak` command.
 
-1. Run `claude plugin install yak` in a terminal.
-2. Update it later with `claude plugin update yak`. A Yak server can refuse an old plugin; the command then tells you to update.
+In Yak, open a thread and choose **Teleport to computer**, or go to **Settings > Devices** (**Add a computer**). Copy the install command and run it in a terminal on your computer. It looks like this:
 
-Supported platforms: macOS on Apple silicon and Intel, and Linux on x86_64. There is no Windows build. On any other platform `yak` prints `yak does not support <os>/<arch>`.
+```bash
+curl -fsSL https://yak.example.com/install | sh
+```
 
-The dashboard shows the same two commands under Settings, Devices, "Add a computer". See [cli.md](cli.md#install) for where state is kept.
+The script:
+
+1. Checks that `claude` is on your PATH. If it is not, it stops before it changes anything.
+2. Adds the Yak plugin marketplace and installs the `yak` plugin in Claude Code.
+3. Writes a small `yak` launcher to `~/.local/bin/yak`. It always runs the newest installed plugin version.
+4. Starts the sign-in for this Yak (see [Sign in](#sign-in)).
+
+If `~/.local/bin` is not on your PATH, the script tells you which line to add to your shell profile. The first time `yak` runs, the plugin downloads the program built for your platform from a GitHub release and checks its SHA-256 checksum.
+
+### Install by hand
+
+Run these in order, in any terminal where `claude` works:
+
+```bash
+claude plugin marketplace add Geocodio/yak
+claude plugin install yak@yak
+yak login --url https://yak.example.com
+```
+
+The marketplace is a GitHub repository. The operator can point Yak at another one with `YAK_TELEPORT_MARKETPLACE` (default `Geocodio/yak`); the install command on the dashboard always carries the right address. The plugin puts `yak` only on the PATH of Claude Code's own shell tool. For `yak` in your own terminal, use the install script, which writes the launcher at `~/.local/bin/yak`. The `/yak teleport` command inside a Claude Code session works either way.
+
+Update the plugin later with `claude plugin update yak`. A Yak server can refuse an old plugin; the command then tells you to update.
+
+Supported platforms: macOS on Apple silicon and Intel, and Linux on x86_64. There is no Windows build. On any other platform `yak` prints `yak does not support <os>/<arch>`. See [cli.md](cli.md#install) for where state is kept.
 
 ## Sign in
 
@@ -209,8 +233,11 @@ On macOS this creates a small app named "Yak Link" in `~/Applications`. On Linux
 | `Run yak login.` | This computer is not signed in. Run `yak login`. |
 | `This computer was removed from Yak.` | Someone revoked it in Settings, Devices. Run `yak login`. If a session is still read-only, run `yak marker clear <session-id>`. |
 | `Yak does not recognise this computer's token. Run yak login.` | The token is stale. Run `yak login`. |
+| `The Yak plugin is not installed.` | The launcher found no plugin version. Run `claude plugin install yak@yak`. |
 | `This version of yak is too old for Yak.` | Run `claude plugin update yak`, then repeat the command. |
 | `yak does not support <os>/<arch>` | There is no build for this platform. Use macOS or Linux x86_64. |
+| `Claude Code is not installed.` | The install script stops when `claude` is not on the PATH. Install Claude Code, open a new terminal and run the install command again. |
+| `yak: command not found` | Add `~/.local/bin` to your PATH, for example `export PATH="$HOME/.local/bin:$PATH"` in your shell profile, then open a new terminal. If `~/.local/bin/yak` does not exist, run the install command again. |
 | `That code expired. Codes work for 10 minutes.` | Run `yak login` again. |
 | `The code was denied, so nothing was saved.` | The approval page said "This is not me". Run `yak login` again if that was a mistake. |
 | `This repo is not on Yak, so the session cannot move.` | Add the repo to Yak first ([repositories.md](repositories.md)). |
@@ -238,3 +265,4 @@ On macOS this creates a small app named "Yak Link" in `~/Applications`. On Linux
 | `Could not register the yak:// link. Use the command shown on the thread page.` | Run the command from the dialog instead of the link. |
 
 If a teleport fails after Yak accepted it, the thread page shows "Teleport failed." with the reason and a "Retry" button.
+||||||| e0a46b66

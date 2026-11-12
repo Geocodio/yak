@@ -31,7 +31,7 @@ test('a person with a paired computer can still add another', function () {
 
     visit('/settings/devices')
         ->assertPresent('[data-testid="add-computer"]')
-        ->assertSee('yak login')
+        ->assertSee('/install | sh')
         ->assertNoJavaScriptErrors();
 });
 
@@ -44,4 +44,15 @@ test('a stale computer shows its hint', function () {
         ->assertSee('Not used in 91 days. Revoke it if this computer is gone.')
         ->assertPresent('[data-testid="device-stale-hint"]')
         ->assertNoJavaScriptErrors();
+});
+
+test('a person with no computers sees the install command and the waiting row', function () {
+    $this->actingAs(User::factory()->create());
+
+    visit('/settings/devices')
+        ->assertNoJavaScriptErrors()
+        ->assertPresent('[data-testid="teleport-install-command"]')
+        ->assertSee('/install | sh')
+        ->assertPresent('[data-testid="teleport-waiting"]')
+        ->assertSee('Waiting for your computer');
 });

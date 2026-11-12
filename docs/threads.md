@@ -6,7 +6,7 @@ A thread is where you work with Claude on a change or a piece of research. Start
 
 ## Start a thread
 
-Select **New thread** at the top of the thread list. Fill in the form and select **Start change** (or **Start research**). `Cmd+Enter` also starts it.
+Select **New thread** at the top of the thread list, or press `C`. A dialog opens over the page you are on. Fill in the form and select **Start change** (or **Start research**). `Cmd+Enter` also starts it. The same form is also a page at `/threads/new`. On a new install with nothing set up, the home page (see [Dashboard pages](dashboard.md#home)) shows the form below a short checklist.
 
 ![The new thread form with the mode switch, the Runs on strip and the repository picker](screenshot-new-thread.png)
 
@@ -24,11 +24,12 @@ After you start, a progress list shows each repository being prepared. The threa
 
 ## The thread list
 
-The sidebar lists open threads, newest activity first, grouped as **Needs you**, **Today**, **This week** and **Older**. A search box filters by title or repository. Sub-threads sit under their parent (see [Sub-threads](sub-threads.md)). Closed threads leave the list.
+The sidebar lists open threads (hide it with the panel button at the top of the list or the `[` key, and bring it back with **Show threads** on the icon rail), newest activity first, grouped as **Needs you**, **Today**, **This week** and **Older**. A search box filters by title or repository. Sub-threads sit under their parent (see [Sub-threads](sub-threads.md)). Closed threads leave the list. While you can see no thread at all, the list shows only "Your threads show up here" and hides search and filters. A filter or search with no result says "No threads here" or "No matches".
 
 | Filter | Shows |
 | --- | --- |
 | **Mine** | Threads you started or took part in, plus unattended threads on repositories you follow |
+| **Started by Yak** | Threads that came from a channel, such as Sentry or Slack, and have no person who started them |
 | **Everyone** | Every thread you are allowed to see |
 
 An **Unattended** badge means Yak started the thread, not a person (for example from a channel). Threads you may not see are never listed (see [Private threads](#sharing-and-private-threads)).
@@ -55,7 +56,7 @@ What a message does depends on the thread:
 - **A turn is running.** The composer reads **Add a message. Claude reads it as soon as it can.** Yak hands the message to the running turn, which steers Claude mid-work. If it cannot be delivered, Yak queues it and Claude reads it as a follow-up when the current work is done.
 - **The sandbox is rebuilding, the account is busy or the usage limit is hit.** The message is saved and Claude reads it when the turn can start. The composer says when.
 
-The thread page has no list of queued messages. Edit or remove a queued message (switch it between **Queue** and **Steer**, edit it, or **Remove from queue**) on the task's page under Tasks.
+The thread page has no list of queued messages. Edit or remove a queued message (switch it between **Queue** and **Steer**, edit it, or **Remove from queue**) on the task's page in the task log (Operations > Task log).
 
 | Control | What it does |
 | --- | --- |

@@ -3,12 +3,11 @@ import { BrandMarkIcon, Button, TextInput, cn } from '@geocodio/console-ui';
 import { Check, Monitor, ShieldAlert, TimerOff } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { systemLabel } from '@/components/settings/devices/systemLabel';
+import { useDocsUrl } from '@/lib/docsUrl';
 import { YAK_MARK } from '@/lib/brand';
 import { approve, deny, show } from '@/routes/device';
 import { devices } from '@/routes/settings';
 import type { DeviceApproval } from '@/types/devices';
-
-const DEVICE_SIGN_IN_URL = 'https://yak.build/docs/teleport#sign-in';
 
 function deviceSystem({ os, arch }: Pick<DeviceApproval, 'os' | 'arch'>): string {
     return os === null || arch === null ? 'Unknown' : systemLabel(os, arch);
@@ -96,6 +95,7 @@ function Confirm({ device }: { device: DeviceApproval }) {
 }
 
 function Body({ device }: { device: DeviceApproval }) {
+    const firstTeleportUrl = useDocsUrl('teleport/#first-teleport');
     switch (device.state) {
         case 'confirm':
             return <Confirm device={device} />;
@@ -108,7 +108,7 @@ function Body({ device }: { device: DeviceApproval }) {
                     <div className="mt-4 text-left"><Facts device={device} /></div>
                     <p className="mt-4 flex justify-center gap-4 text-[13px]">
                         <Link href={devices.url()} className="text-accent hover:underline">See your computers</Link>
-                        <a href={`${DEVICE_SIGN_IN_URL.split('#')[0]}#first-teleport`} target="_blank" rel="noreferrer" className="text-accent hover:underline">What to try first</a>
+                        <a href={firstTeleportUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">What to try first</a>
                     </p>
                 </div>
             );
@@ -136,13 +136,15 @@ function Body({ device }: { device: DeviceApproval }) {
 }
 
 export default function Approve(device: DeviceApproval) {
+    const signInUrl = useDocsUrl('teleport/#sign-in');
+
     return (
         <div className="flex min-h-dvh flex-col bg-app">
             <Head title="Connect a computer" />
             <header className="flex h-12 shrink-0 items-center gap-2 border-b border-hair px-4"><BrandMarkIcon mark={YAK_MARK} size={22} /><span className="text-[13px] font-medium">Yak</span></header>
             <main className="flex flex-1 flex-col items-center gap-5 px-4 py-8 sm:py-14">
                 <div className="w-full max-w-[420px] rounded-card border border-hair bg-panel p-5 shadow-card sm:p-6"><Body device={device} /></div>
-                <p className="max-w-[420px] text-center text-[12px] leading-relaxed text-faint">Only approve a code you just saw in your own terminal. <a href={DEVICE_SIGN_IN_URL} target="_blank" rel="noreferrer" className="underline">About device sign-in</a></p>
+                <p className="max-w-[420px] text-center text-[12px] leading-relaxed text-faint">Only approve a code you just saw in your own terminal. <a href={signInUrl} target="_blank" rel="noreferrer" className="underline">About device sign-in</a></p>
             </main>
         </div>
     );

@@ -5,6 +5,7 @@ import notifications1ce82a from './notifications'
 import video6ca361 from './video'
 import claudeAccounts97a877 from './claude-accounts'
 import devices95ecd0 from './devices'
+import people9bdfa7 from './people'
 import sshKeysBc2a90 from './ssh-keys'
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::linear
@@ -184,7 +185,7 @@ claudeAccounts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @see app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 export const devices = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -199,7 +200,7 @@ devices.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @see app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 devices.url = (options?: RouteQueryOptions) => {
@@ -208,7 +209,7 @@ devices.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @see app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 devices.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -218,11 +219,55 @@ devices.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:16
+* @see app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 devices.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: devices.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\Settings\PeopleController::people
+* @see app/Http/Controllers/Settings/PeopleController.php:16
+* @route '/settings/people'
+*/
+export const people = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: people.url(options),
+    method: 'get',
+})
+
+people.definition = {
+    methods: ["get","head"],
+    url: '/settings/people',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Settings\PeopleController::people
+* @see app/Http/Controllers/Settings/PeopleController.php:16
+* @route '/settings/people'
+*/
+people.url = (options?: RouteQueryOptions) => {
+    return people.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Settings\PeopleController::people
+* @see app/Http/Controllers/Settings/PeopleController.php:16
+* @route '/settings/people'
+*/
+people.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: people.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Settings\PeopleController::people
+* @see app/Http/Controllers/Settings/PeopleController.php:16
+* @route '/settings/people'
+*/
+people.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: people.url(options),
     method: 'head',
 })
 
@@ -277,6 +322,7 @@ const settings = {
     video: Object.assign(video, video6ca361),
     claudeAccounts: Object.assign(claudeAccounts, claudeAccounts97a877),
     devices: Object.assign(devices, devices95ecd0),
+    people: Object.assign(people, people9bdfa7),
     sshKeys: Object.assign(sshKeys, sshKeysBc2a90),
 }
 

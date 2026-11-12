@@ -21,6 +21,7 @@ return [
     ],
 
     'teleport' => [
+        'marketplace' => env('YAK_TELEPORT_MARKETPLACE', 'Geocodio/yak'),
         'expiry_minutes' => (int) env('YAK_TELEPORT_EXPIRY_MINUTES', 30),
         'complete_wait_seconds' => (int) env('YAK_TELEPORT_COMPLETE_WAIT_SECONDS', 30),
         'slot_wait_minutes' => (int) env('YAK_TELEPORT_SLOT_WAIT_MINUTES', 20),

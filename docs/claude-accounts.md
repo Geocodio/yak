@@ -15,7 +15,7 @@ There are two kinds of account owner.
 | Who replaces or removes it | You | Yak admins |
 | Used for | Threads you start | Work nobody started (Sentry alerts, Linear automation, flaky tests) and people with no account of their own |
 
-A Yak admin is a user whose id is listed in `YAK_SYSTEM_ACCOUNT_ADMIN_IDS` (comma separated). Anyone else sees the Yak accounts section with an "Admins only" badge and can read it but not change it. See [Setup](setup.md) for the operator side.
+Admins manage the Yak accounts (see [Admins](#admins)). Anyone else sees the Yak accounts section with an "Admins only" badge and can read it but not change it.
 
 There are two secret types:
 
@@ -24,23 +24,31 @@ There are two secret types:
 
 ## Add an account
 
-1. Open Settings > Claude accounts and choose **Add account**. (Yak admins use **Add Yak account** in the Yak accounts section.)
-2. Pick the **Secret type**: Setup token or API key.
-3. Paste the token or key.
-4. Fill in the other fields (table below) and save.
+1. On your own computer, run `claude setup-token` and copy the token it prints. For an API key, copy the key from the Anthropic Console.
+2. Open Settings > Claude accounts and choose **Add account**. (Yak admins use **Add Yak account** in the Yak accounts section.)
+3. Paste the secret into the one box. It takes a setup token or an API key, and Yak detects which one it is. Line breaks and spaces from your terminal are removed for you.
+4. Give the account a name and choose **Connect**.
+5. Optionally open **Model, icon and colour** before you connect (table below).
 
-![The Add a Claude account dialog with the secret type, secret, name and model fields](screenshot-claude-account-add.png)
+![The Connect your Claude account dialog with the token box, name and Model, icon and colour fields](screenshot-claude-account-add.png)
 
 | Field | What it does |
 |---|---|
-| Secret type | Setup token ("Uses your Claude subscription") or API key ("Billed per use by Anthropic"). |
-| Paste the token / Paste the API key | The secret. Yak never shows it again, not even to you. |
+| Paste the token it prints. | The secret. Yak shows whether it is a setup token or an API key, and never shows the secret again, not even to you. |
 | Name | How you tell accounts apart, for example "Personal" or "Acme work". Setup tokens carry no email or organization, so the name is the only label. For a Yak account, everyone who can use it sees the name. |
-| Default model | `opus`, `sonnet` or `haiku`. Used when nothing more specific picks a model. |
-| Make this my default account | Your default for every repository without its own setting. It is ticked when you have no default yet. Not shown for Yak accounts. |
-| Icon and color | Shown next to the account in the thread list and in pickers. Change them later under the account's menu, **Edit name and appearance**. |
+| Default model | `opus`, `sonnet` or `haiku`. Used when nothing more specific picks a model. Under **Model, icon and colour**. |
+| Make this my default account | Your default for every repository without its own setting. It is ticked when you have no default yet. Not shown for Yak accounts. Under **Model, icon and colour**. |
+| Icon and color | Shown next to the account in the thread list and in pickers. Under **Model, icon and colour**. Change them later under the account's menu, **Edit name and appearance**. |
 
-Before saving, Yak checks the secret with a one-word test message on Haiku ("Sending a one-word test message on Haiku..."). If Claude rejects it, nothing is saved and the dialog shows the reason. A setup token is marked to expire one year after you add it. The **Secret expires** column shows the date.
+When the account is connected, the dialog confirms it and offers to set up [Teleport](teleport.md) if you have no paired computer yet.
+
+### The shared Yak account
+
+Admins add the shared Yak account the same way, from Settings > Claude accounts > **Add Yak account** (a new install also shows it in the setup bar). The first usable Yak account you add becomes the default for unattended work.
+
+Use a Claude seat that belongs to the team, not your personal one. `claude setup-token` only prints a token and leaves your own Claude login alone, but its sign-in page uses your browser's current Claude session. Copy the page's address into a private browser window and sign in to the team seat there. To run the command on the Yak server instead, see [Setup](setup.md#first-sign-in).
+
+Before saving, Yak checks the secret with a one-word test message on Haiku ("Sending a one-word test message on Haiku..."). If Claude rejects it, nothing is saved and the dialog shows the reason. A setup token is marked to expire one year after you add it. The **Secret expires** column shows the date. Yak sets no spending cap on an API key.
 
 ## Which account a thread uses
 
@@ -152,3 +160,9 @@ When you teleport a thread to your computer, Yak runs no turns on it. Turns you 
 - **Remove account**: open the account's menu and choose **Remove account**. The secret is deleted and cannot be recovered. Resting runners on it end. Threads keep their history, are blocked, and their owner starts a new thread on another account to continue. Repositories that used a removed Yak account fall back to the global Yak account.
 
 Only the owner of an account can replace or remove it. Admins manage the Yak accounts. Admins also see an **Awake share** card on this page with how many sandboxes each person has awake.
+
+## Admins
+
+The first person to sign in to a new Yak is its admin. Admins manage the Yak accounts. They also promote or demote other people in Settings > People, which only admins can open. A role change applies at once. Nobody can change their own role, and an admin who comes from the server config shows as "Set in server config" and cannot be changed there.
+
+`YAK_SYSTEM_ACCOUNT_ADMIN_IDS` is an optional server setting. It takes a comma-separated list of user ids that count as admins whatever the stored role says. When it is set, the first person to sign in is not made an admin automatically.

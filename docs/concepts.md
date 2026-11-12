@@ -23,8 +23,8 @@ A task is one request that arrived through a channel: a Slack message, a Linear 
 
 - Channels create tasks. Each task runs as a turn inside a thread.
 - A new task joins the open thread of its conversation. If that thread is closed, Yak starts a new one. A closed thread never reopens.
-- The Tasks pages still exist. Use them to see what each channel request did, and to retry, cancel or reroute a task. Use the Threads list to work with Claude.
-- A thread you start from the dashboard has a task too, but you rarely need the Tasks pages for it.
+- The task log (Operations > Task log) lists every task. Use it to see what each channel request did, and to retry, cancel or reroute a task. Use the Threads list to work with Claude.
+- A thread you start from the dashboard has a task too, but you rarely need the task log for it.
 
 ## Sandbox
 

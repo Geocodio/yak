@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @see app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 const NewThreadController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ NewThreadController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @see app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 NewThreadController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ NewThreadController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @see app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 NewThreadController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ NewThreadController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> 
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:15
+* @see app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 NewThreadController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

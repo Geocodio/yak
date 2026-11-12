@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DeviceData;
+use App\Http\Resources\SetupData;
 use App\Models\Device;
 use App\Services\Devices\DeviceRevoker;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +17,7 @@ class DeviceController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        $setup = $user === null ? null : SetupData::for($user);
 
         return Inertia::render('Settings/Devices', [
             'devices' => Inertia::defer(fn () => Device::query()
@@ -27,8 +29,8 @@ class DeviceController extends Controller
                 ->get()
                 ->map(fn (Device $device): array => DeviceData::from($device, $user))
                 ->all(), 'devices'),
-            'installCommand' => 'claude plugin install yak',
-            'loginCommand' => 'yak login',
+            'installCommand' => $setup['installCommand'] ?? '',
+            'loginCommand' => $setup['loginCommand'] ?? '',
         ]);
     }
 

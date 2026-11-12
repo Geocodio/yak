@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { cn } from '@geocodio/console-ui';
+import { useEffect, useRef, useState } from 'react';
 import { IconRail } from '@/components/shell/IconRail';
 import { SectionPanel } from '@/components/shell/SectionPanel';
 import { sectionForUrl, type RailSection } from '@/components/shell/sections';
@@ -58,14 +59,45 @@ export function ShellSidebar() {
         writeCollapsed(true);
     };
 
+    const togglePanel = () => {
+        const next = !isCollapsed;
+        setIsCollapsed(next);
+        writeCollapsed(next);
+    };
+
+    // The "[" shortcut reads the latest toggle without re-binding the listener.
+    const togglePanelRef = useRef(togglePanel);
+    togglePanelRef.current = togglePanel;
+
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            const target = event.target;
+            const isTyping = target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+            if (event.key !== '[' || event.metaKey || event.ctrlKey || event.altKey || isTyping) {
+                return;
+            }
+            togglePanelRef.current();
+        };
+        window.addEventListener('keydown', onKeyDown);
+
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, []);
+
+    const isPanelHidden = isCollapsed || isDocked;
+
     return (
         <aside className="hidden shrink-0 border-r border-hair bg-sidebar lg:flex" data-testid="sidebar">
-            <IconRail active={active} onSelect={select} />
-            {isCollapsed || isDocked ? null : (
-                <div className="flex w-[300px] min-h-0 flex-col" data-testid="sidebar-panel">
+            <IconRail active={active} onSelect={select} onShowThreads={isCollapsed && !isDocked ? togglePanel : undefined} />
+            <div
+                className={cn('min-h-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none', isPanelHidden ? 'w-0' : 'w-[300px]')}
+                aria-hidden={isPanelHidden || undefined}
+                inert={isPanelHidden}
+                data-testid="sidebar-panel"
+            >
+                <div className="flex h-full w-[300px] min-h-0 flex-col">
                     {active === 'threads' ? <ThreadListPanel onCollapse={collapse} /> : <SectionPanel section={active} onCollapse={collapse} />}
                 </div>
-            )}
+            </div>
         </aside>
     );
 }

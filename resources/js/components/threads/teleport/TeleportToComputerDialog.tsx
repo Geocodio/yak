@@ -2,23 +2,27 @@ import { router, usePage } from '@inertiajs/react';
 import { Button, Dialog } from '@geocodio/console-ui';
 import { Terminal, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
+import { TeleportSetup } from '@/components/teleport/TeleportSetup';
 import { PrivatePublishGate } from '@/components/threads/share/PrivatePublishGate';
 import { CommandBlock } from '@/components/threads/teleport/CommandBlock';
+import { useDocsUrl } from '@/lib/docsUrl';
 import { destroy, store } from '@/routes/threads/teleport-request';
+import type { SharedProps } from '@/types/shared';
 import type { TeleportData, ThreadData } from '@/types/threads';
 
 /**
  * Teleport a Yak-owned thread to the person's computer. The dialog only shows the
  * command; pressing Done marks the thread as waiting, nothing changes until the command runs.
  */
-const TELEPORT_DOCS = 'https://geocodio.github.io/yak/teleport/';
-const INSTALL_DOCS = 'https://geocodio.github.io/yak/teleport/install/';
 const docsLinkClass = 'text-accent-text hover:underline';
 
 export function TeleportToComputerDialog({ thread, teleport, open, onClose }: { thread: ThreadData; teleport: TeleportData; open: boolean; onClose: () => void }) {
     const [runningTurn, setRunningTurn] = useState<'wait' | 'stop'>('wait');
     const [processing, setProcessing] = useState(false);
-    const { publishWarning } = usePage<{ publishWarning: boolean } & Record<string, unknown>>().props;
+    const { publishWarning, setup } = usePage<{ publishWarning: boolean } & SharedProps>().props;
+    const teleportDocs = useDocsUrl('teleport/');
+    const installDocs = useDocsUrl('teleport/#install');
+    const needsSetup = !teleport.hasDevices && !(setup?.hasDevice ?? false);
 
     const done = () => {
         if (teleport.state === 'waiting') {
@@ -50,6 +54,10 @@ export function TeleportToComputerDialog({ thread, teleport, open, onClose }: { 
             data-testid="teleport-dialog"
         >
             <div className="flex flex-col gap-4 p-5 text-[13px]">
+                {needsSetup && <TeleportSetup />}
+
+                {!needsSetup && (
+                    <>
                 <div className="flex flex-col gap-1.5">
                     <p className="font-medium">
                         In a terminal, inside your checkout of <code className="font-mono text-[12px]">{thread.repo}</code>
@@ -69,14 +77,13 @@ export function TeleportToComputerDialog({ thread, teleport, open, onClose }: { 
                     </div>
                     <p className="text-[12px] leading-relaxed text-muted">
                         Needs the Yak plugin. It asks once where <code className="font-mono text-[11.5px]">{thread.repo}</code> lives on this computer. No plugin yet?{' '}
-                        <a href={INSTALL_DOCS} target="_blank" rel="noreferrer" className={docsLinkClass}>
+                        <a href={installDocs} target="_blank" rel="noreferrer" className={docsLinkClass}>
                             Install it
                         </a>
                     </p>
                 </div>
 
-                {!teleport.hasDevices && (
-                    <p className="text-[13px] text-muted">You have not signed in to the Yak command line on any computer yet. Run <code className="font-mono">yak login</code> first.</p>
+                    </>
                 )}
 
                 {teleport.runningTurn && (
@@ -116,7 +123,7 @@ export function TeleportToComputerDialog({ thread, teleport, open, onClose }: { 
 
                 <p className="text-[12px] text-muted">
                     Nothing changes until you run the command.{' '}
-                    <a href={TELEPORT_DOCS} target="_blank" rel="noreferrer" className={docsLinkClass}>
+                    <a href={teleportDocs} target="_blank" rel="noreferrer" className={docsLinkClass}>
                         How teleport works
                     </a>
                 </p>
@@ -127,7 +134,7 @@ export function TeleportToComputerDialog({ thread, teleport, open, onClose }: { 
                     </Button>
                     <PrivatePublishGate required={publishWarning && teleport.state !== 'waiting'} onConfirm={done}>
                         {(confirm) => (
-                            <Button variant="primary" pending={processing} onClick={confirm} data-testid="teleport-done">
+                            <Button variant="primary" pending={processing} disabled={needsSetup} onClick={confirm} data-testid="teleport-done">
                                 Done
                             </Button>
                         )}

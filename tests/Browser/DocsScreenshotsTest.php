@@ -15,6 +15,7 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Models\ClaudeAccount;
+use App\Models\Device;
 use App\Models\GithubKeySync;
 use App\Models\PushDevice;
 use App\Models\Repository;
@@ -50,6 +51,7 @@ beforeEach(function (): void {
     foreach (['acme/storefront', 'acme/api', 'acme/docs'] as $slug) {
         Repository::factory()->create(['slug' => $slug, 'name' => $slug, 'github_full_name' => $slug, 'is_default' => $slug === 'acme/storefront', 'ci_system' => 'github_actions', 'git_url' => "https://github.com/{$slug}.git", 'description' => null]);
     }
+    Device::factory()->forUser($this->ada)->create(['name' => 'ada-laptop']);
     $this->actingAs($this->ada);
     Queue::fake();
 });
@@ -179,7 +181,9 @@ it('01 thread page', function () {
 
 it('02 new thread', function () {
     docsAllowGitHub();
-    $page = docsPage(route('threads.new'))
+    docsThread();
+    $page = docsPage(route('home'))
+        ->click('[data-testid="new-thread"]')
         ->type('[data-testid="start-thread-description"]', 'Add CSV export to the orders page. Reuse the filters from the list and stream the file so large exports do not time out.')
         ->click('[data-testid="add-repo"]')
         ->click('acme/api');
@@ -236,7 +240,9 @@ it('06 thread rebuild failed', function () {
 
 it('07 multi repo picker', function () {
     docsAllowGitHub();
-    $page = docsPage(route('threads.new'))
+    docsThread();
+    $page = docsPage(route('home'))
+        ->click('[data-testid="new-thread"]')
         ->type('[data-testid="start-thread-description"]', 'Add a bulk status endpoint to the API and use it from the storefront order list. Check the docs for the response conventions.')
         ->click('[data-testid="add-repo"]')
         ->click('acme/api')
@@ -352,8 +358,8 @@ JS);
 it('14 claude account add', function () {
     $page = docsPage(route('settings.claude-accounts'))->click('[data-testid="add-account"]')->wait(1);
     $page->type('[data-testid="account-secret"]', 'sk-ant-oat01-' . 'Hk3vQ9mT2xLpR7wZ4nBc8dYfJ6sUaE1gNoVt5iXrW0yKz');
-    $page->type('input[placeholder="Geocodio work"]', 'Personal');
-    $page->click('Make this my default account');
+    $page->type('[data-testid="account-name"]', 'Personal');
+    $page->click('[data-testid="account-details-toggle"]');
     docsShot($page, 'screenshot-claude-account-add', '[role="dialog"]', 1);
 });
 

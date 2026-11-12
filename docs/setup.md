@@ -167,9 +167,9 @@ yak_extra_env:
   YAK_DAILY_BUDGET_USD: "100"
 ```
 
-Three groups of settings have no default and need a value if you use the feature:
+These settings have no default and need a value if you use the feature:
 
-- Admins of the shared Yak Claude accounts: `YAK_SYSTEM_ACCOUNT_ADMIN_IDS`, a comma-separated list of user ids. You need at least one before you can add a Yak account. See [First sign-in](#first-sign-in).
+- Admins of the shared Yak Claude accounts: `YAK_SYSTEM_ACCOUNT_ADMIN_IDS`, a comma-separated list of user ids. Optional: the first person to sign in is made an admin without it, and setting it turns that off. See [First sign-in](#first-sign-in).
 - Push notifications: `VAPID_SUBJECT` (for example `mailto:ops@example.com`), `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Generate the key pair once after the first deploy with `docker exec -u www-data yak php artisan webpush:vapid --show`, then add all three. See [Notifications](notifications.md).
 - Datasets: the `YAK_DATASETS_S3_*` variables. See [Datasets](operations.md#datasets).
 
@@ -348,25 +348,20 @@ Two things you will notice in the output:
 
 ## First Sign-in
 
-1. Open `https://yak.example.com` and sign in with Google. Your email domain must be in `google_oauth_allowed_domains`.
-2. Make yourself an admin of the shared Yak accounts. Look up your user id on the server:
+1. Open `https://yak.example.com` and sign in with Google. Your email domain must be in `google_oauth_allowed_domains`. The first person to sign in to a new Yak is its admin. Admins manage the shared Yak accounts and promote or demote other people in Settings > People.
+2. Add the shared Yak account. It does work nobody started (Sentry alerts, Linear automation, flaky test fixes), and people without their own account run on it too. Use a Claude seat that belongs to the team, not your personal one. Choose **Add Yak account** in the setup bar at the top of the page, or go to Settings > Claude accounts > **Add Yak account**.
+   1. On your own computer, run `claude setup-token`. It only prints a token and leaves your Claude login alone.
+   2. The command opens a sign-in page that uses your browser's current Claude session. Copy the page's address into a private browser window and sign in to the team seat there.
+   3. Paste the token into the dialog and choose **Connect**.
+
+   To run the command on the server instead, over SSH:
 
    ```bash
-   docker exec -u www-data yak php artisan tinker --execute 'echo App\Models\User::pluck("email", "id");'
+   ssh <your-server> docker exec -it yak claude setup-token
    ```
 
-   Add it to the vault and deploy:
-
-   ```yaml
-   yak_extra_env:
-     YAK_SYSTEM_ACCOUNT_ADMIN_IDS: "1"
-   ```
-
-   ```bash
-   ansible-playbook ansible/playbook.yml --tags yak-container
-   ```
-
-3. Add the first Claude account. On your own machine run `claude setup-token` (or copy an API key). In Yak open Settings > Claude accounts. Choose Add account for your own, and Add Yak account for the shared one that runs work nobody started (Sentry alerts, Linear automation, flaky test fixes). Without a usable account a task cannot start a thread. See [Claude accounts](claude-accounts.md) for the details.
+   Logins for shared MCP servers still use the host-side login flow, not this dialog.
+3. Add your own Claude account if you want your threads to run on your plan: **Connect Claude** in the setup bar, or Settings > Claude accounts > **Add account**. Without a usable account a task cannot start a thread. See [Claude accounts](claude-accounts.md) for how accounts are chosen and for how to make someone else an admin. Setting `YAK_SYSTEM_ACCOUNT_ADMIN_IDS` in `yak_extra_env` names admins in the server config instead. When it is set, the first person to sign in is not made an admin automatically.
 4. Add your first repository: Repositories > Add repository. Yak clones it with the GitHub App and runs a setup task. See [Repositories](repositories.md).
 5. Start a thread on that repository. See [Threads](threads.md).
 
@@ -409,7 +404,7 @@ For each enabled channel, trigger a test event:
 - **Sentry**: trigger a test alert rule.
 - **GitHub**: push a commit to a `yak/test-*` branch.
 
-Each event should create a task on `https://yak.example.com/tasks`.
+Each event should create a task. Check the task log under Operations in the dashboard, or the thread list.
 
 ## Updating Yak
 

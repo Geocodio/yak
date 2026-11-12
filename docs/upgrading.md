@@ -61,7 +61,7 @@ Do these in order. Pick a quiet time: the container is recreated.
    ```
 
    It needs the `incus` command on the host. Marked previews rebuild on demand.
-6. Sign in, make yourself a Yak account admin and add the first Claude account. Without a usable account a new task cannot start a thread, so tasks resumed in step 4 fail until you do this. After adding the account, retry them from the dashboard. Steps: [Setup, First sign-in](setup.md#first-sign-in).
+6. Sign in and add the first Claude account. The migration makes the person with the lowest user id an admin, unless `YAK_SYSTEM_ACCOUNT_ADMIN_IDS` is set. Admins add more admins under Settings > People. Without a usable account a new task cannot start a thread, so tasks resumed in step 4 fail until you do this. After adding the account, retry them from the dashboard. Steps: [Setup, First sign-in](setup.md#first-sign-in).
 7. Ask each person to add their own account under Settings > Claude accounts, or let them use the shared Yak account.
 8. Move repository settings into the repositories. This opens one pull request per active repository and does not change anything else. Merge them, then check each repository:
 
