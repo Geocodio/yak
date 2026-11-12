@@ -169,21 +169,21 @@ test('retry_after exceeds default job timeout', function () {
 */
 
 test('supervisord config exists', function () {
-    expect(file_exists(base_path('supervisord.conf')))->toBeTrue();
+    expect(file_exists(base_path('docker/supervisord.conf')))->toBeTrue();
 });
 
 test('supervisord config has yak-claude worker with correct settings', function () {
-    $config = file_get_contents(base_path('supervisord.conf'));
+    $config = file_get_contents(base_path('docker/supervisord.conf'));
 
     expect($config)
         ->toContain('[program:yak-claude-worker]')
         ->toContain('--queue=yak-claude')
-        ->toContain('--timeout=600')
-        ->toContain('numprocs=1');
+        ->toContain('--timeout=3600')
+        ->toContain('numprocs=4');
 });
 
 test('supervisord config has default worker with correct settings', function () {
-    $config = file_get_contents(base_path('supervisord.conf'));
+    $config = file_get_contents(base_path('docker/supervisord.conf'));
 
     expect($config)
         ->toContain('[program:default-worker]')
@@ -199,7 +199,7 @@ test('supervisord config has default worker with correct settings', function () 
 |
 | docker/supervisord.conf is the file that actually ships — Dockerfile
 | copies it to /etc/supervisor/conf.d/yak.conf and runs it as the CMD.
-| (base_path('supervisord.conf') above is a local-dev leftover.)
+| (base_path('docker/supervisord.conf') above is a local-dev leftover.)
 |
 */
 
