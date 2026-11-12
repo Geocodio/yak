@@ -143,11 +143,11 @@ export default function ClaudeAccounts({ accounts, yakAccounts, canManageYakAcco
                                 </h3>
                                 <Intro>Shared accounts that Yak runs work on when nobody started it, like Sentry alerts and flaky tests. You can also pick one when you start a task. {canManageYakAccounts ? 'Pick each repository\'s account on its settings page.' : 'Only Yak admins can add, replace or remove them.'}</Intro>
                             </div>
-                            {canManageYakAccounts && <Button variant="secondary" icon={<Plus size={14} />} onClick={() => setDialog({ mode: 'addSystem' })} data-testid="add-yak-account">Add Yak account</Button>}
+                            {canManageYakAccounts && yakAccounts.length > 0 && <Button variant="secondary" icon={<Plus size={14} />} onClick={() => setDialog({ mode: 'addSystem' })} data-testid="add-yak-account">Add Yak account</Button>}
                         </div>
                         {yakAccounts.length > 0
                             ? <AccountsSection accounts={yakAccounts} readOnly={!canManageYakAccounts} {...rowProps} />
-                            : <Card className="p-4"><EmptyState title="No Yak account yet" body="Work nobody started, like Sentry alerts, cannot run until an admin adds one." action={canManageYakAccounts ? <Button variant="primary" icon={<Plus size={14} />} onClick={() => setDialog({ mode: 'addSystem' })}>Add Yak account</Button> : undefined} /></Card>}
+                            : <Card className="p-4"><EmptyState title="No Yak account yet" body="Work nobody started, like Sentry alerts, cannot run until an admin adds one." action={canManageYakAccounts ? <Button variant="primary" icon={<Plus size={14} />} onClick={() => setDialog({ mode: 'addSystem' })} data-testid="add-yak-account">Add Yak account</Button> : undefined} /></Card>}
                     </section>
                 )}
 

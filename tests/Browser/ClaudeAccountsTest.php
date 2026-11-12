@@ -78,3 +78,19 @@ test('the empty state names the shared account', function () {
     visit('/settings/claude-accounts')
         ->assertSee('your tasks run on the shared Yak account, Yak Geocodio.');
 });
+
+test('an admin with no Yak account sees one Add Yak account button', function () {
+    $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+    visit('/settings/claude-accounts')
+        ->assertSee('No Yak account yet')
+        ->assertScript('document.querySelectorAll(\'[data-testid="add-yak-account"]\').length', 1);
+});
+
+test('an admin with a Yak account sees the add button in the section header', function () {
+    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    ClaudeAccount::factory()->system()->create(['validated_at' => now()]);
+
+    visit('/settings/claude-accounts')
+        ->assertScript('document.querySelectorAll(\'[data-testid="add-yak-account"]\').length', 1);
+});
