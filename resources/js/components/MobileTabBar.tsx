@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { TabBar, type TabBarItem, type TabBarLinkProps } from '@geocodio/console-ui';
 import { Code2, MessageSquare, Menu as MenuIcon, MessagesSquare, Plus } from 'lucide-react';
-import { isActive, openMobileNav, openNewTask } from '@/components/Sidebar';
+import { isActive, openMobileNav, openNewThread } from '@/components/Sidebar';
 import { prReviews, repos, tasks } from '@/routes';
 import type { SharedProps } from '@/types/shared';
 
@@ -52,7 +52,7 @@ export function MobileTabBar() {
             className="lg:hidden"
             LinkComponent={PrefetchingTabLink}
             items={items}
-            action={{ label: 'New thread', icon: <Plus size={24} />, onSelect: openNewTask, testId: 'tab-new-task' }}
+            action={{ label: 'New thread', icon: <Plus size={24} />, onSelect: openNewThread, testId: 'tab-new-task' }}
             data-testid="mobile-tab-bar"
         />
     );

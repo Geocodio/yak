@@ -1,4 +1,4 @@
-export type ThreadListFilter = 'mine' | 'everyone';
+export type ThreadListFilter = 'mine' | 'yak' | 'everyone';
 
 export type ThreadListRow = {
     id: number;
@@ -20,6 +20,7 @@ export type ThreadListData = {
     needsYou: ThreadListRow[];
     threads: ThreadListRow[];
     needsYouCount: number;
+    hasAnyThreads: boolean;
 };
 
 export type OperationsPanelData = {

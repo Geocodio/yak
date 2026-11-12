@@ -1,3 +1,4 @@
+import type { NewThreadPageData } from './threads';
 import type { OperationsPanelData, ThreadListData } from './shell';
 
 export type SetupProps = {
@@ -18,6 +19,7 @@ export type SharedProps = {
     flash: { success?: string | null; error?: string | null; id?: string | null; startedThreadId?: number | null; connectedAccount?: { name: string; kind: string; defaultModel: string | null; expiresAt: string | null } | null };
     nav: { activeTaskCount: number; needsYouCount: number };
     threadList: ThreadListData | null;
+    newThread?: Omit<NewThreadPageData, 'emailToYakAddress'>;
     operationsPanel: OperationsPanelData | null;
     setup: SetupProps | null;
     docs: { baseUrl: string };

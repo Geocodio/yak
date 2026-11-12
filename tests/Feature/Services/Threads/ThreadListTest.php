@@ -215,3 +215,32 @@ test('a private thread of another user never leaks its owner initials', function
         ->and(json_encode($list))->not->toContain('ZZ')->not->toContain('Zed')
         ->and(collect($list['threads'])->firstWhere('id', $visible->id)['ownerInitials'])->toBe('TT');
 });
+
+test('the started by yak filter lists only threads without a human creator', function () {
+    $user = User::factory()->create();
+    $mine = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $teammate = Thread::factory()->create(['created_by_user_id' => User::factory()->create()->id]);
+    $fromChannel = Thread::factory()->create(['created_by_user_id' => null]);
+
+    $ids = listedIds(ThreadList::for($user, ThreadListFilter::StartedByYak));
+
+    expect($ids)->toBe([$fromChannel->id])->not->toContain($mine->id, $teammate->id);
+});
+
+test('hasAnyThreads is false when nothing is visible and true once a thread exists under any filter', function () {
+    $user = User::factory()->create();
+    $secretOwner = User::factory()->create();
+    Thread::factory()->private($secretOwner)->create(['created_by_user_id' => $secretOwner->id]);
+
+    foreach (ThreadListFilter::cases() as $filter) {
+        expect(ThreadList::for($user, $filter)['hasAnyThreads'])->toBeFalse();
+    }
+
+    Thread::factory()->create(['created_by_user_id' => User::factory()->create()->id]);
+
+    foreach (ThreadListFilter::cases() as $filter) {
+        expect(ThreadList::for($user, $filter)['hasAnyThreads'])->toBeTrue();
+    }
+
+    expect(ThreadList::for($user, ThreadListFilter::Mine, 'no such thread')['hasAnyThreads'])->toBeTrue();
+});

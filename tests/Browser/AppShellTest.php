@@ -43,7 +43,7 @@ test('the app shell renders the sidebar nav and the command palette opens', func
         ->assertSee('Workspace')
         ->assertDontSee('Your profile, prompts')
         ->click('[data-testid="section-panel-collapse"]')
-        ->assertMissing('[data-testid="sidebar-panel"]');
+        ->assertAttribute('[data-testid="sidebar-panel"]', 'aria-hidden', 'true');
 
     $page->keys('[data-testid="app-shell"]', ['Meta+k']);
 
@@ -94,13 +94,13 @@ test('on a phone the sidebar folds into a top bar, a floating tab bar and a navi
         ->assertNoJavaScriptErrors();
 });
 
-test('on a phone the round button opens the new thread page from any page', function () {
+test('on a phone the round button opens the new thread dialog from any page', function () {
     $this->actingAs(User::factory()->create());
 
     $page = visit('/repos')->on()->mobile();
 
     $page->click('[data-testid="tab-new-task"]')
-        ->assertPathIs('/threads/new')
+        ->assertVisible('[data-testid="new-thread-dialog"]')
         ->assertVisible('[data-testid="start-thread-description"]')
         ->assertNoJavaScriptErrors();
 });

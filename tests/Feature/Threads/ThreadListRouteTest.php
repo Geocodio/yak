@@ -67,3 +67,16 @@ test("list never includes another user's private thread", function () {
         ->assertOk()
         ->assertJsonMissing(['id' => $thread->id]);
 });
+
+test('the yak filter is accepted and the new thread data loads only on request', function () {
+    $user = User::factory()->create();
+    Thread::factory()->create(['created_by_user_id' => null, 'title' => 'From Sentry']);
+
+    $this->actingAs($user)->getJson(route('threads.list', ['filter' => 'yak']))
+        ->assertOk()
+        ->assertJsonPath('threads.0.title', 'From Sentry')
+        ->assertJsonPath('hasAnyThreads', true);
+
+    $this->actingAs($user)->get(route('tasks'))
+        ->assertInertia(fn ($page) => $page->missing('newThread'));
+});

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Channels\ChannelRegistry;
 use App\Enums\TaskStatus;
+use App\Http\Resources\NewThreadData;
 use App\Http\Resources\OperationsPanelData;
 use App\Http\Resources\SetupData;
 use App\Models\User;
@@ -11,6 +12,7 @@ use App\Models\YakTask;
 use App\Services\Threads\ThreadList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -73,6 +75,8 @@ class HandleInertiaRequests extends Middleware
                 ];
             },
             'threadList' => $threadList,
+            // Loaded by a partial reload when the new-thread dialog opens.
+            'newThread' => Inertia::optional(fn (): array => NewThreadData::for($user)),
             'nav' => fn () => [
                 'activeTaskCount' => $user === null ? 0 : YakTask::query()->whereIn('status', TaskStatus::activeValues())->count(),
                 'needsYouCount' => $threadList()['needsYouCount'] ?? 0,

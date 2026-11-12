@@ -11,7 +11,7 @@ test('the empty state shows when there are no threads', function () {
     $this->actingAs(User::factory()->create());
 
     visit('/tasks')
-        ->assertVisible('[data-testid="thread-list-empty"]')
+        ->assertVisible('[data-testid="thread-list-quiet-empty"]')
         ->assertMissing('[data-testid="rail-threads-badge"]')
         ->assertNoJavaScriptErrors();
 });
@@ -42,7 +42,7 @@ test('the everyone filter shows threads from teammates', function () {
 
     visit('/tasks')
         ->assertMissing('[data-testid="thread-row-' . $other->id . '"]')
-        ->click('[data-testid="thread-filter"] button[aria-pressed="false"]')
+        ->click('[data-testid="thread-filter"] button[data-testid="thread-filter-everyone"]')
         ->assertVisible('[data-testid="thread-row-' . $other->id . '"]')
         ->assertNoJavaScriptErrors();
 });
@@ -103,7 +103,7 @@ test('a teammate thread shows the owner chip under everyone', function () {
     $this->actingAs($user);
 
     visit('/tasks')
-        ->click('[data-testid="thread-filter"] button[aria-pressed="false"]')
+        ->click('[data-testid="thread-filter"] button[data-testid="thread-filter-everyone"]')
         ->assertSeeIn('[data-testid="thread-owner-' . $thread->id . '"]', 'TT')
         ->assertNoJavaScriptErrors();
 });

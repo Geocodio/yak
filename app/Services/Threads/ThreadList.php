@@ -35,7 +35,7 @@ class ThreadList
     private const LIKE_ESCAPE = '!';
 
     /**
-     * @return array{needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int}
+     * @return array{needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool}
      */
     public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null): array
     {
@@ -45,6 +45,7 @@ class ThreadList
             ->whereNull('parent_thread_id')
             ->where('status', 'open')
             ->when($filter === ThreadListFilter::Mine, fn (Builder $query) => self::mine($query, $user))
+            ->when($filter === ThreadListFilter::StartedByYak, fn (Builder $query) => $query->whereNull('created_by_user_id'))
             ->when($search !== null && $search !== '', fn (Builder $query) => self::search($query, (string) $search))
             ->select('threads.*')
             ->addSelect(['latest_run_id' => self::latestRunId()])
@@ -100,7 +101,24 @@ class ThreadList
             }
         }
 
-        return ['needsYou' => $needsYou, 'threads' => $rest, 'needsYouCount' => count($needsYou)];
+        return [
+            'needsYou' => $needsYou,
+            'threads' => $rest,
+            'needsYouCount' => count($needsYou),
+            'hasAnyThreads' => $filter === ThreadListFilter::Everyone && ($search === null || $search === '')
+                ? $roots->isNotEmpty()
+                : self::hasAnyThreads($user),
+        ];
+    }
+
+    private static function hasAnyThreads(User $user): bool
+    {
+        return Thread::query()
+            ->withoutVisibilityScope()
+            ->visibleTo($user)
+            ->whereNull('parent_thread_id')
+            ->where('status', 'open')
+            ->exists();
     }
 
     /**

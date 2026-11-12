@@ -78,7 +78,7 @@ test('a docked thread panel leaves only the rail on a wide screen', function () 
     $page->assertVisible('[data-testid="sidebar-panel"]')
         ->click('[data-testid="thread-dock-toggle-preview"]')
         ->assertVisible('[data-testid="icon-rail"]')
-        ->assertMissing('[data-testid="sidebar-panel"]')
+        ->assertAttribute('[data-testid="sidebar-panel"]', 'aria-hidden', 'true')
         ->assertNoJavaScriptErrors();
 });
 
@@ -92,5 +92,30 @@ test('the details sidebar is a sheet behind a header toggle at laptop width', fu
     expect($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).display'))->toBe('none');
     $page->click('[data-testid="thread-details-sheet-toggle"]')
         ->assertVisible('[data-testid="thread-sidebar"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a collapsed thread panel can be reopened from the rail and with the bracket key', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/tasks');
+
+    $page->assertMissing('[data-testid="show-threads"]')
+        ->click('[data-testid="collapse-thread-list"]')
+        ->assertAttribute('[data-testid="sidebar-panel"]', 'aria-hidden', 'true')
+        ->click('[data-testid="show-threads"]')
+        ->assertAttributeMissing('[data-testid="sidebar-panel"]', 'aria-hidden')
+        ->keys('[data-testid="app-shell"]', ['['])
+        ->assertAttribute('[data-testid="sidebar-panel"]', 'aria-hidden', 'true')
+        ->assertNoJavaScriptErrors();
+});
+
+test('the sidebar new thread button opens the dialog and keeps the page', function () {
+    $this->actingAs(User::factory()->create());
+
+    visit('/tasks')
+        ->click('[data-testid="new-thread"]')
+        ->assertVisible('[data-testid="new-thread-dialog"]')
+        ->assertPathIs('/tasks')
         ->assertNoJavaScriptErrors();
 });

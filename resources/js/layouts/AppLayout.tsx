@@ -8,6 +8,7 @@ import { MobileTabBar } from '@/components/MobileTabBar';
 import { MobileNavToggle } from '@/components/shell/MobileNavToggle';
 import { SetupBar } from '@/components/setup/SetupBar';
 import { Sidebar } from '@/components/Sidebar';
+import { NewThreadDialogHost } from '@/components/threads/start/NewThreadDialogHost';
 import { YAK_ACTIVITY_PIP, YAK_BRAND_COLOR, YAK_MARK } from '@/lib/brand';
 import type { SharedProps } from '@/types/shared';
 
@@ -33,6 +34,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <MobileNavSheet />
             <FlashToasts />
             <AppCommandPalette />
+            <NewThreadDialogHost />
             <ToastHost className="max-lg:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]" />
         </div>
     );

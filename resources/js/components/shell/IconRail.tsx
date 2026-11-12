@@ -1,10 +1,10 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { BrandMarkIcon, Menu, Tooltip, cn } from '@geocodio/console-ui';
-import { BookOpen, Layers, LayoutList, LogOut, Settings as SettingsIcon, Gauge } from 'lucide-react';
+import { BookOpen, Layers, PanelLeftOpen, LayoutList, LogOut, Settings as SettingsIcon, Gauge } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { RailSection } from '@/components/shell/sections';
 import { YAK_MARK } from '@/lib/brand';
-import { logout, tasks } from '@/routes';
+import { home, logout } from '@/routes';
 import type { SharedProps } from '@/types/shared';
 
 export const SECTION_ICONS: Record<RailSection, { label: string; icon: ComponentType<{ size?: number }> }> = {
@@ -44,15 +44,28 @@ function RailButton({ section, active, badge, onSelect }: { section: RailSection
     );
 }
 
-export function IconRail({ active, onSelect }: { active: RailSection; onSelect: (section: RailSection) => void }) {
+export function IconRail({ active, onSelect, onShowThreads }: { active: RailSection; onSelect: (section: RailSection) => void; onShowThreads?: () => void }) {
     const { props } = usePage<SharedProps>();
     const user = props.auth.user;
 
     return (
         <div className="flex w-[52px] shrink-0 flex-col items-center gap-2 border-r border-hair py-3" data-testid="icon-rail">
-            <Link href={tasks.url()} aria-label="Yak home" className="mb-2 flex h-8 w-8 items-center justify-center" data-testid="app-brand">
+            <Link href={home.url()} aria-label="Yak home" className="mb-2 flex h-8 w-8 items-center justify-center" data-testid="app-brand">
                 <BrandMarkIcon mark={YAK_MARK} size={22} />
             </Link>
+            {onShowThreads ? (
+                <Tooltip label="Show threads" side="right">
+                    <button
+                        type="button"
+                        aria-label="Show threads"
+                        onClick={onShowThreads}
+                        data-testid="show-threads"
+                        className="flex h-9 w-9 items-center justify-center rounded-control text-muted hover:bg-panel-2 hover:text-body"
+                    >
+                        <PanelLeftOpen size={18} />
+                    </button>
+                </Tooltip>
+            ) : null}
             <RailButton section="threads" active={active === 'threads'} badge={props.nav.needsYouCount} onSelect={onSelect} />
             <RailButton section="operations" active={active === 'operations'} onSelect={onSelect} />
             <RailButton section="insights" active={active === 'insights'} onSelect={onSelect} />
