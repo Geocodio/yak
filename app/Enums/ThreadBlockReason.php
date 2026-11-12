@@ -11,4 +11,6 @@ enum ThreadBlockReason: string
     case WaitingForSandbox = 'waiting_for_sandbox';
     case CredentialExposure = 'credential_exposure';
     case RestoreFailed = 'restore_failed';
+    case WaitingForRepository = 'waiting_for_repository';
+    case RepositorySetupFailed = 'repository_setup_failed';
 }

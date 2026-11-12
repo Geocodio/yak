@@ -77,6 +77,7 @@ use App\Http\Controllers\Threads\PullRequests\AskToFixController;
 use App\Http\Controllers\Threads\PullRequests\MergeOrderController;
 use App\Http\Controllers\Threads\PullRequests\PullRequestsShowController;
 use App\Http\Controllers\Threads\RepositoryAccessController;
+use App\Http\Controllers\Threads\RepositorySetupStatusController;
 use App\Http\Controllers\Threads\RestoreRetryController;
 use App\Http\Controllers\Threads\Stack\ChildDiffController;
 use App\Http\Controllers\Threads\Stack\ChildOverrideController;
@@ -418,6 +419,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('threads/new/repository-access', RepositoryAccessController::class)
         ->middleware('throttle:30,1')
         ->name('threads.repository-access');
+
+    Route::get('threads/new/repository-setup', RepositorySetupStatusController::class)
+        ->middleware('throttle:60,1')
+        ->name('threads.repository-setup');
 
     Route::get('threads/{thread}/repositories', ThreadRepositoryProgressController::class)
         ->name('threads.repositories.progress')

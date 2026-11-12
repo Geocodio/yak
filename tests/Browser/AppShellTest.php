@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\BranchDeployment;
+use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\User;
 
@@ -95,7 +96,10 @@ test('on a phone the sidebar folds into a top bar, a floating tab bar and a navi
 });
 
 test('on a phone the round button opens the new thread dialog from any page', function () {
-    $this->actingAs(User::factory()->create());
+    $user = User::factory()->create();
+    Repository::factory()->create(['is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
 
     $page = visit('/repos')->on()->mobile();
 

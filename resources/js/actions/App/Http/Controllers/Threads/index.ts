@@ -17,6 +17,7 @@ import Preview from './Preview'
 import ThreadFileController from './ThreadFileController'
 import TerminalSessionController from './TerminalSessionController'
 import RepositoryAccessController from './RepositoryAccessController'
+import RepositorySetupStatusController from './RepositorySetupStatusController'
 import ThreadRepositoryProgressController from './ThreadRepositoryProgressController'
 import ThreadRepositoryController from './ThreadRepositoryController'
 import PullRequests from './PullRequests'
@@ -41,6 +42,7 @@ const Threads = {
     ThreadFileController: Object.assign(ThreadFileController, ThreadFileController),
     TerminalSessionController: Object.assign(TerminalSessionController, TerminalSessionController),
     RepositoryAccessController: Object.assign(RepositoryAccessController, RepositoryAccessController),
+    RepositorySetupStatusController: Object.assign(RepositorySetupStatusController, RepositorySetupStatusController),
     ThreadRepositoryProgressController: Object.assign(ThreadRepositoryProgressController, ThreadRepositoryProgressController),
     ThreadRepositoryController: Object.assign(ThreadRepositoryController, ThreadRepositoryController),
     PullRequests: Object.assign(PullRequests, PullRequests),

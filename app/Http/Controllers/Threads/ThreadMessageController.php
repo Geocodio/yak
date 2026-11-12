@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Threads;
 
+use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadOwnerSide;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\SendThreadMessageRequest;
@@ -37,6 +38,10 @@ class ThreadMessageController extends Controller
 
         if (! $thread->isOpen()) {
             return $this->refuse($request, 'This thread is closed.');
+        }
+
+        if (in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForRepository, ThreadBlockReason::RepositorySetupFailed], true)) {
+            return $this->refuse($request, 'This thread has not started yet. It starts when its repository is set up.');
         }
 
         $text = (string) $request->validated('message');

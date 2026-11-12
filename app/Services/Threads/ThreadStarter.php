@@ -4,8 +4,10 @@ namespace App\Services\Threads;
 
 use App\Enums\RepositoryRole;
 use App\Enums\TaskMode;
+use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadKind;
 use App\Jobs\RunYakJob;
+use App\Models\Repository;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
@@ -61,6 +63,13 @@ class ThreadStarter
             throw new RuntimeException('That Claude account is not available to you. Pick one of your own or a shared account.');
         }
 
+        $setupStatus = Repository::query()->where('slug', $repo)->value('setup_status');
+
+        if ($setupStatus === 'failed') {
+            throw ValidationException::withMessages(['repo' => "Setup failed for {$repo}. Open the repository and re-run setup first."]);
+        }
+
+        $isRepositorySettingUp = in_array($setupStatus, ['pending', 'running'], true);
         $description = trim($description);
 
         $task = DB::transaction(function () use ($starter, $repo, $mode, $description, $resolved, $attachments, $extraRepositories): YakTask {
@@ -107,10 +116,20 @@ class ThreadStarter
             return $task;
         });
 
+        $thread = $task->thread()->firstOrFail();
+
+        // A repository still being set up has no sandbox template to start from, so the
+        // first turn waits; ThreadsAwaitingRepository dispatches it when setup finishes.
+        if ($isRepositorySettingUp) {
+            $thread->forceFill(['blocked_reason' => ThreadBlockReason::WaitingForRepository, 'blocked_at' => now()])->save();
+
+            return $thread;
+        }
+
         // The before-turn job prepares the branch in the thread's sandbox and writes the first turn.
         $this->dispatcher->dispatch($task, RunYakJob::class);
 
-        return $task->thread()->firstOrFail();
+        return $thread;
     }
 
     /**

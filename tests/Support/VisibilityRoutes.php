@@ -172,7 +172,7 @@ class VisibilityRoutes
             // Device pairing and the viewer's own paired devices: per user, no thread data.
             'device.show', 'device.approve', 'device.deny', 'settings.devices', 'settings.devices.destroy',
             // New-thread form and creation: reads the viewer's own repositories and accounts only.
-            'threads.new', 'threads.store', 'threads.repository-access',
+            'threads.new', 'threads.store', 'threads.repository-access', 'threads.repository-setup',
             // Device-token protocol for the CLI: no web session; each controller resolves the thread through the device owner's visibility.
             'cli.device.code', 'cli.device.token', 'cli.me', 'cli.device.destroy', 'cli.repos.resolve',
             'GET api/cli/v1/threads/by-session/{sessionId}', 'GET api/cli/v1/threads/{thread}', 'POST api/cli/v1/teleports',

@@ -28,6 +28,9 @@ export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer[
             return { ...DEFAULT, placeholder: 'Message Claude. It reads this after the limit resets.' };
         case 'waiting_for_account':
             return savedFor('when its turn starts');
+        case 'waiting_for_repository':
+        case 'repository_setup_failed':
+            return { placeholder: 'This thread starts when its repository is set up.', hint: 'Messages open once the thread has started.' };
         case 'waiting_for_sandbox':
             return savedFor('when the sandbox is up');
     }

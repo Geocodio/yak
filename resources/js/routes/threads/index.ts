@@ -15,7 +15,7 @@ import repositories from './repositories'
 import pullRequests from './pull-requests'
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:117
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:122
 * @route '/threads/{thread}/stop'
 */
 export const stop = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -30,7 +30,7 @@ stop.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:117
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:122
 * @route '/threads/{thread}/stop'
 */
 stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -63,7 +63,7 @@ stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:117
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:122
 * @route '/threads/{thread}/stop'
 */
 stop.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -421,6 +421,50 @@ repositoryAccess.head = (options?: RouteQueryOptions): RouteDefinition<'head'> =
     method: 'head',
 })
 
+/**
+* @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
+* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @route '/threads/new/repository-setup'
+*/
+export const repositorySetup = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: repositorySetup.url(options),
+    method: 'get',
+})
+
+repositorySetup.definition = {
+    methods: ["get","head"],
+    url: '/threads/new/repository-setup',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
+* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @route '/threads/new/repository-setup'
+*/
+repositorySetup.url = (options?: RouteQueryOptions) => {
+    return repositorySetup.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
+* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @route '/threads/new/repository-setup'
+*/
+repositorySetup.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: repositorySetup.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
+* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @route '/threads/new/repository-setup'
+*/
+repositorySetup.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: repositorySetup.url(options),
+    method: 'head',
+})
+
 const threads = {
     messages: Object.assign(messages, messages),
     stop: Object.assign(stop, stop),
@@ -442,6 +486,7 @@ const threads = {
     files: Object.assign(files, files),
     terminalSessions: Object.assign(terminalSessions, terminalSessions),
     repositoryAccess: Object.assign(repositoryAccess, repositoryAccess),
+    repositorySetup: Object.assign(repositorySetup, repositorySetup),
     repositories: Object.assign(repositories, repositories),
     pullRequests: Object.assign(pullRequests, pullRequests),
 }

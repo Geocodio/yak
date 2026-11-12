@@ -12,7 +12,9 @@ export function ThreadStatusDot({ row }: { row: Pick<ThreadListRow, 'status' | '
             ? 'bg-fail'
             : row.status === 'paused'
               ? 'border border-brand'
-              : 'border border-idle';
+              : row.status === 'waiting_for_repository'
+                ? 'border border-dashed border-brand'
+                : 'border border-idle';
 
     return <span aria-hidden className={cn('inline-block h-2 w-2 shrink-0 rounded-pill', className)} data-status={row.status} />;
 }

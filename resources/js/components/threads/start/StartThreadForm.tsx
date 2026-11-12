@@ -1,7 +1,7 @@
-import { Link, router, useForm, usePage } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import { BrandMarkIcon, Button, Kbd, cn } from '@geocodio/console-ui';
 import { ExternalLink, Info, Search, Wrench } from 'lucide-react';
-import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
@@ -30,7 +30,25 @@ const MODES: { mode: Mode; label: string; icon: typeof Wrench; hint: string }[] 
  * model pickers. Changing the repo re-resolves the defaults from
  * `picker.defaultsByRepo`.
  */
-export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFocus }: Omit<NewThreadPageData, 'emailToYakAddress'> & { onStarted?: () => void; autoFocus?: boolean }) {
+export function StartThreadForm({
+    repos,
+    picker,
+    defaultRepo,
+    onStarted,
+    autoFocus,
+    onRepoChange,
+    isQueueing = false,
+    isRepoBlocked = false,
+}: Omit<NewThreadPageData, 'emailToYakAddress'> & {
+    onStarted?: () => void;
+    autoFocus?: boolean;
+    /** Called with the selected repository, so a wrapper can show that repository's setup state. */
+    onRepoChange?: (slug: string) => void;
+    /** The selected repository is still being set up: the thread is created now and starts when setup is done. */
+    isQueueing?: boolean;
+    /** The selected repository cannot take a thread, so Start stays disabled. */
+    isRepoBlocked?: boolean;
+}) {
     const { docs } = usePage<SharedProps>().props;
     const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[]; repositories: PickerRepository[] }>({
         repo: defaultRepo ?? '',
@@ -44,6 +62,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
     });
     const [isBlocked, setIsBlocked] = useState(false);
     const [startedThreadId, setStartedThreadId] = useState<number | null>(null);
+    useEffect(() => onRepoChange?.(form.data.repo), [form.data.repo, onRepoChange]);
     const editorRef = useRef<AttachmentTextareaHandle>(null);
     const draft = useAttachmentDraft({ enabled: true, onAdd: (added) => editorRef.current?.insertTokens(added) });
     const errors = form.errors as Record<string, string | undefined>;
@@ -55,7 +74,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
     const defaultAccount = picker.accounts.find((account) => account.id === defaults?.accountId);
     const chosenAccount = picker.accounts.find((account) => String(account.id) === form.data.claude_account_id);
     const effectiveModel = form.data.model ?? chosenAccount?.defaultModel ?? defaults?.model ?? null;
-    const canSubmit = !noAccounts && !noRepos && form.data.repo !== '' && form.data.description.trim().length >= 3 && !isBlocked;
+    const canSubmit = !noAccounts && !noRepos && form.data.repo !== '' && form.data.description.trim().length >= 3 && !isBlocked && !isRepoBlocked;
 
     const extras = form.data.repositories;
     const isResearch = form.data.mode === 'research';
@@ -151,7 +170,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                     <div className={cn('flex items-center gap-2.5', !isBlocked && 'ml-auto')}>
                         <Kbd keys={['⌘', '↵']} className="hidden pointer-fine:inline-flex" />
                         <Button variant="primary" className="h-7" pending={isStarting} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
-                            {isStarting ? 'Starting...' : `Start ${isResearch ? 'research' : 'change'}`}
+                            {isStarting ? 'Starting...' : `${isQueueing ? 'Queue' : 'Start'} ${isResearch ? 'research' : 'change'}`}
                         </Button>
                     </div>
                 </div>
@@ -214,17 +233,6 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
             {!isResearch && extras.length > 0 && (
                 <p className="mt-2 text-right text-[12px] text-muted" data-testid="expected-pr-count">
                     {expectedPullRequests} pull {expectedPullRequests === 1 ? 'request' : 'requests'} expected
-                </p>
-            )}
-
-            {noAccounts && (
-                <p className="mt-3 text-[12.5px] text-fail" role="alert" data-testid="start-thread-no-accounts">
-                    No usable Claude account. <Link href={claudeAccounts.url()} className="underline">Connect one in Settings</Link>, or ask an admin to set up a shared account.
-                </p>
-            )}
-            {noRepos && (
-                <p className="mt-3 text-[12.5px] text-muted" data-testid="start-thread-no-repos">
-                    No repository is set up yet. Add one under Repositories first.
                 </p>
             )}
         </div>

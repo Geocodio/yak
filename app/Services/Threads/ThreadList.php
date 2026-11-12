@@ -217,6 +217,7 @@ class ThreadList
     {
         return match (true) {
             in_array($run?->getAttribute('turn_state'), [TurnState::Running, TurnState::WaitingForAccount, TurnState::WaitingForSandbox], true) => ThreadListStatus::Running,
+            $thread->blocked_reason === ThreadBlockReason::WaitingForRepository => ThreadListStatus::WaitingForRepository,
             $thread->blocked_reason !== null => ThreadListStatus::Blocked,
             $thread->sandbox_state === ThreadSandboxState::Paused => ThreadListStatus::Paused,
             default => ThreadListStatus::Stopped,
@@ -230,6 +231,14 @@ class ThreadList
     {
         if ($thread->tasks->last()?->status === TaskStatus::AwaitingClarification) {
             return [NeedsYouReason::Question, 'Asked you a question'];
+        }
+
+        if ($thread->blocked_reason === ThreadBlockReason::WaitingForRepository) {
+            return [null, null];
+        }
+
+        if ($thread->blocked_reason === ThreadBlockReason::RepositorySetupFailed) {
+            return [NeedsYouReason::Blocked, 'Repository setup failed'];
         }
 
         if ($thread->blocked_reason !== null) {

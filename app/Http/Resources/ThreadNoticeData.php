@@ -26,7 +26,7 @@ use Illuminate\Support\Str;
 final class ThreadNoticeData
 {
     /**
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}}|null
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}}|null
      */
     public static function for(Thread $thread, ?User $viewer = null): ?array
     {
@@ -45,11 +45,17 @@ final class ThreadNoticeData
                 ThreadBlockReason::UsageLimit => ['Usage limit reached', "{$accountName} has used its Claude limit for now. Messages you send now start when the limit resets."],
                 ThreadBlockReason::WaitingForAccount => ['Waiting for the account', "{$accountName} is running its maximum number of turns. " . self::queuePositionSentence($thread) . 'Yak starts this one as soon as a slot frees up. Your message is saved and nothing needs doing.'],
                 ThreadBlockReason::WaitingForSandbox => ['Waiting for a free sandbox', 'All ' . (int) config('yak.threads.awake_cap') . ' thread sandboxes are in use. Yak stops a paused one after 5 idle minutes and starts this one soon. Your message is saved and nothing needs doing.'],
+                ThreadBlockReason::WaitingForRepository => ['Waiting for repository setup', "Yak is still setting up {$thread->repo}. This thread starts by itself as soon as setup finishes, and your description is saved."],
+                ThreadBlockReason::RepositorySetupFailed => ["Setup failed for {$thread->repo}", 'Yak could not set the repository up, so this thread has not started. Open the repository to see why and re-run setup. This thread starts by itself once setup succeeds.'],
                 ThreadBlockReason::CredentialExposure => ['A credential was exposed', 'A secret showed up where it should not, so Yak stopped this thread. Replace the secret and ask an admin to check the thread before it continues.'],
                 ThreadBlockReason::RestoreFailed => ['Rebuilding the sandbox stopped' . ($failedIndex !== false ? ' at step ' . ($failedIndex + 1) : ''), 'Your message is saved. Claude reads it once the sandbox is back.'],
             };
 
-            return self::notice($thread->blocked_reason->value, $title, $body, $isOwnerOfAccount, false, $steps, $thread->blocked_reason === ThreadBlockReason::UsageLimit ? self::usageResetsAt($thread) : null, self::waiting($thread, $viewer, $accountName));
+            $notice = self::notice($thread->blocked_reason->value, $title, $body, $isOwnerOfAccount, false, $steps, $thread->blocked_reason === ThreadBlockReason::UsageLimit ? self::usageResetsAt($thread) : null, self::waiting($thread, $viewer, $accountName));
+            $isRepositoryBlock = in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForRepository, ThreadBlockReason::RepositorySetupFailed], true);
+            $notice['repositoryUrl'] = $isRepositoryBlock ? route('repos.edit', $thread->repo) : null;
+
+            return $notice;
         }
 
         $guardKind = self::guardKind($thread);
@@ -107,13 +113,13 @@ final class ThreadNoticeData
     /**
      * @param  list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>  $steps
      * @param  array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}|null  $waiting
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}}
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}}
      */
     private static function notice(string $kind, string $title, string $body, bool $isOwnerOfAccount, bool $canContinue, array $steps, ?string $resetsAt = null, ?array $waiting = null): array
     {
         $isAccountProblem = in_array($kind, ['account_invalid', 'account_expired', 'credential_exposure'], true);
 
-        /** @var 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring' $kind */
+        /** @var 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring' $kind */
         return [
             'kind' => $kind,
             'title' => $title,

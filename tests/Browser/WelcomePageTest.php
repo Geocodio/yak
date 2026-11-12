@@ -8,6 +8,6 @@ test('a new user sees the setup checklist and no start form until setup is done'
     visit('/')
         ->assertVisible('[data-testid="welcome-checklist"]')
         ->assertVisible('[data-testid="welcome-start-locked"]')
-        ->assertMissing('[data-testid="start-thread-no-accounts"]')
+        ->assertMissing('[data-testid="new-thread-no-account"]')
         ->assertNoJavaScriptErrors();
 });

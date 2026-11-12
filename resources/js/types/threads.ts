@@ -144,6 +144,8 @@ export type ThreadNoticeKind =
     | 'usage_limit'
     | 'waiting_for_account'
     | 'waiting_for_sandbox'
+    | 'waiting_for_repository'
+    | 'repository_setup_failed'
     | 'credential_exposure'
     | 'restore_failed'
     | 'guard_turns'
@@ -176,6 +178,7 @@ export type ThreadNotice = {
     canContinue: boolean;
     accountSettingsUrl: string | null;
     startOnOwnAccountUrl: string | null;
+    repositoryUrl?: string | null;
     waiting: ThreadWaiting | null;
     restoreSteps: {
         key: string;
@@ -189,9 +192,11 @@ export type ThreadNotice = {
     }[];
 };
 
+export type RepositorySetupState = 'pending' | 'running' | 'ready' | 'failed';
+
 /** Props of the `Threads/New` page; mirrors `App\Http\Controllers\Threads\NewThreadController`. */
 export type NewThreadPageData = {
-    repos: { slug: string; name: string }[];
+    repos: { slug: string; name: string; setupStatus: RepositorySetupState; setupStep: string | null }[];
     picker: {
         accounts: PickerAccount[];
         defaultsByRepo: Record<string, { accountId: number | null; brokenDefaultAccountId: number | null; model: string | null }>;

@@ -33,6 +33,17 @@ it('passes the email-to-Yak address only while the email channel is enabled', fu
         ->where('emailToYakAddress', null));
 });
 
+it('flags repositories that are not ready yet', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/ready']);
+    Repository::factory()->pendingSetup()->create(['slug' => 'acme/pending']);
+    Repository::factory()->pendingSetup()->create(['slug' => 'acme/failed', 'setup_status' => 'failed']);
+
+    $this->actingAs($user)->get(route('threads.new'))->assertInertia(fn (Assert $page) => $page
+        ->where('repos', fn ($repos) => collect($repos)->pluck('setupStatus', 'slug')->all() === ['acme/failed' => 'failed', 'acme/pending' => 'pending', 'acme/ready' => 'ready'])
+        ->where('repos.0.setupStep', null));
+});
+
 it('hides unusable accounts', function () {
     $user = User::factory()->create();
     ClaudeAccount::factory()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);

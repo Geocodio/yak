@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ThreadBlockReason;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\Thread;
@@ -90,23 +91,81 @@ it('falls back to the shared account when the user has none of their own', funct
     visit(route('threads.new'))
         ->assertSee('You have no Claude account yet, so this task runs on the shared account Yak Geocodio.')
         ->assertSee('Add your own')
-        ->assertMissing('[data-testid="start-thread-no-accounts"]')
+        ->assertMissing('[data-testid="new-thread-no-account"]')
         ->type('[data-testid="start-thread-description"]', 'Fix the flaky checkout test')
         ->assertEnabled('[data-testid="start-thread-submit"]')
         ->click('[data-testid="start-thread-submit"]')
         ->assertPathBeginsWith('/threads/');
 });
 
-it('keeps the red alert and a disabled Start when every account is unusable', function () {
+it('shows the connect-an-account state instead of the form when every account is unusable', function () {
     $user = User::factory()->create();
     Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
     ClaudeAccount::factory()->system()->expired()->create(['validated_at' => now()]);
     $this->actingAs($user);
 
     visit(route('threads.new'))
+        ->assertVisible('[data-testid="new-thread-no-account"]')
+        ->assertSee('Connect a Claude account')
+        ->assertMissing('[data-testid="start-thread-description"]')
+        ->click('[data-testid="new-thread-add-account"]')
+        ->assertSee('claude setup-token');
+});
+
+it('shows the add-a-repository state instead of the form when no repository exists', function () {
+    $this->actingAs(User::factory()->create());
+
+    visit(route('threads.new'))
+        ->assertVisible('[data-testid="new-thread-no-repository"]')
+        ->assertSee('Add a repository first')
+        ->assertMissing('[data-testid="start-thread-description"]')
+        ->click('[data-testid="new-thread-add-repository"]')
+        ->assertPathIs('/repos/create');
+});
+
+it('shows a setup strip and queues the change while the repository is being set up', function () {
+    $user = User::factory()->create();
+    Repository::factory()->pendingSetup()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->assertVisible('[data-testid="new-thread-repo-setting-up"]')
+        ->assertSee('Setting up acme/widgets')
+        ->assertSee('Your thread starts as soon as it is ready.')
+        ->assertSee('Queue change')
         ->type('[data-testid="start-thread-description"]', 'Fix the flaky checkout test')
-        ->assertVisible('[data-testid="start-thread-no-accounts"]')
+        ->click('[data-testid="start-thread-submit"]')
+        ->assertPathBeginsWith('/threads/');
+
+    expect(Thread::query()->latest('id')->firstOrFail()->blocked_reason)->toBe(ThreadBlockReason::WaitingForRepository);
+});
+
+it('does not offer to queue when the repository setup failed', function () {
+    $user = User::factory()->create();
+    Repository::factory()->pendingSetup()->create(['slug' => 'acme/widgets', 'is_default' => true, 'setup_status' => 'failed']);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->assertVisible('[data-testid="new-thread-repo-setup-failed"]')
+        ->assertSee('Setup failed for acme/widgets')
+        ->assertSee('Open repository')
+        ->type('[data-testid="start-thread-description"]', 'Fix the flaky checkout test')
         ->assertDisabled('[data-testid="start-thread-submit"]');
+});
+
+it('leaves the normal form untouched when the repository is ready', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->assertMissing('[data-testid="new-thread-repo-setting-up"]')
+        ->assertMissing('[data-testid="new-thread-no-repository"]')
+        ->assertMissing('[data-testid="new-thread-no-account"]')
+        ->assertSee('Start change');
 });
 
 it('names the broken repo default and the account the task runs on', function () {
@@ -129,10 +188,34 @@ it('shows the start-failed banner when the start is rejected', function () {
     $this->actingAs($user);
 
     $page = visit(route('threads.new'))->assertSee('Start change');
-    Repository::query()->update(['is_active' => false]);
+    Repository::query()->update(['setup_status' => 'failed']);
 
     $page->type('[data-testid="start-thread-description"]', 'Fix the flaky checkout test')
         ->click('[data-testid="start-thread-submit"]')
         ->assertSee('Yak could not start the task.')
+        ->assertSee('Setup failed for acme/widgets')
         ->assertVisible('[data-testid="start-thread-error"]');
+});
+
+it('shows the add-a-repository state in the dialog and closes it with Not now', function () {
+    $this->actingAs(User::factory()->create());
+
+    visit('/')
+        ->click('[data-testid="new-thread"]')
+        ->assertVisible('[data-testid="new-thread-no-repository"]')
+        ->click('[data-testid="new-thread-not-now"]')
+        ->assertMissing('[data-testid="new-thread-dialog"]');
+});
+
+it('opens the account dialog in place from the dialog state', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    $this->actingAs($user);
+
+    visit('/')
+        ->click('[data-testid="new-thread"]')
+        ->assertVisible('[data-testid="new-thread-no-account"]')
+        ->click('[data-testid="new-thread-add-account"]')
+        ->assertSee('claude setup-token')
+        ->assertPathIs('/');
 });

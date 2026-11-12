@@ -8,4 +8,5 @@ enum ThreadListStatus: string
     case Blocked = 'blocked';
     case Paused = 'paused';
     case Stopped = 'stopped';
+    case WaitingForRepository = 'waiting_for_repository';
 }

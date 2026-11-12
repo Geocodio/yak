@@ -14,6 +14,10 @@ export function threadStatus(notice: ThreadNotice | null, composerState: ThreadC
                 return { label: 'Waiting for the account', tone: 'warn' };
             case 'waiting_for_sandbox':
                 return { label: 'Waiting for a sandbox', tone: 'warn' };
+            case 'waiting_for_repository':
+                return { label: 'Waiting for repository setup', tone: 'warn' };
+            case 'repository_setup_failed':
+                return { label: 'Repository setup failed', tone: 'fail' };
             case 'account_invalid':
             case 'account_expired':
             case 'credential_exposure':

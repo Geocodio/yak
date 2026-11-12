@@ -3,7 +3,7 @@ import { Button, cn } from '@geocodio/console-ui';
 import { Check } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { AccountDialog } from '@/components/accounts/AccountDialog';
-import { StartThreadForm } from '@/components/threads/start/StartThreadForm';
+import { StartThreadPanel } from '@/components/threads/start/StartThreadPanel';
 import { AppLayout } from '@/layouts/AppLayout';
 import type { WelcomePageData } from '@/types/home';
 import type { PageProps } from '@/types/shared';
@@ -101,7 +101,7 @@ export default function Welcome({ welcome, repos, picker, defaultRepo, auth, set
 
                 <div className="mt-8" data-testid="welcome-start-thread">
                     {welcome.hasRepository && welcome.hasClaudeAccount ? (
-                        <StartThreadForm repos={repos} picker={picker} defaultRepo={defaultRepo} />
+                        <StartThreadPanel repos={repos} picker={picker} defaultRepo={defaultRepo} reloadOnly={['repos', 'picker', 'defaultRepo', 'welcome']} />
                     ) : (
                         <p className="rounded-card border border-dashed border-hair px-4 py-5 text-center text-[13px] text-muted" data-testid="welcome-start-locked">
                             Finish the steps above and you can start your first thread here.

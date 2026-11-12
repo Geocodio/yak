@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\DataTransferObjects\RepositorySettings;
 use App\Services\RepositoryConfig;
+use App\Services\Threads\Repos\ThreadsAwaitingRepository;
 use Carbon\CarbonImmutable;
 use Database\Factories\RepositoryFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -59,6 +60,15 @@ class Repository extends Model
         'default_branch' => 'main',
         'pr_review_enabled' => false,
     ];
+
+    protected static function booted(): void
+    {
+        static::updated(function (self $repository): void {
+            if ($repository->wasChanged('setup_status')) {
+                app(ThreadsAwaitingRepository::class)->repositoryStatusChanged($repository);
+            }
+        });
+    }
 
     /**
      * @return array<string, string>

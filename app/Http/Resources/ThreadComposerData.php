@@ -23,6 +23,8 @@ final class ThreadComposerData
         ThreadBlockReason::AccountExpired,
         ThreadBlockReason::CredentialExposure,
         ThreadBlockReason::RestoreFailed,
+        ThreadBlockReason::WaitingForRepository,
+        ThreadBlockReason::RepositorySetupFailed,
     ];
 
     /**

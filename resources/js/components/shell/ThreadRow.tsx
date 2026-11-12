@@ -12,6 +12,7 @@ const STATUS_TEXT: Record<ThreadListRow['status'], string> = {
     blocked: 'Blocked',
     paused: 'Paused',
     stopped: 'Stopped',
+    waiting_for_repository: 'Waiting for repository setup',
 };
 
 export function ThreadRow({ row, nested = false, active = false }: { row: ThreadListRow; nested?: boolean; active?: boolean }) {
@@ -51,6 +52,8 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                     <span className="flex items-center gap-2 pl-4 text-[11.5px]">
                         {row.needsYouLabel ? (
                             <span className={cn('truncate', row.needsYouReason === 'blocked' ? 'text-fail' : 'text-brand')}>{row.needsYouLabel}</span>
+                        ) : row.status === 'waiting_for_repository' ? (
+                            <span className="truncate text-muted" data-testid={`thread-waiting-repository-${row.id}`}>{STATUS_TEXT[row.status]}</span>
                         ) : row.repo ? (
                             <span className="truncate font-mono">{row.repo}</span>
                         ) : (
