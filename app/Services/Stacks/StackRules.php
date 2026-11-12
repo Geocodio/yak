@@ -31,6 +31,12 @@ class StackRules
         if ($parent->stack_stopped_at !== null) {
             throw new StackRuleViolation('This stack was stopped, so it cannot spawn sub-threads.');
         }
+
+        $maxChildren = (int) config('yak.threads.max_children');
+
+        if (Thread::query()->withoutGlobalScopes()->where('parent_thread_id', $parent->id)->count() >= $maxChildren) {
+            throw new StackRuleViolation("A thread can have at most {$maxChildren} sub-threads.");
+        }
     }
 
     /**

@@ -10,8 +10,6 @@ import { ChildRow } from './ChildRow';
 import { StackMessages } from './StackMessages';
 import { useStack } from './useStack';
 
-const MAX_CHILDREN = 12;
-
 export function StackPanel({ thread }: PanelProps) {
     const { stack, isLoading, error, reload } = useStack(thread);
     const [isAdding, setIsAdding] = useState(false);
@@ -45,7 +43,7 @@ export function StackPanel({ thread }: PanelProps) {
             )}
 
             <section>
-                <h3 className="text-[13px] font-semibold text-body" data-testid="stack-children-header">Sub-threads <span className="font-normal text-muted">{stack.children.length} of {MAX_CHILDREN}</span></h3>
+                <h3 className="text-[13px] font-semibold text-body" data-testid="stack-children-header">Sub-threads <span className="font-normal text-muted">{stack.children.length} of {stack.maxChildren}</span></h3>
                 {stack.children.length === 0 ? (
                     <p className="mt-2 text-[12.5px] text-muted" data-testid="stack-empty">No sub-threads yet. Claude can start them, or you can add one.</p>
                 ) : (
@@ -61,7 +59,7 @@ export function StackPanel({ thread }: PanelProps) {
                 <Button variant="secondary" onClick={() => setIsConfirmingStop(true)} data-testid="stack-stop">Stop stack</Button>
             )}
 
-            {isAdding && <AddChildDialog threadId={thread.id} parentTitle={thread.title} awake={stack.limit.awake} limit={stack.limit.current} childCount={stack.children.length} maxChildren={MAX_CHILDREN} onClose={() => setIsAdding(false)} onAdded={reload} />}
+            {isAdding && <AddChildDialog threadId={thread.id} parentTitle={thread.title} awake={stack.limit.awake} limit={stack.limit.current} childCount={stack.children.length} maxChildren={stack.maxChildren} onClose={() => setIsAdding(false)} onAdded={reload} />}
             <ConfirmDialog
                 open={isConfirmingStop}
                 onOpenChange={setIsConfirmingStop}

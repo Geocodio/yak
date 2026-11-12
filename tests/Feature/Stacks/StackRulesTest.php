@@ -29,6 +29,25 @@ it('lets an unattended thread with no driver spawn', function () {
     expect(true)->toBeTrue();
 });
 
+it('refuses the sub-thread past the maximum', function () {
+    config(['yak.threads.max_children' => 12]);
+    $root = Thread::factory()->create();
+    Thread::factory()->child($root)->count(12)->create();
+
+    expect(fn () => $this->rules->assertMaySpawn($root))
+        ->toThrow(StackRuleViolation::class, 'at most 12 sub-threads');
+});
+
+it('lets the twelfth sub-thread spawn', function () {
+    config(['yak.threads.max_children' => 12]);
+    $root = Thread::factory()->create();
+    Thread::factory()->child($root)->count(11)->create();
+
+    $this->rules->assertMaySpawn($root);
+
+    expect(true)->toBeTrue();
+});
+
 it('tells whether two threads are in the same stack', function () {
     $root = Thread::factory()->create();
     $a = Thread::factory()->child($root)->create();

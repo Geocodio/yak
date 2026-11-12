@@ -76,6 +76,10 @@ it('rejects invalid config.yml values', function (string $yaml, string $expected
     'path glob with spaces' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    allowed_paths: [ \"a b/**\" ]\n", 'review.approval.allowed_paths.0'],
 ]);
 
+it('accepts the refresh map', function () {
+    expect(parseYak('config.yml', "version: 1\nrefresh:\n  \"composer.lock\": composer install\n")['errors'])->toBe([]);
+});
+
 it('names a nested unknown key', function () {
     $errors = parseYak('config.yml', "version: 1\nreview:\n  enabeld: true\n  approval:\n    mode: shadow\n    max_file: 3\n")['errors'];
 

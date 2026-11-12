@@ -25,9 +25,9 @@ it('projects assistant blocks, init and result lines', function () {
     ]]]);
 
     expect($assistant[0]['data']['blocks'])->toBe([
-        ['kind' => 'thinking', 'text' => 'hm'],
-        ['kind' => 'text', 'text' => 'Hi'],
-        ['kind' => 'tool_use', 'toolUseId' => 't1', 'name' => 'Bash', 'input' => ['command' => 'ls']],
+        ['type' => 'thinking', 'text' => 'hm'],
+        ['type' => 'text', 'text' => 'Hi'],
+        ['type' => 'tool_use', 'id' => 't1', 'name' => 'Bash', 'input' => ['command' => 'ls']],
     ])
         ->and($projector->project(['type' => 'system', 'subtype' => 'init', 'session_id' => 's1', 'model' => 'opus'])[0]['data'])->toBe(['role' => 'system', 'subtype' => 'init', 'model' => 'opus', 'sessionId' => 's1'])
         ->and($projector->project(['type' => 'result', 'is_error' => true, 'result' => 'bad'])[0]['data']['isError'])->toBeTrue()

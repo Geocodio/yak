@@ -35,7 +35,7 @@ class RepositoryConfigParser
      */
     private const KEYS = [
         'config.yml' => [
-            'version' => [], 'description' => [], 'ci' => [], 'destroy_after_hours' => [],
+            'version' => [], 'description' => [], 'ci' => [], 'destroy_after_hours' => [], 'refresh' => [],
             'walkthrough' => ['public_site_url' => []],
             'pull_requests' => ['large_change_lines' => []],
             'co_owner_gate' => ['mode' => []],
