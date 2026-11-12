@@ -48,7 +48,6 @@ export type RepositoryOptions = {
 };
 
 export type ReviewPolicy = {
-    mode: 'off' | 'shadow' | 'enforce';
     allowed_paths: string[];
     blocked_paths: string[];
     required_checks: { name: string; app_id?: number | null; match_any_app?: boolean }[];

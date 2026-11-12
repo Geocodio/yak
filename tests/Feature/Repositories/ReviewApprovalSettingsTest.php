@@ -4,6 +4,7 @@ use App\Jobs\ResearchYakJob;
 use App\Models\Repository;
 use App\Models\User;
 use App\Services\RepositoryRiskProfiles;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -18,8 +19,8 @@ beforeEach(function () {
         'name' => $this->repo->name, 'slug' => $this->repo->slug,
         'path' => $this->repo->path, 'git_url' => 'https://github.com/acme/api.git',
         'default_branch' => 'main', 'ci_system' => 'github_actions',
-        'pr_review_enabled' => true, 'pr_review_policy' => array_replace($this->repo->reviewPolicy(), [
-            'mode' => 'shadow', 'allowed_paths' => [' docs/** ', ''],
+        'pr_review_enabled' => true, 'pr_review_policy' => array_replace(Arr::except($this->repo->reviewPolicy(), 'mode'), [
+            'allowed_paths' => [' docs/** ', ''],
             'required_checks' => [['name' => 'ci', 'app_id' => 123]],
         ]),
     ];
@@ -27,10 +28,9 @@ beforeEach(function () {
 
 test('repository form saves and exposes approval settings', function () {
     $this->patch(route('repos.update', $this->repo), $this->payload)->assertSessionHasNoErrors();
-    expect($this->repo->fresh()->reviewPolicy()['mode'])->toBe('shadow')
-        ->and($this->repo->fresh()->reviewPolicy()['allowed_paths'])->toBe(['docs/**']);
+    expect($this->repo->fresh()->reviewPolicy()['allowed_paths'])->toBe(['docs/**']);
     $this->get(route('repos.edit', $this->repo))->assertInertia(fn (Assert $page) => $page
-        ->where('repository.reviewPolicy.mode', 'shadow')
+        ->missing('repository.reviewPolicy.mode')
         ->has('repository.riskProfiles.drafts', 0)
         ->where('repository.riskProfiles.active', null)
         ->where('repository.riskProfileActionUrl', route('repos.risk-profile', $this->repo)));
@@ -44,7 +44,13 @@ test('repository form rejects thresholds that weaken risk safeguards', function 
         'pr_review_policy.min_confidence', 'pr_review_policy.max_risk_score',
         'pr_review_policy.required_checks.0.app_id',
     ]);
-    expect($this->repo->fresh()->reviewPolicy()['mode'])->toBe('off');
+    expect($this->repo->fresh()->reviewPolicy()['allowed_paths'])->toBe([]);
+});
+
+test('repository form no longer accepts an approval mode', function () {
+    $this->payload['pr_review_policy']['mode'] = 'enforce';
+    $this->patch(route('repos.update', $this->repo), $this->payload)->assertSessionHasErrors('pr_review_policy');
+    expect($this->repo->fresh()->approvalMode())->toBe('off');
 });
 
 test('dashboard queues profile research without activating a profile', function () {

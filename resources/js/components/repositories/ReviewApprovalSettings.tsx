@@ -29,14 +29,6 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository, ya
                 <p className="mt-1 text-[12px] text-muted">Yak can approve eligible PRs by other authors. Yak-authored PRs need a human approval. Yak never merges.</p>
             </div>
             {yakConfig && lockedPolicy ? <LockedPolicy policy={lockedPolicy} config={yakConfig} /> : <>
-            <Field label="Approval mode" error={errors['pr_review_policy.mode']}>
-                <Select value={value.mode} onChange={(mode) => set('mode', (mode ?? 'off') as ReviewPolicy['mode'])} options={[
-                    { value: 'off', label: 'Off: comments only' },
-                    { value: 'shadow', label: 'Shadow: evaluate without approving' },
-                    { value: 'enforce', label: 'Enforce: submit eligible approvals' },
-                ]} />
-            </Field>
-            <p className="text-[12px] text-muted">Start in shadow mode. Save repository to apply these settings. Missing profiles, unknown paths or missing trusted CI always block approval.</p>
             {(['allowed_paths', 'blocked_paths'] as const).map((key) => (
                 <Field key={key} label={key === 'allowed_paths' ? 'Allowed paths' : 'Additional blocked paths'} description="One glob per line, for example docs/**. Built-in security exclusions always apply." error={errors[`pr_review_policy.${key}`]}>
                     <Textarea value={value[key].join('\n')} onChange={(e) => set(key, e.target.value.split('\n'))} />
@@ -102,7 +94,6 @@ function LockedPolicy({ policy, config }: { policy: ReviewPolicy; config: YakCon
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {field('mode', 'reviewPolicyMode', 'Approval mode', policy.mode)}
                 {field('required_checks', 'reviewPolicyChecks', 'Required checks', lines(checks))}
                 {field('allowed_paths', 'reviewPolicyAllowed', 'Allowed paths', lines(policy.allowed_paths))}
                 {field('blocked_paths', 'reviewPolicyBlocked', 'Additional blocked paths', lines(policy.blocked_paths))}
