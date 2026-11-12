@@ -30,7 +30,7 @@ it('sends start_runner with the placeholder and never a credential', function ()
 
     expect($command['type'])->toBe('start_runner')
         ->and($command['container'])->toBe('thread-1')
-        ->and($command['uid'])->toBe(1000)
+        ->and($command['uid'])->toBe(1001)
         ->and($command['cwd'])->toBe('/workspace')
         ->and($command['start']['type'])->toBe('start')
         ->and($command['start']['model'])->toBe('claude-opus-5-5')

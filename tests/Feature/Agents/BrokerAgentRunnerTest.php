@@ -124,6 +124,14 @@ it('revokes the placeholder and frees the slot when the run throws', function ()
         ->and(array_column(($this->sentTo)($this->channel), 'type'))->toBe(['start_runner', 'turn', 'end']);
 });
 
+it('starts the runner as the sandbox yak user (uid 1001; 1000 is the image ubuntu user and cannot read /home/yak)', function () {
+    ($this->feed)('natural-turn-end');
+
+    app(BrokerAgentRunner::class)->run(($this->makeRequest)());
+
+    expect(($this->sentTo)($this->channel)[0])->toMatchArray(['type' => 'start_runner', 'uid' => 1001, 'cwd' => '/workspace']);
+});
+
 it('returns a failure for a usage limit', function () {
     ($this->feed)('usage-limit');
 

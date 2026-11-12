@@ -26,7 +26,7 @@ class IncusThreadSandboxManager implements SandboxManager
 
     private const QUERY_TIMEOUT = 30;
 
-    private const SANDBOX_USER = '1000';
+    private const SANDBOX_USER = '1001';
 
     private const POOL_CACHE_KEY = 'thread-sandbox:pool-used-percent';
 

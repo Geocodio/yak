@@ -31,7 +31,7 @@ use RuntimeException;
  */
 class OneShotRuns
 {
-    private const SANDBOX_USER_ID = 1000;
+    private const SANDBOX_USER_ID = 1001;
 
     private const WORKING_DIRECTORY = '/workspace';
 

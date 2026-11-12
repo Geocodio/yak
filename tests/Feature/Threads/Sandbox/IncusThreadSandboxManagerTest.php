@@ -94,7 +94,7 @@ test('exec passes env as arguments and stdin', function () {
 
     incusManager()->exec($thread, ['git', 'status'], 'payload', ['TOKEN' => 'abc']);
 
-    Process::assertRan(fn ($p) => $p->command === ['incus', 'exec', "yak-thread-{$thread->id}", '--user', '1000', '--cwd', '/workspace', '--env', 'TOKEN=abc', '--', 'git', 'status']
+    Process::assertRan(fn ($p) => $p->command === ['incus', 'exec', "yak-thread-{$thread->id}", '--user', '1001', '--cwd', '/workspace', '--env', 'TOKEN=abc', '--', 'git', 'status']
         && $p->input === 'payload');
 });
 

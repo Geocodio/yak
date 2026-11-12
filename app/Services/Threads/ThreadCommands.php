@@ -17,7 +17,7 @@ use App\Services\Threads\Repos\ThreadRepositoryPrompt;
  */
 class ThreadCommands
 {
-    private const SANDBOX_USER_ID = 1000;
+    private const SANDBOX_USER_ID = 1001;
 
     private const WORKING_DIRECTORY = '/workspace';
 
