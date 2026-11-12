@@ -508,7 +508,7 @@ return [
             '.claude/**', '.github/**', '.drone*', '.gitlab-ci.yml', '.circleci/**', 'Jenkinsfile',
             'Dockerfile*', '**/Dockerfile*', 'docker/**', 'docker-compose*', 'compose.yml', 'compose.yaml',
             '.dockerignore', 'ansible/**', '*.tf', '*.tfvars', 'Procfile',
-            'database/migrations/**', '**/migrations/**', 'db/migrate/**',
+            'database/migrations/**', 'migrations/**', '**/migrations/**', 'db/migrate/**',
             '.env*', '*.pem', '*.key', 'auth.json',
             'config/auth.php', 'config/sanctum.php', 'config/fortify.php',
         ],
