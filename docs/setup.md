@@ -344,7 +344,7 @@ The first run is slow: the `incus` role builds the sandbox base image from scrat
 Two things you will notice in the output:
 
 - On a first run with blank GitHub App variables, the `github-app` role prints instructions for creating the App. Follow them, fill in the vault and run the playbook again.
-- The last role prints a Claude login prompt. Threads do not use that shared login. They run on [Claude accounts](claude-accounts.md), which you add in the dashboard. The shared login only affects two System health rows, "Claude CLI" and "Claude Max Session". A failing row there does not stop threads. Run `yak-claude-login` on the server if you want them green.
+- The last role prints a Claude login prompt. Threads do not use that shared login. They run on [Claude accounts](claude-accounts.md), which you add in the dashboard. The System health row "Claude accounts" turns green once one is usable.
 
 ## First Sign-in
 

@@ -351,8 +351,7 @@ The `/health` page and the scheduled `yak:healthcheck` (every 15 minutes) run th
 | Incus Daemon | `incus list` works from the container | The Incus socket is not mounted, or the worker user is not in `incus-admin` |
 | Disk Space | Usage of `/`: warns at 85%, errors at 95% | Prune old images (`docker image prune -f`) and old sandboxes |
 | Sandbox Base Template | `yak-base` has a `ready` snapshot | Re-run the `incus` Ansible role |
-| Claude CLI | `claude --version` runs | Rebuild the image |
-| Claude Max Session | A one-line probe on the container's Claude login | Re-authenticate with `yak-claude-login` on the host |
+| Claude accounts | At least one Claude account is usable | Add an account or fix a token under Settings > Claude accounts |
 | Repositories Reachable | Each active repo answers the GitHub API | GitHub App installation or permissions |
 | Webhook Signatures | Count of rejected webhooks per channel | A signing secret does not match |
 | Telemetry | Telemetry is enabled and recording | `YAK_TELEMETRY_ENABLED` is false, so Analytics has no data |

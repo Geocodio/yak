@@ -44,7 +44,7 @@ Spend by day, week or month, filtered by repository and source. Claude Code figu
 
 ### Health
 
-Live checks of everything Yak depends on, in two groups: System (queue worker, Redis, disk, sandbox host, Claude CLI and sign-in, repositories, webhook signatures, video render, telemetry) and Channels (one check per channel). Checks run against the real dependency, so a full pass takes a few seconds. Choose **Refresh all** to rerun them, or refresh one row. Failing rows link to the matching docs.
+Live checks of everything Yak depends on, in two groups: System (queue worker, Redis, disk, sandbox host, Claude accounts, repositories, webhook signatures, video render, telemetry) and Channels (one check per channel). Checks run against the real dependency, so a full pass takes a few seconds. Choose **Refresh all** to rerun them, or refresh one row. Failing rows link to the matching docs.
 
 ## Settings
 
