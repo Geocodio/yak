@@ -22,6 +22,7 @@ use App\Http\Controllers\Deployments\DeploymentController;
 use App\Http\Controllers\Deployments\ShareLinkController;
 use App\Http\Controllers\Devices\DeviceApprovalController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\Home\HomeController;
 use App\Http\Controllers\InstallScriptController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
@@ -103,13 +104,7 @@ use App\Http\Middleware\CliProtocol;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    if (auth()->check()) {
-        return redirect()->route('tasks');
-    }
-
-    return view('welcome');
-})->name('home');
+Route::get('/', HomeController::class)->name('home');
 
 Route::get('install', InstallScriptController::class)->name('install');
 
@@ -119,7 +114,7 @@ Route::get('letmein', function () {
     $user = User::query()->first() ?? User::factory()->create();
     auth()->login($user);
 
-    return redirect()->route('tasks');
+    return redirect()->route('home');
 })->name('letmein');
 
 Route::middleware('guest')->group(function () {

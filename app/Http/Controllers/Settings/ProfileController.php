@@ -66,7 +66,7 @@ class ProfileController extends Controller
         $user = $this->authenticatedUser();
 
         if (! $user instanceof MustVerifyEmail || $user->hasVerifiedEmail()) {
-            return redirect()->intended(route('tasks', absolute: false));
+            return redirect()->intended(route('home', absolute: false));
         }
 
         $user->sendEmailVerificationNotification();

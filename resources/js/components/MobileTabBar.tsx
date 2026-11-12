@@ -2,7 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { TabBar, type TabBarItem, type TabBarLinkProps } from '@geocodio/console-ui';
 import { Code2, MessageSquare, Menu as MenuIcon, MessagesSquare, Plus } from 'lucide-react';
 import { isActive, openMobileNav, openNewTask } from '@/components/Sidebar';
-import { prReviews, repos, tasks } from '@/routes';
+import { home, prReviews, repos } from '@/routes';
 import type { SharedProps } from '@/types/shared';
 
 /**
@@ -16,7 +16,7 @@ function PrefetchingTabLink(props: TabBarLinkProps) {
 }
 
 /**
- * The floating bar shown below `lg`: the three pages used every day (Tasks is labelled Threads and points at /tasks until the jobs track lands), a
+ * The floating bar shown below `lg`: the three pages used every day (Threads is home), a
  * More slot that opens the navigation drawer for the rest, and the round
  * New thread button. The slots come from the same `NAV_ITEMS` the sidebar
  * uses, so a renamed page or a moved route changes both at once.
@@ -25,16 +25,16 @@ export function MobileTabBar() {
     const { props, url } = usePage<SharedProps>();
 
     const slots = [
-        { key: 'tasks', label: 'Threads', icon: <MessagesSquare size={22} />, url: tasks.url(), badge: props.nav.activeTaskCount },
-        { key: 'reviews', label: 'Reviews', icon: <MessageSquare size={22} />, url: prReviews.url(), badge: null },
-        { key: 'repos', label: 'Repos', icon: <Code2 size={22} />, url: repos.url(), badge: null },
+        { key: 'tasks', label: 'Threads', icon: <MessagesSquare size={22} />, url: home.url(), activePrefix: '/threads', badge: props.nav.activeTaskCount },
+        { key: 'reviews', label: 'Reviews', icon: <MessageSquare size={22} />, url: prReviews.url(), activePrefix: undefined, badge: null },
+        { key: 'repos', label: 'Repos', icon: <Code2 size={22} />, url: repos.url(), activePrefix: undefined, badge: null },
     ];
     const items: TabBarItem[] = slots.map((slot) => ({
         key: slot.url,
         label: slot.label,
         icon: slot.icon,
         href: slot.url,
-        active: isActive(url, slot.url),
+        active: slot.activePrefix === undefined ? isActive(url, slot.url) : url.split('?')[0] === slot.url || isActive(url, slot.activePrefix),
         badge: slot.badge,
         testId: `mobile-tab-${slot.key}`,
     }));

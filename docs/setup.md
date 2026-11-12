@@ -391,7 +391,7 @@ For each enabled channel, trigger a test event:
 - **Sentry** — trigger a test alert rule
 - **GitHub Actions** — push a commit to a `yak/test-*` branch
 
-Check `https://{your-domain}/tasks` — each event should create a task row.
+Check the home page at `https://{your-domain}/`, or the task log under Operations: each event should create a task row.
 
 ## Updating Yak
 

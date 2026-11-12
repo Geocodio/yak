@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Tasks;
 
-use App\Channels\ChannelRegistry;
 use App\Enums\CoOwnerRequestStatus;
 use App\Enums\DeploymentStatus;
 use App\Enums\TaskMode;
@@ -12,10 +11,8 @@ use App\Http\Resources\TaskRowData;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
 use App\Models\CoOwnerRequest;
-use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
-use App\Support\Docs;
 use App\Support\Tasks\ArtifactPreviewUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -63,18 +60,6 @@ class TaskListController extends Controller
                     'sources' => $this->distinctSources(),
                 ],
             ],
-            'setupCard' => fn () => $this->setupCard($request->user()),
-            'activeRepos' => fn () => Repository::query()
-                ->where('is_active', true)
-                ->orderByDesc('is_default')
-                ->orderBy('slug')
-                ->pluck('slug')
-                ->all(),
-            'defaultRepo' => fn () => Repository::query()
-                ->where('is_active', true)
-                ->where('is_default', true)
-                ->value('slug'),
-            'openNew' => $request->boolean('new'),
         ]);
     }
 
@@ -328,54 +313,5 @@ class TaskListController extends Controller
             ->sort()
             ->values()
             ->all();
-    }
-
-    /**
-     * The "Getting started" card shown on a bare install until the user
-     * dismisses it or the install matures (a repo and a task both exist).
-     *
-     * @return array{items: list<array{title: string, body: string, done: bool, url: string, external: bool}>}|null
-     */
-    private function setupCard(?User $user): ?array
-    {
-        if ($user === null || $user->has_seen_setup_card_at !== null) {
-            return null;
-        }
-
-        if (Repository::count() > 0 && YakTask::count() > 0) {
-            return null;
-        }
-
-        $anyRepo = Repository::count() > 0;
-        $registry = app(ChannelRegistry::class);
-        $anyChannelEnabled = collect(['slack', 'linear', 'sentry', 'email', 'github', 'drone'])
-            ->contains(fn (string $channel) => $registry->for($channel)?->enabled() ?? false);
-        $anyTask = YakTask::count() > 0;
-
-        return [
-            'items' => [
-                [
-                    'title' => 'Add your first repository',
-                    'body' => 'Yak clones it and dispatches a setup task automatically.',
-                    'done' => $anyRepo,
-                    'url' => route('repos.create'),
-                    'external' => false,
-                ],
-                [
-                    'title' => 'Connect a channel',
-                    'body' => 'Slack, Linear, Sentry, or email: tasks come in from configured channels.',
-                    'done' => $anyChannelEnabled,
-                    'url' => Docs::url('channels'),
-                    'external' => true,
-                ],
-                [
-                    'title' => 'Send your first task',
-                    'body' => 'Mention @yak in Slack or assign a Linear issue to Yak.',
-                    'done' => $anyTask,
-                    'url' => Docs::url('channels.slack'),
-                    'external' => true,
-                ],
-            ],
-        ];
     }
 }

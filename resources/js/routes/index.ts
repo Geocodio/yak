@@ -34,7 +34,8 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
-* @see routes/web.php:106
+* @see \App\Http\Controllers\Home\HomeController::__invoke
+* @see app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -48,7 +49,8 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:106
+* @see \App\Http\Controllers\Home\HomeController::__invoke
+* @see app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -56,7 +58,8 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:106
+* @see \App\Http\Controllers\Home\HomeController::__invoke
+* @see app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -65,7 +68,8 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:106
+* @see \App\Http\Controllers\Home\HomeController::__invoke
+* @see app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -118,7 +122,7 @@ install.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:116
+* @see routes/web.php:111
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -132,7 +136,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:116
+* @see routes/web.php:111
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -140,7 +144,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:116
+* @see routes/web.php:111
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -149,7 +153,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:116
+* @see routes/web.php:111
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -203,7 +207,7 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:35
+* @see app/Http/Controllers/Tasks/TaskListController.php:33
 * @route '/tasks'
 */
 export const tasks = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -218,7 +222,7 @@ tasks.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:35
+* @see app/Http/Controllers/Tasks/TaskListController.php:33
 * @route '/tasks'
 */
 tasks.url = (options?: RouteQueryOptions) => {
@@ -227,7 +231,7 @@ tasks.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:35
+* @see app/Http/Controllers/Tasks/TaskListController.php:33
 * @route '/tasks'
 */
 tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -237,7 +241,7 @@ tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:35
+* @see app/Http/Controllers/Tasks/TaskListController.php:33
 * @route '/tasks'
 */
 tasks.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
