@@ -2,6 +2,9 @@
 - name: Provision Yak server
   hosts: all
   become: true
+  # A failed task must not drop handlers an earlier task notified: a Caddyfile
+  # written before a failure would otherwise never be loaded.
+  force_handlers: true
   vars_files:
     - vault/secrets.yml
     - group_vars/yak.yml
