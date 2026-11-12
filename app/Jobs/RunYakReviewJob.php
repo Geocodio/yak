@@ -725,13 +725,13 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             }
             if ($currentHead !== (string) $metadata['head_sha']) {
                 try {
-                    $github->dismissPullRequestReview(
+                    $github->dismissPullRequestReviewOrFail(
                         $installationId, $repository->github_full_name, $prNumber, (int) $response['id'],
                         'New commits arrived while Yak was approving. Reviewing again.',
                     );
                     $review->update(['dismissed_at' => now()]);
                 } catch (\Throwable $e) {
-                    Log::warning('Failed to dismiss stale approval', ['review_id' => $review->id, 'error' => $e->getMessage()]);
+                    Log::error('Failed to dismiss stale approval', ['review_id' => $review->id, 'error' => $e->getMessage()]);
                 }
             }
         }

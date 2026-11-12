@@ -5,6 +5,7 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
@@ -101,4 +102,14 @@ it('enqueues one review for two pushes of the same head', function () {
     sendSynchronize('sha-new');
 
     expect(enqueuedReviews())->toBe(1);
+});
+
+it('leaves dismissed_at null but still enqueues a review when GitHub rejects the dismissal', function () {
+    Http::swap(new Factory);
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/acme/app/pulls/7/reviews/4242/dismissals' => Http::response([], 422)]);
+    $review = pushReview('APPROVE');
+
+    sendSynchronize();
+
+    expect($review->fresh()->dismissed_at)->toBeNull()->and(enqueuedReviews())->toBe(1);
 });

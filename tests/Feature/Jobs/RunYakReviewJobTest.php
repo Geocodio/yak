@@ -720,13 +720,26 @@ it('dismisses an approval when new commits arrive while it is being submitted', 
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'), approvalLivePullRequest('newer'));
     $github->shouldReceive('createPullRequestReview')->once()->withArgs(fn ($i, $r, $n, $b, $event) => $event === 'APPROVE')->andReturn(['id' => 123]);
-    $github->shouldReceive('dismissPullRequestReview')->once()
+    $github->shouldReceive('dismissPullRequestReviewOrFail')->once()
         ->with(12345, 'acme/api', 42, 123, 'New commits arrived while Yak was approving. Reviewing again.');
     app()->instance(GitHubAppService::class, $github);
 
     (new RunYakReviewJob($task))->handle($agent);
 
     expect(PrReview::where('yak_task_id', $task->id)->firstOrFail()->dismissed_at)->not->toBeNull();
+});
+
+it('leaves dismissed_at null when the stale approval cannot be dismissed', function () {
+    [$task, $agent, $github] = approvalHardeningSetup();
+    $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'), approvalLivePullRequest('newer'));
+    $github->shouldReceive('createPullRequestReview')->once()->withArgs(fn ($i, $r, $n, $b, $event) => $event === 'APPROVE')->andReturn(['id' => 123]);
+    $github->shouldReceive('dismissPullRequestReviewOrFail')->once()->andThrow(new RuntimeException('422'));
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect(PrReview::where('yak_task_id', $task->id)->firstOrFail()->dismissed_at)->toBeNull();
 });
 
 it('never approves when the pull request file list cannot be loaded completely', function () {

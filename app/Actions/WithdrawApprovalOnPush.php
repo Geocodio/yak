@@ -33,7 +33,7 @@ class WithdrawApprovalOnPush
         }
 
         try {
-            $this->github->dismissPullRequestReview(
+            $this->github->dismissPullRequestReviewOrFail(
                 (int) config('yak.channels.github.installation_id'),
                 $repository->github_full_name,
                 (int) $pullRequest['number'],

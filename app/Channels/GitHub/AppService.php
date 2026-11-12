@@ -1581,6 +1581,28 @@ GRAPHQL;
             ]);
     }
 
+    /**
+     * Same request as dismissPullRequestReview, but a non-2xx response throws
+     * so callers only record the dismissal once GitHub confirmed it.
+     */
+    public function dismissPullRequestReviewOrFail(
+        int $installationId,
+        string $repoSlug,
+        int $prNumber,
+        int $reviewId,
+        string $message,
+    ): void {
+        $token = $this->getInstallationToken($installationId);
+
+        Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->put("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews/{$reviewId}/dismissals", [
+                'message' => $message,
+                'event' => 'DISMISS',
+            ])
+            ->throw();
+    }
+
     public function createDeployment(
         int $installationId,
         string $repoSlug,
