@@ -49,6 +49,28 @@ it('sends start_runner with the placeholder and never a credential', function ()
         ->and($thread->getAttribute('append_system_prompt'))->toBe('Be brief.');
 });
 
+it('points the runner at the pushed MCP config only when the host has one', function () {
+    $thread = commandsThread();
+    $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
+    $placeholders->shouldReceive('issue')->andReturn('yakph');
+    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders);
+    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7 \n"));
+    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7 \n"));
+    $account = ClaudeAccount::factory()->create();
+
+    config(['yak.mcp_config_path' => null]);
+    $commands->startRunner($thread, $account, null, 'x');
+
+    $file = tempnam(sys_get_temp_dir(), 'mcp');
+    config(['yak.mcp_config_path' => $file]);
+    $commands->startRunner($thread, $account, null, 'x');
+    unlink($file);
+
+    $sent = app(BrokerStreams::class)->commands('threads:' . $thread->id);
+    expect($sent[0]['start']['mcpConfigPath'])->toBeNull()
+        ->and($sent[1]['start']['mcpConfigPath'])->toBe('/home/yak/mcp-config.json');
+});
+
 it('sends each command type', function (Closure $send, array $expected) {
     $thread = commandsThread();
     $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), Mockery::mock(AuthProxyPlaceholders::class));

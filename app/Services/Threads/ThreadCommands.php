@@ -51,6 +51,7 @@ class ThreadCommands
                 'cwd' => $workingDirectory,
                 'additionalDirectories' => ThreadRepositoryPrompt::extraDirectories($thread),
                 'mcpServers' => (object) [],
+                'mcpConfigPath' => $this->mcpConfigPath(),
                 'settingSources' => ['user', 'project', 'local'],
                 'resume' => $resumeSessionId,
                 'claudeConfigDir' => $thread->claude_config_dir,
@@ -65,6 +66,16 @@ class ThreadCommands
             'runner_model' => $thread->model,
             'append_system_prompt' => $appendSystemPrompt,
         ])->save();
+    }
+
+    /**
+     * The sandbox path of the pushed MCP config, or null when none is configured on the host.
+     */
+    private function mcpConfigPath(): ?string
+    {
+        $hostPath = config('yak.mcp_config_path');
+
+        return is_string($hostPath) && $hostPath !== '' && file_exists($hostPath) ? '/home/yak/mcp-config.json' : null;
     }
 
     public function revokePlaceholder(Thread $thread): void

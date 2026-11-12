@@ -79,6 +79,7 @@ class IncusThreadSandboxManager implements SandboxManager
             $probe = Process::timeout(10)->run(['incus', 'exec', $container, '--', 'true']);
             if ($probe->successful()) {
                 $this->recordAddress($thread);
+                $this->taskSandboxes->pushMcpConfig($container);
 
                 return;
             }
