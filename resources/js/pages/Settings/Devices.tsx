@@ -3,8 +3,9 @@ import { Badge, Button, ConfirmDialog, EmptyState, Skeleton, StatusPill } from '
 import { AlertTriangle, Check, Monitor, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Card } from '@/components/accounts/AccountsSection';
-import { AddComputerCard, INSTALL_GUIDE_URL } from '@/components/settings/devices/AddComputerCard';
+import { AddComputerCard } from '@/components/settings/devices/AddComputerCard';
 import { systemLabel } from '@/components/settings/devices/systemLabel';
+import { useDocsUrl } from '@/lib/docsUrl';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
 import { destroy } from '@/routes/settings/devices';
 import { show as showThread } from '@/routes/threads';
@@ -13,8 +14,6 @@ import type { PageProps } from '@/types/shared';
 
 type Props = PageProps<{
     devices?: Device[];
-    installCommand: string;
-    loginCommand: string;
 }>;
 
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
@@ -50,7 +49,9 @@ function LoadingRows() {
     );
 }
 
-function EmptyDevices({ installCommand, loginCommand }: { installCommand: string; loginCommand: string }) {
+function EmptyDevices() {
+    const guideUrl = useDocsUrl('teleport/');
+
     return (
         <div className="flex flex-col gap-4" data-testid="no-devices">
             <Card className="p-8">
@@ -58,10 +59,10 @@ function EmptyDevices({ installCommand, loginCommand }: { installCommand: string
                     icon={<Monitor size={18} />}
                     title="No computers paired"
                     body="Pair a computer to teleport threads between it and Yak. Until then threads you start on Yak stay on Yak."
-                    action={<a href={INSTALL_GUIDE_URL} target="_blank" rel="noreferrer" className={`rounded-[3px] text-[12.5px] text-accent-text hover:underline ${FOCUS}`}>How teleport works</a>}
+                    action={<a href={guideUrl} target="_blank" rel="noreferrer" className={`rounded-[3px] text-[12.5px] text-accent-text hover:underline ${FOCUS}`}>How teleport works</a>}
                 />
             </Card>
-            <AddComputerCard heading="Pair your first computer" installCommand={installCommand} loginCommand={loginCommand} />
+            <AddComputerCard heading="Pair your first computer" />
         </div>
     );
 }
@@ -108,7 +109,7 @@ function revokeBody(device: Device | null): ReactNode {
     return <>This computer can no longer teleport. Its token stops working at once, and a teleport in progress there stops with a message that says so. You can pair it again with <code className="font-mono">yak login</code>.</>;
 }
 
-export default function Devices({ devices, installCommand, loginCommand }: Props) {
+export default function Devices({ devices }: Props) {
     const [revoking, setRevoking] = useState<Device | null>(null);
     const [isBusy, setIsBusy] = useState(false);
     const [revokedName, setRevokedName] = useState<string | null>(null);
@@ -169,10 +170,10 @@ export default function Devices({ devices, installCommand, loginCommand }: Props
                                 ? (
                                     <div className="flex flex-col gap-4">
                                         <Card><ul className="divide-y divide-hair">{devices.map((device) => <DeviceRow key={device.id} device={device} onRevoke={setRevoking} />)}</ul></Card>
-                                        <AddComputerCard heading="Add a computer" installCommand={installCommand} loginCommand={loginCommand} />
+                                        <AddComputerCard heading="Add a computer" />
                                     </div>
                                 )
-                                : <EmptyDevices installCommand={installCommand} loginCommand={loginCommand} />}
+                                : <EmptyDevices />}
                         </Deferred>
                     )}
                 </section>

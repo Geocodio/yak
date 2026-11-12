@@ -1,12 +1,12 @@
 import { Button, Dialog } from '@geocodio/console-ui';
 import { useState } from 'react';
+import { useDocsUrl } from '@/lib/docsUrl';
 import { CommandBlock } from '@/components/threads/teleport/CommandBlock';
 import type { TeleportData, ThreadData } from '@/types/threads';
 
-export const TELEPORT_DOCS = 'https://geocodio.github.io/yak/teleport/';
-
 /** Teleport a device-owned thread back to Yak. The command runs inside Claude Code on the computer. */
 export function TeleportToYakDialog({ thread, teleport, open, onClose }: { thread: ThreadData; teleport: TeleportData; open: boolean; onClose: () => void }) {
+    const teleportDocs = useDocsUrl('teleport/');
     const [sendHeld, setSendHeld] = useState(true);
     const hasHeld = teleport.heldEvents.length > 0;
     const device = teleport.ownerDevice?.name ?? 'your computer';
@@ -41,7 +41,7 @@ export function TeleportToYakDialog({ thread, teleport, open, onClose }: { threa
 
                 <p className="rounded-lg bg-panel-2 p-3 text-[12.5px] leading-relaxed text-muted">
                     The command commits your work first (it asks about anything uncommitted), pushes <code className="font-mono text-[11.5px]">{thread.branch}</code> and uploads the conversation. After that the session on {device} becomes read-only.{' '}
-                    <a href={TELEPORT_DOCS} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">
+                    <a href={teleportDocs} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">
                         How teleport works
                     </a>
                 </p>

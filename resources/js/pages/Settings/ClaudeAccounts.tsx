@@ -7,6 +7,7 @@ import { AccountsSection, Card } from '@/components/accounts/AccountsSection';
 import { AwakeShareCard, type AwakeShareRow } from '@/components/accounts/AwakeShareCard';
 import { EditAccountDialog } from '@/components/accounts/EditAccountDialog';
 import { RemoveAccountDialog } from '@/components/accounts/RemoveAccountDialog';
+import { TeleportSetupDialog } from '@/components/teleport/TeleportSetupDialog';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
 import type { PageProps } from '@/types/shared';
 import type { ClaudeAccount } from '@/types/claudeAccounts';
@@ -76,6 +77,7 @@ export default function ClaudeAccounts({ accounts, yakAccounts, canManageYakAcco
     const [dialog, setDialog] = useState<{ mode: AccountDialogMode; account?: ClaudeAccount } | null>(null);
     const [editing, setEditing] = useState<ClaudeAccount | null>(null);
     const [removing, setRemoving] = useState<ClaudeAccount | null>(null);
+    const [isTeleportOpen, setIsTeleportOpen] = useState(false);
     const [didLoadFail, setDidLoadFail] = useState(false);
 
     useEffect(() => {
@@ -157,7 +159,8 @@ export default function ClaudeAccounts({ accounts, yakAccounts, canManageYakAcco
                 )}
             </div>
 
-            {dialog && <AccountDialog key={`${dialog.mode}-${dialog.account?.id ?? 'new'}`} mode={dialog.mode} account={dialog.account} models={models} hasDefault={hasDefault} onClose={() => setDialog(null)} />}
+            {dialog && <AccountDialog key={`${dialog.mode}-${dialog.account?.id ?? 'new'}`} mode={dialog.mode} account={dialog.account} models={models} hasDefault={hasDefault} onClose={() => setDialog(null)} onSetUpTeleport={() => setIsTeleportOpen(true)} />}
+            {isTeleportOpen && <TeleportSetupDialog open onClose={() => setIsTeleportOpen(false)} />}
             {editing && <EditAccountDialog key={editing.id} account={editing} models={models} onClose={() => setEditing(null)} />}
             <RemoveAccountDialog account={removing} onClose={() => setRemoving(null)} />
         </>

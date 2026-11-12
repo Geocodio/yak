@@ -27,6 +27,7 @@ it('reports a fresh member as having nothing set up', function () {
         'needsYakAccount' => false,
         'installCommand' => 'curl -fsSL https://yak.example.com/install | sh',
         'loginCommand' => 'yak login --url https://yak.example.com',
+        'manualInstallCommands' => ['claude plugin marketplace add Geocodio/yak', 'claude plugin install yak@yak'],
         'models' => ['opus', 'sonnet', 'haiku'],
         'appName' => config('app.name'),
     ]);

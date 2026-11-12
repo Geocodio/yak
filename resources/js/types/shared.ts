@@ -8,6 +8,7 @@ export type SetupProps = {
     needsYakAccount: boolean;
     installCommand: string;
     loginCommand: string;
+    manualInstallCommands: string[];
     models: string[];
     appName: string;
 };

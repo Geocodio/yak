@@ -21,6 +21,7 @@ final class SetupData
      *     needsYakAccount: bool,
      *     installCommand: string,
      *     loginCommand: string,
+     *     manualInstallCommands: list<string>,
      *     models: list<string>,
      *     appName: string,
      * }
@@ -41,6 +42,10 @@ final class SetupData
             'needsYakAccount' => $user->isAdmin() && ($systemAccount === null || ! $systemAccount->isUsable()),
             'installCommand' => "curl -fsSL {$instanceUrl}/install | sh",
             'loginCommand' => "yak login --url {$instanceUrl}",
+            'manualInstallCommands' => [
+                'claude plugin marketplace add ' . config('yak.teleport.marketplace'),
+                'claude plugin install yak@yak',
+            ],
             'models' => array_values(config('claude-accounts.models')),
             'appName' => (string) config('app.name'),
         ];
