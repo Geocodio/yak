@@ -1622,6 +1622,24 @@ GRAPHQL;
             ->throw();
     }
 
+    /**
+     * One pull request review, or null when it does not exist. Any other
+     * failure throws, so an outage is not mistaken for a deleted review.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getPullRequestReview(int $installationId, string $repoSlug, int $prNumber, int $reviewId): ?array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews/{$reviewId}");
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        return (array) $response->throw()->json();
+    }
+
     public function createDeployment(
         int $installationId,
         string $repoSlug,

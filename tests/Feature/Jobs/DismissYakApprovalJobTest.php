@@ -60,8 +60,34 @@ it('logs an error after the last attempt fails', function () {
     Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context): bool => ($context['pr_review_id'] ?? null) === $this->review->id);
 });
 
-it('treats a 422 as already dismissed', function () {
-    Http::fake(gitHubTokenFake() + ['api.github.com/repos/acme/app/pulls/7/reviews/4242/dismissals' => Http::response([], 422)]);
+it('stamps a 422 when GitHub reports the review as dismissed', function () {
+    Http::fake(gitHubTokenFake() + [
+        'api.github.com/repos/acme/app/pulls/7/reviews/4242/dismissals' => Http::response([], 422),
+        'api.github.com/repos/acme/app/pulls/7/reviews/4242' => Http::response(['state' => 'DISMISSED']),
+    ]);
+
+    (new DismissYakApprovalJob($this->review->id))->handle(app(AppService::class));
+
+    expect($this->review->fresh()->dismissed_at)->not->toBeNull();
+});
+
+it('rethrows a 422 when the review is still approved', function () {
+    Http::fake(gitHubTokenFake() + [
+        'api.github.com/repos/acme/app/pulls/7/reviews/4242/dismissals' => Http::response([], 422),
+        'api.github.com/repos/acme/app/pulls/7/reviews/4242' => Http::response(['state' => 'APPROVED']),
+    ]);
+
+    expect(fn () => (new DismissYakApprovalJob($this->review->id))->handle(app(AppService::class)))
+        ->toThrow(RequestException::class);
+
+    expect($this->review->fresh()->dismissed_at)->toBeNull();
+});
+
+it('stamps a 422 when the review no longer exists', function () {
+    Http::fake(gitHubTokenFake() + [
+        'api.github.com/repos/acme/app/pulls/7/reviews/4242/dismissals' => Http::response([], 422),
+        'api.github.com/repos/acme/app/pulls/7/reviews/4242' => Http::response([], 404),
+    ]);
 
     (new DismissYakApprovalJob($this->review->id))->handle(app(AppService::class));
 

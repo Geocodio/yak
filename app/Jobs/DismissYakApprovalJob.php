@@ -56,8 +56,19 @@ class DismissYakApprovalJob implements ShouldQueue
                 'New commits since Yak approved. Reviewing again.',
             );
         } catch (RequestException $exception) {
-            // A 422 means GitHub will not dismiss it: already dismissed or not dismissable.
             if ($exception->response->status() !== 422) {
+                throw $exception;
+            }
+
+            // A 422 means GitHub will not dismiss it. Only a review that is no longer approved counts as done.
+            $currentReview = $github->getPullRequestReview(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                (int) $review->pr_number,
+                (int) $review->github_review_id,
+            );
+
+            if ($currentReview !== null && ($currentReview['state'] ?? null) === 'APPROVED') {
                 throw $exception;
             }
         }
