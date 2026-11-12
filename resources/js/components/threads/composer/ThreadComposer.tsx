@@ -1,9 +1,10 @@
 import { router, useForm } from '@inertiajs/react';
 import { Button } from '@geocodio/console-ui';
-import { useRef, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
+import { outbox } from '@/threads/outbox/useOutbox';
 import { store as storeMessage } from '@/routes/threads/messages';
 import { stop } from '@/routes/threads';
 import type { SharedProps } from '@/types/shared';
@@ -18,7 +19,9 @@ const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
     readonly: 'You can read this thread but not send messages.',
 };
 
-export function ThreadComposer({ thread, composer, notice, teleportState }: { thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state'] }) {
+const MAX_MESSAGE_LENGTH = 20000;
+
+export function ThreadComposer({ thread, composer, notice, teleportState, isOffline = false, restoredDraft = null }: { thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null }) {
     const form = useForm<{ message: string; model: string | null; attachments: File[]; attachment_refs: string[] }>({
         message: '',
         model: composer.model,
@@ -39,8 +42,32 @@ export function ThreadComposer({ thread, composer, notice, teleportState }: { th
     const errors = form.errors as Record<string, string | undefined>;
     const empty = form.data.message.trim() === '';
 
+    // A message taken back from the conversation returns to the box, ahead of anything typed since.
+    useEffect(() => {
+        if (restoredDraft !== null) {
+            form.setData('message', [restoredDraft.text, form.data.message].filter((part) => part.trim() !== '').join('\n\n'));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [restoredDraft]);
+
     const submit = () => {
         if (disabled || form.processing || empty) {
+            return;
+        }
+
+        // A text message goes through the send queue: it shows at once and survives a bad link.
+        // A message with files keeps the form post, because an upload needs its own progress display.
+        if (draft.files.length === 0 && draft.refs.length === 0) {
+            if (form.data.message.length > MAX_MESSAGE_LENGTH) {
+                form.setError('message', 'The message must not be longer than 20,000 characters.');
+
+                return;
+            }
+
+            outbox.enqueue(thread.id, form.data.message, form.data.model);
+            form.clearErrors();
+            form.setData('message', '');
+
             return;
         }
         if (sendKey.current?.text !== form.data.message) {
@@ -78,7 +105,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState }: { th
                         ref={editorRef}
                         draft={draft}
                         rows={2}
-                        placeholder={copy.placeholder}
+                        placeholder={isOffline && !disabled ? 'Add a message. It is sent when the connection is back.' : copy.placeholder}
                         value={form.data.message}
                         onValueChange={(value) => form.setData('message', value)}
                         onKeyDown={onKeyDown}

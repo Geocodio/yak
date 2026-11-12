@@ -183,3 +183,15 @@ it('rejects a send key that is not a uuid', function () {
     $this->actingAs($user)->post(route('threads.messages.store', $thread), ['message' => 'hello', 'send_key' => 'nope'])
         ->assertSessionHasErrors('send_key');
 });
+
+it('answers the send queue in JSON', function () {
+    [$thread, , $user] = messageThread();
+    $turns = mockTurns();
+    $turns->shouldReceive('start')->once()->andReturn(new TaskRun);
+    $turns->shouldReceive('start')->once()->andThrow(new ThreadBusy('busy'));
+
+    $this->actingAs($user)->postJson(route('threads.messages.store', $thread), ['message' => 'hello'])
+        ->assertSuccessful()->assertExactJson(['status' => 'sent']);
+    $this->actingAs($user)->postJson(route('threads.messages.store', $thread), ['message' => 'again'])
+        ->assertUnprocessable()->assertJsonPath('message', 'This thread is already starting a turn. Give it a moment.');
+});

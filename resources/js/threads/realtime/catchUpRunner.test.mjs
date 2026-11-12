@@ -82,3 +82,15 @@ test('polls over HTTP until caught up, after a failure, and while the socket is 
     assert.equal(needsHttpCatchUp({ ...healthy, socketState: 'connecting' }), true);
     assert.equal(needsHttpCatchUp({ ...healthy, socketState: 'unavailable' }), true);
 });
+
+test('tells offline from a socket that is only reconnecting', async () => {
+    const { linkKind } = await import('./catchUpRunner.ts');
+    const healthy = { lastCatchUpFailed: false, isBrowserOnline: true, hasSocket: true, socketDownForMs: 0 };
+
+    assert.equal(linkKind(healthy), 'ok');
+    assert.equal(linkKind({ ...healthy, socketDownForMs: 2000 }), 'ok');
+    assert.equal(linkKind({ ...healthy, socketDownForMs: 6000 }), 'reconnecting');
+    assert.equal(linkKind({ ...healthy, hasSocket: false, socketDownForMs: 6000 }), 'ok');
+    assert.equal(linkKind({ ...healthy, lastCatchUpFailed: true, socketDownForMs: 6000 }), 'offline');
+    assert.equal(linkKind({ ...healthy, isBrowserOnline: false }), 'offline');
+});

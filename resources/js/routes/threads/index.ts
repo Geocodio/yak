@@ -15,7 +15,7 @@ import repositories from './repositories'
 import pullRequests from './pull-requests'
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:100
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:117
 * @route '/threads/{thread}/stop'
 */
 export const stop = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -30,7 +30,7 @@ stop.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:100
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:117
 * @route '/threads/{thread}/stop'
 */
 stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -63,7 +63,7 @@ stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:100
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:117
 * @route '/threads/{thread}/stop'
 */
 stop.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
