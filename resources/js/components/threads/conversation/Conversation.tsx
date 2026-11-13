@@ -21,7 +21,6 @@ import { PullRequestChips } from './PullRequestChip';
 import { EnvironmentNoteCard } from './EnvironmentNoteCard';
 import { SideSwitchDivider } from './SideSwitchDivider';
 import { ThreadNotice } from './ThreadNotice';
-import { ThreadTitleBlock } from './ThreadTitleBlock';
 import { ToolSteps } from './ToolSteps';
 import type { ConversationItem } from './conversationItem';
 
@@ -76,7 +75,6 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
         <>
         <div ref={scroller} className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-8" data-testid="thread-conversation-scroller">
             <div ref={content} className="mx-auto flex max-w-[760px] flex-col gap-4">
-                {title && <ThreadTitleBlock title={title} repo={repo} branch={branch} />}
                 {entries.map((entry, index) => {
                     if (entry.type === 'event') {
                         return <EventRow modelLabels={modelLabels} key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} threadId={threadId} onOpenChanges={onOpenChanges} />;
