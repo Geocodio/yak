@@ -219,7 +219,7 @@ func TestMultiRepoRoundTrip(t *testing.T) {
 	uploaded := bigTranscript()
 	h.local.Git("switch", "-q", "-c", "feat")
 	h.writeTranscript(uploaded)
-	res, err := Up(t.Context(), h.deps, UpInput{Cwd: h.cwd, SessionID: testSession, AddDirs: []string{changes.Dir, docs.Dir}, Options: PrepareOptions{CommitTracked: true}})
+	res, err := Up(t.Context(), h.deps, UpInput{Cwd: h.cwd, SessionID: testSession, AddDirs: []string{changes.Dir, docs.Dir}, Options: PrepareOptions{}})
 	if err != nil {
 		t.Fatal(err)
 	}

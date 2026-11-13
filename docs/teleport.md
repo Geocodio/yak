@@ -98,15 +98,13 @@ The upload resumes after an interruption. If your connection drops, the command 
 
 The command refuses to move a checkout in an unsafe state: a merge or rebase in progress, a detached HEAD, a branch with no commits, or a submodule with local changes. It lists what to fix.
 
-Tracked files with changes are committed as a WIP commit so they travel. In a terminal it asks "Commit N changed tracked file(s) as a WIP commit so they travel with the thread?" and lets you edit the message (default `WIP: teleport to Yak`). Without a terminal, pass `--wip`; otherwise the teleport stops.
-
-Untracked files are not carried unless you choose them. The command shows a picker titled "Untracked files to include in the WIP commit", or you pass `--add <path>` for each file.
+Every change travels with the thread, committed or not. The command commits all changed tracked files and all untracked files as one WIP commit (`WIP: teleport to Yak`) without asking. Files that look like secrets are the exception; see below.
 
 If you are on the repo's default branch, the command never commits to it. It makes a detached WIP commit, and Yak assigns the branch `yak/<thread-title-slug>` (the slug is at most 50 characters). On any other branch, the thread uses your branch name.
 
 ### Files that look like secrets
 
-Yak decides from file names only and never reads contents. These are left out and shown as "looks like a secret, not selected":
+Yak decides from file names only and never reads contents. These stay on your computer:
 
 | Pattern | Examples |
 | --- | --- |
@@ -244,8 +242,6 @@ On macOS this creates a small app named "Yak Link" in `~/Applications`. On Linux
 | `No Claude session found for this folder. Pass --session <id>.` | Run it from the folder the session started in, or pass the id. |
 | `a merge is in progress, finish or abort it first` (or rebase) | Finish or abort the operation, then retry. |
 | `HEAD is detached, switch to a branch first` | Check out a branch. |
-| `uncommitted changes to tracked files, commit them or pass --wip` | Commit, or pass `--wip`. |
-| `files that look like secrets need --include-secrets` | Remove the file from `--add`, or pass `--include-secrets`. |
 | `Could not push <branch> to <repo>. Nothing was uploaded and Yak did not take the thread` | Check that you can push to the repo on GitHub, then retry. |
 | `Yak still cannot see the pushed branch on GitHub.` | Check your access to the repo and retry. |
 | `Yak's copy of this session differs from the one on this computer, so nothing was overwritten. The teleport is cancelled.` | The thread moved on Yak since your last teleport. Teleport it down first with `yak teleport <thread>`. |

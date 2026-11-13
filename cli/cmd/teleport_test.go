@@ -110,18 +110,16 @@ func TestTeleportFlagsMayFollowTheThread(t *testing.T) {
 	}
 }
 
-func TestNonTTYDirtyRefuses(t *testing.T) {
+func TestNonTTYBringsDirtyChanges(t *testing.T) {
 	r := newTeleportRig(t)
 	r.local.Git("switch", "-q", "-c", "feat")
 	r.local.Write("README.md", "dirty\n")
-	code := Run(r.ctx, []string{"teleport", "--session", cmdSession})
-	if code != exitRefused || !strings.Contains(r.errb.String(), "README.md") {
-		t.Fatalf("exit %d: %s", code, r.errb)
+	r.local.Write("notes.md", "new\n")
+	if code := Run(r.ctx, []string{"teleport", "--session", cmdSession}); code != 0 {
+		t.Fatalf("exit %d: %s%s", code, r.out, r.errb)
 	}
-	for _, req := range r.srv.Requests() {
-		if req.Method == "POST" && !strings.HasSuffix(req.Path, "/repos/resolve") {
-			t.Fatalf("write request %s", req.Path)
-		}
+	if status := r.local.Git("status", "--porcelain"); strings.TrimSpace(status) != "" {
+		t.Fatalf("changes left behind:\n%s", status)
 	}
 }
 

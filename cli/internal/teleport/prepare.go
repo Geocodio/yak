@@ -15,12 +15,11 @@ import (
 // DefaultWIPMessage is the commit message for the WIP commit unless the person edits it.
 const DefaultWIPMessage = "WIP: teleport to Yak"
 
-// PrepareOptions steers PrepareUp. Without Interactive the prompter is never used: tracked changes are committed
-// only with CommitTracked, only AddPaths of the untracked files are added, and secrets only with IncludeSecrets.
+// PrepareOptions steers PrepareUp. Every tracked and untracked change travels in the WIP commit, except files
+// that look like secrets: those go only with IncludeSecrets, or, with Interactive, when the person confirms a
+// modified tracked one. Without Interactive the prompter is never used.
 type PrepareOptions struct {
 	Interactive    bool
-	CommitTracked  bool
-	AddPaths       []string
 	CommitMessage  string
 	IncludeSecrets bool
 }
@@ -88,37 +87,13 @@ func PrepareUp(p ui.Prompter, repo gitx.Repo, opts PrepareOptions) (Prepared, er
 	for _, c := range st.Untracked {
 		untracked = append(untracked, c.Path)
 	}
-	picked, err := pickUntracked(p, opts, untracked)
-	if err != nil {
-		return Prepared{}, err
-	}
-
-	if len(tracked) > 0 && !opts.Interactive && !opts.CommitTracked {
-		return Prepared{}, &Refusal{Kind: "tracked_changes", Detail: "uncommitted changes to tracked files, commit them or pass --wip", Paths: tracked}
-	}
-	if len(tracked) > 0 && opts.Interactive {
-		ok, err := p.Confirm(fmt.Sprintf("Commit %d changed tracked file(s) as a WIP commit so they travel with the thread?", len(tracked)), true)
-		if err != nil {
-			return Prepared{}, err
-		}
-		if !ok {
-			return Prepared{}, &Refusal{Kind: "tracked_changes", Detail: "uncommitted changes to tracked files must be committed to teleport", Paths: tracked}
-		}
-	}
+	picked := pickUntracked(opts, untracked)
 
 	prepared := Prepared{PickedUntracked: picked}
 	if len(tracked) > 0 || len(picked) > 0 {
 		message := opts.CommitMessage
 		if message == "" {
 			message = DefaultWIPMessage
-			if opts.Interactive {
-				if message, err = p.Edit("Commit message", DefaultWIPMessage); err != nil {
-					return Prepared{}, err
-				}
-				if strings.TrimSpace(message) == "" {
-					message = DefaultWIPMessage
-				}
-			}
 		}
 		paths := append(append([]string{}, tracked...), picked...)
 		if onDefaultBranch(repo, st.Branch) {
@@ -200,53 +175,17 @@ func checkTrackedSecrets(p ui.Prompter, opts PrepareOptions, tracked []string) e
 	return nil
 }
 
-// pickUntracked returns the untracked files that go into the WIP commit. Secret-looking files are never
-// preselected.
-func pickUntracked(p ui.Prompter, opts PrepareOptions, untracked []string) ([]string, error) {
-	if !opts.Interactive {
-		known := map[string]bool{}
-		for _, path := range untracked {
-			known[path] = true
+// pickUntracked returns the untracked files that go into the WIP commit: all of them, except files that look like
+// secrets unless IncludeSecrets is set.
+func pickUntracked(opts PrepareOptions, untracked []string) []string {
+	picked := make([]string, 0, len(untracked))
+	for _, path := range untracked {
+		if hit, _ := secrets.IsSecretFile(path); hit && !opts.IncludeSecrets {
+			continue
 		}
-		var bad []string
-		for _, path := range opts.AddPaths {
-			if !known[path] {
-				bad = append(bad, path)
-			}
-		}
-		if len(bad) > 0 {
-			return nil, &Refusal{Kind: "unknown_path", Detail: "not an untracked file", Paths: bad}
-		}
-		var secret []string
-		for _, path := range opts.AddPaths {
-			if hit, _ := secrets.IsSecretFile(path); hit && !opts.IncludeSecrets {
-				secret = append(secret, path)
-			}
-		}
-		if len(secret) > 0 {
-			return nil, &Refusal{Kind: "secret_excluded", Detail: "files that look like secrets need --include-secrets", Paths: secret}
-		}
-		return append([]string(nil), opts.AddPaths...), nil
+		picked = append(picked, path)
 	}
-	if len(untracked) == 0 {
-		return nil, nil
-	}
-	items := make([]ui.PickItem, len(untracked))
-	for i, path := range untracked {
-		items[i] = ui.PickItem{Label: path, Selected: true}
-		if hit, _ := secrets.IsSecretFile(path); hit {
-			items[i].Selected, items[i].Hint = false, "looks like a secret, not selected"
-		}
-	}
-	idx, err := p.Pick("Untracked files to include in the WIP commit", items)
-	if err != nil {
-		return nil, err
-	}
-	picked := make([]string, 0, len(idx))
-	for _, i := range idx {
-		picked = append(picked, untracked[i])
-	}
-	return picked, nil
+	return picked
 }
 
 // commit stages exactly the given paths and commits the index. Hooks are skipped: a WIP snapshot must not be

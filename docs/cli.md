@@ -109,8 +109,6 @@ Up flags:
 | `--session <id>` | Session to move. Default: `CLAUDE_SESSION_ID`, else the newest session for this folder (it asks to confirm). |
 | `--message <text>`, `-m <text>` | First message Yak sends Claude after the teleport. |
 | `--add-dir <path>` | Extra repo directory to bring along. Repeatable. See [multi-repo teleport](teleport.md#multi-repo-teleport). |
-| `--wip` | Commit changes to tracked files as a WIP commit without asking. |
-| `--add <path>` | Untracked file to include in the WIP commit. Repeatable. |
 | `--include-secrets` | Allow files that look like secrets. Still asks for confirmation. |
 
 Down flags:
@@ -215,7 +213,7 @@ Inside Claude Code the plugin adds `/yak teleport`, described as "Teleport this 
 | `/yak teleport` | Move this session to Yak. |
 | `/yak teleport "Fix the lint failure on the PR"` | Move it and send this as the first message. Text that does not start with a flag or a thread number is the message. |
 | `/yak teleport <thread>` | Bring a thread down to this checkout. |
-| `/yak teleport --add-dir ../acme-api --wip` | Any `yak teleport` flag works after the word `teleport`. |
+| `/yak teleport --add-dir ../acme-api` | Any `yak teleport` flag works after the word `teleport`. |
 
 Any other word after `/yak` shows `Could not read that command: unknown subcommand ... Usage: /yak teleport [<thread>] ["message"] [options]`.
 

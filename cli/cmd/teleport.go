@@ -31,7 +31,7 @@ const teleportUsage = `Usage: yak teleport [<thread>] [options]
   yak teleport              move the current Claude session up to Yak
   yak teleport <thread>     bring a thread down to this checkout
 
-Up options:   --session <id>  --message <text>  --add-dir <path>  --wip  --add <path>  --include-secrets
+Up options:   --session <id>  --message <text>  --add-dir <path>  --include-secrets
 Down options: --wait | --stop  --keep | --private  --stash | --worktree
 Both:         --yes (answer every question with its default)`
 
@@ -42,8 +42,8 @@ func (s *stringList) Set(v string) error { *s = append(*s, v); return nil }
 
 type teleportFlags struct {
 	session, message                                string
-	addDirs, addPaths                               stringList
-	wip, includeSecrets                             bool
+	addDirs                                         stringList
+	includeSecrets                                  bool
 	wait, stop, keep, private, stash, worktree, yes bool
 	fromLink                                        bool
 	thread                                          string
@@ -75,8 +75,6 @@ func parseTeleportArgs(args []string) (teleportFlags, []string, error) {
 	fs.StringVar(&f.message, "message", "", "")
 	fs.StringVar(&f.message, "m", "", "")
 	fs.Var(&f.addDirs, "add-dir", "")
-	fs.Var(&f.addPaths, "add", "")
-	fs.BoolVar(&f.wip, "wip", false, "")
 	fs.BoolVar(&f.includeSecrets, "include-secrets", false, "")
 	fs.BoolVar(&f.wait, "wait", false, "")
 	fs.BoolVar(&f.stop, "stop", false, "")
@@ -172,7 +170,7 @@ func teleportUp(bg context.Context, ctx *Context, deps teleport.Deps, f teleport
 	_, err := teleport.Up(bg, deps, teleport.UpInput{
 		Cwd: ctx.Cwd, SessionID: f.session, Message: f.message, AddDirs: f.addDirs,
 		Options: teleport.PrepareOptions{
-			Interactive: ctx.Interactive && !f.yes, CommitTracked: f.wip, AddPaths: f.addPaths, IncludeSecrets: f.includeSecrets,
+			Interactive: ctx.Interactive && !f.yes, IncludeSecrets: f.includeSecrets,
 		},
 	})
 	if err != nil {

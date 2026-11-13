@@ -72,7 +72,7 @@ func TestUpDirtyTreeCommitsWIPThenProceeds(t *testing.T) {
 	h.local.Git("switch", "-q", "-c", "feat")
 	h.local.Write("README.md", "changed\n")
 	h.writeTranscript(firstLine)
-	if _, err := h.up(PrepareOptions{CommitTracked: true}); err != nil {
+	if _, err := h.up(PrepareOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if msg := h.local.Git("log", "-1", "--format=%s"); !strings.HasPrefix(msg, "WIP") {
@@ -216,7 +216,7 @@ func TestUpRepoNotOnYakStopsBeforeAnyWrite(t *testing.T) {
 	h.local.Write("README.md", "dirty\n")
 	h.writeTranscript(firstLine)
 	head := h.local.Git("rev-parse", "HEAD")
-	_, err := h.up(PrepareOptions{CommitTracked: true})
+	_, err := h.up(PrepareOptions{})
 	if err == nil || !strings.Contains(err.Error(), "not on Yak") {
 		t.Fatalf("got %v", err)
 	}
@@ -247,7 +247,7 @@ func TestUp426StopsAndChangesNothing(t *testing.T) {
 	h.writeTranscript(firstLine)
 	head := h.local.Git("rev-parse", "HEAD")
 	h.srv.MinProtocol = 2
-	_, err := h.up(PrepareOptions{CommitTracked: true})
+	_, err := h.up(PrepareOptions{})
 	if !errors.Is(err, api.ErrProtocolTooOld) {
 		t.Fatalf("got %v", err)
 	}
@@ -363,7 +363,7 @@ func TestUpAddDirDirtyYakRepoBecomesChangesAndIsPushed(t *testing.T) {
 	h := newHarness(t)
 	extra, origin := addYakRepo(t, h)
 	extra.Write("api.txt", "edited\n")
-	res, err := h.upAddDirs(PrepareOptions{CommitTracked: true}, extra.Dir)
+	res, err := h.upAddDirs(PrepareOptions{}, extra.Dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +400,7 @@ func TestUpAddDirContextRepoNeverReceivesACommit(t *testing.T) {
 	h := newHarness(t)
 	extra, origin := addYakRepo(t, h)
 	before := extra.Git("rev-list", "--all", "--count")
-	if _, err := h.upAddDirs(PrepareOptions{CommitTracked: true}, extra.Dir); err != nil {
+	if _, err := h.upAddDirs(PrepareOptions{}, extra.Dir); err != nil {
 		t.Fatal(err)
 	}
 	if extra.Git("rev-list", "--all", "--count") != before || yakBranches(t, origin) != "" {
@@ -434,7 +434,7 @@ func TestUpAddDirPrintsPlanBeforeAsking(t *testing.T) {
 	extra.Write("api.txt", "edited\n")
 	p := &snapshotPrompter{out: h.out}
 	h.deps.Prompter = p
-	if _, err := h.upAddDirs(PrepareOptions{CommitTracked: true}, extra.Dir); err != nil {
+	if _, err := h.upAddDirs(PrepareOptions{}, extra.Dir); err != nil {
 		t.Fatal(err)
 	}
 	var asked string
@@ -455,7 +455,7 @@ func TestUpAddDirChangesRepoFollowsCleanTreeRules(t *testing.T) {
 	extra, _ := addYakRepo(t, h)
 	extra.Commit(map[string]string{".env": "AWS_SECRET_ACCESS_KEY=abcdefghijklmnopqrstuvwxyz0123456789ABCD\n"}, "add env")
 	extra.Write(".env", "AWS_SECRET_ACCESS_KEY=abcdefghijklmnopqrstuvwxyz0123456789ABCE\n")
-	_, err := h.upAddDirs(PrepareOptions{CommitTracked: true}, extra.Dir)
+	_, err := h.upAddDirs(PrepareOptions{}, extra.Dir)
 	var refusal *Refusal
 	if !errors.As(err, &refusal) {
 		t.Fatalf("got %v", err)
@@ -508,7 +508,7 @@ func TestUpDirtyOnMainLeavesLocalMainUntouched(t *testing.T) {
 	originMain := h.originRef("refs/heads/main")
 	h.local.Write("README.md", "changed\n")
 	h.writeTranscript(firstLine)
-	res, err := h.up(PrepareOptions{CommitTracked: true})
+	res, err := h.up(PrepareOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -532,7 +532,7 @@ func TestUpDirtyOnMainBeginFailureChangesNothing(t *testing.T) {
 	h.local.Write("README.md", "changed\n")
 	h.writeTranscript(firstLine)
 	h.srv.FailNextBegin("thread_owned_by_yak", "on yak")
-	if _, err := h.up(PrepareOptions{CommitTracked: true}); err == nil {
+	if _, err := h.up(PrepareOptions{}); err == nil {
 		t.Fatal("expected failure")
 	}
 	if h.local.Git("rev-parse", "main") != originMain {
@@ -549,7 +549,7 @@ func TestUpDirtyOnFeatureBranchStillCommitsInPlace(t *testing.T) {
 	before := h.local.Git("rev-parse", "HEAD")
 	h.local.Write("README.md", "changed\n")
 	h.writeTranscript(firstLine)
-	if _, err := h.up(PrepareOptions{CommitTracked: true}); err != nil {
+	if _, err := h.up(PrepareOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if h.local.Git("rev-parse", "feat^") != before {

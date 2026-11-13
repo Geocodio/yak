@@ -129,7 +129,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		}
 		opts := in.Options
 		if r.role != "primary" {
-			opts = PrepareOptions{Interactive: in.Options.Interactive, CommitTracked: in.Options.CommitTracked}
+			opts = PrepareOptions{Interactive: in.Options.Interactive}
 		}
 		if r.prepared, err = PrepareUp(d.Prompter, r.repo, opts); err != nil {
 			discardAllDetached(repos)
