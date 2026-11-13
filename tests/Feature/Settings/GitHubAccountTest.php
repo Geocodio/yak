@@ -4,6 +4,7 @@ use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Models\GithubKeySync;
 use App\Models\SshKey;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
 use Laravel\Socialite\Two\User as SocialiteUser;
@@ -33,6 +34,22 @@ it('links the GitHub account and returns to the profile', function () {
         ->and($user->github_login)->toBe('mhansen')
         ->and($user->github_linked_at)->not->toBeNull()
         ->and($user->hasLinkedGitHub())->toBeTrue();
+});
+
+it('fetches the GitHub ssh keys as soon as the account is linked', function () {
+    $user = User::factory()->create();
+    fakeGitHubUser();
+    Http::fake([
+        'api.github.com/user/4242' => Http::response(['login' => 'mhansen']),
+        'github.com/mhansen.keys' => Http::response("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGq8Z1lKN0Cz3v8Ywq1z0Rk9yQ6m7bFQ3XzH2sJ4tN5p\n"),
+    ]);
+    $this->actingAs($user);
+
+    $this->get(route('settings.github.connect'));
+    $this->get(route('settings.github.callback'));
+
+    expect(SshKey::query()->where('user_id', $user->id)->fromGithub()->count())->toBe(1)
+        ->and(GithubKeySync::query()->find($user->id)?->status)->toBe('ok');
 });
 
 it('returns to a task page after linking', function () {

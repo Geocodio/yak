@@ -38,7 +38,7 @@ class GitHubAccountController extends Controller
         return $driver->setScopes([])->redirect();
     }
 
-    public function callback(Request $request): RedirectResponse
+    public function callback(Request $request, GitHubKeyDirectory $keyDirectory): RedirectResponse
     {
         $destination = $this->pullReturnPath($request);
 
@@ -75,6 +75,8 @@ class GitHubAccountController extends Controller
 
             return $this->takenResponse($destination, $owner);
         }
+
+        $keyDirectory->refresh($user, true);
 
         return redirect($destination)->with('success', "GitHub connected as {$user->github_login}.");
     }

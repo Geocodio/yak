@@ -47,6 +47,13 @@ it('renders a hardened jump sshd config', function () use ($rolePath) {
     expect($config)->not->toContain('PermitTTY yes')->not->toContain('AllowTcpForwarding yes');
 });
 
+it('leaves the jump user unlocked so key-only sshd login works', function () use ($rolePath) {
+    $task = collect(Yaml::parseFile($rolePath('tasks/main.yml')))
+        ->first(fn (array $task): bool => ($task['ansible.builtin.user']['name'] ?? null) === '{{ yak_ssh_jump_user }}');
+
+    expect($task['ansible.builtin.user']['password'] ?? null)->toBe('*');
+});
+
 it('hardens the wake and bridge units', function () use ($rolePath) {
     foreach (['yak-wake.service.j2', 'yak-termbridge.service.j2'] as $unit) {
         expect(file_get_contents($rolePath("templates/{$unit}")))

@@ -34,6 +34,13 @@
     - "{{ yak_ssh_lookup_user }}"
     - "{{ yak_ssh_bridge_user }}"
 
+# The jump sshd runs without PAM, so OpenSSH refuses an account whose password field starts with "!"
+# (the user module's default for a new user). "*" allows no password login and is not a lock.
+- name: Unlock the jump user for key-only login
+  ansible.builtin.user:
+    name: "{{ yak_ssh_jump_user }}"
+    password: "*"
+
 # Always built on the controller (cached, so fast): a stale broker/dist binary is never installed.
 - name: Build the ssh binaries on the controller
   ansible.builtin.command:
