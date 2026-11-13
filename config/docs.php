@@ -72,6 +72,9 @@ return [
         'teleport.sign-in' => 'teleport/#sign-in',
         'teleport.first-teleport' => 'teleport/#first-teleport',
 
+        // SSH and terminal
+        'ssh' => 'ssh/',
+
         // Claude accounts
         'accounts' => 'claude-accounts/',
 

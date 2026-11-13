@@ -379,6 +379,15 @@
     mode: "0644"
   when: base_template_check.rc != 0
 
+- name: Stage the sandbox welcome splash on the host for baking into yak-base
+  ansible.builtin.copy:
+    src: yak-motd.sh
+    dest: /tmp/yak-motd.sh
+    owner: root
+    group: root
+    mode: "0755"
+  when: base_template_check.rc != 0
+
 - name: Set UFW default forward policy to ACCEPT (sandboxes need outbound NAT)
   ansible.builtin.lineinfile:
     path: /etc/default/ufw
@@ -512,6 +521,13 @@
       apt-get install -y openssh-server
       systemctl enable ssh
 
+      # Replace the Ubuntu banner: no dynamic motd, legal text or last-login line.
+      # The splash itself is installed below and reads ~/.yak-thread.env.
+      chmod -x /etc/update-motd.d/* || true
+      : > /etc/legal
+      mkdir -p /etc/ssh/sshd_config.d
+      echo "PrintLastLog no" > /etc/ssh/sshd_config.d/10-yak.conf
+
       # Pre-pull common Docker images to speed up setup tasks
       docker pull mariadb:11 || true
       docker pull redis:7-alpine || true
@@ -529,6 +545,11 @@
     # this baked copy guarantees video walkthroughs still work if the
     # push-on-launch step ever fails.
     incus file push /tmp/yak-browser.js yak-base/usr/local/bin/yak-browser --mode=0755
+
+    # Bake the welcome splash. Per-thread values are written to
+    # /home/yak/.yak-thread.env when the sandbox starts.
+    incus file push /tmp/yak-motd.sh yak-base/usr/local/bin/yak-motd --mode=0755
+    incus exec yak-base -- bash -c 'printf "%s\n" "[ -t 1 ] && [ -x /usr/local/bin/yak-motd ] && /usr/local/bin/yak-motd" > /etc/profile.d/yak-motd.sh'
 
     # Bake the agent runner at the path the broker starts it from, with its
     # pinned dependencies. A runner change needs a yak_sandbox_base_version bump.

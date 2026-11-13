@@ -15,6 +15,16 @@ function incusManager(array $files = []): IncusThreadSandboxManager
     return new IncusThreadSandboxManager(app(IncusSandboxManager::class), fn (string $path): ?string => $files[$path] ?? null);
 }
 
+test('start writes the thread values the welcome splash reads, with control characters removed', function () {
+    Process::fake(['*' => Process::result()]);
+    $thread = Thread::factory()->create(['title' => "Fix it\nTITLE=evil \e[31mred", 'branch' => 'yak/fix-it']);
+
+    incusManager()->start($thread);
+
+    Process::assertRan(fn ($p) => is_array($p->command) && in_array('cat > ~/.yak-thread.env', $p->command, true)
+        && $p->input === "TITLE=Fix it TITLE=evil  [31mred\nPUBLIC_ID={$thread->public_id}\nREPO={$thread->repo}\nBRANCH=yak/fix-it\nDOCS_URL=" . config('docs.base_url') . "ssh/\n");
+});
+
 test('create clones the template and leaves it stopped', function () {
     Process::fake();
     Repository::factory()->create(['slug' => 'widgets', 'sandbox_snapshot' => 'yak-tpl-widgets/v3']);
@@ -43,7 +53,7 @@ test('start waits until the container answers an exec', function () {
     Sleep::fake();
     Process::fake([
         '*start*' => Process::result(),
-        '*exec*' => Process::sequence()->push(Process::result('', 'not ready', 1))->push(Process::result()),
+        '*exec*' => Process::sequence()->push(Process::result('', 'not ready', 1))->push(Process::result())->dontFailWhenEmpty(),
     ]);
     $thread = Thread::factory()->create();
 

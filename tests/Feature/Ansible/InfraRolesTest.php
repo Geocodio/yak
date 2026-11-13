@@ -452,8 +452,18 @@ it('bakes the agent runner into yak-base where the broker starts it', function (
 it('keeps the sandbox base version in step between Ansible and the app', function () {
     $ansibleVersion = Yaml::parseFile(base_path('ansible/group_vars/yak.yml'))['yak_sandbox_base_version'];
 
-    expect($ansibleVersion)->toBe(7)
+    expect($ansibleVersion)->toBe(8)
         ->and(config('yak.sandbox.base_version'))->toBe($ansibleVersion);
+});
+
+it('bakes the welcome splash into yak-base and silences the Ubuntu banner', function () use ($incusTasks) {
+    expect($incusTasks())
+        ->toContain('chmod -x /etc/update-motd.d/*')
+        ->toContain(': > /etc/legal')
+        ->toContain('PrintLastLog no')
+        ->toContain('incus file push /tmp/yak-motd.sh yak-base/usr/local/bin/yak-motd')
+        ->toContain('/etc/profile.d/yak-motd.sh')
+        ->and(is_executable(base_path('ansible/roles/incus/files/yak-motd.sh')))->toBeTrue();
 });
 
 it('creates the sandbox yak user with the uid the app runs the agent as', function () use ($incusTasks) {

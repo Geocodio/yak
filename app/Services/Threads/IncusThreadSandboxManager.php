@@ -80,6 +80,7 @@ class IncusThreadSandboxManager implements SandboxManager
             if ($probe->successful()) {
                 $this->recordAddress($thread);
                 $this->taskSandboxes->pushMcpConfig($container);
+                $this->writeThreadEnv($thread);
 
                 return;
             }
@@ -98,6 +99,7 @@ class IncusThreadSandboxManager implements SandboxManager
     {
         $this->mustRun('resume', ['incus', 'resume', $this->containerName($thread)]);
         $this->recordAddress($thread);
+        $this->writeThreadEnv($thread);
     }
 
     public function stop(Thread $thread, int $timeoutSeconds): void
@@ -226,6 +228,33 @@ class IncusThreadSandboxManager implements SandboxManager
     }
 
     /** Best effort: a missed lookup clears any previous address so the preview waker resolves and records it itself. */
+    /**
+     * Writes the values the welcome splash shows to ~/.yak-thread.env as one KEY=value line each. The splash
+     * parses the file and never sources it, and control characters are removed here so a title cannot inject
+     * lines or terminal escapes.
+     */
+    private function writeThreadEnv(Thread $thread): void
+    {
+        $values = [
+            'TITLE' => $thread->title,
+            'PUBLIC_ID' => $thread->public_id,
+            'REPO' => $thread->repo,
+            'BRANCH' => (string) $thread->branch,
+            'DOCS_URL' => config('docs.base_url') . config('docs.anchors.ssh'),
+        ];
+
+        $lines = '';
+        foreach ($values as $key => $value) {
+            $lines .= $key . '=' . trim((string) preg_replace('/[[:cntrl:]]+/u', ' ', $value)) . "\n";
+        }
+
+        try {
+            $this->exec($thread, ['sh', '-c', 'cat > ~/.yak-thread.env'], $lines);
+        } catch (SandboxCommandFailed) {
+            // The splash falls back to placeholders without the file.
+        }
+    }
+
     private function recordAddress(Thread $thread): void
     {
         try {
