@@ -41,6 +41,8 @@
     --accent-text: light-dark(#a8552f, #d58f71);
     --accent-ink: light-dark(#ffffff, #101014);
     --accent-ring: color-mix(in srgb, var(--accent) 34%, transparent);
+    /* The composer's focus halo: a quiet tint, not an alert. */
+    --composer-focus-ring: color-mix(in srgb, var(--accent) 12%, transparent);
     --accent-edge: color-mix(in srgb, var(--accent) 42%, var(--border));
     --accent-tint: color-mix(in srgb, var(--accent) 9%, var(--panel));
     --accent-tint-strong: color-mix(in srgb, var(--accent) 16%, var(--panel));

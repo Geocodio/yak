@@ -158,7 +158,7 @@ export function StartThreadForm({
     return (
         <div data-testid="start-thread-form">
             <div
-                className="relative overflow-hidden rounded-2xl border border-hair bg-panel shadow-[var(--composer-shadow)] transition-[border-color,box-shadow] duration-200 focus-within:border-[var(--accent-edge)] focus-within:shadow-[var(--composer-shadow),0_0_0_4px_var(--accent-ring)] motion-reduce:transition-none"
+                className="relative overflow-hidden rounded-2xl border border-hair bg-panel shadow-[var(--composer-shadow)] transition-[border-color,box-shadow] duration-200 focus-within:border-[var(--accent-edge)] focus-within:shadow-[var(--composer-shadow),0_0_0_3px_var(--composer-focus-ring)] motion-reduce:transition-none"
                 {...draft.dropzoneProps}
             >
                 <AttachmentDropOverlay draft={draft} />

@@ -34,21 +34,19 @@ test('a private thread owned by someone else does not count', function () {
     $this->get('/')->assertInertia(fn (Assert $page) => $page->component('Home/Welcome'));
 });
 
-test('home redirects to the most recently active visible thread', function () {
+test('home stays on the start screen when threads exist', function () {
     $this->actingAs(User::factory()->create());
     Thread::factory()->create(['last_activity_at' => now()->subDay()]);
-    $latest = Thread::factory()->create(['last_activity_at' => now()]);
-    Thread::factory()->private()->create(['last_activity_at' => now()->addHour()]);
+    Thread::factory()->create(['last_activity_at' => now()]);
 
-    $this->get('/')->assertRedirect(route('threads.show', $latest));
+    $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Home/Welcome'));
 });
 
-test('a thread without activity falls back to its creation time', function () {
+test('a thread without activity does not redirect away from home either', function () {
     $this->actingAs(User::factory()->create());
-    Thread::factory()->create(['last_activity_at' => null, 'created_at' => now()->subDays(2)]);
-    $newer = Thread::factory()->create(['last_activity_at' => null, 'created_at' => now()->subDay()]);
+    Thread::factory()->create(['last_activity_at' => null, 'created_at' => now()->subDay()]);
 
-    $this->get('/')->assertRedirect(route('threads.show', $newer));
+    $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Home/Welcome'));
 });
 
 test('the checklist marks the repository and the Claude account done', function () {

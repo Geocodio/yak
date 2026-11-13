@@ -90,3 +90,11 @@ it('keeps Start on the same row as Change and Research on a phone', function () 
         ->and($boxes['start']['right'])->toBeLessThanOrEqual(390)
         ->and($boxes['width'])->toBeLessThanOrEqual(390);
 });
+
+test('the composer asks password managers to stay away', function () {
+    readyForSplash($this);
+
+    visit('/threads/new')
+        ->assertScript("document.querySelector('textarea').getAttribute('autocomplete')", 'off')
+        ->assertScript("document.querySelector('textarea').hasAttribute('data-1p-ignore')", true);
+});
