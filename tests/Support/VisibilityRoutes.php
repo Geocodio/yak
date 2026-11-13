@@ -54,6 +54,7 @@ class VisibilityRoutes
         'threads.preview.restore' => ['POST', '/threads/{thread}/preview/restore', [], 202],
         'threads.terminal-sessions.store' => ['POST', '/threads/{thread}/terminal-sessions', [], 403],
         'tasks.show' => ['GET', '/tasks/{task}'],
+        'tasks.log-entries' => ['GET', '/tasks/{task}/log-entries'],
         'tasks.retry' => ['POST', '/tasks/{task}/retry'],
         'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
         'tasks.rerun-review' => ['POST', '/tasks/{task}/rerun-review'],

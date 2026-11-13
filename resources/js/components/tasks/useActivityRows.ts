@@ -2,6 +2,8 @@ import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActivityData, ActivityRow } from '@/types/tasks';
 
+export { groupActivity } from './groupActivity';
+
 export const ACTIVITY_WINDOW = 200;
 export const ACTIVITY_ROW_CAP = 2000;
 

@@ -91,7 +91,6 @@ export type TaskDetail = {
     cost: string | null;
     branch: string | null;
     nextSteps: string | null;
-    error: string | null;
     externalId: string | null;
     pr: TaskPr | null;
     researchArtifactUrl: string | null;
@@ -149,6 +148,12 @@ export type ThreadEntryData = {
     options?: string[];
     expiresIn?: string | null;
     superseded?: boolean;
+    /** `yak` entries: the run this bubble reports, so a live stream attaches to the right one. */
+    runId?: number | null;
+    attempt?: number;
+    /** `yak` entries: how long the run took, and when it started (ISO 8601). */
+    durationMs?: number | null;
+    startedAt?: string | null;
     live?: boolean;
     error?: string | null;
     links?: { label: string; url: string }[];
@@ -183,12 +188,31 @@ export type ActivityRow = {
     kind: 'tool' | 'prompt' | 'assistant' | 'level';
     error: boolean;
     milestone: boolean;
+    tool: ActivityTool | null;
+    category: ActivityCategory;
+    /** What the row shows on its line: the command, path, pattern or URL. */
+    label: string;
+    durationMs: number | null;
+    /** Bash results only; null while running and for other tools. */
+    exitCode: number | null;
+    /** A tool call that has no result yet. */
+    running: boolean;
+    /** The earlier failed row of the same command that this passing row retried. */
+    retryOf: number | null;
 };
+
+export type ActivityTool = 'Bash' | 'Read' | 'Edit' | 'Write' | 'Grep' | 'Glob' | 'WebFetch' | 'Task';
+
+export type ActivityCategory = 'command' | 'read' | 'edit' | 'search' | 'fetch' | 'thinking' | 'narrative' | 'milestone';
+
+export type ActivityCounts = { command: number; read: number; edit: number; search: number; fetch: number; thinking: number };
 
 export type ActivitySummary = {
     entries: number;
     duration: string;
     latestId: number | null;
+    counts: ActivityCounts;
+    failed: number;
 };
 
 export type ActivityData = {
@@ -300,6 +324,8 @@ export type TranscriptEntry = {
     input?: string | null;
     output?: string | null;
     html?: string;
+    /** The unrendered text of an `assistant` entry: a sentence or a thought. */
+    fullText?: string;
     details?: TranscriptDetail[];
     prompt?: {
         user: string;

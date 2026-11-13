@@ -56,6 +56,7 @@ final class TranscriptData
 
         if ($type === 'assistant') {
             $entry['html'] = Markdown::toHtml((string) ($metadata['text'] ?? $log->message));
+            $entry['fullText'] = (string) ($metadata['text'] ?? $log->message);
         }
 
         if ($kind === 'level') {

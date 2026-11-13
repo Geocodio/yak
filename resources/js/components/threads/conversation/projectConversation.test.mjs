@@ -180,3 +180,22 @@ test('assistant text carries its server-rendered html', () => {
 
     assert.equal(items[0].html, '<h2>Hi</h2>');
 });
+
+test('a tools item carries one step per tool use, with its label, result and failure', () => {
+    const { items } = project(
+        feedOf(
+            assistant(1, 'm1', [use('a', 'Read', { file_path: 'app/Login.php' }), use('b', 'Bash', { command: 'php artisan test' }), use('c', 'Grep', { pattern: 'intended' })]),
+            toolResult(2, 'a', '<?php'),
+            entry(3, { role: 'tool_result', toolUseId: 'b', isError: true, text: 'Tests: 1 failed' }),
+        ),
+    );
+
+    assert.deepEqual(
+        items[0].steps.map((step) => [step.category, step.label, step.failed, step.running, step.content.output]),
+        [
+            ['read', 'app/Login.php', false, false, '<?php'],
+            ['command', 'php artisan test', true, false, 'Tests: 1 failed'],
+            ['search', 'intended', false, true, null],
+        ],
+    );
+});

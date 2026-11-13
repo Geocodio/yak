@@ -20,7 +20,7 @@ beforeEach(function () {
 
 dataset('mutatingTaskProbes', function () {
     foreach (VisibilityRoutes::probeNames() as $name) {
-        if (str_starts_with($name, 'tasks.') && ! in_array($name, ['tasks.show', 'tasks.pr-images.show'], true)) {
+        if (str_starts_with($name, 'tasks.') && ! in_array($name, ['tasks.show', 'tasks.log-entries', 'tasks.pr-images.show'], true)) {
             yield $name => [$name];
         }
     }

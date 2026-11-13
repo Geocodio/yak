@@ -9,6 +9,7 @@ use App\Http\Resources\TaskDetailData;
 use App\Http\Resources\TranscriptData;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -58,5 +59,26 @@ class TaskController extends Controller
                 ? $entryFor()
                 : Inertia::optional($entryFor),
         ]);
+    }
+
+    /**
+     * The commands and outputs behind a few opened activity rows, fetched
+     * together so expanding rows never reloads the page. Only logs of this
+     * task's own conversation are served.
+     */
+    public function logEntries(Request $request, YakTask $task): JsonResponse
+    {
+        /** @var array<int, mixed> $requested */
+        $requested = (array) $request->query('ids', []);
+        $ids = collect($requested)->map(fn (mixed $id): int => (int) $id)->filter()->unique()->take(20)->values();
+
+        $entries = TaskLog::query()
+            ->whereIn('id', $ids)
+            ->whereIn('yak_task_id', $task->conversation()->pluck('id'))
+            ->get()
+            ->map(fn (TaskLog $log): array => TranscriptData::entry($log))
+            ->values();
+
+        return response()->json(['entries' => $entries]);
     }
 }

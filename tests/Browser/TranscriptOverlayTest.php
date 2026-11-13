@@ -28,13 +28,12 @@ function overlayTranscript(YakTask $task): array
     ];
 }
 
-test('clicking an activity entry opens the transcript overlay on it', function () {
+test('a log deep link opens the transcript overlay on that entry', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
     $logs = overlayTranscript($task);
 
-    visit(route('tasks.show', $task))
-        ->click('[data-testid="log-entry"]:visible >> nth=1')
+    visit(route('tasks.show', ['task' => $task, 'log' => $logs['second']->id]))
         ->assertVisible('[data-testid="transcript-overlay"]:visible')
         ->assertSee('vendor/bin/phpstan analyse')
         ->assertSee('Step 2 of 2')
@@ -44,10 +43,9 @@ test('clicking an activity entry opens the transcript overlay on it', function (
 test('the overlay is the same width whichever entry is open', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
-    overlayTranscript($task);
+    $logs = overlayTranscript($task);
 
-    $page = visit(route('tasks.show', $task))
-        ->click('[data-testid="log-entry"]:visible >> nth=0')
+    $page = visit(route('tasks.show', ['task' => $task, 'log' => $logs['first']->id]))
         ->assertVisible('[data-testid="transcript-overlay"]:visible');
 
     $widthOnFirst = $page->script('document.querySelector(\'[data-testid="transcript-overlay"]\').offsetWidth');
@@ -110,12 +108,13 @@ test('the overlay rail scrolls the opened entry into view', function () {
     expect($selectedIsInView)->toBeTrue();
 });
 
-test('clicking a row deep in the sidebar list opens the rail scrolled to it', function () {
+test('a deep link to a late entry opens the rail scrolled to it', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
 
+    $logs = [];
     foreach (range(1, 40) as $i) {
-        TaskLog::factory()->create([
+        $logs[] = TaskLog::factory()->create([
             'yak_task_id' => $task->id,
             'attempt_number' => 1,
             'message' => "Step number {$i}",
@@ -124,8 +123,7 @@ test('clicking a row deep in the sidebar list opens the rail scrolled to it', fu
         ]);
     }
 
-    $page = visit(route('tasks.show', $task))
-        ->click('[data-testid="log-entry"]:visible >> nth=29')
+    $page = visit(route('tasks.show', ['task' => $task, 'log' => $logs[29]->id]))
         ->assertVisible('[data-testid="transcript-overlay"]:visible')
         ->assertSee('Step 30 of 40');
 
@@ -276,15 +274,14 @@ test('switching attempts while the overlay is open on the same log refetches ins
 test('a long command wraps inside the detail pane instead of widening it', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
-    TaskLog::factory()->create([
+    $log = TaskLog::factory()->create([
         'yak_task_id' => $task->id,
         'attempt_number' => 1,
         'message' => 'Bump framework',
         'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => str_repeat('docker run --rm -v /workspace:/var/www ', 20)], 'output' => ''],
     ]);
 
-    $page = visit(route('tasks.show', $task))
-        ->click('[data-testid="log-entry"]:visible >> nth=0')
+    $page = visit(route('tasks.show', ['task' => $task, 'log' => $log->id]))
         ->assertVisible('[data-testid="transcript-overlay"]:visible');
 
     $overflows = $page->script('(() => { const overlay = document.querySelector(\'[data-testid="transcript-overlay"]\'); return [...overlay.querySelectorAll("pre")].some(pre => pre.getBoundingClientRect().right > overlay.getBoundingClientRect().right); })()');

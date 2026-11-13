@@ -177,7 +177,6 @@ final class TaskDetailData
             'cost' => (float) $task->cost_usd > 0 ? '$' . number_format((float) $task->cost_usd, 2) : null,
             'branch' => $isAnsweredFix ? null : $task->branch_name,
             'nextSteps' => self::nextSteps($task, $head, $coOwnerRequest),
-            'error' => $task->status === TaskStatus::Failed ? $task->error_log : null,
             'externalId' => $task->external_id,
             'pr' => $prState === null ? null : [
                 'number' => $task->pullRequestNumber(),
@@ -278,7 +277,7 @@ final class TaskDetailData
                 'user' => self::withAttachments(self::userEntry($entry), $attachmentsFor($entry)),
                 'clarification' => self::clarificationEntry($entry, $entries, $index),
                 'clarification-answers' => self::clarificationAnswersEntry($entry),
-                'yak' => self::yakEntry($entry, $index, $lastYakIndex, $mediaByRun, $task->status === TaskStatus::Failed ? $task->error_log : null),
+                'yak' => self::yakEntry($entry, $index, $lastYakIndex, $mediaByRun),
                 default => self::systemEntry($entry),
             };
         })->values()->all();
@@ -416,17 +415,11 @@ final class TaskDetailData
         int $index,
         ?int $lastYakIndex,
         Collection $mediaByRun,
-        ?string $bannerError = null,
     ): array {
         $steps = (int) ($entry->runStats['steps'] ?? 0);
-        $hasDuration = ! empty($entry->runStats['duration_ms']);
-        $duration = self::formatDuration(is_int($entry->runStats['duration_ms'] ?? null) ? $entry->runStats['duration_ms'] : null);
+        $durationMs = is_int($entry->runStats['duration_ms'] ?? null) ? $entry->runStats['duration_ms'] : null;
 
-        $meta = collect([
-            $hasDuration ? "Worked for {$duration}" : null,
-            $steps . ' ' . Str::plural('step', $steps),
-            $entry->timestamp->format('g:i A'),
-        ])->filter()->implode(' · ');
+        $meta = $steps . ' ' . Str::plural('step', $steps) . ' · ' . $entry->timestamp->format('g:i A');
 
         $links = [];
 
@@ -459,10 +452,14 @@ final class TaskDetailData
             'who' => 'Yak',
             'meta' => $meta,
             'bodyHtml' => $bodyHtml,
+            'durationMs' => $durationMs,
+            'startedAt' => $entry->run !== null ? ($entry->run->started_at ?? $entry->run->created_at)?->toIso8601String() : null,
+            'runId' => $entry->run?->id,
+            'attempt' => (int) ($entry->runStats['attempt'] ?? 1),
             'live' => $entry->isLive,
             'superseded' => $superseded,
-            // The banner above the conversation already shows the task's failure; repeating it here says nothing new.
-            'error' => $entry->error !== null && trim($entry->error) !== trim((string) $bannerError) ? Str::limit($entry->error, 400) : null,
+            // The one place a failure is shown: the conversation, where the run stopped.
+            'error' => $entry->error !== null ? Str::limit($entry->error, 400) : null,
             'links' => $links,
             'media' => $media->map(fn (Artifact $artifact) => self::mediaEntry($artifact))->values()->all(),
         ];

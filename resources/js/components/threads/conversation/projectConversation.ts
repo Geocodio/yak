@@ -1,4 +1,5 @@
 import type { AssistantBlock, ThreadEventState, TranscriptEntry } from '@/types/thread-events';
+import type { StepView } from '@/components/activity/types';
 import type { ConversationItem } from './conversationItem';
 
 type ToolUse = Extract<AssistantBlock, { type: 'tool_use' }>;
@@ -15,6 +16,41 @@ const toolVerbs: Record<string, [string, string, string]> = {
 
 function lineCount(value: unknown): number {
     return typeof value === 'string' && value !== '' ? value.split('\n').length : 0;
+}
+
+const toolCategories: Record<string, StepView['category']> = { Bash: 'command', Read: 'read', Grep: 'search', Glob: 'search', WebFetch: 'fetch', WebSearch: 'fetch' };
+
+type ToolResult = { text: string; isError: boolean };
+
+function toolLabel(tool: ToolUse): string {
+    const input = tool.input;
+    const pick = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
+
+    return (
+        (tool.name === 'Bash' ? pick('command') : tool.name === 'Grep' || tool.name === 'Glob' ? pick('pattern') : tool.name === 'WebFetch' ? pick('url') : pick('file_path')) || tool.name
+    );
+}
+
+/** One tool call as the shared step rows draw it; its result, when it has one, is the detail the row opens to. */
+function toStep(tool: ToolUse, result: ToolResult | undefined): StepView {
+    const label = toolLabel(tool);
+
+    return {
+        key: `tool:${tool.id}`,
+        logId: null,
+        category: toolCategories[tool.name] ?? 'command',
+        tool: tool.name,
+        label,
+        durationMs: null,
+        exitCode: null,
+        failed: result?.isError ?? false,
+        running: result === undefined,
+        retryPassed: false,
+        retried: false,
+        at: null,
+        createdAt: null,
+        content: { input: label, output: result?.text ?? null },
+    };
 }
 
 function summarize(tools: ToolUse[]): string {
@@ -56,20 +92,21 @@ function editItem(messageId: string, sequence: number, edits: ToolUse[]): Conver
     return { kind: 'edits', key: `edits:${messageId}`, sequence, role: 'assistant', files: [...files], added, removed };
 }
 
-function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>, sequence: number, results: Map<string, string>, model: string | undefined): ConversationItem[] {
+function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>, sequence: number, results: Map<string, ToolResult>, model: string | undefined): ConversationItem[] {
     const items: ConversationItem[] = [];
     const edits: ToolUse[] = [];
     let run: { firstIndex: number; tools: ToolUse[] } | null = null;
 
     const closeRun = () => {
         if (run) {
-            const detail = run.tools.map((tool) => results.get(tool.id)).filter((text): text is string => text !== undefined);
+            const detail = run.tools.map((tool) => results.get(tool.id)?.text).filter((text): text is string => text !== undefined);
             items.push({
                 kind: 'tools',
                 key: `tools:${entry.messageId}:${run.firstIndex}`,
                 sequence,
                 role: 'assistant',
                 text: summarize(run.tools),
+                steps: run.tools.map((tool) => toStep(tool, results.get(tool.id))),
                 ...(run.tools.some((tool) => !results.has(tool.id)) ? { running: true } : {}),
                 ...(detail.length > 0 ? { detail: detail.join('\n\n') } : {}),
             });
@@ -104,10 +141,10 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
 
 /** Turns the live thread state into conversation items plus the sequence at which each user message was read. */
 export function projectConversation(state: Source, entrySequences: number[]): { items: ConversationItem[]; readSequences: Record<string, number> } {
-    const results = new Map<string, string>();
+    const results = new Map<string, ToolResult>();
     state.entries.forEach((entry) => {
         if (entry.role === 'tool_result') {
-            results.set(entry.toolUseId, entry.text);
+            results.set(entry.toolUseId, { text: entry.text, isError: entry.isError });
         }
     });
 

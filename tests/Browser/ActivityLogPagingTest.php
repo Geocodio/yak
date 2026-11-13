@@ -23,42 +23,37 @@ function seedPagingLogs(YakTask $task, int $count): void
     }
 }
 
-test('the activity log starts with the newest 200 rows and loads older rows when scrolled to the top', function () {
+test('the stream starts with the newest 200 rows and loads older rows on request', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
     seedPagingLogs($task, 250);
 
     $page = visit(route('tasks.show', $task))
-        ->assertSee('250 entries')
-        ->assertDontSee('Step 50')
-        ->assertSee('Step 250');
+        ->assertSee('Ran 250 commands')
+        ->click('[data-testid="finished-summary"] > summary')
+        ->click('[data-testid="step-group"] > summary')
+        ->assertSee('Load 50 earlier steps')
+        ->assertSee('echo 250');
 
-    expect($page->script('document.querySelectorAll(\'[data-testid="activity-log"] [data-log-id]\').length'))->toBe(200);
+    expect($page->script('document.querySelectorAll(\'[data-testid="step-row"]\').length'))->toBe(200);
 
-    $page->script('document.querySelector(\'[data-testid="activity-log"] [data-scroller]\').scrollTop = 0');
-    $page->wait(1)->assertSee('Step 1');
+    $page->click('[data-testid="load-earlier"]')->wait(1)->assertSee('echo 1');
 
-    expect($page->script('document.querySelectorAll(\'[data-testid="activity-log"] [data-log-id]\').length'))->toBe(250);
-    // The row that was at the top before the load is still in view.
-    expect($page->script('(() => { const scroller = document.querySelector(\'[data-testid="activity-log"] [data-scroller]\'); const row = scroller.querySelector(\'[data-log-id][data-log-text="Step 51"]\'); const r = row.getBoundingClientRect(); const s = scroller.getBoundingClientRect(); return r.top >= s.top - 2 && r.top <= s.bottom; })()'))->toBeTrue();
+    expect($page->script('document.querySelectorAll(\'[data-testid="step-row"]\').length'))->toBe(250);
+    expect($page->script('document.querySelectorAll(\'[data-testid="load-earlier"]\').length'))->toBe(0);
 });
 
-test('new rows append on poll without moving a reader who scrolled up', function () {
+test('new rows append on poll', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
     seedPagingLogs($task, 30);
 
-    $page = visit(route('tasks.show', $task))->assertSee('Step 30');
-    $page->script('document.querySelector(\'[data-testid="activity-log"] [data-scroller]\').scrollTop = 0');
+    $page = visit(route('tasks.show', $task))->assertSee('echo 30');
 
     TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'Step 31 arrived', 'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'echo 31'], 'output' => '31']]);
 
     // The running task polls every 5 seconds.
-    $page->wait(7)->assertSee('Step 31 arrived')->assertVisible('[data-testid="jump-to-latest"]');
-    expect($page->script('document.querySelector(\'[data-testid="activity-log"] [data-scroller]\').scrollTop'))->toBeLessThan(50);
-
-    $page->click('[data-testid="jump-to-latest"]');
-    expect($page->script('(() => { const s = document.querySelector(\'[data-testid="activity-log"] [data-scroller]\'); return s.scrollHeight - s.scrollTop - s.clientHeight < 48; })()'))->toBeTrue();
+    $page->wait(7)->assertSee('echo 31')->assertNoJavaScriptErrors();
 });
 
 test('a running task whose log starts empty shows its first row within one poll', function () {
@@ -70,23 +65,27 @@ test('a running task whose log starts empty shows its first row within one poll'
     TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'First row arrived', 'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'echo 1'], 'output' => '1']]);
 
     // The running task polls every 5 seconds.
-    $page->wait(7)->assertSee('First row arrived');
+    $page->wait(7)->assertSee('echo 1');
 });
 
-test('switching runs replaces the rows with the chosen run\'s log', function () {
+test('switching runs replaces the stream with the chosen run\'s log', function () {
     $this->actingAs(User::factory()->create());
-    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()->subHour()]);
-    $followUp = YakTask::factory()->create(['parent_task_id' => $root->id, 'status' => TaskStatus::Success, 'started_at' => now()]);
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()->subHour(), 'result_summary' => 'Root run done']);
+    $followUp = YakTask::factory()->create(['parent_task_id' => $root->id, 'status' => TaskStatus::Success, 'started_at' => now(), 'result_summary' => 'Follow-up run done']);
     TaskLog::factory()->create(['yak_task_id' => $root->id, 'attempt_number' => 1, 'message' => 'Root run row', 'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'echo root'], 'output' => 'root']]);
     TaskLog::factory()->create(['yak_task_id' => $followUp->id, 'attempt_number' => 1, 'message' => 'Follow-up run row', 'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'echo follow'], 'output' => 'follow']]);
 
     $page = visit(route('tasks.show', $root))
-        ->assertSeeIn('[data-testid="activity-log"]', 'Follow-up run row')
-        ->assertDontSeeIn('[data-testid="activity-log"]', 'Root run row');
+        ->click('[data-testid="finished-summary"] > summary')
+        ->click('[data-testid="step-group"] > summary')
+        ->assertSeeIn('[data-testid="activity-stream"]', 'echo follow')
+        ->assertDontSeeIn('[data-testid="activity-stream"]', 'echo root');
 
-    $page->click("[data-testid=\"run-chip-{$root->id}\"]")
+    $page->click("[data-testid=\"show-run-{$root->id}\"]")
         ->wait(1)
-        ->assertSeeIn('[data-testid="activity-log"]', 'Root run row')
-        ->assertDontSeeIn('[data-testid="activity-log"]', 'Follow-up run row')
+        ->click('[data-testid="finished-summary"] > summary')
+        ->click('[data-testid="step-group"] > summary')
+        ->assertSeeIn('[data-testid="activity-stream"]', 'echo root')
+        ->assertDontSeeIn('[data-testid="activity-stream"]', 'echo follow')
         ->assertNoJavaScriptErrors();
 });
