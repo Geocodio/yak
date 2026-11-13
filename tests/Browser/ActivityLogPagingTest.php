@@ -77,14 +77,13 @@ test('switching runs replaces the stream with the chosen run\'s log', function (
 
     $page = visit(route('tasks.show', $root))
         ->click('[data-testid="finished-summary"] > summary')
-        ->click('[data-testid="step-group"] > summary')
+        // A run with one step shows that step as a row, without a fold.
         ->assertSeeIn('[data-testid="activity-stream"]', 'echo follow')
         ->assertDontSeeIn('[data-testid="activity-stream"]', 'echo root');
 
     $page->click("[data-testid=\"show-run-{$root->public_id}\"]")
         ->wait(1)
         ->click('[data-testid="finished-summary"] > summary')
-        ->click('[data-testid="step-group"] > summary')
         ->assertSeeIn('[data-testid="activity-stream"]', 'echo root')
         ->assertDontSeeIn('[data-testid="activity-stream"]', 'echo follow')
         ->assertNoJavaScriptErrors();
