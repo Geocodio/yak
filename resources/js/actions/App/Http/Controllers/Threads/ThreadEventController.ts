@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadEventController::index
-* @see app/Http/Controllers/Threads/ThreadEventController.php:21
+* @see app/Http/Controllers/Threads/ThreadEventController.php:22
 * @route '/threads/{thread}/events'
 */
 export const index = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadEventController::index
-* @see app/Http/Controllers/Threads/ThreadEventController.php:21
+* @see app/Http/Controllers/Threads/ThreadEventController.php:22
 * @route '/threads/{thread}/events'
 */
 index.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ index.url = (args: { thread: number | { id: number } } | [thread: number | { id:
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadEventController::index
-* @see app/Http/Controllers/Threads/ThreadEventController.php:21
+* @see app/Http/Controllers/Threads/ThreadEventController.php:22
 * @route '/threads/{thread}/events'
 */
 index.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ index.get = (args: { thread: number | { id: number } } | [thread: number | { id:
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadEventController::index
-* @see app/Http/Controllers/Threads/ThreadEventController.php:21
+* @see app/Http/Controllers/Threads/ThreadEventController.php:22
 * @route '/threads/{thread}/events'
 */
 index.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +69,7 @@ index.head = (args: { thread: number | { id: number } } | [thread: number | { id
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadEventController::show
-* @see app/Http/Controllers/Threads/ThreadEventController.php:50
+* @see app/Http/Controllers/Threads/ThreadEventController.php:51
 * @route '/threads/{thread}/events/{sequence}'
 */
 export const show = (args: { thread: number | { id: number }, sequence: string | number } | [thread: number | { id: number }, sequence: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -84,7 +84,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadEventController::show
-* @see app/Http/Controllers/Threads/ThreadEventController.php:50
+* @see app/Http/Controllers/Threads/ThreadEventController.php:51
 * @route '/threads/{thread}/events/{sequence}'
 */
 show.url = (args: { thread: number | { id: number }, sequence: string | number } | [thread: number | { id: number }, sequence: string | number ], options?: RouteQueryOptions) => {
@@ -112,7 +112,7 @@ show.url = (args: { thread: number | { id: number }, sequence: string | number }
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadEventController::show
-* @see app/Http/Controllers/Threads/ThreadEventController.php:50
+* @see app/Http/Controllers/Threads/ThreadEventController.php:51
 * @route '/threads/{thread}/events/{sequence}'
 */
 show.get = (args: { thread: number | { id: number }, sequence: string | number } | [thread: number | { id: number }, sequence: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -122,7 +122,7 @@ show.get = (args: { thread: number | { id: number }, sequence: string | number }
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadEventController::show
-* @see app/Http/Controllers/Threads/ThreadEventController.php:50
+* @see app/Http/Controllers/Threads/ThreadEventController.php:51
 * @route '/threads/{thread}/events/{sequence}'
 */
 show.head = (args: { thread: number | { id: number }, sequence: string | number } | [thread: number | { id: number }, sequence: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

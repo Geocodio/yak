@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:18
+* @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
 export const show = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:18
+* @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
 show.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ show.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:18
+* @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
 show.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ show.get = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:18
+* @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
 show.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
