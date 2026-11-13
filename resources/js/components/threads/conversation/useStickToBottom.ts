@@ -3,10 +3,10 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 const NEAR_BOTTOM_PIXELS = 80;
 
 /**
- * Opens the conversation at the newest message and follows new content while the reader is at the bottom.
+ * Opens the conversation at the newest message (unless `startAtBottom` is false) and follows new content while the reader is at the bottom.
  * A reader who scrolled up stays put; `hasNew` then says that content arrived below.
  */
-export function useStickToBottom(threadId: number): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
+export function useStickToBottom(threadId: number, startAtBottom = true): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
     const scroller = useRef<HTMLDivElement>(null);
     const content = useRef<HTMLDivElement>(null);
     const isAtBottom = useRef(true);
@@ -20,9 +20,13 @@ export function useStickToBottom(threadId: number): { scroller: RefObject<HTMLDi
             return;
         }
 
-        isAtBottom.current = true;
+        isAtBottom.current = startAtBottom;
         setHasNew(false);
-        box.scrollTop = box.scrollHeight;
+
+        if (startAtBottom) {
+            box.scrollTop = box.scrollHeight;
+        }
+
         let height = inner.offsetHeight;
 
         const onScroll = (): void => {
@@ -47,12 +51,19 @@ export function useStickToBottom(threadId: number): { scroller: RefObject<HTMLDi
             }
         });
 
+        // Opening or pressing something in the content stops the follow, so a row the reader just opened is not scrolled away from under them.
+        const onInteract = (): void => {
+            isAtBottom.current = false;
+        };
+
         observer.observe(inner);
         box.addEventListener('scroll', onScroll, { passive: true });
+        inner.addEventListener('click', onInteract);
 
         return () => {
             observer.disconnect();
             box.removeEventListener('scroll', onScroll);
+            inner.removeEventListener('click', onInteract);
         };
     }, [threadId]);
 

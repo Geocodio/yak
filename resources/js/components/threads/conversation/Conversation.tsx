@@ -22,8 +22,7 @@ import { EnvironmentNoteCard } from './EnvironmentNoteCard';
 import { SideSwitchDivider } from './SideSwitchDivider';
 import { ThreadNotice } from './ThreadNotice';
 import { ThreadTitleBlock } from './ThreadTitleBlock';
-import { ToolActivity } from './ToolActivity';
-import { WorkingBlock } from './WorkingBlock';
+import { ToolSteps } from './ToolSteps';
 import type { ConversationItem } from './conversationItem';
 
 // Browser tests drive the pure merge through this hook.
@@ -51,11 +50,7 @@ function EventRow({ item, canDrive, isLast, threadId, modelLabels }: { modelLabe
     }
 
     if (item.kind === 'tools') {
-        if (item.running && isLast) {
-            return <WorkingBlock items={[item]} />;
-        }
-
-        return <ToolActivity item={item} />;
+        return <ToolSteps item={item} live={item.running === true && isLast} />;
     }
 
     return item.kind === 'edits' ? <EditsBlock item={item} /> : <ClaudeMessage item={item} modelLabels={modelLabels} />;

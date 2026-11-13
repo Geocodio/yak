@@ -405,10 +405,41 @@ test('extracts tool_use alongside text from assistant messages', function () {
 
     $logs = TaskLog::where('yak_task_id', $this->task->id)->orderBy('id')->get();
     expect($logs)->toHaveCount(2);
-    expect($logs[0]->metadata['type'])->toBe('tool_use');
-    expect($logs[0]->metadata['tool'])->toBe('Read');
-    expect($logs[1]->metadata['type'])->toBe('assistant');
-    expect($logs[1]->message)->toBe('Let me check the files.');
+    expect($logs[0]->metadata['type'])->toBe('assistant');
+    expect($logs[0]->message)->toBe('Let me check the files.');
+    expect($logs[1]->metadata['type'])->toBe('tool_use');
+    expect($logs[1]->metadata['tool'])->toBe('Read');
+});
+
+test('a thinking block is logged as a flagged assistant row before the message text', function () {
+    $this->handler->handle([
+        'type' => 'assistant',
+        'message' => [
+            'content' => [
+                ['type' => 'thinking', 'thinking' => 'The base image has no gd extension.'],
+                ['type' => 'text', 'text' => 'Installing gd.'],
+            ],
+        ],
+    ]);
+
+    $logs = TaskLog::where('yak_task_id', $this->task->id)->orderBy('id')->get();
+    expect($logs)->toHaveCount(2);
+    expect($logs[0]->metadata)->toMatchArray(['type' => 'assistant', 'thinking' => true]);
+    expect($logs[0]->message)->toBe('The base image has no gd extension.');
+    expect($logs[1]->metadata)->not->toHaveKey('thinking');
+});
+
+test('a failed Bash result stores its exit code', function () {
+    $this->handler->handle([
+        'type' => 'assistant',
+        'message' => ['content' => [['type' => 'tool_use', 'name' => 'Bash', 'input' => ['command' => 'false'], 'id' => 'toolu_exit']]],
+    ]);
+    $this->handler->handle([
+        'type' => 'user',
+        'message' => ['content' => [['type' => 'tool_result', 'tool_use_id' => 'toolu_exit', 'content' => 'Exit code 2', 'is_error' => true]]],
+    ]);
+
+    expect(TaskLog::where('yak_task_id', $this->task->id)->first()->metadata)->toMatchArray(['is_error' => true, 'exit_code' => 2]);
 });
 
 test('tool_result works after tool_use extracted from assistant message', function () {

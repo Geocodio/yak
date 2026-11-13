@@ -1,8 +1,9 @@
 import { Head, usePoll } from '@inertiajs/react';
+import { ArrowDown } from 'lucide-react';
 import { cn, Dialog } from '@geocodio/console-ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { ActivityLog } from '@/components/tasks/ActivityLog';
+import { StepDetailContext } from '@/components/activity/StepDetailContext';
 import { EarlyWarningNotice } from '@/components/tasks/EarlyWarningNotice';
 import { CoOwnerPanel } from '@/components/tasks/CoOwnerPanel';
 import { QuestionsForm } from '@/components/tasks/QuestionsForm';
@@ -10,19 +11,19 @@ import { Composer } from '@/components/tasks/Composer';
 import { DebugDetails } from '@/components/tasks/DebugDetails';
 import { DeploymentCard } from '@/components/tasks/DeploymentCard';
 import { HeaderBand } from '@/components/tasks/HeaderBand';
-import { LiveLine } from '@/components/tasks/LiveLine';
 import { LogEntrySheet } from '@/components/tasks/LogEntrySheet';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
-import { ProgressList } from '@/components/tasks/ProgressList';
-import { ProgressStrip } from '@/components/tasks/ProgressStrip';
 import { TaskSummary } from '@/components/tasks/TaskSummary';
 import { TaskTabs, type TaskTab } from '@/components/tasks/TaskTabs';
 import { ThreadEntry } from '@/components/tasks/ThreadEntry';
+import type { YakBubbleContext } from '@/components/tasks/YakBubble';
 import { TranscriptOverlay } from '@/components/tasks/TranscriptOverlay';
 import { VideoPlayer } from '@/components/tasks/VideoPlayer';
 import { WalkthroughCard } from '@/components/tasks/WalkthroughCard';
 import { POLLED_PROPS, useActivityRows } from '@/components/tasks/useActivityRows';
+import { useStepContent } from '@/components/tasks/useStepContent';
 import { replaceTaskQuery } from '@/lib/taskQuery';
+import { useStickToBottom } from '@/components/threads/conversation/useStickToBottom';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import type { CoOwnerData, EarlyWarningData } from '@/types/coOwner';
 import type { PageProps } from '@/types/shared';
@@ -120,16 +121,35 @@ export default function Show({
     const walkthroughCloseRef = useRef<HTMLButtonElement>(null);
     const [tab, setTab] = useState<TaskTab>(() => {
         const value = new URLSearchParams(window.location.search).get('tab');
-        return value === 'activity' || value === 'details' ? value : transcriptLogId !== null ? 'activity' : 'overview';
+        return value === 'details' ? 'details' : 'conversation';
     });
     const isDesktop = useMediaQuery('(min-width: 1024px)');
 
     const changeTab = (next: TaskTab) => {
         setTab(next);
-        replaceTaskQuery({ tab: next === 'overview' ? undefined : next });
+        replaceTaskQuery({ tab: next === 'conversation' ? undefined : next });
     };
 
+    const isActiveStatus =
+        task.status === 'running' ||
+        task.status === 'pending' ||
+        task.status === 'awaiting_clarification' ||
+        task.status === 'awaiting_ci' ||
+        task.status === 'awaiting_co_owner' ||
+        task.status === 'retrying';
+    // A live run is followed to its newest step while the reader is at the bottom; a finished one opens at the top.
+    const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(task.id, isActiveStatus);
     const lastYakIndex = thread.reduce((acc, entry, index) => (entry.kind === 'yak' ? index : acc), -1);
+    // The activity stream attaches to the bubble of the run on screen; a run
+    // that has no bubble of its own (it never produced a reply) falls back to
+    // the last one.
+    const focusedYakIndex = thread.findIndex((entry) => entry.kind === 'yak' && entry.runId === task.runId);
+    const streamIndex = focusedYakIndex >= 0 ? focusedYakIndex : lastYakIndex;
+    // A run with activity but no reply of its own yet still shows its stream.
+    const orphanStream: ThreadEntryData | null =
+        streamIndex === -1 && activitySummary.entries > 0
+            ? { kind: 'yak', who: 'Yak', meta: `${activitySummary.entries} steps`, bodyHtml: '', runId: task.runId, live: isActiveStatus, error: null }
+            : null;
 
     useEffect(() => {
         setOpenLogId(transcriptLogId);
@@ -161,37 +181,23 @@ export default function Show({
     const activityRows = useActivityRows({ runKey, activity, activityOlder, activityTail });
     latestIdRef.current = activityRows.latestId;
 
-    const isActiveStatus =
-        task.status === 'running' ||
-        task.status === 'pending' ||
-        task.status === 'awaiting_clarification' ||
-        task.status === 'awaiting_ci' ||
-        task.status === 'awaiting_co_owner' ||
-        task.status === 'retrying';
-    const progressPanel = isActiveStatus && <ProgressList steps={progress.steps} />;
-    const progressStrip = isActiveStatus && <ProgressStrip steps={progress.steps} />;
+    const stepContent = useStepContent({ taskId: task.id, runKey, openInFullLog: openTranscriptAt });
 
-    const activityLog = activitySummary.entries > 0 && (
-        <ActivityLog
-            taskId={task.id}
-            rows={activityRows.rows}
-            hasOlder={activityRows.hasOlder}
-            loadingOlder={activityRows.loadingOlder}
-            capped={activityRows.capped}
-            onLoadOlder={activityRows.loadOlder}
-            entries={activitySummary.entries}
-            duration={activitySummary.duration}
-            runs={runs}
-            currentRunId={currentRunId}
-            attempts={attempts}
-            currentAttempt={task.attempt}
-            openLogId={openLogId}
-            onOpenTranscript={openTranscriptAt}
-            onOpenTranscriptCold={openTranscriptCold}
-            fill={!isDesktop}
-            active={isDesktop || tab === 'activity'}
-        />
-    );
+    const yakContext = (index: number): YakBubbleContext => ({
+        task,
+        actions,
+        deployment,
+        progress: progress.steps,
+        findings: index === lastYakIndex ? findings : null,
+        onOpenFullLog: openTranscriptCold,
+        stream: {
+            rows: activityRows.rows,
+            summary: activitySummary,
+            hasOlder: activityRows.hasOlder,
+            loadingOlder: activityRows.loadingOlder,
+            onLoadOlder: activityRows.loadOlder,
+        },
+    });
 
     const walkthroughCard = (
         <WalkthroughCard taskId={task.id} walkthrough={walkthrough} canRetryRender={actions.canRetryRender} onOpen={() => setWalkthroughOpen(true)} />
@@ -228,36 +234,26 @@ export default function Show({
     const debugDetailsCard = <DebugDetails debug={debug} />;
 
     return (
-        <>
+        <StepDetailContext.Provider value={stepContent}>
             <Head title={task.headline} />
 
-            <HeaderBand task={task} actions={actions} deployment={deployment} onOpenTranscript={openTranscriptCold} />
+            <HeaderBand task={task} actions={actions} deployment={deployment} progress={isActiveStatus ? progress.steps : null} onOpenTranscript={openTranscriptCold} />
 
-            <TaskTabs value={tab} onChange={changeTab} activityCount={activitySummary.entries} />
+            <TaskTabs value={tab} onChange={changeTab} />
 
             <div className="flex min-h-0 flex-1">
-                <div className={cn('flex min-w-0 flex-1 flex-col', tab !== 'overview' && 'max-lg:hidden')}>
-                    <div className="min-h-0 flex-1 overflow-auto">
-                        <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-8">
+                <div className={cn('flex min-w-0 flex-1 flex-col', tab !== 'conversation' && 'max-lg:hidden')}>
+                    <div ref={scroller} className="relative min-h-0 flex-1 overflow-auto">
+                        <div ref={content} className="mx-auto max-w-[820px] px-4 py-6 sm:px-8">
                             <TaskSummary task={task} />
-
-                            {!isDesktop && (
-                                <div className="mt-4 flex flex-col gap-3">
-                                    {progressStrip}
-                                    <LiveLine
-                                        row={activityRows.rows[activityRows.rows.length - 1] ?? null}
-                                        entries={activitySummary.entries}
-                                        onOpen={() => changeTab('activity')}
-                                    />
-                                </div>
-                            )}
 
                             <div className="mt-6 flex flex-col gap-6">
                                 {thread.map((entry, index) => (
                                     <ThreadEntry
                                         key={index}
                                         entry={entry}
-                                        findings={index === lastYakIndex ? findings : null}
+                                        yak={yakContext(index)}
+                                        focused={index === streamIndex}
                                         onOpenMedia={(items, i) => {
                                             setLightboxMedia(items);
                                             setLightboxIndex(i);
@@ -265,6 +261,9 @@ export default function Show({
                                         onSelectClarificationOption={(option) => setComposerFill(option)}
                                     />
                                 ))}
+                                {orphanStream && (
+                                    <ThreadEntry entry={orphanStream} yak={yakContext(-1)} focused onOpenMedia={() => undefined} onSelectClarificationOption={() => undefined} />
+                                )}
                                 {earlyWarning !== null && <EarlyWarningNotice taskId={task.id} warning={earlyWarning} />}
                             </div>
 
@@ -280,6 +279,17 @@ export default function Show({
                                 </div>
                             )}
                         </div>
+                        {hasNew && isActiveStatus && (
+                            <button
+                                type="button"
+                                onClick={jumpToNewest}
+                                data-testid="jump-to-latest"
+                                className="sticky bottom-3 mx-auto mb-3 flex w-fit cursor-pointer items-center gap-1.5 rounded-pill border border-hair bg-panel px-3 py-1.5 text-[12px] font-medium text-body shadow-card"
+                            >
+                                <ArrowDown size={13} aria-hidden />
+                                New activity
+                            </button>
+                        )}
                     </div>
 
                     {!hasQuestions && composer.state !== 'held' && (
@@ -294,9 +304,6 @@ export default function Show({
                         />
                     )}
                 </div>
-
-                {/* Mounted on every tab and hidden by class, not conditionally rendered, so the scroll position and the row store stay alive across tab switches. */}
-                {!isDesktop && <div className={cn('flex min-h-0 flex-1 flex-col', tab !== 'activity' && 'hidden')}>{activityLog}</div>}
 
                 {!isDesktop && tab === 'details' && (
                     <div className="min-h-0 flex-1 overflow-auto px-4 py-5">
@@ -314,8 +321,6 @@ export default function Show({
                         className="hidden w-[320px] shrink-0 flex-col gap-5 overflow-auto border-l border-hair bg-sidebar px-4 py-5 lg:flex [&>*]:shrink-0"
                         data-testid="task-sidebar"
                     >
-                        {progressPanel}
-                        {activityLog}
                         {walkthroughCard}
                         {mediaSection}
                         {deploymentCard}
@@ -385,7 +390,7 @@ export default function Show({
                     />
                 </Dialog>
             )}
-        </>
+        </StepDetailContext.Provider>
     );
 }
 

@@ -92,7 +92,7 @@ it('renders step rows with a chevron, the title block and the model chip', funct
 
     visit("/threads/{$thread->id}")->wait(1)
         ->assertSeeIn('[data-testid="thread-title-block"]', 'Fix the login redirect')
-        ->assertVisible('[data-testid="thread-tool-activity"] [data-testid="tool-activity-chevron"]')
+        ->assertVisible('[data-testid="thread-tool-activity"] [data-testid="step-group"] > summary > .activity-chevron')
         ->assertSeeIn('[data-testid="thread-model-chip"]', 'Sonnet 5.5')
         ->assertNoJavaScriptErrors();
 });

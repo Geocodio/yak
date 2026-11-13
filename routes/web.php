@@ -129,6 +129,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks', StoreTaskController::class)->name('tasks.store');
     Route::post('tasks/setup-card/dismiss', DismissSetupCardController::class)->name('tasks.setup-card.dismiss');
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
+    Route::get('tasks/{task}/log-entries', [TaskController::class, 'logEntries'])->name('tasks.log-entries');
     Route::middleware('task.drive')->group(function (): void {
         Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');
         Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('tasks.cancel');

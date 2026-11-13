@@ -6,7 +6,7 @@ use App\Models\TaskLog;
 use App\Models\User;
 use App\Models\YakTask;
 
-test('on a phone the task page is three tabs and the desktop aside is not mounted', function () {
+test('on a phone the task page is two tabs and the desktop aside is not mounted', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
     TaskLog::factory()->count(3)->for($task, 'task')->create();
@@ -19,21 +19,20 @@ test('on a phone the task page is three tabs and the desktop aside is not mounte
     $page->assertMissing('[data-testid="details-drawer-trigger"]')
         ->assertVisible('[data-testid="task-tabs-mobile"]')
         ->assertVisible('[data-testid="task-summary"]')
-        ->assertMissing('[data-testid="activity-log"]:visible')
-        ->click('[data-testid="task-tab-activity"]')
-        ->assertVisible('[data-testid="activity-log"]')
-        ->assertQueryStringHas('tab', 'activity')
+        ->assertVisible('[data-testid="activity-stream"]')
+        ->assertMissing('[data-testid="task-tab-activity"]')
         ->click('[data-testid="task-tab-details"]')
+        ->assertQueryStringHas('tab', 'details')
         ->assertVisible('[data-testid="walkthrough-card"]')
         ->assertNoJavaScriptErrors()
         // The "exactly one" check uses the Playwright locator count
         // assertion, the plugin's idiomatic form for this, rather than
         // `$page->script()`.
-        ->assertCount('[data-testid="activity-log"]', 1)
+        ->assertCount('[data-testid="activity-stream"]', 1)
         ->assertNotPresent('[data-testid="task-sidebar"]');
 });
 
-test('a tab deep link and a log deep link open the right tab on a phone', function () {
+test('a tab deep link and a log deep link open the right panel on a phone', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
     // The walkthrough card only renders once a render is owed or done; a
@@ -45,7 +44,6 @@ test('a tab deep link and a log deep link open the right tab on a phone', functi
         ->assertVisible('[data-testid="walkthrough-card"]');
 
     $page = visit(route('tasks.show', [$task, 'log' => $log->id]))->on()->mobile()
-        ->assertVisible('[data-testid="activity-log"]')
         ->assertVisible('[data-testid="log-entry-sheet"]')
         ->assertSee('Deep linked');
 
@@ -68,7 +66,7 @@ test('desktop shows sidebar without trigger', function () {
         ->assertMissing('[data-testid="details-drawer-trigger"]');
 });
 
-test('the activity log does not overlap the cards below it on a short viewport', function () {
+test('the conversation does not run under the aside on a short viewport', function () {
     $this->actingAs(User::factory()->create());
 
     $task = YakTask::factory()->success()->create();
@@ -76,21 +74,21 @@ test('the activity log does not overlap the cards below it on a short viewport',
     Artifact::factory()->for($task, 'task')->videoThumbnail()->create();
     Artifact::factory()->for($task, 'task')->videoCut()->create();
 
-    $page = visit(route('tasks.show', $task))->on()->macbookAir()->assertVisible('[data-testid="activity-log"]');
+    $page = visit(route('tasks.show', $task))->on()->macbookAir()->assertVisible('[data-testid="yak-bubble"]');
 
-    /** @var array{activityBottom: float, walkthroughTop: float} $rects */
+    /** @var array{bubbleRight: float, asideLeft: float} $rects */
     $rects = $page->script(
         '(() => {'
-        . 'const activity = document.querySelector(\'[data-testid="activity-log"] [data-scroller]\');'
-        . 'const walkthrough = document.querySelector(\'[data-testid="walkthrough-card"]\');'
-        . 'return { activityBottom: activity.getBoundingClientRect().bottom, walkthroughTop: walkthrough.getBoundingClientRect().top };'
+        . 'const bubble = document.querySelector(\'[data-testid="yak-bubble"]\');'
+        . 'const aside = document.querySelector(\'[data-testid="task-sidebar"]\');'
+        . 'return { bubbleRight: bubble.getBoundingClientRect().right, asideLeft: aside.getBoundingClientRect().left };'
         . '})()'
     );
 
-    expect($rects['activityBottom'])->toBeLessThanOrEqual($rects['walkthroughTop']);
+    expect($rects['bubbleRight'])->toBeLessThanOrEqual($rects['asideLeft']);
 });
 
-test('opening the Activity tab on a phone lands on the newest row', function () {
+test('on a phone a long run offers its earlier steps without leaving the conversation', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
     $rows = [];
@@ -109,8 +107,10 @@ test('opening the Activity tab on a phone lands on the newest row', function () 
     }
 
     $page = visit(route('tasks.show', $task))->on()->mobile()
-        ->click('[data-testid="task-tab-activity"]')
-        ->wait(0.5);
+        ->click('[data-testid="finished-summary"] > summary')
+        ->click('[data-testid="step-group"] > summary')
+        ->assertSee('Load 50 earlier steps')
+        ->assertNoJavaScriptErrors();
 
-    expect($page->script('(() => { const scroller = document.querySelector(\'[data-testid="activity-log"] [data-scroller]\'); const row = scroller.querySelector(\'[data-log-text="Step 250"]\'); const r = row.getBoundingClientRect(); const s = scroller.getBoundingClientRect(); return r.bottom > s.top && r.top < s.bottom; })()'))->toBeTrue();
+    expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue();
 });

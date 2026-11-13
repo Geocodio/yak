@@ -281,37 +281,58 @@ class StreamEventHandler
         $contentBlocks = $message['content'] ?? [];
 
         foreach ($contentBlocks as $block) {
-            $blockType = $block['type'] ?? '';
-
-            if ($blockType === 'tool_use') {
-                $toolUseEvent = [
-                    'name' => $block['name'] ?? 'unknown',
-                    'input' => $block['input'] ?? [],
-                    'id' => $block['id'] ?? null,
-                ];
-                $this->handleToolUse($toolUseEvent);
-
-                continue;
+            if (($block['type'] ?? '') === 'thinking') {
+                $this->logThinking((string) ($block['thinking'] ?? ''));
             }
         }
 
-        // Extract text content after processing tool_use blocks
+        // The message's text is logged before its tool calls, so the stream
+        // reads as the sentence that introduces the steps that follow.
         $content = $this->extractAssistantText($event);
 
-        if ($content === '') {
+        if ($content !== '') {
+            $this->lastAssistantText = $content;
+
+            // The message is a short preview for list rows; the transcript
+            // reads the full text from metadata.
+            $isLong = mb_strlen($content) > 500;
+            $display = $isLong ? mb_substr($content, 0, 500) . '…' : $content;
+
+            TaskLogger::info($this->task, $display, array_filter([
+                'type' => 'assistant',
+                'text' => $isLong ? $content : null,
+            ]));
+        }
+
+        foreach ($contentBlocks as $block) {
+            if (($block['type'] ?? '') === 'tool_use') {
+                $this->handleToolUse([
+                    'name' => $block['name'] ?? 'unknown',
+                    'input' => $block['input'] ?? [],
+                    'id' => $block['id'] ?? null,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * A thinking block is stored as an assistant row flagged `thinking`, so
+     * the activity stream can tell reasoning from narrative text.
+     */
+    private function logThinking(string $thought): void
+    {
+        $thought = trim($thought);
+
+        if ($thought === '') {
             return;
         }
 
-        $this->lastAssistantText = $content;
+        $isLong = mb_strlen($thought) > 500;
 
-        // The message is a short preview for list rows; the transcript reads
-        // the full text from metadata.
-        $isLong = mb_strlen($content) > 500;
-        $display = $isLong ? mb_substr($content, 0, 500) . '…' : $content;
-
-        TaskLogger::info($this->task, $display, array_filter([
+        TaskLogger::info($this->task, $isLong ? mb_substr($thought, 0, 500) . '…' : $thought, array_filter([
             'type' => 'assistant',
-            'text' => $isLong ? $content : null,
+            'thinking' => true,
+            'text' => $isLong ? $thought : null,
         ]));
     }
 
@@ -372,6 +393,10 @@ class StreamEventHandler
         $metadata['output'] = $this->truncateOutput($output);
         $metadata['output_lines'] = substr_count($output, "\n") + 1;
         $metadata['is_error'] = $isError;
+
+        if ($toolName === 'Bash') {
+            $metadata['exit_code'] = $this->extractExitCode($output, $isError);
+        }
 
         if (isset($pending['started'])) {
             $metadata['duration_ms'] = (int) round((microtime(true) - $pending['started']) * 1000);

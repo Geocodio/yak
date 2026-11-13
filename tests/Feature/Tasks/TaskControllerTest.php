@@ -937,7 +937,7 @@ test('canRequestReview follows the effective setting from .yak/ config', functio
         ->assertInertia(fn (Assert $page) => $page->where('actions.canRequestReview', true));
 });
 
-test('a failed setup task shows its error once and a setup hint', function () {
+test('a failed setup task carries its error once, on the run that stopped, and a setup hint', function () {
     $task = YakTask::factory()->create([
         'mode' => TaskMode::Setup,
         'source' => 'dashboard',
@@ -948,10 +948,27 @@ test('a failed setup task shows its error once and a setup hint', function () {
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('task.error', 'The Claude account was rejected: authentication failed')
+            ->missing('task.error')
             ->where('task.nextSteps', 'Setup failed. Fix the cause shown above, then click Retry.')
             ->where('composer.note', 'This task failed. Click Retry above to run it again.')
-            ->where('thread', fn ($thread) => collect($thread)->where('kind', 'yak')->every(fn ($entry) => $entry['error'] === null)));
+            ->where('thread', fn ($thread) => collect($thread)->where('kind', 'yak')->count() === 1
+                && collect($thread)->where('kind', 'yak')->every(fn ($entry) => $entry['error'] === 'The Claude account was rejected: authentication failed')));
+});
+
+test('each yak entry names its run and attempt so the stream attaches to the right bubble', function () {
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'result_summary' => 'First run done', 'started_at' => now()->subHour(), 'completed_at' => now()->subMinutes(50), 'attempts' => 1]);
+    $followUp = YakTask::factory()->create(['parent_task_id' => $root->id, 'status' => TaskStatus::Running, 'started_at' => now()->subMinutes(5), 'attempts' => 2]);
+
+    $this->get(route('tasks.show', $root))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('thread', function ($thread) use ($root, $followUp) {
+                $yak = collect($thread)->where('kind', 'yak')->values();
+
+                return $yak->count() === 2
+                    && $yak[0]['runId'] === $root->id && $yak[0]['attempt'] === 1 && $yak[0]['live'] === false
+                    && $yak[1]['runId'] === $followUp->id && $yak[1]['attempt'] === 2 && $yak[1]['live'] === true
+                    && $yak[1]['startedAt'] !== null;
+            }));
 });
 
 test('a failed slack task still suggests mentioning Yak again', function () {
@@ -960,4 +977,90 @@ test('a failed slack task still suggests mentioning Yak again', function () {
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.nextSteps', 'Task failed. Click Retry above, or mention Yak again with more context.'));
+});
+
+test('activity rows carry the structured fields the inline stream draws', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
+    $log = fn (string $message, array $metadata, string $level = 'info') => TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'level' => $level, 'message' => $message, 'metadata' => $metadata]);
+
+    $log('The base image has no gd extension.', ['type' => 'assistant', 'thinking' => true]);
+    $log('Installing gd.', ['type' => 'assistant']);
+    $log('⚡ Install deps → exit 2', ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'composer install'], 'output' => 'boom', 'is_error' => true, 'exit_code' => 2, 'duration_ms' => 6100], 'warning');
+    $log('⚡ Install deps → exit 0', ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'composer install'], 'output' => 'ok', 'is_error' => false, 'duration_ms' => 41000]);
+    $log('📄 Reading `README.md`', ['type' => 'tool_use', 'tool' => 'Read', 'input' => ['file_path' => 'README.md'], 'output' => '# Readme', 'is_error' => false]);
+    $log('⚡ php artisan test', ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'php artisan test']]);
+    $log('Task started', ['type' => 'status']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activity.rows.0.category', 'thinking')
+            ->where('activity.rows.0.tool', null)
+            ->where('activity.rows.1.category', 'narrative')
+            ->where('activity.rows.2.tool', 'Bash')
+            ->where('activity.rows.2.category', 'command')
+            ->where('activity.rows.2.label', 'composer install')
+            ->where('activity.rows.2.exitCode', 2)
+            ->where('activity.rows.2.durationMs', 6100)
+            ->where('activity.rows.2.error', true)
+            ->where('activity.rows.2.running', false)
+            ->where('activity.rows.2.retryOf', null)
+            ->where('activity.rows.3.exitCode', 0)
+            ->where('activity.rows.3.retryOf', fn ($id) => $id === TaskLog::where('message', '⚡ Install deps → exit 2')->value('id'))
+            ->where('activity.rows.4.category', 'read')
+            ->where('activity.rows.4.label', 'README.md')
+            ->where('activity.rows.4.exitCode', null)
+            ->where('activity.rows.5.running', true)
+            ->where('activity.rows.5.exitCode', null)
+            ->where('activity.rows.6.category', 'milestone'));
+});
+
+test('an exit code is read from the message on rows written before it was stored', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => '⚡ make → exit 7', 'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'make'], 'output' => 'x', 'is_error' => true]]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('activity.rows.0.exitCode', 7));
+});
+
+test('the activity summary counts every category and failure for the whole run, beyond the window', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    $rows = [];
+    $add = function (array $metadata, string $message = 'row') use (&$rows, $task) {
+        $rows[] = ['yak_task_id' => $task->id, 'attempt_number' => 1, 'level' => 'info', 'message' => $message, 'metadata' => json_encode($metadata), 'created_at' => now()];
+    };
+    foreach (range(1, 210) as $i) {
+        $add(['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => "echo {$i}"], 'output' => 'x', 'is_error' => $i <= 2]);
+    }
+    foreach (range(1, 3) as $i) {
+        $add(['type' => 'tool_use', 'tool' => 'Read', 'input' => ['file_path' => "f{$i}"], 'output' => 'x', 'is_error' => false]);
+    }
+    $add(['type' => 'tool_use', 'tool' => 'Edit', 'input' => ['file_path' => 'a'], 'output' => 'x', 'is_error' => false]);
+    $add(['type' => 'tool_use', 'tool' => 'Grep', 'input' => ['pattern' => 'a'], 'output' => 'x', 'is_error' => false]);
+    $add(['type' => 'tool_use', 'tool' => 'WebFetch', 'input' => ['url' => 'https://example.com'], 'output' => 'x', 'is_error' => false]);
+    $add(['type' => 'assistant', 'thinking' => true]);
+    $add(['type' => 'assistant', 'thinking' => true]);
+    $add(['type' => 'assistant']);
+    TaskLog::insert($rows);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('activity.rows', 200)
+            ->where('activitySummary.entries', 219)
+            ->where('activitySummary.counts', ['command' => 210, 'read' => 3, 'edit' => 1, 'search' => 1, 'fetch' => 1, 'thinking' => 2])
+            ->where('activitySummary.failed', 2));
+});
+
+test('log entries are served in a batch, limited to the task conversation', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    $other = YakTask::factory()->create();
+    $mine = TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'run it', 'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'ls -la'], 'output' => 'total 0']]);
+    $thought = TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'Short', 'metadata' => ['type' => 'assistant', 'thinking' => true, 'text' => 'The whole thought']]);
+    $foreign = TaskLog::factory()->create(['yak_task_id' => $other->id, 'attempt_number' => 1]);
+
+    $this->getJson(route('tasks.log-entries', ['task' => $task, 'ids' => [$mine->id, $thought->id, $foreign->id]]))
+        ->assertOk()
+        ->assertJsonCount(2, 'entries')
+        ->assertJsonPath('entries.0.input', 'ls -la')
+        ->assertJsonPath('entries.0.output', 'total 0')
+        ->assertJsonPath('entries.1.fullText', 'The whole thought');
 });

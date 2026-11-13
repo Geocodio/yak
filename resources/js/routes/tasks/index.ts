@@ -41,7 +41,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 export const show = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -56,7 +56,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 show.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -89,7 +89,7 @@ show.url = (args: { task: string | number | { id: string | number } } | [task: s
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 show.get = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -99,11 +99,79 @@ show.get = (args: { task: string | number | { id: string | number } } | [task: s
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 show.head = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskController::logEntries
+* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @route '/tasks/{task}/log-entries'
+*/
+export const logEntries = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: logEntries.url(args, options),
+    method: 'get',
+})
+
+logEntries.definition = {
+    methods: ["get","head"],
+    url: '/tasks/{task}/log-entries',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskController::logEntries
+* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @route '/tasks/{task}/log-entries'
+*/
+logEntries.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { task: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { task: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            task: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        task: typeof args.task === 'object'
+        ? args.task.id
+        : args.task,
+    }
+
+    return logEntries.definition.url
+            .replace('{task}', parsedArgs.task.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskController::logEntries
+* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @route '/tasks/{task}/log-entries'
+*/
+logEntries.get = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: logEntries.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskController::logEntries
+* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @route '/tasks/{task}/log-entries'
+*/
+logEntries.head = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: logEntries.url(args, options),
     method: 'head',
 })
 
@@ -459,6 +527,7 @@ const tasks = {
     store: Object.assign(store, store),
     setupCard: Object.assign(setupCard, setupCard),
     show: Object.assign(show, show),
+    logEntries: Object.assign(logEntries, logEntries),
     retry: Object.assign(retry, retry),
     cancel: Object.assign(cancel, cancel),
     rerunReview: Object.assign(rerunReview, rerunReview),

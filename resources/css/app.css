@@ -306,3 +306,110 @@ body[data-thread-changes-expanded] [data-testid='thread-sidebar'] {
 .hljs-literal {
     color: var(--color-warn);
 }
+
+/*
+ * Inline activity: the stream of steps inside Yak's reply. New rows rise a few
+ * pixels, the running step spins and its command carries a slow sheen, and the
+ * bubble's status dot pulses. Reduce Motion drops all of it and keeps the
+ * running command in plain text.
+ */
+@keyframes activity-rise {
+    from {
+        opacity: 0;
+        translate: 0 5px;
+    }
+}
+
+@keyframes activity-spin {
+    to {
+        rotate: 360deg;
+    }
+}
+
+@keyframes activity-sheen {
+    from {
+        background-position: 100% 0;
+    }
+    to {
+        background-position: 0 0;
+    }
+}
+
+@keyframes activity-pulse {
+    50% {
+        opacity: 0.35;
+    }
+}
+
+.activity-rise {
+    animation: activity-rise 0.28s ease-out;
+}
+
+.activity-spin {
+    animation: activity-spin 0.9s linear infinite;
+}
+
+.activity-pulse {
+    animation: activity-pulse 1.6s ease-in-out infinite;
+}
+
+.activity-sheen {
+    background: linear-gradient(90deg, var(--text) 0 42%, var(--accent) 50%, var(--text) 58% 100%);
+    background-size: 300% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: activity-sheen 2.6s linear infinite;
+}
+
+.activity-details > summary {
+    list-style: none;
+}
+
+.activity-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+details[open] > summary > .activity-chevron {
+    rotate: 90deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .activity-rise,
+    .activity-spin,
+    .activity-pulse {
+        animation: none;
+    }
+
+    .activity-sheen {
+        animation: none;
+        background: none;
+        color: var(--text);
+    }
+
+    .activity-chevron {
+        transition: none;
+    }
+}
+
+@keyframes activity-fill {
+    0% {
+        background-position: 100% 0;
+    }
+    60%,
+    100% {
+        background-position: 0 0;
+    }
+}
+
+.activity-fill {
+    background: linear-gradient(90deg, var(--accent) 0 50%, var(--border) 50%);
+    background-size: 200% 100%;
+    animation: activity-fill 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .activity-fill {
+        animation: none;
+        background: var(--accent);
+    }
+}

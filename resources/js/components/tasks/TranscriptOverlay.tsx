@@ -162,13 +162,18 @@ export function TranscriptOverlay({
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-hair px-4 py-2">
                     <span className="text-[13px] font-semibold">Transcript</span>
                     <span className="truncate text-[12px] text-muted">{headline}</span>
-                    {runs.length > 1 &&
-                        runs.map((run) => (
-                            <Badge key={run.id} tone={run.id === currentRunId ? 'accent' : 'neutral'}>
-                                {run.label}
-                                {run.live && ' · live'}
-                            </Badge>
-                        ))}
+                    {runs.length > 1 && (
+                        <div className="flex flex-wrap items-center gap-1" data-testid="run-picker">
+                            {runs.map((run) => (
+                                <button key={run.id} type="button" onClick={() => navigateTaskQuery({ run: run.id, attempt: undefined })} data-testid={`run-chip-${run.id}`}>
+                                    <Badge tone={run.id === currentRunId ? 'accent' : 'neutral'}>
+                                        {run.label}
+                                        {run.live && ' · live'}
+                                    </Badge>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     {attempts.length > 1 && (
                         <>
                             <span className="text-faint">·</span>

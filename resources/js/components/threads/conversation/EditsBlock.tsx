@@ -1,18 +1,27 @@
+import { ChevronRight } from 'lucide-react';
+import { StepTile } from '@/components/activity/stepIcons';
 import type { ConversationItem } from './conversationItem';
 
+/** The files a message edited, folded to one line in the same style as a group of steps. */
 export function EditsBlock({ item }: { item: ConversationItem }) {
     const files = item.files ?? [];
 
     return (
-        <details className="ml-9 rounded-card border border-hair bg-panel text-[12px]" data-testid="thread-edits">
-            <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 select-none">
-                <span className="text-body">Edited {files.length} {files.length === 1 ? 'file' : 'files'}</span>
-                <span className="text-ok">+{item.added ?? 0}</span>
-                <span className="text-fail">-{item.removed ?? 0}</span>
+        <details className="activity-details ml-9 rounded-[10px] border border-hair bg-panel text-[13px]" data-testid="thread-edits">
+            <summary className="flex cursor-pointer items-center gap-2 rounded-[10px] px-2.5 py-[9px] text-muted hover:bg-panel-2">
+                <ChevronRight size={14} className="activity-chevron shrink-0 text-faint transition-transform duration-150" aria-hidden />
+                <StepTile category="edit" />
+                <span className="min-w-0 flex-1 font-semibold text-body">
+                    Edited {files.length} {files.length === 1 ? 'file' : 'files'}
+                </span>
+                <span className="tnum text-[12px] text-ok">+{item.added ?? 0}</span>
+                <span className="tnum text-[12px] text-fail">-{item.removed ?? 0}</span>
             </summary>
-            <ul className="border-t border-hair px-3 py-2 text-muted">
+            <ul className="m-0 list-none border-t border-hair px-3 py-2 text-muted">
                 {files.map((file) => (
-                    <li key={file} className="truncate font-mono text-[11px]">{file}</li>
+                    <li key={file} className="truncate font-mono text-[12px] leading-[1.7]">
+                        {file}
+                    </li>
                 ))}
             </ul>
         </details>
