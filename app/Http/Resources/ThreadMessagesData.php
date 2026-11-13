@@ -25,7 +25,7 @@ final class ThreadMessagesData
     {
         $rows = ThreadTurnMessage::query()
             ->whereHas('taskRun', fn ($runs) => $runs->where('thread_id', $thread->id))
-            ->with(['taskRun.task', 'taskRun.driver', 'pendingSteeringMessage.attachments'])
+            ->with(['taskRun.task.attachments', 'taskRun.driver', 'pendingSteeringMessage.attachments'])
             ->orderBy('created_at')
             ->orderBy('id')
             ->get();
@@ -46,7 +46,11 @@ final class ThreadMessagesData
                 continue;
             }
 
-            $attachments = $steer !== null ? array_values($steer->attachments->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all()) : [];
+            // The run's own request is the thread's first message; its files are the task's request attachments.
+            $files = $steer !== null
+                ? $steer->attachments
+                : ($run->task?->attachments->where('context', TaskAttachment::CONTEXT_REQUEST) ?? collect());
+            $attachments = array_values($files->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all());
             $text = $steer !== null ? $steer->text : (string) $run->task?->description;
             $references = array_values(array_filter(array_column($attachments, 'reference')));
 
@@ -69,7 +73,7 @@ final class ThreadMessagesData
                 'readAfterSequence' => null,
                 'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($text), $references),
                 'attachments' => $attachments,
-                'attachmentIds' => $steer !== null ? array_values($steer->attachments->pluck('id')->map(fn ($id): int => (int) $id)->all()) : [],
+                'attachmentIds' => array_values($files->pluck('id')->map(fn ($id): int => (int) $id)->all()),
             ];
         }
 

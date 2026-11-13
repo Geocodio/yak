@@ -16,6 +16,7 @@ use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use App\Services\Threads\Repos\RepositoryAccess;
+use App\Support\AttachmentReferences;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -75,7 +76,7 @@ class ThreadStarter
         $task = DB::transaction(function () use ($starter, $repo, $mode, $description, $resolved, $attachments, $extraRepositories): YakTask {
             $thread = Thread::query()->create([
                 'name' => Str::slug(Str::limit($description, 40, '')) . '-' . Str::lower(Str::random(6)),
-                'title' => Str::limit(trim((string) strtok($description, "\n")), 120, '...'),
+                'title' => Str::limit(AttachmentReferences::stripFromText((string) strtok($description, "\n")), 120, '...'),
                 'repo' => $repo,
                 'kind' => ThreadKind::General,
                 'created_by_user_id' => $starter->id,

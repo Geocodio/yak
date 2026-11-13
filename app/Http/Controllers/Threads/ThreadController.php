@@ -8,6 +8,7 @@ use App\Http\Resources\ThreadMessagesData;
 use App\Http\Resources\ThreadNoticeData;
 use App\Http\Resources\ThreadPageData;
 use App\Models\Thread;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -26,8 +27,26 @@ class ThreadController extends Controller
             'messages' => ThreadMessagesData::for($thread),
             'composer' => ThreadComposerData::for($thread, $viewer),
             'notice' => ThreadNoticeData::for($thread, $viewer),
+            'modelLabels' => $this->modelLabels(),
             'stackParent' => $this->stackParent($thread),
         ]));
+    }
+
+    /**
+     * The catalog label of every exact model id and family alias, so a raw id reads as "Sonnet 5.5".
+     *
+     * @return array<string, string>
+     */
+    private function modelLabels(): array
+    {
+        $catalog = app(ClaudeModelCatalog::class);
+        $labels = array_column($catalog->entries(), 'label', 'id');
+
+        foreach ($catalog->families() as $family) {
+            $labels[$family['family']] = $family['latest']['label'];
+        }
+
+        return $labels;
     }
 
     /**

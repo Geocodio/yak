@@ -88,3 +88,12 @@ it('requires login', function () {
 
     $this->getJson(route('threads.events.index', ['thread' => $thread->id]))->assertUnauthorized();
 });
+
+it('renders markdown for a stored assistant entry that has no html', function () {
+    $thread = Thread::factory()->create();
+    $event = app(ThreadEventPublisher::class)->append($thread->id, 'entry', ['role' => 'assistant', 'messageId' => 'm1', 'blocks' => [['type' => 'text', 'text' => '## Done']]]);
+
+    $response = $this->actingAs(User::factory()->create())->getJson(route('threads.events.show', ['thread' => $thread, 'sequence' => $event['sequence']]))->assertOk();
+
+    expect($response->json('data.blocks.0.html'))->toContain('<h2>Done</h2>');
+});

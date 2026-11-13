@@ -97,3 +97,17 @@ it('lists a message typed while the thread waits as not read yet', function () {
         ->and($messages[0]['state'])->toBe('pending')
         ->and($messages[0]['text'])->toBe('Hello');
 });
+
+it('carries the request attachments of the first message', function () {
+    [$thread, $task, $run] = threadWithRun();
+    $task->update(['description' => 'Fix this [Image #1]']);
+    $image = TaskAttachment::factory()->create(['yak_task_id' => $task->id, 'reference' => 'Image #1']);
+    TaskAttachment::factory()->clarificationReply()->create(['yak_task_id' => $task->id, 'reference' => 'Image #2']);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'uuid' => (string) Str::uuid()]);
+
+    $message = ThreadMessagesData::for($thread)[0];
+
+    expect(array_column($message['attachments'], 'id'))->toBe([$image->id])
+        ->and($message['attachmentIds'])->toBe([$image->id])
+        ->and($message['bodyHtml'])->toContain('data-attachment-ref="Image #1"');
+});

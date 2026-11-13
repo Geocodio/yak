@@ -2,6 +2,8 @@
 
 namespace App\Services\Threads;
 
+use App\Support\Markdown;
+
 /**
  * Reduces a runner line to the compact events the thread page shows. Streaming
  * deltas are not projected here; the DeltaBatcher handles them.
@@ -26,7 +28,7 @@ class ThreadEventProjector
                 'model' => $line['model'] ?? null,
                 'sessionId' => $line['session_id'] ?? null,
             ], fn (mixed $value): bool => $value !== null))] : [],
-            'result' => [$this->entry([
+            'result' => [$this->entry($this->withHtml([
                 'role' => 'result',
                 'subtype' => $line['subtype'] ?? null,
                 'isError' => ($line['is_error'] ?? false) === true,
@@ -34,9 +36,35 @@ class ThreadEventProjector
                 'costUsd' => $line['total_cost_usd'] ?? null,
                 'durationMs' => $line['duration_ms'] ?? null,
                 'numTurns' => $line['num_turns'] ?? null,
-            ])],
+            ]))],
             default => [],
         };
+    }
+
+    /**
+     * Adds server-rendered Markdown (`html`) to the text of a result entry and of each assistant
+     * text block, so the page shows formatted text. Entries stored before `html` existed get it
+     * here when they are read back.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function withHtml(array $data): array
+    {
+        if (($data['role'] ?? null) === 'result' && is_string($data['text'] ?? null)) {
+            $data['html'] = Markdown::toHtml($data['text']);
+        }
+
+        if (($data['role'] ?? null) === 'assistant') {
+            $data['blocks'] = array_map(
+                fn (mixed $block): mixed => is_array($block) && ($block['type'] ?? null) === 'text' && ! isset($block['html'])
+                    ? $block + ['html' => Markdown::toHtml((string) ($block['text'] ?? ''))]
+                    : $block,
+                (array) ($data['blocks'] ?? []),
+            );
+        }
+
+        return $data;
     }
 
     /**
@@ -59,7 +87,7 @@ class ThreadEventProjector
 
         $blocks = array_values(array_filter($blocks));
 
-        return $blocks === [] ? [] : [$this->entry(['role' => 'assistant', 'messageId' => $message['id'] ?? null, 'blocks' => $blocks])];
+        return $blocks === [] ? [] : [$this->entry($this->withHtml(['role' => 'assistant', 'messageId' => $message['id'] ?? null, 'blocks' => $blocks]))];
     }
 
     /**

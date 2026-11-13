@@ -26,7 +26,7 @@ it('projects assistant blocks, init and result lines', function () {
 
     expect($assistant[0]['data']['blocks'])->toBe([
         ['type' => 'thinking', 'text' => 'hm'],
-        ['type' => 'text', 'text' => 'Hi'],
+        ['type' => 'text', 'text' => 'Hi', 'html' => "<p>Hi</p>\n"],
         ['type' => 'tool_use', 'id' => 't1', 'name' => 'Bash', 'input' => ['command' => 'ls']],
     ])
         ->and($projector->project(['type' => 'system', 'subtype' => 'init', 'session_id' => 's1', 'model' => 'opus'])[0]['data'])->toBe(['role' => 'system', 'subtype' => 'init', 'model' => 'opus', 'sessionId' => 's1'])
@@ -60,4 +60,26 @@ it('extracts text, thinking and tool input deltas from stream events', function 
         ->and($projector->delta($make(['type' => 'signature_delta'])))->toBeNull()
         ->and($projector->delta(['type' => 'assistant']))->toBeNull()
         ->and($projector->project($make(['type' => 'text_delta', 'text' => 'x'])))->toBe([]);
+});
+
+it('renders assistant text and result text as markdown html', function () {
+    $projector = new ThreadEventProjector;
+
+    $assistant = $projector->project(['type' => 'assistant', 'message' => ['id' => 'm1', 'content' => [['type' => 'text', 'text' => "## Done\n\nUsed `code` and **bold**"]]]]);
+    $result = $projector->project(['type' => 'result', 'result' => '## Done']);
+
+    expect($assistant[0]['data']['blocks'][0]['html'])->toContain('<h2>Done</h2>', '<code>code</code>', '<strong>bold</strong>')
+        ->and($result[0]['data']['html'])->toContain('<h2>Done</h2>');
+});
+
+it('adds html to stored assistant entries that lack it and keeps existing html', function () {
+    $data = (new ThreadEventProjector)->withHtml(['role' => 'assistant', 'blocks' => [
+        ['type' => 'text', 'text' => '## Old'],
+        ['type' => 'text', 'text' => 'kept', 'html' => '<p>kept</p>'],
+        ['type' => 'thinking', 'text' => 'hm'],
+    ]]);
+
+    expect($data['blocks'][0]['html'])->toContain('<h2>Old</h2>')
+        ->and($data['blocks'][1]['html'])->toBe('<p>kept</p>')
+        ->and($data['blocks'][2])->toBe(['type' => 'thinking', 'text' => 'hm']);
 });

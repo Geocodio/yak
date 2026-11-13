@@ -13,7 +13,7 @@ export type TurnState =
     | 'interrupted';
 
 export type AssistantBlock =
-    | { type: 'text'; text: string }
+    | { type: 'text'; text: string; html?: string }
     | { type: 'thinking'; text: string }
     | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
 
@@ -27,6 +27,7 @@ export type TranscriptEntry =
           subtype: string;
           isError: boolean;
           text: string;
+          html?: string;
           costUsd: number;
           durationMs: number;
           numTurns: number;

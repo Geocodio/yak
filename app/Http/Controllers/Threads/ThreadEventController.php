@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Threads;
 use App\Http\Controllers\Controller;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
+use App\Services\Threads\ThreadEventProjector;
 use App\Services\Threads\ThreadEventWindow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -64,7 +65,7 @@ class ThreadEventController extends Controller
         return [
             'sequence' => $event->sequence,
             'type' => $event->type,
-            'data' => $event->payload,
+            'data' => $event->type === 'entry' ? app(ThreadEventProjector::class)->withHtml($event->payload) : $event->payload,
             'createdAt' => $event->created_at->toIso8601String(),
         ];
     }

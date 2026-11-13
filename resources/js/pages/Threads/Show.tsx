@@ -29,7 +29,7 @@ import type { ThreadPageData } from '@/types/threads';
 
 type Props = PageProps<ThreadPageData>;
 
-export default function Show({ thread, canDrive, diffTotals, pullRequest, brief, messages, notice, composer, capacity, teleport, stackParent }: Props) {
+export default function Show({ thread, canDrive, diffTotals, pullRequest, brief, messages, notice, composer, capacity, teleport, stackParent, modelLabels }: Props) {
     const panels = sidebarPanelsFor(thread);
     const [activeId, setActiveId] = useState<string | null>(null);
     const active = panels.find((panel) => panel.id === activeId) ?? panels[0] ?? null;
@@ -122,7 +122,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, brief,
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} />
+                    <Conversation modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} />
                     <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} />
                 </div>
 

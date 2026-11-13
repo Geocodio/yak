@@ -38,3 +38,11 @@ it('gives a sub-thread its brief', function () {
         ->where('brief.branch', 'yak/p/child')
         ->has('brief.startedAt'));
 });
+
+it('gives the page catalog labels for model ids and aliases', function () {
+    $thread = Thread::factory()->create();
+
+    $this->actingAs(User::factory()->create())->get("/threads/{$thread->id}")->assertInertia(fn (Assert $page) => $page
+        ->where('modelLabels.claude-sonnet-5-5', 'Sonnet 5.5')
+        ->where('modelLabels.sonnet', 'Sonnet 5.5'));
+});

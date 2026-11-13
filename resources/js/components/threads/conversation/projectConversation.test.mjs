@@ -163,3 +163,20 @@ test('text items carry the model from the session init entry', () => {
 
     assert.deepEqual(items.map((item) => [item.kind, item.model]), [['text', 'claude-sonnet-5-5'], ['thinking', undefined]]);
 });
+
+test('a result that repeats the final assistant text is dropped, and kept when no assistant text came before it', () => {
+    const result = (text) => ({ role: 'result', subtype: 'success', isError: false, text, costUsd: 0, durationMs: 0, numTurns: 1 });
+    const repeated = project(feedOf(assistant(1, 'm1', [{ type: 'text', text: 'All done. Fixed it.' }]), entry(2, result('All done. Fixed it.'))));
+    const contained = project(feedOf(assistant(1, 'm1', [{ type: 'text', text: 'Intro\n\nAll done.' }]), entry(2, result('All done.'))));
+    const fallback = project(feedOf(entry(2, result('Only the result'))));
+
+    assert.deepEqual(repeated.items.map((item) => item.kind), ['text']);
+    assert.deepEqual(contained.items.map((item) => item.kind), ['text']);
+    assert.deepEqual(fallback.items.map((item) => item.kind), ['result']);
+});
+
+test('assistant text carries its server-rendered html', () => {
+    const { items } = project(feedOf(assistant(1, 'm1', [{ type: 'text', text: '## Hi', html: '<h2>Hi</h2>' }])));
+
+    assert.equal(items[0].html, '<h2>Hi</h2>');
+});

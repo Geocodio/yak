@@ -90,7 +90,7 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
         }
 
         closeRun();
-        items.push({ kind: block.type, key: `${entry.messageId}:${index}`, sequence, role: 'assistant', text: block.text, ...(block.type === 'text' && model ? { model } : {}) });
+        items.push({ kind: block.type, key: `${entry.messageId}:${index}`, sequence, role: 'assistant', text: block.text, ...(block.type === 'text' && block.html ? { html: block.html } : {}), ...(block.type === 'text' && model ? { model } : {}) });
     });
 
     closeRun();
@@ -112,6 +112,7 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
     });
 
     let model: string | undefined;
+    let lastAssistantText = '';
     const items: ConversationItem[] = [];
     const readSequences: Record<string, number> = {};
 
@@ -120,10 +121,22 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
 
         if (entry.role === 'assistant') {
             items.push(...projectAssistant(entry, sequence, results, model));
+            entry.blocks.forEach((block) => {
+                if (block.type === 'text') {
+                    lastAssistantText = block.text;
+                }
+            });
         } else if (entry.role === 'system' && entry.model) {
             model = entry.model;
         } else if (entry.role === 'result') {
-            items.push({ kind: 'result', key: `result:${sequence}`, sequence, role: 'assistant', text: entry.text });
+            // The result repeats the final assistant text; it is shown only when the turn had no such text.
+            const resultText = entry.text?.trim() ?? '';
+            const isRepeat = resultText !== '' && lastAssistantText.includes(resultText);
+            lastAssistantText = '';
+
+            if (!isRepeat) {
+                items.push({ kind: 'result', key: `result:${sequence}`, sequence, role: 'assistant', text: entry.text, ...(entry.html ? { html: entry.html } : {}) });
+            }
         } else if (entry.role === 'user' && entry.uuid) {
             readSequences[entry.uuid] = sequence;
         }

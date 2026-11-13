@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use App\Services\SessionStore\SessionSync;
+use App\Support\AttachmentReferences;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -95,7 +96,8 @@ class ThreadFactory
     {
         $starter = $root->started_by_user_id === null ? null : User::query()->find($root->started_by_user_id);
         $resolved = $this->resolver->forNewThread($starter, $repo, null, null);
-        $title = Str::limit($root->headline() !== '' ? $root->headline() : $repo, 120, '');
+        $headline = AttachmentReferences::stripFromText($root->headline());
+        $title = Str::limit($headline !== '' ? $headline : $repo, 120, '');
 
         $thread = Thread::query()->create([
             'name' => Str::limit(Str::slug($title), 40, '') . '-' . Str::lower(Str::random(6)),

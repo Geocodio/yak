@@ -34,4 +34,13 @@ final class AttachmentReferences
             array_keys($segments),
         ));
     }
+
+    /**
+     * Drops `[Image #1]`-style labels from text that is not a message body, such as a title,
+     * and tidies the whitespace they leave behind.
+     */
+    public static function stripFromText(string $text): string
+    {
+        return trim((string) preg_replace('/[ \t]{2,}/', ' ', (string) preg_replace(TaskAttachment::TOKEN_PATTERN, '', $text)));
+    }
 }

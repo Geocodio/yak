@@ -4,7 +4,7 @@ import { Prose } from '@/components/Prose';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage } from '@/types/threads';
 
-export function PersonMessage({ message, pending, onOpenMedia }: { message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
+export function PersonMessage({ message, pending, onOpenMedia, modelLabels = {} }: { modelLabels?: Record<string, string>; message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
     const time = new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
     return (
@@ -24,7 +24,7 @@ export function PersonMessage({ message, pending, onOpenMedia }: { message: Thre
                             Not read yet
                         </span>
                     )}
-                    {message.model && <span className="rounded-pill bg-panel-2 px-2 py-0.5 text-[11px] text-muted">{message.model}</span>}
+                    {message.model && <span className="rounded-pill bg-panel-2 px-2 py-0.5 text-[11px] text-muted">{modelLabels[message.model] ?? message.model}</span>}
                 </div>
                 <MessageWithAttachments attachments={message.attachments} onOpenMedia={onOpenMedia}>
                     <Prose html={message.bodyHtml} className="mt-1" />

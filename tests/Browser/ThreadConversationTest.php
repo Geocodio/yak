@@ -2,12 +2,15 @@
 
 use App\Enums\RunnerState;
 use App\Enums\TurnMessageState;
+use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadEventProjector;
 use App\Services\Threads\ThreadEventPublisher;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * The pure merge is exposed as window.__mergeConversation for these checks.
@@ -90,7 +93,7 @@ it('renders step rows with a chevron, the title block and the model chip', funct
     visit("/threads/{$thread->id}")->wait(1)
         ->assertSeeIn('[data-testid="thread-title-block"]', 'Fix the login redirect')
         ->assertVisible('[data-testid="thread-tool-activity"] [data-testid="tool-activity-chevron"]')
-        ->assertSeeIn('[data-testid="thread-model-chip"]', 'claude-sonnet-5-5')
+        ->assertSeeIn('[data-testid="thread-model-chip"]', 'Sonnet 5.5')
         ->assertNoJavaScriptErrors();
 });
 
@@ -106,4 +109,40 @@ test('the phone Chat tab shows an activity dot only while Claude is busy', funct
     visit(route('threads.show', $idle))->on()->mobile()
         ->assertPresent('[data-testid="thread-phone-tabs"]')
         ->assertMissing('[data-testid="thread-phone-tab-chat-dot"]');
+});
+
+it('shows the first message attachment, rendered markdown, the summary once and the model label', function () {
+    Storage::fake('artifacts');
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Fix the tooltip']);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Fix this tooltip [Image #1]']);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => 'completed']);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed]);
+    $attachment = TaskAttachment::factory()->create(['yak_task_id' => $task->id, 'original_name' => 'bug.png', 'reference' => 'Image #1']);
+    Storage::disk('artifacts')->put($attachment->disk_path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+
+    $projector = app(ThreadEventProjector::class);
+    $publisher = app(ThreadEventPublisher::class);
+    $summary = "## Summary\n\nFixed the `tooltip` overlay.";
+    $lines = [
+        ['type' => 'system', 'subtype' => 'init', 'model' => 'claude-sonnet-5-5'],
+        ['type' => 'assistant', 'message' => ['id' => 'm1', 'content' => [['type' => 'text', 'text' => $summary]]]],
+        ['type' => 'result', 'subtype' => 'success', 'result' => $summary],
+    ];
+
+    foreach ($lines as $line) {
+        foreach ($projector->project($line) as $event) {
+            $publisher->append($thread->id, $event['type'], $event['data']);
+        }
+    }
+
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->id}")->wait(1)
+        ->assertVisible("[data-testid=\"sent-attachment-{$attachment->id}\"] img")
+        ->assertPresent('[data-testid="thread-claude-message"] h2')
+        ->assertSeeIn('[data-testid="thread-claude-message"] h2', 'Summary')
+        ->assertScript("document.querySelectorAll('[data-testid=\"thread-claude-message\"]').length", 1)
+        ->assertSeeIn('[data-testid="thread-model-chip"]', 'Sonnet 5.5')
+        ->assertNoJavaScriptErrors();
 });

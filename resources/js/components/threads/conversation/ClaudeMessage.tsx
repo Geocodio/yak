@@ -2,7 +2,7 @@ import { cn } from '@geocodio/console-ui';
 import { Prose } from '@/components/Prose';
 import type { ConversationItem } from './conversationItem';
 
-export function ClaudeMessage({ item }: { item: ConversationItem }) {
+export function ClaudeMessage({ item, modelLabels = {} }: { item: ConversationItem; modelLabels?: Record<string, string> }) {
     return (
         <div className="flex gap-3" data-testid="thread-claude-message">
             <img src="/mascot-avatar.png" alt="" className="mt-0.5 h-6 w-6 shrink-0 rounded-pill" />
@@ -11,7 +11,7 @@ export function ClaudeMessage({ item }: { item: ConversationItem }) {
                     Claude
                     {item.model && (
                         <span className="rounded-pill bg-panel-2 px-1.5 py-px font-mono text-[10px] font-normal text-muted" data-testid="thread-model-chip">
-                            {item.model}
+                            {modelLabels[item.model] ?? item.model}
                         </span>
                     )}
                 </div>

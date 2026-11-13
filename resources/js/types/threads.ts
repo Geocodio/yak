@@ -113,6 +113,8 @@ export type ThreadPageData = {
     notice: ThreadNotice | null;
     capacity: ThreadCapacity | null;
     stackParent: { id: number; name: string; title: string } | null;
+    /** Catalog label of each model id and family alias. */
+    modelLabels: Record<string, string>;
 };
 
 export type ThreadMessage = {
