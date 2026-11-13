@@ -131,11 +131,13 @@ class IncusThreadSandboxManager implements SandboxManager
      */
     public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
     {
-        $argv = ['incus', 'exec', $this->containerName($thread), '--user', self::SANDBOX_USER, '--cwd', (string) config('yak.sandbox.workspace_path', '/workspace')];
+        $argv = ['incus', 'exec', $this->containerName($thread), '--cwd', (string) config('yak.sandbox.workspace_path', '/workspace'), '--env', 'HOME=/home/yak'];
         foreach ($env as $name => $value) {
             array_push($argv, '--env', "{$name}={$value}");
         }
-        array_push($argv, '--', ...$command);
+        // setpriv gives the sandbox user its own group and supplementary groups (docker);
+        // `incus exec --user` alone would leave the command in group root.
+        array_push($argv, '--', 'setpriv', '--reuid=' . self::SANDBOX_USER, '--regid=' . self::SANDBOX_USER, '--init-groups', '--', ...$command);
 
         $process = Process::timeout(self::COMMAND_TIMEOUT);
         if ($stdin !== null) {

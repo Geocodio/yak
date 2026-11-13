@@ -57,9 +57,7 @@ func (p *incusProcess) Wait() (int, error) {
 // kills runners explicitly through KillAllRunners. The --channel argument marks which
 // channel the runner serves, so a single runner can be found by its command line.
 func (IncusSpawner) Start(_ context.Context, container string, uid int, cwd, channel string) (Process, error) {
-	cmd := exec.Command("incus", "exec", container,
-		"--user", strconv.Itoa(uid), "--cwd", cwd, "--env", "HOME=/home/yak",
-		"--", "setsid", "--wait", "node", runnerPath, "--channel", sanitizeChannel(channel))
+	cmd := exec.Command("incus", runnerArgs(container, uid, cwd, channel)...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -235,4 +233,14 @@ func (l *stderrLog) emit(line []byte) {
 		text = text[:maxStderrLine]
 	}
 	l.logger.Warn("runner stderr", "channel", l.channel, "line", text)
+}
+
+// runnerArgs starts the runner as the sandbox user with that user's own group and its
+// supplementary groups (docker among them). `incus exec --user` alone switches only the
+// uid, which leaves the process in group root and outside the docker group.
+func runnerArgs(container string, uid int, cwd, channel string) []string {
+	id := strconv.Itoa(uid)
+	return []string{"exec", container, "--cwd", cwd, "--env", "HOME=/home/yak", "--",
+		"setpriv", "--reuid=" + id, "--regid=" + id, "--init-groups", "--",
+		"setsid", "--wait", "node", runnerPath, "--channel", sanitizeChannel(channel)}
 }

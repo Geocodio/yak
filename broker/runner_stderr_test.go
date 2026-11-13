@@ -36,3 +36,14 @@ func TestStderrLogCutsLongLines(t *testing.T) {
 		t.Fatalf("line was not cut to %d bytes", maxStderrLine)
 	}
 }
+
+func TestRunnerArgsDropToTheSandboxUserWithItsGroups(t *testing.T) {
+	args := strings.Join(runnerArgs("yak-thread-7", 1001, "/workspace", "threads:7"), " ")
+	want := "exec yak-thread-7 --cwd /workspace --env HOME=/home/yak -- setpriv --reuid=1001 --regid=1001 --init-groups -- setsid --wait node /opt/yak-runner/runner.mjs --channel"
+	if !strings.HasPrefix(args, want) {
+		t.Fatalf("unexpected args: %s", args)
+	}
+	if strings.Contains(args, "--user") {
+		t.Fatalf("runner must not use incus --user: %s", args)
+	}
+}
