@@ -202,10 +202,17 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
 
                 {thread.preview.host !== null && (
                     <Row label="Preview" testId="environment-preview">
-                        <span className="inline-flex max-w-full items-center gap-1.5">
-                            <Globe size={13} className="shrink-0 text-muted" />
+                        <a
+                            href={`https://${thread.preview.host}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex max-w-full items-center gap-1.5 text-accent-text hover:underline"
+                            data-testid="environment-preview-link"
+                        >
+                            <Globe size={13} className="shrink-0" />
                             <code className="truncate font-mono text-[12px]">{thread.preview.host}</code>
-                        </span>
+                            <ExternalLink size={12} className="shrink-0" aria-hidden="true" />
+                        </a>
                         {thread.preview.state === 'ready' && (
                             <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
                                 <span className="inline-block h-1.5 w-1.5 rounded-pill bg-ok" aria-hidden="true" />

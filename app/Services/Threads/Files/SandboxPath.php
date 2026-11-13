@@ -21,9 +21,8 @@ class SandboxPath
             return '/';
         }
 
-        $repo = $thread->primaryRepository()->value('repo');
-
-        return $repo === null ? $workspace : $workspace . '/' . basename($repo);
+        // The primary repository is cloned into its recorded sandbox_path (the workspace itself).
+        return rtrim((string) ($thread->primaryRepository()->value('sandbox_path') ?? $workspace), '/') ?: $workspace;
     }
 
     public static function resolve(Thread $thread, FileScope $scope, string $path): string

@@ -494,9 +494,10 @@ return [
 
         'internal' => [
             // CIDR range of the reverse-proxy (ingress) source. Yak's default install
-            // runs Caddy on the host; requests to /internal/deployments/* arrive via
-            // the Docker bridge gateway (172.18.0.1). The default covers that case.
-            'ingress_ip_cidr' => env('YAK_DEPLOYMENTS_INGRESS_IP_CIDR', '172.18.0.0/16'),
+            // runs Caddy on the host; requests to /internal/* arrive from loopback or
+            // from the gateway of whichever Docker bridge publishes the app port.
+            // Comma-separated list; the default is loopback plus Docker's private bridge range.
+            'ingress_ip_cidr' => env('YAK_DEPLOYMENTS_INGRESS_IP_CIDR', '127.0.0.1/32,172.16.0.0/12'),
         ],
 
         'share' => [

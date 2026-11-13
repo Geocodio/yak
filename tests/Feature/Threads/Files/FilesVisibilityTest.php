@@ -41,7 +41,7 @@ it('lists a folder for a person who can drive and marks changed files', function
     $this->actingAs($this->owner)->getJson(route('threads.files.tree', [$thread, 'scope' => 'repo']))
         ->assertOk()
         ->assertJsonPath('state', 'ready')
-        ->assertJsonPath('root', '/workspace/widgets')
+        ->assertJsonPath('root', '/workspace')
         ->assertJsonPath('entries.0.name', 'src')
         ->assertJsonPath('changedPaths', ['src/a.ts', 'src/new.ts'])
         ->assertJsonPath('addedPaths', ['src/new.ts']);

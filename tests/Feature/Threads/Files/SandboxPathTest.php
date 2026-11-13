@@ -20,8 +20,8 @@ it('refuses a sandbox path with a parent segment', function () {
 })->throws(InvalidFilePath::class);
 
 it('resolves a repository path under the repository root', function () {
-    expect(SandboxPath::resolve($this->thread, FileScope::Repository, 'src/Order Page.tsx'))->toBe('/workspace/widgets/src/Order Page.tsx')
-        ->and(SandboxPath::resolve($this->thread, FileScope::Repository, '/workspace/widgets/a.ts'))->toBe('/workspace/widgets/a.ts')
+    expect(SandboxPath::resolve($this->thread, FileScope::Repository, 'src/Order Page.tsx'))->toBe('/workspace/src/Order Page.tsx')
+        ->and(SandboxPath::resolve($this->thread, FileScope::Repository, '/workspace/a.ts'))->toBe('/workspace/a.ts')
         ->and(SandboxPath::resolve($this->thread, FileScope::Sandbox, '/etc/hosts'))->toBe('/etc/hosts');
 });
 
@@ -36,4 +36,12 @@ it('knows where writes are allowed', function () {
         ->and(SandboxPath::isWritable('/home/yak/.bashrc'))->toBeTrue()
         ->and(SandboxPath::isWritable('/home/yakker/x'))->toBeFalse()
         ->and(SandboxPath::isWritable('/workspace/x/a.ts'))->toBeTrue();
+});
+
+it('roots repository scope at the primary repository sandbox path', function () {
+    $thread = Thread::factory()->create();
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'Geocodio/geocodio', 'sandbox_path' => '/workspace']);
+
+    expect(SandboxPath::root($thread, FileScope::Repository))->toBe('/workspace')
+        ->and(SandboxPath::display($thread, FileScope::Repository, '/workspace/app/a.php'))->toBe('app/a.php');
 });

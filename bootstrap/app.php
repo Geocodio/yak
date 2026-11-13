@@ -44,7 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: CliProtocol::class);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
-        $middleware->validateCsrfTokens(except: ['api/cli/*']);
+        $middleware->validateCsrfTokens(except: ['api/cli/*', 'internal/*']);
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
