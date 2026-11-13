@@ -61,14 +61,14 @@ it('does not gate a task without a thread', function () {
     $world = VisibilityWorld::build();
     $task = YakTask::factory()->create(['thread_id' => null]);
 
-    $this->actingAs($world->sharedViewer)->post("/tasks/{$task->id}/cancel")->assertStatus(302);
+    $this->actingAs($world->sharedViewer)->post("/tasks/{$task->public_id}/cancel")->assertStatus(302);
 });
 
 it('keeps task reads open to a share recipient', function () {
     $world = VisibilityWorld::build();
 
-    $this->actingAs($world->sharedViewer)->get("/tasks/{$world->task->id}")->assertOk();
-    expect($this->actingAs($world->sharedViewer)->get("/tasks/{$world->task->id}/pr-images/abc123")->getStatusCode())->toBe(404);
+    $this->actingAs($world->sharedViewer)->get("/tasks/{$world->task->public_id}")->assertOk();
+    expect($this->actingAs($world->sharedViewer)->get("/tasks/{$world->task->public_id}/pr-images/abc123")->getStatusCode())->toBe(404);
 });
 
 it('gates every mutating task route with task.drive', function () {

@@ -19,7 +19,7 @@ function toContent(entry: TranscriptEntry): StepContent {
  * run or attempt switch (`runKey`) drops everything, since the ids belong to
  * another log.
  */
-export function useStepContent({ taskId, runKey, openInFullLog }: { taskId: number; runKey: string; openInFullLog?: (logId: number) => void }): StepDetailSource {
+export function useStepContent({ taskId, runKey, openInFullLog }: { taskId: string; runKey: string; openInFullLog?: (logId: number) => void }): StepDetailSource {
     const [cache, setCache] = useState<Map<number, StepContent>>(() => new Map());
     const pendingRef = useRef(new Set<number>());
     const timerRef = useRef<number | null>(null);

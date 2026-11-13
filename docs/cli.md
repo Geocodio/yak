@@ -100,7 +100,7 @@ Server: https://yak.example.com
 yak teleport [<thread>] [options]
 ```
 
-With no thread number, it moves the current Claude session up to Yak. With a thread number, it brings that thread down to this checkout. Thread numbers are plain numbers. Flags can come before or after the number. The full behavior is in [teleport.md](teleport.md).
+With no thread number, it moves the current Claude session up to Yak. With a thread number, it brings that thread down to this checkout. A thread id is the 8-character id in the thread URL, such as `k7m2x9qd`. Flags can come before or after the number. The full behavior is in [teleport.md](teleport.md).
 
 Up flags:
 

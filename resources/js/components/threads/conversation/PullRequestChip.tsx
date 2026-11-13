@@ -8,7 +8,7 @@ const CI_LABEL: Record<string, string> = { passing: 'CI passing', failing: 'CI f
 const CI_TONE: Record<string, 'ok' | 'fail' | 'info'> = { passing: 'ok', failing: 'fail', running: 'info' };
 
 /** The thread's pull requests as chips under the conversation, fed by the Pull requests panel endpoint. */
-export function PullRequestChips({ threadId, lastActivityAt }: { threadId: number; lastActivityAt: string | null }) {
+export function PullRequestChips({ threadId, lastActivityAt }: { threadId: string; lastActivityAt: string | null }) {
     const { data } = useJson<ThreadPullRequestsData>(`${show.url(threadId)}?at=${encodeURIComponent(lastActivityAt ?? '')}`);
 
     if (data === null || data.pullRequests.length === 0) {

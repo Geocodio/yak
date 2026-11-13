@@ -258,7 +258,7 @@ class Teleports
     private function assertDeviceMayUp(Thread $thread, Device $device, array $validated, Repository $primaryRepository): void
     {
         if ($thread->owner_side === ThreadOwnerSide::Yak) {
-            throw new TeleportError('thread_owned_by_yak', 'This thread is on Yak. Run yak teleport ' . $thread->id . ' to bring it down first.', 409, ['thread_id' => $thread->id]);
+            throw new TeleportError('thread_owned_by_yak', 'This thread is on Yak. Run yak teleport ' . $thread->public_id . ' to bring it down first.', 409, ['thread_id' => $thread->public_id]);
         }
 
         if ($thread->owner_device_id !== $device->id) {

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import hibernation from '@/routes/deployments/hibernation';
 import type { HibernationData } from '@/types/deployments';
 
-export function HibernationCard({ deploymentId, hibernation: data }: { deploymentId: number; hibernation: HibernationData }) {
+export function HibernationCard({ deploymentId, hibernation: data }: { deploymentId: string; hibernation: HibernationData }) {
     const [timeout, setTimeout_] = useState(data.timeout);
     const form = useForm({ timeout: data.timeout });
 

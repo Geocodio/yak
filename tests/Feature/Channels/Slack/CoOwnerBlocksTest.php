@@ -83,7 +83,7 @@ it('builds the direct message with the details and three buttons', function () {
         ->and($buttons[0]['value'])->toBe((string) $request->id)
         ->and($buttons[2]['style'])->toBe('danger')
         ->and($buttons[2])->toHaveKey('confirm')
-        ->and($buttons[1]['url'])->toEndWith("/tasks/{$request->task_id}#co-owner");
+        ->and($buttons[1]['url'])->toEndWith("/tasks/{$request->task->public_id}#co-owner");
 });
 
 it('escapes Slack control characters in area names and paths', function () {

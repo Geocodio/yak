@@ -29,7 +29,7 @@ final class ThreadPageData
     /**
      * @return array{
      *     thread: array{
-     *         id: int,
+     *         id: string,
      *         name: string,
      *         title: string,
      *         repo: string,
@@ -41,22 +41,22 @@ final class ThreadPageData
      *         runnerState: value-of<RunnerState>,
      *         ownerSide: value-of<ThreadOwnerSide>,
      *         blockedReason: ?value-of<ThreadBlockReason>,
-     *         parentThreadId: ?int,
-     *         rootThreadId: ?int,
+     *         parentThreadId: ?string,
+     *         rootThreadId: ?string,
      *         lastActivityAt: ?string,
      *         repositories: list<array{repo: string, role: value-of<RepositoryRole>, setupStatus: value-of<RepositorySetupStatus>}>,
      *         pullRequestCount: int,
      *         isOwner: bool,
      *         sharedWithCount: int,
      *         startedOnDevice: bool,
-     *         preview: array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: int, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string, port: ?int, coldStartCommand: ?string},
+     *         preview: array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: string, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string, port: ?int, coldStartCommand: ?string},
      *     },
      *     canDrive: bool,
      *     diffTotals: ?array{additions: int, deletions: int},
      *     pullRequest: ?array{number: int, url: string},
      *     brief: ?array{text: string, kind: string, model: ?string, startedAt: string, branch: ?string},
      *     publishWarning: bool,
-     *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitch: ?array{from: string, to: string, at: string}, accountName: ?string, continuedFromThreadId: ?int, continuedFromTitle: ?string, canTeleport: bool},
+     *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitch: ?array{from: string, to: string, at: string}, accountName: ?string, continuedFromThreadId: ?string, continuedFromTitle: ?string, canTeleport: bool},
      *     capacity: ?array{turns: array{used: int, limit: int}, sandboxes: array{used: int, limit: int}, share: array{used: int, limit: int}},
      * }
      */
@@ -76,7 +76,7 @@ final class ThreadPageData
 
         return [
             'thread' => [
-                'id' => $thread->id,
+                'id' => $thread->public_id,
                 'name' => $thread->name,
                 'title' => $thread->title,
                 'repo' => $thread->repo,
@@ -88,8 +88,8 @@ final class ThreadPageData
                 'runnerState' => $thread->runner_state->value,
                 'ownerSide' => $thread->owner_side->value,
                 'blockedReason' => $thread->blocked_reason?->value,
-                'parentThreadId' => $thread->parent_thread_id,
-                'rootThreadId' => $thread->root_thread_id,
+                'parentThreadId' => self::publicIdOf($thread->parent_thread_id),
+                'rootThreadId' => self::publicIdOf($thread->root_thread_id),
                 'lastActivityAt' => $thread->last_activity_at?->toIso8601String(),
                 'repositories' => $repositories,
                 'pullRequestCount' => $thread->repositories->whereNotNull('pull_request_url')->where('role', '!=', RepositoryRole::Context)->count(),
@@ -173,5 +173,10 @@ final class ThreadPageData
             'startedAt' => ($thread->created_at ?? now())->toIso8601String(),
             'branch' => $thread->branch,
         ];
+    }
+
+    private static function publicIdOf(?int $threadId): ?string
+    {
+        return $threadId === null ? null : Thread::query()->withoutGlobalScopes()->find($threadId, ['id', 'public_id'])?->public_id;
     }
 }

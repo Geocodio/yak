@@ -10,12 +10,12 @@ import (
 )
 
 func TestValidThreadID(t *testing.T) {
-	for _, ok := range []string{"1", "42", "9999999999"} {
+	for _, ok := range []string{"1", "42", "9999999999", "k7m2x9qd", "0a1b2c3d"} {
 		if !ValidThreadID(ok) {
 			t.Errorf("%q should be valid", ok)
 		}
 	}
-	for _, bad := range []string{"", "0", "042", "42abc", "-1", "4 2", "../x", "10000000000", "4\n2", "٤٢", "42\n"} {
+	for _, bad := range []string{"", "0", "042", "42abc", "-1", "4 2", "../x", "10000000000", "4\n2", "٤٢", "42\n", "k7m2x9q", "k7m2x9qdd", "K7M2X9QD", "k7m2x9qi", "k7m2x9ql", "k7m2x9qo", "k7m2x9qu", "01234567", "k7m2-9qd"} {
 		if ValidThreadID(bad) {
 			t.Errorf("%q should be invalid", bad)
 		}
@@ -23,9 +23,11 @@ func TestValidThreadID(t *testing.T) {
 }
 
 func TestParseAcceptsOnlyCanonicalForm(t *testing.T) {
-	id, err := Parse("yak://teleport/42")
-	if err != nil || id != 42 {
-		t.Fatal(id, err)
+	for _, want := range []string{"42", "k7m2x9qd"} {
+		id, err := Parse("yak://teleport/" + want)
+		if err != nil || id != want {
+			t.Fatal(id, err)
+		}
 	}
 }
 
@@ -42,21 +44,21 @@ func TestParseRejectsHostile(t *testing.T) {
 }
 
 func TestTerminalCommandUsesValidatedIntegerOnly(t *testing.T) {
-	got := strings.Join(TerminalCommand(42), " ")
+	got := strings.Join(TerminalCommand("42"), " ")
 	if got != "yak teleport --from-link 42" {
 		t.Fatal(got)
 	}
-	if TerminalCommand(-1) != nil || TerminalCommand(0) != nil {
+	if TerminalCommand("-1") != nil || TerminalCommand("0") != nil {
 		t.Fatal("accepted a bad id")
 	}
 }
 
 func TestTerminalCommandForUsesAbsoluteBinary(t *testing.T) {
-	got := strings.Join(TerminalCommandFor("/opt/yak/bin/yak", 42), " ")
-	if got != "/opt/yak/bin/yak teleport --from-link 42" {
+	got := strings.Join(TerminalCommandFor("/opt/yak/bin/yak", "k7m2x9qd"), " ")
+	if got != "/opt/yak/bin/yak teleport --from-link k7m2x9qd" {
 		t.Fatal(got)
 	}
-	if TerminalCommandFor("yak", 42) != nil || TerminalCommandFor("/opt/yak/bin/yak", 0) != nil {
+	if TerminalCommandFor("yak", "42") != nil || TerminalCommandFor("/opt/yak/bin/yak", "0") != nil {
 		t.Fatal("accepted a relative binary or a bad id")
 	}
 }

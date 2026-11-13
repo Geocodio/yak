@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Models\Thread;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -29,6 +30,7 @@ class ThreadEventBroadcast implements ShouldBroadcastNow
         public readonly string $type,
         public readonly array $data,
         public readonly string $createdAt,
+        public readonly ?string $threadPublicId = null,
     ) {}
 
     /**
@@ -36,7 +38,15 @@ class ThreadEventBroadcast implements ShouldBroadcastNow
      */
     public function broadcastOn(): array
     {
-        return [new PrivateChannel('thread.' . $this->threadId)];
+        return [new PrivateChannel('thread.' . $this->threadPublicId())];
+    }
+
+    /**
+     * Channels are named by the thread's public id, the same id the page URL carries.
+     */
+    private function threadPublicId(): string
+    {
+        return $this->threadPublicId ?? (string) Thread::publicIdForKey($this->threadId);
     }
 
     public function broadcastAs(): string

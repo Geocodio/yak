@@ -27,7 +27,7 @@ import type { ConversationItem } from './conversationItem';
 // Browser tests drive the pure merge through this hook.
 Object.assign(window, { __mergeConversation: mergeConversation, __createReadTracker: createReadTracker });
 
-function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels: Record<string, string>; item: ConversationItem; canDrive: boolean; isLast: boolean; threadId: number }) {
+function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels: Record<string, string>; item: ConversationItem; canDrive: boolean; isLast: boolean; threadId: string }) {
     if (item.kind === 'child') {
         return <ChildCard item={item} canDrive={canDrive} />;
     }
@@ -55,7 +55,7 @@ function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges
     return item.kind === 'edits' ? <EditsBlock item={item} onOpenChanges={onOpenChanges} /> : <ClaudeMessage item={item} modelLabels={modelLabels} />;
 }
 
-export function Conversation({ modelLabels = {}, threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: number; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ modelLabels = {}, threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
     const unsent = useUnsentMessages(threadId);
     const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(threadId);

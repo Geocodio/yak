@@ -235,7 +235,7 @@ function GapRow({ gap, count, isLoading, error, onExpand }: { gap: Gap; count: n
 }
 
 type Props = {
-    threadId: number;
+    threadId: string;
     file: ThreadDiffFile;
     mode: 'unified' | 'split';
     /** Whether hidden lines can be read from the sandbox's copy of the file. */

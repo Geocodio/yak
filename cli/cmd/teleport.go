@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 
 	"github.com/geocodio/yak/cli/internal/api"
@@ -116,7 +115,7 @@ func runTeleport(ctx *Context, args []string) int {
 	}
 	if len(positional) == 1 {
 		if !link.ValidThreadID(positional[0]) {
-			return usageError(ctx, fmt.Sprintf("%q is not a thread id. Thread ids are plain numbers.", positional[0]))
+			return usageError(ctx, fmt.Sprintf("%q is not a thread id. A thread id looks like k7m2x9qd.", positional[0]))
 		}
 		f.thread = positional[0]
 	}
@@ -156,8 +155,7 @@ func runTeleport(ctx *Context, args []string) int {
 	if f.thread == "" {
 		return teleportUp(bg, ctx, deps, f)
 	}
-	id, _ := strconv.Atoi(f.thread)
-	return teleportDown(bg, ctx, deps, f, id)
+	return teleportDown(bg, ctx, deps, f, f.thread)
 }
 
 func teleportUp(bg context.Context, ctx *Context, deps teleport.Deps, f teleportFlags) int {
@@ -180,7 +178,7 @@ func teleportUp(bg context.Context, ctx *Context, deps teleport.Deps, f teleport
 	return exitOK
 }
 
-func teleportDown(bg context.Context, ctx *Context, deps teleport.Deps, f teleportFlags, id int) int {
+func teleportDown(bg context.Context, ctx *Context, deps teleport.Deps, f teleportFlags, thread string) int {
 	opts := teleport.DownOptions{FromLink: f.fromLink}
 	switch {
 	case f.wait:
@@ -200,7 +198,7 @@ func teleportDown(bg context.Context, ctx *Context, deps teleport.Deps, f telepo
 	case f.worktree:
 		opts.Resolution = "worktree"
 	}
-	res, err := teleport.Down(bg, deps, teleport.DownInput{ThreadID: id, Cwd: ctx.Cwd, Options: opts})
+	res, err := teleport.Down(bg, deps, teleport.DownInput{ThreadRef: thread, Cwd: ctx.Cwd, Options: opts})
 	if err != nil {
 		return reportTeleportError(ctx, err)
 	}

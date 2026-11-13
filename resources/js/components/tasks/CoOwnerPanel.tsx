@@ -51,7 +51,7 @@ function readDecisionError(value: unknown): CoOwnerDecisionError | null {
 }
 
 /** The held-change panel, in the clarification slot of the task page. */
-export function CoOwnerPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: CoOwnerData; repoUrl: string | null }) {
+export function CoOwnerPanel({ taskId, coOwner, repoUrl }: { taskId: string; coOwner: CoOwnerData; repoUrl: string | null }) {
     if (coOwner.status === 'expired' || coOwner.status === 'withdrawn') {
         return <FinalState coOwner={coOwner} />;
     }
@@ -97,7 +97,7 @@ function FinalState({ coOwner }: { coOwner: CoOwnerData }) {
     );
 }
 
-function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: CoOwnerData; repoUrl: string | null }) {
+function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: string; coOwner: CoOwnerData; repoUrl: string | null }) {
     const action = useRouterAction();
     const [decisionError, setDecisionError] = useState<CoOwnerDecisionError | null>(null);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -254,7 +254,7 @@ function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: C
     );
 }
 
-function route(taskId: number): string {
+function route(taskId: string): string {
     return `${window.location.origin}/tasks/${taskId}#co-owner`;
 }
 

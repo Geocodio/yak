@@ -6,7 +6,7 @@ const NEAR_BOTTOM_PIXELS = 80;
  * Opens the conversation at the newest message (unless `startAtBottom` is false) and follows new content while the reader is at the bottom.
  * A reader who scrolled up stays put; `hasNew` then says that content arrived below.
  */
-export function useStickToBottom(threadId: number, startAtBottom = true): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
+export function useStickToBottom(threadId: string, startAtBottom = true): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
     const scroller = useRef<HTMLDivElement>(null);
     const content = useRef<HTMLDivElement>(null);
     const isAtBottom = useRef(true);

@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
 * @route '/threads/{thread}/stack/children'
 */
-export const store = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const store = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -19,13 +19,13 @@ store.definition = {
 * @see app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
 * @route '/threads/{thread}/stack/children'
 */
-store.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+store.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ store.url = (args: { thread: number | { id: number } } | [thread: number | { id:
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ store.url = (args: { thread: number | { id: number } } | [thread: number | { id:
 * @see app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
 * @route '/threads/{thread}/stack/children'
 */
-store.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+store.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -62,7 +62,7 @@ store.post = (args: { thread: number | { id: number } } | [thread: number | { id
 * @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
-export const diff = (args: { thread: number | { id: number }, child: number | { id: number } } | [thread: number | { id: number }, child: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const diff = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: diff.url(args, options),
     method: 'get',
 })
@@ -77,7 +77,7 @@ diff.definition = {
 * @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
-diff.url = (args: { thread: number | { id: number }, child: number | { id: number } } | [thread: number | { id: number }, child: number | { id: number } ], options?: RouteQueryOptions) => {
+diff.url = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -89,10 +89,10 @@ diff.url = (args: { thread: number | { id: number }, child: number | { id: numbe
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
         child: typeof args.child === 'object'
-        ? args.child.id
+        ? args.child.public_id
         : args.child,
     }
 
@@ -107,7 +107,7 @@ diff.url = (args: { thread: number | { id: number }, child: number | { id: numbe
 * @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
-diff.get = (args: { thread: number | { id: number }, child: number | { id: number } } | [thread: number | { id: number }, child: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+diff.get = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: diff.url(args, options),
     method: 'get',
 })
@@ -117,7 +117,7 @@ diff.get = (args: { thread: number | { id: number }, child: number | { id: numbe
 * @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
-diff.head = (args: { thread: number | { id: number }, child: number | { id: number } } | [thread: number | { id: number }, child: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+diff.head = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: diff.url(args, options),
     method: 'head',
 })

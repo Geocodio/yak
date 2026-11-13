@@ -8,7 +8,7 @@ import { parseEnvironmentNote } from './environmentNote';
 const SETUP_REQUEST = 'Add the installs from the environment note to setup.sh.';
 
 /** The note Claude is given when the thread changes side, folded to one line until opened. */
-export function EnvironmentNoteCard({ threadId, text, from, to, variant = 'teleport', canDrive = false }: { threadId: number; text: string; from: string; to: string; variant?: 'teleport' | 'restore'; canDrive?: boolean }) {
+export function EnvironmentNoteCard({ threadId, text, from, to, variant = 'teleport', canDrive = false }: { threadId: string; text: string; from: string; to: string; variant?: 'teleport' | 'restore'; canDrive?: boolean }) {
     const [open, setOpen] = useState(false);
     const { rows, raw } = parseEnvironmentNote(text);
 

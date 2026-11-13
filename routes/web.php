@@ -265,45 +265,34 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('deployments', [DeploymentController::class, 'index'])->name('deployments');
     Route::get('deployments/{deployment}', [DeploymentController::class, 'show'])
-        ->name('deployments.show')
-        ->where('deployment', '[0-9]+');
+        ->name('deployments.show');
     Route::patch('deployments/{deployment}/hibernation', [DeploymentActionController::class, 'updateHibernation'])
-        ->name('deployments.hibernation.update')
-        ->where('deployment', '[0-9]+');
+        ->name('deployments.hibernation.update');
     Route::post('deployments/{deployment}/rebuild', [DeploymentActionController::class, 'rebuild'])
-        ->name('deployments.rebuild')
-        ->where('deployment', '[0-9]+');
+        ->name('deployments.rebuild');
     Route::delete('deployments/{deployment}', [DeploymentActionController::class, 'destroy'])
-        ->name('deployments.destroy')
-        ->where('deployment', '[0-9]+');
+        ->name('deployments.destroy');
     Route::post('deployments/{deployment}/share', [ShareLinkController::class, 'store'])
-        ->name('deployments.share.store')
-        ->where('deployment', '[0-9]+');
+        ->name('deployments.share.store');
     Route::delete('deployments/{deployment}/share', [ShareLinkController::class, 'destroy'])
-        ->name('deployments.share.destroy')
-        ->where('deployment', '[0-9]+');
+        ->name('deployments.share.destroy');
 
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
 
     // Threads and the thread page.
     Route::post('threads/{thread}/messages', [ThreadMessageController::class, 'store'])
-        ->name('threads.messages.store')
-        ->where('thread', '[0-9]+');
+        ->name('threads.messages.store');
     Route::post('threads/{thread}/stop', [ThreadMessageController::class, 'stop'])
-        ->name('threads.stop')
-        ->where('thread', '[0-9]+');
+        ->name('threads.stop');
     Route::post('threads/{thread}/continue', ContinueTurnController::class)
-        ->name('threads.continue')
-        ->where('thread', '[0-9]+');
+        ->name('threads.continue');
     Route::post('threads/{thread}/restore/retry', RestoreRetryController::class)
-        ->name('threads.restore.retry')
-        ->where('thread', '[0-9]+');
+        ->name('threads.restore.retry');
     Route::get('threads/new', NewThreadController::class)->name('threads.new');
     Route::post('threads', StoreThreadController::class)->name('threads.store');
     Route::get('threads/{thread}', [ThreadController::class, 'show'])
-        ->name('threads.show')
-        ->where('thread', '[0-9]+');
+        ->name('threads.show');
 
     // Claude accounts.
     Route::put('repos/{repository}/claude-account', [RepositoryClaudeAccountController::class, 'updateMine'])->name('repos.claude-account.update');
@@ -312,38 +301,31 @@ Route::middleware(['auth'])->group(function () {
     // Shell and thread list.
     Route::get('threads/list', ThreadListController::class)->name('threads.list');
     Route::post('threads/{thread}/seen', ThreadSeenController::class)
-        ->name('threads.seen')
-        ->where('thread', '[0-9]+');
+        ->name('threads.seen');
 
     // Changes.
     Route::get('threads/{thread}/diff', [ThreadDiffController::class, 'show'])
-        ->name('threads.diff.show')
-        ->where('thread', '[0-9]+');
+        ->name('threads.diff.show');
     Route::get('threads/{thread}/diff/files/{file}', [ThreadDiffController::class, 'showFile'])
         ->name('threads.diff.files.show')
-        ->where(['thread' => '[0-9]+', 'file' => '[0-9]+']);
+        ->where(['file' => '[0-9]+']);
     Route::get('threads/{thread}/environment', [ThreadEnvironmentController::class, 'show'])
-        ->name('threads.environment.show')
-        ->where('thread', '[0-9]+');
+        ->name('threads.environment.show');
     Route::post('threads/{thread}/pull-request', [ThreadPullRequestController::class, 'store'])
-        ->name('threads.pull-request.store')
-        ->where('thread', '[0-9]+');
+        ->name('threads.pull-request.store');
 
     // Realtime.
     Route::get('threads/{thread}/events', [ThreadEventController::class, 'index'])
-        ->name('threads.events.index')
-        ->where('thread', '[0-9]+');
+        ->name('threads.events.index');
     Route::get('threads/{thread}/events/{sequence}', [ThreadEventController::class, 'show'])
         ->name('threads.events.show')
-        ->where(['thread' => '[0-9]+', 'sequence' => '[0-9]+']);
+        ->where(['sequence' => '[0-9]+']);
 
     // Visibility and sharing.
     Route::get('threads/{thread}/share', [ThreadShareController::class, 'show'])
-        ->name('threads.share.show')
-        ->where('thread', '[0-9]+');
+        ->name('threads.share.show');
     Route::put('threads/{thread}/share', [ThreadShareController::class, 'update'])
-        ->name('threads.share.update')
-        ->where('thread', '[0-9]+');
+        ->name('threads.share.update');
 
     // Device approval and teleport requests.
     Route::get('device', [DeviceApprovalController::class, 'show'])->name('device.show');
@@ -351,70 +333,52 @@ Route::middleware(['auth'])->group(function () {
     Route::post('device/deny', [DeviceApprovalController::class, 'deny'])->name('device.deny');
 
     Route::post('threads/{thread}/teleport-request', [ThreadTeleportRequestController::class, 'store'])
-        ->name('threads.teleport-request.store')
-        ->where('thread', '[0-9]+');
+        ->name('threads.teleport-request.store');
     Route::delete('threads/{thread}/teleport-request', [ThreadTeleportRequestController::class, 'destroy'])
-        ->name('threads.teleport-request.destroy')
-        ->where('thread', '[0-9]+');
+        ->name('threads.teleport-request.destroy');
 
     // Stacks.
     Route::post('threads/{thread}/stack/take-over', [ChildOverrideController::class, 'takeOver'])
-        ->name('threads.stack.take-over')
-        ->where('thread', '[0-9]+');
+        ->name('threads.stack.take-over');
     Route::post('threads/{thread}/stack/split', [ChildOverrideController::class, 'split'])
-        ->name('threads.stack.split')
-        ->where('thread', '[0-9]+');
+        ->name('threads.stack.split');
     Route::post('threads/{thread}/stack/drop', [ChildOverrideController::class, 'drop'])
-        ->name('threads.stack.drop')
-        ->where('thread', '[0-9]+');
+        ->name('threads.stack.drop');
 
     Route::patch('threads/{thread}/stack/limit', StackLimitController::class)
-        ->name('threads.stack.limit')
-        ->where('thread', '[0-9]+');
+        ->name('threads.stack.limit');
 
     Route::post('threads/{thread}/stack/stop', StackStopController::class)
-        ->name('threads.stack.stop')
-        ->where('thread', '[0-9]+');
+        ->name('threads.stack.stop');
 
     Route::get('threads/{thread}/stack', StackShowController::class)
-        ->name('threads.stack.show')
-        ->where('thread', '[0-9]+');
+        ->name('threads.stack.show');
     Route::post('threads/{thread}/stack/children', StackChildStoreController::class)
-        ->name('threads.stack.children.store')
-        ->where('thread', '[0-9]+');
+        ->name('threads.stack.children.store');
     Route::get('threads/{thread}/stack/children/{child}/diff', ChildDiffController::class)
-        ->name('threads.stack.children.diff')
-        ->where(['thread' => '[0-9]+', 'child' => '[0-9]+']);
+        ->name('threads.stack.children.diff');
 
     // Previews.
     Route::get('threads/{thread}/preview/status', ThreadPreviewStatusController::class)
-        ->name('threads.preview.status')
-        ->where('thread', '[0-9]+');
+        ->name('threads.preview.status');
     Route::post('threads/{thread}/preview/heartbeat', ThreadPreviewHeartbeatController::class)
-        ->name('threads.preview.heartbeat')
-        ->where('thread', '[0-9]+');
+        ->name('threads.preview.heartbeat');
     Route::post('threads/{thread}/preview/warm', ThreadPreviewWarmController::class)
-        ->name('threads.preview.warm')
-        ->where('thread', '[0-9]+');
+        ->name('threads.preview.warm');
     Route::post('threads/{thread}/preview/restore', ThreadPreviewRestoreController::class)
-        ->name('threads.preview.restore')
-        ->where('thread', '[0-9]+');
+        ->name('threads.preview.restore');
 
     // Files.
     Route::get('threads/{thread}/files', [ThreadFileController::class, 'tree'])
-        ->name('threads.files.tree')
-        ->where('thread', '[0-9]+');
+        ->name('threads.files.tree');
     Route::get('threads/{thread}/files/content', [ThreadFileController::class, 'show'])
-        ->name('threads.files.show')
-        ->where('thread', '[0-9]+');
+        ->name('threads.files.show');
     Route::put('threads/{thread}/files/content', [ThreadFileController::class, 'update'])
-        ->name('threads.files.update')
-        ->where('thread', '[0-9]+');
+        ->name('threads.files.update');
 
     // Terminal sessions (ssh).
     Route::post('threads/{thread}/terminal-sessions', [TerminalSessionController::class, 'store'])
-        ->name('threads.terminal-sessions.store')
-        ->where('thread', '[0-9]+');
+        ->name('threads.terminal-sessions.store');
 
     // Multi-repo and pull requests.
     Route::get('threads/new/repository-access', RepositoryAccessController::class)
@@ -426,28 +390,25 @@ Route::middleware(['auth'])->group(function () {
         ->name('threads.repository-setup');
 
     Route::get('threads/{thread}/repositories', ThreadRepositoryProgressController::class)
-        ->name('threads.repositories.progress')
-        ->where('thread', '[0-9]+');
+        ->name('threads.repositories.progress');
 
     Route::patch('threads/{thread}/repositories/{repository}', [ThreadRepositoryController::class, 'update'])
         ->name('threads.repositories.update')
-        ->where(['thread' => '[0-9]+', 'repository' => '[0-9]+'])
+        ->where(['repository' => '[0-9]+'])
         ->scopeBindings();
 
     Route::post('threads/{thread}/repositories/{repository}/retry', [ThreadRepositoryController::class, 'retry'])
         ->name('threads.repositories.retry')
-        ->where(['thread' => '[0-9]+', 'repository' => '[0-9]+'])
+        ->where(['repository' => '[0-9]+'])
         ->scopeBindings();
 
     Route::get('threads/{thread}/pull-requests', PullRequestsShowController::class)
-        ->name('threads.pull-requests.show')
-        ->where('thread', '[0-9]+');
+        ->name('threads.pull-requests.show');
     Route::put('threads/{thread}/pull-requests/order', MergeOrderController::class)
-        ->name('threads.pull-requests.order')
-        ->where('thread', '[0-9]+');
+        ->name('threads.pull-requests.order');
     Route::post('threads/{thread}/pull-requests/{repository}/fix', AskToFixController::class)
         ->name('threads.pull-requests.fix')
-        ->where(['thread' => '[0-9]+', 'repository' => '[0-9]+']);
+        ->where(['repository' => '[0-9]+']);
 });
 
 // Device flow and CLI API: no session, authenticated by signed codes or device tokens.
@@ -467,19 +428,18 @@ Route::prefix('api/cli/v1')
     ->withoutMiddleware(CliProtocol::WITHOUT_WEB_STATE)
     ->group(function (): void {
         Route::get('threads/by-session/{sessionId}', [ThreadLookupController::class, 'bySession']);
-        Route::get('threads/{thread}', [ThreadLookupController::class, 'show'])->where('thread', '[0-9]+');
+        Route::get('threads/{thread}', [ThreadLookupController::class, 'show']);
 
         Route::post('teleports', [TeleportController::class, 'begin']);
         Route::get('teleports/{teleport}', [TeleportController::class, 'show']);
         Route::post('teleports/{teleport}/complete', [TeleportController::class, 'complete']);
         Route::post('teleports/{teleport}/cancel', [TeleportController::class, 'cancel']);
 
-        Route::get('threads/{thread}/stack-messages', [StackMessageController::class, 'index'])->where('thread', '[0-9]+');
-        Route::post('threads/{thread}/stack-messages/ack', [StackMessageController::class, 'ack'])->where('thread', '[0-9]+');
-        Route::get('threads/{thread}/ssh', [SshLookupController::class, 'show'])->where('thread', '[0-9]+');
+        Route::get('threads/{thread}/stack-messages', [StackMessageController::class, 'index']);
+        Route::post('threads/{thread}/stack-messages/ack', [StackMessageController::class, 'ack']);
+        Route::get('threads/{thread}/ssh', [SshLookupController::class, 'show']);
 
         Route::prefix('threads/{thread}/session')
-            ->where(['thread' => '[0-9]+'])
             ->middleware('throttle:cli-session')
             ->group(function (): void {
                 Route::get('length', [SessionFileController::class, 'length']);

@@ -19,10 +19,10 @@ it('shows the teleport dialog with the command for a Yak-owned thread', function
         ->assertVisible('@teleport-dialog')
         ->assertSeeIn('@teleport-dialog', 'Only committed work travels')
         ->assertSeeIn('@teleport-dialog', 'Or open it in one click')
-        ->assertSeeIn('@teleport-dialog', "yak://teleport/{$thread->id}")
-        ->assertSeeIn('@teleport-command', "yak teleport {$thread->id}")
-        ->assertSeeIn('@teleport-dialog', "\$ yak teleport {$thread->id}")
-        ->assertAttribute('@teleport-link', 'href', "yak://teleport/{$thread->id}")
+        ->assertSeeIn('@teleport-dialog', "yak://teleport/{$thread->public_id}")
+        ->assertSeeIn('@teleport-command', "yak teleport {$thread->public_id}")
+        ->assertSeeIn('@teleport-dialog', "\$ yak teleport {$thread->public_id}")
+        ->assertAttribute('@teleport-link', 'href', "yak://teleport/{$thread->public_id}")
         ->assertNoJavascriptErrors();
 });
 
@@ -92,7 +92,7 @@ it('opens the command dialog from the waiting banner', function () {
     $this->actingAs($user);
 
     visit(route('threads.show', $thread))
-        ->assertSeeIn('@teleport-notice', "yak teleport {$thread->id}")
+        ->assertSeeIn('@teleport-notice', "yak teleport {$thread->public_id}")
         ->click('@teleport-show-command')
         ->assertVisible('@teleport-dialog')
         ->assertNoJavascriptErrors();

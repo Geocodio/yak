@@ -8,7 +8,7 @@ import { createReadTracker, mergeConversation, type ConversationEntry } from './
 
 export { mergeConversation, type ConversationEntry };
 
-export function useConversation(threadId: number, messages: ThreadMessage[]): { entries: ConversationEntry[]; lastSequence: number; connection: string; link: LinkState } {
+export function useConversation(threadId: string, messages: ThreadMessage[]): { entries: ConversationEntry[]; lastSequence: number; connection: string; link: LinkState } {
     const { state: events, entrySequences, link } = useThreadEventFeed(threadId);
     useRefreshThreadProps(livePropsSignature(threadId, events));
     const track = useRef(createReadTracker()).current;

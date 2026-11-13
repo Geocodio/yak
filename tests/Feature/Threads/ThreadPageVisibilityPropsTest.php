@@ -12,7 +12,7 @@ test('the owner of a private thread sees ownership, share count and the publish 
     $thread = Thread::factory()->private($owner)->create();
     ThreadShare::factory()->count(2)->create(['thread_id' => $thread->id]);
 
-    $this->actingAs($owner)->get("/threads/{$thread->id}")->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($owner)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
         ->where('thread.isOwner', true)
         ->where('thread.sharedWithCount', 2)
         ->where('thread.startedOnDevice', false)
@@ -25,7 +25,7 @@ test('a shared person is not the owner, sees no count and cannot drive', functio
     $thread = Thread::factory()->private()->create();
     ThreadShare::factory()->create(['thread_id' => $thread->id, 'user_id' => $guest->id]);
 
-    $this->actingAs($guest)->get("/threads/{$thread->id}")->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($guest)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
         ->where('thread.isOwner', false)
         ->where('thread.sharedWithCount', 0)
         ->where('publishWarning', true)
@@ -35,7 +35,7 @@ test('a shared person is not the owner, sees no count and cannot drive', functio
 test('a team thread has no publish warning, and a device thread says so', function () {
     $thread = Thread::factory()->ownedByDevice()->create();
 
-    $this->actingAs(User::factory()->create())->get("/threads/{$thread->id}")->assertInertia(fn (Assert $page) => $page
+    $this->actingAs(User::factory()->create())->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
         ->where('publishWarning', false)
         ->where('thread.startedOnDevice', true)
         ->where('thread.isOwner', false));

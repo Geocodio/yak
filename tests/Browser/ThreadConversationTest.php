@@ -25,7 +25,7 @@ function threadMergePage(): mixed
     test()->actingAs(User::factory()->create());
     $thread = Thread::factory()->create();
 
-    return visit("/threads/{$thread->id}");
+    return visit("/threads/{$thread->public_id}");
 }
 
 $person = "{id:'m-a', uuid:'a', text:'a', authorName:'Ana', authorInitials:'A', model:null, state:'pending', sentAt:'2026-01-01T00:00:00Z', readAfterSequence:null, attachmentIds:[]}";
@@ -74,7 +74,7 @@ it('shows a message sent while Claude works greyed', function () {
     ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Queued]);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertVisible('[data-testid="thread-message-pending"]')
         ->assertSeeIn('[data-testid="thread-message-pending"]', 'Not read yet')
         ->assertScript("getComputedStyle(document.querySelector('[data-testid=\"thread-message-pending\"]')).opacity", '1')
@@ -91,7 +91,7 @@ it('renders step rows with a chevron, the title block and the model chip', funct
     $publisher->append($thread->id, 'entry', ['role' => 'tool_result', 'toolUseId' => 't2', 'isError' => false, 'text' => 'file']);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")->wait(1)
+    visit("/threads/{$thread->public_id}")->wait(1)
         ->assertSeeIn('[data-testid="thread-title"]', 'Fix the login redirect')
         ->assertMissing('[data-testid="thread-title-block"]')
         ->assertVisible('[data-testid="thread-tool-activity"] [data-testid="step-group"] > summary > .activity-chevron')
@@ -114,7 +114,7 @@ it('folds consecutive single-command messages into one group and shows a lone co
     $publisher->append($thread->id, 'entry', ['role' => 'tool_result', 'toolUseId' => 't7', 'isError' => false, 'text' => 'ok']);
     $this->actingAs($user);
 
-    $page = visit("/threads/{$thread->id}")->wait(1)
+    $page = visit("/threads/{$thread->public_id}")->wait(1)
         ->assertSee('Ran 5 commands')
         ->assertDontSee('Ran 1 command');
 
@@ -166,7 +166,7 @@ it('shows the first message attachment, rendered markdown, the summary once and 
 
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")->wait(1)
+    visit("/threads/{$thread->public_id}")->wait(1)
         ->assertVisible("[data-testid=\"sent-attachment-{$attachment->id}\"] img")
         ->assertPresent('[data-testid="thread-claude-message"] h2')
         ->assertSeeIn('[data-testid="thread-claude-message"] h2', 'Summary')

@@ -67,7 +67,7 @@ export function StartThreadForm({
         repositories: [],
     });
     const [isBlocked, setIsBlocked] = useState(false);
-    const [startedThreadId, setStartedThreadId] = useState<number | null>(null);
+    const [startedThreadId, setStartedThreadId] = useState<string | null>(null);
     useEffect(() => onRepoChange?.(form.data.repo), [form.data.repo, onRepoChange]);
     const editorRef = useRef<AttachmentTextareaHandle>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);

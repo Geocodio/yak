@@ -96,20 +96,21 @@ class VisibilityRoutes
      */
     public static function probes(VisibilityWorld $world): array
     {
-        $thread = $world->thread->id;
-        $task = $world->task->id;
-        $deployment = $world->deployment->id;
+        $thread = $world->thread->public_id;
+        $task = $world->task->public_id;
+        $deployment = $world->deployment->public_id;
         $missing = $world->missingId;
+        $missingPublicId = 'zzzzzzzz';
 
         $probes = self::PROBES;
 
         $result = [];
         foreach ($probes as $name => $probe) {
             $uri = fn (int $id): string => strtr($probe[1], [
-                '{thread}' => (string) ($id === $missing ? $missing : $thread),
-                '{child}' => (string) ($id === $missing ? $missing : $world->child->id),
-                '{task}' => (string) ($id === $missing ? $missing : $task),
-                '{deployment}' => (string) ($id === $missing ? $missing : $deployment),
+                '{thread}' => $id === $missing ? $missingPublicId : $thread,
+                '{child}' => $id === $missing ? $missingPublicId : $world->child->public_id,
+                '{task}' => $id === $missing ? $missingPublicId : $task,
+                '{deployment}' => $id === $missing ? $missingPublicId : $deployment,
                 '{attachment}' => (string) ($id === $missing ? $missing : $world->attachment->id),
                 '{repository}' => (string) ($id === $missing ? $missing : $world->repository->id),
                 '{file}' => (string) ($id === $missing ? $missing : $world->diffFile->id),

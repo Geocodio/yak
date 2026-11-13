@@ -288,7 +288,7 @@ class TeleportUpCompleter
                 'thread_id' => $teleport->thread_id,
                 'teleport_id' => $teleport->id,
                 'owner' => 'yak',
-                'thread_url' => route('threads.show', $teleport->thread_id),
+                'thread_url' => route('threads.show', ['thread' => Thread::publicIdForKey($teleport->thread_id)]),
             ],
         ]];
     }

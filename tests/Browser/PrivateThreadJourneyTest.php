@@ -7,7 +7,7 @@ test('journey 8: share a private thread, the teammate reads it, the owner takes 
     $owner = User::factory()->create();
     $teammate = User::factory()->create(['name' => 'Tessa Teammate']);
     $thread = Thread::factory()->private($owner)->create(['title' => 'Quarterly pricing notes']);
-    $threadUrl = '/threads/' . $thread->id;
+    $threadUrl = '/threads/' . $thread->public_id;
 
     $this->actingAs($owner);
     visit($threadUrl)
@@ -23,8 +23,8 @@ test('journey 8: share a private thread, the teammate reads it, the owner takes 
     $this->actingAs($teammate);
     visit('/threads/new')
         ->click('[data-testid="thread-filter"] button[data-testid="thread-filter-everyone"]')
-        ->assertVisible('[data-testid="thread-row-' . $thread->id . '"]')
-        ->click('[data-testid="thread-row-' . $thread->id . '"]')
+        ->assertVisible('[data-testid="thread-row-' . $thread->public_id . '"]')
+        ->click('[data-testid="thread-row-' . $thread->public_id . '"]')
         ->assertPathIs($threadUrl)
         ->assertSee('Quarterly pricing notes')
         ->assertNoJavaScriptErrors();
@@ -42,5 +42,5 @@ test('journey 8: share a private thread, the teammate reads it, the owner takes 
     expect(json_encode($this->getJson('/threads/list?filter=everyone')->assertOk()->json()))->not->toContain('Quarterly pricing notes');
     expect(json_encode($this->getJson('/threads/list?search=Quarterly')->assertOk()->json()))->not->toContain('Quarterly pricing notes');
     visit('/threads/new')
-        ->assertMissing('[data-testid="thread-row-' . $thread->id . '"]');
+        ->assertMissing('[data-testid="thread-row-' . $thread->public_id . '"]');
 });

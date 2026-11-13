@@ -20,7 +20,7 @@ final class TaskRowData
     /**
      * @param  array{askedFirstName?: ?string, children?: Collection<int, YakTask>, preview?: array{poster?: ?string, gif?: ?string}|null, deployment?: ?BranchDeployment}  $ctx
      * @return array{
-     *     id: int,
+     *     id: string,
      *     status: string,
      *     source: string,
      *     sourceLabel: string,
@@ -58,7 +58,7 @@ final class TaskRowData
         $prState = $task->prState();
 
         return [
-            'id' => $task->id,
+            'id' => $task->public_id,
             'status' => $effective->status->value,
             'source' => $task->source ?? 'manual',
             'sourceLabel' => ucfirst($task->source ?? 'manual'),
@@ -87,7 +87,7 @@ final class TaskRowData
             ),
             'askedFirstName' => $effective->status === TaskStatus::AwaitingCoOwner ? ($ctx['askedFirstName'] ?? null) : null,
             'followUps' => $children->map(fn (YakTask $child): array => [
-                'id' => $child->id,
+                'id' => $child->public_id,
                 'status' => $child->status->value,
                 'description' => self::plainPreview((string) $child->description),
                 'externalId' => $child->external_id,

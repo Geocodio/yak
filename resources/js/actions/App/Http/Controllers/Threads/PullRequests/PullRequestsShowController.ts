@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
-const PullRequestsShowController = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const PullRequestsShowController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: PullRequestsShowController.url(args, options),
     method: 'get',
 })
@@ -19,13 +19,13 @@ PullRequestsShowController.definition = {
 * @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
-PullRequestsShowController.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+PullRequestsShowController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ PullRequestsShowController.url = (args: { thread: number | { id: number } } | [t
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ PullRequestsShowController.url = (args: { thread: number | { id: number } } | [t
 * @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
-PullRequestsShowController.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+PullRequestsShowController.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: PullRequestsShowController.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ PullRequestsShowController.get = (args: { thread: number | { id: number } } | [t
 * @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
-PullRequestsShowController.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+PullRequestsShowController.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: PullRequestsShowController.url(args, options),
     method: 'head',
 })

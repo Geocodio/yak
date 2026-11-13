@@ -25,7 +25,7 @@ function reconnectDelay(attempt: number): number {
 }
 
 /** One terminal shell: asks Yak for a one-time token, opens the bridge socket and reconnects with backoff. */
-export function useTerminalSession(threadId: number): TerminalSession {
+export function useTerminalSession(threadId: string): TerminalSession {
     const [state, setState] = useState<TerminalSessionState>('idle');
     const [reason, setReason] = useState<string | null>(null);
     const socket = useRef<WebSocket | null>(null);

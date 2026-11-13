@@ -100,6 +100,7 @@ type OpenTeleport struct {
 
 type Thread struct {
 	ID                    int             `json:"id"`
+	PublicID              string          `json:"public_id"`
 	Title                 string          `json:"title"`
 	Repo                  string          `json:"repo"`
 	Branch                string          `json:"branch"`

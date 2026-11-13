@@ -41,7 +41,7 @@ test('it renders the task detail page with the task fields', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Tasks/Show')
-            ->where('task.id', $task->id)
+            ->where('task.id', $task->public_id)
             ->where('task.status', 'success')
             ->where('task.repo', 'my-repo')
             ->where('task.externalId', 'SLACK-42')
@@ -109,7 +109,7 @@ test('a follow-up task url redirects to the root task', function () {
     $child = YakTask::factory()->create(['parent_task_id' => $root->id]);
 
     $this->get(route('tasks.show', $child))
-        ->assertRedirect(route('tasks.show', $root) . '#turn-' . $child->id);
+        ->assertRedirect(route('tasks.show', $root) . '#turn-' . $child->public_id);
 });
 
 test('thread includes user and yak entries', function () {
@@ -546,7 +546,7 @@ test('activity rows on an active run carry an absolute time and an ISO createdAt
         ->assertInertia(fn (Assert $page) => $page
             ->where('activity.rows.0.at', $log->created_at->format('g:i:s A'))
             ->where('activity.rows.0.createdAt', $log->created_at->toIso8601String())
-            ->where('task.runId', $task->id));
+            ->where('task.runId', $task->public_id));
 });
 
 test('activity cursors respect the selected attempt', function () {
@@ -777,7 +777,7 @@ test('researchArtifactUrl is present once a research task has its artifact', fun
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => $task->id, 'filename' => $artifact->filename])));
+            ->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => $task->public_id, 'filename' => $artifact->filename])));
 });
 
 test('researchArtifactUrl is null for a research task with no artifact yet', function () {
@@ -965,8 +965,8 @@ test('each yak entry names its run and attempt so the stream attaches to the rig
                 $yak = collect($thread)->where('kind', 'yak')->values();
 
                 return $yak->count() === 2
-                    && $yak[0]['runId'] === $root->id && $yak[0]['attempt'] === 1 && $yak[0]['live'] === false
-                    && $yak[1]['runId'] === $followUp->id && $yak[1]['attempt'] === 2 && $yak[1]['live'] === true
+                    && $yak[0]['runId'] === $root->public_id && $yak[0]['attempt'] === 1 && $yak[0]['live'] === false
+                    && $yak[1]['runId'] === $followUp->public_id && $yak[1]['attempt'] === 2 && $yak[1]['live'] === true
                     && $yak[1]['startedAt'] !== null;
             }));
 });

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,9 +32,18 @@ type DownOptions struct {
 
 // DownInput names the thread and the checkout to bring it to.
 type DownInput struct {
-	ThreadID int
-	Cwd      string
-	Options  DownOptions
+	// ThreadRef is a public id or a legacy numeric id as typed by the user; it wins over ThreadID when set.
+	ThreadRef string
+	ThreadID  int
+	Cwd       string
+	Options   DownOptions
+}
+
+func (in DownInput) threadRef() string {
+	if in.ThreadRef != "" {
+		return in.ThreadRef
+	}
+	return strconv.Itoa(in.ThreadID)
 }
 
 // DownResult says where the thread now lives. The command resumes Claude in ResumeDir.
@@ -63,7 +73,7 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	repo.Dir = top
 
 	var found api.ThreadResponse
-	if err := d.API.Do(ctx, "GET", fmt.Sprintf("/threads/%d", in.ThreadID), nil, &found); err != nil {
+	if err := d.API.Do(ctx, "GET", "/threads/"+in.threadRef(), nil, &found); err != nil {
 		return result, friendly(err)
 	}
 	thread := found.Thread

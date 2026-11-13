@@ -18,8 +18,8 @@ it('shows the needs co-owner status and the asked person', function () {
         ->click('[data-testid="needs-co-owner-chip"]')
         ->waitForEvent('networkidle')
         ->assertQueryStringHas('status', 'awaiting_co_owner')
-        ->assertVisible('[data-testid="task-row-' . $task->id . '"]')
-        ->assertMissing('[data-testid="task-row-' . $unrelated->id . '"]')
+        ->assertVisible('[data-testid="task-row-' . $task->public_id . '"]')
+        ->assertMissing('[data-testid="task-row-' . $unrelated->public_id . '"]')
         ->assertAttribute('[data-testid="needs-co-owner-chip"]', 'aria-pressed', 'true')
         ->assertNoJavaScriptErrors();
 });

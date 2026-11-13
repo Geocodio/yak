@@ -34,8 +34,8 @@ test('the thread list on a page contains only visible threads', function () {
     $response = $this->actingAs($viewer)->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('threadList.threads', 1)
-            ->where('threadList.threads.0.id', $visible->id));
+            ->where('threadList.threads.0.id', $visible->public_id));
 
     expect($response->getContent())->not->toContain('Hidden work')
-        ->and($secret->id)->not->toBe($visible->id);
+        ->and($secret->public_id)->not->toBe($visible->public_id);
 });

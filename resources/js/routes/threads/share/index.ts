@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/ThreadShareController.php:22
 * @route '/threads/{thread}/share'
 */
-export const show = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -19,13 +19,13 @@ show.definition = {
 * @see app/Http/Controllers/Threads/ThreadShareController.php:22
 * @route '/threads/{thread}/share'
 */
-show.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ show.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ show.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 * @see app/Http/Controllers/Threads/ThreadShareController.php:22
 * @route '/threads/{thread}/share'
 */
-show.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ show.get = (args: { thread: number | { id: number } } | [thread: number | { id: 
 * @see app/Http/Controllers/Threads/ThreadShareController.php:22
 * @route '/threads/{thread}/share'
 */
-show.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
@@ -72,7 +72,7 @@ show.head = (args: { thread: number | { id: number } } | [thread: number | { id:
 * @see app/Http/Controllers/Threads/ThreadShareController.php:39
 * @route '/threads/{thread}/share'
 */
-export const update = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+export const update = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: update.url(args, options),
     method: 'put',
 })
@@ -87,13 +87,13 @@ update.definition = {
 * @see app/Http/Controllers/Threads/ThreadShareController.php:39
 * @route '/threads/{thread}/share'
 */
-update.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+update.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -106,7 +106,7 @@ update.url = (args: { thread: number | { id: number } } | [thread: number | { id
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -120,7 +120,7 @@ update.url = (args: { thread: number | { id: number } } | [thread: number | { id
 * @see app/Http/Controllers/Threads/ThreadShareController.php:39
 * @route '/threads/{thread}/share'
 */
-update.put = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+update.put = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: update.url(args, options),
     method: 'put',
 })

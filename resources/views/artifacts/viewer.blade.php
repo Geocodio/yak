@@ -130,7 +130,7 @@
 
 <main class="viewer-content">
     <div class="viewer-card">
-        <iframe src="{{ route('artifacts.show', ['task' => $task->id, 'filename' => $artifact->filename]) }}" title="{{ $artifact->filename }}" sandbox="allow-same-origin" data-testid="artifact-iframe"></iframe>
+        <iframe src="{{ route('artifacts.show', ['task' => $task, 'filename' => $artifact->filename]) }}" title="{{ $artifact->filename }}" sandbox="allow-same-origin" data-testid="artifact-iframe"></iframe>
     </div>
 </main>
 

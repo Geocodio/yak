@@ -28,7 +28,7 @@ export function QueuedMessages({
     editingId,
     onEdit,
 }: {
-    taskId: number;
+    taskId: string;
     messages: QueuedMessage[];
     canEdit: boolean;
     /** The message being pulled back into the composer, while that is in flight. */

@@ -20,7 +20,7 @@ import { useThreadDiff } from './useThreadDiff';
 /** Files past this many start collapsed so a large change does not fetch every diff at once. */
 const OPEN_BY_DEFAULT = 4;
 
-function storageKey(threadId: number, headSha: string): string {
+function storageKey(threadId: string, headSha: string): string {
     return `thread-changes-viewed:${threadId}:${headSha}`;
 }
 
@@ -45,7 +45,7 @@ function writeViewed(key: string, viewed: Set<string>): void {
 export function ChangesPanel({ thread, canDrive, stack = null, focusPath = null, onOpenFile, onSelectView }: PanelProps) {
     const { publishWarning, pullRequest } = usePage<ThreadPageData & Record<string, unknown>>().props;
     const isNarrow = !useMediaQuery('(min-width: 1024px)');
-    const [childId, setChildId] = useState<number | null>(null);
+    const [childId, setChildId] = useState<string | null>(null);
     const { diff, isLoading, error, reload } = useThreadDiff(thread, childId);
     const [filter, setFilter] = useState('');
     const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -129,7 +129,7 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusPath = null,
             <Select
                 options={switchOptions}
                 value={childId === null ? '' : String(childId)}
-                onChange={(value) => { setChildId(value ? Number(value) : null); setSelectedRepo(null); setActiveKey(null); }}
+                onChange={(value) => { setChildId(value || null); setSelectedRepo(null); setActiveKey(null); }}
                 aria-label="Show changes of"
                 data-testid="changes-child-switch"
                 className="min-w-0 flex-1"

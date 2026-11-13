@@ -15,7 +15,7 @@ function readError(value: unknown): EarlyWarningError | null {
 }
 
 /** The early warning in the thread, right after the request, with the requester's co-owner picker. */
-export function EarlyWarningNotice({ taskId, warning }: { taskId: number; warning: EarlyWarningData }) {
+export function EarlyWarningNotice({ taskId, warning }: { taskId: string; warning: EarlyWarningData }) {
     const areas = joinNames(warning.areas.map((area) => `${area.name} (${area.risk} risk)`));
 
     return (
@@ -47,7 +47,7 @@ function Outcome({ children }: { children: ReactNode }) {
     );
 }
 
-function Picker({ taskId, warning }: { taskId: number; warning: EarlyWarningData }) {
+function Picker({ taskId, warning }: { taskId: string; warning: EarlyWarningData }) {
     const [picked, setPicked] = useState<EarlyWarningCandidate | null>(null);
     const [lastAction, setLastAction] = useState<'pick' | 'decline' | null>(null);
     const [isSaving, setIsSaving] = useState(false);

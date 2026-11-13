@@ -80,7 +80,7 @@ it('shares the co-owner panel with viewer access', function (string $role, strin
             ->where('coOwner.viewer.isRequester', false)
             ->where('coOwner.viewer.access', $access)
             ->where('coOwner.viewer.login', 'mhansen')
-            ->where('coOwner.connectUrl', route('settings.github.connect', ['return' => "/tasks/{$this->task->id}"]))
+            ->where('coOwner.connectUrl', route('settings.github.connect', ['return' => "/tasks/{$this->task->public_id}"]))
             ->where('coOwner.linkError', null)
             ->where('task.nextSteps', null)
             ->where('composer.state', 'held')
@@ -100,7 +100,7 @@ it('shares an unlinked viewer without calling GitHub', function () {
 });
 
 it('shows a failed GitHub link on the panel', function () {
-    $this->withSession(['github_link_return' => "/tasks/{$this->task->id}"])
+    $this->withSession(['github_link_return' => "/tasks/{$this->task->public_id}"])
         ->followingRedirects()
         ->get(route('settings.github.callback', ['error' => 'access_denied']))
         ->assertInertia(fn (Assert $page) => $page
@@ -112,7 +112,7 @@ it('shows a taken GitHub account on the panel', function () {
     User::factory()->withGitHub(777, 'dana')->create(['name' => 'Dana Owner']);
     Socialite::fake('github', (new Laravel\Socialite\Two\User)->map(['id' => 777, 'nickname' => 'dana', 'name' => 'Dana', 'token' => 'gho_x']));
 
-    $this->withSession(['github_link_return' => "/tasks/{$this->task->id}"])
+    $this->withSession(['github_link_return' => "/tasks/{$this->task->public_id}"])
         ->followingRedirects()
         ->get(route('settings.github.callback'))
         ->assertInertia(fn (Assert $page) => $page

@@ -12,7 +12,7 @@ const LABELS = { queued: 'Queued', cloning: 'Cloning', setup: 'Running setup', r
  * Polls the progress endpoint (JSON, not an Inertia page) and calls
  * `onReady` once every repository is ready.
  */
-export function RepositoryProgress({ threadId, onReady }: { threadId: number; onReady: () => void }) {
+export function RepositoryProgress({ threadId, onReady }: { threadId: string; onReady: () => void }) {
     const [data, setData] = useState<RepositoryProgressData | null>(null);
 
     useEffect(() => {

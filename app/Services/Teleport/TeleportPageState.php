@@ -39,7 +39,7 @@ class TeleportPageState
      *     environmentNote: ?string,
      *     environmentSwitch: ?array{from: string, to: string, at: string},
      *     accountName: ?string,
-     *     continuedFromThreadId: ?int,
+     *     continuedFromThreadId: ?string,
      *     continuedFromTitle: ?string,
      *     canTeleport: bool,
      * }
@@ -73,8 +73,8 @@ class TeleportPageState
             'ownerName' => $device?->user?->name,
             'since' => $since?->toIso8601String(),
             'viewerIsOwner' => $viewerIsOwner,
-            'command' => $onDevice && ! $viewerIsOwner ? '' : "yak teleport {$thread->id}",
-            'link' => "yak://teleport/{$thread->id}",
+            'command' => $onDevice && ! $viewerIsOwner ? '' : "yak teleport {$thread->public_id}",
+            'link' => "yak://teleport/{$thread->public_id}",
             'hasDevices' => $viewer !== null && Device::query()->where('user_id', $viewer->id)->whereNull('revoked_at')->exists(),
             'runningTurn' => TaskRun::query()->where('thread_id', $thread->id)->where('turn_state', TurnState::Running)->exists(),
             'requestedRunningTurn' => $thread->teleport_requested_running_turn,
@@ -84,7 +84,7 @@ class TeleportPageState
             'environmentNote' => $this->environmentNote($thread),
             'environmentSwitch' => $this->environmentSwitch($thread),
             'accountName' => $thread->claudeAccount?->name,
-            'continuedFromThreadId' => $thread->continued_from_thread_id,
+            'continuedFromThreadId' => $thread->continued_from_thread_id === null ? null : Thread::query()->withoutGlobalScopes()->find($thread->continued_from_thread_id, ['id', 'public_id'])?->public_id,
             'continuedFromTitle' => $thread->continued_from_thread_id === null ? null : Thread::query()->whereKey($thread->continued_from_thread_id)->value('title'),
             'canTeleport' => $onDevice ? $viewerIsOwner : $canDrive,
         ];

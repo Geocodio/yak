@@ -39,7 +39,7 @@ function addedByLine(repository: ThreadEnvironmentRepository): string | null {
     return `Added by ${repository.addedBy === 'claude' ? 'Claude' : repository.addedBy} at ${time}`;
 }
 
-export function RepositoryRows({ threadId, repositories, canDrive, onChanged, onRemove }: { threadId: number; repositories: ThreadEnvironmentRepository[]; canDrive: boolean; onChanged: () => void; onRemove?: (repo: string) => void }) {
+export function RepositoryRows({ threadId, repositories, canDrive, onChanged, onRemove }: { threadId: string; repositories: ThreadEnvironmentRepository[]; canDrive: boolean; onChanged: () => void; onRemove?: (repo: string) => void }) {
     const send = (method: 'patch' | 'post', url: string, data: Record<string, string>) =>
         router[method](url, data, { preserveScroll: true, preserveState: true, onFinish: onChanged });
 

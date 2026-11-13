@@ -25,7 +25,7 @@ use Illuminate\Support\Str;
  * The sidebar's thread list: open root threads the viewer may see, those that
  * need the viewer first, each with its open sub-threads nested underneath.
  *
- * A row is `array{id: int, title: string, repo: string, status: string,
+ * A row is `array{id: string, title: string, repo: string, status: string,
  * needsYouReason: ?string, needsYouLabel: ?string, isPrivate: bool, isShared: bool,
  * isUnattended: bool, ownerInitials: ?string, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
  * children: list<array<string, mixed>>}`.
@@ -190,7 +190,7 @@ class ThreadList
         [$reason, $label] = self::needsYou($thread, $run, $seen->get($thread->id));
 
         return [
-            'id' => $thread->id,
+            'id' => $thread->public_id,
             'title' => Str::limit($thread->title, 120),
             'repo' => $thread->repo,
             'status' => self::status($thread, $run)->value,

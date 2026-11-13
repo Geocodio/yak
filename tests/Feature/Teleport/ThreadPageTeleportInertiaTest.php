@@ -19,7 +19,7 @@ it('renders the Threads/Show page with the teleport state for every state', func
             ->component('Threads/Show')
             ->where('teleport.state', $state === 'failed' ? 'none' : $state)
             ->where('thread.ownerSide', $state === 'on_device' ? 'device' : 'yak')
-            ->where('teleport.link', "yak://teleport/{$thread->id}"));
+            ->where('teleport.link', "yak://teleport/{$thread->public_id}"));
 })->with([
     'none' => ['none', fn () => Thread::factory()->create()],
     'waiting' => ['waiting', fn () => Thread::factory()->create(['waiting_for_computer_at' => now()])],

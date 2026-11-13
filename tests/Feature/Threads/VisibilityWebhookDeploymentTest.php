@@ -53,12 +53,12 @@ it('links a webhook-created deployment to the thread task and hides it from stra
     expect($deployment->yak_task_id)->toBe($this->world->task->id);
 
     foreach (['other', 'admin'] as $stranger) {
-        $this->actingAs($this->world->{$stranger})->get("/deployments/{$deployment->id}")->assertNotFound();
+        $this->actingAs($this->world->{$stranger})->get("/deployments/{$deployment->public_id}")->assertNotFound();
         $this->actingAs($this->world->{$stranger})->get('/deployments?status=all')
             ->assertOk()->assertInertia(fn ($page) => $page->has('deployments.data', 0));
     }
 
-    $this->actingAs($this->world->owner)->get("/deployments/{$deployment->id}")->assertOk();
+    $this->actingAs($this->world->owner)->get("/deployments/{$deployment->public_id}")->assertOk();
 });
 
 it('leaves a deployment of a branch with no thread task unlinked and visible to all', function () {
@@ -67,7 +67,7 @@ it('leaves a deployment of a branch with no thread task unlinked and visible to 
     $deployment = BranchDeployment::withoutGlobalScopes()->where('branch_name', 'feat/plain')->sole();
     expect($deployment->yak_task_id)->toBeNull();
 
-    $this->actingAs($this->world->other)->get("/deployments/{$deployment->id}")->assertOk();
+    $this->actingAs($this->world->other)->get("/deployments/{$deployment->public_id}")->assertOk();
 });
 
 it('links an unlinked old deployment when its pull request is reopened', function () {

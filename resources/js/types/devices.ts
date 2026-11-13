@@ -23,6 +23,6 @@ export type Device = {
     last_seen_at: string | null;
     is_stale: boolean;
     stale_days: number | null;
-    last_teleport: { thread_id: number; title: string; at: string } | null;
-    owned_threads: { id: number; title: string }[];
+    last_teleport: { thread_id: string; title: string; at: string } | null;
+    owned_threads: { id: string; title: string }[];
 };

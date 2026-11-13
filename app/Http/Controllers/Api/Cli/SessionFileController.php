@@ -28,7 +28,7 @@ class SessionFileController extends Controller
 
     public function __construct(private readonly SessionStore $store, private readonly TeleportAuthorizer $authorizer) {}
 
-    public function length(Request $request, int $thread): JsonResponse
+    public function length(Request $request, string $thread): JsonResponse
     {
         $thread = $this->authorized($request, $thread, false);
         $data = $this->validatedPath($request);
@@ -36,7 +36,7 @@ class SessionFileController extends Controller
         return response()->json(['length' => $this->store->length($thread, $data['session_id'], $data['rel_path'])]);
     }
 
-    public function append(Request $request, int $thread): JsonResponse
+    public function append(Request $request, string $thread): JsonResponse
     {
         $thread = $this->authorized($request, $thread, true);
         $data = $request->validate([
@@ -70,7 +70,7 @@ class SessionFileController extends Controller
         return response()->json(['length' => $outcome->length]);
     }
 
-    public function checkpoint(Request $request, int $thread): JsonResponse
+    public function checkpoint(Request $request, string $thread): JsonResponse
     {
         $thread = $this->authorized($request, $thread, true);
         $data = $request->validate([
@@ -88,7 +88,7 @@ class SessionFileController extends Controller
             : $this->conflict(['matched' => false, 'length' => $length]);
     }
 
-    public function file(Request $request, int $thread): JsonResponse
+    public function file(Request $request, string $thread): JsonResponse
     {
         $thread = $this->authorized($request, $thread, true);
         $data = $request->validate([
@@ -112,7 +112,7 @@ class SessionFileController extends Controller
         return response()->json(['stored' => $stored]);
     }
 
-    public function files(Request $request, int $thread): JsonResponse
+    public function files(Request $request, string $thread): JsonResponse
     {
         $thread = $this->authorized($request, $thread, false);
         $data = $request->validate(['session_id' => ['required', 'string']]);
@@ -120,7 +120,7 @@ class SessionFileController extends Controller
         return response()->json(['files' => $this->store->files($thread, $data['session_id'])]);
     }
 
-    public function read(Request $request, int $thread): Response|JsonResponse
+    public function read(Request $request, string $thread): Response|JsonResponse
     {
         $thread = $this->authorized($request, $thread, false);
         $data = $this->validatedPath($request) + $request->validate(['offset' => ['nullable', 'integer', 'min:0']]);
@@ -142,7 +142,7 @@ class SessionFileController extends Controller
         ]);
     }
 
-    public function tree(Request $request, int $thread): JsonResponse
+    public function tree(Request $request, string $thread): JsonResponse
     {
         $thread = $this->authorized($request, $thread, false);
         $data = $request->validate(['session_id' => ['required', 'string']]);
@@ -150,7 +150,7 @@ class SessionFileController extends Controller
         return response()->json(['entries' => $this->store->tree($thread, $data['session_id'])]);
     }
 
-    private function authorized(Request $request, int $threadId, bool $write): Thread
+    private function authorized(Request $request, string $threadId, bool $write): Thread
     {
         $thread = $this->cliThread($request, $threadId);
         $this->authorizer->forSession($this->cliDevice($request), $thread, $write)->touchCall();

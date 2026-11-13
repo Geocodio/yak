@@ -34,7 +34,7 @@ class StoreThreadController extends Controller
 
         // With extra repositories the dialog stays open to show per-repo progress.
         if (! empty($validated['repositories'])) {
-            return back()->with('startedThreadId', $thread->id);
+            return back()->with('startedThreadId', $thread->public_id);
         }
 
         return redirect()->route('threads.show', $thread);

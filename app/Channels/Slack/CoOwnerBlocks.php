@@ -481,7 +481,7 @@ class CoOwnerBlocks
 
     private static function taskUrl(CoOwnerRequest $request): string
     {
-        return rtrim((string) config('app.url'), '/') . '/tasks/' . $request->task_id;
+        return rtrim((string) config('app.url'), '/') . route('tasks.show', ['task' => YakTask::publicIdForKey($request->task_id)], false);
     }
 
     private static function taskLink(CoOwnerRequest $request): string

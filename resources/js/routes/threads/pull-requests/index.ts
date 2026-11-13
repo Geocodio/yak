@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
-export const show = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -19,13 +19,13 @@ show.definition = {
 * @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
-show.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ show.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ show.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 * @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
-show.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ show.get = (args: { thread: number | { id: number } } | [thread: number | { id: 
 * @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
-show.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
@@ -72,7 +72,7 @@ show.head = (args: { thread: number | { id: number } } | [thread: number | { id:
 * @see app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
 * @route '/threads/{thread}/pull-requests/order'
 */
-export const order = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+export const order = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: order.url(args, options),
     method: 'put',
 })
@@ -87,13 +87,13 @@ order.definition = {
 * @see app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
 * @route '/threads/{thread}/pull-requests/order'
 */
-order.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+order.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -106,7 +106,7 @@ order.url = (args: { thread: number | { id: number } } | [thread: number | { id:
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -120,7 +120,7 @@ order.url = (args: { thread: number | { id: number } } | [thread: number | { id:
 * @see app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
 * @route '/threads/{thread}/pull-requests/order'
 */
-order.put = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+order.put = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: order.url(args, options),
     method: 'put',
 })
@@ -130,7 +130,7 @@ order.put = (args: { thread: number | { id: number } } | [thread: number | { id:
 * @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
-export const fix = (args: { thread: number | { id: number }, repository: string | number } | [thread: number | { id: number }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const fix = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: fix.url(args, options),
     method: 'post',
 })
@@ -145,7 +145,7 @@ fix.definition = {
 * @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
-fix.url = (args: { thread: number | { id: number }, repository: string | number } | [thread: number | { id: number }, repository: string | number ], options?: RouteQueryOptions) => {
+fix.url = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -157,7 +157,7 @@ fix.url = (args: { thread: number | { id: number }, repository: string | number 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
         repository: args.repository,
     }
@@ -173,7 +173,7 @@ fix.url = (args: { thread: number | { id: number }, repository: string | number 
 * @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
-fix.post = (args: { thread: number | { id: number }, repository: string | number } | [thread: number | { id: number }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+fix.post = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: fix.url(args, options),
     method: 'post',
 })

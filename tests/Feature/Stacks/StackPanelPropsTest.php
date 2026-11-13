@@ -14,16 +14,16 @@ it('gives a child page its parent for the banner', function () {
     $parent = Thread::factory()->create(['title' => 'Root work', 'name' => 'root-work']);
     $child = Thread::factory()->child($parent)->create();
 
-    $this->actingAs(User::factory()->create())->get("/threads/{$child->id}")->assertInertia(fn (Assert $page) => $page
-        ->where('thread.parentThreadId', $parent->id)
-        ->where('stackParent.id', $parent->id)
+    $this->actingAs(User::factory()->create())->get("/threads/{$child->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('thread.parentThreadId', $parent->public_id)
+        ->where('stackParent.id', $parent->public_id)
         ->where('stackParent.title', 'Root work'));
 });
 
 it('gives a root page no parent', function () {
     $root = Thread::factory()->create();
 
-    $this->actingAs(User::factory()->create())->get("/threads/{$root->id}")->assertInertia(fn (Assert $page) => $page
+    $this->actingAs(User::factory()->create())->get("/threads/{$root->public_id}")->assertInertia(fn (Assert $page) => $page
         ->where('thread.parentThreadId', null)
         ->where('stackParent', null));
 });
@@ -57,5 +57,5 @@ it('stack show reports the changed file count of a child, or null without a diff
 
     $response = $this->actingAs(User::factory()->create())->getJson(route('threads.stack.show', $root));
 
-    expect(collect($response->json('children'))->pluck('filesChanged', 'id')->all())->toBe([$withDiff->id => 3, $withoutDiff->id => null]);
+    expect(collect($response->json('children'))->pluck('filesChanged', 'id')->all())->toBe([$withDiff->public_id => 3, $withoutDiff->public_id => null]);
 });

@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/ThreadDiffController.php:22
 * @route '/threads/{thread}/diff/files/{file}'
 */
-export const show = (args: { thread: number | { id: number }, file: string | number } | [thread: number | { id: number }, file: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { thread: string | { public_id: string }, file: string | number } | [thread: string | { public_id: string }, file: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -19,7 +19,7 @@ show.definition = {
 * @see app/Http/Controllers/Threads/ThreadDiffController.php:22
 * @route '/threads/{thread}/diff/files/{file}'
 */
-show.url = (args: { thread: number | { id: number }, file: string | number } | [thread: number | { id: number }, file: string | number ], options?: RouteQueryOptions) => {
+show.url = (args: { thread: string | { public_id: string }, file: string | number } | [thread: string | { public_id: string }, file: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -31,7 +31,7 @@ show.url = (args: { thread: number | { id: number }, file: string | number } | [
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
         file: args.file,
     }
@@ -47,7 +47,7 @@ show.url = (args: { thread: number | { id: number }, file: string | number } | [
 * @see app/Http/Controllers/Threads/ThreadDiffController.php:22
 * @route '/threads/{thread}/diff/files/{file}'
 */
-show.get = (args: { thread: number | { id: number }, file: string | number } | [thread: number | { id: number }, file: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { thread: string | { public_id: string }, file: string | number } | [thread: string | { public_id: string }, file: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -57,7 +57,7 @@ show.get = (args: { thread: number | { id: number }, file: string | number } | [
 * @see app/Http/Controllers/Threads/ThreadDiffController.php:22
 * @route '/threads/{thread}/diff/files/{file}'
 */
-show.head = (args: { thread: number | { id: number }, file: string | number } | [thread: number | { id: number }, file: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { thread: string | { public_id: string }, file: string | number } | [thread: string | { public_id: string }, file: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })

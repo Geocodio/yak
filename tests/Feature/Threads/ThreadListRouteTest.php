@@ -16,7 +16,7 @@ test('returns the mine list by default', function () {
 
     $this->actingAs($user)->getJson(route('threads.list'))
         ->assertOk()
-        ->assertJsonPath('threads.0.id', $mine->id)
+        ->assertJsonPath('threads.0.id', $mine->public_id)
         ->assertJsonCount(1, 'threads');
 });
 
@@ -65,7 +65,7 @@ test("list never includes another user's private thread", function () {
 
     $this->actingAs(User::factory()->create())->getJson(route('threads.list', ['filter' => 'everyone']))
         ->assertOk()
-        ->assertJsonMissing(['id' => $thread->id]);
+        ->assertJsonMissing(['id' => $thread->public_id]);
 });
 
 test('the yak filter is accepted and the new thread data loads only on request', function () {

@@ -20,7 +20,7 @@ beforeEach(function () {
     [$this->device, $this->token] = makeDevice();
     $this->thread = Thread::factory()->create(['owner_side' => 'device', 'owner_device_id' => $this->device->id]);
     $this->teleport = Teleport::factory()->up()->create(['thread_id' => $this->thread->id, 'device_id' => $this->device->id]);
-    $this->base = "/api/cli/v1/threads/{$this->thread->id}/session";
+    $this->base = "/api/cli/v1/threads/{$this->thread->public_id}/session";
     $this->rel = TELEPORT_SESSION_ID . '.jsonl';
 });
 
@@ -191,7 +191,7 @@ it('rate limits session calls at 1200 per device and spares a second device', fu
     $this->getJson($url, cliHeaders($this->token))
         ->assertStatus(429)->assertJsonPath('error', 'rate_limited')->assertHeader('Retry-After');
 
-    $otherBase = '/api/cli/v1/threads/' . $otherThread->id . '/session';
+    $otherBase = '/api/cli/v1/threads/' . $otherThread->public_id . '/session';
     $this->getJson("{$otherBase}/length" . teleportQuery($this->rel), cliHeaders($otherToken))->assertOk();
 });
 

@@ -24,7 +24,7 @@ class ThreadPreviewPanelState
     ) {}
 
     /**
-     * @return array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: int, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string, port: ?int, coldStartCommand: ?string}
+     * @return array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: string, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string, port: ?int, coldStartCommand: ?string}
      */
     public function build(Thread $thread, ?User $viewer): array
     {
@@ -86,14 +86,14 @@ class ThreadPreviewPanelState
     }
 
     /**
-     * @return array{threadId: int, title: string, kind: string, url: ?string, state: string, canRestore: bool}
+     * @return array{threadId: string, title: string, kind: string, url: ?string, state: string, canRestore: bool}
      */
     private function target(Thread $thread, ?User $viewer): array
     {
         $state = $this->stateFor($thread);
 
         return [
-            'threadId' => $thread->id,
+            'threadId' => $thread->public_id,
             'title' => $thread->title,
             'kind' => $thread->kind->value,
             'url' => $this->urlFor($thread, $state),

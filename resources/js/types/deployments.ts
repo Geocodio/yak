@@ -1,7 +1,7 @@
 export type DeploymentTone = 'ok' | 'warn' | 'fail' | 'info' | 'idle';
 
 export type DeploymentRow = {
-    id: number;
+    id: string;
     repoSlug: string;
     branch: string;
     status: string;
@@ -14,7 +14,7 @@ export type DeploymentRow = {
 };
 
 export type DeploymentDetail = {
-    id: number;
+    id: string;
     hostname: string;
     url: string;
     repoSlug: string;

@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
-const StackShowController = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const StackShowController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: StackShowController.url(args, options),
     method: 'get',
 })
@@ -19,13 +19,13 @@ StackShowController.definition = {
 * @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
-StackShowController.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+StackShowController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ StackShowController.url = (args: { thread: number | { id: number } } | [thread: 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ StackShowController.url = (args: { thread: number | { id: number } } | [thread: 
 * @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
-StackShowController.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+StackShowController.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: StackShowController.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ StackShowController.get = (args: { thread: number | { id: number } } | [thread: 
 * @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
-StackShowController.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+StackShowController.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: StackShowController.url(args, options),
     method: 'head',
 })

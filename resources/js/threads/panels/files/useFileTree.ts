@@ -22,7 +22,7 @@ export type FileTree = {
 };
 
 /** Loads one directory per expansion. The scope root is the empty path. */
-export function useFileTree(threadId: number, scope: FileScope): FileTree {
+export function useFileTree(threadId: string, scope: FileScope): FileTree {
     const [entriesByDirectory, setEntriesByDirectory] = useState<Record<string, FileEntryData[]>>({});
     const [root, setRoot] = useState('');
     const [changedPaths, setChangedPaths] = useState<string[]>([]);

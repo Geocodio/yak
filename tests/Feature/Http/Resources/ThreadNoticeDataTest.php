@@ -235,7 +235,7 @@ it('reports the queue position and turn counts for a thread waiting for its acco
 it('lists the awake sandboxes for a thread waiting for a sandbox', function () {
     config(['yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 4]);
     $viewer = User::factory()->create();
-    Thread::factory()->count(6)->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => null])->each(fn (Thread $thread) => $thread->update(['sandbox_container' => 'c-' . $thread->id]));
+    Thread::factory()->count(6)->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => null])->each(fn (Thread $thread) => $thread->update(['sandbox_container' => 'c-' . $thread->public_id]));
     Thread::factory()->paused()->create(['owner_user_id' => $viewer->id, 'last_activity_at' => now()->subMinutes(40)]);
     Thread::factory()->paused()->create(['last_activity_at' => now()->subMinutes(5)]);
     $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now(), 'owner_user_id' => $viewer->id]);
@@ -255,7 +255,7 @@ it('offers the viewer a paused sandbox to stop when their own share is full', fu
     $paused = Thread::factory()->paused()->create(['owner_user_id' => $viewer->id, 'last_activity_at' => now()->subHour()]);
     $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now(), 'owner_user_id' => $viewer->id]);
 
-    expect(ThreadNoticeData::for($thread, $viewer)['waiting'])->toMatchArray(['ownSlotsUsed' => 1, 'ownSlotsCap' => 1, 'stoppableThreadId' => $paused->id])
+    expect(ThreadNoticeData::for($thread, $viewer)['waiting'])->toMatchArray(['ownSlotsUsed' => 1, 'ownSlotsCap' => 1, 'stoppableThreadId' => $paused->public_id])
         ->and(ThreadNoticeData::for($thread, User::factory()->create())['waiting']['stoppableThreadId'])->toBeNull();
 });
 

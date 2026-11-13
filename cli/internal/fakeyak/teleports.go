@@ -738,6 +738,13 @@ func (s *Server) threadExtraRoute(w http.ResponseWriter, r *http.Request, device
 	idText, call, _ := strings.Cut(rest, "/")
 	threadID, err := strconv.Atoi(idText)
 	thread, ok := s.Threads[threadID]
+	if err != nil {
+		thread, ok = s.threadByPublicID(idText)
+		if ok {
+			threadID = thread.ID
+			err = nil
+		}
+	}
 	if err != nil || !ok {
 		writeErr(w, 404, "thread_not_found", "That thread was not found.", nil)
 		return
@@ -813,4 +820,14 @@ func (s *Server) ResetAcks(threadID int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.tele.acked, threadID)
+}
+
+// threadByPublicID finds a thread by the public id the real server puts in its URLs.
+func (s *Server) threadByPublicID(publicID string) (*api.Thread, bool) {
+	for _, thread := range s.Threads {
+		if thread.PublicID == publicID {
+			return thread, true
+		}
+	}
+	return nil, false
 }

@@ -51,7 +51,7 @@ it('walks shell access from key upload to revocation', function () {
 
     // The CLI lookup returns the same address.
     [, $token] = makeDevice($owner);
-    $this->getJson("/api/cli/v1/threads/{$thread->id}/ssh", cliHeaders($token))
+    $this->getJson("/api/cli/v1/threads/{$thread->public_id}/ssh", cliHeaders($token))
         ->assertOk()
         ->assertJsonPath('target.host', $address);
 
@@ -64,7 +64,7 @@ it('walks shell access from key upload to revocation', function () {
 
     // A terminal session installs an ephemeral key that the sweep removes after its ttl.
     $origin = 'https://yak.example.test';
-    $session = $this->actingAs($owner)->withHeader('Origin', $origin)->postJson("/threads/{$thread->id}/terminal-sessions")->assertOk();
+    $session = $this->actingAs($owner)->withHeader('Origin', $origin)->postJson("/threads/{$thread->public_id}/terminal-sessions")->assertOk();
     $ephemeral = journeyKeyLine();
     $this->withToken('secret-token')->postJson('/internal/ssh/terminal/redeem', [
         'token' => $session->json('token'),
@@ -81,5 +81,5 @@ it('walks shell access from key upload to revocation', function () {
     $thread->update(['owner_user_id' => $stranger->id]);
     $this->withToken('secret-token')->postJson('/internal/ssh/authorized-keys', ['fingerprint' => $key->fingerprint])
         ->assertExactJson(['lines' => []]);
-    $this->getJson("/api/cli/v1/threads/{$thread->id}/ssh", cliHeaders($token))->assertNotFound();
+    $this->getJson("/api/cli/v1/threads/{$thread->public_id}/ssh", cliHeaders($token))->assertNotFound();
 });

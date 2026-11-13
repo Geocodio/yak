@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-export const show = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -19,7 +19,7 @@ show.definition = {
 * @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-show.url = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions) => {
+show.url = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             task: args[0],
@@ -31,7 +31,7 @@ show.url = (args: { task: string | number | { id: string | number }, asset: stri
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
         asset: args.asset,
     }
@@ -47,7 +47,7 @@ show.url = (args: { task: string | number | { id: string | number }, asset: stri
 * @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-show.get = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -57,7 +57,7 @@ show.get = (args: { task: string | number | { id: string | number }, asset: stri
 * @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-show.head = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })

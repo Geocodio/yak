@@ -17,7 +17,7 @@ beforeEach(function () {
     config()->set('yak.ssh.terminal_ws_url', 'wss://yak.example.test/terminal/ws');
 });
 
-function openTerminal(User $user, int $threadId, string $origin = TERMINAL_ORIGIN)
+function openTerminal(User $user, int|string $threadId, string $origin = TERMINAL_ORIGIN)
 {
     return test()->actingAs($user)->withHeader('Origin', $origin)->postJson("/threads/{$threadId}/terminal-sessions");
 }
@@ -45,7 +45,7 @@ it('issues a token and wakes the sandbox', function () {
     $thread = liveTeamThread();
     $user = User::factory()->create();
 
-    $response = openTerminal($user, $thread->id)->assertOk();
+    $response = openTerminal($user, $thread->public_id)->assertOk();
 
     expect($response->json('token'))->toBeString()->not->toBeEmpty()
         ->and($response->json('url'))->toBe('wss://yak.example.test/terminal/ws?token=' . $response->json('token'))
@@ -54,7 +54,7 @@ it('issues a token and wakes the sandbox', function () {
 });
 
 it('stores only a hash of the token', function () {
-    $token = openTerminal(User::factory()->create(), liveTeamThread()->id)->json('token');
+    $token = openTerminal(User::factory()->create(), liveTeamThread()->public_id)->json('token');
 
     expect(Cache::get('ssh:terminal-token:' . $token))->toBeNull()
         ->and(Cache::get('ssh:terminal-token:' . hash('sha256', $token)))->toBeArray();
@@ -65,7 +65,7 @@ it('answers 202 waiting when no sandbox slot is free', function () {
     Thread::factory()->paused()->create(['sandbox_state' => ThreadSandboxState::Running]);
     $thread = Thread::factory()->stopped()->create();
 
-    openTerminal(User::factory()->create(), $thread->id)->assertStatus(202)->assertExactJson(['state' => 'waiting']);
+    openTerminal(User::factory()->create(), $thread->public_id)->assertStatus(202)->assertExactJson(['state' => 'waiting']);
 });
 
 it('refuses a viewer who cannot drive with 403', function () {
@@ -73,7 +73,7 @@ it('refuses a viewer who cannot drive with 403', function () {
     $thread = Thread::factory()->paused()->private()->create();
     ThreadShare::factory()->create(['thread_id' => $thread->id, 'user_id' => $viewer->id]);
 
-    openTerminal($viewer, $thread->id)->assertForbidden()->assertJson(['error' => 'forbidden']);
+    openTerminal($viewer, $thread->public_id)->assertForbidden()->assertJson(['error' => 'forbidden']);
 });
 
 it('answers a hidden private thread exactly like a missing one', function () {
@@ -83,18 +83,18 @@ it('answers a hidden private thread exactly like a missing one', function () {
     config(['claude-accounts.admin_user_ids' => [$admin->id]]);
     $thread = Thread::factory()->paused()->private($owner)->create();
 
-    $missing = openTerminal($other, 999_999);
+    $missing = openTerminal($other, 'zzzzzzzz');
 
     foreach ([$other, $admin] as $person) {
-        $hidden = openTerminal($person, $thread->id);
+        $hidden = openTerminal($person, $thread->public_id);
         expect($hidden->getStatusCode())->toBe(404)->and($hidden->json('message'))->toBe($missing->json('message'));
     }
 
-    openTerminal($owner, $thread->id)->assertOk();
+    openTerminal($owner, $thread->public_id)->assertOk();
 });
 
 it('maps unavailable threads to 409 codes', function (Closure $make, string $error) {
-    openTerminal(User::factory()->create(), $make()->id)->assertStatus(409)->assertJson(['error' => $error]);
+    openTerminal(User::factory()->create(), $make()->public_id)->assertStatus(409)->assertJson(['error' => $error]);
 })->with([
     'closed' => [fn () => Thread::factory()->paused()->closed()->create(), 'thread_closed'],
     'device' => [fn () => Thread::factory()->paused()->ownedByDevice()->create(), 'thread_owned_by_device'],
@@ -105,17 +105,17 @@ it('refuses an origin that is not allowed', function () {
     $thread = liveTeamThread();
     $user = User::factory()->create();
 
-    openTerminal($user, $thread->id, 'https://evil.example.test')->assertForbidden();
-    test()->actingAs($user)->postJson("/threads/{$thread->id}/terminal-sessions")->assertForbidden();
+    openTerminal($user, $thread->public_id, 'https://evil.example.test')->assertForbidden();
+    test()->actingAs($user)->postJson("/threads/{$thread->public_id}/terminal-sessions")->assertForbidden();
 
     config(['yak.ssh.terminal_allowed_origins' => ['https://alt.example.test']]);
-    openTerminal($user, $thread->id, 'https://alt.example.test')->assertOk();
+    openTerminal($user, $thread->public_id, 'https://alt.example.test')->assertOk();
 });
 
 it('redeems a token once and installs the key', function () {
     $thread = liveTeamThread();
     $driver = User::factory()->create();
-    $token = openTerminal($driver, $thread->id)->json('token');
+    $token = openTerminal($driver, $thread->public_id)->json('token');
     $line = terminalKeyLine();
 
     redeemTerminal($token, $line)->assertOk()->assertExactJson([
@@ -133,7 +133,7 @@ it('redeems a token once and installs the key', function () {
 });
 
 it('refuses an expired token', function () {
-    $token = openTerminal(User::factory()->create(), liveTeamThread()->id)->json('token');
+    $token = openTerminal(User::factory()->create(), liveTeamThread()->public_id)->json('token');
 
     $this->travel(61)->seconds();
 
@@ -141,7 +141,7 @@ it('refuses an expired token', function () {
 });
 
 it('refuses a token redeemed from another origin and burns it', function () {
-    $token = openTerminal(User::factory()->create(), liveTeamThread()->id)->json('token');
+    $token = openTerminal(User::factory()->create(), liveTeamThread()->public_id)->json('token');
 
     redeemTerminal($token, origin: 'https://evil.example.test')->assertForbidden();
     redeemTerminal($token)->assertForbidden();
@@ -150,7 +150,7 @@ it('refuses a token redeemed from another origin and burns it', function () {
 it('opens only the thread the token was issued for', function () {
     $first = liveTeamThread();
     $second = liveTeamThread();
-    $token = openTerminal(User::factory()->create(), $first->id)->json('token');
+    $token = openTerminal(User::factory()->create(), $first->public_id)->json('token');
 
     redeemTerminal($token)->assertJsonPath('thread_id', $first->id);
 
@@ -160,7 +160,7 @@ it('opens only the thread the token was issued for', function () {
 
 it('refuses a redeem after the thread turned private', function () {
     $thread = liveTeamThread();
-    $token = openTerminal(User::factory()->create(), $thread->id)->json('token');
+    $token = openTerminal(User::factory()->create(), $thread->public_id)->json('token');
 
     $thread->update(['visibility' => 'private', 'owner_user_id' => User::factory()->create()->id]);
 
@@ -168,17 +168,17 @@ it('refuses a redeem after the thread turned private', function () {
 });
 
 it('refuses a bad public key and a missing internal token', function () {
-    $token = openTerminal(User::factory()->create(), liveTeamThread()->id)->json('token');
+    $token = openTerminal(User::factory()->create(), liveTeamThread()->public_id)->json('token');
 
     redeemTerminal($token, 'not a key')->assertForbidden();
 
-    $token = openTerminal(User::factory()->create(), liveTeamThread()->id)->json('token');
+    $token = openTerminal(User::factory()->create(), liveTeamThread()->public_id)->json('token');
     $this->withToken('wrong')->postJson('/internal/ssh/terminal/redeem', ['token' => $token, 'public_key' => terminalKeyLine(), 'origin' => TERMINAL_ORIGIN])->assertUnauthorized();
 });
 
 it('sweeps the short-lived key after its ttl', function () {
     $thread = liveTeamThread();
-    $token = openTerminal(User::factory()->create(), $thread->id)->json('token');
+    $token = openTerminal(User::factory()->create(), $thread->public_id)->json('token');
     $line = terminalKeyLine();
     redeemTerminal($token, $line)->assertOk();
     $thread->update(['sandbox_state' => ThreadSandboxState::Running]);

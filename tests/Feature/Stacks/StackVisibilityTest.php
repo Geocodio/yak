@@ -40,7 +40,7 @@ it('answers a private stack route like a missing thread and writes nothing', fun
 it('serves the owner the stack of a private thread', function () {
     $world = VisibilityWorld::build();
 
-    $this->actingAs($world->owner)->getJson("/threads/{$world->thread->id}/stack")->assertOk();
+    $this->actingAs($world->owner)->getJson("/threads/{$world->thread->public_id}/stack")->assertOk();
 });
 
 it('never lists a private stack in list_threads for another viewer', function () {

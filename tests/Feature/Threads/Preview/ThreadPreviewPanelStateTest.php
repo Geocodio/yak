@@ -63,7 +63,7 @@ it('carries the config values and the teleport command for a local machine threa
         'safariFallback' => false,
         'awakeCap' => 8,
         'personAwakeCap' => 4,
-        'teleportCommand' => "yak teleport {$thread->id}",
+        'teleportCommand' => "yak teleport {$thread->public_id}",
     ]);
 });
 
@@ -76,7 +76,7 @@ it('lists children with their own sandbox as targets and skips research children
 
     $targets = panelState($parent)['targets'];
 
-    expect(array_column($targets, 'threadId'))->toBe([$parent->id, $implement->id, $mockup->id])
+    expect(array_column($targets, 'threadId'))->toBe([$parent->public_id, $implement->public_id, $mockup->public_id])
         ->and($targets[1]['state'])->toBe('sandbox_asleep');
 });
 
@@ -98,7 +98,7 @@ it('uses the primary repository as the label', function () {
 it('builds preview data only for people who may see the thread', function () {
     $thread = Thread::factory()->private()->create();
 
-    $this->withoutVite()->actingAs(User::factory()->create())->get("/threads/{$thread->id}")->assertNotFound();
+    $this->withoutVite()->actingAs(User::factory()->create())->get("/threads/{$thread->public_id}")->assertNotFound();
 });
 
 it('carries the manifest port and cold start command once the dev server has read them', function () {

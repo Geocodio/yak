@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
-const AskToFixController = (args: { thread: number | { id: number }, repository: string | number } | [thread: number | { id: number }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+const AskToFixController = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: AskToFixController.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ AskToFixController.definition = {
 * @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
-AskToFixController.url = (args: { thread: number | { id: number }, repository: string | number } | [thread: number | { id: number }, repository: string | number ], options?: RouteQueryOptions) => {
+AskToFixController.url = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -31,7 +31,7 @@ AskToFixController.url = (args: { thread: number | { id: number }, repository: s
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
         repository: args.repository,
     }
@@ -47,7 +47,7 @@ AskToFixController.url = (args: { thread: number | { id: number }, repository: s
 * @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
-AskToFixController.post = (args: { thread: number | { id: number }, repository: string | number } | [thread: number | { id: number }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+AskToFixController.post = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: AskToFixController.url(args, options),
     method: 'post',
 })

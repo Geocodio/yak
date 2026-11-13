@@ -78,12 +78,20 @@ class Artifact extends Model
         return $this->belongsTo(YakTask::class, 'yak_task_id');
     }
 
+    /**
+     * The owning task's public id, which artifact URLs carry in place of the primary key.
+     */
+    public function taskPublicId(): ?string
+    {
+        return YakTask::publicIdForKey($this->yak_task_id);
+    }
+
     public function signedUrl(int $expiryDays = 7): string
     {
         return URL::temporarySignedRoute(
             'artifacts.show',
             now()->addDays($expiryDays),
-            ['task' => $this->yak_task_id, 'filename' => $this->filename]
+            ['task' => $this->taskPublicId(), 'filename' => $this->filename]
         );
     }
 

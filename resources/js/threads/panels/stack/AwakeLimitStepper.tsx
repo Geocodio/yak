@@ -5,7 +5,7 @@ import { limit as limitRoute } from '@/routes/threads/stack';
 import { StackAwakeMeter } from './StackAwakeMeter';
 
 /** How many implement, mockup and general sub-threads may be awake at once. */
-export function AwakeLimitStepper({ threadId, current, max, awake, waiting, canDrive, onChanged }: { threadId: number; current: number; max: number; awake: number; waiting: number; canDrive: boolean; onChanged: () => void }) {
+export function AwakeLimitStepper({ threadId, current, max, awake, waiting, canDrive, onChanged }: { threadId: string; current: number; max: number; awake: number; waiting: number; canDrive: boolean; onChanged: () => void }) {
     const [isSaving, setIsSaving] = useState(false);
 
     const change = (next: number) => {

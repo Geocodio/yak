@@ -42,7 +42,7 @@ export function TranscriptOverlay({
     entry: TranscriptEntry | null | undefined;
     headline: string;
     runs: RunSummary[];
-    currentRunId: number;
+    currentRunId: string;
     attempts: number[];
     currentAttempt: number;
     selectedLogId: number | null;

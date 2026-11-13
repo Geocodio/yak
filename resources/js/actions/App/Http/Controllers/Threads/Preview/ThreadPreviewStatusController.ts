@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
-const ThreadPreviewStatusController = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const ThreadPreviewStatusController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: ThreadPreviewStatusController.url(args, options),
     method: 'get',
 })
@@ -19,13 +19,13 @@ ThreadPreviewStatusController.definition = {
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
-ThreadPreviewStatusController.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+ThreadPreviewStatusController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ ThreadPreviewStatusController.url = (args: { thread: number | { id: number } } |
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ ThreadPreviewStatusController.url = (args: { thread: number | { id: number } } |
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
-ThreadPreviewStatusController.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+ThreadPreviewStatusController.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: ThreadPreviewStatusController.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ ThreadPreviewStatusController.get = (args: { thread: number | { id: number } } |
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
-ThreadPreviewStatusController.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+ThreadPreviewStatusController.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: ThreadPreviewStatusController.url(args, options),
     method: 'head',
 })

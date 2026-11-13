@@ -7,7 +7,7 @@ export type ThreadRepositoryData = {
 };
 
 export type ThreadData = {
-    id: number;
+    id: string;
     name: string;
     title: string;
     repo: string;
@@ -19,8 +19,8 @@ export type ThreadData = {
     runnerState: 'none' | 'starting' | 'idle' | 'busy' | 'stopping';
     ownerSide: 'yak' | 'device';
     blockedReason: string | null;
-    parentThreadId: number | null;
-    rootThreadId: number | null;
+    parentThreadId: string | null;
+    rootThreadId: string | null;
     lastActivityAt: string | null;
     repositories: ThreadRepositoryData[];
     pullRequestCount: number;
@@ -44,7 +44,7 @@ export type ThreadPreviewState =
     | 'waiting_for_slot';
 
 export type ThreadPreviewTarget = {
-    threadId: number;
+    threadId: string;
     title: string;
     kind: string;
     url: string | null;
@@ -94,7 +94,7 @@ export type TeleportData = {
     environmentNote: string | null;
     environmentSwitch: { from: string; to: string; at: string } | null;
     accountName: string | null;
-    continuedFromThreadId: number | null;
+    continuedFromThreadId: string | null;
     continuedFromTitle: string | null;
     canTeleport: boolean;
 };
@@ -112,7 +112,7 @@ export type ThreadPageData = {
     composer: ThreadComposer;
     notice: ThreadNotice | null;
     capacity: ThreadCapacity | null;
-    stackParent: { id: number; name: string; title: string } | null;
+    stackParent: { id: string; name: string; title: string } | null;
     /** Catalog label of each model id and family alias. */
     modelLabels: Record<string, string>;
 };
@@ -162,7 +162,7 @@ export type ThreadWaiting = {
     slots: { state: 'running' | 'paused'; idleMinutes: number | null; isMine: boolean; isThis: boolean }[];
     ownSlotsUsed: number | null;
     ownSlotsCap: number | null;
-    stoppableThreadId: number | null;
+    stoppableThreadId: string | null;
 };
 
 export type ThreadCapacity = {

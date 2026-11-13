@@ -4,12 +4,18 @@ package link
 import (
 	"errors"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
-// ValidThreadID reports whether s is a numeric thread id: 1 to 10 digits, no leading zero, nothing else.
+const publicIDAlphabet = "0123456789abcdefghjkmnpqrstvwxyz"
+
+// ValidThreadID reports whether s names a thread: a public id (8 characters of lowercase Crockford base32, never
+// all digits) or a legacy numeric id (1 to 10 digits, no leading zero). Nothing else passes.
 func ValidThreadID(s string) bool {
+	return validPublicID(s) || validNumericID(s)
+}
+
+func validNumericID(s string) bool {
 	if len(s) == 0 || len(s) > 10 || s[0] == '0' {
 		return false
 	}
@@ -21,31 +27,46 @@ func ValidThreadID(s string) bool {
 	return true
 }
 
-const linkPrefix = "yak://teleport/"
-
-// Parse accepts only the canonical form yak://teleport/<id>. Anything else, including userinfo, a port, a
-// query, a fragment, an extra path, percent-encoding, whitespace and control characters, is an error.
-func Parse(raw string) (threadID int, err error) {
-	rest, ok := strings.CutPrefix(raw, linkPrefix)
-	if !ok || !ValidThreadID(rest) {
-		return 0, errors.New("not a Yak teleport link")
+func validPublicID(s string) bool {
+	if len(s) != 8 {
+		return false
 	}
-	return strconv.Atoi(rest)
+	allDigits := true
+	for i := 0; i < len(s); i++ {
+		if !strings.ContainsRune(publicIDAlphabet, rune(s[i])) {
+			return false
+		}
+		if s[i] < '0' || s[i] > '9' {
+			allDigits = false
+		}
+	}
+	return !allDigits
 }
 
-// TerminalCommand is the command the terminal runs. The id is validated again, so a bad value yields nil.
-func TerminalCommand(threadID int) []string {
-	id := strconv.Itoa(threadID)
-	if !ValidThreadID(id) {
+const linkPrefix = "yak://teleport/"
+
+// Parse accepts only the canonical form yak://teleport/<thread>. Anything else, including userinfo, a port, a
+// query, a fragment, an extra path, percent-encoding, whitespace and control characters, is an error.
+func Parse(raw string) (thread string, err error) {
+	rest, ok := strings.CutPrefix(raw, linkPrefix)
+	if !ok || !ValidThreadID(rest) {
+		return "", errors.New("not a Yak teleport link")
+	}
+	return rest, nil
+}
+
+// TerminalCommand is the command the terminal runs. The thread is validated again, so a bad value yields nil.
+func TerminalCommand(thread string) []string {
+	if !ValidThreadID(thread) {
 		return nil
 	}
-	return []string{"yak", "teleport", "--from-link", id}
+	return []string{"yak", "teleport", "--from-link", thread}
 }
 
 // TerminalCommandFor is TerminalCommand with the absolute path of the yak binary, so a terminal whose PATH lacks yak
-// still runs it. A relative binary or an invalid id yields nil.
-func TerminalCommandFor(binary string, threadID int) []string {
-	argv := TerminalCommand(threadID)
+// still runs it. A relative binary or an invalid thread yields nil.
+func TerminalCommandFor(binary string, thread string) []string {
+	argv := TerminalCommand(thread)
 	if argv == nil || !filepath.IsAbs(binary) {
 		return nil
 	}

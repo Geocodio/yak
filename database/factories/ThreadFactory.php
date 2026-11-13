@@ -11,6 +11,7 @@ use App\Enums\ThreadVisibility;
 use App\Models\Device;
 use App\Models\Thread;
 use App\Models\User;
+use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -26,6 +27,7 @@ class ThreadFactory extends Factory
     public function definition(): array
     {
         return [
+            'public_id' => PublicId::generate(),
             'name' => fake()->unique()->slug(3),
             'title' => fake()->sentence(4),
             'repo' => 'acme/widgets',

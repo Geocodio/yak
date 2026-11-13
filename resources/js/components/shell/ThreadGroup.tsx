@@ -12,7 +12,7 @@ export function ThreadGroup({
     title: string;
     count?: number;
     rows: ThreadListRow[];
-    activeThreadId?: number | null;
+    activeThreadId?: string | null;
 }) {
     if (rows.length === 0) {
         return null;

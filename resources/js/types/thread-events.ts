@@ -37,7 +37,7 @@ export type ChildCardState = 'queued' | 'working' | 'waiting' | 'done' | 'failed
 
 /** The latest state of one sub-thread, as the parent's conversation shows it. */
 export type ChildCardData = {
-    childThreadId: number;
+    childThreadId: string;
     name: string;
     kind: string;
     model: string | null;
@@ -104,7 +104,7 @@ export type ThreadEventState = {
     turn: { turnId: number; state: TurnState } | null;
     thread: ThreadEventDataMap['thread'] | null;
     /** Latest event per sub-thread, with the sequence of its first event. */
-    children: Record<number, { sequence: number; data: ChildCardData }>;
+    children: Record<string, { sequence: number; data: ChildCardData }>;
     /** Latest event per added repository, keyed by slug, with the sequence of its first event. */
     repositories: Record<string, { sequence: number; data: RepositoryCardData }>;
     viewers: Viewer[];

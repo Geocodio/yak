@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/ThreadRepositoryProgressController.php:17
 * @route '/threads/{thread}/repositories'
 */
-const ThreadRepositoryProgressController = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const ThreadRepositoryProgressController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: ThreadRepositoryProgressController.url(args, options),
     method: 'get',
 })
@@ -19,13 +19,13 @@ ThreadRepositoryProgressController.definition = {
 * @see app/Http/Controllers/Threads/ThreadRepositoryProgressController.php:17
 * @route '/threads/{thread}/repositories'
 */
-ThreadRepositoryProgressController.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+ThreadRepositoryProgressController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ ThreadRepositoryProgressController.url = (args: { thread: number | { id: number 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ ThreadRepositoryProgressController.url = (args: { thread: number | { id: number 
 * @see app/Http/Controllers/Threads/ThreadRepositoryProgressController.php:17
 * @route '/threads/{thread}/repositories'
 */
-ThreadRepositoryProgressController.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+ThreadRepositoryProgressController.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: ThreadRepositoryProgressController.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ ThreadRepositoryProgressController.get = (args: { thread: number | { id: number 
 * @see app/Http/Controllers/Threads/ThreadRepositoryProgressController.php:17
 * @route '/threads/{thread}/repositories'
 */
-ThreadRepositoryProgressController.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+ThreadRepositoryProgressController.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: ThreadRepositoryProgressController.url(args, options),
     method: 'head',
 })

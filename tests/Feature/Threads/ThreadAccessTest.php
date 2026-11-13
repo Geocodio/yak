@@ -139,22 +139,22 @@ test('the thread page answers 404 for a hidden thread and a missing one alike', 
     $team = Thread::factory()->create(['title' => 'Fix the cache']);
 
     $this->actingAs(User::factory()->create());
-    $this->get("/threads/{$private->id}")->assertNotFound();
+    $this->get("/threads/{$private->public_id}")->assertNotFound();
     $this->get('/threads/999999')->assertNotFound();
-    $this->get("/threads/{$team->id}")->assertOk()->assertInertia(fn (Assert $page) => $page
+    $this->get("/threads/{$team->public_id}")->assertOk()->assertInertia(fn (Assert $page) => $page
         ->component('Threads/Show')
         ->where('thread.title', 'Fix the cache')
         ->where('canDrive', true));
 
     $this->actingAs($owner);
-    $this->get("/threads/{$private->id}")->assertOk()->assertInertia(fn (Assert $page) => $page
+    $this->get("/threads/{$private->public_id}")->assertOk()->assertInertia(fn (Assert $page) => $page
         ->where('thread.visibility', 'private'));
 });
 
 test('guests are sent to log in from the thread page', function () {
     $thread = Thread::factory()->create();
 
-    $this->get("/threads/{$thread->id}")->assertRedirect('/login');
+    $this->get("/threads/{$thread->public_id}")->assertRedirect('/login');
 });
 
 test('thread channels authorize through ThreadAccess', function (string $channelName) {
@@ -172,11 +172,11 @@ test('thread channels authorize through ThreadAccess', function (string $channel
     $team = Thread::factory()->create();
     $post = fn (User $user, Thread $target) => $this->actingAs($user)->post('/broadcasting/auth', [
         'socket_id' => '1234.5678',
-        'channel_name' => str_replace('{id}', (string) $target->id, $channelName),
+        'channel_name' => str_replace('{id}', $target->public_id, $channelName),
     ]);
 
     $post($owner, $thread)->assertOk();
     $post(User::factory()->create(), $thread)->assertForbidden();
     $post(User::factory()->create(), $team)->assertOk();
-    $post($owner, Thread::factory()->make(['id' => 999999]))->assertForbidden();
+    $post($owner, Thread::factory()->make(['id' => 999999, 'public_id' => 'zzzzzzzz']))->assertForbidden();
 })->with(['private-thread.{id}', 'presence-thread-presence.{id}']);

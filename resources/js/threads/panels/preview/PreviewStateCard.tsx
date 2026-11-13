@@ -10,7 +10,7 @@ import { progressPercent, stepDetails, stepStatuses, type StepStatus } from './p
 
 type Props = {
     state: ThreadPreviewState;
-    threadId: number;
+    threadId: string;
     preview: ThreadPreviewData;
     canDrive: boolean;
     canRestore: boolean;

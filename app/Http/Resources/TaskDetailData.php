@@ -70,7 +70,7 @@ final class TaskDetailData
         $coOwnerRequest = CoOwnerPanelData::latestRequest($task);
         // Only a gated conversation is judged by its head; others keep the root's status.
         $head = $coOwnerRequest !== null ? ($conversation->last() ?? $task) : $task;
-        $focusedRun = self::resolveFocusedRun($conversation, $request->integer('run') ?: null);
+        $focusedRun = self::resolveFocusedRun($conversation, $request->string('run')->toString() ?: null);
         $attemptCount = max(1, (int) $focusedRun->attempts);
         $attempt = min(max(1, $request->integer('attempt') ?: $attemptCount), $attemptCount);
 
@@ -104,10 +104,10 @@ final class TaskDetailData
     /**
      * @param  Collection<int, YakTask>  $conversation
      */
-    public static function resolveFocusedRun(Collection $conversation, ?int $requestedRunId): YakTask
+    public static function resolveFocusedRun(Collection $conversation, ?string $requestedRunId): YakTask
     {
         if ($requestedRunId !== null) {
-            $run = $conversation->firstWhere('id', $requestedRunId);
+            $run = $conversation->firstWhere('public_id', $requestedRunId);
 
             if ($run !== null) {
                 return $run;
@@ -158,7 +158,7 @@ final class TaskDetailData
         $prState = $task->prState();
 
         return [
-            'id' => $task->id,
+            'id' => $task->public_id,
             'status' => $task->status->value,
             'statusLabel' => str_replace('_', ' ', $task->status->value),
             'mode' => $task->mode->value,
@@ -186,7 +186,7 @@ final class TaskDetailData
             'researchArtifactUrl' => self::researchArtifactUrl($task),
             'attemptCount' => $attemptCount,
             'attempt' => $attempt,
-            'runId' => $focusedRun->id,
+            'runId' => $focusedRun->public_id,
         ];
     }
 
@@ -202,7 +202,7 @@ final class TaskDetailData
             return null;
         }
 
-        return route('artifacts.viewer', ['task' => $artifact->yak_task_id, 'filename' => $artifact->filename]);
+        return route('artifacts.viewer', ['task' => $artifact->taskPublicId(), 'filename' => $artifact->filename]);
     }
 
     private static function nextSteps(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): ?string
@@ -434,7 +434,7 @@ final class TaskDetailData
             if ($researchArtifact !== null) {
                 $links[] = [
                     'label' => 'View research artifact',
-                    'url' => route('artifacts.viewer', ['task' => $entry->run->id, 'filename' => $researchArtifact->filename]),
+                    'url' => route('artifacts.viewer', ['task' => $entry->run, 'filename' => $researchArtifact->filename]),
                 ];
             }
         }
@@ -454,7 +454,7 @@ final class TaskDetailData
             'bodyHtml' => $bodyHtml,
             'durationMs' => $durationMs,
             'startedAt' => $entry->run !== null ? ($entry->run->started_at ?? $entry->run->created_at)?->toIso8601String() : null,
-            'runId' => $entry->run?->id,
+            'runId' => $entry->run?->public_id,
             'attempt' => (int) ($entry->runStats['attempt'] ?? 1),
             'live' => $entry->isLive,
             'superseded' => $superseded,
@@ -494,12 +494,12 @@ final class TaskDetailData
 
     /**
      * @param  Collection<int, YakTask>  $conversation
-     * @return array<int, array{id: int, label: string, live: bool}>
+     * @return array<int, array{id: string, label: string, live: bool}>
      */
     private static function runs(Collection $conversation): array
     {
         return $conversation->values()->map(fn (YakTask $run, int $index) => [
-            'id' => $run->id,
+            'id' => $run->public_id,
             'label' => 'Run ' . ($index + 1),
             'live' => self::isActive($run->status),
         ])->all();

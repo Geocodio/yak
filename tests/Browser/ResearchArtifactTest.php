@@ -33,7 +33,7 @@ test('research findings link opens viewer with iframe and back navigation works'
         ->assertPresent('[data-testid="artifact-iframe"]')
         ->assertPresent('[data-testid="back-to-task"]')
         ->click('[data-testid="back-to-task"]')
-        ->assertPathIs('/tasks/' . $task->id)
+        ->assertPathIs('/tasks/' . $task->public_id)
         ->assertSee('Found 3 key insights');
 });
 
@@ -56,7 +56,7 @@ test('artifact viewer page displays correct artifact filename', function () {
         'disk_path' => 'research.html',
     ]);
 
-    $page = visit(route('artifacts.viewer', ['task' => $task->id, 'filename' => 'research.html']));
+    $page = visit(route('artifacts.viewer', ['task' => $task->public_id, 'filename' => 'research.html']));
 
     $page->assertSee('research.html')
         ->assertPresent('[data-testid="artifact-iframe"]');

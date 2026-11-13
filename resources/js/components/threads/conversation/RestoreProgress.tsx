@@ -7,7 +7,7 @@ import type { ThreadNotice } from '@/types/threads';
 
 type Step = ThreadNotice['restoreSteps'][number];
 
-export function RetryRestoreButton({ threadId, testId, className, children = 'Retry from this step' }: { threadId: number; testId: string; className?: string; children?: string }) {
+export function RetryRestoreButton({ threadId, testId, className, children = 'Retry from this step' }: { threadId: string; testId: string; className?: string; children?: string }) {
     const [busy, setBusy] = useState(false);
 
     return (

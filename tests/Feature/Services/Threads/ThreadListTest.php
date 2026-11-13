@@ -43,8 +43,8 @@ test('mine filter lists threads the user started and unattended threads on follo
 
     $ids = listedIds(ThreadList::for($user));
 
-    expect($ids)->toContain($created->id, $driven->id, $started->id, $unattendedFollowed->id)
-        ->not->toContain($unattendedElsewhere->id, $foreign->id);
+    expect($ids)->toContain($created->public_id, $driven->public_id, $started->public_id, $unattendedFollowed->public_id)
+        ->not->toContain($unattendedElsewhere->public_id, $foreign->public_id);
 });
 
 test('everyone filter lists all open team threads', function () {
@@ -52,7 +52,7 @@ test('everyone filter lists all open team threads', function () {
     $a = Thread::factory()->create(['created_by_user_id' => User::factory()->create()->id]);
     $b = Thread::factory()->create(['created_by_user_id' => null]);
 
-    expect(listedIds(ThreadList::for($user, ThreadListFilter::Everyone)))->toContain($a->id, $b->id);
+    expect(listedIds(ThreadList::for($user, ThreadListFilter::Everyone)))->toContain($a->public_id, $b->public_id);
 });
 
 test('closed threads are never listed', function () {
@@ -68,7 +68,7 @@ test('a finished unseen turn asks for the viewer until a ThreadView is newer', f
     runFor($thread, TurnState::Completed, ['finished_at' => now()->subHour()]);
 
     $row = ThreadList::for($user)['needsYou'][0];
-    expect($row['id'])->toBe($thread->id)
+    expect($row['id'])->toBe($thread->public_id)
         ->and($row['needsYouReason'])->toBe('unseen')
         ->and($row['needsYouLabel'])->toBe('Finished, not seen yet');
 
@@ -91,18 +91,18 @@ test('a question and a blocked thread land in needsYou with their labels', funct
     $byId = collect($list['needsYou'])->keyBy('id');
 
     expect($list['needsYouCount'])->toBe(3)
-        ->and($byId[$asking->id]['needsYouReason'])->toBe('question')
-        ->and($byId[$asking->id]['needsYouLabel'])->toBe('Asked you a question')
-        ->and($byId[$expired->id]['needsYouReason'])->toBe('blocked')
-        ->and($byId[$expired->id]['needsYouLabel'])->toBe('Your token stopped working')
-        ->and($byId[$expired->id]['status'])->toBe('blocked')
-        ->and($byId[$limited->id]['needsYouLabel'])->toBe('Blocked');
+        ->and($byId[$asking->public_id]['needsYouReason'])->toBe('question')
+        ->and($byId[$asking->public_id]['needsYouLabel'])->toBe('Asked you a question')
+        ->and($byId[$expired->public_id]['needsYouReason'])->toBe('blocked')
+        ->and($byId[$expired->public_id]['needsYouLabel'])->toBe('Your token stopped working')
+        ->and($byId[$expired->public_id]['status'])->toBe('blocked')
+        ->and($byId[$limited->public_id]['needsYouLabel'])->toBe('Blocked');
 });
 
 test('rows sort by last activity with null last and bucket into today, this week, older', function () {
     $this->travelTo(now()->startOfWeek()->addDays(3)->setTime(12, 0));
     $user = User::factory()->create();
-    $mk = fn (?CarbonInterface $at) => Thread::factory()->create(['created_by_user_id' => $user->id, 'last_activity_at' => $at])->id;
+    $mk = fn (?CarbonInterface $at) => Thread::factory()->create(['created_by_user_id' => $user->id, 'last_activity_at' => $at])->public_id;
 
     $older = $mk(now()->subWeeks(2));
     $none = $mk(null);
@@ -122,9 +122,9 @@ test('search matches title and repo and treats percent literally', function () {
     $b = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Other', 'repo' => 'acme/billing']);
     $c = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => '100% done', 'repo' => 'acme/two']);
 
-    expect(listedIds(ThreadList::for($user, search: 'cache')))->toBe([$a->id])
-        ->and(listedIds(ThreadList::for($user, search: 'BILLING')))->toBe([$b->id])
-        ->and(listedIds(ThreadList::for($user, search: '%')))->toBe([$c->id])
+    expect(listedIds(ThreadList::for($user, search: 'cache')))->toBe([$a->public_id])
+        ->and(listedIds(ThreadList::for($user, search: 'BILLING')))->toBe([$b->public_id])
+        ->and(listedIds(ThreadList::for($user, search: '%')))->toBe([$c->public_id])
         ->and(listedIds(ThreadList::for($user, search: '_')))->toBe([])
         ->and(listedIds(ThreadList::for($user, search: str_repeat('x', 300))))->toBe([]);
 });
@@ -134,7 +134,7 @@ test('a thread with no runs and no activity renders as stopped', function () {
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'last_activity_at' => null]);
 
     expect(ThreadList::for($user)['threads'][0])->toMatchArray([
-        'id' => $thread->id,
+        'id' => $thread->public_id,
         'title' => $thread->title,
         'repo' => 'acme/widgets',
         'status' => 'stopped',
@@ -159,9 +159,9 @@ test('status follows the latest run, then blocked, then paused', function () {
 
     $byId = collect(ThreadList::for($user)['threads'])->keyBy('id');
 
-    expect($byId[$running->id]['status'])->toBe('running')
-        ->and($byId[$paused->id]['status'])->toBe('paused')
-        ->and($byId[$unattended->id]['isUnattended'])->toBeTrue();
+    expect($byId[$running->public_id]['status'])->toBe('running')
+        ->and($byId[$paused->public_id]['status'])->toBe('paused')
+        ->and($byId[$unattended->public_id]['isUnattended'])->toBeTrue();
 });
 
 test('owner initials are null for the viewer and set for a teammate', function () {
@@ -173,9 +173,9 @@ test('owner initials are null for the viewer and set for a teammate', function (
 
     $byId = collect(ThreadList::for($user, ThreadListFilter::Everyone)['threads'])->keyBy('id');
 
-    expect($byId[$own->id]['ownerInitials'])->toBeNull()
-        ->and($byId[$theirs->id]['ownerInitials'])->toBe('TT')
-        ->and($byId[$unattended->id]['ownerInitials'])->toBeNull();
+    expect($byId[$own->public_id]['ownerInitials'])->toBeNull()
+        ->and($byId[$theirs->public_id]['ownerInitials'])->toBe('TT')
+        ->and($byId[$unattended->public_id]['ownerInitials'])->toBeNull();
 });
 
 test('owner initials cover nested children', function () {
@@ -211,9 +211,9 @@ test('a private thread of another user never leaks its owner initials', function
 
     $list = ThreadList::for($user, ThreadListFilter::Everyone);
 
-    expect(listedIds($list))->not->toContain($hidden->id)->toContain($visible->id)
+    expect(listedIds($list))->not->toContain($hidden->public_id)->toContain($visible->public_id)
         ->and(json_encode($list))->not->toContain('ZZ')->not->toContain('Zed')
-        ->and(collect($list['threads'])->firstWhere('id', $visible->id)['ownerInitials'])->toBe('TT');
+        ->and(collect($list['threads'])->firstWhere('id', $visible->public_id)['ownerInitials'])->toBe('TT');
 });
 
 test('the started by yak filter lists only threads without a human creator', function () {
@@ -224,7 +224,7 @@ test('the started by yak filter lists only threads without a human creator', fun
 
     $ids = listedIds(ThreadList::for($user, ThreadListFilter::StartedByYak));
 
-    expect($ids)->toBe([$fromChannel->id])->not->toContain($mine->id, $teammate->id);
+    expect($ids)->toBe([$fromChannel->public_id])->not->toContain($mine->public_id, $teammate->public_id);
 });
 
 test('hasAnyThreads is false when nothing is visible and true once a thread exists under any filter', function () {

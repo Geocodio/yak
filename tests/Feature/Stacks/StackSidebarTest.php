@@ -15,12 +15,12 @@ it('lists children under their parent and hides private children from others', f
     Thread::factory()->child($private)->create(['title' => 'Private child']);
 
     $asViewer = collect(ThreadList::for($viewer, ThreadListFilter::Everyone)['threads'])->concat(ThreadList::for($viewer, ThreadListFilter::Everyone)['needsYou']);
-    $row = $asViewer->firstWhere('id', $team->id);
+    $row = $asViewer->firstWhere('id', $team->public_id);
 
-    expect(collect($row['children'])->pluck('id')->all())->toBe([$teamChild->id])
+    expect(collect($row['children'])->pluck('id')->all())->toBe([$teamChild->public_id])
         ->and($asViewer->pluck('title')->all())->not->toContain('Private root');
 
-    $asOwner = collect(ThreadList::for($owner, ThreadListFilter::Everyone)['threads'])->concat(ThreadList::for($owner, ThreadListFilter::Everyone)['needsYou'])->firstWhere('id', $private->id);
+    $asOwner = collect(ThreadList::for($owner, ThreadListFilter::Everyone)['threads'])->concat(ThreadList::for($owner, ThreadListFilter::Everyone)['needsYou'])->firstWhere('id', $private->public_id);
 
     expect(collect($asOwner['children'])->pluck('title')->all())->toBe(['Private child']);
 });

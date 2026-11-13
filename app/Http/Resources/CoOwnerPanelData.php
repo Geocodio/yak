@@ -108,7 +108,7 @@ final class CoOwnerPanelData
                 'login' => $viewer->github_login,
                 'access' => self::access($request, $repository, $viewer),
             ],
-            'connectUrl' => GitHubAccountController::connectUrl("/tasks/{$request->root_task_id}"),
+            'connectUrl' => GitHubAccountController::connectUrl(route('tasks.show', ['task' => YakTask::query()->withoutGlobalScopes()->whereKey($request->root_task_id)->value('public_id')], false)),
             'requesterName' => $requester->name ?? $heldTask->author_name ?? 'Someone',
             'linkError' => self::linkError(),
         ];

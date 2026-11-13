@@ -17,7 +17,7 @@ export type OpenFiles = {
 };
 
 /** Open tabs of the Files panel. Each file keeps the sha256 it was opened with as `baseSha256`. */
-export function useOpenFile(threadId: number): OpenFiles {
+export function useOpenFile(threadId: string): OpenFiles {
     const [openFiles, setOpenFiles] = useState<OpenFileData[]>([]);
     const [scopes, setScopes] = useState<Record<string, FileScope>>({});
     const [activePath, setActivePath] = useState<string | null>(null);

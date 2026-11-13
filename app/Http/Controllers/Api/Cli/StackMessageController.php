@@ -20,7 +20,7 @@ class StackMessageController extends Controller
 
     public function __construct(private readonly StackMessageInbox $inbox) {}
 
-    public function index(Request $request, int $thread): JsonResponse
+    public function index(Request $request, string $thread): JsonResponse
     {
         $found = $this->ownedThread($request, $thread);
         $limit = min(self::MAX_LIMIT, max(1, (int) $request->query('limit', self::MAX_LIMIT)));
@@ -35,7 +35,7 @@ class StackMessageController extends Controller
         return response()->json($body);
     }
 
-    public function ack(Request $request, int $thread): JsonResponse
+    public function ack(Request $request, string $thread): JsonResponse
     {
         $found = $this->ownedThread($request, $thread);
         $data = $request->validate(['through_id' => ['required', 'integer', 'min:0']]);
@@ -43,7 +43,7 @@ class StackMessageController extends Controller
         return response()->json(['acked' => $this->inbox->ack($found, (int) $data['through_id'])]);
     }
 
-    private function ownedThread(Request $request, int $threadId): Thread
+    private function ownedThread(Request $request, string $threadId): Thread
     {
         $thread = $this->cliThread($request, $threadId);
 

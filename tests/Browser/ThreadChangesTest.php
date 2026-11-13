@@ -126,7 +126,7 @@ test('the Overview rail has no tabs and lists the Terminal row', function () {
 
     $page->assertVisible('[data-testid="thread-sidebar"]')
         ->assertMissing('[data-testid="thread-sidebar"] [role="tablist"]')
-        ->assertSeeIn('[data-testid="environment-terminal"]', 'yak ssh ' . $thread->id)
+        ->assertSeeIn('[data-testid="environment-terminal"]', 'yak ssh ' . $thread->public_id)
         ->assertSeeIn('[data-testid="environment-terminal"]', 'Set up SSH')
         ->assertNoJavaScriptErrors();
 });

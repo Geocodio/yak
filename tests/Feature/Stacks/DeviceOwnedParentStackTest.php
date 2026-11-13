@@ -80,7 +80,7 @@ it('escalates a child question to a held needs-you event, not the parent', funct
 
 it('hands waiting results to the CLI fetch endpoint once and acks them', function () {
     event(new TurnCompleted(deviceChildRun($this->child)));
-    $url = "/api/cli/v1/threads/{$this->parent->id}/stack-messages";
+    $url = "/api/cli/v1/threads/{$this->parent->public_id}/stack-messages";
 
     $first = $this->getJson($url, cliHeaders($this->token))->assertOk();
 

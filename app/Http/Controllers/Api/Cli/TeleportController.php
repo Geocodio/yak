@@ -118,6 +118,7 @@ class TeleportController extends Controller
     {
         return [
             'id' => $thread->id,
+            'public_id' => $thread->public_id,
             'is_new' => $isNew,
             'continued_from_thread_id' => $thread->continued_from_thread_id,
             'slug' => $thread->name,

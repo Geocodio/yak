@@ -10,6 +10,7 @@ use App\Jobs\FlushSteeringMessagesJob;
 use App\Jobs\ReRequestReviewJob;
 use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Models\Concerns\HasClarificationRounds;
+use App\Models\Concerns\HasPublicId;
 use App\Models\Scopes\VisibleTaskScope;
 use App\Services\TaskDescriptionSummary;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
@@ -29,6 +30,7 @@ use Illuminate\Support\Str;
  * from the `$casts` property only -- it does not read the `casts()` method
  * form this model uses, so without these it infers the raw column types.
  *
+ * @property string $public_id
  * @property TaskStatus $status
  * @property TaskMode $mode
  * @property string|null $title
@@ -66,7 +68,7 @@ use Illuminate\Support\Str;
 class YakTask extends Model
 {
     /** @use HasFactory<YakTaskFactory> */
-    use HasClarificationRounds, HasFactory, ModelHasStateMachine;
+    use HasClarificationRounds, HasFactory, HasPublicId, ModelHasStateMachine;
 
     public const MAX_CLARIFICATION_ROUNDS = 3;
 

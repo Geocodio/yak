@@ -20,9 +20,11 @@ trait ResolvesCliThread
     /**
      * A missing thread and one the caller may not see answer identically.
      */
-    protected function cliThread(Request $request, int $threadId): Thread
+    protected function cliThread(Request $request, string $threadId): Thread
     {
-        $thread = Thread::withoutGlobalScopes()->whereKey($threadId)->first();
+        $thread = Thread::withoutGlobalScopes()
+            ->where(ctype_digit($threadId) ? 'id' : 'public_id', $threadId)
+            ->first();
 
         return $this->visibleCliThread($request, $thread);
     }

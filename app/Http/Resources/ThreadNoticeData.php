@@ -26,7 +26,7 @@ use Illuminate\Support\Str;
 final class ThreadNoticeData
 {
     /**
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}}|null
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null
      */
     public static function for(Thread $thread, ?User $viewer = null): ?array
     {
@@ -112,8 +112,8 @@ final class ThreadNoticeData
 
     /**
      * @param  list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>  $steps
-     * @param  array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}|null  $waiting
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}}
+     * @param  array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}|null  $waiting
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}
      */
     private static function notice(string $kind, string $title, string $body, bool $isOwnerOfAccount, bool $canContinue, array $steps, ?string $resetsAt = null, ?array $waiting = null): array
     {
@@ -196,7 +196,7 @@ final class ThreadNoticeData
     /**
      * Queue position and capacity behind a waiting notice; null for every other notice.
      *
-     * @return array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}|null
+     * @return array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}|null
      */
     private static function waiting(Thread $thread, ?User $viewer, string $accountName): ?array
     {
@@ -240,14 +240,14 @@ final class ThreadNoticeData
         $isShareFull = $ownUsed !== null && $ownCap > 0 && $ownUsed >= $ownCap;
         $stoppable = $isShareFull && $viewer !== null && $ownerId === $viewer->id ? $capacity->evictionCandidate($thread, EvictionReason::PersonShare) : null;
 
-        return self::waitingProps($position, $turnsRunning, $turnsLimit, $accountName, $slots, $isShareFull ? $ownUsed : null, $isShareFull ? $ownCap : null, $stoppable?->id);
+        return self::waitingProps($position, $turnsRunning, $turnsLimit, $accountName, $slots, $isShareFull ? $ownUsed : null, $isShareFull ? $ownCap : null, $stoppable?->public_id);
     }
 
     /**
      * @param  list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>  $slots
-     * @return array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?int}
+     * @return array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}
      */
-    private static function waitingProps(?int $position, int $turnsRunning, int $turnsLimit, string $accountName, array $slots, ?int $ownSlotsUsed, ?int $ownSlotsCap, ?int $stoppableThreadId): array
+    private static function waitingProps(?int $position, int $turnsRunning, int $turnsLimit, string $accountName, array $slots, ?int $ownSlotsUsed, ?int $ownSlotsCap, ?string $stoppableThreadId): array
     {
         return [
             'position' => $position,

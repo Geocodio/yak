@@ -58,6 +58,6 @@ it('broadcasts only on the thread own private channel', function () {
 
     ThreadRepositoryChanged::dispatch($this->thread, $this->row);
 
-    Event::assertDispatched(ThreadEventBroadcast::class, fn (ThreadEventBroadcast $event): bool => $event->broadcastOn()[0]->name === 'private-thread.' . $this->thread->id);
+    Event::assertDispatched(ThreadEventBroadcast::class, fn (ThreadEventBroadcast $event): bool => $event->broadcastOn()[0]->name === 'private-thread.' . $this->thread->public_id);
     expect(cardsOf($other))->toBe([]);
 });

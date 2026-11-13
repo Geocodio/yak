@@ -7,7 +7,7 @@ export type TaskPr = {
 };
 
 export type FollowUpRow = {
-    id: number;
+    id: string;
     status: TaskStatus;
     description: string;
     externalId: string | null;
@@ -15,7 +15,7 @@ export type FollowUpRow = {
 };
 
 export type TaskRow = {
-    id: number;
+    id: string;
     status: TaskStatus;
     source: string;
     sourceLabel: string;
@@ -71,7 +71,7 @@ export type TaskPage = {
 // -- Task detail (Tasks/Show) --
 
 export type TaskDetail = {
-    id: number;
+    id: string;
     status: TaskStatus;
     statusLabel: string;
     mode: 'fix' | 'research' | 'review' | 'setup';
@@ -97,7 +97,7 @@ export type TaskDetail = {
     attemptCount: number;
     attempt: number;
     /** The run the page is focused on (`?run=`, else the live or latest run). */
-    runId: number;
+    runId: string;
 };
 
 export type MediaItem = {
@@ -149,7 +149,7 @@ export type ThreadEntryData = {
     expiresIn?: string | null;
     superseded?: boolean;
     /** `yak` entries: the run this bubble reports, so a live stream attaches to the right one. */
-    runId?: number | null;
+    runId?: string | null;
     attempt?: number;
     /** `yak` entries: how long the run took, and when it started (ISO 8601). */
     durationMs?: number | null;
@@ -165,7 +165,7 @@ export type ThreadEntryData = {
 };
 
 export type RunSummary = {
-    id: number;
+    id: string;
     label: string;
     live: boolean;
 };

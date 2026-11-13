@@ -118,7 +118,7 @@ it('rejects a thread that Yak owns', function () {
     ThreadSession::factory()->create(['thread_id' => $thread->id, 'session_id' => BEGIN_SESSION]);
 
     $this->postJson('/api/cli/v1/teleports', beginPayload(), cliHeaders($this->token))
-        ->assertStatus(409)->assertJsonPath('error', 'thread_owned_by_yak')->assertJsonPath('details.thread_id', $thread->id);
+        ->assertStatus(409)->assertJsonPath('error', 'thread_owned_by_yak')->assertJsonPath('details.thread_id', $thread->public_id);
 });
 
 it('rejects a thread another device owns', function () {

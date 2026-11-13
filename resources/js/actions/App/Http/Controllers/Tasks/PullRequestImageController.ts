@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-const PullRequestImageController = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const PullRequestImageController = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: PullRequestImageController.url(args, options),
     method: 'get',
 })
@@ -19,7 +19,7 @@ PullRequestImageController.definition = {
 * @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-PullRequestImageController.url = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions) => {
+PullRequestImageController.url = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             task: args[0],
@@ -31,7 +31,7 @@ PullRequestImageController.url = (args: { task: string | number | { id: string |
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
         asset: args.asset,
     }
@@ -47,7 +47,7 @@ PullRequestImageController.url = (args: { task: string | number | { id: string |
 * @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-PullRequestImageController.get = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+PullRequestImageController.get = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: PullRequestImageController.url(args, options),
     method: 'get',
 })
@@ -57,7 +57,7 @@ PullRequestImageController.get = (args: { task: string | number | { id: string |
 * @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-PullRequestImageController.head = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+PullRequestImageController.head = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: PullRequestImageController.url(args, options),
     method: 'head',
 })

@@ -21,7 +21,7 @@ type Initial = { state: ThreadPreviewState; url: string | null };
  * The live state of one preview target. Polls the status endpoint every 2 s while the preview is waking (or a
  * restore was requested) and sends a heartbeat every minute while the panel is open on a ready preview.
  */
-export function usePreviewStatus(threadId: number, initial: Initial): { status: PreviewStatus; restoring: boolean; requestRestore: () => void; requestRetry: () => void } {
+export function usePreviewStatus(threadId: string, initial: Initial): { status: PreviewStatus; restoring: boolean; requestRestore: () => void; requestRetry: () => void } {
     const [status, setStatus] = useState<PreviewStatus>({ ...initial, log: [], error: null });
     const [restoring, setRestoring] = useState(false);
 

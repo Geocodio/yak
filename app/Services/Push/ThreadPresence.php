@@ -24,7 +24,7 @@ class ThreadPresence
                 return false;
             }
 
-            $response = $pusher->get("/channels/presence-thread-presence.{$thread->id}/users");
+            $response = $pusher->get("/channels/presence-thread-presence.{$thread->public_id}/users");
             $users = is_array($response) ? ($response['users'] ?? []) : ($response->users ?? []);
 
             foreach ($users as $member) {

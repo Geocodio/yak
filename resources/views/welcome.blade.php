@@ -334,7 +334,7 @@
                 <h3>Want the last mile? Pull the thread down.</h3>
                 <div class="term">
                     <div class="term-bar"><i></i><i></i><i></i><span>zsh · ~/code/geocodio</span></div>
-<pre><span class="p">$</span> yak teleport 4812
+<pre><span class="p">$</span> yak teleport k7m2x9qd
 
 <span class="d">  Yak committed its work and pushed yak/csv-export-fix</span>
 <span class="g">  Thread 4812 is now on this computer.</span>
@@ -349,7 +349,7 @@
             <div class="ways">
                 <div><strong>Teleport to your computer</strong><p>One button on the thread page, or <code>yak teleport</code> from your checkout.</p></div>
                 <div><strong>Browser terminal</strong><p>A shell inside the thread's sandbox, right on the thread page.</p></div>
-                <div><strong>Plain SSH</strong><p><code>yak ssh 4812</code> connects with the keys you already have on GitHub.</p></div>
+                <div><strong>Plain SSH</strong><p><code>yak ssh k7m2x9qd</code> connects with the keys you already have on GitHub.</p></div>
             </div>
         </div>
     </div>

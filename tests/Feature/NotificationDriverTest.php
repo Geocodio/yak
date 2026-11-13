@@ -32,7 +32,7 @@ it('Slack: posts acknowledgment with dashboard link', function () {
     (new SlackNotificationDriver)->send($task, NotificationType::Acknowledgment, 'Horns down, hooves moving — on it! 🐃');
 
     assertSlackThreadReply('C_ACK', '1111111111.111111', 'Horns down, hooves moving');
-    assertSlackThreadReply(textContains: "/tasks/{$task->id}");
+    assertSlackThreadReply(textContains: "/tasks/{$task->public_id}");
 });
 
 it('Slack: posts progress update', function () {
@@ -348,7 +348,7 @@ it('Slack: all notifications include dashboard link', function () {
 
         // Dashboard URL now lives inside a Block Kit button rather than
         // the text fallback — search the serialized blocks payload.
-        return str_contains(json_encode($request['blocks'] ?? [], JSON_UNESCAPED_SLASHES), "/tasks/{$task->id}");
+        return str_contains(json_encode($request['blocks'] ?? [], JSON_UNESCAPED_SLASHES), "/tasks/{$task->public_id}");
     });
 });
 
@@ -511,7 +511,7 @@ it('GitHub: comment includes dashboard link', function () {
     $driver->send($task, NotificationType::Acknowledgment, 'Working on it.');
 
     Http::assertSent(function ($request) use ($task) {
-        return str_contains($request['body'], "/tasks/{$task->id}");
+        return str_contains($request['body'], "/tasks/{$task->public_id}");
     });
 });
 

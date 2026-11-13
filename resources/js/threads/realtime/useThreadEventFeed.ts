@@ -11,7 +11,7 @@ import { findGap, initialEventState } from './reducer';
 export { initialFeed, reduceFeed, type ThreadEventFeed } from './feedReducer.ts';
 
 /** Live thread state plus the sequence of each transcript entry. */
-export function useThreadEventFeed(threadId: number): ThreadEventFeed & { link: LinkState } {
+export function useThreadEventFeed(threadId: string): ThreadEventFeed & { link: LinkState } {
     const [feed, dispatchFeed] = useReducer(reduceFeed, undefined, initialFeed);
     const [link, setLink] = useState<LinkState>({ kind: 'ok', since: null });
     const state = feed.state;

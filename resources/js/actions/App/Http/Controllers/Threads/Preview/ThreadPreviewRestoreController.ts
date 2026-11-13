@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
-const ThreadPreviewRestoreController = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+const ThreadPreviewRestoreController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: ThreadPreviewRestoreController.url(args, options),
     method: 'post',
 })
@@ -19,13 +19,13 @@ ThreadPreviewRestoreController.definition = {
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
-ThreadPreviewRestoreController.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+ThreadPreviewRestoreController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ ThreadPreviewRestoreController.url = (args: { thread: number | { id: number } } 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ ThreadPreviewRestoreController.url = (args: { thread: number | { id: number } } 
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
-ThreadPreviewRestoreController.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+ThreadPreviewRestoreController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: ThreadPreviewRestoreController.url(args, options),
     method: 'post',
 })

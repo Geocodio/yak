@@ -20,7 +20,7 @@ class SshLookupController extends Controller
 {
     use ResolvesCliThread;
 
-    public function show(Request $request, int $thread, SshAccess $access, SshKeyDirectory $keys, GitHubKeyDirectory $github): JsonResponse
+    public function show(Request $request, string $thread, SshAccess $access, SshKeyDirectory $keys, GitHubKeyDirectory $github): JsonResponse
     {
         $thread = $this->cliThread($request, $thread);
         $user = $this->cliDevice($request)->user;

@@ -63,8 +63,8 @@ it('leaves the thread list, search and needs-you count free of a private thread'
 it('shows the owner the private thread with its child and counts it', function () {
     $list = ThreadList::for($this->world->owner, ThreadListFilter::Everyone);
 
-    expect(collect([...$list['needsYou'], ...$list['threads']])->pluck('id')->all())->toContain($this->world->thread->id)
-        ->and(collect($list['needsYou'])->firstWhere('id', $this->world->thread->id)['children'])->toHaveCount(1)
+    expect(collect([...$list['needsYou'], ...$list['threads']])->pluck('id')->all())->toContain($this->world->thread->public_id)
+        ->and(collect($list['needsYou'])->firstWhere('id', $this->world->thread->public_id)['children'])->toHaveCount(1)
         ->and($list['needsYouCount'])->toBe(2);
 
     expect(json_encode(ThreadList::for($this->world->owner, ThreadListFilter::Everyone, 'Quarterly')))->toContain(VisibilityWorld::TITLE);
@@ -113,7 +113,7 @@ it('hides private-thread telemetry from the analytics page and keeps it for the 
     TelemetryEvent::factory()->named('team.event')->create(['yak_task_id' => $teamTask->id, 'repo' => 'open/repo']);
 
     $encoded = json_encode(inertiaProps($this, '/analytics', $this->world->{$viewer}), JSON_UNESCAPED_SLASHES);
-    $privateMarkers = [VisibilityWorld::REPO, 'tasks/' . $this->world->task->id, 'pr.opened', '"pr_number":77'];
+    $privateMarkers = [VisibilityWorld::REPO, 'tasks/' . $this->world->task->public_id, 'pr.opened', '"pr_number":77'];
 
     foreach ($privateMarkers as $marker) {
         $sees ? expect($encoded)->toContain($marker) : expect($encoded)->not->toContain($marker);

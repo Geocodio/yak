@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/RestoreRetryController.php:16
 * @route '/threads/{thread}/restore/retry'
 */
-const RestoreRetryController = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+const RestoreRetryController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: RestoreRetryController.url(args, options),
     method: 'post',
 })
@@ -19,13 +19,13 @@ RestoreRetryController.definition = {
 * @see app/Http/Controllers/Threads/RestoreRetryController.php:16
 * @route '/threads/{thread}/restore/retry'
 */
-RestoreRetryController.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+RestoreRetryController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ RestoreRetryController.url = (args: { thread: number | { id: number } } | [threa
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ RestoreRetryController.url = (args: { thread: number | { id: number } } | [threa
 * @see app/Http/Controllers/Threads/RestoreRetryController.php:16
 * @route '/threads/{thread}/restore/retry'
 */
-RestoreRetryController.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+RestoreRetryController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: RestoreRetryController.url(args, options),
     method: 'post',
 })

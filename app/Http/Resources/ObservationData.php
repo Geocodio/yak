@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Observation;
+use App\Models\YakTask;
 
 /**
  * Flattens an {@see Observation} into the shape the Observations page
@@ -49,7 +50,7 @@ final class ObservationData
             'referenceUrl' => $observation->reference_url,
             'taskId' => $observation->yak_task_id,
             'taskUrl' => $observation->yak_task_id !== null
-                ? route('tasks.show', $observation->yak_task_id)
+                ? route('tasks.show', ['task' => YakTask::publicIdForKey($observation->yak_task_id)])
                 : null,
             'createdAgo' => $observation->created_at->diffForHumans(short: true),
             'createdAt' => $observation->created_at->toIso8601String(),

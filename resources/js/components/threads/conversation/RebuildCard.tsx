@@ -5,7 +5,7 @@ import type { ThreadNotice } from '@/types/threads';
 import { useDocsUrl } from '@/lib/docsUrl';
 import { RestoreProgress, RetryRestoreButton } from './RestoreProgress';
 
-export function RebuildCard({ notice, threadId, repo, branch, readonly }: { notice: ThreadNotice; threadId: number; repo: string; branch: string | null; readonly: boolean }) {
+export function RebuildCard({ notice, threadId, repo, branch, readonly }: { notice: ThreadNotice; threadId: string; repo: string; branch: string | null; readonly: boolean }) {
     const threadsDocsUrl = useDocsUrl('threads/');
     const steps = notice.restoreSteps;
     const failedIndex = steps.findIndex((step) => step.status === 'failed');

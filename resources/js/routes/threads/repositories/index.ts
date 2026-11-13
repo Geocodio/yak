@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/ThreadRepositoryProgressController.php:17
 * @route '/threads/{thread}/repositories'
 */
-export const progress = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const progress = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: progress.url(args, options),
     method: 'get',
 })
@@ -19,13 +19,13 @@ progress.definition = {
 * @see app/Http/Controllers/Threads/ThreadRepositoryProgressController.php:17
 * @route '/threads/{thread}/repositories'
 */
-progress.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+progress.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ progress.url = (args: { thread: number | { id: number } } | [thread: number | { 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ progress.url = (args: { thread: number | { id: number } } | [thread: number | { 
 * @see app/Http/Controllers/Threads/ThreadRepositoryProgressController.php:17
 * @route '/threads/{thread}/repositories'
 */
-progress.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+progress.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: progress.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ progress.get = (args: { thread: number | { id: number } } | [thread: number | { 
 * @see app/Http/Controllers/Threads/ThreadRepositoryProgressController.php:17
 * @route '/threads/{thread}/repositories'
 */
-progress.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+progress.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: progress.url(args, options),
     method: 'head',
 })
@@ -72,7 +72,7 @@ progress.head = (args: { thread: number | { id: number } } | [thread: number | {
 * @see app/Http/Controllers/Threads/ThreadRepositoryController.php:24
 * @route '/threads/{thread}/repositories/{repository}'
 */
-export const update = (args: { thread: number | { id: number }, repository: string | number | { id: string | number } } | [thread: number | { id: number }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+export const update = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -87,7 +87,7 @@ update.definition = {
 * @see app/Http/Controllers/Threads/ThreadRepositoryController.php:24
 * @route '/threads/{thread}/repositories/{repository}'
 */
-update.url = (args: { thread: number | { id: number }, repository: string | number | { id: string | number } } | [thread: number | { id: number }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
+update.url = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -99,7 +99,7 @@ update.url = (args: { thread: number | { id: number }, repository: string | numb
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
         repository: typeof args.repository === 'object'
         ? args.repository.id
@@ -117,7 +117,7 @@ update.url = (args: { thread: number | { id: number }, repository: string | numb
 * @see app/Http/Controllers/Threads/ThreadRepositoryController.php:24
 * @route '/threads/{thread}/repositories/{repository}'
 */
-update.patch = (args: { thread: number | { id: number }, repository: string | number | { id: string | number } } | [thread: number | { id: number }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+update.patch = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -127,7 +127,7 @@ update.patch = (args: { thread: number | { id: number }, repository: string | nu
 * @see app/Http/Controllers/Threads/ThreadRepositoryController.php:37
 * @route '/threads/{thread}/repositories/{repository}/retry'
 */
-export const retry = (args: { thread: number | { id: number }, repository: string | number | { id: string | number } } | [thread: number | { id: number }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const retry = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: retry.url(args, options),
     method: 'post',
 })
@@ -142,7 +142,7 @@ retry.definition = {
 * @see app/Http/Controllers/Threads/ThreadRepositoryController.php:37
 * @route '/threads/{thread}/repositories/{repository}/retry'
 */
-retry.url = (args: { thread: number | { id: number }, repository: string | number | { id: string | number } } | [thread: number | { id: number }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
+retry.url = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -154,7 +154,7 @@ retry.url = (args: { thread: number | { id: number }, repository: string | numbe
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
         repository: typeof args.repository === 'object'
         ? args.repository.id
@@ -172,7 +172,7 @@ retry.url = (args: { thread: number | { id: number }, repository: string | numbe
 * @see app/Http/Controllers/Threads/ThreadRepositoryController.php:37
 * @route '/threads/{thread}/repositories/{repository}/retry'
 */
-retry.post = (args: { thread: number | { id: number }, repository: string | number | { id: string | number } } | [thread: number | { id: number }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+retry.post = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: retry.url(args, options),
     method: 'post',
 })

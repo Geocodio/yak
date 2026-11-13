@@ -1,7 +1,7 @@
 import { cn } from '@geocodio/console-ui';
 import type { ThreadPreviewTarget } from '@/types/threads';
 
-type Props = { targets: ThreadPreviewTarget[]; selectedId: number; onSelect: (threadId: number) => void };
+type Props = { targets: ThreadPreviewTarget[]; selectedId: string; onSelect: (threadId: string) => void };
 
 /** Tabs for the thread and its sub-threads that have their own preview. Hidden when there is only one. */
 export function TargetSwitcher({ targets, selectedId, onSelect }: Props) {

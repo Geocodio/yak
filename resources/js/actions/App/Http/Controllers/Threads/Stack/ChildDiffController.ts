@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
-const ChildDiffController = (args: { thread: number | { id: number }, child: number | { id: number } } | [thread: number | { id: number }, child: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const ChildDiffController = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: ChildDiffController.url(args, options),
     method: 'get',
 })
@@ -19,7 +19,7 @@ ChildDiffController.definition = {
 * @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
-ChildDiffController.url = (args: { thread: number | { id: number }, child: number | { id: number } } | [thread: number | { id: number }, child: number | { id: number } ], options?: RouteQueryOptions) => {
+ChildDiffController.url = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -31,10 +31,10 @@ ChildDiffController.url = (args: { thread: number | { id: number }, child: numbe
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
         child: typeof args.child === 'object'
-        ? args.child.id
+        ? args.child.public_id
         : args.child,
     }
 
@@ -49,7 +49,7 @@ ChildDiffController.url = (args: { thread: number | { id: number }, child: numbe
 * @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
-ChildDiffController.get = (args: { thread: number | { id: number }, child: number | { id: number } } | [thread: number | { id: number }, child: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+ChildDiffController.get = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: ChildDiffController.url(args, options),
     method: 'get',
 })
@@ -59,7 +59,7 @@ ChildDiffController.get = (args: { thread: number | { id: number }, child: numbe
 * @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
-ChildDiffController.head = (args: { thread: number | { id: number }, child: number | { id: number } } | [thread: number | { id: number }, child: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+ChildDiffController.head = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: ChildDiffController.url(args, options),
     method: 'head',
 })

@@ -13,6 +13,7 @@ use App\Enums\ThreadSessionKind;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
 use App\Enums\TurnState;
+use App\Models\Concerns\HasPublicId;
 use App\Models\Scopes\VisibleThreadScope;
 use App\Services\Threads\ThreadAccess;
 use Carbon\CarbonImmutable;
@@ -31,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * parent is a sub-thread; its root decides who may see it.
  *
  * @property int $id
+ * @property string $public_id
  * @property string $name
  * @property string $title
  * @property string $repo
@@ -80,7 +82,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Thread extends Model
 {
     /** @use HasFactory<ThreadFactory> */
-    use HasFactory;
+    use HasFactory, HasPublicId;
 
     protected $guarded = [];
 

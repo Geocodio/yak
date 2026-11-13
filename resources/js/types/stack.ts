@@ -3,7 +3,7 @@
 export type StackChildState = 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
 
 export type StackChild = {
-    id: number;
+    id: string;
     name: string;
     title: string;
     kind: string;
@@ -32,9 +32,9 @@ export type StackMessageRow = {
 };
 
 export type StackData = {
-    rootId: number;
+    rootId: string;
     isRoot: boolean;
-    parent: { id: number; name: string; title: string } | null;
+    parent: { id: string; name: string; title: string } | null;
     children: StackChild[];
     limit: { current: number; max: number; awake: number; waiting: number };
     maxChildren: number;

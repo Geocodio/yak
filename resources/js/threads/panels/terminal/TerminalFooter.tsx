@@ -4,7 +4,7 @@ import { Copy } from 'lucide-react';
 import { sshKeys } from '@/routes/settings';
 import type { SharedProps } from '@/types/shared';
 
-export function TerminalFooter({ threadId }: { threadId: number }) {
+export function TerminalFooter({ threadId }: { threadId: string }) {
     const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
     const command = `yak ssh ${threadId}`;
     const copy = () => {

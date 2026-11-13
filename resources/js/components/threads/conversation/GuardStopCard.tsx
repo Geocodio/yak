@@ -3,7 +3,7 @@ import { OctagonPause } from 'lucide-react';
 import { continueMethod } from '@/routes/threads';
 import type { ThreadNotice } from '@/types/threads';
 
-export function GuardStopCard({ notice, threadId, readonly }: { notice: ThreadNotice; threadId: number; readonly: boolean }) {
+export function GuardStopCard({ notice, threadId, readonly }: { notice: ThreadNotice; threadId: string; readonly: boolean }) {
     return (
         <div className="rounded-card bg-warn-soft p-4" data-testid="thread-notice" data-kind={notice.kind}>
             <div className="flex items-start gap-3">

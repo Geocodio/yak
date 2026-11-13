@@ -65,7 +65,7 @@ final class RiskProfilePageData
      *     }|null,
      *     generation: array{
      *         status: 'running'|'waiting'|'failed',
-     *         task: array{id: int, url: string, startedAt: ?string, completedAt: ?string, error: ?string}|null,
+     *         task: array{id: string, url: string, startedAt: ?string, completedAt: ?string, error: ?string}|null,
      *         pullRequest: array{number: int, title: string, url: string, areas: ?int, unknowns: ?int}|null,
      *     }|null,
      *     profile: array{
@@ -213,7 +213,7 @@ final class RiskProfilePageData
     }
 
     /**
-     * @return array{status: 'running'|'waiting'|'failed', task: array{id: int, url: string, startedAt: ?string, completedAt: ?string, error: ?string}|null, pullRequest: array{number: int, title: string, url: string, areas: ?int, unknowns: ?int}|null}|null
+     * @return array{status: 'running'|'waiting'|'failed', task: array{id: string, url: string, startedAt: ?string, completedAt: ?string, error: ?string}|null, pullRequest: array{number: int, title: string, url: string, areas: ?int, unknowns: ?int}|null}|null
      */
     private static function generation(Repository $repository): ?array
     {
@@ -243,7 +243,7 @@ final class RiskProfilePageData
         return [
             'status' => $isRunning ? 'running' : 'failed',
             'task' => [
-                'id' => $task->id,
+                'id' => $task->public_id,
                 'url' => route('tasks.show', $task),
                 'startedAt' => $task->started_at?->toIso8601String(),
                 'completedAt' => $task->completed_at?->toIso8601String(),

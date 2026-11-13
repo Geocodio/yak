@@ -15,7 +15,7 @@ async function getJson<T>(url: string, fetchImpl: typeof fetch): Promise<T> {
 
 /** Events after `after` (the Redis window when it covers the request, else stored entries only). */
 export function fetchEventsAfter(
-    threadId: number,
+    threadId: string,
     after: number,
     fetchImpl: typeof fetch = fetch,
 ): Promise<{ events: ThreadEventEnvelope[]; latestSequence: number }> {
@@ -23,6 +23,6 @@ export function fetchEventsAfter(
 }
 
 /** The full stored event behind a broadcast pointer. */
-export function fetchEvent(threadId: number, sequence: number, fetchImpl: typeof fetch = fetch): Promise<ThreadEventEnvelope> {
+export function fetchEvent(threadId: string, sequence: number, fetchImpl: typeof fetch = fetch): Promise<ThreadEventEnvelope> {
     return getJson(`/threads/${threadId}/events/${sequence}`, fetchImpl);
 }

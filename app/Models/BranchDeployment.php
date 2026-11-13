@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DeploymentStatus;
+use App\Models\Concerns\HasPublicId;
 use App\Models\Scopes\VisibleDeploymentScope;
 use App\Observers\BranchDeploymentObserver;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * from the `$casts` property only -- it does not read the `casts()` method
  * form this model uses, so without these it infers the raw column types.
  *
+ * @property string $public_id
  * @property DeploymentStatus $status
  * @property int $template_version
  * @property int|null $pr_number
@@ -37,7 +39,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class BranchDeployment extends Model
 {
     /** @use HasFactory<BranchDeploymentFactory> */
-    use HasFactory, ModelHasStateMachine;
+    use HasFactory, HasPublicId, ModelHasStateMachine;
 
     protected $guarded = [];
 

@@ -46,7 +46,7 @@ it('completes down and moves ownership to the device', function () {
         ->assertJsonPath('owner_device.id', $this->device->id)
         ->assertJsonPath('visibility', 'team')
         ->assertJsonPath('marker.owner', 'device')
-        ->assertJsonPath('marker.stack_messages_url', url("/api/cli/v1/threads/{$this->thread->id}/stack-messages"))
+        ->assertJsonPath('marker.stack_messages_url', url("/api/cli/v1/threads/{$this->thread->public_id}/stack-messages"))
         ->assertJsonPath('teleport.state', 'completed');
 
     $thread = $this->thread->refresh();

@@ -3,7 +3,7 @@ import type { ThreadNotice } from '@/types/threads';
 import { RetryRestoreButton } from './RestoreProgress';
 
 /** Phone-only strip that keeps a failed rebuild in view while the conversation scrolls. */
-export function FailedStepStrip({ notice, threadId, readonly }: { notice: ThreadNotice | null; threadId: number; readonly: boolean }) {
+export function FailedStepStrip({ notice, threadId, readonly }: { notice: ThreadNotice | null; threadId: string; readonly: boolean }) {
     const progress = notice === null ? null : rebuildProgress(notice);
 
     if (notice?.kind !== 'restore_failed' || progress === null) {

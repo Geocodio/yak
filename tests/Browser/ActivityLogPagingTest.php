@@ -81,7 +81,7 @@ test('switching runs replaces the stream with the chosen run\'s log', function (
         ->assertSeeIn('[data-testid="activity-stream"]', 'echo follow')
         ->assertDontSeeIn('[data-testid="activity-stream"]', 'echo root');
 
-    $page->click("[data-testid=\"show-run-{$root->id}\"]")
+    $page->click("[data-testid=\"show-run-{$root->public_id}\"]")
         ->wait(1)
         ->click('[data-testid="finished-summary"] > summary')
         ->click('[data-testid="step-group"] > summary')

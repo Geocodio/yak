@@ -28,25 +28,25 @@ it('lets only the owner onto the channels of a private thread', function (string
     $owner = User::factory()->create();
     $thread = Thread::factory()->private($owner)->create();
 
-    authorizeChannel($owner, $channelPrefix . $thread->id)->assertOk();
-    authorizeChannel(User::factory()->create(), $channelPrefix . $thread->id)->assertForbidden();
+    authorizeChannel($owner, $channelPrefix . $thread->public_id)->assertOk();
+    authorizeChannel(User::factory()->create(), $channelPrefix . $thread->public_id)->assertForbidden();
 })->with(['private-thread.', 'presence-thread-presence.']);
 
 it('answers a missing thread like a hidden one', function (string $channelPrefix) {
-    authorizeChannel(User::factory()->create(), $channelPrefix . '999999')->assertForbidden();
+    authorizeChannel(User::factory()->create(), $channelPrefix . 'zzzzzzzz')->assertForbidden();
 })->with(['private-thread.', 'presence-thread-presence.']);
 
 it('opens a team thread to any signed-in user', function (string $channelPrefix) {
     $thread = Thread::factory()->create();
 
-    authorizeChannel(User::factory()->create(), $channelPrefix . $thread->id)->assertOk();
+    authorizeChannel(User::factory()->create(), $channelPrefix . $thread->public_id)->assertOk();
 })->with(['private-thread.', 'presence-thread-presence.']);
 
 it('shares only id and name in the presence payload', function () {
     $user = User::factory()->create();
     $thread = Thread::factory()->create();
 
-    $response = authorizeChannel($user, 'presence-thread-presence.' . $thread->id)->assertOk();
+    $response = authorizeChannel($user, 'presence-thread-presence.' . $thread->public_id)->assertOk();
     $channelData = json_decode($response->json('channel_data'), true);
 
     expect($channelData['user_info'])->toBe(['id' => $user->id, 'name' => $user->name])

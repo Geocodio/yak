@@ -44,11 +44,11 @@ it('shows sub-threads as cards and in the Stack panel, and stops the stack', fun
     $this->actingAs($user);
 
     visit(route('threads.show', $parent))
-        ->assertPresent('[data-testid="child-card-' . $done->id . '"]')
-        ->assertSeeIn('[data-testid="child-card-' . $done->id . '"]', 'The API pages by cursor.')
+        ->assertPresent('[data-testid="child-card-' . $done->public_id . '"]')
+        ->assertSeeIn('[data-testid="child-card-' . $done->public_id . '"]', 'The API pages by cursor.')
         ->assertPresent('[data-testid="child-take-over"]')
         ->assertPresent('[data-testid="stack-panel"]')
-        ->assertPresent('[data-testid="stack-child-' . $failed->id . '"]')
+        ->assertPresent('[data-testid="stack-child-' . $failed->public_id . '"]')
         ->click('[data-testid="stack-limit-increase"]')
         ->click('[data-testid="stack-stop"]')
         ->click('[data-testid="stack-stop-confirm"]')
@@ -112,7 +112,7 @@ it('orders the stack panel and collapses the messages', function () {
 
     visit(route('threads.show', $parent))
         ->assertSeeIn('[data-testid="stack-children-header"]', '1 of 12')
-        ->assertSeeIn('[data-testid="stack-child-' . $child->id . '"] [data-testid="state-pill"]', 'Waiting for a slot')
+        ->assertSeeIn('[data-testid="stack-child-' . $child->public_id . '"] [data-testid="state-pill"]', 'Waiting for a slot')
         ->assertScript('document.querySelectorAll(\'[data-testid^="stack-message-"]\').length', 3)
         ->assertScript('(() => { const top = (testid) => document.querySelector(`[data-testid="${testid}"]`).getBoundingClientRect().top; return top("stack-children-header") < top("stack-limit"); })()', true)
         ->click('[data-testid="stack-messages-show-all"]')
@@ -152,7 +152,7 @@ it('shows queued, asking and merged sub-threads with their new card layout', fun
     $merged = Thread::factory()->child($parent)->create(['name' => 'merger']);
 
     $card = fn (Thread $child, string $state, array $extra = []): array => [
-        'childThreadId' => $child->id, 'name' => $child->name, 'kind' => 'implement', 'model' => 'sonnet', 'state' => $state,
+        'childThreadId' => $child->public_id, 'name' => $child->name, 'kind' => 'implement', 'model' => 'sonnet', 'state' => $state,
         'step' => null, 'resultSummary' => null, 'branch' => null, 'messagesPaused' => false,
         'mergedAt' => null, 'question' => null, 'filesChanged' => null, 'additions' => null, 'deletions' => null,
         'conflictResolved' => false, 'decision' => null, ...$extra,
@@ -164,10 +164,10 @@ it('shows queued, asking and merged sub-threads with their new card layout', fun
     $events->append($parent->id, 'child', $card($merged, 'done', ['mergedAt' => now()->toIso8601String(), 'filesChanged' => 3, 'additions' => 12, 'deletions' => 4, 'conflictResolved' => true, 'decision' => 'Kept the cursor paging.']));
 
     visit(route('threads.show', $parent))
-        ->assertSeeIn('[data-testid="child-card-' . $queued->id . '"]', 'Starts when another sub-thread finishes')
-        ->assertSeeIn('[data-testid="child-card-' . $asking->id . '"]', 'Asked you')
-        ->assertSeeIn('[data-testid="child-card-' . $asking->id . '"]', 'Asks you: Which table should hold it?')
-        ->assertSeeIn('[data-testid="child-card-' . $merged->id . '"]', 'Merged into this branch')
-        ->assertSeeIn('[data-testid="child-card-' . $merged->id . '"]', 'Merge conflict resolved')
-        ->assertSeeIn('[data-testid="child-card-' . $merged->id . '"]', '3 files');
+        ->assertSeeIn('[data-testid="child-card-' . $queued->public_id . '"]', 'Starts when another sub-thread finishes')
+        ->assertSeeIn('[data-testid="child-card-' . $asking->public_id . '"]', 'Asked you')
+        ->assertSeeIn('[data-testid="child-card-' . $asking->public_id . '"]', 'Asks you: Which table should hold it?')
+        ->assertSeeIn('[data-testid="child-card-' . $merged->public_id . '"]', 'Merged into this branch')
+        ->assertSeeIn('[data-testid="child-card-' . $merged->public_id . '"]', 'Merge conflict resolved')
+        ->assertSeeIn('[data-testid="child-card-' . $merged->public_id . '"]', '3 files');
 });

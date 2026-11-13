@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/ThreadEventController.php:22
 * @route '/threads/{thread}/events'
 */
-export const index = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const index = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(args, options),
     method: 'get',
 })
@@ -19,13 +19,13 @@ index.definition = {
 * @see app/Http/Controllers/Threads/ThreadEventController.php:22
 * @route '/threads/{thread}/events'
 */
-index.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+index.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ index.url = (args: { thread: number | { id: number } } | [thread: number | { id:
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ index.url = (args: { thread: number | { id: number } } | [thread: number | { id:
 * @see app/Http/Controllers/Threads/ThreadEventController.php:22
 * @route '/threads/{thread}/events'
 */
-index.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+index.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ index.get = (args: { thread: number | { id: number } } | [thread: number | { id:
 * @see app/Http/Controllers/Threads/ThreadEventController.php:22
 * @route '/threads/{thread}/events'
 */
-index.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+index.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index.url(args, options),
     method: 'head',
 })
@@ -72,7 +72,7 @@ index.head = (args: { thread: number | { id: number } } | [thread: number | { id
 * @see app/Http/Controllers/Threads/ThreadEventController.php:51
 * @route '/threads/{thread}/events/{sequence}'
 */
-export const show = (args: { thread: number | { id: number }, sequence: string | number } | [thread: number | { id: number }, sequence: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { thread: string | { public_id: string }, sequence: string | number } | [thread: string | { public_id: string }, sequence: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -87,7 +87,7 @@ show.definition = {
 * @see app/Http/Controllers/Threads/ThreadEventController.php:51
 * @route '/threads/{thread}/events/{sequence}'
 */
-show.url = (args: { thread: number | { id: number }, sequence: string | number } | [thread: number | { id: number }, sequence: string | number ], options?: RouteQueryOptions) => {
+show.url = (args: { thread: string | { public_id: string }, sequence: string | number } | [thread: string | { public_id: string }, sequence: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -99,7 +99,7 @@ show.url = (args: { thread: number | { id: number }, sequence: string | number }
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
         sequence: args.sequence,
     }
@@ -115,7 +115,7 @@ show.url = (args: { thread: number | { id: number }, sequence: string | number }
 * @see app/Http/Controllers/Threads/ThreadEventController.php:51
 * @route '/threads/{thread}/events/{sequence}'
 */
-show.get = (args: { thread: number | { id: number }, sequence: string | number } | [thread: number | { id: number }, sequence: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { thread: string | { public_id: string }, sequence: string | number } | [thread: string | { public_id: string }, sequence: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -125,7 +125,7 @@ show.get = (args: { thread: number | { id: number }, sequence: string | number }
 * @see app/Http/Controllers/Threads/ThreadEventController.php:51
 * @route '/threads/{thread}/events/{sequence}'
 */
-show.head = (args: { thread: number | { id: number }, sequence: string | number } | [thread: number | { id: number }, sequence: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { thread: string | { public_id: string }, sequence: string | number } | [thread: string | { public_id: string }, sequence: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })

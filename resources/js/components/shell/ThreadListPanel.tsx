@@ -34,7 +34,7 @@ export function ThreadListPanel({
     const { data, filter, setFilter, search, setSearch, isLoading } =
         useThreadList(props.threadList);
     const activeThreadId =
-        Number(/^\/threads\/(\d+)/.exec(url.split("?")[0])?.[1] ?? 0) || null;
+        /^\/threads\/([^/?#]+)/.exec(url.split("?")[0])?.[1] ?? null;
     const hasNoThreadsAtAll =
         data !== null && !data.hasAnyThreads && search === "";
     const isEmpty =

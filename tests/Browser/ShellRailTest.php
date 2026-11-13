@@ -61,11 +61,11 @@ test('a private row leads with the lock and a shared row carries the Shared badg
     $this->actingAs($owner);
 
     $page = visit('/threads/new')
-        ->assertSeeIn('[data-testid="thread-visibility-' . $alone->id . '"]', 'Private')
-        ->assertSeeIn('[data-testid="thread-visibility-' . $shared->id . '"]', 'Shared')
+        ->assertSeeIn('[data-testid="thread-visibility-' . $alone->public_id . '"]', 'Private')
+        ->assertSeeIn('[data-testid="thread-visibility-' . $shared->public_id . '"]', 'Shared')
         ->assertNoJavaScriptErrors();
 
-    $lockFirst = $page->script("(() => { const el = document.querySelector('[data-testid=\"thread-title-{$alone->id}\"]'); return el.firstElementChild.tagName.toLowerCase() === 'svg'; })()");
+    $lockFirst = $page->script("(() => { const el = document.querySelector('[data-testid=\"thread-title-{$alone->public_id}\"]'); return el.firstElementChild.tagName.toLowerCase() === 'svg'; })()");
     expect($lockFirst)->toBeTrue();
 });
 

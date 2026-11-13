@@ -126,7 +126,7 @@ class ApplyCoOwnerDecisionJob implements ShouldQueue
             ['type' => 'actions', 'elements' => [[
                 'type' => 'button',
                 'action_id' => 'yak_link_connect_github',
-                'url' => GitHubAccountController::connectUrl("/tasks/{$request->task_id}"),
+                'url' => GitHubAccountController::connectUrl(route('tasks.show', $request->task, false)),
                 'text' => ['type' => 'plain_text', 'text' => 'Connect GitHub'],
             ]]],
         ];

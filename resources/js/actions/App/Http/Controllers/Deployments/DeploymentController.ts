@@ -48,7 +48,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 * @see app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
-export const show = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -63,13 +63,13 @@ show.definition = {
 * @see app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
-show.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+show.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { deployment: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { deployment: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { deployment: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -82,7 +82,7 @@ show.url = (args: { deployment: string | number | { id: string | number } } | [d
 
     const parsedArgs = {
         deployment: typeof args.deployment === 'object'
-        ? args.deployment.id
+        ? args.deployment.public_id
         : args.deployment,
     }
 
@@ -96,7 +96,7 @@ show.url = (args: { deployment: string | number | { id: string | number } } | [d
 * @see app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
-show.get = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -106,7 +106,7 @@ show.get = (args: { deployment: string | number | { id: string | number } } | [d
 * @see app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
-show.head = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })

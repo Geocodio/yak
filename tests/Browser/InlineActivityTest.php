@@ -170,7 +170,7 @@ test('a thread draws its tool calls with the same shared step rows', function ()
     $publisher->append($thread->id, 'entry', ['role' => 'tool_result', 'toolUseId' => 't2', 'isError' => true, 'text' => 'Tests: 1 failed']);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")->wait(1)
+    visit("/threads/{$thread->public_id}")->wait(1)
         ->assertVisible('[data-testid="thread-tool-activity"] [data-testid="step-group"]')
         ->assertSeeIn('[data-testid="thread-tool-activity"]', 'Ran 1 command, read 1 file')
         ->assertSeeIn('[data-testid="thread-tool-activity"]', '1 failed')

@@ -28,10 +28,10 @@ it('returns the stack for a root and for a child', function () {
     ]);
 
     $fromRoot = $this->actingAs($this->user)->getJson(route('threads.stack.show', $this->root))->assertOk();
-    $fromRoot->assertJsonPath('rootId', $this->root->id)
+    $fromRoot->assertJsonPath('rootId', $this->root->public_id)
         ->assertJsonPath('isRoot', true)
         ->assertJsonPath('parent', null)
-        ->assertJsonPath('children.0.id', $this->child->id)
+        ->assertJsonPath('children.0.id', $this->child->public_id)
         ->assertJsonPath('children.0.name', 'builder')
         ->assertJsonPath('children.0.state', 'queued')
         ->assertJsonPath('limit.current', 3)
@@ -42,9 +42,9 @@ it('returns the stack for a root and for a child', function () {
         ->and($fromRoot->json('usage.note'))->toContain('Subscription');
 
     $this->actingAs($this->user)->getJson(route('threads.stack.show', $this->child))->assertOk()
-        ->assertJsonPath('rootId', $this->root->id)
+        ->assertJsonPath('rootId', $this->root->public_id)
         ->assertJsonPath('isRoot', false)
-        ->assertJsonPath('parent.id', $this->root->id)
+        ->assertJsonPath('parent.id', $this->root->public_id)
         ->assertJsonPath('parent.title', 'Root work');
 });
 
@@ -58,7 +58,7 @@ it('hides a private stack from a second user with the missing-thread 404', funct
     $this->actingAs($this->user)->getJson(route('threads.stack.children.diff', [$private, $privateChild]))->assertNotFound();
     $this->actingAs($this->user)->postJson(route('threads.stack.children.store', $private), ['name' => 'a', 'brief' => 'b', 'kind' => 'general', 'model' => 'sonnet'])->assertNotFound();
 
-    $this->actingAs($owner)->getJson(route('threads.stack.show', $private))->assertOk()->assertJsonPath('children.0.id', $privateChild->id);
+    $this->actingAs($owner)->getJson(route('threads.stack.show', $private))->assertOk()->assertJsonPath('children.0.id', $privateChild->public_id);
 });
 
 it('shows a shared stack read-only', function () {

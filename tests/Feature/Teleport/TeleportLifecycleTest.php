@@ -72,7 +72,7 @@ it('answers calls on an expired teleport with teleport_expired', function () {
     Artisan::call('yak:expire-teleports');
     expect($teleport->refresh()->state)->toBe(TeleportState::Expired);
 
-    $this->getJson("/api/cli/v1/threads/{$this->thread->id}/session/length?session_id=a0a0a0a0-0000-4000-8000-000000000001&rel_path=a0a0a0a0-0000-4000-8000-000000000001.jsonl", cliHeaders($this->token))
+    $this->getJson("/api/cli/v1/threads/{$this->thread->public_id}/session/length?session_id=a0a0a0a0-0000-4000-8000-000000000001&rel_path=a0a0a0a0-0000-4000-8000-000000000001.jsonl", cliHeaders($this->token))
         ->assertStatus(409)->assertJsonPath('error', 'teleport_expired')->assertJsonPath('details.minutes', 45);
 });
 

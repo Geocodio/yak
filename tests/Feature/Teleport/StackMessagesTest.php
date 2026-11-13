@@ -18,7 +18,7 @@ it('returns pending messages oldest first with a limit and has_more', function (
     $this->inbox->record($this->thread, StackMessageKind::Note, null, 'two');
     $this->inbox->record($this->thread, StackMessageKind::Failure, null, 'three');
 
-    $response = $this->getJson("/api/cli/v1/threads/{$this->thread->id}/stack-messages?limit=2", cliHeaders($this->token))->assertOk();
+    $response = $this->getJson("/api/cli/v1/threads/{$this->thread->public_id}/stack-messages?limit=2", cliHeaders($this->token))->assertOk();
 
     expect($response->json('messages'))->toHaveCount(2)
         ->and($response->json('has_more'))->toBeTrue()
@@ -31,7 +31,7 @@ it('returns pending messages oldest first with a limit and has_more', function (
 it('caps the limit at 50 and caps the text at 20000 characters', function () {
     $this->inbox->record($this->thread, StackMessageKind::Note, null, str_repeat('x', 30000));
 
-    $response = $this->getJson("/api/cli/v1/threads/{$this->thread->id}/stack-messages?limit=500", cliHeaders($this->token))->assertOk();
+    $response = $this->getJson("/api/cli/v1/threads/{$this->thread->public_id}/stack-messages?limit=500", cliHeaders($this->token))->assertOk();
 
     expect(mb_strlen($response->json('messages.0.text')))->toBe(20000)->and($response->json('has_more'))->toBeFalse();
 });
@@ -40,25 +40,25 @@ it('answers not_owner for another device and for a Yak-owned thread', function (
     [, $otherToken] = makeDevice($this->device->user);
     $yakOwned = Thread::factory()->create();
 
-    $this->getJson("/api/cli/v1/threads/{$this->thread->id}/stack-messages", cliHeaders($otherToken))->assertStatus(409)->assertJsonPath('error', 'not_owner');
-    $this->getJson("/api/cli/v1/threads/{$yakOwned->id}/stack-messages", cliHeaders($this->token))->assertStatus(409)->assertJsonPath('error', 'not_owner');
-    $this->postJson("/api/cli/v1/threads/{$this->thread->id}/stack-messages/ack", ['through_id' => 1], cliHeaders($otherToken))->assertStatus(409);
+    $this->getJson("/api/cli/v1/threads/{$this->thread->public_id}/stack-messages", cliHeaders($otherToken))->assertStatus(409)->assertJsonPath('error', 'not_owner');
+    $this->getJson("/api/cli/v1/threads/{$yakOwned->public_id}/stack-messages", cliHeaders($this->token))->assertStatus(409)->assertJsonPath('error', 'not_owner');
+    $this->postJson("/api/cli/v1/threads/{$this->thread->public_id}/stack-messages/ack", ['through_id' => 1], cliHeaders($otherToken))->assertStatus(409);
 });
 
 it('acks monotonically and idempotently', function () {
     $first = $this->inbox->record($this->thread, StackMessageKind::Note, null, 'one');
     $second = $this->inbox->record($this->thread, StackMessageKind::Note, null, 'two');
     $third = $this->inbox->record($this->thread, StackMessageKind::Note, null, 'three');
-    $url = "/api/cli/v1/threads/{$this->thread->id}/stack-messages/ack";
+    $url = "/api/cli/v1/threads/{$this->thread->public_id}/stack-messages/ack";
 
     $this->postJson($url, ['through_id' => $second->id], cliHeaders($this->token))->assertOk()->assertJsonPath('acked', 2);
     $this->postJson($url, ['through_id' => $second->id], cliHeaders($this->token))->assertOk()->assertJsonPath('acked', 0);
     $this->postJson($url, ['through_id' => $first->id], cliHeaders($this->token))->assertOk()->assertJsonPath('acked', 0);
 
-    $remaining = $this->getJson("/api/cli/v1/threads/{$this->thread->id}/stack-messages", cliHeaders($this->token))->json('messages');
+    $remaining = $this->getJson("/api/cli/v1/threads/{$this->thread->public_id}/stack-messages", cliHeaders($this->token))->json('messages');
     expect(collect($remaining)->pluck('id')->all())->toBe([$third->id]);
 });
 
 it('requires a through_id to ack', function () {
-    $this->postJson("/api/cli/v1/threads/{$this->thread->id}/stack-messages/ack", [], cliHeaders($this->token))->assertStatus(422);
+    $this->postJson("/api/cli/v1/threads/{$this->thread->public_id}/stack-messages/ack", [], cliHeaders($this->token))->assertStatus(422);
 });

@@ -31,12 +31,12 @@ function sshSurfaceStatus(string $surface, User $person, Thread $thread): int
 {
     if ($surface === 'terminal') {
         return test()->actingAs($person)->withHeader('Origin', 'https://yak.example.test')
-            ->postJson("/threads/{$thread->id}/terminal-sessions")->getStatusCode();
+            ->postJson("/threads/{$thread->public_id}/terminal-sessions")->getStatusCode();
     }
 
     [, $token] = makeDevice($person);
 
-    return test()->getJson("/api/cli/v1/threads/{$thread->id}/ssh", cliHeaders($token))->getStatusCode();
+    return test()->getJson("/api/cli/v1/threads/{$thread->public_id}/ssh", cliHeaders($token))->getStatusCode();
 }
 
 it('shows no private-thread ssh surface to anyone but the owner', function (string $surface, string $person, int $status) {

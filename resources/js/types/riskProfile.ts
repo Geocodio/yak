@@ -75,7 +75,7 @@ export type RiskProfileFile = {
 
 export type RiskProfileGeneration = {
     status: 'running' | 'waiting' | 'failed';
-    task: { id: number; url: string; startedAt: string | null; completedAt: string | null; error: string | null } | null;
+    task: { id: string; url: string; startedAt: string | null; completedAt: string | null; error: string | null } | null;
     pullRequest: (PullRequestRef & { areas: number | null; unknowns: number | null }) | null;
 };
 

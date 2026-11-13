@@ -19,6 +19,7 @@ use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\RedisBrokerStreams;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
+use App\Support\PublicId;
 use Carbon\CarbonImmutable;
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -28,6 +29,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -77,6 +79,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        foreach (['thread', 'child', 'task', 'deployment'] as $parameter) {
+            Route::pattern($parameter, PublicId::ROUTE_PATTERN);
+        }
 
         app(AppDiskUsage::class)->registerGauges();
         app(SandboxPoolUsage::class)->registerGauges();

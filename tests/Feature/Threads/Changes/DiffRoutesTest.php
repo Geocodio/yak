@@ -76,17 +76,17 @@ it('hides a private thread from everyone but its owner', function (bool $isAdmin
     $file = ThreadDiffFile::factory()->for($diff, 'diff')->create();
     $viewer = User::factory()->create($isAdmin ? ['email' => 'admin@example.com'] : []);
 
-    $url = fn (Thread|int $target) => match ($route) {
+    $url = fn (Thread|string $target) => match ($route) {
         'diff' => route('threads.diff.show', $target),
         'file' => route('threads.diff.files.show', [$target, $file->id]),
         'environment' => route('threads.environment.show', $target),
     };
 
-    $missing = $this->actingAs($viewer)->getJson($url(999999));
+    $missing = $this->actingAs($viewer)->getJson($url('zzzzzzzz'));
     $denied = $this->actingAs($viewer)->getJson($url($thread));
 
     $denied->assertNotFound();
-    expect($denied->status())->toBe($missing->status())->and(preg_replace("/\d+$/", '', (string) $denied->json('message')))->toBe(preg_replace("/\d+$/", '', (string) $missing->json('message')));
+    expect($denied->status())->toBe($missing->status())->and(str_replace($thread->public_id, 'ID', (string) $denied->json('message')))->toBe(str_replace('zzzzzzzz', 'ID', (string) $missing->json('message')));
     $this->actingAs($owner)->getJson($url($thread))->assertOk();
 })->with([
     'second user' => false,

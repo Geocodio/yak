@@ -114,6 +114,6 @@ it('keeps a private fan-out hidden from a second user and an admin', function ()
     ThreadRepository::query()->where('thread_id', $world->child->id)->update(['pull_request_url' => 'https://github.com/acme-web/pull/9']);
 
     foreach (['other', 'admin'] as $stranger) {
-        $this->actingAs($world->{$stranger})->getJson("/threads/{$world->thread->id}/stack")->assertNotFound();
+        $this->actingAs($world->{$stranger})->getJson("/threads/{$world->thread->public_id}/stack")->assertNotFound();
     }
 });

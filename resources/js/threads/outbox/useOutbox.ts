@@ -7,7 +7,7 @@ import { createOutbox, type PostOutcome, type UnsentMessage } from './outbox';
 /** A stalled link holds a request open without failing it; past this the send counts as unreachable and is repeated. */
 const SEND_TIMEOUT_MS = 30000;
 
-async function post(threadId: number, message: UnsentMessage, signal: AbortSignal): Promise<PostOutcome> {
+async function post(threadId: string, message: UnsentMessage, signal: AbortSignal): Promise<PostOutcome> {
     const response = await fetch(storeMessage.url(threadId), {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
@@ -36,7 +36,7 @@ async function post(threadId: number, message: UnsentMessage, signal: AbortSigna
 }
 
 /** Brings the delivered message into the page props, when the person still looks at that thread. */
-function onDelivered(threadId: number, outcome: { redirect?: string }): Promise<void> {
+function onDelivered(threadId: string, outcome: { redirect?: string }): Promise<void> {
     if (!window.location.pathname.startsWith(`/threads/${threadId}`)) {
         return Promise.resolve();
     }
@@ -58,6 +58,6 @@ if (typeof window !== 'undefined') {
     window.addEventListener('online', () => outbox.retryWaiting());
 }
 
-export function useUnsentMessages(threadId: number): UnsentMessage[] {
+export function useUnsentMessages(threadId: string): UnsentMessage[] {
     return useSyncExternalStore(outbox.subscribe, () => outbox.messages(threadId));
 }

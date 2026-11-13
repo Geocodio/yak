@@ -105,7 +105,7 @@ function ShareBody({ waiting }: { waiting: ThreadWaiting }) {
 }
 
 /** The conversation card for waiting_for_account and waiting_for_sandbox, with its capacity meters. */
-export function WaitingCard({ notice }: { notice: ThreadNotice; threadId: number; readonly?: boolean }) {
+export function WaitingCard({ notice }: { notice: ThreadNotice; threadId: string; readonly?: boolean }) {
     const waiting = notice.waiting;
     const isAccount = notice.kind === 'waiting_for_account';
     const isShare = !isAccount && waiting?.ownSlotsCap != null;

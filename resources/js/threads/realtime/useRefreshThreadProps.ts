@@ -6,7 +6,7 @@ const SETTLE_MS = 300;
 const RETRY_MS = 3000;
 
 /** One string that changes whenever the turn or the thread state behind the page props changes. */
-export function livePropsSignature(threadId: number, events: Pick<ThreadEventState, 'turn' | 'thread'>): string {
+export function livePropsSignature(threadId: string, events: Pick<ThreadEventState, 'turn' | 'thread'>): string {
     const { turn, thread } = events;
 
     return [threadId, turn?.turnId, turn?.state, thread?.status, thread?.sandboxState, thread?.runnerState, thread?.blockedReason].join('|');

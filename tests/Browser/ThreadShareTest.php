@@ -36,7 +36,7 @@ test('owner sees the Private badge, the banner and the Share button; a team thre
     $team = Thread::factory()->create();
     $this->actingAs($owner);
 
-    visit('/threads/' . $private->id)
+    visit('/threads/' . $private->public_id)
         ->assertVisible('[data-testid="visibility-badge"]')
         ->assertSeeIn('[data-testid="visibility-badge"]', 'Private')
         ->assertVisible('[data-testid="private-banner"]')
@@ -44,7 +44,7 @@ test('owner sees the Private badge, the banner and the Share button; a team thre
         ->assertVisible('[data-testid="share-button"]')
         ->assertNoJavaScriptErrors();
 
-    visit('/threads/' . $team->id)
+    visit('/threads/' . $team->public_id)
         ->assertMissing('[data-testid="visibility-badge"]')
         ->assertMissing('[data-testid="private-banner"]')
         ->assertMissing('[data-testid="share-button"]')
@@ -56,7 +56,7 @@ test('a private thread shows the started-on-your-computer subtext and the owner 
     $thread = Thread::factory()->private($owner)->create();
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="share-button"]')
         ->assertSee('A thread started on your computer is private to you until you share it.')
         ->click('[data-testid="share-mode-people"]')
@@ -71,7 +71,7 @@ test('the dialog lists people and the secret warning from the transcript', funct
     openedSecretFile($thread, '/repo/.env');
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="share-button"]')
         ->assertVisible('[data-testid="share-dialog"]')
         ->assertVisible('[data-testid="share-secret-warning"]')
@@ -88,7 +88,7 @@ test('choosing People I pick and two people shares and the teammate then sees th
     $thread = Thread::factory()->private($owner)->create();
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="share-button"]')
         ->click('[data-testid="share-mode-people"]')
         ->click('[data-testid="share-person-' . $first->id . '"]')
@@ -101,7 +101,7 @@ test('choosing People I pick and two people shares and the teammate then sees th
     expect(app(ThreadSharing::class)->current($thread)['userIds'])->toEqualCanonicalizing([$first->id, $second->id]);
 
     $this->actingAs($first);
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->assertSee($thread->title)
         ->assertMissing('[data-testid="share-button"]')
         ->assertNoJavaScriptErrors();
@@ -112,7 +112,7 @@ test('Everyone on the team flips the badge to Shared', function () {
     $thread = Thread::factory()->private($owner)->create();
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="share-button"]')
         ->click('[data-testid="share-mode-everyone"]')
         ->click('[data-testid="share-submit"]')
@@ -136,7 +136,7 @@ test('a failed save shows the error and keeps Private', function () {
         }
     });
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="share-button"]')
         ->click('[data-testid="share-mode-everyone"]')
         ->click('[data-testid="share-submit"]')
@@ -155,7 +155,7 @@ test('phone width 390: dialog fits and scrolls', function () {
     openedSecretFile($thread, '/repo/.env');
     $this->actingAs($owner);
 
-    $page = visit('/threads/' . $thread->id)->on()->mobile()
+    $page = visit('/threads/' . $thread->public_id)->on()->mobile()
         ->click('[data-testid="thread-menu"]')
         ->click('[data-testid="thread-menu-share"]')
         ->click('[data-testid="share-mode-people"]')
@@ -177,7 +177,7 @@ test('the visibility row shows the shared people and Remove narrows them down to
     app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$first->id, $second->id]);
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->assertSeeIn('[data-testid="visibility-badge"]', 'Shared with 2 people')
         ->assertSeeIn('[data-testid="visibility-row-state"]', 'Shared with 2 people')
         ->click('[data-testid="share-remove-' . $first->id . '"]')
@@ -198,7 +198,7 @@ test('a private thread shared with nobody shows Private and a Share link with no
     $thread = Thread::factory()->private($owner)->create();
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->assertSeeIn('[data-testid="visibility-row-state"]', 'Private')
         ->assertSeeIn('[data-testid="visibility-row-share"]', 'Share')
         ->assertMissing('[data-testid="shared-people"]')

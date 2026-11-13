@@ -46,7 +46,7 @@ test('index renders task rows', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Tasks/Index')
             ->has('tasks.data', 1, fn (Assert $row) => $row
-                ->where('id', $task->id)
+                ->where('id', $task->public_id)
                 ->where('description', 'Fix something important')
                 ->where('repo', 'my-repo')
                 ->where('sourceLabel', 'Slack')
@@ -83,7 +83,7 @@ test('pr fields are serialized for a task with a pull request', function () {
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row
-                ->where('id', $task->id)
+                ->where('id', $task->public_id)
                 ->where('pr.number', 42)
                 ->where('pr.state', 'open')
                 ->where('pr.url', 'https://github.com/org/repo/pull/42')
@@ -291,7 +291,7 @@ test('follow-up tasks nest under their parent and parent status follows the late
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row
-                ->where('id', $root->id)
+                ->where('id', $root->public_id)
                 ->where('status', 'failed')
                 ->has('followUps', 2)
                 ->where('followUps.0.description', 'first follow up change')
@@ -300,7 +300,7 @@ test('follow-up tasks nest under their parent and parent status follows the late
 
     // Only the root is a top-level paginated row.
     $ids = collect($this->get(route('tasks'))->viewData('page')['props']['tasks']['data'])->pluck('id');
-    expect($ids)->toContain($root->id)->not->toContain($latestChild->id);
+    expect($ids)->toContain($root->public_id)->not->toContain($latestChild->public_id);
 });
 
 test('a multi-level follow-up chain flattens grandchildren under the root', function () {
@@ -340,7 +340,7 @@ test('preview gif url is present when an artifact preview exists', function () {
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row
-                ->where('id', $task->id)
+                ->where('id', $task->public_id)
                 ->whereType('previewUrl', 'string')
                 ->whereType('previewGif', 'string')
                 ->etc()));
@@ -381,7 +381,7 @@ test('it links to the live branch preview when one exists', function () {
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row
-                ->where('id', $task->id)
+                ->where('id', $task->public_id)
                 ->where('deploymentUrl', 'https://preview-repo-preview-branch.yak.example.com')
                 ->etc()));
 });
@@ -397,7 +397,7 @@ test('it hides the preview link once the deployment is destroyed', function () {
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row
-                ->where('id', $task->id)
+                ->where('id', $task->public_id)
                 ->where('deploymentUrl', null)
                 ->etc()));
 });
@@ -412,7 +412,7 @@ test('repo column links to the pr when the task has one', function () {
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row
-                ->where('id', $task->id)
+                ->where('id', $task->public_id)
                 ->where('repoUrl', 'https://github.com/org/pr-project/pull/7')
                 ->etc()));
 });
@@ -429,7 +429,7 @@ test('repo column links to repository edit page when repository exists', functio
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row
-                ->where('id', $task->id)
+                ->where('id', $task->public_id)
                 ->where('repoUrl', route('repos.edit', 'my-project'))
                 ->etc()));
 });
@@ -445,7 +445,7 @@ test('repo column has no link when no repository record exists', function () {
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row
-                ->where('id', $task->id)
+                ->where('id', $task->public_id)
                 ->where('repoUrl', null)
                 ->etc()));
 });

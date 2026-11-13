@@ -22,8 +22,8 @@ final class DeviceData
      *     last_seen_at: ?string,
      *     is_stale: bool,
      *     stale_days: ?int,
-     *     last_teleport: ?array{thread_id: int, title: string, at: string},
-     *     owned_threads: list<array{id: int, title: string}>,
+     *     last_teleport: ?array{thread_id: string, title: string, at: string},
+     *     owned_threads: list<array{id: string, title: string}>,
      * }
      */
     public static function from(Device $device, ?User $viewer): array
@@ -44,11 +44,11 @@ final class DeviceData
             'is_stale' => $isStale,
             'stale_days' => $isStale && $lastActive !== null ? (int) $lastActive->diffInDays(now()) : null,
             'last_teleport' => $canSeeThread ? [
-                'thread_id' => $thread->id,
+                'thread_id' => $thread->public_id,
                 'title' => $thread->title,
                 'at' => $device->last_teleport_at->toIso8601String(),
             ] : null,
-            'owned_threads' => array_values($device->ownedThreads->map(fn ($owned): array => ['id' => $owned->id, 'title' => $owned->title])->all()),
+            'owned_threads' => array_values($device->ownedThreads->map(fn ($owned): array => ['id' => $owned->public_id, 'title' => $owned->title])->all()),
         ];
     }
 }

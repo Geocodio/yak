@@ -61,7 +61,7 @@ it('names the threads the device owns', function () {
     $thread = Thread::factory()->ownedByDevice($device->id)->create(['title' => 'On my laptop']);
 
     ($this->partial)()
-        ->assertJsonPath('props.devices.0.owned_threads', [['id' => $thread->id, 'title' => 'On my laptop']]);
+        ->assertJsonPath('props.devices.0.owned_threads', [['id' => $thread->public_id, 'title' => 'On my laptop']]);
 });
 
 it('revoke stops the token and reports device_revoked on /me', function () {

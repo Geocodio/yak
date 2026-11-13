@@ -53,7 +53,7 @@ test('links an observation to the task it produced', function () {
     $this->get(route('observations'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('observations.data.0.taskId', $task->id)
-            ->where('observations.data.0.taskUrl', route('tasks.show', $task->id)));
+            ->where('observations.data.0.taskUrl', route('tasks.show', $task->public_id)));
 });
 
 test('names each kind in a human label', function () {

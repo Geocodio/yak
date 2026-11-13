@@ -202,8 +202,6 @@ class NotificationDriver implements NotificationDriverContract
 
     private function taskDashboardUrl(YakTask $task): string
     {
-        $baseUrl = rtrim((string) config('app.url'), '/');
-
-        return "{$baseUrl}/tasks/{$task->id}";
+        return route('tasks.show', $task);
     }
 }

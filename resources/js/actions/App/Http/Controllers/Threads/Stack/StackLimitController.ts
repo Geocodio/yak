@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/Stack/StackLimitController.php:17
 * @route '/threads/{thread}/stack/limit'
 */
-const StackLimitController = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+const StackLimitController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: StackLimitController.url(args, options),
     method: 'patch',
 })
@@ -19,13 +19,13 @@ StackLimitController.definition = {
 * @see app/Http/Controllers/Threads/Stack/StackLimitController.php:17
 * @route '/threads/{thread}/stack/limit'
 */
-StackLimitController.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+StackLimitController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ StackLimitController.url = (args: { thread: number | { id: number } } | [thread:
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ StackLimitController.url = (args: { thread: number | { id: number } } | [thread:
 * @see app/Http/Controllers/Threads/Stack/StackLimitController.php:17
 * @route '/threads/{thread}/stack/limit'
 */
-StackLimitController.patch = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+StackLimitController.patch = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: StackLimitController.url(args, options),
     method: 'patch',
 })

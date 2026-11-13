@@ -30,7 +30,7 @@ test('a finished unseen thread sits in the needs you group', function () {
 
     visit('/threads/new')
         ->assertVisible('[data-testid="thread-group-needs-you"]')
-        ->assertVisible('[data-testid="thread-row-' . $thread->id . '"]')
+        ->assertVisible('[data-testid="thread-row-' . $thread->public_id . '"]')
         ->assertVisible('[data-testid="rail-threads-badge"]')
         ->assertNoJavaScriptErrors();
 });
@@ -41,9 +41,9 @@ test('the everyone filter shows threads from teammates', function () {
     $this->actingAs($user);
 
     visit('/threads/new')
-        ->assertMissing('[data-testid="thread-row-' . $other->id . '"]')
+        ->assertMissing('[data-testid="thread-row-' . $other->public_id . '"]')
         ->click('[data-testid="thread-filter"] button[data-testid="thread-filter-everyone"]')
-        ->assertVisible('[data-testid="thread-row-' . $other->id . '"]')
+        ->assertVisible('[data-testid="thread-row-' . $other->public_id . '"]')
         ->assertNoJavaScriptErrors();
 });
 
@@ -53,7 +53,7 @@ test('the owner sees a private thread with its badge', function () {
     $this->actingAs($user);
 
     visit('/threads/new')
-        ->assertVisible('[data-testid="thread-row-' . $private->id . '"]')
+        ->assertVisible('[data-testid="thread-row-' . $private->public_id . '"]')
         ->assertSee('Private')
         ->assertNoJavaScriptErrors();
 });
@@ -65,10 +65,10 @@ test('children are nested under their parent and can be collapsed', function () 
     $this->actingAs($user);
 
     visit('/threads/new')
-        ->assertVisible('[data-testid="thread-children-' . $parent->id . '"]')
-        ->click('[data-testid="thread-row-' . $parent->id . '"] button[aria-label="Collapse sub-threads"]')
-        ->assertMissing('[data-testid="thread-children-' . $parent->id . '"]')
-        ->assertVisible('[data-testid="thread-dots-' . $parent->id . '"]')
+        ->assertVisible('[data-testid="thread-children-' . $parent->public_id . '"]')
+        ->click('[data-testid="thread-row-' . $parent->public_id . '"] button[aria-label="Collapse sub-threads"]')
+        ->assertMissing('[data-testid="thread-children-' . $parent->public_id . '"]')
+        ->assertVisible('[data-testid="thread-dots-' . $parent->public_id . '"]')
         ->assertNoJavaScriptErrors();
 });
 
@@ -79,10 +79,10 @@ test('the count pill toggles the nested children', function () {
     $this->actingAs($user);
 
     visit('/threads/new')
-        ->assertVisible('[data-testid="thread-children-' . $parent->id . '"]')
-        ->assertSeeIn('[data-testid="thread-toggle-' . $parent->id . '"]', '1')
-        ->click('[data-testid="thread-toggle-' . $parent->id . '"]')
-        ->assertMissing('[data-testid="thread-children-' . $parent->id . '"]')
+        ->assertVisible('[data-testid="thread-children-' . $parent->public_id . '"]')
+        ->assertSeeIn('[data-testid="thread-toggle-' . $parent->public_id . '"]', '1')
+        ->click('[data-testid="thread-toggle-' . $parent->public_id . '"]')
+        ->assertMissing('[data-testid="thread-children-' . $parent->public_id . '"]')
         ->assertNoJavaScriptErrors();
 });
 
@@ -92,7 +92,7 @@ test('a blocked thread label is red', function () {
     $this->actingAs($user);
 
     visit('/threads/new')
-        ->assertVisible('[data-testid="thread-row-' . $thread->id . '"] .text-fail')
+        ->assertVisible('[data-testid="thread-row-' . $thread->public_id . '"] .text-fail')
         ->assertNoJavaScriptErrors();
 });
 
@@ -104,6 +104,6 @@ test('a teammate thread shows the owner chip under everyone', function () {
 
     visit('/threads/new')
         ->click('[data-testid="thread-filter"] button[data-testid="thread-filter-everyone"]')
-        ->assertSeeIn('[data-testid="thread-owner-' . $thread->id . '"]', 'TT')
+        ->assertSeeIn('[data-testid="thread-owner-' . $thread->public_id . '"]', 'TT')
         ->assertNoJavaScriptErrors();
 });

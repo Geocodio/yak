@@ -26,7 +26,7 @@ test('hovering a task row with a preview gif shows it in the floating overlay', 
 
     $page->assertSee('Hover preview task')
         ->assertMissing('[data-testid="task-preview-overlay"]')
-        ->hover('[data-testid="task-row-' . $task->id . '"]')
+        ->hover('[data-testid="task-row-' . $task->public_id . '"]')
         ->assertVisible('[data-testid="task-preview-overlay"]')
         ->assertAttributeContains($overlayImage, 'src', '/artifacts/public/');
 });

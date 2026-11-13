@@ -24,7 +24,7 @@ it('refuses with 409 while the device owns the thread', function () {
     Queue::fake();
     [$thread, $owner, $row] = askToFixRow(['owner_side' => ThreadOwnerSide::Device]);
 
-    $this->actingAs($owner)->postJson("/threads/{$thread->id}/pull-requests/{$row->id}/fix")->assertStatus(409);
+    $this->actingAs($owner)->postJson("/threads/{$thread->public_id}/pull-requests/{$row->id}/fix")->assertStatus(409);
 
     Queue::assertNothingPushed();
 });
@@ -34,7 +34,7 @@ it('refuses with 409 on a closed thread', function () {
     [$thread, $owner, $row] = askToFixRow();
     $thread->forceFill(Thread::factory()->closed()->make()->only(['status', 'closed_at', 'close_reason']))->save();
 
-    $this->actingAs($owner)->postJson("/threads/{$thread->id}/pull-requests/{$row->id}/fix")->assertStatus(409);
+    $this->actingAs($owner)->postJson("/threads/{$thread->public_id}/pull-requests/{$row->id}/fix")->assertStatus(409);
 
     Queue::assertNothingPushed();
 });
@@ -44,7 +44,7 @@ it('refuses with 409 when CI is not failing', function (?string $ciStatus) {
     [$thread, $owner, $row] = askToFixRow([], 'failing');
     $row->forceFill(['ci_status' => $ciStatus])->save();
 
-    $this->actingAs($owner)->postJson("/threads/{$thread->id}/pull-requests/{$row->id}/fix")->assertStatus(409);
+    $this->actingAs($owner)->postJson("/threads/{$thread->public_id}/pull-requests/{$row->id}/fix")->assertStatus(409);
 
     Queue::assertNothingPushed();
 })->with(['passing', null]);
@@ -53,7 +53,7 @@ it('accepts a failing row on an open Yak-owned thread', function () {
     Queue::fake();
     [$thread, $owner, $row] = askToFixRow();
 
-    $this->actingAs($owner)->postJson("/threads/{$thread->id}/pull-requests/{$row->id}/fix")->assertStatus(202)->assertJson(['ok' => true]);
+    $this->actingAs($owner)->postJson("/threads/{$thread->public_id}/pull-requests/{$row->id}/fix")->assertStatus(202)->assertJson(['ok' => true]);
 
     Queue::assertPushed(RetryRepositoryCiJob::class, 1);
 });

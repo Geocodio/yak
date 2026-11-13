@@ -61,6 +61,16 @@ func TestSSHBuildsJumpCommandFromContractBody(t *testing.T) {
 	}
 }
 
+func TestSSHAcceptsAPublicThreadID(t *testing.T) {
+	h, srv := sshRig(t)
+	srv.SSHBody = sshBody
+	srv.Threads[42].PublicID = "k7m2x9qd"
+	h.ctx.Exec = func(_ string, argv []string) error { return nil }
+	if code := Run(h.ctx, []string{"ssh", "k7m2x9qd"}); code != 0 {
+		t.Fatalf("%d %s", code, h.errb)
+	}
+}
+
 func TestSSHPrintsFingerprintsWhenPresent(t *testing.T) {
 	h, srv := sshRig(t)
 	srv.SetSSH("42", fakeyak.SSHBody{

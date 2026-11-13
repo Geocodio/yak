@@ -7,7 +7,7 @@ import type { QuestionData } from '@/types/tasks';
 
 type Answer = { choices: string[]; other: string | null; otherOpen: boolean };
 
-export function QuestionsForm({ taskId, questions }: { taskId: number; questions: QuestionData[] }) {
+export function QuestionsForm({ taskId, questions }: { taskId: string; questions: QuestionData[] }) {
     const form = useForm<{ answers: Record<string, { choices: string[]; other: string | null }>; note: string }>({ answers: {}, note: '' });
     const [answers, setAnswers] = useState<Record<string, Answer>>(() =>
         Object.fromEntries(questions.map((question) => [question.id, { choices: [], other: null, otherOpen: false }])),

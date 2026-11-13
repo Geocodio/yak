@@ -45,7 +45,7 @@ class DeploymentController extends Controller
     }
 
     /**
-     * @return ScrollProp<LengthAwarePaginator<int, array{id: int, repoSlug: string, branch: string, status: string, statusLabel: string, tone: string, hostname: string, lastAccessedAgo: ?string, longLived: bool, hibernatesAfter: string}>>
+     * @return ScrollProp<LengthAwarePaginator<int, array{id: string, repoSlug: string, branch: string, status: string, statusLabel: string, tone: string, hostname: string, lastAccessedAgo: ?string, longLived: bool, hibernatesAfter: string}>>
      */
     private function paginatedDeployments(string $status): ScrollProp
     {
@@ -66,7 +66,7 @@ class DeploymentController extends Controller
         $deployments = $query->orderByDesc('last_accessed_at')->paginate(25);
 
         $deployments = $deployments->through(fn (BranchDeployment $deployment): array => [
-            'id' => $deployment->id,
+            'id' => $deployment->public_id,
             'repoSlug' => $deployment->repository->slug,
             'branch' => $deployment->branch_name,
             'status' => $deployment->status->value,
@@ -87,7 +87,7 @@ class DeploymentController extends Controller
     private function deploymentData(BranchDeployment $deployment): array
     {
         return [
-            'id' => $deployment->id,
+            'id' => $deployment->public_id,
             'hostname' => $deployment->hostname,
             'url' => "https://{$deployment->hostname}",
             'repoSlug' => $deployment->repository->slug,

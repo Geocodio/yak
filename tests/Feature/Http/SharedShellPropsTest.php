@@ -14,7 +14,7 @@ test('shares the mine list and needsYouCount', function () {
 
     $this->actingAs($user)->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('threadList.threads.0.id', $thread->id)
+            ->where('threadList.threads.0.id', $thread->public_id)
             ->where('nav.needsYouCount', 0)
             ->has('nav.activeTaskCount'));
 });

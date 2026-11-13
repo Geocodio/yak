@@ -6,7 +6,7 @@ import { RebuildCard } from './RebuildCard';
 import { UsageLimitCard } from './UsageLimitCard';
 import { WaitingCard } from './WaitingCard';
 
-export function ThreadNotice({ notice, threadId, repo, branch, readonly = false }: { notice: ThreadNoticeData; threadId: number; repo: string; branch: string | null; readonly?: boolean }) {
+export function ThreadNotice({ notice, threadId, repo, branch, readonly = false }: { notice: ThreadNoticeData; threadId: string; repo: string; branch: string | null; readonly?: boolean }) {
     if (notice.kind === 'restoring' || notice.kind === 'restore_failed') {
         return <RebuildCard notice={notice} threadId={threadId} repo={repo} branch={branch} readonly={readonly} />;
     }

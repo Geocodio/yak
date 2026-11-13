@@ -134,7 +134,7 @@ it('sends the connect prompt to a user without GitHub and changes nothing', func
     Http::assertSent(fn ($r): bool => $r->url() === CO_OWNER_RESPONSE_URL
         && $r['blocks'][1]['elements'][0]['text']['text'] === 'Connect GitHub'
         && str_starts_with($r['blocks'][1]['elements'][0]['action_id'], 'yak_link_')
-        && str_contains($r['blocks'][1]['elements'][0]['url'], 'return=' . urlencode("/tasks/{$this->task->id}")));
+        && str_contains($r['blocks'][1]['elements'][0]['url'], 'return=' . urlencode("/tasks/{$this->task->public_id}")));
     expect($stranger->exists)->toBeTrue();
 });
 

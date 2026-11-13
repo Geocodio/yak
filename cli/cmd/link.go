@@ -24,7 +24,7 @@ func openLink(ctx *Context, args []string) int {
 		fmt.Fprintln(ctx.Stderr, "Usage: yak open-link <yak://teleport/<thread>> | --install")
 		return 2
 	}
-	threadID, err := link.Parse(args[0])
+	thread, err := link.Parse(args[0])
 	if err != nil {
 		ui.Fail(ctx.Stderr, "That is not a Yak teleport link. Nothing was opened.")
 		return 1
@@ -34,7 +34,7 @@ func openLink(ctx *Context, args []string) int {
 		return 1
 	}
 	var found api.ThreadResponse
-	if err := client.Do(context.Background(), "GET", fmt.Sprintf("/threads/%d", threadID), nil, &found); err != nil {
+	if err := client.Do(context.Background(), "GET", "/threads/"+thread, nil, &found); err != nil {
 		return reportAPIError(ctx, err)
 	}
 	repo := found.Thread.Repo
@@ -58,7 +58,7 @@ func openLink(ctx *Context, args []string) int {
 		ui.Fail(ctx.Stderr, "Could not find the yak program: %v", err)
 		return 1
 	}
-	argv := link.TerminalCommandFor(binary, threadID)
+	argv := link.TerminalCommandFor(binary, thread)
 	if ctx.OpenTerminal == nil {
 		fmt.Fprintf(ctx.Stdout, "Run: %s\n", link.ShellCommand(dir, argv))
 		return 0

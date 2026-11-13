@@ -55,7 +55,7 @@ it('answers a hidden thread surface exactly like a missing id', function (string
     $hidden = sweepRequest($this->actingAs($world->{$stranger}), $probe, $probe['uri']);
 
     $normalise = fn (?string $text) => str_replace(
-        [(string) $world->missingId, (string) $world->thread->id, (string) $world->task->id, (string) $world->deployment->id, (string) $world->attachment->id, (string) $world->prReview->pr_number, urlencode(VisibilityWorld::HOSTNAME), 'missing-preview.test', VisibilityWorld::HOSTNAME],
+        [(string) $world->missingId, 'zzzzzzzz', $world->thread->public_id, $world->child->public_id, $world->task->public_id, $world->deployment->public_id, (string) $world->thread->id, (string) $world->task->id, (string) $world->deployment->id, (string) $world->attachment->id, (string) $world->prReview->pr_number, urlencode(VisibilityWorld::HOSTNAME), 'missing-preview.test', VisibilityWorld::HOSTNAME],
         '#',
         (string) $text,
     );
@@ -101,5 +101,5 @@ it('does not serve a diff file that belongs to another thread', function () {
     $otherDiff = ThreadDiff::factory()->create(['thread_id' => $world->child->id, 'files_count' => 1]);
     $foreignFile = ThreadDiffFile::factory()->create(['thread_diff_id' => $otherDiff->id]);
 
-    $this->actingAs($world->owner)->get("/threads/{$world->thread->id}/diff/files/{$foreignFile->id}")->assertNotFound();
+    $this->actingAs($world->owner)->get("/threads/{$world->thread->public_id}/diff/files/{$foreignFile->id}")->assertNotFound();
 });

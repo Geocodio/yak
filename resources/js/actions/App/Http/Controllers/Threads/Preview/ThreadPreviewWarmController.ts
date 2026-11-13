@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
 * @route '/threads/{thread}/preview/warm'
 */
-const ThreadPreviewWarmController = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+const ThreadPreviewWarmController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: ThreadPreviewWarmController.url(args, options),
     method: 'post',
 })
@@ -19,13 +19,13 @@ ThreadPreviewWarmController.definition = {
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
 * @route '/threads/{thread}/preview/warm'
 */
-ThreadPreviewWarmController.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+ThreadPreviewWarmController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ ThreadPreviewWarmController.url = (args: { thread: number | { id: number } } | [
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ ThreadPreviewWarmController.url = (args: { thread: number | { id: number } } | [
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
 * @route '/threads/{thread}/preview/warm'
 */
-ThreadPreviewWarmController.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+ThreadPreviewWarmController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: ThreadPreviewWarmController.url(args, options),
     method: 'post',
 })

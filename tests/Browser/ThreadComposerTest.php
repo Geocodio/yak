@@ -27,7 +27,7 @@ it('sends with the picked model', function () {
         $mock->shouldReceive('start')->once()->withArgs(fn ($task, $text, $sender, $model) => $text === 'Hello' && $model === 'opus')->andReturn(new TaskRun);
     });
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->click('[data-testid="composer-model"]')
         ->click('[data-testid="composer-model-opus"]')
         ->assertSeeIn('[data-testid="composer-model"]', 'Opus 5.5')
@@ -46,7 +46,7 @@ it('picks a family, then pins an older version from the expanded family', functi
     [$user, $thread] = composerThread();
     $this->actingAs($user);
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->click('[data-testid="composer-model"]')
         ->click('[data-testid="composer-model-opus"]')
         ->assertSeeIn('[data-testid="composer-model"]', 'Opus 5.5')
@@ -66,7 +66,7 @@ it('Send looks enabled with text and dimmed when empty', function () {
     [$user, $thread] = composerThread();
     $this->actingAs($user);
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->assertScript("getComputedStyle(document.querySelector('[data-testid=\"thread-send\"]')).opacity !== '1'", true);
     $page->fill('[data-testid="thread-composer-input"]', 'Hello');
     $page->assertScript("getComputedStyle(document.querySelector('[data-testid=\"thread-send\"]')).opacity", '1');
@@ -76,14 +76,14 @@ it('shows Stop only while Claude works and posts the stop', function () {
     [$user, $thread] = composerThread();
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")->assertMissing('[data-testid="thread-stop"]');
+    visit("/threads/{$thread->public_id}")->assertMissing('[data-testid="thread-stop"]');
 
     TaskRun::factory()->create(['yak_task_id' => $thread->tasks()->first()->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Running]);
     $this->mock(ThreadTurns::class, function ($mock) {
         $mock->shouldReceive('stop')->once();
     });
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->assertVisible('[data-testid="thread-stop"]');
     $page->script("document.querySelector('[data-testid=\"thread-stop\"]').click()");
     $page->wait(3)->assertNoJavaScriptErrors();
@@ -94,7 +94,7 @@ it('explains why the composer is disabled', function (array $attributes, string 
     $thread->update($attributes);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSee($copy)
         ->assertScript("document.querySelector('[data-testid=\"thread-composer-input\"]').disabled", true)
         ->assertScript("document.querySelector('[data-testid=\"thread-send\"]').disabled", true);
@@ -107,7 +107,7 @@ it('keeps the draft and shows the error for an overlong message', function () {
     [$user, $thread] = composerThread();
     $this->actingAs($user);
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->script("const t = document.querySelector('[data-testid=\"thread-composer-input\"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(t, 'a'.repeat(20001)); t.dispatchEvent(new Event('input', {bubbles: true}))");
     $page->wait(1)->script("document.querySelector('[data-testid=\"thread-send\"]').click()");
     $page->wait(5)->assertVisible('[data-testid="thread-composer-error"]')
@@ -120,7 +120,7 @@ it('keeps the composer enabled on a waiting thread and a sent message shows as n
     TaskRun::factory()->create(['yak_task_id' => $thread->tasks()->first()->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::WaitingForAccount]);
     $this->actingAs($user);
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->assertAttribute('[data-testid="thread-composer-input"]', 'placeholder', 'Message Claude. It reads this when its turn starts.')
         ->assertSeeIn('[data-testid="thread-composer-hint"]', 'Claude reads it when its turn starts.')
         ->fill('[data-testid="thread-composer-input"]', 'Hello')
@@ -135,7 +135,7 @@ it('shows a refused message with its reason and puts the text back on Edit', fun
         $mock->shouldReceive('start')->once()->andThrow(new ThreadBusy('busy'));
     });
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->fill('[data-testid="thread-composer-input"]', 'Hello')
         ->click('[data-testid="thread-send"]');
     $page->wait(2)

@@ -1,7 +1,7 @@
 export type ThreadListFilter = 'mine' | 'yak' | 'everyone';
 
 export type ThreadListRow = {
-    id: number;
+    id: string;
     title: string;
     repo: string;
     status: 'running' | 'blocked' | 'paused' | 'stopped' | 'waiting_for_repository';

@@ -18,13 +18,13 @@ it('answers a hidden thread with invalid input exactly like a missing thread', f
     $hidden = Thread::factory()->private(User::factory()->create())->create();
     $viewer = User::factory()->create();
 
-    $missing = $this->actingAs($viewer)->json($method, route($routeName, ['thread' => 999999]), $payload);
+    $missing = $this->actingAs($viewer)->json($method, route($routeName, ['thread' => 'zzzzzzzz']), $payload);
     $response = $this->actingAs($viewer)->json($method, route($routeName, $hidden), $payload);
 
     expect($response->status())->toBe(404)
         ->and($missing->status())->toBe(404)
-        ->and(str_replace((string) $hidden->id, 'ID', (string) $response->getContent()))
-        ->toBe(str_replace('999999', 'ID', (string) $missing->getContent()));
+        ->and(str_replace($hidden->public_id, 'ID', (string) $response->getContent()))
+        ->toBe(str_replace('zzzzzzzz', 'ID', (string) $missing->getContent()));
 })->with('thread form requests');
 
 it('refuses a read-only viewer before validating', function (string $method, string $routeName, array $payload) {

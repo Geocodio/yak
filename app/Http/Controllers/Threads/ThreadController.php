@@ -50,12 +50,12 @@ class ThreadController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, title: string}|null
+     * @return array{id: string, name: string, title: string}|null
      */
     private function stackParent(Thread $thread): ?array
     {
         $parent = $thread->parent_thread_id === null ? null : Thread::query()->withoutGlobalScopes()->find($thread->parent_thread_id);
 
-        return $parent === null ? null : ['id' => $parent->id, 'name' => $parent->name, 'title' => $parent->title];
+        return $parent === null ? null : ['id' => $parent->public_id, 'name' => $parent->name, 'title' => $parent->title];
     }
 }

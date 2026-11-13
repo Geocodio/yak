@@ -6,9 +6,9 @@ export type UnsentMessage = { key: string; text: string; model: string | null; s
 export type PostOutcome = { kind: 'sent'; redirect?: string } | { kind: 'refused'; reason: string } | { kind: 'unreachable' };
 
 type OutboxOptions = {
-    post: (threadId: number, message: UnsentMessage, signal: AbortSignal) => Promise<PostOutcome>;
+    post: (threadId: string, message: UnsentMessage, signal: AbortSignal) => Promise<PostOutcome>;
     /** Resolves once the page shows the delivered message, so the unsent copy can go without a gap. */
-    onDelivered: (threadId: number, outcome: { redirect?: string }) => Promise<void>;
+    onDelivered: (threadId: string, outcome: { redirect?: string }) => Promise<void>;
     newKey?: () => string;
     schedule?: (callback: () => void, milliseconds: number) => unknown;
     slowAfterMs?: number;
@@ -24,20 +24,20 @@ const EMPTY: UnsentMessage[] = [];
  */
 export function createOutbox(options: OutboxOptions) {
     const { post, onDelivered, newKey = () => crypto.randomUUID(), schedule = (callback, milliseconds) => setTimeout(callback, milliseconds), slowAfterMs = 8000, retryAfterMs = 4000 } = options;
-    const queues = new Map<number, UnsentMessage[]>();
-    const inFlight = new Map<number, AbortController>();
+    const queues = new Map<string, UnsentMessage[]>();
+    const inFlight = new Map<string, AbortController>();
     const listeners = new Set<() => void>();
 
-    const write = (threadId: number, next: UnsentMessage[]): void => {
+    const write = (threadId: string, next: UnsentMessage[]): void => {
         queues.set(threadId, next);
         listeners.forEach((listener) => listener());
     };
-    const patch = (threadId: number, key: string, change: Partial<UnsentMessage>): void =>
+    const patch = (threadId: string, key: string, change: Partial<UnsentMessage>): void =>
         write(threadId, (queues.get(threadId) ?? EMPTY).map((message) => (message.key === key ? { ...message, ...change } : message)));
-    const drop = (threadId: number, key: string): void => write(threadId, (queues.get(threadId) ?? EMPTY).filter((message) => message.key !== key));
-    const find = (threadId: number, key: string): UnsentMessage | undefined => queues.get(threadId)?.find((message) => message.key === key);
+    const drop = (threadId: string, key: string): void => write(threadId, (queues.get(threadId) ?? EMPTY).filter((message) => message.key !== key));
+    const find = (threadId: string, key: string): UnsentMessage | undefined => queues.get(threadId)?.find((message) => message.key === key);
 
-    const pump = async (threadId: number): Promise<void> => {
+    const pump = async (threadId: string): Promise<void> => {
         const head = queues.get(threadId)?.[0];
 
         if (head === undefined || head.status !== 'queued' || inFlight.has(threadId)) {
@@ -67,7 +67,7 @@ export function createOutbox(options: OutboxOptions) {
         void pump(threadId);
     };
 
-    const retry = (threadId: number, key: string): void => {
+    const retry = (threadId: string, key: string): void => {
         patch(threadId, key, { status: 'queued', reason: null });
         void pump(threadId);
     };
@@ -78,8 +78,8 @@ export function createOutbox(options: OutboxOptions) {
 
             return () => listeners.delete(listener);
         },
-        messages: (threadId: number): UnsentMessage[] => queues.get(threadId) ?? EMPTY,
-        enqueue(threadId: number, text: string, model: string | null): void {
+        messages: (threadId: string): UnsentMessage[] => queues.get(threadId) ?? EMPTY,
+        enqueue(threadId: string, text: string, model: string | null): void {
             write(threadId, [...(queues.get(threadId) ?? EMPTY), { key: newKey(), text, model, status: 'queued', reason: null, createdAt: new Date().toISOString() }]);
             void pump(threadId);
         },
@@ -89,7 +89,7 @@ export function createOutbox(options: OutboxOptions) {
             queues.forEach((messages, threadId) => messages.filter((message) => message.status === 'waiting').forEach((message) => retry(threadId, message.key)));
         },
         /** Takes the message out of the queue and returns its text for the composer. */
-        cancel(threadId: number, key: string): string {
+        cancel(threadId: string, key: string): string {
             const message = find(threadId, key);
 
             if (message !== undefined && queues.get(threadId)?.[0]?.key === key) {

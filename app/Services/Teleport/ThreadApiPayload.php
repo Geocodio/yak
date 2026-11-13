@@ -25,6 +25,7 @@ class ThreadApiPayload
 
         return [
             'id' => $thread->id,
+            'public_id' => $thread->public_id,
             'title' => $thread->title,
             'repo' => $thread->repo,
             'branch' => $thread->branch,

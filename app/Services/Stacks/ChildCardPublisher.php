@@ -31,7 +31,7 @@ class ChildCardPublisher
             $diff = $child->diff;
 
             $this->events->append($parentId, 'child', [
-                'childThreadId' => $child->id,
+                'childThreadId' => $child->public_id,
                 'name' => $child->name,
                 'kind' => $child->kind->value,
                 'model' => $child->model,

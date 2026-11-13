@@ -88,7 +88,7 @@ it('shows live updates and catches up after a reconnect', function () {
             publishAssistantText($publisher, $thread->id, $messageId);
         }
 
-        $page = visit("/threads/{$thread->id}");
+        $page = visit("/threads/{$thread->public_id}");
         $page->wait(2)->assertScript(threadEventStateScript('data-item-keys'), 'm1:0,m2:0,m3:0')
             ->assertScript(threadEventStateScript('data-last-sequence'), '3')
             ->assertScript(threadEventStateScript('data-status'), 'live');

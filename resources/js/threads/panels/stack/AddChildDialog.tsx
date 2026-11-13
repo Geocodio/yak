@@ -16,7 +16,7 @@ const MODELS = [
     { value: 'haiku', label: 'Haiku' },
 ];
 
-type AddChildDialogProps = { threadId: number; parentTitle: string; awake: number; limit: number; childCount: number; maxChildren: number; onClose: () => void; onAdded: () => void };
+type AddChildDialogProps = { threadId: string; parentTitle: string; awake: number; limit: number; childCount: number; maxChildren: number; onClose: () => void; onAdded: () => void };
 
 export function AddChildDialog({ threadId, parentTitle, awake, limit, childCount, maxChildren, onClose, onAdded }: AddChildDialogProps) {
     const [name, setName] = useState('');

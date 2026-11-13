@@ -55,7 +55,7 @@ trait ReportsResearchToSource
     protected function viewerUrl(Artifact $artifact): string
     {
         return route('artifacts.viewer', [
-            'task' => $this->task->id,
+            'task' => $this->task,
             'filename' => $artifact->filename,
         ]);
     }

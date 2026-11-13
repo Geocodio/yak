@@ -170,7 +170,7 @@ test('research posts the summary and the report link as a Slack thread reply', f
     $task = researchTurn('Analysis shows three bottlenecks', ['source' => 'slack', 'slack_channel' => 'C12345', 'slack_thread_ts' => '1234567890.123456'], [], reportShell());
 
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => str_contains($job->message, 'Analysis shows three bottlenecks')
-        && str_contains($job->message, "/artifacts/{$task->id}/viewer/research.html"));
+        && str_contains($job->message, "/artifacts/{$task->public_id}/viewer/research.html"));
 });
 
 test('research that asks parks the task and collects no artifact', function () {

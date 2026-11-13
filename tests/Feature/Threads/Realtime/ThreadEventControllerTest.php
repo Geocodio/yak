@@ -71,22 +71,22 @@ it('answers 404 for a private thread exactly like a missing one', function (stri
     $viewer = User::factory()->create($who === 'admin' ? ['email' => 'admin@example.com'] : []);
 
     $this->actingAs($viewer);
-    $hidden = $this->getJson(route('threads.events.index', ['thread' => $thread->id]));
-    $missing = $this->getJson(route('threads.events.index', ['thread' => 999999]));
-    $hiddenEvent = $this->getJson(route('threads.events.show', ['thread' => $thread->id, 'sequence' => 1]));
+    $hidden = $this->getJson(route('threads.events.index', ['thread' => $thread->public_id]));
+    $missing = $this->getJson(route('threads.events.index', ['thread' => 'zzzzzzzz']));
+    $hiddenEvent = $this->getJson(route('threads.events.show', ['thread' => $thread->public_id, 'sequence' => 1]));
 
     $hidden->assertNotFound();
     $hiddenEvent->assertNotFound();
-    expect(preg_replace('/\d+/', 'N', (string) $hidden->json('message')))->toBe(preg_replace('/\d+/', 'N', (string) $missing->json('message')))
+    expect(str_replace($thread->public_id, 'N', (string) $hidden->json('message')))->toBe(str_replace('zzzzzzzz', 'N', (string) $missing->json('message')))
         ->and($hidden->json('exception'))->toBe($missing->json('exception'));
 
-    $this->actingAs($owner)->getJson(route('threads.events.index', ['thread' => $thread->id]))->assertOk();
+    $this->actingAs($owner)->getJson(route('threads.events.index', ['thread' => $thread->public_id]))->assertOk();
 })->with(['second user' => 'user', 'admin' => 'admin']);
 
 it('requires login', function () {
     $thread = Thread::factory()->create();
 
-    $this->getJson(route('threads.events.index', ['thread' => $thread->id]))->assertUnauthorized();
+    $this->getJson(route('threads.events.index', ['thread' => $thread->public_id]))->assertUnauthorized();
 });
 
 it('renders markdown for a stored assistant entry that has no html', function () {

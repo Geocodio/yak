@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
-export const status = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const status = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: status.url(args, options),
     method: 'get',
 })
@@ -19,13 +19,13 @@ status.definition = {
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
-status.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+status.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ status.url = (args: { thread: number | { id: number } } | [thread: number | { id
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -52,7 +52,7 @@ status.url = (args: { thread: number | { id: number } } | [thread: number | { id
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
-status.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+status.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: status.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ status.get = (args: { thread: number | { id: number } } | [thread: number | { id
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
-status.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+status.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: status.url(args, options),
     method: 'head',
 })
@@ -72,7 +72,7 @@ status.head = (args: { thread: number | { id: number } } | [thread: number | { i
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewHeartbeatController.php:15
 * @route '/threads/{thread}/preview/heartbeat'
 */
-export const heartbeat = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const heartbeat = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: heartbeat.url(args, options),
     method: 'post',
 })
@@ -87,13 +87,13 @@ heartbeat.definition = {
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewHeartbeatController.php:15
 * @route '/threads/{thread}/preview/heartbeat'
 */
-heartbeat.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+heartbeat.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -106,7 +106,7 @@ heartbeat.url = (args: { thread: number | { id: number } } | [thread: number | {
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -120,7 +120,7 @@ heartbeat.url = (args: { thread: number | { id: number } } | [thread: number | {
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewHeartbeatController.php:15
 * @route '/threads/{thread}/preview/heartbeat'
 */
-heartbeat.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+heartbeat.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: heartbeat.url(args, options),
     method: 'post',
 })
@@ -130,7 +130,7 @@ heartbeat.post = (args: { thread: number | { id: number } } | [thread: number | 
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
 * @route '/threads/{thread}/preview/warm'
 */
-export const warm = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const warm = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: warm.url(args, options),
     method: 'post',
 })
@@ -145,13 +145,13 @@ warm.definition = {
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
 * @route '/threads/{thread}/preview/warm'
 */
-warm.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+warm.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -164,7 +164,7 @@ warm.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -178,7 +178,7 @@ warm.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
 * @route '/threads/{thread}/preview/warm'
 */
-warm.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+warm.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: warm.url(args, options),
     method: 'post',
 })
@@ -188,7 +188,7 @@ warm.post = (args: { thread: number | { id: number } } | [thread: number | { id:
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
-export const restore = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const restore = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: restore.url(args, options),
     method: 'post',
 })
@@ -203,13 +203,13 @@ restore.definition = {
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
-restore.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+restore.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -222,7 +222,7 @@ restore.url = (args: { thread: number | { id: number } } | [thread: number | { i
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -236,7 +236,7 @@ restore.url = (args: { thread: number | { id: number } } | [thread: number | { i
 * @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
-restore.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+restore.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: restore.url(args, options),
     method: 'post',
 })

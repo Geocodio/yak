@@ -118,7 +118,7 @@ test('the terminal connects with the token from the session endpoint', function 
     waitForTerminal($page, statusIs('connected'));
     $page->assertSeeIn('[data-testid="terminal-status"]', 'Connected');
     expect($page->script('window.__ws.url'))->toContain('/terminal/ws?token=')
-        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('yak ssh ' . $thread->id)
+        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('yak ssh ' . $thread->public_id)
         ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('Closing a tab ends its shell.')
         ->toContain('Terminal docs');
     $page->assertNoJavaScriptErrors();

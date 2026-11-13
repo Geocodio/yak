@@ -18,7 +18,7 @@ import pullRequests from './pull-requests'
 * @see app/Http/Controllers/Threads/ThreadMessageController.php:122
 * @route '/threads/{thread}/stop'
 */
-export const stop = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const stop = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: stop.url(args, options),
     method: 'post',
 })
@@ -33,13 +33,13 @@ stop.definition = {
 * @see app/Http/Controllers/Threads/ThreadMessageController.php:122
 * @route '/threads/{thread}/stop'
 */
-stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+stop.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -52,7 +52,7 @@ stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -66,7 +66,7 @@ stop.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 * @see app/Http/Controllers/Threads/ThreadMessageController.php:122
 * @route '/threads/{thread}/stop'
 */
-stop.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+stop.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: stop.url(args, options),
     method: 'post',
 })
@@ -76,7 +76,7 @@ stop.post = (args: { thread: number | { id: number } } | [thread: number | { id:
 * @see app/Http/Controllers/Threads/ContinueTurnController.php:19
 * @route '/threads/{thread}/continue'
 */
-export const continueMethod = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const continueMethod = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: continueMethod.url(args, options),
     method: 'post',
 })
@@ -91,13 +91,13 @@ continueMethod.definition = {
 * @see app/Http/Controllers/Threads/ContinueTurnController.php:19
 * @route '/threads/{thread}/continue'
 */
-continueMethod.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+continueMethod.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -110,7 +110,7 @@ continueMethod.url = (args: { thread: number | { id: number } } | [thread: numbe
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -124,7 +124,7 @@ continueMethod.url = (args: { thread: number | { id: number } } | [thread: numbe
 * @see app/Http/Controllers/Threads/ContinueTurnController.php:19
 * @route '/threads/{thread}/continue'
 */
-continueMethod.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+continueMethod.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: continueMethod.url(args, options),
     method: 'post',
 })
@@ -212,7 +212,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 * @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
-export const show = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -227,13 +227,13 @@ show.definition = {
 * @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
-show.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -246,7 +246,7 @@ show.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -260,7 +260,7 @@ show.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 * @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
-show.get = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -270,7 +270,7 @@ show.get = (args: { thread: number | { id: number } } | [thread: number | { id: 
 * @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
-show.head = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
@@ -324,7 +324,7 @@ list.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 * @see app/Http/Controllers/Threads/ThreadSeenController.php:14
 * @route '/threads/{thread}/seen'
 */
-export const seen = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const seen = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: seen.url(args, options),
     method: 'post',
 })
@@ -339,13 +339,13 @@ seen.definition = {
 * @see app/Http/Controllers/Threads/ThreadSeenController.php:14
 * @route '/threads/{thread}/seen'
 */
-seen.url = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+seen.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { thread: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { thread: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -358,7 +358,7 @@ seen.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 
     const parsedArgs = {
         thread: typeof args.thread === 'object'
-        ? args.thread.id
+        ? args.thread.public_id
         : args.thread,
     }
 
@@ -372,7 +372,7 @@ seen.url = (args: { thread: number | { id: number } } | [thread: number | { id: 
 * @see app/Http/Controllers/Threads/ThreadSeenController.php:14
 * @route '/threads/{thread}/seen'
 */
-seen.post = (args: { thread: number | { id: number } } | [thread: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+seen.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: seen.url(args, options),
     method: 'post',
 })

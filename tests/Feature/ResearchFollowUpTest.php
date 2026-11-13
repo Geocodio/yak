@@ -119,7 +119,7 @@ test('the research artifact link points at the newest report in the conversation
 
     $this->get(route('tasks.show', $head))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => $child->id, 'filename' => 'research.html'])));
+            ->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => $child->public_id, 'filename' => 'research.html'])));
 });
 
 /*

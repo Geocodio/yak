@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
 * @route '/tasks/{task}/clarification-answers'
 */
-export const store = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const store = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -19,13 +19,13 @@ store.definition = {
 * @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
 * @route '/tasks/{task}/clarification-answers'
 */
-store.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+store.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ store.url = (args: { task: string | number | { id: string | number } } | [task: 
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -52,7 +52,7 @@ store.url = (args: { task: string | number | { id: string | number } } | [task: 
 * @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
 * @route '/tasks/{task}/clarification-answers'
 */
-store.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+store.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })

@@ -28,8 +28,8 @@ it('is none for a plain Yak thread', function () {
     $teleport = teleportProp($user, $thread);
 
     expect($teleport['state'])->toBe('none')
-        ->and($teleport['command'])->toBe("yak teleport {$thread->id}")
-        ->and($teleport['link'])->toBe("yak://teleport/{$thread->id}")
+        ->and($teleport['command'])->toBe("yak teleport {$thread->public_id}")
+        ->and($teleport['link'])->toBe("yak://teleport/{$thread->public_id}")
         ->and($teleport['canTeleport'])->toBeTrue()
         ->and($teleport['hasDevices'])->toBeFalse()
         ->and($teleport['ownerDevice'])->toBeNull()
@@ -100,7 +100,7 @@ it('links the thread it continued from', function () {
     $thread = Thread::factory()->create(['continued_from_thread_id' => $from->id]);
     $teleport = teleportProp(User::factory()->create(), $thread);
 
-    expect($teleport['continuedFromThreadId'])->toBe($from->id)->and($teleport['continuedFromTitle'])->toBe('Fix login');
+    expect($teleport['continuedFromThreadId'])->toBe($from->public_id)->and($teleport['continuedFromTitle'])->toBe('Fix login');
 });
 
 it('reports the last completed teleport as an environment switch', function () {

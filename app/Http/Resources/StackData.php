@@ -24,10 +24,10 @@ final class StackData
 
     /**
      * @return array{
-     *     rootId: int,
+     *     rootId: string,
      *     isRoot: bool,
-     *     parent: ?array{id: int, name: string, title: string},
-     *     children: list<array{id: int, name: string, title: string, kind: string, model: ?string, state: string, step: ?string, resultSummary: ?string, branch: ?string, repo: ?string, pullRequestUrl: ?string, ciStatus: ?string, filesChanged: ?int, queued: bool, messagesPaused: bool, takenOver: bool, canOverride: bool}>,
+     *     parent: ?array{id: string, name: string, title: string},
+     *     children: list<array{id: string, name: string, title: string, kind: string, model: ?string, state: string, step: ?string, resultSummary: ?string, branch: ?string, repo: ?string, pullRequestUrl: ?string, ciStatus: ?string, filesChanged: ?int, queued: bool, messagesPaused: bool, takenOver: bool, canOverride: bool}>,
      *     limit: array{current: int, max: int, awake: int, waiting: int},
      *     maxChildren: int,
      *     usage: array{turnCount: int, costUsd: float, activeHours: float, note: string},
@@ -54,7 +54,7 @@ final class StackData
             $waiting += $child->queued_for_slot_at !== null ? 1 : 0;
 
             $children[] = [
-                'id' => $child->id,
+                'id' => $child->public_id,
                 'name' => $child->name,
                 'title' => $child->title,
                 'kind' => $child->kind->value,
@@ -95,9 +95,9 @@ final class StackData
         $messages = array_values($messages);
 
         return [
-            'rootId' => $root->id,
+            'rootId' => $root->public_id,
             'isRoot' => ! $thread->isChild(),
-            'parent' => $parent === null ? null : ['id' => $parent->id, 'name' => $parent->name, 'title' => $parent->title],
+            'parent' => $parent === null ? null : ['id' => $parent->public_id, 'name' => $parent->name, 'title' => $parent->title],
             'children' => $children,
             'limit' => ['current' => $root->child_awake_limit, 'max' => (int) config('yak.threads.person_awake_cap'), 'awake' => $awake, 'waiting' => $waiting],
             'maxChildren' => (int) config('yak.threads.max_children'),

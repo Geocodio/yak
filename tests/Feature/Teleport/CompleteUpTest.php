@@ -302,7 +302,7 @@ it('resets a live sandbox to the pushed head on a second up and runs the symlink
         'repos' => [['repo' => 'acme/widgets', 'role' => 'primary', 'branch' => 'yak/fix-the-cache', 'on_default_branch' => false, 'head_sha' => COMPLETE_HEAD]],
     ], cliHeaders($this->token))->assertOk()->json();
     $chunkSha = hash('sha256', "{\"type\":\"user\"}\n");
-    $this->postJson("/api/cli/v1/threads/{$thread->id}/session/checkpoint", ['session_id' => COMPLETE_SESSION, 'rel_path' => COMPLETE_SESSION . '.jsonl', 'sha256' => $chunkSha], cliHeaders($this->token))->assertOk();
+    $this->postJson("/api/cli/v1/threads/{$thread->public_id}/session/checkpoint", ['session_id' => COMPLETE_SESSION, 'rel_path' => COMPLETE_SESSION . '.jsonl', 'sha256' => $chunkSha], cliHeaders($this->token))->assertOk();
 
     $this->sandboxes->calls = [];
     $this->sessions->shouldReceive('restoreIntoSandbox')->once();

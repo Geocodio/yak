@@ -7,7 +7,7 @@ type Props = {
     file: ThreadDiffFile;
     label: string;
     fileKey: string;
-    threadId: number;
+    threadId: string;
     mode: 'unified' | 'split';
     isCollapsed: boolean;
     isActive: boolean;

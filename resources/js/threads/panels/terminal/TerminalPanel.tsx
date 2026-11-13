@@ -16,7 +16,7 @@ import { useTerminalSession, type TerminalSessionState } from './useTerminalSess
 const TerminalView = lazy(() => import('./TerminalView'));
 
 type SessionProps = {
-    threadId: number;
+    threadId: string;
     sandboxState: PanelProps['thread']['sandboxState'];
     active: boolean;
     clearToken: number;

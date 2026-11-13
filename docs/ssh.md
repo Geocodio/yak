@@ -29,10 +29,10 @@ The same page has a "Set up your computer" block with the config snippet describ
 
 ## yak ssh
 
-Install and sign in first ([teleport.md](teleport.md#install)). Then use the thread number from the thread page:
+Install and sign in first ([teleport.md](teleport.md#install)). Then use the thread id from the thread page URL:
 
 ```
-yak ssh 42
+yak ssh k7m2x9qd
 ```
 
 The command asks Yak for the connection details and runs `ssh` through the jump host as the user `yak` in the sandbox. Host keys are accepted the first time you connect (`StrictHostKeyChecking=accept-new`) and stored under a per-thread alias, so one thread's key never clashes with another's. Connecting waits up to 60 seconds. Flags and errors are in [cli.md](cli.md#yak-ssh).

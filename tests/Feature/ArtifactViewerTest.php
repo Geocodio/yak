@@ -16,7 +16,7 @@ test('signedUrl generates a temporary signed route', function () {
     $url = $artifact->signedUrl();
 
     expect($url)
-        ->toContain('/artifacts/' . $task->id . '/' . $artifact->filename)
+        ->toContain('/artifacts/' . $task->public_id . '/' . $artifact->filename)
         ->toContain('signature=')
         ->toContain('expires=');
 });
@@ -90,7 +90,7 @@ test('expired signed URL is rejected', function () {
     $url = URL::temporarySignedRoute(
         'artifacts.show',
         now()->subDay(),
-        ['task' => $task->id, 'filename' => $artifact->filename]
+        ['task' => $task->public_id, 'filename' => $artifact->filename]
     );
     $path = parse_url($url, PHP_URL_PATH) . '?' . parse_url($url, PHP_URL_QUERY);
 
@@ -120,7 +120,7 @@ test('authenticated users can access artifacts without signed URL', function () 
 
     $this->actingAs($user);
 
-    $response = $this->get(route('artifacts.show', ['task' => $task->id, 'filename' => $artifact->filename]));
+    $response = $this->get(route('artifacts.show', ['task' => $task->public_id, 'filename' => $artifact->filename]));
     $response->assertOk();
 });
 
@@ -128,7 +128,7 @@ test('unauthenticated user without signed URL is rejected', function () {
     $task = YakTask::factory()->create();
     $artifact = Artifact::factory()->screenshot()->create(['yak_task_id' => $task->id]);
 
-    $response = $this->get(route('artifacts.show', ['task' => $task->id, 'filename' => $artifact->filename]));
+    $response = $this->get(route('artifacts.show', ['task' => $task->public_id, 'filename' => $artifact->filename]));
     $response->assertStatus(403);
 });
 
@@ -138,7 +138,7 @@ test('artifact not found returns 404', function () {
 
     $this->actingAs($user);
 
-    $response = $this->get(route('artifacts.show', ['task' => $task->id, 'filename' => 'nonexistent.png']));
+    $response = $this->get(route('artifacts.show', ['task' => $task->public_id, 'filename' => 'nonexistent.png']));
     $response->assertStatus(404);
 });
 
@@ -151,7 +151,7 @@ test('research artifact viewer renders iframe for authenticated users', function
 
     $this->actingAs($user);
 
-    $response = $this->get(route('artifacts.viewer', ['task' => $task->id, 'filename' => $artifact->filename]));
+    $response = $this->get(route('artifacts.viewer', ['task' => $task->public_id, 'filename' => $artifact->filename]));
     $response->assertOk();
     $response->assertSee('Back to Task #' . $task->id);
     $response->assertSee($artifact->filename);
@@ -162,7 +162,7 @@ test('research artifact viewer requires authentication', function () {
     $task = YakTask::factory()->create();
     $artifact = Artifact::factory()->research()->create(['yak_task_id' => $task->id]);
 
-    $response = $this->get(route('artifacts.viewer', ['task' => $task->id, 'filename' => $artifact->filename]));
+    $response = $this->get(route('artifacts.viewer', ['task' => $task->public_id, 'filename' => $artifact->filename]));
     $response->assertRedirect(route('login'));
 });
 
@@ -173,7 +173,7 @@ test('viewer shows back-to-task link', function () {
 
     $this->actingAs($user);
 
-    $response = $this->get(route('artifacts.viewer', ['task' => $task->id, 'filename' => $artifact->filename]));
+    $response = $this->get(route('artifacts.viewer', ['task' => $task->public_id, 'filename' => $artifact->filename]));
     $response->assertSee(route('tasks.show', $task));
     $response->assertSee('back-to-task', false);
 });

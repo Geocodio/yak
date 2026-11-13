@@ -12,6 +12,6 @@ test('a setup history row opens its task', function () {
 
     visit(route('repos.edit', $repository))
         ->click('[data-testid="setup-history-row-setup-row-link"] td:nth-child(3)')
-        ->assertPathIs('/tasks/' . $task->id)
+        ->assertPathIs('/tasks/' . $task->public_id)
         ->assertNoJavaScriptErrors();
 });

@@ -28,7 +28,7 @@ class TerminalSessionController extends Controller
      */
     public function store(
         Request $request,
-        int $thread,
+        string $thread,
         ThreadAccess $threadAccess,
         SshAccess $access,
         ThreadSandbox $sandbox,
@@ -36,7 +36,7 @@ class TerminalSessionController extends Controller
         GitHubKeyDirectory $github,
     ): JsonResponse {
         $user = $request->user();
-        $thread = Thread::withoutGlobalScopes()->find($thread);
+        $thread = Thread::withoutGlobalScopes()->where('public_id', $thread)->first();
 
         abort_if($user === null || $thread === null || ! $threadAccess->canSee($user, $thread), 404);
 

@@ -125,7 +125,7 @@ class TeleportDownCompleter
                 'thread_id' => $thread->id,
                 'teleport_id' => $teleport->id,
                 'owner' => 'device',
-                'stack_messages_url' => url("/api/cli/v1/threads/{$thread->id}/stack-messages"),
+                'stack_messages_url' => url("/api/cli/v1/threads/{$thread->public_id}/stack-messages"),
             ],
         ]];
     }

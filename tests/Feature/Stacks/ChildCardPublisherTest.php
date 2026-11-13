@@ -33,7 +33,7 @@ it('appends one stored child event to the parent stream', function () {
 
     expect($events)->toHaveCount(1)
         ->and($events[0])->toBe([
-            'childThreadId' => $this->child->id,
+            'childThreadId' => $this->child->public_id,
             'name' => 'scout',
             'kind' => 'research',
             'model' => 'haiku',
@@ -82,7 +82,7 @@ it('publishes a card when a child is spawned and when it ends', function () {
     $spawned = app(ChildSpawner::class)->spawn($root, 'worker', 'Do it.', ThreadKind::Research, null);
 
     expect(childEvents($root))->toHaveCount(1)
-        ->and(childEvents($root)[0]['childThreadId'])->toBe($spawned->id)
+        ->and(childEvents($root)[0]['childThreadId'])->toBe($spawned->public_id)
         ->and(childEvents($root)[0]['state'])->toBe('queued');
 });
 

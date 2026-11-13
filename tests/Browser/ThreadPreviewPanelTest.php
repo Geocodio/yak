@@ -10,7 +10,7 @@ test('a thread with a stopped sandbox shows the waking state in the Preview pane
     $thread = Thread::factory()->private($owner)->create(['sandbox_state' => ThreadSandboxState::Stopped]);
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="thread-dock-toggle-preview"]')
         ->assertVisible('[data-testid="preview-panel"]')
         ->assertVisible('[data-testid="preview-state-waking"]')
@@ -23,7 +23,7 @@ test('the toolbar can open the preview in a new tab once it is ready', function 
     $thread = Thread::factory()->private($owner)->create(['sandbox_state' => ThreadSandboxState::Running]);
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="thread-dock-toggle-preview"]')
         ->assertVisible('[data-testid="preview-panel"]')
         ->assertNoJavaScriptErrors();
@@ -36,7 +36,7 @@ test('a ready preview shows its host on a phone and a Live pill after a reload',
     Cache::put("thread-preview:state:{$thread->id}", 'ready');
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)->on()->mobile()
+    visit('/threads/' . $thread->public_id)->on()->mobile()
         ->click('[data-testid="thread-phone-tab-preview"]')
         ->assertVisible('[data-testid="preview-host"]')
         ->assertMissing('[data-testid="preview-live-pill"]')
@@ -52,7 +52,7 @@ test('a failing preview offers retry, ask Claude and the manifest', function () 
     Cache::put("thread-preview:manifest:{$thread->id}", ['port' => 3000, 'coldStart' => 'npm run dev']);
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="thread-dock-toggle-preview"]')
         ->assertSee('The app did not answer on port 3000')
         ->assertVisible('[data-testid="preview-retry"]')
@@ -67,7 +67,7 @@ test('a repository without a manifest shows the sample file', function () {
     Cache::put("thread-preview:state:{$thread->id}", 'no_manifest');
     $this->actingAs($owner);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="thread-dock-toggle-preview"]')
         ->assertSee('Tell Yak how to run this app')
         ->assertVisible('[data-testid="preview-sample-manifest"]')
@@ -79,7 +79,7 @@ test('a thread on your computer explains teleport', function () {
     $thread = Thread::factory()->ownedByDevice()->create();
     $this->actingAs($thread->ownerDevice->user);
 
-    visit('/threads/' . $thread->id)
+    visit('/threads/' . $thread->public_id)
         ->click('[data-testid="thread-dock-toggle-preview"]')
         ->assertSee('This thread runs on your computer')
         ->assertSee('How teleport works')

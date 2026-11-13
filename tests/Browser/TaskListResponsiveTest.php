@@ -34,7 +34,7 @@ test('on a phone tasks render as cards, on a desktop as a table', function () {
     $phone = visit('/tasks')->on()->mobile()
         ->assertVisible('[data-testid="task-cards"]')
         ->assertMissing('table[class]')
-        ->assertVisible('[data-testid="task-row-' . $task->id . '"]')
+        ->assertVisible('[data-testid="task-row-' . $task->public_id . '"]')
         ->assertSee('ENG-1290')
         ->assertSee('geocodio-dashboard')
         ->assertSee('#512')
@@ -52,7 +52,7 @@ test('a bare task still renders as a card', function () {
     $task = YakTask::factory()->pending()->create(['description' => 'Just a description', 'repo' => '', 'author_name' => null, 'pr_url' => null, 'pr_number' => null, 'cost_usd' => 0]);
 
     visit('/tasks')->on()->mobile()
-        ->assertVisible('[data-testid="task-row-' . $task->id . '"]')
+        ->assertVisible('[data-testid="task-row-' . $task->public_id . '"]')
         ->assertSee('Just a description')
         ->assertDontSee('· ·')
         ->assertNoJavaScriptErrors();
@@ -66,12 +66,12 @@ test('tapping a card opens the task and tapping its PR badge does not', function
     // in the first test on why a stale `On`-typed variable can't be reused.
     $page = visit('/tasks')->on()->mobile()->assertVisible('[data-testid="task-card-pr"]');
 
-    $page->click('[data-testid="task-row-' . $task->id . '"] [data-testid="task-card-pr"]')
+    $page->click('[data-testid="task-row-' . $task->public_id . '"] [data-testid="task-card-pr"]')
         ->wait(1)
         ->assertPathIs('/tasks');
 
-    $page->click('[data-testid="task-row-' . $task->id . '"] [data-testid="task-card-description"]')
-        ->assertPathIs('/tasks/' . $task->id);
+    $page->click('[data-testid="task-row-' . $task->public_id . '"] [data-testid="task-card-description"]')
+        ->assertPathIs('/tasks/' . $task->public_id);
 });
 
 test('tapping a non-link part of the card still opens the task', function () {
@@ -84,8 +84,8 @@ test('tapping a non-link part of the card still opens the task', function () {
     // won't click through that overlay on purpose, so `forceClick` performs
     // a real click at the same coordinates to prove the overlay works.
     $page = visit('/tasks')->on()->mobile()->assertVisible('[data-testid="task-card-repo"]');
-    forceClick($page, '[data-testid="task-row-' . $task->id . '"] [data-testid="task-card-repo"]');
-    $page->assertPathIs('/tasks/' . $task->id);
+    forceClick($page, '[data-testid="task-row-' . $task->public_id . '"] [data-testid="task-card-repo"]');
+    $page->assertPathIs('/tasks/' . $task->public_id);
 });
 
 test('on a phone the tab strip is full width under the header and filters live in a sheet', function () {

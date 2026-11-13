@@ -19,7 +19,7 @@ test('a private thread is listed for its owner with isPrivate true', function ()
 
     $rows = ThreadList::for($owner)['threads'];
 
-    expect(array_column($rows, 'id'))->toBe([$thread->id])
+    expect(array_column($rows, 'id'))->toBe([$thread->public_id])
         ->and($rows[0]['isPrivate'])->toBeTrue();
 });
 
@@ -31,7 +31,7 @@ test('a private thread is absent for a teammate and an admin in both filters and
     foreach ([User::factory()->create(), User::factory()->create(['email' => 'admin@example.com'])] as $viewer) {
         $list = ThreadList::for($viewer, $filter);
 
-        expect(visibleIds($list))->not->toContain($private->id)
+        expect(visibleIds($list))->not->toContain($private->public_id)
             ->and($list['needsYouCount'])->toBe(0);
     }
 
@@ -47,7 +47,7 @@ test('children of a private root are absent for others and nested for the owner'
     $ownerRow = ThreadList::for($owner)['threads'][0];
     $otherList = ThreadList::for($other, ThreadListFilter::Everyone);
 
-    expect(array_column($ownerRow['children'], 'id'))->toBe([$child->id])
+    expect(array_column($ownerRow['children'], 'id'))->toBe([$child->public_id])
         ->and($ownerRow['children'][0]['isPrivate'])->toBeTrue()
         ->and(visibleIds($otherList))->toBe([]);
 });
@@ -60,8 +60,8 @@ test('a team parent nests its open children and a closed child is omitted', func
 
     $list = ThreadList::for($user);
 
-    expect(array_column($list['threads'], 'id'))->toBe([$parent->id])
-        ->and(array_column($list['threads'][0]['children'], 'id'))->toBe([$open->id]);
+    expect(array_column($list['threads'], 'id'))->toBe([$parent->public_id])
+        ->and(array_column($list['threads'][0]['children'], 'id'))->toBe([$open->public_id]);
 });
 
 test('a parent whose child needs you reports the child in needsYou with the count label', function () {
@@ -75,7 +75,7 @@ test('a parent whose child needs you reports the child in needsYou with the coun
     $list = ThreadList::for($user);
 
     expect($list['needsYouCount'])->toBe(1)
-        ->and($list['needsYou'][0]['id'])->toBe($parent->id)
+        ->and($list['needsYou'][0]['id'])->toBe($parent->public_id)
         ->and($list['needsYou'][0]['needsYouLabel'])->toBe('2 sub-threads need you')
         ->and($list['needsYou'][0]['children'][0]['needsYouReason'])->toBe('question');
 });
@@ -85,7 +85,7 @@ test('an orphan child (parent closed) is not listed at top level', function () {
     $parent = Thread::factory()->closed()->create(['created_by_user_id' => $user->id]);
     $child = Thread::factory()->child($parent)->create(['created_by_user_id' => $user->id]);
 
-    expect(visibleIds(ThreadList::for($user, ThreadListFilter::Everyone)))->not->toContain($child->id)->toBe([])
+    expect(visibleIds(ThreadList::for($user, ThreadListFilter::Everyone)))->not->toContain($child->public_id)->toBe([])
         ->and(visibleIds(ThreadList::for($user)))->toBe([]);
 });
 
@@ -98,6 +98,6 @@ test('a private thread row is shared only when it has share rows', function () {
 
     $rows = collect(ThreadList::for($owner)['threads'])->keyBy('id');
 
-    expect($rows[$alone->id]['isShared'])->toBeFalse()
-        ->and($rows[$shared->id]['isShared'])->toBeTrue();
+    expect($rows[$alone->public_id]['isShared'])->toBeFalse()
+        ->and($rows[$shared->public_id]['isShared'])->toBeTrue();
 });

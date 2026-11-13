@@ -14,7 +14,7 @@ class ThreadLookupController extends Controller
 {
     use ResolvesCliThread;
 
-    public function show(Request $request, int $thread): JsonResponse
+    public function show(Request $request, string $thread): JsonResponse
     {
         return $this->respond($request, $this->cliThread($request, $thread));
     }

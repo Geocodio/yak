@@ -43,7 +43,7 @@ it('creates a primary, a changes and a context row', function () {
     ]));
 
     $thread = Thread::query()->latest('id')->firstOrFail();
-    $response->assertRedirect()->assertSessionHas('startedThreadId', $thread->id);
+    $response->assertRedirect()->assertSessionHas('startedThreadId', $thread->public_id);
 
     $rows = $thread->repositories()->orderBy('id')->get();
     expect($rows->pluck('repo')->all())->toBe(['acme/app', 'acme/web', 'acme/docs'])

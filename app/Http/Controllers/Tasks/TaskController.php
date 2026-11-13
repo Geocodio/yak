@@ -22,11 +22,11 @@ class TaskController extends Controller
         if ($task->parent_task_id !== null) {
             $root = $task->conversation()->first();
 
-            return redirect(route('tasks.show', $root) . '#turn-' . $task->id);
+            return redirect(route('tasks.show', $root) . '#turn-' . $task->public_id);
         }
 
         $conversation = $task->conversation();
-        $focusedRun = TaskDetailData::resolveFocusedRun($conversation, $request->integer('run') ?: null);
+        $focusedRun = TaskDetailData::resolveFocusedRun($conversation, $request->string('run')->toString() ?: null);
 
         $data = TaskDetailData::build($task, $request);
         $attempt = $data['task']['attempt'];

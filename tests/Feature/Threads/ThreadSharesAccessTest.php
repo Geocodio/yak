@@ -51,11 +51,11 @@ test('visibleTo and the task scope include shared threads', function () {
     $this->actingAs($guest);
     expect(YakTask::pluck('id')->all())->toBe([$task->id])
         ->and(Thread::count())->toBe(2);
-    $this->get("/threads/{$root->id}")->assertOk();
+    $this->get("/threads/{$root->public_id}")->assertOk();
 
     $this->actingAs($stranger);
     expect(YakTask::count())->toBe(0);
-    $this->get("/threads/{$root->id}")->assertNotFound();
+    $this->get("/threads/{$root->public_id}")->assertNotFound();
 });
 
 test('deleting the user removes the share', function () {

@@ -2,12 +2,12 @@ import { useEffect, useRef } from 'react';
 import { csrfToken } from '@/lib/csrfToken';
 import { seen } from '@/routes/threads';
 
-const THREAD_URL = /^\/threads\/(\d+)/;
+const THREAD_URL = /^\/threads\/([^/?#]+)/;
 
 /** Posts `threads.seen` once per thread id while its page stays open. */
 export function useMarkThreadSeen(url: string): void {
-    const postedId = useRef<number | null>(null);
-    const threadId = Number(THREAD_URL.exec(url.split('?')[0])?.[1] ?? 0) || null;
+    const postedId = useRef<string | null>(null);
+    const threadId = THREAD_URL.exec(url.split('?')[0])?.[1] ?? null;
 
     useEffect(() => {
         if (threadId === null) {

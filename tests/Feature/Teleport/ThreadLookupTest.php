@@ -10,7 +10,7 @@ it('answers a missing and a private thread of someone else identically', functio
     [, $token] = makeDevice();
     $private = Thread::factory()->private()->create();
 
-    $hidden = $this->getJson("/api/cli/v1/threads/{$private->id}", cliHeaders($token));
+    $hidden = $this->getJson("/api/cli/v1/threads/{$private->public_id}", cliHeaders($token));
     $missing = $this->getJson('/api/cli/v1/threads/999999', cliHeaders($token));
 
     $hidden->assertNotFound();
@@ -24,7 +24,7 @@ it('returns the thread shape', function () {
     ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/widgets', 'branch' => 'yak/fix', 'sandbox_path' => '/workspace']);
     ThreadSession::factory()->create(['thread_id' => $thread->id]);
 
-    $response = $this->getJson("/api/cli/v1/threads/{$thread->id}", cliHeaders($token))->assertOk();
+    $response = $this->getJson("/api/cli/v1/threads/{$thread->public_id}", cliHeaders($token))->assertOk();
 
     foreach (['id', 'title', 'repo', 'branch', 'status', 'visibility', 'owner_side', 'owner_device', 'waiting_for_computer', 'turn_running', 'teleport', 'claude_account', 'active_session_id', 'last_teleport_up', 'held_event_count', 'repos', 'url'] as $key) {
         expect($response->json('thread'))->toHaveKey($key);
@@ -55,7 +55,7 @@ it('reports the waiting mark and the open teleport', function () {
     $thread = Thread::factory()->create(['waiting_for_computer_at' => now()]);
     $teleport = Teleport::factory()->down()->inState(TeleportState::WaitingForTurn)->create(['thread_id' => $thread->id, 'device_id' => $device->id]);
 
-    $this->getJson("/api/cli/v1/threads/{$thread->id}", cliHeaders($token))
+    $this->getJson("/api/cli/v1/threads/{$thread->public_id}", cliHeaders($token))
         ->assertOk()
         ->assertJsonPath('thread.waiting_for_computer', true)
         ->assertJsonPath('thread.teleport', ['teleport_id' => $teleport->id, 'direction' => 'down', 'device_id' => $device->id, 'state' => 'waiting_for_turn']);

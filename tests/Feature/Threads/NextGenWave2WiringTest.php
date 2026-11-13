@@ -91,7 +91,7 @@ it('runs a dashboard thread from the start screen to a pull request with realtim
     $sequences = array_map(fn (ThreadEventBroadcast $event): int => $event->sequence, $broadcasts);
     expect($broadcasts)->not->toBeEmpty()
         ->and($sequences)->toBe(range(1, count($sequences)))
-        ->and($broadcasts[0]->broadcastOn()[0]->name)->toBe('private-thread.' . $thread->id);
+        ->and($broadcasts[0]->broadcastOn()[0]->name)->toBe('private-thread.' . $thread->public_id);
 
     $catchUp = $this->getJson(route('threads.events.index', ['thread' => $thread, 'after' => 0]))->assertOk();
     expect(array_column($catchUp->json('events'), 'sequence'))->toBe($sequences)
@@ -125,7 +125,7 @@ it('teleports a local session up into a private Yak thread that nobody else can 
         ->and(ThreadSession::query()->where('thread_id', $thread->id)->exists())->toBeTrue();
 
     foreach ([$other, $admin] as $stranger) {
-        $this->actingAs($stranger)->get(route('threads.show', $thread->id))->assertNotFound();
+        $this->actingAs($stranger)->get(route('threads.show', $thread->public_id))->assertNotFound();
         $this->actingAs($stranger)->getJson(route('threads.list', ['filter' => 'everyone']))->assertJsonCount(0, 'threads');
     }
 });

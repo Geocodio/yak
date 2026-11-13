@@ -48,7 +48,7 @@ it('shows waiting for account and waiting for a sandbox', function () {
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::WaitingForAccount]);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertVisible('[data-testid="thread-notice"][data-kind="waiting_for_account"]')
         ->assertNoJavaScriptErrors();
 });
@@ -60,7 +60,7 @@ it('shows a failed restore step with Retry and resumes the restore on click', fu
     $this->actingAs($user);
     Queue::fake();
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->script("document.querySelector('[data-testid=\"restore-retry\"]').click()");
     $page->wait(8)->assertNoJavaScriptErrors();
 
@@ -75,7 +75,7 @@ it('Continue starts a new turn after a guard stop', function () {
     $this->actingAs($user);
     $this->mock(ThreadTurns::class)->shouldReceive('start')->once()->andReturn(new TaskRun);
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->script("document.querySelector('[data-testid=\"thread-continue\"]').click()");
     $page->wait(8)->assertNoJavaScriptErrors();
 });
@@ -85,7 +85,7 @@ it('shows the rebuild card with step 3 of 6 and detail lines', function () {
     $thread = rebuildingThread($user);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSeeIn('[data-testid="thread-notice"]', 'Rebuilding the sandbox')
         ->assertSeeIn('[data-testid="rebuild-step-count"]', 'Step 3 of 6')
         ->assertSeeIn('[data-testid="restore-progress"]', 'Run .yak/setup.sh')
@@ -100,7 +100,7 @@ it('shows the failed step panel with Retry from this step, the script link and S
     $thread = rebuildingThread($user, ThreadBlockReason::RestoreFailed);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSeeIn('[data-testid="thread-notice"]', 'Rebuilding the sandbox stopped at step 3')
         ->assertSeeIn('[data-testid="rebuild-failed-panel"]', '.yak/setup.sh stopped with exit code 127')
         ->assertSeeIn('[data-testid="rebuild-output-tail"]', 'composer: not found')
@@ -117,7 +117,7 @@ it('renders a failed step that has no output tail and no exit code', function ()
     ThreadRestoreStep::factory()->failed('Branch is gone')->create(['thread_id' => $thread->id, 'position' => 1, 'step' => RestoreStepName::CheckoutBranch]);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSeeIn('[data-testid="rebuild-failed-panel"]', 'Check out the thread branch stopped')
         ->assertSeeIn('[data-testid="rebuild-failed-panel"]', 'Branch is gone')
         ->assertVisible('[data-testid="restore-retry"]')
@@ -130,12 +130,12 @@ it('shows the sidebar status card while rebuilding and a second retry when it fa
     $failed = rebuildingThread($user, ThreadBlockReason::RestoreFailed);
     $this->actingAs($user);
 
-    visit("/threads/{$rebuilding->id}")
+    visit("/threads/{$rebuilding->public_id}")
         ->assertSeeIn('[data-testid="environment-status-card"]', 'Rebuilding, step 3 of 6')
         ->assertSeeIn('[data-testid="environment-status-card"]', 'Run .yak/setup.sh.')
         ->assertNoJavaScriptErrors();
 
-    visit("/threads/{$failed->id}")
+    visit("/threads/{$failed->public_id}")
         ->assertSeeIn('[data-testid="environment-status-card"]', 'Rebuild stopped at step 3')
         ->assertSeeIn('[data-testid="sidebar-restore-retry"]', 'Retry from this step')
         ->assertNoJavaScriptErrors();
@@ -146,7 +146,7 @@ it('keeps a failed rebuild in view on a phone without horizontal scroll', functi
     $thread = rebuildingThread($user, ThreadBlockReason::RestoreFailed);
     $this->actingAs($user);
 
-    $page = visit("/threads/{$thread->id}")->resize(390, 844);
+    $page = visit("/threads/{$thread->public_id}")->resize(390, 844);
     $page->assertSeeIn('[data-testid="failed-step-strip"]', 'Step 3 of 6 failed')
         ->assertVisible('[data-testid="strip-restore-retry"]')
         ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true)
@@ -161,7 +161,7 @@ it('shows the account waiting card with its turn meter and queue position', func
     TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'claude_account_id' => $account->id, 'turn_state' => TurnState::WaitingForAccount]);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSeeIn('[data-testid="thread-notice"]', 'Work is already running its 2 turns at once')
         ->assertSeeIn('[data-testid="thread-notice"]', 'Turns on this account')
         ->assertSeeIn('[data-testid="thread-notice"]', 'Only account admins can change this limit.')
@@ -176,7 +176,7 @@ it('shows the sandbox waiting card with a slot strip and no time estimate', func
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
     $this->actingAs($user);
 
-    $page = visit("/threads/{$thread->id}");
+    $page = visit("/threads/{$thread->public_id}");
     $page->assertSeeIn('[data-testid="thread-notice"]', 'Yak stops a paused one after 5 idle minutes. It starts this one soon. Your message is saved.')
         ->assertDontSee('usually within a few minutes')
         ->assertCount('[data-testid="waiting-slots"] li', 2)
@@ -190,7 +190,7 @@ it('shows the share waiting card with the viewer own sandboxes', function () {
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSeeIn('[data-testid="thread-notice"]', 'Waiting for your share of sandboxes')
         ->assertSeeIn('[data-testid="waiting-own-threads"]', 'Paused, idle 2m')
         ->assertNoJavaScriptErrors();
@@ -204,12 +204,12 @@ it('shows the sidebar capacity block while waiting and nothing without capacity 
     $bare = Thread::factory()->create(['created_by_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSeeIn('[data-testid="capacity-block"]', 'Turns on Work')
         ->assertSeeIn('[data-testid="capacity-block"]', 'Awake sandboxes')
         ->assertSeeIn('[data-testid="capacity-block"]', 'Your share')
         ->assertNoJavaScriptErrors();
-    visit("/threads/{$bare->id}")->wait(1)->assertMissing('[data-testid="capacity-block"]')->assertNoJavaScriptErrors();
+    visit("/threads/{$bare->public_id}")->wait(1)->assertMissing('[data-testid="capacity-block"]')->assertNoJavaScriptErrors();
 });
 
 it('shows Replace token only to the account owner on a token problem', function () {
@@ -218,7 +218,7 @@ it('shows Replace token only to the account owner on a token problem', function 
     $thread = Thread::factory()->create(['created_by_user_id' => $owner->id, 'claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::AccountInvalid]);
     $this->actingAs($owner);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertVisible('[data-testid="thread-notice"][data-kind="account_invalid"]')
         ->assertSee('Replace token')
         ->assertSee('Start a new thread on your own account')
@@ -232,7 +232,7 @@ it('shows the reset time and a countdown on a usage limit', function () {
     TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'tracker_state' => json_encode(['rate_limit_resets_at' => now()->addHour()->toIso8601String()])]);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertVisible('[data-testid="thread-notice"][data-kind="usage_limit"]')
         ->assertSee('Resets at')
         ->assertVisible('[data-testid="usage-countdown"]')
@@ -246,7 +246,7 @@ it('shows the environment note and side-switch divider after a teleport up and a
     Teleport::factory()->up()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => now()->subHour(), 'payload' => ['refresh_ran' => ['composer install']]]);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSeeIn('[data-testid="side-switch-divider"]', 'Moved from your computer to Yak')
         ->assertSeeIn('[data-testid="environment-note"]', 'Environment changed: your computer to Yak')
         ->assertMissing('[data-testid="environment-note-rows"]')
@@ -256,7 +256,7 @@ it('shows the environment note and side-switch divider after a teleport up and a
 
     Teleport::factory()->down()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => now()]);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSeeIn('[data-testid="side-switch-divider"]', 'Moved from Yak to your computer')
         ->assertVisible('[data-testid="environment-note"]')
         ->assertNoJavaScriptErrors();
@@ -267,7 +267,7 @@ it('shows the usage limit notice with a new thread button and the composer place
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::UsageLimit]);
     $this->actingAs($user);
 
-    visit("/threads/{$thread->id}")
+    visit("/threads/{$thread->public_id}")
         ->assertSeeIn('[data-testid="thread-notice"][data-kind="usage_limit"]', 'Usage limit reached')
         ->assertSeeIn('[data-testid="usage-limit-new-thread"]', 'Start a new thread on another account')
         ->assertAttributeContains('[data-testid="usage-limit-new-thread"]', 'href', '/threads/new')

@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
 * @route '/tasks/{task}/co-owner/approve'
 */
-export const approve = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const approve = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: approve.url(args, options),
     method: 'post',
 })
@@ -19,13 +19,13 @@ approve.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
 * @route '/tasks/{task}/co-owner/approve'
 */
-approve.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+approve.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ approve.url = (args: { task: string | number | { id: string | number } } | [task
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -52,7 +52,7 @@ approve.url = (args: { task: string | number | { id: string | number } } | [task
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
 * @route '/tasks/{task}/co-owner/approve'
 */
-approve.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+approve.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: approve.url(args, options),
     method: 'post',
 })
@@ -62,7 +62,7 @@ approve.post = (args: { task: string | number | { id: string | number } } | [tas
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
 * @route '/tasks/{task}/co-owner/request-changes'
 */
-export const requestChanges = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const requestChanges = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: requestChanges.url(args, options),
     method: 'post',
 })
@@ -77,13 +77,13 @@ requestChanges.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
 * @route '/tasks/{task}/co-owner/request-changes'
 */
-requestChanges.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+requestChanges.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -96,7 +96,7 @@ requestChanges.url = (args: { task: string | number | { id: string | number } } 
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -110,7 +110,7 @@ requestChanges.url = (args: { task: string | number | { id: string | number } } 
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
 * @route '/tasks/{task}/co-owner/request-changes'
 */
-requestChanges.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+requestChanges.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: requestChanges.url(args, options),
     method: 'post',
 })
@@ -120,7 +120,7 @@ requestChanges.post = (args: { task: string | number | { id: string | number } }
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
 * @route '/tasks/{task}/co-owner/reject'
 */
-export const reject = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const reject = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: reject.url(args, options),
     method: 'post',
 })
@@ -135,13 +135,13 @@ reject.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
 * @route '/tasks/{task}/co-owner/reject'
 */
-reject.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+reject.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -154,7 +154,7 @@ reject.url = (args: { task: string | number | { id: string | number } } | [task:
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -168,7 +168,7 @@ reject.url = (args: { task: string | number | { id: string | number } } | [task:
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
 * @route '/tasks/{task}/co-owner/reject'
 */
-reject.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+reject.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: reject.url(args, options),
     method: 'post',
 })
@@ -178,7 +178,7 @@ reject.post = (args: { task: string | number | { id: string | number } } | [task
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
 * @route '/tasks/{task}/co-owner/withdraw'
 */
-export const withdraw = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const withdraw = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: withdraw.url(args, options),
     method: 'post',
 })
@@ -193,13 +193,13 @@ withdraw.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
 * @route '/tasks/{task}/co-owner/withdraw'
 */
-withdraw.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+withdraw.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -212,7 +212,7 @@ withdraw.url = (args: { task: string | number | { id: string | number } } | [tas
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -226,7 +226,7 @@ withdraw.url = (args: { task: string | number | { id: string | number } } | [tas
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
 * @route '/tasks/{task}/co-owner/withdraw'
 */
-withdraw.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+withdraw.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: withdraw.url(args, options),
     method: 'post',
 })
@@ -236,7 +236,7 @@ withdraw.post = (args: { task: string | number | { id: string | number } } | [ta
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
 * @route '/tasks/{task}/co-owner/check-access'
 */
-export const checkAccess = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const checkAccess = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: checkAccess.url(args, options),
     method: 'post',
 })
@@ -251,13 +251,13 @@ checkAccess.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
 * @route '/tasks/{task}/co-owner/check-access'
 */
-checkAccess.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+checkAccess.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -270,7 +270,7 @@ checkAccess.url = (args: { task: string | number | { id: string | number } } | [
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -284,7 +284,7 @@ checkAccess.url = (args: { task: string | number | { id: string | number } } | [
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
 * @route '/tasks/{task}/co-owner/check-access'
 */
-checkAccess.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+checkAccess.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: checkAccess.url(args, options),
     method: 'post',
 })
@@ -294,7 +294,7 @@ checkAccess.post = (args: { task: string | number | { id: string | number } } | 
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
-export const tag = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const tag = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: tag.url(args, options),
     method: 'post',
 })
@@ -309,13 +309,13 @@ tag.definition = {
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
-tag.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+tag.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -328,7 +328,7 @@ tag.url = (args: { task: string | number | { id: string | number } } | [task: st
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -342,7 +342,7 @@ tag.url = (args: { task: string | number | { id: string | number } } | [task: st
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
-tag.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+tag.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: tag.url(args, options),
     method: 'post',
 })
@@ -352,7 +352,7 @@ tag.post = (args: { task: string | number | { id: string | number } } | [task: s
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
-export const decline = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const decline = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: decline.url(args, options),
     method: 'post',
 })
@@ -367,13 +367,13 @@ decline.definition = {
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
-decline.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+decline.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -386,7 +386,7 @@ decline.url = (args: { task: string | number | { id: string | number } } | [task
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -400,7 +400,7 @@ decline.url = (args: { task: string | number | { id: string | number } } | [task
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
-decline.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+decline.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: decline.url(args, options),
     method: 'post',
 })

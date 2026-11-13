@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\YakTask;
+use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -20,6 +21,7 @@ class YakTaskFactory extends Factory
     public function definition(): array
     {
         return [
+            'public_id' => PublicId::generate(),
             'source' => fake()->randomElement(['sentry', 'slack', 'linear', 'manual']),
             'repo' => fake()->slug(2),
             'external_id' => strtoupper(fake()->lexify('???')) . '-' . fake()->unique()->numberBetween(1000, 9999),

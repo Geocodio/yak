@@ -127,6 +127,7 @@ class ThreadEventPublisher
     {
         $events = $this->queue;
         $this->queue = [];
+        $publicIds = [];
 
         foreach ($events as $event) {
             try {
@@ -142,6 +143,7 @@ class ThreadEventPublisher
                     $event['type'],
                     $event['data'],
                     $event['createdAt']->toIso8601String(),
+                    $publicIds[$event['threadId']] ??= Thread::publicIdForKey($event['threadId']),
                 ));
             } catch (Throwable $exception) {
                 report($exception);

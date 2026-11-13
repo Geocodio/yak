@@ -1,15 +1,17 @@
 <?php
 
 use App\Events\ThreadEventBroadcast;
+use App\Models\Thread;
 use Illuminate\Broadcasting\PrivateChannel;
 
 it('broadcasts on the private thread channel as thread.event', function () {
-    $event = new ThreadEventBroadcast(5, 3, 'entry', ['role' => 'user', 'text' => 'hi', 'kind' => 'prompt'], '2026-11-13T10:00:00+00:00');
+    $thread = Thread::factory()->create();
+    $event = new ThreadEventBroadcast($thread->id, 3, 'entry', ['role' => 'user', 'text' => 'hi', 'kind' => 'prompt'], '2026-11-13T10:00:00+00:00');
 
     expect($event->broadcastAs())->toBe('thread.event')
         ->and($event->broadcastOn())->toHaveCount(1)
         ->and($event->broadcastOn()[0])->toBeInstanceOf(PrivateChannel::class)
-        ->and($event->broadcastOn()[0]->name)->toBe('private-thread.5');
+        ->and($event->broadcastOn()[0]->name)->toBe('private-thread.' . $thread->public_id);
 });
 
 it('keeps a small payload inline', function () {

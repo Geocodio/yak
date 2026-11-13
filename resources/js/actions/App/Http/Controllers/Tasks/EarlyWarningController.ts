@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
-export const tag = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const tag = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: tag.url(args, options),
     method: 'post',
 })
@@ -19,13 +19,13 @@ tag.definition = {
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
-tag.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+tag.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ tag.url = (args: { task: string | number | { id: string | number } } | [task: st
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -52,7 +52,7 @@ tag.url = (args: { task: string | number | { id: string | number } } | [task: st
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
-tag.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+tag.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: tag.url(args, options),
     method: 'post',
 })
@@ -62,7 +62,7 @@ tag.post = (args: { task: string | number | { id: string | number } } | [task: s
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
-export const decline = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const decline = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: decline.url(args, options),
     method: 'post',
 })
@@ -77,13 +77,13 @@ decline.definition = {
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
-decline.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+decline.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -96,7 +96,7 @@ decline.url = (args: { task: string | number | { id: string | number } } | [task
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -110,7 +110,7 @@ decline.url = (args: { task: string | number | { id: string | number } } | [task
 * @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
-decline.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+decline.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: decline.url(args, options),
     method: 'post',
 })
