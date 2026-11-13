@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,6 +58,7 @@ type controlMessage struct {
 func (s *Session) Run(done <-chan struct{}, conn *Conn, grant Grant, keyPath string, cols, rows uint16) error {
 	home, err := os.MkdirTemp("", "yak-terminal-home-")
 	if err != nil {
+		log.Printf("termbridge: thread %d: cannot create session directory: %v", grant.ThreadID, err)
 		conn.Close(1011, "internal error")
 		return errors.New("cannot create session directory")
 	}
@@ -76,6 +78,7 @@ func (s *Session) Run(done <-chan struct{}, conn *Conn, grant Grant, keyPath str
 
 	master, err := StartWithPTY(cmd, cols, rows)
 	if err != nil {
+		log.Printf("termbridge: thread %d: cannot start ssh: %v", grant.ThreadID, err)
 		conn.Close(1011, "cannot start ssh")
 		return errors.New("cannot start ssh")
 	}

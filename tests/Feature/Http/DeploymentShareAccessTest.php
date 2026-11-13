@@ -76,7 +76,7 @@ it('still allows authenticated OAuth users (backwards compatible)', function () 
     $this->app->instance(DeploymentWaker::class, $waker);
     $waker->shouldReceive('ensureReady')->andReturn(['state' => 'ready', 'host' => '10.0.0.1', 'port' => 80]);
 
-    $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('share.yak.example.com'))
+    $this->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie('share.yak.example.com'))
         ->withHeaders([
             'X-Forwarded-Host' => 'share.yak.example.com',
             'X-Forwarded-Uri' => '/',

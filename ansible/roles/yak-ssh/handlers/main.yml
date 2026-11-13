@@ -17,3 +17,8 @@
   ansible.builtin.systemd:
     name: yak-termbridge
     state: restarted
+
+- name: Restart host sshd
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted

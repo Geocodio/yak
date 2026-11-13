@@ -2,8 +2,11 @@ package main
 
 import (
 	"bufio"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -74,5 +77,34 @@ func TestClosingMasterEndsChild(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		cmd.Process.Kill()
 		t.Fatal("child still running after master close")
+	}
+}
+
+// A service started by systemd is a session leader with no controlling terminal. Opening the
+// PTY slave without O_NOCTTY would make it the bridge's own controlling terminal, so the
+// child's TIOCSCTTY fails and the later hangup kills the bridge. The helper process below is
+// that session leader.
+func TestStartWithPTYFromSessionLeaderKeepsBridgeWithoutControllingTerminal(t *testing.T) {
+	if os.Getenv("TERMBRIDGE_PTY_HELPER") == "1" {
+		cmd := exec.Command("true")
+		master, err := StartWithPTY(cmd, 80, 24)
+		if err != nil {
+			fmt.Println("start failed:", err)
+			os.Exit(3)
+		}
+		defer master.Close()
+		cmd.Wait()
+		if _, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
+			fmt.Println("bridge acquired a controlling terminal")
+			os.Exit(4)
+		}
+		os.Exit(0)
+	}
+
+	helper := exec.Command(os.Args[0], "-test.run=TestStartWithPTYFromSessionLeaderKeepsBridgeWithoutControllingTerminal")
+	helper.Env = append(os.Environ(), "TERMBRIDGE_PTY_HELPER=1")
+	helper.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if output, err := helper.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, output)
 	}
 }

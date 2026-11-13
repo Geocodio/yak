@@ -124,6 +124,21 @@
     group: root
     mode: "0755"
 
+# The wake proxy binds one 127.16.0.0/10 address per sandbox on port 22. A host sshd on 0.0.0.0:22
+# owns every loopback address there, so the bind fails and a terminal reaches the host's sshd.
+# The drop-in pins it to the public IPv4 address; the IPv6 wildcard does not overlap IPv4 loopback.
+- name: Keep the host sshd off the sandbox wake addresses
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-yak-listen.conf
+    content: |
+      ListenAddress {{ yak_ssh_host_listen_address }}
+      ListenAddress ::
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Restart host sshd
+
 - name: Create the jump sshd config directory
   ansible.builtin.file:
     path: "{{ yak_ssh_config_dir }}"
