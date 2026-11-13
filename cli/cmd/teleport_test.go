@@ -157,3 +157,17 @@ func TestSlashTeleportMessageBecomesMessageFlag(t *testing.T) {
 		t.Fatalf("message %q positional %v err %v", f.message, positional, err)
 	}
 }
+
+func TestSlashTeleportTakesDefaultsWithoutPrompting(t *testing.T) {
+	r := newTeleportRig(t)
+	r.local.Git("switch", "-q", "-c", "feat")
+	r.local.Write("README.md", "dirty\n")
+	r.local.Write("notes.md", "new\n")
+	r.ctx.Prompter = failingPrompter{t}
+	if code := Run(r.ctx, []string{"slash-teleport", "teleport --session " + cmdSession}); code != 0 {
+		t.Fatalf("exit %d: %s%s", code, r.out, r.errb)
+	}
+	if status := r.local.Git("status", "--porcelain"); strings.TrimSpace(status) != "" {
+		t.Fatalf("changes left behind:\n%s", status)
+	}
+}

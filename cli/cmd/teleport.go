@@ -60,6 +60,9 @@ func runSlashTeleport(ctx *Context, args []string) int {
 	if err != nil {
 		return usageError(ctx, err.Error())
 	}
+	// A slash command has no terminal for questions, so every prompt takes its default without being shown.
+	// The flow stays interactive so the defaults match a terminal run: tracked and untracked changes travel.
+	ctx.Prompter, ctx.Interactive = ui.NewNonInteractive(), true
 	return runTeleport(ctx, argv)
 }
 
