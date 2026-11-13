@@ -75,6 +75,15 @@ export function StepGroup({
     const categories = new Set<StepCategory>(steps.map((step) => step.category));
     const failed = failedLabel(steps);
 
+    // One step needs no fold: its row is the whole group.
+    if (steps.length === 1 && !earlier) {
+        return (
+            <StepList>
+                <StepRow step={steps[0]} fresh={freshKeys?.has(steps[0].key)} />
+            </StepList>
+        );
+    }
+
     return (
         <details className="activity-details min-w-0" open={defaultOpen} onToggle={(event) => remember(event.currentTarget.open)} data-testid="step-group">
             <summary className="flex min-w-0 cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1.5 text-[13px] text-muted hover:bg-panel-2">

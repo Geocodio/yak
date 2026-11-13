@@ -53,9 +53,9 @@ function toStep(tool: ToolUse, result: ToolResult | undefined): StepView {
     };
 }
 
-function summarize(tools: ToolUse[]): string {
+function summarize(toolNames: string[]): string {
     const counts = new Map<string, number>();
-    tools.forEach((tool) => counts.set(tool.name, (counts.get(tool.name) ?? 0) + 1));
+    toolNames.forEach((name) => counts.set(name, (counts.get(name) ?? 0) + 1));
 
     return [...counts]
         .map(([name, count]) => {
@@ -105,7 +105,7 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
                 key: `tools:${entry.messageId}:${run.firstIndex}`,
                 sequence,
                 role: 'assistant',
-                text: summarize(run.tools),
+                text: summarize(run.tools.map((tool) => tool.name)),
                 steps: run.tools.map((tool) => toStep(tool, results.get(tool.id))),
                 ...(run.tools.some((tool) => !results.has(tool.id)) ? { running: true } : {}),
                 ...(detail.length > 0 ? { detail: detail.join('\n\n') } : {}),
@@ -127,6 +127,12 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
         }
 
         closeRun();
+
+        // A block without text draws nothing, so it neither gets an author header nor splits a run of tool calls.
+        if (block.text.trim() === '' && !(block.type === 'text' && block.html)) {
+            return;
+        }
+
         items.push({ kind: block.type, key: `${entry.messageId}:${index}`, sequence, role: 'assistant', text: block.text, ...(block.type === 'text' && block.html ? { html: block.html } : {}), ...(block.type === 'text' && model ? { model } : {}) });
     });
 
@@ -137,6 +143,20 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
     }
 
     return items;
+}
+
+/** Joins a tool run onto the tool run just before it, so calls that no visible text separates are one group. */
+function joinRuns(previous: ConversationItem, item: ConversationItem): ConversationItem {
+    const steps = [...(previous.steps ?? []), ...(item.steps ?? [])];
+    const detail = [previous.detail, item.detail].filter((part): part is string => part !== undefined);
+
+    return {
+        ...previous,
+        text: summarize(steps.map((step) => step.tool ?? '')),
+        steps,
+        ...(previous.running || item.running ? { running: true } : {}),
+        ...(detail.length > 0 ? { detail: detail.join('\n\n') } : {}),
+    };
 }
 
 /** Turns the live thread state into conversation items plus the sequence at which each user message was read. */
@@ -150,6 +170,7 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
 
     let model: string | undefined;
     let lastAssistantText = '';
+    let personSpoke = false;
     const items: ConversationItem[] = [];
     const readSequences: Record<string, number> = {};
 
@@ -157,7 +178,18 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
         const sequence = entrySequences[index] ?? state.lastSequence;
 
         if (entry.role === 'assistant') {
-            items.push(...projectAssistant(entry, sequence, results, model));
+            projectAssistant(entry, sequence, results, model).forEach((item) => {
+                const previous = items[items.length - 1];
+                const joinsPrevious = item.kind === 'tools' && previous?.kind === 'tools' && !personSpoke;
+
+                if (joinsPrevious) {
+                    items[items.length - 1] = joinRuns(previous, item);
+                } else {
+                    items.push(item);
+                }
+
+                personSpoke = false;
+            });
             entry.blocks.forEach((block) => {
                 if (block.type === 'text') {
                     lastAssistantText = block.text;
@@ -174,8 +206,13 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
             if (!isRepeat) {
                 items.push({ kind: 'result', key: `result:${sequence}`, sequence, role: 'assistant', text: entry.text, ...(entry.html ? { html: entry.html } : {}) });
             }
-        } else if (entry.role === 'user' && entry.uuid) {
-            readSequences[entry.uuid] = sequence;
+        } else if (entry.role === 'user') {
+            // A person's message sits between the calls on either side of it, so they stay separate groups.
+            personSpoke = true;
+
+            if (entry.uuid) {
+                readSequences[entry.uuid] = sequence;
+            }
         }
     });
 

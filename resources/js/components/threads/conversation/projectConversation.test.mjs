@@ -199,3 +199,56 @@ test('a tools item carries one step per tool use, with its label, result and fai
         ],
     );
 });
+
+const tools = (items) => items.filter((item) => item.kind === 'tools');
+
+test('tool-only assistant messages merge into one group with no text items between', () => {
+    const { items } = project(
+        feedOf(
+            ...['a', 'b', 'c', 'd', 'e'].map((id, index) => assistant(index + 1, `m${index}`, [{ type: 'text', text: '' }, use(id, 'Bash', { command: `echo ${id}` })])),
+            ...['a', 'b', 'c', 'd', 'e'].map((id, index) => toolResult(10 + index, id, 'ok')),
+            assistant(20, 'm9', [use('f', 'Read', { file_path: 'x.php' }), use('g', 'Read', { file_path: 'y.php' })]),
+        ),
+    );
+
+    assert.equal(items.length, 1);
+    assert.equal(items[0].steps.length, 7);
+    assert.equal(items[0].text, 'Ran 5 commands, Read 2 files');
+    assert.equal(items[0].key, 'tools:m0:1');
+    assert.equal(items[0].running, true);
+});
+
+test('a lone tool call stays a one-step group', () => {
+    const { items } = project(feedOf(assistant(1, 'm1', [use('a', 'Bash', { command: 'ls' })]), toolResult(2, 'a', 'x')));
+
+    assert.equal(tools(items).length, 1);
+    assert.equal(items[0].steps.length, 1);
+});
+
+test('visible text splits groups', () => {
+    const { items } = project(
+        feedOf(
+            assistant(1, 'm1', [use('a', 'Bash')]),
+            assistant(2, 'm2', [use('b', 'Bash')]),
+            assistant(3, 'm3', [{ type: 'text', text: 'Found it' }]),
+            assistant(4, 'm4', [use('c', 'Bash')]),
+        ),
+    );
+
+    assert.deepEqual(items.map((item) => [item.kind, item.steps?.length]), [['tools', 2], ['text', undefined], ['tools', 1]]);
+});
+
+test('an empty text block draws nothing and a person message splits groups', () => {
+    const user = (sequence, uuid) => entry(sequence, { role: 'user', uuid, text: 'hi' });
+    const { items } = project(feedOf(assistant(1, 'm1', [{ type: 'text', text: '  ' }, use('a', 'Bash')]), user(2, 'u1'), assistant(3, 'm2', [use('b', 'Bash')])));
+
+    assert.deepEqual(items.map((item) => item.kind), ['tools', 'tools']);
+});
+
+test('the group is running while its last call has no result', () => {
+    const { items } = project(feedOf(assistant(1, 'm1', [use('a', 'Bash')]), toolResult(2, 'a', 'x'), assistant(3, 'm2', [use('b', 'Bash')])));
+
+    assert.equal(items.length, 1);
+    assert.equal(items[0].running, true);
+    assert.deepEqual(items[0].steps.map((step) => step.running), [false, true]);
+});

@@ -86,8 +86,9 @@ it('renders step rows with a chevron, the title block and the model chip', funct
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Fix the login redirect']);
     $publisher = app(ThreadEventPublisher::class);
     $publisher->append($thread->id, 'entry', ['role' => 'system', 'subtype' => 'init', 'model' => 'claude-sonnet-5-5']);
-    $publisher->append($thread->id, 'entry', ['role' => 'assistant', 'messageId' => 'm1', 'blocks' => [['type' => 'tool_use', 'id' => 't1', 'name' => 'Read', 'input' => []], ['type' => 'text', 'text' => 'Done reading']]]);
+    $publisher->append($thread->id, 'entry', ['role' => 'assistant', 'messageId' => 'm1', 'blocks' => [['type' => 'tool_use', 'id' => 't1', 'name' => 'Read', 'input' => []], ['type' => 'tool_use', 'id' => 't2', 'name' => 'Read', 'input' => []], ['type' => 'text', 'text' => 'Done reading']]]);
     $publisher->append($thread->id, 'entry', ['role' => 'tool_result', 'toolUseId' => 't1', 'isError' => false, 'text' => 'file']);
+    $publisher->append($thread->id, 'entry', ['role' => 'tool_result', 'toolUseId' => 't2', 'isError' => false, 'text' => 'file']);
     $this->actingAs($user);
 
     visit("/threads/{$thread->id}")->wait(1)
@@ -95,6 +96,32 @@ it('renders step rows with a chevron, the title block and the model chip', funct
         ->assertVisible('[data-testid="thread-tool-activity"] [data-testid="step-group"] > summary > .activity-chevron')
         ->assertSeeIn('[data-testid="thread-model-chip"]', 'Sonnet 5.5')
         ->assertNoJavaScriptErrors();
+});
+
+it('folds consecutive single-command messages into one group and shows a lone command as a row', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $publisher = app(ThreadEventPublisher::class);
+
+    foreach (range(1, 5) as $n) {
+        $publisher->append($thread->id, 'entry', ['role' => 'assistant', 'messageId' => "m{$n}", 'blocks' => [['type' => 'text', 'text' => ''], ['type' => 'tool_use', 'id' => "t{$n}", 'name' => 'Bash', 'input' => ['command' => "echo {$n}"]]]]);
+        $publisher->append($thread->id, 'entry', ['role' => 'tool_result', 'toolUseId' => "t{$n}", 'isError' => false, 'text' => 'ok']);
+    }
+
+    $publisher->append($thread->id, 'entry', ['role' => 'assistant', 'messageId' => 'm6', 'blocks' => [['type' => 'text', 'text' => 'Checked everything']]]);
+    $publisher->append($thread->id, 'entry', ['role' => 'assistant', 'messageId' => 'm7', 'blocks' => [['type' => 'tool_use', 'id' => 't7', 'name' => 'Bash', 'input' => ['command' => 'echo lone']]]]);
+    $publisher->append($thread->id, 'entry', ['role' => 'tool_result', 'toolUseId' => 't7', 'isError' => false, 'text' => 'ok']);
+    $this->actingAs($user);
+
+    $page = visit("/threads/{$thread->id}")->wait(1)
+        ->assertSee('Ran 5 commands')
+        ->assertDontSee('Ran 1 command');
+
+    expect($page->script("document.querySelectorAll('[data-testid=\"step-group\"]').length"))->toBe(1)
+        ->and($page->script("document.querySelectorAll('[data-testid=\"thread-claude-message\"]').length"))->toBe(1)
+        ->and($page->script("[...document.querySelectorAll('[data-testid=\"step-row\"]')].filter(row => !row.closest('[data-testid=\"step-group\"]')).length"))->toBe(1);
+
+    $page->assertNoJavaScriptErrors();
 });
 
 test('the phone Chat tab shows an activity dot only while Claude is busy', function () {
