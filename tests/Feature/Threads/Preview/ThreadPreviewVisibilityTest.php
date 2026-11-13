@@ -31,14 +31,14 @@ function previewExchangeOf($test, string $host, $user)
 function previewWakeOf($test, string $host, $user)
 {
     return $test->withHeaders(['X-Forwarded-Host' => $host, 'X-Forwarded-Uri' => '/'])
-        ->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))
+        ->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))
         ->get('/internal/threads/preview/wake');
 }
 
 function previewStatusOf($test, string $host, $user)
 {
     return $test->withHeaders(['X-Forwarded-Host' => $host])
-        ->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))
+        ->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))
         ->get('/internal/threads/preview/status');
 }
 

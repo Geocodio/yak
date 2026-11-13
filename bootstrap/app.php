@@ -10,6 +10,7 @@ use App\Http\Middleware\RestrictToIngress;
 use App\Http\Middleware\VerifySessionStoreToken;
 use App\Http\Middleware\VerifySshInternalToken;
 use App\Http\Responses\CliError;
+use App\Services\PreviewAccess;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -44,6 +45,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: CliProtocol::class);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
+        // The preview cookie is minted as a raw Set-Cookie header on the preview host, so it is never Laravel-encrypted.
+        $middleware->encryptCookies(except: [PreviewAccess::COOKIE_NAME]);
         $middleware->validateCsrfTokens(except: ['api/cli/*', 'internal/*']);
         $middleware->web(append: [
             HandleInertiaRequests::class,

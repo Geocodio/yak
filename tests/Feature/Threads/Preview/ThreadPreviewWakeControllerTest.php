@@ -18,7 +18,7 @@ function wakeRequest($test, string $host, ?string $cookie = null, array $headers
 {
     $request = $test->withHeaders(['X-Forwarded-Host' => $host, 'X-Forwarded-Uri' => '/docs', ...$headers]);
 
-    return ($cookie === null ? $request : $request->withCookie(PreviewAccess::COOKIE_NAME, $cookie))->get('/internal/threads/preview/wake');
+    return ($cookie === null ? $request : $request->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, $cookie))->get('/internal/threads/preview/wake');
 }
 
 it('redirects to the bounce when there is no cookie', function () {
@@ -36,6 +36,16 @@ it('answers ready with upstream headers that replace client sent ones', function
         ->assertHeader('X-Upstream-Host', '10.0.0.7')
         ->assertHeader('X-Upstream-Port', '3000')
         ->assertHeader('X-Yak-Thread-Id', (string) $this->thread->id);
+});
+
+it('reads the raw preview cookie the browser sends, which the cookie middleware must not decrypt', function () {
+    $this->mock(ThreadPreviewWaker::class)->shouldReceive('wake')->andReturn(PreviewWakeOutcome::ready('10.0.0.7', 3000));
+    $cookie = previewCookie($this->host, $this->world->owner->id);
+
+    $this->withHeaders(['X-Forwarded-Host' => $this->host, 'X-Forwarded-Uri' => '/'])
+        ->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, $cookie)
+        ->get('/internal/threads/preview/wake')
+        ->assertOk();
 });
 
 it('records activity on every request', function () {

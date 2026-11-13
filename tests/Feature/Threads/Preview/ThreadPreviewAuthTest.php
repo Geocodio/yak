@@ -61,7 +61,7 @@ it('keeps the handshake responses frameable and the cookie host-only for a sandb
     $bounce = $this->withHeaders(['X-Forwarded-Host' => $this->host, 'X-Forwarded-Uri' => '/'])->get('/internal/threads/preview/wake');
     $exchange = threadExchange($this, $this->host, $this->access->mintTicket($this->host, $this->world->owner));
     $wake = $this->withHeaders(['X-Forwarded-Host' => $this->host, 'X-Forwarded-Uri' => '/'])
-        ->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($this->host, $this->world->owner->id))
+        ->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie($this->host, $this->world->owner->id))
         ->get('/internal/threads/preview/wake');
 
     $bounce->assertStatus(302);

@@ -54,7 +54,7 @@ it('answers a stranger on a private thread with not-found at every step', functi
 
     $bounceFor = fn (string $target) => $this->actingAs($world->other)->get(URL::temporarySignedRoute('deployments.auth-bounce', now()->addMinutes(10), ['to' => "https://{$target}/"]));
     $exchangeFor = fn (string $target) => $this->withHeaders(['X-Forwarded-Host' => $target])->get('/internal/deployments/preview-auth?' . http_build_query(['ticket' => $access->mintTicket($target, $world->other), 'to' => '/']));
-    $wakeFor = fn (string $target) => $this->withHeaders(['X-Forwarded-Host' => $target, 'X-Forwarded-Uri' => '/'])->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($target, $world->other->id))->get('/internal/threads/preview/wake');
+    $wakeFor = fn (string $target) => $this->withHeaders(['X-Forwarded-Host' => $target, 'X-Forwarded-Uri' => '/'])->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie($target, $world->other->id))->get('/internal/threads/preview/wake');
 
     foreach ([$bounceFor, $exchangeFor, $wakeFor] as $step) {
         $hidden = $step($host);

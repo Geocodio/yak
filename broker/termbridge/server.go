@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -153,6 +154,7 @@ func (s *Server) serveTerminal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		log.Printf("termbridge: redeem failed: %v", err)
 		conn.Close(closeUnavailable, "unavailable")
 		return
 	}

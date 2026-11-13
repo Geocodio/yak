@@ -16,3 +16,5 @@ yak_ssh_broker_user: "{{ yak_broker_user | default('yak-broker') }}"
 # The role builds the Go binaries on the controller and installs them here.
 yak_ssh_bin_dir: /opt/yak/bin
 yak_ssh_config_dir: /etc/ssh/yak-jump
+# Address the host's own sshd keeps; every other 127.x address on port 22 belongs to the wake proxy.
+yak_ssh_host_listen_address: "{{ ansible_default_ipv4.address }}"

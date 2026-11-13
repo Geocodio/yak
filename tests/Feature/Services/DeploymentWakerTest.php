@@ -234,7 +234,7 @@ it('answers the wake endpoint with 425 for a redeployable destroyed row', functi
     $deployment = BranchDeployment::factory()->destroyed()->create(['pr_state' => 'open', 'hostname' => 'gone.yak.example.com']);
     $deployment->repository->update(['deployments_enabled' => true]);
 
-    $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('gone.yak.example.com'))
+    $this->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie('gone.yak.example.com'))
         ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'gone.yak.example.com', 'X-Forwarded-Uri' => '/'])
         ->assertStatus(425);
     Queue::assertPushed(DeployBranchJob::class);

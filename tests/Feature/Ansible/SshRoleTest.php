@@ -74,6 +74,16 @@ it('keeps token files private and never touches the main sshd config', function 
     expect($touchesMainConfig)->toBeFalse();
 });
 
+it('pins the host sshd off the loopback addresses the wake proxy binds', function () use ($rolePath) {
+    $tasks = collect(Yaml::parseFile($rolePath('tasks/main.yml')));
+    $task = $tasks->firstWhere('name', 'Keep the host sshd off the sandbox wake addresses');
+
+    expect($task['ansible.builtin.copy']['dest'])->toBe('/etc/ssh/sshd_config.d/10-yak-listen.conf')
+        ->and($task['ansible.builtin.copy']['content'])->toContain('ListenAddress {{ yak_ssh_host_listen_address }}')->not->toContain('ListenAddress 0.0.0.0')
+        ->and($task['notify'])->toBe('Restart host sshd')
+        ->and(collect(Yaml::parseFile($rolePath('handlers/main.yml')))->pluck('name'))->toContain('Restart host sshd');
+});
+
 it('is wired into the playbook after incus and yak-broker with its tag', function () {
     $roles = collect(Yaml::parseFile(base_path('ansible/playbook.yml'))[0]['roles']);
     $names = $roles->pluck('role')->all();

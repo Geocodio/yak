@@ -112,7 +112,7 @@ it('walks a spawned child from tool call to batched result, stack panel, preview
     $parent->forceFill(['sandbox_state' => ThreadSandboxState::Paused])->save();
     $host = app(ThreadPreviewHosts::class)->hostnameFor($parent);
     $wake = fn (User $user) => $this->withHeaders(['X-Forwarded-Host' => $host, 'X-Forwarded-Uri' => '/'])
-        ->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))
+        ->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))
         ->get('/internal/threads/preview/wake');
 
     Sleep::fake(syncWithCarbon: true);

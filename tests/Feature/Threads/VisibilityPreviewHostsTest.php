@@ -26,7 +26,7 @@ function hostMasked($response, string ...$hosts): string
 
 function wakeAs($test, string $host, int $userId)
 {
-    return $test->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $userId))
+    return $test->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $userId))
         ->get('/internal/deployments/wake', ['X-Forwarded-Host' => $host, 'X-Forwarded-Uri' => '/']);
 }
 
@@ -167,9 +167,9 @@ it('sweeps every preview host route for a deployment linked to a private thread'
         'deployments.status' => fn (string $host) => $this->actingAs($user)->get('/internal/deployments/status?host=' . $host),
         'deployments.wake' => fn (string $host) => wakeAs($this, $host, $user->id),
         'threads.preview.wake' => fn (string $host) => $this->withHeaders(['X-Forwarded-Host' => $host, 'X-Forwarded-Uri' => '/'])
-            ->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))->get('/internal/threads/preview/wake'),
+            ->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))->get('/internal/threads/preview/wake'),
         'threads.preview.host-status' => fn (string $host) => $this->withHeaders(['X-Forwarded-Host' => $host])
-            ->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))->get('/internal/threads/preview/status'),
+            ->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))->get('/internal/threads/preview/status'),
     ];
 
     foreach (VisibilityRoutes::hosts() as $name) {

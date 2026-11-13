@@ -27,14 +27,15 @@ func SetSize(pty *os.File, cols, rows uint16) error {
 }
 
 // StartWithPTY runs cmd with a fresh PTY as its controlling terminal and returns the master side.
-// The child is a session leader, so closing the master hangs it up.
+// The child is a session leader, so closing the master hangs it up. The slave is opened with
+// O_NOCTTY so the bridge itself never acquires it as a controlling terminal.
 func StartWithPTY(cmd *exec.Cmd, cols, rows uint16) (*os.File, error) {
 	master, slavePath, err := OpenPTY()
 	if err != nil {
 		return nil, err
 	}
 
-	slave, err := os.OpenFile(slavePath, os.O_RDWR, 0)
+	slave, err := os.OpenFile(slavePath, os.O_RDWR|syscall.O_NOCTTY, 0)
 	if err != nil {
 		master.Close()
 		return nil, err

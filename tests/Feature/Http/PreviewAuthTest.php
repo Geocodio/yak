@@ -4,7 +4,6 @@ use App\Models\BranchDeployment;
 use App\Models\User;
 use App\Services\DeploymentWaker;
 use App\Services\PreviewAccess;
-use Illuminate\Cookie\CookieValuePrefix;
 
 beforeEach(function () {
     config()->set('yak.deployments.internal.ingress_ip_cidr', '0.0.0.0/0');
@@ -80,11 +79,9 @@ it('accepts the issued cookie at the wake endpoint', function () {
 
     $ticket = app(PreviewAccess::class)->mintTicket('foo.yak.example.com', User::factory()->create());
     $issued = exchangeTicket($this, 'foo.yak.example.com', $ticket)->headers->getCookies()[0];
-    // The browser stores the (encrypted) value Laravel sent; the test client
-    // re-encrypts what it is given, so hand it the plain value.
-    $plain = CookieValuePrefix::remove(app('encrypter')->decrypt($issued->getValue(), false));
-
-    $this->withCookie(PreviewAccess::COOKIE_NAME, $plain)
+    // The cookie is excluded from Laravel's cookie encryption, so the browser
+    // stores and returns exactly the value that was issued.
+    $this->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, $issued->getValue())
         ->withHeaders(['X-Forwarded-Host' => 'foo.yak.example.com'])
         ->get('/internal/deployments/wake')
         ->assertOk()
@@ -97,7 +94,7 @@ it('bounces a request without a preview cookie, with a cookie for another host, 
 
     $request = $this->withHeaders(['X-Forwarded-Host' => 'foo.yak.example.com']);
     if ($cookie !== null) {
-        $request = $request->withCookie(PreviewAccess::COOKIE_NAME, $cookie);
+        $request = $request->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, $cookie);
     }
 
     $request->get('/internal/deployments/wake')->assertRedirectContains('/deployments/auth-bounce');
@@ -107,7 +104,7 @@ it('bounces an expired preview cookie', function () {
     $cookie = previewCookie('foo.yak.example.com');
     $this->travel(PreviewAccess::COOKIE_TTL_SECONDS + 5)->seconds();
 
-    $this->withCookie(PreviewAccess::COOKIE_NAME, $cookie)
+    $this->withUnencryptedCookie(PreviewAccess::COOKIE_NAME, $cookie)
         ->withHeaders(['X-Forwarded-Host' => 'foo.yak.example.com'])
         ->get('/internal/deployments/wake')
         ->assertRedirectContains('/deployments/auth-bounce');
