@@ -156,7 +156,8 @@ test('phone width 390: dialog fits and scrolls', function () {
     $this->actingAs($owner);
 
     $page = visit('/threads/' . $thread->id)->on()->mobile()
-        ->click('[data-testid="share-button"]')
+        ->click('[data-testid="thread-menu"]')
+        ->click('[data-testid="thread-menu-share"]')
         ->click('[data-testid="share-mode-people"]')
         ->assertVisible('[data-testid="share-submit"]')
         ->assertNoJavaScriptErrors();
@@ -178,7 +179,6 @@ test('the visibility row shows the shared people and Remove narrows them down to
 
     visit('/threads/' . $thread->id)
         ->assertSeeIn('[data-testid="visibility-badge"]', 'Shared with 2 people')
-        ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertSeeIn('[data-testid="visibility-row-state"]', 'Shared with 2 people')
         ->click('[data-testid="share-remove-' . $first->id . '"]')
         ->assertSeeIn('[data-testid="visibility-row-state"]', 'Shared with 1 person')
@@ -199,7 +199,6 @@ test('a private thread shared with nobody shows Private and a Share link with no
     $this->actingAs($owner);
 
     visit('/threads/' . $thread->id)
-        ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertSeeIn('[data-testid="visibility-row-state"]', 'Private')
         ->assertSeeIn('[data-testid="visibility-row-share"]', 'Share')
         ->assertMissing('[data-testid="shared-people"]')

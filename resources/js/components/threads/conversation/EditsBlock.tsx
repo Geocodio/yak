@@ -3,7 +3,7 @@ import { StepTile } from '@/components/activity/stepIcons';
 import type { ConversationItem } from './conversationItem';
 
 /** The files a message edited, folded to one line in the same style as a group of steps. */
-export function EditsBlock({ item }: { item: ConversationItem }) {
+export function EditsBlock({ item, onOpenChanges }: { item: ConversationItem; onOpenChanges?: (path?: string) => void }) {
     const files = item.files ?? [];
 
     return (
@@ -20,7 +20,13 @@ export function EditsBlock({ item }: { item: ConversationItem }) {
             <ul className="m-0 list-none border-t border-hair px-3 py-2 text-muted">
                 {files.map((file) => (
                     <li key={file} className="truncate font-mono text-[12px] leading-[1.7]">
-                        {file}
+                        {onOpenChanges === undefined ? (
+                            file
+                        ) : (
+                            <button type="button" onClick={() => onOpenChanges(file)} className="max-w-full cursor-pointer truncate rounded-[6px] px-1.5 text-left hover:bg-panel-2 hover:text-body" title="Review this change" data-testid="thread-edits-open-changes">
+                                {file}
+                            </button>
+                        )}
                     </li>
                 ))}
             </ul>

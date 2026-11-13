@@ -23,7 +23,6 @@ test('the environment rows show the pull request badge and the deployment host',
     ]);
 
     visit(route('threads.show', $thread))
-        ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertSeeIn('[data-testid="environment-pull-request"]', '#12')
         ->assertSeeIn('[data-testid="environment-pull-request"]', 'Open')
         ->assertSeeIn('[data-testid="environment-deployment"]', 'importer.preview.example.com')
@@ -34,7 +33,6 @@ test('the environment rows explain empty values', function () {
     $thread = Thread::factory()->create();
 
     visit(route('threads.show', $thread))
-        ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertSeeIn('[data-testid="environment-pull-request"]', 'Not opened yet')
         ->assertSeeIn('[data-testid="environment-deployment"]', 'None for this branch');
 });

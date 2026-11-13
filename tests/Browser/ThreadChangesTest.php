@@ -19,10 +19,10 @@ test('it lists changed files and shows a diff', function () {
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-panel-tab-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-changes"]')
         ->assertSeeIn('[data-testid="changes-summary"]', '3 files changed')
         ->click('[data-testid="changes-file-' . $file->path . '"] button')
-        ->assertSeeIn('[data-testid="changes-diff-viewer"]', 'newest');
+        ->assertScript('document.querySelector(\'[data-testid="changes-diff-viewer"]\').textContent.includes("newest")', true);
 });
 
 test('it shows an empty state', function () {
@@ -30,7 +30,7 @@ test('it shows an empty state', function () {
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-panel-tab-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-changes"]')
         ->assertPresent('[data-testid="changes-empty"]');
 });
 
@@ -41,7 +41,7 @@ test('it shows the working note while a turn runs', function () {
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-panel-tab-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-changes"]')
         ->assertPresent('[data-testid="changes-working-note"]');
 });
 
@@ -50,7 +50,7 @@ test('it shows the changed file count on the Changes tab', function () {
     ThreadDiff::factory()->for($thread)->withFiles(2)->create();
 
     visit(route('threads.show', $thread))
-        ->assertSeeIn('[data-testid="thread-panel-count-changes"]', '2');
+        ->assertSeeIn('[data-testid="thread-dock-count-changes"]', '2');
 });
 
 test('the header shows diff totals and the pull request, and a sub-thread shows its brief', function () {
@@ -62,7 +62,7 @@ test('the header shows diff totals and the pull request, and a sub-thread shows 
 
     visit(route('threads.show', $child))
         ->assertSeeIn('[data-testid="thread-header-diff"]', '+7')
-        ->assertSeeIn('[data-testid="thread-header-pr"]', 'PR #9')
+        ->assertSeeIn('[data-testid="thread-header-pr"]', '#9')
         ->assertSeeIn('[data-testid="thread-breadcrumb-parent"]', 'Ship the importer')
         ->assertSeeIn('[data-testid="child-brief"]', 'Brief from Ship the importer')
         ->assertSeeIn('[data-testid="child-brief"]', 'Works on yak/imp/client');
@@ -75,7 +75,7 @@ test('the file list leads with a status tile and shows viewed progress and the f
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-panel-tab-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-changes"]')
         ->assertPresent('[data-testid="changes-file-' . $file->path . '"] [data-testid="changes-status-tile"]')
         ->assertSeeIn('[data-testid="changes-viewed-progress"]', '0 of 2 viewed')
         ->assertPresent('[data-testid="changes-filter-hint"]')
@@ -85,22 +85,20 @@ test('the file list leads with a status tile and shows viewed progress and the f
     $page->assertScript('document.activeElement.getAttribute("aria-label")', 'Filter files');
 });
 
-test('an opened file shows the stepper and a renamed banner only when the old path is known', function () {
+test('every changed file is a card, and a renamed banner shows only when the old path is known', function () {
     $thread = Thread::factory()->create();
     $diff = ThreadDiff::factory()->for($thread)->create(['files_count' => 2]);
-    $renamed = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id, 'path' => 'src/new-name.php', 'old_path' => 'src/old-name.php', 'status' => 'renamed']);
-    $unknown = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id, 'path' => 'src/other.php', 'old_path' => null, 'status' => 'renamed']);
+    ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id, 'path' => 'src/new-name.php', 'old_path' => 'src/old-name.php', 'status' => 'renamed']);
+    ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id, 'path' => 'src/other.php', 'old_path' => null, 'status' => 'renamed']);
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-panel-tab-changes"]')
-        ->click('[data-testid="changes-file-' . $renamed->path . '"] button')
-        ->assertSeeIn('[data-testid="changes-file-header"]', 'src/new-name.php')
+    $page->click('[data-testid="thread-dock-toggle-changes"]')
+        ->assertCount('[data-testid="changes-file-card"]', 2)
+        ->assertSeeIn('[data-testid="changes-pane"]', 'src/new-name.php')
+        ->assertSeeIn('[data-testid="changes-pane"]', 'src/other.php')
+        ->assertCount('[data-testid="changes-renamed-banner"]', 1)
         ->assertSeeIn('[data-testid="changes-renamed-banner"]', 'Renamed from src/old-name.php')
-        ->assertSee('1/2')
-        ->click('button[aria-label="Next file"]')
-        ->assertSeeIn('[data-testid="changes-file-header"]', 'src/other.php')
-        ->assertMissing('[data-testid="changes-renamed-banner"]')
         ->assertDontSee('Renamed from null');
 });
 
@@ -112,7 +110,7 @@ test('the stack select is labelled and counts each sub-thread files, leaving the
 
     $page = visit(route('threads.show', $parent));
 
-    $page->click('[data-testid="thread-panel-tab-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-changes"]')
         ->assertSee('Showing')
         ->click('[data-testid="changes-child-switch"]')
         ->assertSee('This thread')
@@ -121,15 +119,14 @@ test('the stack select is labelled and counts each sub-thread files, leaving the
         ->assertSee('builder');
 });
 
-test('the Environment tab is first and lists the Terminal row', function () {
+test('the Overview rail has no tabs and lists the Terminal row', function () {
     $thread = Thread::factory()->create();
 
     $page = visit(route('threads.show', $thread));
 
-    expect($page->script('document.querySelector(\'[data-testid="thread-panel-tab-environment"]\').getAttribute("aria-selected")'))->toBe('true');
-    expect($page->script('[...document.querySelectorAll(\'[role="tablist"][aria-label="Thread panels"] [role="tab"]\')].map(t => t.dataset.testid).join(",")'))
-        ->toStartWith('thread-panel-tab-environment');
-    $page->assertSeeIn('[data-testid="environment-terminal"]', 'yak ssh ' . $thread->id)
+    $page->assertVisible('[data-testid="thread-sidebar"]')
+        ->assertMissing('[data-testid="thread-sidebar"] [role="tablist"]')
+        ->assertSeeIn('[data-testid="environment-terminal"]', 'yak ssh ' . $thread->id)
         ->assertSeeIn('[data-testid="environment-terminal"]', 'Set up SSH')
         ->assertNoJavaScriptErrors();
 });

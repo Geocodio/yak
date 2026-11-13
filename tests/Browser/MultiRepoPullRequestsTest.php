@@ -32,7 +32,6 @@ it('shows the pull requests of a multi-repo thread and reorders them', function 
 
     visit(route('threads.show', $thread))
         ->assertPresent('[data-testid="conversation-pr-chip-acme/api"]')
-        ->click('[data-testid="thread-panel-tab-pull-requests"]')
         ->assertPresent('[data-testid="pull-requests-panel"]')
         ->assertPresent('[data-testid="pull-request-card-acme/api"]')
         ->assertPresent('[data-testid="pull-request-card-acme/web"]')
@@ -48,7 +47,6 @@ it('shows the pull requests of a multi-repo thread and reorders them', function 
     $web->forceFill(['pull_request_state' => 'merged'])->save();
 
     visit(route('threads.show', $thread))
-        ->click('[data-testid="thread-panel-tab-pull-requests"]')
         ->assertAttribute('[data-testid="pull-request-card-acme/web"]', 'data-state', 'merged');
 });
 
@@ -62,7 +60,6 @@ it('shows the connector, the help link and the none state', function () {
     $this->actingAs($user);
 
     visit(route('threads.show', $thread))
-        ->click('[data-testid="thread-panel-tab-pull-requests"]')
         ->assertPresent('[data-testid="pull-requests-none"]')
         ->assertSee('No pull requests yet')
         ->assertSeeIn('[data-testid="pull-requests-expectations"]', 'What to expect here')
@@ -73,7 +70,6 @@ it('shows the connector, the help link and the none state', function () {
     ThreadRepository::query()->where('thread_id', $thread->id)->where('repo', 'acme/web')->update(['pull_request_url' => 'https://github.com/acme/web/pull/2', 'pull_request_number' => 2, 'pull_request_state' => 'open', 'merge_position' => 2]);
 
     visit(route('threads.show', $thread))
-        ->click('[data-testid="thread-panel-tab-pull-requests"]')
         ->assertCount('[data-testid="merge-connector"]', 1)
         ->assertSeeIn('[data-testid="pull-requests-panel"]', 'How this works');
 });

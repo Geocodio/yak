@@ -131,13 +131,11 @@ it('shows the sidebar status card while rebuilding and a second retry when it fa
     $this->actingAs($user);
 
     visit("/threads/{$rebuilding->id}")
-        ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertSeeIn('[data-testid="environment-status-card"]', 'Rebuilding, step 3 of 6')
         ->assertSeeIn('[data-testid="environment-status-card"]', 'Run .yak/setup.sh.')
         ->assertNoJavaScriptErrors();
 
     visit("/threads/{$failed->id}")
-        ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertSeeIn('[data-testid="environment-status-card"]', 'Rebuild stopped at step 3')
         ->assertSeeIn('[data-testid="sidebar-restore-retry"]', 'Retry from this step')
         ->assertNoJavaScriptErrors();
@@ -207,12 +205,11 @@ it('shows the sidebar capacity block while waiting and nothing without capacity 
     $this->actingAs($user);
 
     visit("/threads/{$thread->id}")
-        ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertSeeIn('[data-testid="capacity-block"]', 'Turns on Work')
         ->assertSeeIn('[data-testid="capacity-block"]', 'Awake sandboxes')
         ->assertSeeIn('[data-testid="capacity-block"]', 'Your share')
         ->assertNoJavaScriptErrors();
-    visit("/threads/{$bare->id}")->click('[data-testid="thread-panel-tab-environment"]')->wait(1)->assertMissing('[data-testid="capacity-block"]')->assertNoJavaScriptErrors();
+    visit("/threads/{$bare->id}")->wait(1)->assertMissing('[data-testid="capacity-block"]')->assertNoJavaScriptErrors();
 });
 
 it('shows Replace token only to the account owner on a token problem', function () {

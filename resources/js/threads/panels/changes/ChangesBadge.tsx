@@ -1,11 +1,8 @@
-import type { ThreadData } from '@/types/threads';
-import { useThreadDiff } from './useThreadDiff';
+import type { ThreadDiffSummary } from '@/types/thread-changes';
 
 /** The number of changed files, hidden at zero. */
-export function ChangesBadge({ thread }: { thread: ThreadData }) {
-    const { diff } = useThreadDiff(thread, null);
-
-    if (diff === null || diff.filesCount === 0) {
+export function ChangesBadge({ diff }: { diff?: ThreadDiffSummary | null }) {
+    if (diff === null || diff === undefined || diff.filesCount === 0) {
         return null;
     }
 

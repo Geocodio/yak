@@ -1,10 +1,10 @@
-export type PhoneTabId = 'chat' | 'preview' | 'terminal' | 'details';
+export type PhoneTabId = 'chat' | 'preview' | 'changes' | 'terminal' | 'overview';
 
 export type PhoneTerminalMode = 'shell' | 'files';
 
 export type PhoneTab = { id: PhoneTabId; label: string };
 
-/** Chat and Details always show; Preview and Terminal show only when a dock panel with that id is registered. */
+/** Chat and Overview always show; Preview, Changes and Terminal show only when a dock panel with that id is registered. */
 export function phoneTabs(registeredDockIds: string[]): PhoneTab[] {
     const tabs: PhoneTab[] = [{ id: 'chat', label: 'Chat' }];
 
@@ -12,11 +12,15 @@ export function phoneTabs(registeredDockIds: string[]): PhoneTab[] {
         tabs.push({ id: 'preview', label: 'Preview' });
     }
 
+    if (registeredDockIds.includes('changes')) {
+        tabs.push({ id: 'changes', label: 'Changes' });
+    }
+
     if (registeredDockIds.includes('terminal')) {
         tabs.push({ id: 'terminal', label: 'Terminal' });
     }
 
-    tabs.push({ id: 'details', label: 'Details' });
+    tabs.push({ id: 'overview', label: 'Overview' });
 
     return tabs;
 }
@@ -38,9 +42,22 @@ export function phoneDockIdFor(tab: PhoneTabId, mode: PhoneTerminalMode): string
         return 'preview';
     }
 
+    if (tab === 'changes') {
+        return 'changes';
+    }
+
     if (tab === 'terminal') {
         return mode === 'files' ? 'files' : 'terminal';
     }
 
     return null;
+}
+
+/** The phone tab that shows a dock panel; Files lives under the Terminal tab. */
+export function phoneTabIdFor(dockId: string | null): PhoneTabId {
+    if (dockId === 'files') {
+        return 'terminal';
+    }
+
+    return dockId === 'preview' || dockId === 'changes' || dockId === 'terminal' ? dockId : 'chat';
 }

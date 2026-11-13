@@ -73,11 +73,10 @@ it('shows the Environment rows, a role switch and the Changes sub-tabs', functio
     ThreadDiffFile::factory()->for($diff, 'diff')->create(['path' => 'guide.md', 'thread_diff_repository_id' => $context->id, 'additions' => 3, 'deletions' => 0]);
 
     visit(route('threads.show', $thread))
-        ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertPresent('[data-testid="environment-repository-acme/app"]')
         ->assertPresent('[data-testid="environment-repository-acme/web"]')
         ->assertSeeIn('[data-testid="environment-repository-acme/docs"]', 'dataset not attached')
-        ->click('[data-testid="thread-panel-tab-changes"]')
+        ->click('[data-testid="thread-dock-toggle-changes"]')
         ->assertPresent('[data-testid="changes-repository-tabs"]')
         ->click('[data-testid="changes-tab-acme/web"]')
         ->assertPresent('[data-testid="changes-file-web.php"]')
@@ -112,7 +111,6 @@ it('shows add-repo cards for a failed setup and a denied clone', function () {
         ->assertPresent('[data-testid="repository-card-acme/web"] [data-testid="repository-retry-setup"]')
         ->assertPresent('[data-testid="repository-card-acme/web"] [data-testid="repository-make-context"]')
         ->assertMissing('[data-testid="repository-remove"]')
-        ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Setup failed')
         ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Gets a pull request if it changes.')
         ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Retry setup')

@@ -175,7 +175,7 @@ it('01 thread page', function () {
     docsConversation($thread);
     docsDiff($thread, [['tests/checkout.spec.ts', 'modified', 3, 2, DOCS_CHECKOUT_PATCH]]);
 
-    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-panel-tab-environment"]');
+    $page = docsPage(route('threads.show', $thread));
     docsShot($page, 'screenshot-thread-page');
 });
 
@@ -206,7 +206,7 @@ it('04 thread changes', function () {
         ['tests/checkout.spec.ts', 'modified', 3, 2, DOCS_CHECKOUT_PATCH],
         ['tests/helpers/wait-for-order.ts', 'modified', 6, 0, "@@ -1,3 +1,7 @@\n import { Page } from '@playwright/test';\n \n+export async function waitForOrderSummary(page: Page): Promise<void> {\n+  await page.waitForSelector('[data-testid=\"order-summary\"]', { state: 'visible' });\n+}\n+\n export const CHECKOUT_URL = '/checkout';\n"],
     ]);
-    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-panel-tab-changes"]')
+    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-dock-toggle-changes"]')
         ->click('[data-testid="changes-file-tests/checkout.spec.ts"] button');
     docsShot($page, 'screenshot-thread-changes');
 });
@@ -269,7 +269,7 @@ it('08 pull requests panel', function () {
         ],
     ]);
 
-    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-panel-tab-pull-requests"]');
+    $page = docsPage(route('threads.show', $thread));
     docsShot($page, 'screenshot-pull-requests-panel');
 });
 
@@ -286,7 +286,7 @@ it('09 multi repo changes', function () {
     $docs = $diff->repositories()->create(['repo' => 'acme/docs', 'role' => 'context', 'base_sha' => 'a', 'head_sha' => 'b', 'files_count' => 1, 'additions' => 3, 'is_throwaway' => true]);
     ThreadDiffFile::factory()->for($diff, 'diff')->create(['path' => 'notes/export-conventions.md', 'thread_diff_repository_id' => $docs->id, 'additions' => 3, 'deletions' => 0, 'patch' => "@@ -0,0 +1,3 @@\n+# Export notes\n+Streamed CSV files use a header row.\n+Dates are ISO 8601.\n"]);
 
-    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-panel-tab-changes"]')->click('[data-testid="changes-tab-acme/docs"]');
+    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-dock-toggle-changes"]')->click('[data-testid="changes-tab-acme/docs"]');
     docsShot($page, 'screenshot-multi-repo-changes');
 });
 
@@ -302,7 +302,7 @@ it('10 stack panel', function () {
     StackThreadMessage::factory()->create(['root_thread_id' => $parent->id, 'from_thread_id' => $done->id, 'to_thread_id' => $parent->id, 'kind' => StackThreadMessageKind::Result, 'text' => 'The orders API pages by cursor, 100 rows per page.', 'delivered_at' => now()]);
     StackThreadMessage::factory()->create(['root_thread_id' => $parent->id, 'from_thread_id' => $failed->id, 'to_thread_id' => $parent->id, 'kind' => StackThreadMessageKind::Failure, 'text' => 'Sub-thread builder failed before finishing: the sandbox ran out of disk.', 'delivered_at' => now()]);
 
-    $page = docsPage(route('threads.show', $parent))->click('[data-testid="thread-panel-tab-stack"]');
+    $page = docsPage(route('threads.show', $parent));
     docsShot($page, 'screenshot-stack-panel');
 });
 

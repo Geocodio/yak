@@ -13,7 +13,7 @@ function openChangesTab(Thread $thread)
     YakTask::factory()->create(['thread_id' => $thread->id, 'branch_name' => 'yak/work']);
 
     return visit(route('threads.show', $thread))
-        ->click('[data-testid="thread-panel-tab-changes"]');
+        ->click('[data-testid="thread-dock-toggle-changes"]');
 }
 
 beforeEach(function (): void {

@@ -1,5 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
-import { Button } from '@geocodio/console-ui';
+import { Button, Menu } from '@geocodio/console-ui';
+import { Layers, Plus } from 'lucide-react';
 import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
@@ -21,7 +22,7 @@ const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
 
 const MAX_MESSAGE_LENGTH = 20000;
 
-export function ThreadComposer({ thread, composer, notice, teleportState, isOffline = false, restoredDraft = null }: { thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null }) {
+export function ThreadComposer({ thread, composer, notice, teleportState, isOffline = false, restoredDraft = null, onAddSubThread }: { thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null; onAddSubThread?: () => void }) {
     const form = useForm<{ message: string; model: string | null; attachments: File[]; attachment_refs: string[] }>({
         message: '',
         model: composer.model,
@@ -123,6 +124,15 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
                     )}
                     <div className="flex items-center justify-between gap-3 border-t border-hair px-3 py-2">
                         <div className="flex min-w-0 items-center gap-3">
+                            {!disabled && onAddSubThread !== undefined && (
+                                <Menu
+                                    trigger={<Plus size={14} aria-hidden />}
+                                    aria-label="Add"
+                                    items={[{ key: 'sub-thread', label: 'Add a sub-thread', icon: <Layers size={14} />, onSelect: onAddSubThread, testId: 'composer-add-sub-thread' }]}
+                                    className="size-7 justify-center rounded-[6px] p-0 text-muted hover:bg-panel-2 hover:text-body"
+                                    data-testid="composer-plus-menu"
+                                />
+                            )}
                             {!disabled && <AttachButton draft={draft} disabled={form.processing} />}
                             <ModelPicker variant="inline" models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} disabled={disabled} testId="composer-model" />
                             <span className="truncate text-[11px] text-faint" data-testid="thread-composer-hint">

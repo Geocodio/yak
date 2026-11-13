@@ -1,42 +1,62 @@
 import { cn } from '@geocodio/console-ui';
+import { FileDiff, Folder, Globe, Terminal, type LucideIcon } from 'lucide-react';
 import { useEffect } from 'react';
-import type { Panel } from '@/threads/panels';
+import type { Panel, PanelProps } from '@/threads/panels';
 import type { ThreadData } from '@/types/threads';
 
-type Props = {
+const ICONS: Record<string, LucideIcon> = { preview: Globe, changes: FileDiff, files: Folder, terminal: Terminal };
+
+type TogglesProps = {
     thread: ThreadData;
-    canDrive: boolean;
     panels: Panel[];
     active: Panel | null;
+    diff: PanelProps['diff'];
     onSelect: (id: string | null) => void;
 };
 
-/** Segmented buttons that open and close dock panels; the open panel renders through `ThreadDockPanel`. */
-export function ThreadDockToggles({ panels, active, onSelect }: Pick<Props, 'panels' | 'active' | 'onSelect'>) {
+/** The header's view switcher: segmented buttons that open and close dock views; the open view renders through `ThreadDockPanel`. */
+export function ThreadDockToggles({ thread, panels, active, diff, onSelect }: TogglesProps) {
     if (panels.length === 0) {
         return null;
     }
 
     return (
-        <div role="group" aria-label="Dock panels" className="hidden shrink-0 gap-px rounded-chip border border-hair bg-hair lg:flex" data-testid="thread-dock-toggles">
-            {panels.map((panel) => (
-                <button
-                    key={panel.id}
-                    type="button"
-                    aria-pressed={panel.id === active?.id}
-                    data-testid={`thread-dock-toggle-${panel.id}`}
-                    onClick={() => onSelect(panel.id === active?.id ? null : panel.id)}
-                    className={cn('cursor-pointer bg-app px-3 py-1 text-[12.5px]', panel.id === active?.id ? 'font-medium text-body' : 'text-muted hover:text-body')}
-                >
-                    {panel.label}
-                </button>
-            ))}
+        <div role="group" aria-label="Views" className="hidden shrink-0 gap-0.5 rounded-[9px] bg-panel-2 p-0.5 lg:inline-flex" data-testid="thread-dock-toggles">
+            {panels.map((panel) => {
+                const isActive = panel.id === active?.id;
+                const Icon = ICONS[panel.id];
+
+                return (
+                    <button
+                        key={panel.id}
+                        type="button"
+                        aria-pressed={isActive}
+                        data-testid={`thread-dock-toggle-${panel.id}`}
+                        onClick={() => onSelect(isActive ? null : panel.id)}
+                        className={cn(
+                            'inline-flex h-7 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-[13px]',
+                            isActive ? 'bg-panel font-medium text-body shadow-[0_0_0_1px_var(--hair),0_1px_2px_rgb(0_0_0/0.1)]' : 'text-muted hover:text-body',
+                        )}
+                    >
+                        {Icon !== undefined && <Icon size={13} aria-hidden />}
+                        {panel.label}
+                        {panel.badge !== undefined && (
+                            <span
+                                className={cn('inline-grid h-[17px] min-w-[17px] place-items-center rounded-pill px-1.5 text-[11px] font-medium tabular-nums empty:hidden', isActive ? 'bg-(--accent-tint) text-accent-text' : 'bg-panel-2 text-muted')}
+                                data-testid={`thread-dock-count-${panel.id}`}
+                            >
+                                <panel.badge thread={thread} diff={diff} />
+                            </span>
+                        )}
+                    </button>
+                );
+            })}
         </div>
     );
 }
 
-/** The open dock panel, to the right of the conversation. While it is open the page sets `data-thread-docked` on the body so the details sidebar shrinks. */
-export function ThreadDockPanel({ thread, canDrive, active, isPhoneVisible }: Pick<Props, 'thread' | 'canDrive' | 'active'> & { isPhoneVisible: boolean }) {
+/** The open view, to the right of the conversation. While it is open the page sets `data-thread-docked` on the body so the shell steps back to its icon rail. */
+export function ThreadDockPanel({ active, isPhoneVisible, panelProps }: { active: Panel | null; isPhoneVisible: boolean; panelProps: PanelProps }) {
     useEffect(() => {
         if (active === null) {
             return;
@@ -55,11 +75,11 @@ export function ThreadDockPanel({ thread, canDrive, active, isPhoneVisible }: Pi
 
     return (
         <section
-            className={cn('min-h-0 min-w-0 flex-1 flex-col border-l border-hair bg-app lg:flex', isPhoneVisible ? 'flex' : 'hidden')}
+            className={cn('min-h-0 min-w-0 flex-1 flex-col border-l border-hair bg-panel lg:flex', isPhoneVisible ? 'flex' : 'hidden')}
             aria-label={active.label}
             data-testid="thread-dock"
         >
-            <active.component thread={thread} canDrive={canDrive} />
+            <active.component {...panelProps} />
         </section>
     );
 }

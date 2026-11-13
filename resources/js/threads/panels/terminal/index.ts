@@ -4,7 +4,7 @@ import { TerminalPanel } from './TerminalPanel';
 registerDockPanel({
     id: 'terminal',
     label: 'Terminal',
-    order: 20,
+    order: 40,
     component: TerminalPanel,
     visible: (thread) => thread.status === 'open',
 });

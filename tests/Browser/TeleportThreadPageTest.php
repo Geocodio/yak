@@ -15,8 +15,6 @@ it('shows the teleport dialog with the command for a Yak-owned thread', function
     $this->actingAs($user);
 
     visit(route('threads.show', $thread))
-        ->assertAttribute('@thread-panel-tab-environment', 'aria-selected', 'true')
-        ->click('@thread-panel-tab-teleport')
         ->click('@teleport-button')
         ->assertVisible('@teleport-dialog')
         ->assertSeeIn('@teleport-dialog', 'Only committed work travels')
@@ -34,7 +32,6 @@ it('shows the Teleport setup instead of the command when the person has no compu
     $this->actingAs($user);
 
     visit(route('threads.show', $thread))
-        ->click('@thread-panel-tab-teleport')
         ->click('@teleport-button')
         ->assertVisible('@teleport-dialog')
         ->assertPresent('[data-testid="teleport-install-command"]')
@@ -66,7 +63,6 @@ it('shows the teleport to Yak dialog with the slash command on a device-owned th
     $this->actingAs($user);
 
     visit(route('threads.show', $thread))
-        ->click('@thread-panel-tab-teleport')
         ->click('@teleport-up')
         ->assertVisible('@teleport-dialog')
         ->assertSeeIn('@teleport-command', '/yak teleport')

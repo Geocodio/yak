@@ -82,7 +82,7 @@ test('a docked thread panel leaves only the rail on a wide screen', function () 
         ->assertNoJavaScriptErrors();
 });
 
-test('the details sidebar is a sheet behind a header toggle at laptop width', function () {
+test('the Overview rail floats over the open view behind a header toggle at laptop width', function () {
     $this->actingAs(User::factory()->create());
     $thread = Thread::factory()->create();
 
@@ -90,7 +90,7 @@ test('the details sidebar is a sheet behind a header toggle at laptop width', fu
 
     $page->click('[data-testid="thread-dock-toggle-preview"]');
     expect($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).display'))->toBe('none');
-    $page->click('[data-testid="thread-details-sheet-toggle"]')
+    $page->click('[data-testid="thread-rail-toggle"]')
         ->assertVisible('[data-testid="thread-sidebar"]')
         ->assertNoJavaScriptErrors();
 });

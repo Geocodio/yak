@@ -1,11 +1,12 @@
 import { Button, cn } from '@geocodio/console-ui';
 import { usePage } from '@inertiajs/react';
-import { ChevronRight, FileCode2, X } from 'lucide-react';
-import { lazy, Suspense, useState } from 'react';
+import { ChevronRight, FileCode2, FileDiff, X } from 'lucide-react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { csrfToken } from '@/lib/csrfToken';
 import type { PanelProps } from '@/threads/panels';
 import type { SharedProps } from '@/types/shared';
 import type { FileContentData, FileEntryData, FileScope } from '@/types/thread-files';
+import { type ChangedPaths } from './changeLetter';
 import { ConflictCompare } from './ConflictCompare';
 import { EditorNotices } from './EditorNotices';
 import { FileBrowser } from './FileBrowser';
@@ -20,8 +21,9 @@ const SCOPES: { id: FileScope; label: string }[] = [
     { id: 'sandbox', label: 'Whole sandbox' },
 ];
 
-export default function FilesPanel({ thread, canDrive }: PanelProps) {
+export default function FilesPanel({ thread, canDrive, diff = null, focusPath = null, onOpenChanges }: PanelProps) {
     const [scope, setScope] = useState<FileScope>('repo');
+    const [filter, setFilter] = useState<'all' | 'changed'>(focusPath === null ? 'all' : 'changed');
     const tree = useFileTree(thread.id, scope);
     const files = useOpenFile(thread.id);
     const active = files.openFiles.find((file) => file.path === files.activePath) ?? null;
@@ -74,6 +76,24 @@ export default function FilesPanel({ thread, canDrive }: PanelProps) {
         setComparing((current) => ({ ...current, [path]: false }));
     };
 
+    // The thread's stored diff and the sandbox's own tree each know some changed files; the badge shows both.
+    const changed = useMemo<ChangedPaths>(() => {
+        const diffFiles = scope === 'repo' && diff !== null ? diff.files.filter((file) => file.repo === thread.repo) : [];
+
+        return {
+            changedPaths: [...new Set([...tree.changedPaths, ...diffFiles.filter((file) => file.status !== 'added').map((file) => file.path)])],
+            addedPaths: [...new Set([...tree.addedPaths, ...diffFiles.filter((file) => file.status === 'added').map((file) => file.path)])],
+        };
+    }, [scope, diff, thread.repo, tree.changedPaths, tree.addedPaths]);
+    const changedCount = new Set([...changed.changedPaths, ...changed.addedPaths]).size;
+
+    useEffect(() => {
+        if (focusPath !== null) {
+            files.open('repo', focusPath);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [focusPath]);
+
     const unavailable = tree.state !== 'ready' ? tree.state : null;
 
     return (
@@ -94,7 +114,22 @@ export default function FilesPanel({ thread, canDrive }: PanelProps) {
                         </button>
                     ))}
                 </div>
-                {unavailable === null && <FileBrowser repoName={thread.repo.split('/').pop() ?? thread.repo} tree={tree} activePath={files.activePath} onOpen={(entry: FileEntryData) => files.open(scope, entry.path)} />}
+                <div role="group" aria-label="File filter" className="mx-3 mb-2 flex gap-0.5 rounded-[9px] bg-panel-2 p-0.5">
+                    {([['all', 'All files'], ['changed', 'Changed']] as const).map(([id, label]) => (
+                        <button
+                            key={id}
+                            type="button"
+                            aria-pressed={filter === id}
+                            data-testid={`files-filter-${id}`}
+                            onClick={() => setFilter(id)}
+                            className={cn('inline-flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[7px] text-[13px]', filter === id ? 'bg-panel font-medium text-body shadow-[0_0_0_1px_var(--hair),0_1px_2px_rgb(0_0_0/0.1)]' : 'text-muted hover:text-body')}
+                        >
+                            {label}
+                            {id === 'changed' && changedCount > 0 && <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-pill bg-panel-2 px-1.5 text-[11px] font-medium tabular-nums text-muted" data-testid="files-changed-count">{changedCount}</span>}
+                        </button>
+                    ))}
+                </div>
+                {unavailable === null && <FileBrowser repoName={thread.repo.split('/').pop() ?? thread.repo} tree={tree} changed={changed} isChangedOnly={filter === 'changed'} activePath={files.activePath} onOpen={(entry: FileEntryData) => files.open(scope, entry.path)} />}
                 {scope === 'sandbox' && unavailable === null && (
                     <p className="border-t border-hair px-3 py-2 text-[12px] text-muted">System folders are read only. You can change anything under your home folder and the workspace.</p>
                 )}
@@ -133,6 +168,11 @@ export default function FilesPanel({ thread, canDrive }: PanelProps) {
                                             </span>
                                         ))}
                                     </p>
+                                    {onOpenChanges !== undefined && changedCount > 0 && (changed.changedPaths.includes(active.path) || changed.addedPaths.includes(active.path)) && (
+                                        <Button variant="secondary" className="h-7" icon={<FileDiff size={12} />} onClick={() => onOpenChanges(active.path)} data-testid="files-view-diff">
+                                            View diff
+                                        </Button>
+                                    )}
                                     {active.canEdit && (
                                         <>
                                             <span className="text-[12px] text-muted">Cmd+S</span>

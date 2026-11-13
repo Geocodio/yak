@@ -1,6 +1,7 @@
 import { Tooltip, cn } from '@geocodio/console-ui';
 import { ExternalLink, Lock, Monitor, RefreshCw, Smartphone, Tablet } from 'lucide-react';
 import { useEffect, useState, type ComponentType } from 'react';
+import { CopyButton } from '@/components/threads/environment/LinkActions';
 import type { DeviceWidth } from './previewState';
 
 const DEVICES: {
@@ -54,9 +55,15 @@ export function PreviewToolbar({ host, path, onPathChange, onReload, device, onD
                         <Lock size={12} />
                     </span>
                 </Tooltip>
-                <span className="min-w-0 max-w-[45%] shrink truncate font-mono text-[12px] text-muted" data-testid="preview-host">
-                    {host ?? 'preview'}
-                </span>
+                {openUrl !== null ? (
+                    <a href={openUrl} target="_blank" rel="noopener noreferrer" className="min-w-0 max-w-[45%] shrink truncate font-mono text-[12px] text-accent-text hover:underline" data-testid="preview-host">
+                        {host ?? 'preview'}
+                    </a>
+                ) : (
+                    <span className="min-w-0 max-w-[45%] shrink truncate font-mono text-[12px] text-muted" data-testid="preview-host">
+                        {host ?? 'preview'}
+                    </span>
+                )}
                 <input
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
@@ -66,6 +73,7 @@ export function PreviewToolbar({ host, path, onPathChange, onReload, device, onD
                     className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-body outline-none"
                     data-testid="preview-path"
                 />
+                {openUrl !== null && <CopyButton text={openUrl} label="preview URL" className="size-6" testId="preview-copy" />}
             </form>
 
             <div role="radiogroup" aria-label="Preview width" className="hidden shrink-0 gap-px rounded-chip border border-hair bg-hair sm:flex">

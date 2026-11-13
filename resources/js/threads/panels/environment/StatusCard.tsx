@@ -43,9 +43,5 @@ export function StatusCard({ thread, notice, composerState }: { thread: ThreadDa
         return <Card title="Waiting for the account" body="The sandbox starts once a turn on this account finishes." />;
     }
 
-    if (composerState === 'working') {
-        return <Card title="Sandbox running" body="Claude is working in it now." />;
-    }
-
     return null;
 }

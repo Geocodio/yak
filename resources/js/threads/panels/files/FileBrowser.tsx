@@ -2,19 +2,22 @@ import { TextInput } from '@geocodio/console-ui';
 import { Search } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import type { FileEntryData } from '@/types/thread-files';
-import { changeLetterFor } from './changeLetter';
+import { changeLetterFor, type ChangedPaths } from './changeLetter';
 import { FileTreeNode } from './FileTreeNode';
 import type { FileTree } from './useFileTree';
 
 type Props = {
     tree: FileTree;
+    changed: ChangedPaths;
+    /** Lists only the changed files, flat, instead of the directory tree. */
+    isChangedOnly: boolean;
     activePath: string | null;
     onOpen: (entry: FileEntryData) => void;
     /** Folder name of the thread's repository, tagged in the whole-sandbox tree. */
     repoName: string;
 };
 
-export function FileBrowser({ tree, activePath, onOpen, repoName }: Props) {
+export function FileBrowser({ tree, changed, isChangedOnly, activePath, onOpen, repoName }: Props) {
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
     const [filter, setFilter] = useState('');
 
@@ -47,7 +50,7 @@ export function FileBrowser({ tree, activePath, onOpen, repoName }: Props) {
                     depth={depth}
                     isExpanded={isOpen}
                     isActive={entry.path === activePath}
-                    changeLetter={changeLetterFor(entry.path, tree)}
+                    changeLetter={changeLetterFor(entry.path, changed)}
                     isRepository={entry.isDirectory && entry.path.endsWith(`/workspace/${repoName}`)}
                     onToggle={toggle}
                     onOpen={onOpen}
@@ -55,6 +58,11 @@ export function FileBrowser({ tree, activePath, onOpen, repoName }: Props) {
                 ...(isOpen ? render(entry.path, depth + 1) : []),
             ];
         });
+
+    const changedEntries: FileEntryData[] = [...changed.changedPaths, ...changed.addedPaths]
+        .filter((path) => needle === '' || path.toLowerCase().includes(needle))
+        .sort()
+        .map((path) => ({ name: path, path, isDirectory: false, isWritable: true, size: null }));
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -66,7 +74,11 @@ export function FileBrowser({ tree, activePath, onOpen, repoName }: Props) {
                 {tree.root === '' ? '/' : tree.root}
             </p>
             <div className="min-h-0 flex-1 overflow-auto" data-testid="files-tree">
-                {render('', 0)}
+                {isChangedOnly
+                    ? changedEntries.length === 0
+                        ? <p className="px-3 py-2 text-[13px] text-muted" data-testid="files-changed-empty">No changed files.</p>
+                        : changedEntries.map((entry) => <FileTreeNode key={entry.path} entry={entry} depth={0} isExpanded={false} isActive={entry.path === activePath} changeLetter={changeLetterFor(entry.path, changed)} onToggle={toggle} onOpen={onOpen} />)
+                    : render('', 0)}
                 {tree.isLoading && Object.keys(tree.entriesByDirectory).length === 0 && <p className="px-3 py-2 text-[13px] text-muted">Loading files</p>}
                 {tree.error !== null && <p className="px-3 py-2 text-[13px] text-muted">{tree.error}</p>}
             </div>

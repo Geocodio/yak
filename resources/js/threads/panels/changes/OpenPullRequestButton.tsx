@@ -8,9 +8,10 @@ import type { ThreadData } from '@/types/threads';
 
 /**
  * Opens the pull request for the thread's branch. A private thread asks first, and the
- * acknowledgement is only sent once the person confirms the dialog.
+ * acknowledgement is only sent once the person confirms the dialog. The header shows the
+ * primary variant; the Changes view's phone bar shows it too.
  */
-export function OpenPullRequestButton({ thread, publishWarning }: { thread: ThreadData; publishWarning: boolean }) {
+export function OpenPullRequestButton({ thread, publishWarning, variant = 'primary', className }: { thread: ThreadData; publishWarning: boolean; variant?: 'primary' | 'secondary'; className?: string }) {
     const [processing, setProcessing] = useState(false);
 
     const submit = () => {
@@ -24,7 +25,7 @@ export function OpenPullRequestButton({ thread, publishWarning }: { thread: Thre
     return (
         <PrivatePublishGate required={publishWarning} onConfirm={submit}>
             {(open) => (
-                <Button variant="secondary" icon={<GitPullRequest size={13} />} pending={processing} onClick={open} data-testid="open-pull-request">
+                <Button variant={variant} icon={<GitPullRequest size={13} />} pending={processing} onClick={open} className={className} data-testid="open-pull-request">
                     Open PR
                 </Button>
             )}

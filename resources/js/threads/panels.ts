@@ -1,7 +1,34 @@
 import type { ComponentType } from 'react';
+import type { StackData } from '@/types/stack';
 import type { TeleportData, ThreadCapacity, ThreadComposer, ThreadData, ThreadNotice } from '@/types/threads';
+import type { ThreadDiffSummary } from '@/types/thread-changes';
 
-export type PanelProps = { thread: ThreadData; canDrive: boolean; notice?: ThreadNotice | null; composerState?: ThreadComposer['state']; capacity?: ThreadCapacity | null; accountName?: string | null; environmentSwitch?: TeleportData['environmentSwitch'] };
+export type PanelProps = {
+    thread: ThreadData;
+    canDrive: boolean;
+    notice?: ThreadNotice | null;
+    composerState?: ThreadComposer['state'];
+    capacity?: ThreadCapacity | null;
+    accountName?: string | null;
+    environmentSwitch?: TeleportData['environmentSwitch'];
+    /** The thread's stack, loaded once by the page; null until it arrives. */
+    stack?: StackData | null;
+    reloadStack?: () => void;
+    /** The thread's stored diff, loaded once by the page; null until it arrives. */
+    diff?: ThreadDiffSummary | null;
+    /** Opens the Changes view, on one file when a path is given. */
+    onOpenChanges?: (path?: string) => void;
+    /** Opens another view, such as Preview. */
+    onSelectView?: (id: string) => void;
+    /** Opens the Files view on one file. */
+    onOpenFile?: (path: string) => void;
+    onAddSubThread?: () => void;
+    onTeleport?: () => void;
+    /** Closes the Overview rail when it floats over a view. */
+    onCloseRail?: () => void;
+    /** The file Changes or Files was asked to show. */
+    focusPath?: string | null;
+};
 
 export type Panel = {
     id: string;
@@ -11,33 +38,40 @@ export type Panel = {
     component: ComponentType<PanelProps>;
     /** Hides the panel for threads it does not apply to. */
     visible: (thread: ThreadData) => boolean;
-    /** A number shown beside the tab label. */
-    count?: (thread: ThreadData) => number;
-    /** A component that renders its own tab text (or nothing) beside the label. */
-    badge?: ComponentType<{ thread: ThreadData }>;
+    /** A component that renders its own count (or nothing) beside the label. */
+    badge?: ComponentType<{ thread: ThreadData; diff?: ThreadDiffSummary | null }>;
 };
 
-const sidebarPanels = new Map<string, Panel>();
+/** One group of the Overview rail. It renders its own heading and hides itself when it has nothing to show. */
+export type OverviewSection = {
+    id: string;
+    /** Ascending; ties keep registration order. */
+    order: number;
+    component: ComponentType<PanelProps>;
+    visible: (thread: ThreadData) => boolean;
+};
+
+const overviewSections = new Map<string, OverviewSection>();
 const dockPanels = new Map<string, Panel>();
 
-/** Adds a tab to the thread page's right sidebar. Registering an id twice replaces it. */
-export function registerSidebarPanel(panel: Panel): void {
-    sidebarPanels.set(panel.id, panel);
+/** Adds a group to the thread page's Overview rail. Registering an id twice replaces it. */
+export function registerOverviewSection(section: OverviewSection): void {
+    overviewSections.set(section.id, section);
 }
 
-/** Adds a tab to the thread page's bottom dock (terminal, files, editor). */
+/** Adds a view to the thread page's header (preview, changes, files, terminal). */
 export function registerDockPanel(panel: Panel): void {
     dockPanels.set(panel.id, panel);
 }
 
-function visiblePanels(registry: Map<string, Panel>, thread: ThreadData): Panel[] {
-    return [...registry.values()].filter((panel) => panel.visible(thread)).sort((a, b) => a.order - b.order);
+function visibleEntries<T extends { order: number; visible: (thread: ThreadData) => boolean }>(registry: Map<string, T>, thread: ThreadData): T[] {
+    return [...registry.values()].filter((entry) => entry.visible(thread)).sort((a, b) => a.order - b.order);
 }
 
-export function sidebarPanelsFor(thread: ThreadData): Panel[] {
-    return visiblePanels(sidebarPanels, thread);
+export function overviewSectionsFor(thread: ThreadData): OverviewSection[] {
+    return visibleEntries(overviewSections, thread);
 }
 
 export function dockPanelsFor(thread: ThreadData): Panel[] {
-    return visiblePanels(dockPanels, thread);
+    return visibleEntries(dockPanels, thread);
 }

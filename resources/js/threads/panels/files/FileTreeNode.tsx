@@ -23,7 +23,7 @@ export function FileTreeNode({ entry, depth, isExpanded, isActive, changeLetter,
             data-path={entry.path}
             onClick={() => (entry.isDirectory ? onToggle(entry) : onOpen(entry))}
             style={{ paddingLeft: 8 + depth * 14 }}
-            className={cn('flex h-8 w-full items-center gap-1.5 pr-2 text-left text-[13px] text-body', isActive && 'bg-app font-medium')}
+            className={cn('flex h-8 w-full items-center gap-1.5 pr-2 text-left text-[13px] text-body', isActive && 'bg-panel-2 font-medium')}
         >
             <span className="flex w-3 shrink-0 text-muted">{entry.isDirectory ? isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} /> : null}</span>
             <Icon size={14} className="shrink-0 text-muted" />
@@ -34,8 +34,7 @@ export function FileTreeNode({ entry, depth, isExpanded, isActive, changeLetter,
                 </span>
             )}
             {changeLetter !== null && (
-                <span className="flex items-center gap-1 text-[11px] font-medium text-muted" data-testid={`file-changed-${entry.path}`}>
-                    <span className="size-1.5 rounded-full bg-accent" aria-hidden />
+                <span className="rounded-[4px] border border-current px-1 font-mono text-[10.5px] font-medium leading-[15px] text-warn" title={changeLetter === 'A' ? 'Added' : 'Modified'} data-testid={`file-changed-${entry.path}`}>
                     {changeLetter}
                 </span>
             )}

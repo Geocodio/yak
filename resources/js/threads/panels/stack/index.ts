@@ -1,13 +1,5 @@
-import { registerSidebarPanel } from '@/threads/panels';
-import { StackBadge } from './StackBadge';
-import { StackPanel } from './StackPanel';
+import { registerOverviewSection } from '@/threads/panels';
+import { StackGroup } from './StackGroup';
 
-registerSidebarPanel({
-    id: 'stack',
-    label: 'Stack',
-    order: 15,
-    component: StackPanel,
-    badge: StackBadge,
-    // The thread payload carries no child count, so every open thread shows the panel; an empty one offers "Add a sub-thread".
-    visible: (thread) => thread.status === 'open',
-});
+// The group renders nothing until the thread has sub-threads or is one, so it is safe to register for every thread.
+registerOverviewSection({ id: 'stack', order: 10, component: StackGroup, visible: (thread) => thread.status === 'open' });

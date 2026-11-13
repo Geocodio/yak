@@ -47,7 +47,6 @@ it('shows sub-threads as cards and in the Stack panel, and stops the stack', fun
         ->assertPresent('[data-testid="child-card-' . $done->id . '"]')
         ->assertSeeIn('[data-testid="child-card-' . $done->id . '"]', 'The API pages by cursor.')
         ->assertPresent('[data-testid="child-take-over"]')
-        ->click('[data-testid="thread-panel-tab-stack"]')
         ->assertPresent('[data-testid="stack-panel"]')
         ->assertPresent('[data-testid="stack-child-' . $failed->id . '"]')
         ->click('[data-testid="stack-limit-increase"]')
@@ -69,7 +68,7 @@ it('shows the parent banner on a sub-thread page', function () {
         ->assertSeeIn('[data-testid="child-parent-banner"]', 'Ship the importer');
 });
 
-it('shows awake over total on the Stack tab', function () {
+it('shows the sub-thread count in the header and the awake total in the Stack group', function () {
     $this->actingAs(User::factory()->create());
     $parent = Thread::factory()->create();
     foreach (range(1, 3) as $index) {
@@ -79,18 +78,30 @@ it('shows awake over total on the Stack tab', function () {
     }
 
     visit(route('threads.show', $parent))
-        ->assertSeeIn('[data-testid="thread-panel-count-stack"]', '3/3');
+        ->assertSeeIn('[data-testid="thread-header-subthreads"]', '3 sub-threads')
+        ->assertSeeIn('[data-testid="stack-limit-summary"]', '3 of 3 awake');
 });
 
-it('shows an empty awake meter for a stack with no sub-threads', function () {
+it('hides the Stack group and the header count while a thread has no sub-threads', function () {
     $this->actingAs(User::factory()->create());
     $parent = Thread::factory()->create();
 
     visit(route('threads.show', $parent))
-        ->click('[data-testid="thread-panel-tab-stack"]')
-        ->assertSeeIn('[data-testid="stack-limit-summary"]', '0 of 3 awake')
-        ->assertScript('document.querySelectorAll(\'[data-testid="stack-awake-meter"] span\').length', 3)
-        ->assertScript('document.querySelectorAll(\'[data-testid="stack-awake-meter"] span[data-filled="true"]\').length', 0);
+        ->assertPresent('[data-testid="environment-panel"]')
+        ->assertMissing('[data-testid="stack-panel"]')
+        ->assertMissing('[data-testid="thread-header-subthreads"]')
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows the Stack group first in the Overview once a sub-thread exists', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create();
+    Thread::factory()->child($parent)->create(['name' => 'scout']);
+
+    visit(route('threads.show', $parent))
+        ->assertPresent('[data-testid="stack-panel"]')
+        ->assertScript('(() => { const top = (testid) => document.querySelector(`[data-testid="${testid}"]`).getBoundingClientRect().top; return top("stack-panel") < top("environment-panel"); })()', true)
+        ->assertNoJavaScriptErrors();
 });
 
 it('orders the stack panel and collapses the messages', function () {
@@ -100,11 +111,10 @@ it('orders the stack panel and collapses the messages', function () {
     StackThreadMessage::factory()->count(4)->create(['root_thread_id' => $parent->id, 'from_thread_id' => $child->id, 'to_thread_id' => $parent->id, 'kind' => StackThreadMessageKind::Result]);
 
     visit(route('threads.show', $parent))
-        ->click('[data-testid="thread-panel-tab-stack"]')
-        ->assertSeeIn('[data-testid="stack-children-header"]', 'Sub-threads 1 of 12')
+        ->assertSeeIn('[data-testid="stack-children-header"]', '1 of 12')
         ->assertSeeIn('[data-testid="stack-child-' . $child->id . '"] [data-testid="state-pill"]', 'Waiting for a slot')
         ->assertScript('document.querySelectorAll(\'[data-testid^="stack-message-"]\').length', 3)
-        ->assertScript('(() => { const top = (testid) => document.querySelector(`[data-testid="${testid}"]`).getBoundingClientRect().top; return top("stack-limit") < top("stack-add") && top("stack-add") < top("stack-children-header"); })()', true)
+        ->assertScript('(() => { const top = (testid) => document.querySelector(`[data-testid="${testid}"]`).getBoundingClientRect().top; return top("stack-children-header") < top("stack-limit"); })()', true)
         ->click('[data-testid="stack-messages-show-all"]')
         ->assertScript('document.querySelectorAll(\'[data-testid^="stack-message-"]\').length', 4);
 });
@@ -115,8 +125,7 @@ it('renders every sub-thread past the cap of 12 without clamping', function () {
     Thread::factory()->count(13)->child($parent)->create();
 
     visit(route('threads.show', $parent))
-        ->click('[data-testid="thread-panel-tab-stack"]')
-        ->assertSeeIn('[data-testid="stack-children-header"]', 'Sub-threads 13 of 12')
+        ->assertSeeIn('[data-testid="stack-children-header"]', '13 of 12')
         ->assertScript('document.querySelectorAll(\'[data-testid^="stack-child-"][data-state]\').length', 13);
 });
 
@@ -125,8 +134,8 @@ it('opens the Add a sub-thread dialog with the approved copy', function () {
     $parent = Thread::factory()->create(['title' => 'Ship the importer']);
 
     visit(route('threads.show', $parent))
-        ->click('[data-testid="thread-panel-tab-stack"]')
-        ->click('[data-testid="stack-add"]')
+        ->click('[data-testid="composer-plus-menu"]')
+        ->click('[data-testid="composer-add-sub-thread"]')
         ->assertSeeIn('[data-testid="stack-add-dialog"]', 'Add a sub-thread')
         ->assertSeeIn('[data-testid="stack-add-dialog"]', 'Ship the importer hands it a brief and a copy of its sandbox as it is now.')
         ->assertSeeIn('[data-testid="stack-add-dialog"]', 'Implement')

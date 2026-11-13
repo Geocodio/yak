@@ -1,4 +1,5 @@
 import { Skeleton, cn } from '@geocodio/console-ui';
+import { ChevronsUpDown } from 'lucide-react';
 import { diffWordsWithSpace, parsePatch } from 'diff';
 import hljs from 'highlight.js/lib/core';
 import css from 'highlight.js/lib/languages/css';
@@ -9,7 +10,7 @@ import php from 'highlight.js/lib/languages/php';
 import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
-import { Fragment, useMemo } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { ThreadDiffFile, ThreadDiffFilePatch } from '@/types/thread-changes';
 import { useJson } from '../useJson';
 
@@ -36,16 +37,21 @@ hljs.registerLanguage('yaml', yaml);
 
 type Segment = { text: string; isChanged: boolean };
 type Line = { kind: 'context' | 'added' | 'removed'; oldNumber: number | null; newNumber: number | null; text: string; segments: Segment[] | null };
-type Block = { kind: 'lines'; lines: Line[] } | { kind: 'gap'; count: number };
+/** Unchanged lines between hunks. `newTo` is null for the tail, whose length is only known once the file is loaded. */
+type Gap = { kind: 'gap'; id: string; newFrom: number; newTo: number | null; delta: number };
+type Block = { kind: 'lines'; lines: Line[] } | Gap;
 
 function parseBlocks(patch: string): Block[] {
     const blocks: Block[] = [];
     let previousOldEnd = 1;
+    let previousNewEnd = 1;
 
     for (const hunk of parsePatch(patch).flatMap((parsed) => parsed.hunks)) {
-        const gap = hunk.oldStart - previousOldEnd;
-        if (gap > 0) {
-            blocks.push({ kind: 'gap', count: gap });
+        // A zero-length range names the line before it, so the first line it covers is one further on.
+        const oldStart = hunk.oldLines === 0 ? hunk.oldStart + 1 : hunk.oldStart;
+        const newStart = hunk.newLines === 0 ? hunk.newStart + 1 : hunk.newStart;
+        if (newStart > previousNewEnd) {
+            blocks.push({ kind: 'gap', id: `gap-${blocks.length}`, newFrom: previousNewEnd, newTo: newStart - 1, delta: previousOldEnd - previousNewEnd });
         }
 
         const lines: Line[] = [];
@@ -66,7 +72,12 @@ function parseBlocks(patch: string): Block[] {
 
         pairWordChanges(lines);
         blocks.push({ kind: 'lines', lines });
-        previousOldEnd = hunk.oldStart + hunk.oldLines;
+        previousOldEnd = oldStart + hunk.oldLines;
+        previousNewEnd = newStart + hunk.newLines;
+    }
+
+    if (blocks.length > 0) {
+        blocks.push({ kind: 'gap', id: 'gap-tail', newFrom: previousNewEnd, newTo: null, delta: previousOldEnd - previousNewEnd });
     }
 
     return blocks;
@@ -100,15 +111,17 @@ function pairWordChanges(lines: Line[]): void {
 }
 
 const ROW_TINT: Record<Line['kind'], string> = { context: '', added: 'bg-ok/10', removed: 'bg-fail/10' };
+const NUMBER_TINT: Record<Line['kind'], string> = { context: 'text-muted/80', added: 'bg-ok/20 text-ok', removed: 'bg-fail/20 text-fail' };
+const SIGN_TINT: Record<Line['kind'], string> = { context: '', added: 'text-ok', removed: 'text-fail' };
 const WORD_TINT: Record<'added' | 'removed', string> = { added: 'bg-ok/25', removed: 'bg-fail/25' };
-const MARKER: Record<Line['kind'], string> = { context: ' ', added: '+', removed: '-' };
+const MARKER: Record<Line['kind'], string> = { context: ' ', added: '+', removed: '−' };
 
 function Code({ line, language }: { line: Line; language: string | null }) {
     if (line.segments !== null && line.kind !== 'context') {
         return (
             <>
                 {line.segments.map((segment, index) => (
-                    <span key={index} className={segment.isChanged ? WORD_TINT[line.kind as 'added' | 'removed'] : undefined}>
+                    <span key={index} className={cn('rounded-[3px]', segment.isChanged && WORD_TINT[line.kind as 'added' | 'removed'])}>
                         {segment.text}
                     </span>
                 ))}
@@ -121,38 +134,32 @@ function Code({ line, language }: { line: Line; language: string | null }) {
     return <>{line.text}</>;
 }
 
-function Gap({ count }: { count: number }) {
-    return (
-        <div className="bg-app px-3 py-1 text-center text-[11.5px] text-muted" data-testid="changes-diff-gap">
-            {count} unchanged {count === 1 ? 'line' : 'lines'}
-        </div>
-    );
-}
+const NUMBER_CLASS = 'select-none px-1.5 text-right tabular-nums';
 
 function Cell({ line, side, language }: { line: Line | null; side: 'old' | 'new'; language: string | null }) {
     return (
-        <div className={cn('flex min-w-0', line === null ? 'bg-app' : ROW_TINT[line.kind])}>
-            <span className="w-10 shrink-0 select-none px-1 text-right text-muted">{(side === 'old' ? line?.oldNumber : line?.newNumber) ?? ''}</span>
-            <span className="w-4 shrink-0 select-none text-center text-muted">{line === null ? '' : MARKER[line.kind]}</span>
-            <span className="min-w-0 flex-1 whitespace-pre-wrap break-all pr-2">{line !== null && <Code line={line} language={language} />}</span>
+        <div className={cn('grid min-w-full w-max grid-cols-[40px_18px_1fr]', line === null ? 'bg-panel-2/60' : ROW_TINT[line.kind])}>
+            <span className={cn(NUMBER_CLASS, line !== null && NUMBER_TINT[line.kind])}>{(side === 'old' ? line?.oldNumber : line?.newNumber) ?? ''}</span>
+            <span className={cn('select-none text-center', line !== null && SIGN_TINT[line.kind])}>{line === null ? '' : MARKER[line.kind]}</span>
+            <span className="whitespace-pre px-1.5">{line !== null && <Code line={line} language={language} />}</span>
         </div>
     );
 }
 
 function Unified({ lines, language }: { lines: Line[]; language: string | null }) {
     return (
-        <>
+        <div className="overflow-x-auto">
             {lines.map((line, index) => (
-                <div key={index} className={cn('flex', ROW_TINT[line.kind])}>
-                    <span className="w-10 shrink-0 select-none px-1 text-right text-muted">{line.oldNumber ?? ''}</span>
-                    <span className="w-10 shrink-0 select-none px-1 text-right text-muted">{line.newNumber ?? ''}</span>
-                    <span className="w-4 shrink-0 select-none text-center text-muted">{MARKER[line.kind]}</span>
-                    <span className="min-w-0 flex-1 whitespace-pre-wrap break-all pr-2">
+                <div key={index} className={cn('grid min-w-full w-max grid-cols-[40px_40px_18px_1fr]', ROW_TINT[line.kind])}>
+                    <span className={cn(NUMBER_CLASS, NUMBER_TINT[line.kind])}>{line.oldNumber ?? ''}</span>
+                    <span className={cn(NUMBER_CLASS, NUMBER_TINT[line.kind])}>{line.newNumber ?? ''}</span>
+                    <span className={cn('select-none text-center', SIGN_TINT[line.kind])}>{MARKER[line.kind]}</span>
+                    <span className="whitespace-pre px-1.5">
                         <Code line={line} language={language} />
                     </span>
                 </div>
             ))}
-        </>
+        </div>
     );
 }
 
@@ -182,44 +189,138 @@ function splitRows(lines: Line[]): [Line | null, Line | null][] {
 }
 
 function Split({ lines, language }: { lines: Line[]; language: string | null }) {
+    const rows = splitRows(lines);
+
     return (
-        <>
-            {splitRows(lines).map(([left, right], index) => (
-                <div key={index} className="grid grid-cols-2 divide-x divide-hair">
-                    <Cell line={left} side="old" language={language} />
-                    <Cell line={right} side="new" language={language} />
-                </div>
-            ))}
-        </>
+        <div className="grid grid-cols-2 divide-x divide-hair" data-testid="changes-diff-split">
+            <div className="overflow-x-auto">
+                {rows.map(([left], index) => (
+                    <Cell key={index} line={left} side="old" language={language} />
+                ))}
+            </div>
+            <div className="overflow-x-auto">
+                {rows.map(([, right], index) => (
+                    <Cell key={index} line={right} side="new" language={language} />
+                ))}
+            </div>
+        </div>
     );
 }
 
-export function DiffViewer({ threadId, file, mode }: { threadId: number; file: ThreadDiffFile; mode: 'unified' | 'split' }) {
+function contextLines(content: string[], gap: Gap): Line[] {
+    const to = gap.newTo ?? content.length;
+    const lines: Line[] = [];
+    for (let number = gap.newFrom; number <= to && number <= content.length; number++) {
+        lines.push({ kind: 'context', oldNumber: number + gap.delta, newNumber: number, text: content[number - 1], segments: null });
+    }
+    return lines;
+}
+
+function GapRow({ gap, count, isLoading, error, onExpand }: { gap: Gap; count: number | null; isLoading: boolean; error: string | null; onExpand: () => void }) {
+    const noun = count === null ? 'the remaining lines' : `${count} hidden ${count === 1 ? 'line' : 'lines'}`;
+
+    return (
+        <button
+            type="button"
+            onClick={onExpand}
+            disabled={isLoading}
+            className="flex w-full cursor-pointer items-center gap-2 border-y border-hair bg-panel-2 px-2.5 py-[3px] text-left font-sans text-[12px] text-muted first:border-t-0 last:border-b-0 hover:text-accent-text disabled:cursor-default"
+            data-testid="changes-diff-gap"
+            data-gap={gap.id}
+        >
+            <ChevronsUpDown size={12} aria-hidden />
+            {error ?? (isLoading ? 'Loading lines' : `Show ${noun}`)}
+        </button>
+    );
+}
+
+type Props = {
+    threadId: number;
+    file: ThreadDiffFile;
+    mode: 'unified' | 'split';
+    /** Whether hidden lines can be read from the sandbox's copy of the file. */
+    canExpand?: boolean;
+};
+
+export function DiffViewer({ threadId, file, mode, canExpand = false }: Props) {
     const { data, isLoading, error } = useJson<ThreadDiffFilePatch>(`/threads/${threadId}/diff/files/${file.id}`);
     const patch = data?.patch ?? null;
-    const blocks = useMemo(() => (patch === null ? [] : parseBlocks(patch)), [patch]);
+    const blocks = useMemo(() => {
+        try {
+            return patch === null ? [] : parseBlocks(patch);
+        } catch {
+            return null;
+        }
+    }, [patch]);
     const extension = file.path.split('.').pop()?.toLowerCase() ?? '';
     const language = LANGUAGE_BY_EXTENSION[extension] ?? null;
+    const [expandedGaps, setExpandedGaps] = useState<Set<string>>(new Set());
+    const [content, setContent] = useState<string[] | null>(null);
+    const [isLoadingContent, setIsLoadingContent] = useState(false);
+    const [contentError, setContentError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (expandedGaps.size === 0 || content !== null || isLoadingContent) {
+            return;
+        }
+        setIsLoadingContent(true);
+        fetch(`/threads/${threadId}/files/content?${new URLSearchParams({ scope: 'repo', path: file.path })}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+            .then(async (response) => {
+                const body = (await response.json().catch(() => ({}))) as { content?: string | null };
+                if (!response.ok || typeof body.content !== 'string') {
+                    throw new Error('The hidden lines could not be loaded. The sandbox may be asleep.');
+                }
+                const lines = body.content.split('\n');
+                setContent(lines.length > 0 && lines[lines.length - 1] === '' ? lines.slice(0, -1) : lines);
+            })
+            .catch((failure: unknown) => {
+                setContentError(failure instanceof Error ? failure.message : 'The hidden lines could not be loaded.');
+                setExpandedGaps(new Set());
+            })
+            .finally(() => setIsLoadingContent(false));
+    }, [expandedGaps, content, isLoadingContent, threadId, file.path]);
 
     let body;
     if (file.isBinary) {
-        body = <p className="p-3 text-[12.5px] text-muted">Binary file</p>;
+        body = <p className="p-3 font-sans text-[12.5px] text-muted">Binary file</p>;
     } else if (file.isTooLarge) {
-        body = <p className="p-3 text-[12.5px] text-muted">Too large to show</p>;
+        body = <p className="p-3 font-sans text-[12.5px] text-muted">Too large to show</p>;
     } else if (data === null) {
-        body = isLoading ? <Skeleton className="m-3 h-24" /> : <p className="p-3 text-[12.5px] text-muted">{error ?? 'The diff could not be loaded.'}</p>;
+        body = isLoading ? <Skeleton className="m-3 h-24" /> : <p className="p-3 font-sans text-[12.5px] text-muted">{error ?? 'The diff could not be loaded.'}</p>;
+    } else if (blocks === null) {
+        body = <p className="p-3 font-sans text-[12.5px] text-muted">The diff could not be read.</p>;
     } else if (patch === null || blocks.length === 0) {
-        body = <p className="p-3 text-[12.5px] text-muted">No content changes</p>;
+        body = <p className="p-3 font-sans text-[12.5px] text-muted">No content changes</p>;
     } else {
-        body = blocks.map((block, index) => (
-            <Fragment key={index}>
-                {block.kind === 'gap' ? <Gap count={block.count} /> : mode === 'split' ? <Split lines={block.lines} language={language} /> : <Unified lines={block.lines} language={language} />}
-            </Fragment>
-        ));
+        const render = (lines: Line[]) => (mode === 'split' ? <Split lines={lines} language={language} /> : <Unified lines={lines} language={language} />);
+        const canExpandFile = canExpand && file.status !== 'deleted' && file.status !== 'added';
+
+        body = blocks.map((block, index) => {
+            if (block.kind === 'lines') {
+                return <Fragment key={index}>{render(block.lines)}</Fragment>;
+            }
+            if (!canExpandFile) {
+                return block.newTo === null ? null : (
+                    <div key={index} className="border-y border-hair bg-panel-2 px-3 py-1 text-center font-sans text-[11.5px] text-muted first:border-t-0" data-testid="changes-diff-gap-static">
+                        {block.newTo - block.newFrom + 1} unchanged {block.newTo - block.newFrom === 0 ? 'line' : 'lines'}
+                    </div>
+                );
+            }
+            if (expandedGaps.has(block.id) && content !== null) {
+                const lines = contextLines(content, block);
+                return lines.length === 0 ? null : <Fragment key={index}>{render(lines)}</Fragment>;
+            }
+            const count = block.newTo === null ? (content === null ? null : Math.max(0, content.length - block.newFrom + 1)) : block.newTo - block.newFrom + 1;
+            if (count === 0) {
+                return null;
+            }
+
+            return <GapRow key={index} gap={block} count={count} isLoading={expandedGaps.has(block.id) && isLoadingContent} error={contentError} onExpand={() => { setContentError(null); setExpandedGaps((current) => new Set(current).add(block.id)); }} />;
+        });
     }
 
     return (
-        <div className="overflow-x-auto rounded-card border border-hair font-mono text-[12px] leading-5 text-body" data-testid="changes-diff-viewer">
+        <div className="font-mono text-[12px] leading-5 text-body" data-testid="changes-diff-viewer">
             {body}
         </div>
     );
