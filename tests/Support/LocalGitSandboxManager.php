@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Models\Thread;
+use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\FakeSandboxManager;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
@@ -84,6 +85,11 @@ class LocalGitSandboxManager extends FakeSandboxManager
         // Commands fed through stdin write outside the workspace (the environment note); they are recorded, not run.
         if ($stdin !== null) {
             return Process::result();
+        }
+
+        // The real sandbox user has passwordless sudo; the test machine does not.
+        if (($command[2] ?? null) === SandboxManager::LINK_LOCAL_PATH_SCRIPT) {
+            $command[2] = str_replace('sudo ', '', $command[2]);
         }
 
         return $this->run($this->workspace, $command, $stdin, $env);

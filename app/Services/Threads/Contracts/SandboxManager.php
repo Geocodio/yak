@@ -13,6 +13,13 @@ use Illuminate\Contracts\Process\ProcessResult;
  */
 interface SandboxManager
 {
+    /**
+     * Links a path from the user's computer ($1) to its checkout in the sandbox ($2), so absolute paths in a
+     * teleported session still resolve. The sandbox user cannot create top-level directories like /Users, so the
+     * script uses sudo.
+     */
+    public const LINK_LOCAL_PATH_SCRIPT = 'sudo mkdir -p "$(dirname "$1")" && sudo ln -sfn "$2" "$1"';
+
     /** Clones the repo template into a stopped sandbox. */
     public function create(Thread $thread): void;
 

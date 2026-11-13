@@ -117,7 +117,7 @@ function multiRepoCommands(object $test): array
 it('links the local path of each changes repo to its extras folder', function () {
     completeMultiRepoUp($this)['response']->assertOk();
 
-    expect(multiRepoCommands($this))->toContain('sh -c mkdir -p "$(dirname "$1")" && ln -sfn "$2" "$1" sh /Users/ada/lib /extras/lib');
+    expect(multiRepoCommands($this))->toContain('sh -c sudo mkdir -p "$(dirname "$1")" && sudo ln -sfn "$2" "$1" sh /Users/ada/lib /extras/lib');
 });
 
 it('never links a context repo', function () {

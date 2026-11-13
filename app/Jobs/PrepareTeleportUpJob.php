@@ -321,7 +321,7 @@ class PrepareTeleportUpJob implements ShouldQueue
         }
 
         foreach ($links as $localPath => $target) {
-            $sandboxes->exec($thread, ['sh', '-c', 'mkdir -p "$(dirname "$1")" && ln -sfn "$2" "$1"', 'sh', $localPath, $target]);
+            $sandboxes->exec($thread, ['sh', '-c', SandboxManager::LINK_LOCAL_PATH_SCRIPT, 'sh', $localPath, $target]);
         }
     }
 

@@ -223,7 +223,7 @@ class SandboxRestorer
             $path = (string) $thread->local_repo_path;
             $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
 
-            $this->mustRun($step, $thread, ['sh', '-c', 'mkdir -p "$(dirname "$1")" && ln -sfn "$2" "$1"', 'sh', $path, $workspace]);
+            $this->mustRun($step, $thread, ['sh', '-c', SandboxManager::LINK_LOCAL_PATH_SCRIPT, 'sh', $path, $workspace]);
         }
 
         $steps = $thread->restoreSteps()->get()->keyBy(fn (ThreadRestoreStep $row): string => $row->step->value);
