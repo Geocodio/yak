@@ -25,6 +25,19 @@ test('start writes the thread values the welcome splash reads, with control char
         && $p->input === "TITLE=Fix it TITLE=evil  [31mred\nPUBLIC_ID={$thread->public_id}\nREPO={$thread->repo}\nBRANCH=yak/fix-it\nDOCS_URL=" . config('docs.base_url') . "ssh/\n");
 });
 
+test('start gives a cloned sandbox its own ssh host key once', function () {
+    Process::fake(['*' => Process::result()]);
+    $thread = Thread::factory()->create();
+
+    incusManager()->start($thread);
+
+    Process::assertRan(fn ($p) => is_array($p->command)
+        && array_slice($p->command, 0, 5) === ['incus', 'exec', "yak-thread-{$thread->id}", '--', 'sh']
+        && str_contains($p->command[6], 'ssh-keygen -A')
+        && str_contains($p->command[6], 'yak-host-key-owner')
+        && end($p->command) === "yak-thread-{$thread->id}");
+});
+
 test('create clones the template and leaves it stopped', function () {
     Process::fake();
     Repository::factory()->create(['slug' => 'widgets', 'sandbox_snapshot' => 'yak-tpl-widgets/v3']);

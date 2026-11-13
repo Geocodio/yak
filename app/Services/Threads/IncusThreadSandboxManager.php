@@ -78,6 +78,7 @@ class IncusThreadSandboxManager implements SandboxManager
         for ($attempt = 0; $attempt < $timeout; $attempt++) {
             $probe = Process::timeout(10)->run(['incus', 'exec', $container, '--', 'true']);
             if ($probe->successful()) {
+                $this->ensureOwnHostKey($container);
                 $this->recordAddress($thread);
                 $this->taskSandboxes->pushMcpConfig($container);
                 $this->writeThreadEnv($thread);
@@ -253,6 +254,24 @@ class IncusThreadSandboxManager implements SandboxManager
         } catch (SandboxCommandFailed) {
             // The splash falls back to placeholders without the file.
         }
+    }
+
+    /**
+     * A clone carries the host key of the image it was copied from, so every sandbox would share one key. The first
+     * start under a new container name replaces the keys; the marker keeps them stable across later restarts.
+     */
+    private function ensureOwnHostKey(string $container): void
+    {
+        $script = <<<'SH'
+            marker=/etc/ssh/yak-host-key-owner
+            [ "$(cat "$marker" 2>/dev/null)" = "$1" ] && exit 0
+            rm -f /etc/ssh/ssh_host_*
+            ssh-keygen -A
+            printf '%s' "$1" > "$marker"
+            systemctl try-restart ssh.service || true
+            SH;
+
+        $this->mustRun('host key', ['incus', 'exec', $container, '--', 'sh', '-c', $script, 'sh', $container]);
     }
 
     private function recordAddress(Thread $thread): void

@@ -379,13 +379,16 @@
     mode: "0644"
   when: base_template_check.rc != 0
 
-- name: Stage the sandbox welcome splash on the host for baking into yak-base
+- name: Stage the sandbox welcome splash and shell profile on the host for baking into yak-base
   ansible.builtin.copy:
-    src: yak-motd.sh
-    dest: /tmp/yak-motd.sh
+    src: "{{ item }}"
+    dest: "/tmp/{{ item }}"
     owner: root
     group: root
     mode: "0755"
+  loop:
+    - yak-motd.sh
+    - yak-workspace.sh
   when: base_template_check.rc != 0
 
 - name: Set UFW default forward policy to ACCEPT (sandboxes need outbound NAT)
@@ -550,6 +553,7 @@
     # /home/yak/.yak-thread.env when the sandbox starts.
     incus file push /tmp/yak-motd.sh yak-base/usr/local/bin/yak-motd --mode=0755
     incus exec yak-base -- bash -c 'printf "%s\n" "[ -t 1 ] && [ -x /usr/local/bin/yak-motd ] && /usr/local/bin/yak-motd" > /etc/profile.d/yak-motd.sh'
+    incus file push /tmp/yak-workspace.sh yak-base/etc/profile.d/yak-workspace.sh --mode=0644
 
     # Bake the agent runner at the path the broker starts it from, with its
     # pinned dependencies. A runner change needs a yak_sandbox_base_version bump.

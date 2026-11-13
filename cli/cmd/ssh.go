@@ -78,7 +78,7 @@ func runSSH(ctx *Context, args []string) int {
 		return reportSSHError(ctx, err)
 	}
 	if len(target.HostKeyFingerprints) > 0 {
-		fmt.Fprintf(ctx.Stderr, "Host key fingerprints Yak expects for %s: %s\n", target.Alias, strings.Join(target.HostKeyFingerprints, ", "))
+		fmt.Fprintf(ctx.Stderr, "Host key fingerprints Yak expects for the jump host %s: %s\n", target.JumpHost.Host, strings.Join(target.HostKeyFingerprints, ", "))
 	}
 	if snippet {
 		fmt.Fprint(ctx.Stdout, target.configSnippet(thread))
