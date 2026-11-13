@@ -43,8 +43,8 @@ it('passes a hostile directory name as one escaped argument', function () {
 
     $command = $this->sandboxes->calls[0]['arguments']['command'][2];
 
-    expect($command)->toContain(escapeshellarg("/workspace/widgets/a b'\$(x)\nz"))
-        ->and($command)->not->toContain("/workspace/widgets/a b'\$(x)");
+    expect($command)->toContain(escapeshellarg("/workspace/a b'\$(x)\nz"))
+        ->and($command)->not->toContain("/workspace/a b'\$(x)");
 });
 
 it('executes nothing for a path outside the repository', function () {

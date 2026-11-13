@@ -9,7 +9,7 @@
   ansible.builtin.file:
     path: /etc/yak
     state: directory
-    mode: "0755"
+    mode: "0711"
     owner: root
     group: root
 

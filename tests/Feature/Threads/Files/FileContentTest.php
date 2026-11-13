@@ -68,7 +68,7 @@ it('passes a hostile file name as one escaped argument', function () {
 
     app(SandboxFiles::class)->read($this->thread, FileScope::Repository, "a'\$(rm -rf /)\"b.txt");
 
-    expect($this->sandboxes->calls[0]['arguments']['command'][2])->toContain(escapeshellarg("/workspace/widgets/a'\$(rm -rf /)\"b.txt"));
+    expect($this->sandboxes->calls[0]['arguments']['command'][2])->toContain(escapeshellarg("/workspace/a'\$(rm -rf /)\"b.txt"));
 });
 
 it('answers 404 when the path is not a file', function () {

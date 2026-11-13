@@ -11,7 +11,8 @@ class RestrictToIngress
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $cidr = (string) config('yak.deployments.internal.ingress_ip_cidr');
+        // One CIDR or a comma-separated list of them.
+        $cidr = array_map('trim', explode(',', (string) config('yak.deployments.internal.ingress_ip_cidr')));
         // Ignore X-Forwarded-For on purpose: this gate checks the direct
         // socket peer (the host-side reverse proxy forwarding via Docker
         // NAT). Laravel's trusted-proxies covers the Docker bridge, so

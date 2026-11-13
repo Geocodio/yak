@@ -100,7 +100,7 @@ it('escapes shell syntax in the path', function () {
 
     app(FileSaver::class)->save($this->thread, $this->user, FileScope::Repository, 'a $(touch x).txt', 'new', hash('sha256', 'old'), false);
 
-    expect(savedExecCommands($this)[1])->toContain(escapeshellarg('/workspace/widgets/a $(touch x).txt'))
+    expect(savedExecCommands($this)[1])->toContain(escapeshellarg('/workspace/a $(touch x).txt'))
         ->and(savedExecCommands($this)[1])->not->toContain(' $(touch x).txt ');
 });
 
@@ -135,7 +135,7 @@ it('saves over HTTP, records the edit and steers the agent', function () {
         ->assertJsonPath('file.sha256', hash('sha256', 'new'))
         ->assertJsonPath('working', false);
 
-    expect(ThreadFileEdit::query()->sole()->path)->toBe('/workspace/widgets/src/a.ts')
+    expect(ThreadFileEdit::query()->sole()->path)->toBe('/workspace/src/a.ts')
         ->and(PendingSteeringMessage::query()->count())->toBe(1);
 });
 
