@@ -41,8 +41,8 @@ function writeViewed(key: string, viewed: Set<string>): void {
     }
 }
 
-/** The full-width review surface: every changed file as a card with its diff, a file tree beside them, and the review bar below. */
-export function ChangesPanel({ thread, canDrive, stack = null, focusPath = null, onOpenFile, onSelectView }: PanelProps) {
+/** The Changed side of the Files view: every changed file as a card with its diff, a file tree beside them, and the review bar below. */
+export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = null, modeSwitch, onOpenFile, onSelectView }: PanelProps) {
     const { publishWarning, pullRequest } = usePage<ThreadPageData & Record<string, unknown>>().props;
     const isNarrow = !useMediaQuery('(min-width: 1024px)');
     const [childId, setChildId] = useState<string | null>(null);
@@ -104,14 +104,15 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusPath = null,
     }, []);
 
     useEffect(() => {
-        if (focusPath === null || diff === null) {
+        if (focusRequest === null || diff === null) {
             return;
         }
+        const focusPath = focusRequest.path;
         const match = diff.files.find((file) => file.path === focusPath || focusPath.endsWith(`/${file.path}`));
         if (match !== undefined) {
             reveal(fileKey(match, diff.repositories[0]?.repo ?? ''));
         }
-    }, [focusPath, diff, reveal]);
+    }, [focusRequest, diff, reveal]);
 
     const toggleViewed = (key: string) => {
         const next = new Set(viewed);
@@ -140,6 +141,7 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusPath = null,
     if (diff === null || (diff.filesCount === 0 && diff.throwawayFilesCount === 0)) {
         return (
             <div className="flex min-h-0 flex-1 flex-col gap-3 p-4" data-testid="changes-panel">
+                {modeSwitch !== undefined && <div className="w-[250px]">{modeSwitch}</div>}
                 {diffSwitch}
                 {diff === null && isLoading ? (
                     <p className="text-[13px] text-muted">Loading changes</p>
@@ -237,8 +239,9 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusPath = null,
 
             <div className="flex min-h-0 flex-1">
                 {!isNarrow && (
-                    <nav aria-label="Changed files" className={cn('flex shrink-0 flex-col gap-3 overflow-auto border-r border-hair bg-app p-2', isAllReposView ? 'w-[280px]' : 'w-[230px]')} data-testid="changes-file-nav">
+                    <nav aria-label="Changed files" className={cn('flex shrink-0 flex-col gap-3 overflow-auto border-r border-hair bg-app p-3', isAllReposView ? 'w-[280px]' : 'w-[250px]')} data-testid="changes-file-nav">
                         <div className="flex flex-col gap-2">
+                            {modeSwitch}
                             <FilterInput ref={filterInput} value={filter} onChange={setFilter} />
                             <ViewedProgress viewed={viewedCount} total={files.length} />
                         </div>
@@ -283,7 +286,7 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusPath = null,
                                     isNarrow={isNarrow}
                                     onToggleCollapsed={() => setExpanded((current) => ({ ...current, [key]: isCollapsed(file, index) }))}
                                     onToggleViewed={() => toggleViewed(key)}
-                                    onOpenInFiles={childId === null && file.repo === thread.repo && file.status !== 'deleted' && onOpenFile !== undefined ? () => onOpenFile(file.path) : undefined}
+                                    onEditFile={childId === null && file.repo === thread.repo && file.status !== 'deleted' && onOpenFile !== undefined ? () => onOpenFile(file.path) : undefined}
                                 />
                             );
                         })}

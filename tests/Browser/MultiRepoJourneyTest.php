@@ -76,7 +76,7 @@ it('shows the Environment rows, a role switch and the Changes sub-tabs', functio
         ->assertPresent('[data-testid="environment-repository-acme/app"]')
         ->assertPresent('[data-testid="environment-repository-acme/web"]')
         ->assertSeeIn('[data-testid="environment-repository-acme/docs"]', 'dataset not attached')
-        ->click('[data-testid="thread-dock-toggle-changes"]')
+        ->click('[data-testid="thread-dock-toggle-files"]')
         ->assertPresent('[data-testid="changes-repository-tabs"]')
         ->click('[data-testid="changes-tab-acme/web"]')
         ->assertPresent('[data-testid="changes-file-web.php"]')

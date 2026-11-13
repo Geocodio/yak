@@ -118,9 +118,8 @@ test('the terminal connects with the token from the session endpoint', function 
     waitForTerminal($page, statusIs('connected'));
     $page->assertSeeIn('[data-testid="terminal-status"]', 'Connected');
     expect($page->script('window.__ws.url'))->toContain('/terminal/ws?token=')
-        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('yak ssh ' . $thread->public_id)
-        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\').textContent'))->toContain('Closing a tab ends its shell.')
-        ->toContain('Terminal docs');
+        ->and($page->script('document.querySelector(\'[data-testid="terminal-footer"]\')'))->toBeNull()
+        ->and($page->script('document.querySelector(\'[data-testid="terminal-panel"]\').textContent'))->not->toContain('Closing a tab ends its shell.');
     $page->assertNoJavaScriptErrors();
 });
 
@@ -212,15 +211,15 @@ test('the phone shows the working strip only while Claude is busy', function () 
     $page->assertMissing('[data-testid="terminal-working"]');
 });
 
-test('the phone Terminal tab switches between the shell and the files browser', function () {
+test('the phone Terminal and Files tabs each show their own view', function () {
     $page = visit(route('threads.show', terminalRunningThread()))->on()->mobile()->assertPresent('[data-testid="thread-header"]');
     openTerminalTab($page, true);
 
-    $page->assertVisible('[data-testid="phone-terminal-switch"]')
-        ->assertPresent('[data-testid="terminal-panel"]')
-        ->click('[data-testid="phone-terminal-mode-files"]')
+    $page->assertPresent('[data-testid="terminal-panel"]')
+        ->assertMissing('[data-testid="phone-terminal-switch"]')
+        ->click('[data-testid="thread-phone-tab-files"]')
         ->assertPresent('[data-testid="files-panel"]')
-        ->click('[data-testid="phone-terminal-mode-shell"]')
+        ->click('[data-testid="thread-phone-tab-terminal"]')
         ->assertPresent('[data-testid="terminal-panel"]')
         ->assertNoJavaScriptErrors();
 });

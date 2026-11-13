@@ -1,4 +1,5 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import type { FilesMode, FocusRequest } from '@/threads/panels/files/filesMode';
 import type { StackData } from '@/types/stack';
 import type { TeleportData, ThreadCapacity, ThreadComposer, ThreadData, ThreadNotice } from '@/types/threads';
 import type { ThreadDiffSummary } from '@/types/thread-changes';
@@ -16,18 +17,25 @@ export type PanelProps = {
     reloadStack?: () => void;
     /** The thread's stored diff, loaded once by the page; null until it arrives. */
     diff?: ThreadDiffSummary | null;
-    /** Opens the Changes view, on one file when a path is given. */
+    /** True until the page's first diff load settles. */
+    isDiffLoading?: boolean;
+    /** Opens Files in Changed mode, on one file when a path is given. */
     onOpenChanges?: (path?: string) => void;
     /** Opens another view, such as Preview. */
     onSelectView?: (id: string) => void;
-    /** Opens the Files view on one file. */
+    /** Opens Files in Everything mode, with one file in the editor. */
     onOpenFile?: (path: string) => void;
+    /** The Files mode asked for; null lets the view pick by whether the thread has changes. */
+    filesMode?: FilesMode | null;
+    onFilesModeChange?: (mode: FilesMode) => void;
     onAddSubThread?: () => void;
     onTeleport?: () => void;
     /** Closes the Overview rail when it floats over a view. */
     onCloseRail?: () => void;
-    /** The file Changes or Files was asked to show. */
-    focusPath?: string | null;
+    /** The file the Files view was asked to show. */
+    focusRequest?: FocusRequest | null;
+    /** The Changed / Everything switch, placed at the top of the file tree. */
+    modeSwitch?: ReactNode;
 };
 
 export type Panel = {
@@ -59,7 +67,7 @@ export function registerOverviewSection(section: OverviewSection): void {
     overviewSections.set(section.id, section);
 }
 
-/** Adds a view to the thread page's header (preview, changes, files, terminal). */
+/** Adds a view to the thread page's header (preview, files, terminal). */
 export function registerDockPanel(panel: Panel): void {
     dockPanels.set(panel.id, panel);
 }

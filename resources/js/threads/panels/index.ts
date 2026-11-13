@@ -5,6 +5,5 @@ export {};
 import './environment';
 import './stack';
 import './preview';
-import './changes';
 import '@/threads/panels/terminal';
 import './files';

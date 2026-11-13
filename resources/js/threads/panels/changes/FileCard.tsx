@@ -16,14 +16,14 @@ type Props = {
     isNarrow: boolean;
     onToggleCollapsed: () => void;
     onToggleViewed: () => void;
-    onOpenInFiles?: () => void;
+    onEditFile?: () => void;
 };
 
 /** One changed file: its header over its diff, collapsible. */
-export function FileCard({ file, label, fileKey, threadId, mode, isCollapsed, isActive, isViewed, canExpand, isNarrow, onToggleCollapsed, onToggleViewed, onOpenInFiles }: Props) {
+export function FileCard({ file, label, fileKey, threadId, mode, isCollapsed, isActive, isViewed, canExpand, isNarrow, onToggleCollapsed, onToggleViewed, onEditFile }: Props) {
     return (
         <article className={cn('scroll-mt-3 overflow-hidden rounded-[10px] border bg-panel', isActive ? 'border-accent-edge' : 'border-hair')} data-testid="changes-file-card" data-file-key={fileKey}>
-            <FileHeader file={file} label={label} isCollapsed={isCollapsed} onToggleCollapsed={onToggleCollapsed} isViewed={isViewed} onToggleViewed={onToggleViewed} onOpenInFiles={onOpenInFiles} isNarrow={isNarrow} />
+            <FileHeader file={file} label={label} isCollapsed={isCollapsed} onToggleCollapsed={onToggleCollapsed} isViewed={isViewed} onToggleViewed={onToggleViewed} onEditFile={onEditFile} isNarrow={isNarrow} />
             {!isCollapsed && <DiffViewer key={file.id} threadId={threadId} file={file} mode={mode} canExpand={canExpand} />}
         </article>
     );

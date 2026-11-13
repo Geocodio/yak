@@ -4,15 +4,15 @@ import { dockHashFor, parseDockHash, phoneDockIdFor, phoneTabIdFor, phoneTabs } 
 
 const ids = (tabs) => tabs.map((tab) => tab.id);
 
-test('phone tabs list all five when preview, changes and terminal are registered', () => {
-    assert.deepEqual(ids(phoneTabs(['preview', 'changes', 'terminal'])), ['chat', 'preview', 'changes', 'terminal', 'overview']);
-    assert.deepEqual(phoneTabs(['terminal', 'changes', 'preview']).map((tab) => tab.label), ['Chat', 'Preview', 'Changes', 'Terminal', 'Overview']);
+test('phone tabs list all five when preview, files and terminal are registered', () => {
+    assert.deepEqual(ids(phoneTabs(['preview', 'files', 'terminal'])), ['chat', 'preview', 'files', 'terminal', 'overview']);
+    assert.deepEqual(phoneTabs(['terminal', 'files', 'preview']).map((tab) => tab.label), ['Chat', 'Preview', 'Files', 'Terminal', 'Overview']);
 });
 
 test('phone tabs hide panels that are not registered', () => {
     assert.deepEqual(ids(phoneTabs([])), ['chat', 'overview']);
     assert.deepEqual(ids(phoneTabs(['preview'])), ['chat', 'preview', 'overview']);
-    assert.deepEqual(ids(phoneTabs(['files'])), ['chat', 'overview']);
+    assert.deepEqual(ids(phoneTabs(['changes'])), ['chat', 'overview']);
 });
 
 test('the dock hash names the active panel', () => {
@@ -26,18 +26,22 @@ test('the dock hash names the active panel', () => {
     assert.equal(dockHashFor(null), '');
 });
 
-test('the phone Terminal tab shows the shell or the files dock panel', () => {
-    assert.equal(phoneDockIdFor('terminal', 'shell'), 'terminal');
-    assert.equal(phoneDockIdFor('terminal', 'files'), 'files');
-    assert.equal(phoneDockIdFor('preview', 'files'), 'preview');
-    assert.equal(phoneDockIdFor('chat', 'shell'), null);
-    assert.equal(phoneDockIdFor('overview', 'files'), null);
-    assert.equal(phoneDockIdFor('changes', 'shell'), 'changes');
+test('the retired changes hash opens Files', () => {
+    assert.equal(parseDockHash('#panel=changes'), 'files');
+});
+
+test('a phone tab shows the dock panel of the same name', () => {
+    assert.equal(phoneDockIdFor('terminal'), 'terminal');
+    assert.equal(phoneDockIdFor('files'), 'files');
+    assert.equal(phoneDockIdFor('preview'), 'preview');
+    assert.equal(phoneDockIdFor('chat'), null);
+    assert.equal(phoneDockIdFor('overview'), null);
 });
 
 test('a dock panel maps back to its phone tab', () => {
-    assert.equal(phoneTabIdFor('changes'), 'changes');
-    assert.equal(phoneTabIdFor('files'), 'terminal');
+    assert.equal(phoneTabIdFor('files'), 'files');
+    assert.equal(phoneTabIdFor('terminal'), 'terminal');
     assert.equal(phoneTabIdFor('preview'), 'preview');
+    assert.equal(phoneTabIdFor('changes'), 'chat');
     assert.equal(phoneTabIdFor(null), 'chat');
 });

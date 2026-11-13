@@ -6,7 +6,6 @@ import type { PanelProps } from '@/threads/panels';
 import type { ThreadPageData } from '@/types/threads';
 import { KeyRow, useShowKeyRow } from './KeyRow';
 import { applyCtrl } from './keyCodes';
-import { TerminalFooter } from './TerminalFooter';
 import { BlockedState, LostBanner, SessionState, blockedState } from './TerminalStates';
 import { TerminalStatus } from './TerminalStatus';
 import { MAX_TERMINAL_TABS, TerminalTabs, type TerminalTab } from './TerminalTabs';
@@ -144,7 +143,6 @@ export function TerminalPanel({ thread, canDrive }: PanelProps) {
                     onState={(state) => setStates((current) => (current[tab.id] === state ? current : { ...current, [tab.id]: state }))}
                 />
             ))}
-            <TerminalFooter threadId={thread.id} />
         </div>
     );
 }

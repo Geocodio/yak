@@ -37,35 +37,92 @@ function layoutThread(array $attributes = []): Thread
     return $thread;
 }
 
-test('Changes is a full-width view, the rail steps aside and Open PR stays in the header', function () {
+test('Files opens in Changed mode as a full-width view, the rail steps aside and Open PR stays in the header', function () {
     $thread = layoutThread();
 
     $page = visit(route('threads.show', $thread))->resize(1440, 900);
 
     $page->assertVisible('[data-testid="thread-sidebar"]')
         ->assertVisible('[data-testid="thread-header-open-pr"]')
-        ->click('[data-testid="thread-dock-toggle-changes"]')
+        ->assertMissing('[data-testid="thread-dock-toggle-changes"]')
+        ->click('[data-testid="thread-dock-toggle-files"]')
+        ->assertAttribute('[data-testid="files-view"]', 'data-mode', 'changed')
         ->assertVisible('[data-testid="changes-panel"]')
         ->assertVisible('[data-testid="thread-header-open-pr"]')
-        ->assertSeeIn('[data-testid="thread-dock-count-changes"]', '1')
+        ->assertSeeIn('[data-testid="thread-dock-count-files"]', '1')
+        ->assertSeeIn('[data-testid="files-mode-count"]', '1')
         ->assertPresent('[data-testid="changes-diff-split"]')
         ->click('[data-testid="changes-mode-unified"]')
         ->assertMissing('[data-testid="changes-diff-split"]')
+        ->assertPresent('[data-testid="changes-review-bar"]')
+        ->wait(0.4)
         ->assertNoJavaScriptErrors();
 
-    expect($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).display'))->toBe('none');
-    expect($page->script('document.querySelector(\'[data-testid="changes-panel"]\').getBoundingClientRect().width > 700'))->toBeTrue();
+    expect($page->script('document.querySelector(\'[data-testid="thread-sidebar"]\').getBoundingClientRect().width'))->toBe(0);
+    expect($page->script('document.querySelector(\'[data-testid="files-view"]\').getBoundingClientRect().width > 700'))->toBeTrue();
 });
 
-test('a changed file collapses, and its header opens it in Files', function () {
+test('the Overview rail animates open and closed, stays out of the tab order while closed, and keeps the conversation steady', function () {
     $thread = layoutThread();
 
+    $page = visit(route('threads.show', $thread))->resize(1440, 900)->wait(0.5);
+
+    expect($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).transitionDuration'))->toBe('0.2s')
+        ->and($page->script('document.querySelector(\'[data-testid="thread-sidebar"]\').inert'))->toBeFalse();
+
+    $page->click('[data-testid="thread-rail-toggle"]')->wait(0.4);
+
+    expect($page->script('document.querySelector(\'[data-testid="thread-sidebar"]\').getBoundingClientRect().width'))->toBe(0)
+        ->and($page->script('document.querySelector(\'[data-testid="thread-sidebar"]\').inert'))->toBeTrue()
+        ->and($page->script('document.querySelector(\'[data-testid="thread-sidebar"]\').getAttribute("aria-hidden")'))->toBe('true');
+
+    $page->click('[data-testid="thread-rail-toggle"]')->wait(0.4);
+
+    expect($page->script('document.querySelector(\'[data-testid="thread-sidebar"]\').getBoundingClientRect().width'))->toBe(312)
+        ->and($page->script('document.querySelector(\'[data-testid="thread-sidebar"]\').inert'))->toBeFalse();
+});
+
+test('the Overview rail has no transition when the visitor prefers reduced motion', function () {
+    $thread = layoutThread();
+
+    $page = visit(route('threads.show', $thread), ['reducedMotion' => 'reduce'])->resize(1440, 900)->wait(0.5);
+
+    expect($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).transitionProperty'))->toBe('none');
+});
+
+test('the floating Overview rail slides in over the open view below 1200px', function () {
+    $thread = layoutThread();
+
+    $page = visit(route('threads.show', $thread))->resize(1100, 800)->wait(0.5);
+
+    $page->click('[data-testid="thread-dock-toggle-files"]')->wait(0.4);
+    expect($page->script('document.querySelector(\'[data-testid="thread-sidebar"]\').inert'))->toBeTrue()
+        ->and($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).opacity'))->toBe('0');
+
+    $page->click('[data-testid="thread-rail-toggle"]')->wait(0.4);
+    expect($page->script('document.querySelector(\'[data-testid="thread-sidebar"]\').inert'))->toBeFalse()
+        ->and($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).position'))->toBe('absolute')
+        ->and($page->script('getComputedStyle(document.querySelector(\'[data-testid="thread-sidebar"]\')).opacity'))->toBe('1');
+});
+
+test('a changed file collapses, and its header opens the editor in Everything mode', function () {
+    $sandboxes = new FakeSandboxManager;
+    app()->instance(SandboxManager::class, $sandboxes);
+    $thread = layoutThread();
+    $sandboxes->queueExecResult(Process::result("f\t3\tother.txt\0"));
+    $bytes = "<?php\n\$size = 2;\nreturn \$size;\n";
+    $sandboxes->queueExecResult(Process::result(strlen($bytes) . "\n" . base64_encode($bytes) . "\n-\n"));
+
     visit(route('threads.show', $thread))->resize(1440, 900)
-        ->click('[data-testid="thread-dock-toggle-changes"]')
+        ->click('[data-testid="thread-dock-toggle-files"]')
         ->assertPresent('[data-testid="changes-diff-viewer"]')
         ->click('[data-testid="changes-file-header"] button[aria-label="Collapse file"]')
         ->assertMissing('[data-testid="changes-diff-viewer"]')
-        ->assertPresent('[data-testid="changes-open-in-files"]')
+        ->assertPresent('[data-testid="changes-edit-file"]')
+        ->click('[data-testid="changes-edit-file"]')
+        ->assertAttribute('[data-testid="files-view"]', 'data-mode', 'everything')
+        ->assertPresent('[data-testid="files-open-tabs"]')
+        ->assertSeeIn('[data-testid="files-open-path"]', 'widget.php')
         ->assertNoJavaScriptErrors();
 });
 
@@ -93,23 +150,46 @@ test('the header menu and the composer menu both offer a sub-thread', function (
         ->assertNoJavaScriptErrors();
 });
 
-test('the Files Changed filter lists changed files, and View diff opens Changes', function () {
+test('Everything shows the full tree with a changed badge, View diff returns to Changed, and Edit file comes back', function () {
     $sandboxes = new FakeSandboxManager;
     app()->instance(SandboxManager::class, $sandboxes);
     $thread = layoutThread();
-    $sandboxes->queueExecResult(Process::result("f\t3\tother.txt\0"));
+    $sandboxes->queueExecResult(Process::result("f\t3\tsrc/widget.php\0f\t3\tother.txt\0"));
     $bytes = "<?php\n\$size = 2;\nreturn \$size;\n";
     $sandboxes->queueExecResult(Process::result(strlen($bytes) . "\n" . base64_encode($bytes) . "\n-\n"));
 
     visit(route('threads.show', $thread))->resize(1440, 900)
         ->click('[data-testid="thread-dock-toggle-files"]')
-        ->assertSeeIn('[data-testid="files-changed-count"]', '1')
-        ->click('[data-testid="files-filter-changed"]')
+        ->assertAttribute('[data-testid="files-view"]', 'data-mode', 'changed')
+        ->click('[data-testid="files-mode-everything"]')
+        ->assertAttribute('[data-testid="files-view"]', 'data-mode', 'everything')
+        ->assertPresent('[data-path="other.txt"]')
         ->assertPresent('[data-testid="file-changed-src/widget.php"]')
-        ->assertMissing('[data-path="other.txt"]')
-        ->click('[data-testid="files-tree-item"]')
+        ->click('[data-path="src/widget.php"]')
         ->click('[data-testid="files-view-diff"]')
+        ->assertAttribute('[data-testid="files-view"]', 'data-mode', 'changed')
         ->assertVisible('[data-testid="changes-panel"]')
+        ->click('[data-testid="changes-edit-file"]')
+        ->assertAttribute('[data-testid="files-view"]', 'data-mode', 'everything')
+        ->assertSeeIn('[data-testid="files-open-path"]', 'widget.php')
+        ->click('[data-testid="files-mode-changed"]')
+        ->assertAttribute('[data-testid="files-view"]', 'data-mode', 'changed')
+        ->assertNoJavaScriptErrors();
+});
+
+test('Files opens in Everything mode when the thread has no changes', function () {
+    $sandboxes = new FakeSandboxManager;
+    app()->instance(SandboxManager::class, $sandboxes);
+    $thread = layoutThread();
+    $thread->diff()->delete();
+    $sandboxes->queueExecResult(Process::result("f\t3\tother.txt\0"));
+
+    visit(route('threads.show', $thread))->resize(1440, 900)
+        ->click('[data-testid="thread-dock-toggle-files"]')
+        ->assertAttribute('[data-testid="files-view"]', 'data-mode', 'everything')
+        ->assertPresent('[data-testid="files-panel"]')
+        ->click('[data-testid="files-mode-changed"]')
+        ->assertPresent('[data-testid="changes-empty"]')
         ->assertNoJavaScriptErrors();
 });
 
@@ -120,18 +200,34 @@ test('the phone shows five tabs and never scrolls sideways', function () {
 
     expect($page->script('window.innerWidth'))->toBe(390);
     expect($page->script('[...document.querySelectorAll(\'[data-testid^="thread-phone-tab-"]\')].map((tab) => tab.textContent.trim()).filter((text) => text !== "").join(",")'))
-        ->toBe('Chat,Preview,Changes1,Terminal,Overview');
+        ->toBe('Chat,Preview,Files1,Terminal,Overview');
 
-    foreach (['changes', 'terminal', 'overview', 'preview', 'chat'] as $tab) {
+    foreach (['files', 'terminal', 'overview', 'preview', 'chat'] as $tab) {
         $page->click("[data-testid=\"thread-phone-tab-{$tab}\"]")->wait(0.5);
         expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue("{$tab} scrolls sideways");
     }
 
-    $page->click('[data-testid="thread-phone-tab-changes"]')
+    $page->click('[data-testid="thread-phone-tab-files"]')
+        ->assertVisible('[data-testid="files-mode-switch"]')
         ->assertVisible('[data-testid="changes-panel"]')
         ->assertMissing('[data-testid="changes-diff-split"]')
         ->assertVisible('[data-testid="open-pull-request"]')
+        ->click('[data-testid="files-mode-everything"]')
+        ->assertVisible('[data-testid="files-panel"]')
+        ->click('[data-testid="files-mode-changed"]')
+        ->assertVisible('[data-testid="changes-panel"]')
         ->click('[data-testid="thread-phone-tab-overview"]')
         ->assertVisible('[data-testid="thread-sidebar"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('the Overview Review changes link opens Files in Changed mode', function () {
+    $thread = layoutThread();
+
+    visit(route('threads.show', $thread))->resize(1440, 900)
+        ->assertVisible('[data-testid="environment-review-changes"]')
+        ->click('[data-testid="environment-review-changes"]')
+        ->assertAttribute('[data-testid="files-view"]', 'data-mode', 'changed')
+        ->assertVisible('[data-testid="changes-panel"]')
         ->assertNoJavaScriptErrors();
 });

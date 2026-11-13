@@ -19,7 +19,7 @@ test('it lists changed files and shows a diff', function () {
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-dock-toggle-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-files"]')
         ->assertSeeIn('[data-testid="changes-summary"]', '3 files changed')
         ->click('[data-testid="changes-file-' . $file->path . '"] button')
         ->assertScript('document.querySelector(\'[data-testid="changes-diff-viewer"]\').textContent.includes("newest")', true);
@@ -30,7 +30,8 @@ test('it shows an empty state', function () {
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-dock-toggle-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-files"]')
+        ->click('[data-testid="files-mode-changed"]')
         ->assertPresent('[data-testid="changes-empty"]');
 });
 
@@ -41,7 +42,7 @@ test('it shows the working note while a turn runs', function () {
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-dock-toggle-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-files"]')
         ->assertPresent('[data-testid="changes-working-note"]');
 });
 
@@ -50,7 +51,7 @@ test('it shows the changed file count on the Changes tab', function () {
     ThreadDiff::factory()->for($thread)->withFiles(2)->create();
 
     visit(route('threads.show', $thread))
-        ->assertSeeIn('[data-testid="thread-dock-count-changes"]', '2');
+        ->assertSeeIn('[data-testid="thread-dock-count-files"]', '2');
 });
 
 test('the header shows diff totals and the pull request, and a sub-thread shows its brief', function () {
@@ -75,7 +76,7 @@ test('the file list leads with a status tile and shows viewed progress and the f
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-dock-toggle-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-files"]')
         ->assertPresent('[data-testid="changes-file-' . $file->path . '"] [data-testid="changes-status-tile"]')
         ->assertSeeIn('[data-testid="changes-viewed-progress"]', '0 of 2 viewed')
         ->assertPresent('[data-testid="changes-filter-hint"]')
@@ -93,7 +94,7 @@ test('every changed file is a card, and a renamed banner shows only when the old
 
     $page = visit(route('threads.show', $thread));
 
-    $page->click('[data-testid="thread-dock-toggle-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-files"]')
         ->assertCount('[data-testid="changes-file-card"]', 2)
         ->assertSeeIn('[data-testid="changes-pane"]', 'src/new-name.php')
         ->assertSeeIn('[data-testid="changes-pane"]', 'src/other.php')
@@ -110,7 +111,8 @@ test('the stack select is labelled and counts each sub-thread files, leaving the
 
     $page = visit(route('threads.show', $parent));
 
-    $page->click('[data-testid="thread-dock-toggle-changes"]')
+    $page->click('[data-testid="thread-dock-toggle-files"]')
+        ->click('[data-testid="files-mode-changed"]')
         ->assertSee('Showing')
         ->click('[data-testid="changes-child-switch"]')
         ->assertSee('This thread')

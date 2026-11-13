@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
 import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
 import { Conversation } from '@/components/threads/conversation/Conversation';
@@ -14,14 +14,14 @@ import { TeleportToYakDialog } from '@/components/threads/teleport/TeleportToYak
 import { AppLayout } from '@/layouts/AppLayout';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { ClaudeWorkingStrip } from '@/threads/dock/ClaudeWorkingStrip';
-import { phoneDockIdFor, phoneTabIdFor, type PhoneTabId, type PhoneTerminalMode } from '@/threads/dock/dockState';
-import { PhoneTerminalSwitch } from '@/threads/dock/PhoneTerminalSwitch';
+import { phoneDockIdFor, phoneTabIdFor, type PhoneTabId } from '@/threads/dock/dockState';
 import { ThreadDockPanel } from '@/threads/dock/ThreadDock';
 import { ThreadPhoneTabs } from '@/threads/dock/ThreadPhoneTabs';
 import { useDockState } from '@/threads/dock/useDockState';
 import { dockPanelsFor, type PanelProps } from '@/threads/panels';
 import '@/threads/panels/index';
 import { Overview } from '@/threads/panels/environment/Overview';
+import { resolveFilesMode, type FilesMode, type FocusRequest } from '@/threads/panels/files/filesMode';
 import { AddChildDialog } from '@/threads/panels/stack/AddChildDialog';
 import { useStack } from '@/threads/panels/stack/useStack';
 import { useThreadDiff } from '@/threads/panels/changes/useThreadDiff';
@@ -34,44 +34,61 @@ type Props = PageProps<ThreadPageData>;
 /** Below this width the rail floats over the open view instead of sitting beside it. */
 const WIDE_RAIL_QUERY = '(min-width: 1200px)';
 
+/** From this width the page shows the views side by side; below it the phone tabs take over. */
+const DESKTOP_QUERY = '(min-width: 1024px)';
+
 export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, brief, messages, notice, composer, capacity, teleport, stackParent, modelLabels }: Props) {
     const dockPanels = dockPanelsFor(thread);
     const dock = useDockState();
     const dockPanelIds = dockPanels.map((panel) => panel.id);
     const activeDock = dockPanels.find((panel) => panel.id === dock.activeId) ?? null;
     const isWide = useMediaQuery(WIDE_RAIL_QUERY);
-    const [isRailOpen, setIsRailOpen] = useState(() => activeDock === null || (activeDock.id !== 'changes' && isWide));
-    const [phoneTerminalMode, setPhoneTerminalMode] = useState<PhoneTerminalMode>(() => (dock.activeId === 'files' ? 'files' : 'shell'));
+    const isDesktop = useMediaQuery(DESKTOP_QUERY);
+    const [isRailOpen, setIsRailOpen] = useState(() => activeDock === null || (activeDock.id !== 'files' && isWide));
     const [phoneTab, setPhoneTab] = useState<PhoneTabId>(() => phoneTabIdFor(activeDock?.id ?? null));
-    const [focusPath, setFocusPath] = useState<string | null>(null);
+    const [filesMode, setFilesMode] = useState<FilesMode | null>(null);
+    const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
+    const focusCounter = useRef(0);
     const [linkKind, setLinkKind] = useState<LinkState['kind']>('ok');
     const [restoredDraft, setRestoredDraft] = useState<{ text: string } | null>(null);
     const [isAddingSubThread, setIsAddingSubThread] = useState(false);
     const [isTeleportOpen, setIsTeleportOpen] = useState(false);
     const { stack, reload: reloadStack } = useStack(thread);
-    const { diff } = useThreadDiff(thread);
+    const { diff, isLoading: isDiffLoading } = useThreadDiff(thread);
     const canAddSubThread = canDrive && stack !== null && stack.canDrive && stack.isRoot && thread.ownerSide === 'yak' && thread.status === 'open';
     const subThreadCount = stack?.children.length ?? 0;
-    const isOverlayRail = isRailOpen && !isWide && activeDock !== null;
+    const isOverlayRail = !isWide && activeDock !== null;
+    const isRailHidden = isDesktop ? !isRailOpen : phoneTab !== 'overview';
 
-    /** Opens a view and decides the rail: Changes takes the full width, a narrow screen floats the rail, otherwise it stays beside the view. */
-    const selectDock = (id: string | null, path: string | null = null) => {
+    /** Opens a view and decides the rail: Files in Changed mode takes the full width, a narrow screen floats the rail, otherwise it stays beside the view. */
+    const selectDock = (id: string | null, requestedMode: FilesMode | null = filesMode) => {
         dock.setActiveId(id);
-        setFocusPath(path);
-        if (id === 'changes' || (id !== null && !isWide)) {
+        const isChangedReview = id === 'files' && resolveFilesMode(requestedMode, diff, isDiffLoading) !== 'everything';
+        if (isChangedReview || (id !== null && !isWide)) {
             setIsRailOpen(false);
         } else if (isWide) {
             setIsRailOpen(true);
         }
     };
+    const requestFile = (path: string | undefined) => {
+        focusCounter.current += 1;
+        setFocusRequest(path === undefined ? null : { path, id: focusCounter.current });
+    };
     const openChanges = (path?: string) => {
-        selectDock('changes', path ?? null);
-        setPhoneTab('changes');
+        setFilesMode('changed');
+        requestFile(path);
+        selectDock('files', 'changed');
+        setPhoneTab('files');
     };
     const openFile = (path: string) => {
-        selectDock('files', path);
-        setPhoneTab('terminal');
-        setPhoneTerminalMode('files');
+        setFilesMode('everything');
+        requestFile(path);
+        selectDock('files', 'everything');
+        setPhoneTab('files');
+    };
+    const changeFilesMode = (mode: FilesMode) => {
+        setFilesMode(mode);
+        setFocusRequest(null);
     };
     const openOverview = () => {
         setIsRailOpen(true);
@@ -79,16 +96,12 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     };
     const selectPhoneTab = (id: PhoneTabId) => {
         setPhoneTab(id);
-        const dockId = phoneDockIdFor(id, phoneTerminalMode);
+        const dockId = phoneDockIdFor(id);
         if (dockId !== null) {
             dock.setActiveId(dockId);
         }
     };
-    const selectPhoneTerminalMode = (mode: PhoneTerminalMode) => {
-        setPhoneTerminalMode(mode);
-        dock.setActiveId(phoneDockIdFor('terminal', mode));
-    };
-    const isPhoneDockVisible = phoneTab === 'preview' || phoneTab === 'changes' || phoneTab === 'terminal';
+    const isPhoneDockVisible = phoneTab === 'preview' || phoneTab === 'files' || phoneTab === 'terminal';
     const changesCount = diff?.filesCount ?? 0;
 
     const panelProps: PanelProps = {
@@ -102,7 +115,10 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         stack,
         reloadStack,
         diff,
-        focusPath,
+        isDiffLoading,
+        filesMode,
+        onFilesModeChange: changeFilesMode,
+        focusRequest,
         onOpenChanges: openChanges,
         onOpenFile: openFile,
         onSelectView: (id) => selectDock(id),
@@ -125,6 +141,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 isRailOpen={isRailOpen}
                 onSelectDock={(id) => selectDock(id)}
                 onToggleRail={() => setIsRailOpen((value) => !value)}
+                onOpenChanges={() => openChanges()}
                 onOpenOverview={openOverview}
                 onAddSubThread={() => setIsAddingSubThread(true)}
                 onTeleport={() => setIsTeleportOpen(true)}
@@ -133,10 +150,9 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             <PrivateThreadBanner thread={thread} />
             <ChildParentBanner thread={thread} parent={stackParent} hasBrief={brief !== null} />
             <ThreadPhoneTabs registeredDockIds={dockPanelIds} active={phoneTab} isWorking={thread.runnerState === 'busy'} changesCount={changesCount} onSelect={selectPhoneTab} />
-            {phoneTab === 'terminal' && <PhoneTerminalSwitch mode={phoneTerminalMode} onChange={selectPhoneTerminalMode} />}
             {isPhoneDockVisible && <ClaudeWorkingStrip thread={thread} onOpenChat={() => setPhoneTab('chat')} />}
 
-            <div className="relative flex min-h-0 flex-1">
+            <div className="relative flex min-h-0 flex-1 lg:overflow-hidden">
                 <div
                     className={cn('min-w-0 flex-1 flex-col bg-app lg:flex', phoneTab === 'chat' ? 'flex' : 'hidden', activeDock !== null && 'lg:w-[380px] lg:flex-none')}
                     data-testid="thread-conversation"
@@ -151,15 +167,26 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
 
                 <aside
                     aria-label="Overview"
+                    aria-hidden={isRailHidden || undefined}
+                    inert={isRailHidden}
                     className={cn(
-                        'w-full shrink-0 flex-col overflow-y-auto bg-app lg:w-[312px] lg:border-l lg:border-hair',
+                        'w-full shrink-0 flex-col bg-app',
                         phoneTab === 'overview' ? 'flex' : 'hidden',
-                        isRailOpen ? 'lg:flex' : 'lg:hidden',
-                        isOverlayRail && 'lg:absolute lg:inset-y-0 lg:right-0 lg:z-20 lg:shadow-[-14px_0_30px_-18px_rgb(0_0_0/0.35)]',
+                        'lg:flex lg:overflow-hidden lg:transition-[width,opacity,transform,box-shadow] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none',
+                        isOverlayRail
+                            ? 'lg:absolute lg:inset-y-0 lg:right-0 lg:z-20 lg:w-[312px]'
+                            : isRailOpen
+                              ? 'lg:w-[312px]'
+                              : 'lg:w-0',
+                        isOverlayRail && isRailOpen && 'lg:shadow-[-14px_0_30px_-18px_rgb(0_0_0/0.35)]',
+                        isRailOpen ? 'lg:translate-x-0 lg:opacity-100' : isOverlayRail ? 'lg:translate-x-full lg:opacity-0' : 'lg:opacity-0',
                     )}
                     data-testid="thread-sidebar"
+                    data-open={isRailOpen}
                 >
-                    <Overview {...panelProps} />
+                    <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto lg:w-[312px] lg:shrink-0 lg:border-l lg:border-hair">
+                        <Overview {...panelProps} />
+                    </div>
                 </aside>
             </div>
 

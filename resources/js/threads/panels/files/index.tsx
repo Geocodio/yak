@@ -1,4 +1,5 @@
 import { registerDockPanel } from '@/threads/panels';
-import FilesPanel from './FilesPanel';
+import { ChangesBadge } from '../changes/ChangesBadge';
+import FilesView from './FilesView';
 
-registerDockPanel({ id: 'files', label: 'Files', order: 30, component: FilesPanel, visible: () => true });
+registerDockPanel({ id: 'files', label: 'Files', order: 20, component: FilesView, visible: () => true, badge: ChangesBadge });

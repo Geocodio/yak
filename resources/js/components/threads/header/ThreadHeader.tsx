@@ -24,6 +24,7 @@ type Props = {
     isRailOpen: boolean;
     onSelectDock: (id: string | null) => void;
     onToggleRail: () => void;
+    onOpenChanges: () => void;
     onOpenOverview: () => void;
     onAddSubThread: () => void;
     onTeleport: () => void;
@@ -36,8 +37,8 @@ function copyBranchName(branch: string): void {
     );
 }
 
-/** The thread page header: title and status, the repo line, the four views, the one Open PR action, and the overflow menu. */
-export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, canAddSubThread, isRailOpen, onSelectDock, onToggleRail, onOpenOverview, onAddSubThread, onTeleport }: Props) {
+/** The thread page header: title and status, the repo line, the three views, the one Open PR action, and the overflow menu. */
+export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, canAddSubThread, isRailOpen, onSelectDock, onToggleRail, onOpenChanges, onOpenOverview, onAddSubThread, onTeleport }: Props) {
     const { thread, canDrive, diffTotals, pullRequest, publishWarning, notice, composer, stackParent, teleport } = page;
     const [isSharing, setIsSharing] = useState(false);
     const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -68,7 +69,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                         <VisibilityBadge thread={thread} />
                         <StatusPill notice={notice} composerState={composer.state} />
                     </div>
-                    <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} subThreadCount={subThreadCount} onOpenChanges={() => onSelectDock('changes')} onOpenOverview={onOpenOverview} />
+                    <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} subThreadCount={subThreadCount} onOpenChanges={onOpenChanges} onOpenOverview={onOpenOverview} />
                 </div>
 
                 <ThreadDockToggles thread={thread} panels={dockPanels} active={activeDock} diff={diff} onSelect={onSelectDock} />

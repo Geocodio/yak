@@ -1,63 +1,39 @@
-export type PhoneTabId = 'chat' | 'preview' | 'changes' | 'terminal' | 'overview';
-
-export type PhoneTerminalMode = 'shell' | 'files';
+export type PhoneTabId = 'chat' | 'preview' | 'files' | 'terminal' | 'overview';
 
 export type PhoneTab = { id: PhoneTabId; label: string };
 
-/** Chat and Overview always show; Preview, Changes and Terminal show only when a dock panel with that id is registered. */
+const DOCK_TABS: PhoneTab[] = [
+    { id: 'preview', label: 'Preview' },
+    { id: 'files', label: 'Files' },
+    { id: 'terminal', label: 'Terminal' },
+];
+
+/** Chat and Overview always show; Preview, Files and Terminal show only when a dock panel with that id is registered. */
 export function phoneTabs(registeredDockIds: string[]): PhoneTab[] {
-    const tabs: PhoneTab[] = [{ id: 'chat', label: 'Chat' }];
-
-    if (registeredDockIds.includes('preview')) {
-        tabs.push({ id: 'preview', label: 'Preview' });
-    }
-
-    if (registeredDockIds.includes('changes')) {
-        tabs.push({ id: 'changes', label: 'Changes' });
-    }
-
-    if (registeredDockIds.includes('terminal')) {
-        tabs.push({ id: 'terminal', label: 'Terminal' });
-    }
-
-    tabs.push({ id: 'overview', label: 'Overview' });
-
-    return tabs;
+    return [{ id: 'chat', label: 'Chat' }, ...DOCK_TABS.filter((tab) => registeredDockIds.includes(tab.id)), { id: 'overview', label: 'Overview' }];
 }
 
-/** Reads the active dock panel id from a `#panel=preview` hash; anything else is no panel. */
+/** Reads the active dock panel id from a `#panel=preview` hash; anything else is no panel. The retired `changes` id opens Files. */
 export function parseDockHash(hash: string): string | null {
     const match = /^#panel=([a-z][a-z0-9-]*)$/.exec(hash);
 
-    return match === null ? null : match[1];
+    if (match === null) {
+        return null;
+    }
+
+    return match[1] === 'changes' ? 'files' : match[1];
 }
 
 export function dockHashFor(id: string | null): string {
     return id === null ? '' : `#panel=${id}`;
 }
 
-/** The dock panel a phone tab shows; the Terminal tab switches between the shell and the files browser. */
-export function phoneDockIdFor(tab: PhoneTabId, mode: PhoneTerminalMode): string | null {
-    if (tab === 'preview') {
-        return 'preview';
-    }
-
-    if (tab === 'changes') {
-        return 'changes';
-    }
-
-    if (tab === 'terminal') {
-        return mode === 'files' ? 'files' : 'terminal';
-    }
-
-    return null;
+/** The dock panel a phone tab shows; Chat and Overview show none. */
+export function phoneDockIdFor(tab: PhoneTabId): string | null {
+    return DOCK_TABS.some((entry) => entry.id === tab) ? tab : null;
 }
 
-/** The phone tab that shows a dock panel; Files lives under the Terminal tab. */
+/** The phone tab that shows a dock panel; an unknown or closed panel falls back to Chat. */
 export function phoneTabIdFor(dockId: string | null): PhoneTabId {
-    if (dockId === 'files') {
-        return 'terminal';
-    }
-
-    return dockId === 'preview' || dockId === 'changes' || dockId === 'terminal' ? dockId : 'chat';
+    return DOCK_TABS.find((entry) => entry.id === dockId)?.id ?? 'chat';
 }

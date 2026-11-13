@@ -1,5 +1,5 @@
 import { Button, cn } from '@geocodio/console-ui';
-import { ChevronDown, ChevronRight, Folder } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import { CopyButton } from '@/components/threads/environment/LinkActions';
 import type { ThreadDiffFile } from '@/types/thread-changes';
 
@@ -10,13 +10,13 @@ type Props = {
     onToggleCollapsed: () => void;
     isViewed: boolean;
     onToggleViewed: () => void;
-    /** Opens the file in Files; absent when the file cannot be opened there. */
-    onOpenInFiles?: () => void;
+    /** Opens the file in the editor; absent when the file cannot be opened there. */
+    onEditFile?: () => void;
     isNarrow: boolean;
 };
 
-/** The top of one file's diff card: collapse, path, change count, copy, Viewed, and Open in Files. */
-export function FileHeader({ file, label, isCollapsed, onToggleCollapsed, isViewed, onToggleViewed, onOpenInFiles, isNarrow }: Props) {
+/** The top of one file's diff card: collapse, path, change count, copy, Viewed, and Edit file. */
+export function FileHeader({ file, label, isCollapsed, onToggleCollapsed, isViewed, onToggleViewed, onEditFile, isNarrow }: Props) {
     const additions = file.additions ?? 0;
     const deletions = file.deletions ?? 0;
 
@@ -38,9 +38,9 @@ export function FileHeader({ file, label, isCollapsed, onToggleCollapsed, isView
                         Viewed
                     </label>
                 )}
-                {onOpenInFiles !== undefined && (
-                    <Button variant="secondary" className="h-7 shrink-0" icon={<Folder size={12} />} onClick={onOpenInFiles} data-testid="changes-open-in-files">
-                        {isNarrow ? 'Files' : 'Open in Files'}
+                {onEditFile !== undefined && (
+                    <Button variant="secondary" className="h-7 shrink-0" icon={<Pencil size={12} />} onClick={onEditFile} data-testid="changes-edit-file">
+                        {isNarrow ? 'Edit' : 'Edit file'}
                     </Button>
                 )}
             </div>

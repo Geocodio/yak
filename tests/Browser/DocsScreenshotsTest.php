@@ -206,7 +206,7 @@ it('04 thread changes', function () {
         ['tests/checkout.spec.ts', 'modified', 3, 2, DOCS_CHECKOUT_PATCH],
         ['tests/helpers/wait-for-order.ts', 'modified', 6, 0, "@@ -1,3 +1,7 @@\n import { Page } from '@playwright/test';\n \n+export async function waitForOrderSummary(page: Page): Promise<void> {\n+  await page.waitForSelector('[data-testid=\"order-summary\"]', { state: 'visible' });\n+}\n+\n export const CHECKOUT_URL = '/checkout';\n"],
     ]);
-    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-dock-toggle-changes"]')
+    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-dock-toggle-files"]')
         ->click('[data-testid="changes-file-tests/checkout.spec.ts"] button');
     docsShot($page, 'screenshot-thread-changes');
 });
@@ -286,7 +286,7 @@ it('09 multi repo changes', function () {
     $docs = $diff->repositories()->create(['repo' => 'acme/docs', 'role' => 'context', 'base_sha' => 'a', 'head_sha' => 'b', 'files_count' => 1, 'additions' => 3, 'is_throwaway' => true]);
     ThreadDiffFile::factory()->for($diff, 'diff')->create(['path' => 'notes/export-conventions.md', 'thread_diff_repository_id' => $docs->id, 'additions' => 3, 'deletions' => 0, 'patch' => "@@ -0,0 +1,3 @@\n+# Export notes\n+Streamed CSV files use a header row.\n+Dates are ISO 8601.\n"]);
 
-    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-dock-toggle-changes"]')->click('[data-testid="changes-tab-acme/docs"]');
+    $page = docsPage(route('threads.show', $thread))->click('[data-testid="thread-dock-toggle-files"]')->click('[data-testid="changes-tab-acme/docs"]');
     docsShot($page, 'screenshot-multi-repo-changes');
 });
 

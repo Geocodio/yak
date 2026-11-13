@@ -1,10 +1,10 @@
 import { cn } from '@geocodio/console-ui';
-import { FileDiff, Folder, Globe, Terminal, type LucideIcon } from 'lucide-react';
+import { Folder, Globe, Terminal, type LucideIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import type { Panel, PanelProps } from '@/threads/panels';
 import type { ThreadData } from '@/types/threads';
 
-const ICONS: Record<string, LucideIcon> = { preview: Globe, changes: FileDiff, files: Folder, terminal: Terminal };
+const ICONS: Record<string, LucideIcon> = { preview: Globe, files: Folder, terminal: Terminal };
 
 type TogglesProps = {
     thread: ThreadData;
