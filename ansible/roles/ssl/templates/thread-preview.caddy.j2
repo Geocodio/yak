@@ -1,7 +1,9 @@
     # Thread preview hosts (t-<random>.{{ yak_domain }}). Handled before the
     # generic branch preview handler: these hosts resolve to a thread, not a
     # deployment, and the waking page and status come from the thread controllers.
-    @threadPreview host t-*.{{ yak_domain }}
+    # Caddy's host matcher only takes `*` as a whole label, so `t-*` never matched;
+    # thread preview hosts are matched on the Host header instead.
+    @threadPreview header_regexp Host ^t-[a-z0-9]+\.{{ yak_domain | regex_escape }}(:[0-9]+)?$
     handle @threadPreview {
         handle /_yak/auth {
             rewrite * /internal/deployments/preview-auth

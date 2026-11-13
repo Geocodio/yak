@@ -460,3 +460,10 @@ it('creates the sandbox yak user with the uid the app runs the agent as', functi
     expect($incusTasks())->toContain('useradd -m -u 1001 -s /bin/bash yak')
         ->and(file_get_contents(base_path('app/Services/Threads/OneShotRuns.php')))->toContain('SANDBOX_USER_ID = 1001');
 });
+
+it('matches thread preview hosts with a Host regex, since Caddy host wildcards cover whole labels only', function () {
+    $template = file_get_contents(base_path('ansible/roles/ssl/templates/thread-preview.caddy.j2'));
+
+    expect($template)->toContain('@threadPreview header_regexp Host ^t-[a-z0-9]+\.')
+        ->not->toMatch('/@threadPreview host t-\*/');
+});
