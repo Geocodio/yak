@@ -60,9 +60,11 @@ struct SignedInView: View {
                 Task { await model.refreshMe(for: instance) }
             }
         }
+        .onChange(of: instance.id) { showsAdd = false }
         .sheet(isPresented: $showsAdd) {
             NavigationStack {
                 ConnectView(model: model, onDone: { showsAdd = false })
+                    .linkPairingStatus(model)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("address.cancel") { showsAdd = false }

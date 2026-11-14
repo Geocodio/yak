@@ -5,6 +5,7 @@ import YakKit
 struct PairingProblemView: View {
     let problem: PairingProblem
     let address: String
+    var retryTitle: LocalizedStringKey = "problem.tryAgain"
     let retry: () -> Void
 
     var body: some View {
@@ -23,7 +24,7 @@ struct PairingProblemView: View {
                     .background(.quaternary, in: .rect(cornerRadius: 10))
                     .accessibilityLabel(Text("problem.address \(address)"))
             }
-            Button("problem.tryAgain", action: retry).buttonStyle(SecondaryButtonStyle())
+            Button(retryTitle, action: retry).buttonStyle(SecondaryButtonStyle())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)

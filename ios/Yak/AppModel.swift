@@ -23,6 +23,9 @@ final class AppModel {
     private(set) var route: Route = .connect
     private(set) var refreshState: RefreshState = .idle
     private(set) var hasLoaded = false
+    /// The pairing in progress for a scanned or opened link, kept while it shows a problem.
+    private(set) var linkPairing: PairingModel?
+    private var linkToPair: PairingLink?
 
     let instances: InstanceStore
     private let tokens: any TokenStore
@@ -43,6 +46,32 @@ final class AppModel {
         PairingModel(
             pairing: pairing, device: { DeviceDescription.current() },
             onPaired: { [weak self] _ in await self?.reloadRoute() })
+    }
+
+    /// Pairs with the instance a `yak://pair` link names; any other URL changes nothing.
+    func handle(url: URL) async {
+        guard let link = PairingLink(url: url) else { return }
+        await pair(link: link)
+    }
+
+    func pair(link: PairingLink) async {
+        linkPairing?.cancel()
+        linkToPair = link
+        let pairingModel = makePairingModel()
+        linkPairing = pairingModel
+        await pairingModel.pair(link: link)
+        if case .paired = pairingModel.state, linkPairing === pairingModel { linkPairing = nil }
+    }
+
+    func retryLinkPairing() async {
+        guard let link = linkToPair else { return }
+        await pair(link: link)
+    }
+
+    func dismissLinkPairing() {
+        linkPairing?.cancel()
+        linkPairing = nil
+        linkToPair = nil
     }
 
     func reloadRoute() async {

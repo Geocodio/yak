@@ -18,7 +18,9 @@ struct RootView: View {
                 }
             }
         }
+        .linkPairingStatus(model)
         .animation(.spring, value: model.route)
+        .animation(.spring, value: model.linkPairing?.state)
         .task { await model.reloadRoute() }
     }
 }

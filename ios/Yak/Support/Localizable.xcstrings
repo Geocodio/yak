@@ -620,6 +620,76 @@
           }
         }
       }
+    },
+    "scan.hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point the camera at the code on your Yak dashboard."
+          }
+        }
+      }
+    },
+    "scan.cameraLabel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camera for scanning a pairing code"
+          }
+        }
+      }
+    },
+    "scan.enterAddress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an address instead"
+          }
+        }
+      }
+    },
+    "scan.unavailable.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The camera is not available"
+          }
+        }
+      }
+    },
+    "scan.unavailable.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak cannot use the camera here. Allow camera access in Settings, or enter the address of your Yak instead."
+          }
+        }
+      }
+    },
+    "pairLink.checking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing with your Yak"
+          }
+        }
+      }
+    },
+    "common.close": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

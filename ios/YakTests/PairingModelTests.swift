@@ -166,6 +166,15 @@ private let device = DeviceDescription(name: "Test", model: "iPhone0,0", osVersi
     #expect(model.state == .paired(pairedInstance))
 }
 
+@MainActor @Test func aLinkToSomethingThatIsNotYakEndsInNotYak() async {
+    let fake = FakePairing()
+    await fake.setFailure(.notYak)
+    let model = makeModel(fake)
+    let link = PairingLink(url: URL(string: "yak://pair?url=https%3A%2F%2Fyak.example.com&code=abc")!)!
+    await model.pair(link: link)
+    #expect(model.state == .problem(.notYak))
+}
+
 @Test(arguments: PairingProblem.allKeyNames)
 func everyProblemHasItsScreenText(name: String) {
     let bundle = Bundle(for: PairingModel.self)

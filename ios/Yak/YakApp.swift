@@ -23,6 +23,7 @@ struct YakApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(model: model)
+                .onOpenURL { url in Task { await model.handle(url: url) } }
         }
     }
 }

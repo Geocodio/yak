@@ -44,3 +44,60 @@ private final class LockableTokenStore: TokenStore, @unchecked Sendable {
     #expect(await instances.all().count == 1)
     #expect(try tokens.inner.token(for: instance.id) == "secret")
 }
+
+/// Answers a pairing like a healthy instance: it is Yak, accepts the code and knows who the phone is.
+private struct HealthyInstanceTransport: HTTPTransport {
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let host = request.url!.host!
+        let body =
+            switch request.url!.lastPathComponent {
+            case "instance":
+                #"{"yak":true,"name":"Yak","api":{"current":1,"min":1},"pairing":{"qr":true,"address":true}}"#
+            case "pair":
+                #"{"token":"secret-\#(host)","device":{"id":"d1","name":"Phone","kind":"phone"},"user":{"id":1,"name":"Sam","email":"s@example.com"}}"#
+            default:
+                #"{"user":{"id":1,"name":"Sam","email":"s@example.com","initials":"S","isAdmin":false},"device":{"id":"d1","name":"Phone","kind":"phone"},"instance":{"name":"\#(host)","url":"https://\#(host)","version":"1"},"needsYouCount":0,"realtime":null,"terminal":{"wsUrl":"wss://\#(host)/ws"},"attachments":{"maxFiles":4,"maxFileBytes":100},"push":{"apns":true,"bundleId":null,"environment":null},"features":{}}"#
+            }
+        return (
+            Data(body.utf8),
+            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
+    }
+}
+
+@MainActor private func makeLinkModel() -> (AppModel, InstanceStore) {
+    let tokens = InMemoryTokenStore()
+    let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
+    let model = AppModel(
+        instances: instances, tokens: tokens,
+        makeClient: {
+            APIClient(
+                baseURL: $0, token: nil, transport: HealthyInstanceTransport(), appVersion: "1",
+                systemDescription: "test")
+        })
+    return (model, instances)
+}
+
+@MainActor @Test func openingAPairingLinkWhileAlreadyPairedAddsASecondActiveInstance() async throws {
+    let (model, instances) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Fsecond.example.com&code=b")!)
+    let all = await instances.all()
+    #expect(all.count == 2)
+    #expect(await instances.active()?.url == URL(string: "https://second.example.com")!)
+    #expect(model.linkPairing == nil)
+    guard case .signedIn(let shown) = model.route else {
+        Issue.record("expected the signed-in route")
+        return
+    }
+    #expect(shown.url == URL(string: "https://second.example.com")!)
+}
+
+@MainActor
+@Test(arguments: ["yak://settings", "yak://pair?code=a", "yak://pair?url=http%3A%2F%2Fx.example.com&code=a"])
+func aLinkThatIsNotAPairingLinkChangesNothing(link: String) async {
+    let (model, instances) = makeLinkModel()
+    await model.handle(url: URL(string: link)!)
+    #expect(await instances.all().isEmpty)
+    #expect(model.linkPairing == nil)
+}

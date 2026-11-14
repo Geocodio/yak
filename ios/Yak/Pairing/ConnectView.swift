@@ -4,12 +4,10 @@ import YakKit
 /// First run: pair this device with an instance.
 struct ConnectView: View {
     let model: AppModel
-    /// Set when scanning is available (added with the scan screen); without it only the address
-    /// route is offered and it becomes the primary button.
-    var onScan: (() -> Void)?
     var onDone: (() -> Void)?
 
     @State private var showsAddress = false
+    @State private var showsScan = false
 
     var body: some View {
         ScrollView {
@@ -33,6 +31,18 @@ struct ConnectView: View {
             .padding(24)
         }
         .safeAreaInset(edge: .bottom) { buttons }
+        .navigationDestination(isPresented: $showsScan) {
+            ScanCodeView(
+                onLink: { link in
+                    // Back to the connect screen, so a failed pairing leaves a scanner that works again.
+                    showsScan = false
+                    Task { await model.pair(link: link) }
+                },
+                onEnterAddress: {
+                    showsScan = false
+                    showsAddress = true
+                })
+        }
         .navigationDestination(isPresented: $showsAddress) {
             EnterAddressView(model: model, onDone: onDone)
         }
@@ -40,12 +50,8 @@ struct ConnectView: View {
 
     private var buttons: some View {
         VStack(spacing: 12) {
-            if let onScan {
-                Button("connect.scan", action: onScan).buttonStyle(PrimaryButtonStyle())
-                Button("connect.enterAddress") { showsAddress = true }.buttonStyle(SecondaryButtonStyle())
-            } else {
-                Button("connect.enterAddress") { showsAddress = true }.buttonStyle(PrimaryButtonStyle())
-            }
+            Button("connect.scan") { showsScan = true }.buttonStyle(PrimaryButtonStyle())
+            Button("connect.enterAddress") { showsAddress = true }.buttonStyle(SecondaryButtonStyle())
         }
         .frame(maxWidth: 560)
         .padding(.horizontal, 24)
