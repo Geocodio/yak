@@ -244,3 +244,10 @@ it('syncRepositories gives extras with the same short name distinct sandbox path
 
     expect($thread->repositories()->orderBy('id')->pluck('sandbox_path')->all())->toBe(['/extras/lib', '/extras/other-lib']);
 });
+
+it('gives a teleported thread the visual capture instructions', function () {
+    $response = $this->postJson('/api/cli/v1/teleports', beginPayload(), cliHeaders($this->token))->assertOk();
+
+    $thread = Thread::withoutGlobalScopes()->findOrFail($response->json('thread.id'));
+    expect($thread->append_system_prompt)->toContain('VISUAL CAPTURE');
+});

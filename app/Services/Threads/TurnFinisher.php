@@ -24,6 +24,7 @@ class TurnFinisher
         private readonly AccountConcurrency $concurrency,
         private readonly ThreadSandbox $sandbox,
         private readonly SessionFileSync $sessions,
+        private readonly ThreadArtifacts $artifacts,
     ) {}
 
     /**
@@ -63,6 +64,7 @@ class TurnFinisher
         if ($wasRunning) {
             $events[] = function () use ($thread): void {
                 $this->isolated(fn () => $this->sessions->syncFromSandbox($thread));
+                $this->isolated(fn () => $this->artifacts->collect($thread));
                 $this->isolated(fn () => $this->sandbox->pauseIfIdle($thread));
             };
         }

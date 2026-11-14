@@ -22,9 +22,9 @@ class SandboxArtifactCollector
      * Files are stored at {task_id}/{filename} on the artifacts disk,
      * ready for ProcessCIResultJob to process them.
      */
-    public static function collect(SandboxShell $sandbox, string $containerName, YakTask $task): void
+    public static function collect(SandboxShell $sandbox, string $containerName, YakTask $task, ?string $workspacePath = null): void
     {
-        $workspacePath = IncusSandboxManager::workspacePath();
+        $workspacePath ??= IncusSandboxManager::workspacePath();
         $remotePath = "{$workspacePath}/.yak-artifacts";
 
         if (! $sandbox->fileExists($containerName, $remotePath)) {

@@ -14,6 +14,8 @@ use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\ThreadSession;
 use App\Models\YakTask;
+use App\Services\Threads\Repos\ThreadRepositoryPrompt;
+use App\YakPromptBuilder;
 use Illuminate\Support\Str;
 
 /**
@@ -56,7 +58,7 @@ class TeleportThreadCreator
             'kind' => ThreadSessionKind::Main,
         ]);
 
-        YakTask::query()->create([
+        $task = YakTask::query()->create([
             'source' => YakTask::SOURCE_TELEPORT,
             'repo' => $primary->slug,
             'external_id' => 'TELEPORT-' . Str::upper(Str::random(8)),
@@ -68,6 +70,9 @@ class TeleportThreadCreator
         ]);
 
         $this->syncRepositories($thread, $validated['repos'], $repositories);
+
+        // Appending to the system prompt leaves the restored session's history untouched.
+        $thread->forceFill(['append_system_prompt' => trim(YakPromptBuilder::systemPrompt($task) . "\n\n" . ThreadRepositoryPrompt::section($thread))])->save();
 
         return $thread;
     }
