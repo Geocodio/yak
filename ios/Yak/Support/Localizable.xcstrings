@@ -690,6 +690,76 @@
           }
         }
       }
+    },
+    "pairLink.confirm.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pair with this Yak?"
+          }
+        }
+      }
+    },
+    "pairLink.confirm.warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only continue if you just asked for this code on that Yak."
+          }
+        }
+      }
+    },
+    "pairLink.confirm.replaces": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This pairing replaces the instance you already have at this address."
+          }
+        }
+      }
+    },
+    "pairLink.confirm.pair": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pair"
+          }
+        }
+      }
+    },
+    "pairLink.confirm.cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "pairLink.confirm.pairLabel %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pair with %@"
+          }
+        }
+      }
+    },
+    "pairLink.confirm.cancelLabel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel pairing"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

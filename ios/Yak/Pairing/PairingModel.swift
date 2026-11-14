@@ -46,6 +46,8 @@ final class PairingModel {
         case idle
         case checking
         case waitingForApproval(url: URL)
+        /// A pairing link was checked and waits for the person to confirm; nothing is stored yet.
+        case confirming(link: PairingLink, instance: InstanceInfo, replaces: Instance?)
         case problem(PairingProblem)
         case paired(Instance)
     }
@@ -59,14 +61,17 @@ final class PairingModel {
     private let pairing: any PairingServing
     private let device: @MainActor () -> DeviceDescription
     private let onPaired: @MainActor (Instance) async -> Void
+    private let pairedInstances: @MainActor () async -> [Instance]
     private var task: Task<Void, Never>?
     private var generation = 0
 
     init(
         pairing: any PairingServing,
         device: @escaping @MainActor () -> DeviceDescription,
-        onPaired: @escaping @MainActor (Instance) async -> Void = { _ in }
+        onPaired: @escaping @MainActor (Instance) async -> Void = { _ in },
+        pairedInstances: @escaping @MainActor () async -> [Instance] = { [] }
     ) {
+        self.pairedInstances = pairedInstances
         self.pairing = pairing
         self.device = device
         self.onPaired = onPaired
@@ -113,7 +118,36 @@ final class PairingModel {
         }
     }
 
+    /// Checks the instance a link names, then waits in `.confirming`. Nothing is redeemed or stored
+    /// until `confirm()`.
     func pair(link: PairingLink) async {
+        task?.cancel()
+        generation += 1
+        let mine = generation
+        state = .checking
+        let running = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let outcome: Result<InstanceInfo, PairingProblem>
+            do throws(PairingProblem) { outcome = .success(try await pairing.check(link.instance)) } catch {
+                outcome = .failure(error)
+            }
+            let paired = await pairedInstances()
+            guard mine == generation else { return }
+            switch outcome {
+            case .success(let info):
+                state = .confirming(
+                    link: link, instance: info, replaces: paired.first { $0.url == link.instance })
+            case .failure(.cancelled): state = .idle
+            case .failure(let problem): state = .problem(problem)
+            }
+        }
+        task = running
+        await running.value
+    }
+
+    /// Redeems the code of the link being confirmed.
+    func confirm() async {
+        guard case .confirming(let link, _, _) = state else { return }
         await run { (model) throws(PairingProblem) in
             model.state = .checking
             return try await model.pairing.pair(link: link, device: model.device())

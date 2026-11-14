@@ -49,10 +49,11 @@ final class AppModel {
     func makePairingModel() -> PairingModel {
         PairingModel(
             pairing: pairing, device: { DeviceDescription.current() },
-            onPaired: { [weak self] _ in await self?.reloadRoute() })
+            onPaired: { [weak self] _ in await self?.reloadRoute() },
+            pairedInstances: { [weak self] in await self?.instances.all() ?? [] })
     }
 
-    /// Pairs with the instance a `yak://pair` link names; any other URL changes nothing.
+    /// Starts pairing with the instance a `yak://pair` link names, up to the confirmation; any other URL changes nothing.
     func handle(url: URL) async {
         guard let link = PairingLink(url: url) else { return }
         await pair(link: link)
@@ -64,6 +65,12 @@ final class AppModel {
         let pairingModel = makePairingModel()
         linkPairing = pairingModel
         await pairingModel.pair(link: link)
+    }
+
+    /// Redeems the code once the person confirmed the instance on the confirmation screen.
+    func confirmLinkPairing() async {
+        guard let pairingModel = linkPairing else { return }
+        await pairingModel.confirm()
         if case .paired = pairingModel.state, linkPairing === pairingModel {
             linkPairing = nil
             linkPairingSuccessCount += 1

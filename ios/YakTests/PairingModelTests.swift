@@ -25,6 +25,7 @@ private actor FakePairing: PairingServing {
     }
     var wait: Wait = .approve
     var checkedAddresses: [URL] = []
+    var pairedLinks: [PairingLink] = []
     var failure: PairingProblem?
     var holdsStart = false
     var holdsWait = false
@@ -44,6 +45,7 @@ private actor FakePairing: PairingServing {
     }
 
     func pair(link: PairingLink, device: DeviceDescription) async throws(PairingProblem) -> Instance {
+        pairedLinks.append(link)
         if let failure { throw failure }
         return pairedInstance
     }
@@ -159,19 +161,47 @@ private let device = DeviceDescription(name: "Test", model: "iPhone0,0", osVersi
     #expect(model.state == .idle)
 }
 
-@MainActor @Test func pairingByLinkEndsPaired() async {
-    let model = makeModel(FakePairing())
-    let link = PairingLink(url: URL(string: "yak://pair?url=https%3A%2F%2Fyak.example.com&code=abc")!)!
-    await model.pair(link: link)
+private let pairingLink = PairingLink(url: URL(string: "yak://pair?url=https%3A%2F%2Fyak.example.com&code=abc")!)!
+
+@MainActor @Test func aLinkAloneWaitsForConfirmationAndRedeemsNothing() async {
+    let fake = FakePairing()
+    let model = makeModel(fake)
+    await model.pair(link: pairingLink)
+    #expect(model.state == .confirming(link: pairingLink, instance: instanceInfo, replaces: nil))
+    #expect(await fake.pairedLinks.isEmpty)
+}
+
+@MainActor @Test func confirmingALinkPairsAndEndsPaired() async {
+    let fake = FakePairing()
+    let model = makeModel(fake)
+    await model.pair(link: pairingLink)
+    await model.confirm()
     #expect(model.state == .paired(pairedInstance))
+    #expect(await fake.pairedLinks == [pairingLink])
+}
+
+@MainActor @Test func cancellingAConfirmationStoresNothingAndSendsNoPairRequest() async {
+    let fake = FakePairing()
+    let model = makeModel(fake)
+    await model.pair(link: pairingLink)
+    model.cancel()
+    await model.confirm()
+    #expect(model.state == .idle)
+    #expect(await fake.pairedLinks.isEmpty)
+}
+
+@MainActor @Test func aLinkForAnAlreadyPairedAddressReportsWhatItReplaces() async {
+    let model = PairingModel(
+        pairing: FakePairing(), device: { device }, pairedInstances: { [pairedInstance] })
+    await model.pair(link: pairingLink)
+    #expect(model.state == .confirming(link: pairingLink, instance: instanceInfo, replaces: pairedInstance))
 }
 
 @MainActor @Test func aLinkToSomethingThatIsNotYakEndsInNotYak() async {
     let fake = FakePairing()
     await fake.setFailure(.notYak)
     let model = makeModel(fake)
-    let link = PairingLink(url: URL(string: "yak://pair?url=https%3A%2F%2Fyak.example.com&code=abc")!)!
-    await model.pair(link: link)
+    await model.pair(link: pairingLink)
     #expect(model.state == .problem(.notYak))
 }
 

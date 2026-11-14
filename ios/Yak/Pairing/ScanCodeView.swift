@@ -75,9 +75,8 @@ private struct CodeScanner: UIViewControllerRepresentable {
 
     @MainActor final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         let onLink: (PairingLink) -> Void
-        private var hasReported = false
-
         let onFailure: () -> Void
+        private var hasReported = false
 
         init(onLink: @escaping (PairingLink) -> Void, onFailure: @escaping () -> Void) {
             self.onLink = onLink

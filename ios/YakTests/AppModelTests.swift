@@ -81,7 +81,11 @@ private struct HealthyInstanceTransport: HTTPTransport {
 @MainActor @Test func openingAPairingLinkWhileAlreadyPairedAddsASecondActiveInstance() async throws {
     let (model, instances) = makeLinkModel()
     await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    #expect(await instances.all().isEmpty)
+    await model.confirmLinkPairing()
     await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Fsecond.example.com&code=b")!)
+    #expect(await instances.all().count == 1)
+    await model.confirmLinkPairing()
     let all = await instances.all()
     #expect(all.count == 2)
     #expect(await instances.active()?.url == URL(string: "https://second.example.com")!)
@@ -98,6 +102,7 @@ private struct HealthyInstanceTransport: HTTPTransport {
 func aLinkThatIsNotAPairingLinkChangesNothing(link: String) async {
     let (model, instances) = makeLinkModel()
     await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
     let activeBefore = await instances.active()
     let routeBefore = model.route
     await model.handle(url: URL(string: link)!)

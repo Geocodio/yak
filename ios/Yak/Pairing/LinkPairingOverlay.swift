@@ -50,6 +50,39 @@ private struct LinkPairingOverlay: View {
             .background(Color(.systemBackground).ignoresSafeArea())
             .accessibilityAddTraits(.isModal)
             .transition(.opacity)
+        case .confirming(let link, let instance, let replaces):
+            let host = link.instance.host() ?? link.instance.absoluteString
+            VStack(alignment: .leading, spacing: 16) {
+                Image(systemName: "link")
+                    .font(.system(size: 40, weight: .light))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                Text("pairLink.confirm.title").font(.title2.bold())
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(instance.name).font(.headline)
+                    Text(host).font(.subheadline.monospaced()).foregroundStyle(.secondary)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary, in: .rect(cornerRadius: 10))
+                .accessibilityElement(children: .combine)
+                Text("pairLink.confirm.warning").font(.body)
+                if replaces != nil {
+                    Text("pairLink.confirm.replaces").font(.body).foregroundStyle(.secondary)
+                }
+                Button("pairLink.confirm.pair") { Task { await model.confirmLinkPairing() } }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .accessibilityLabel(Text("pairLink.confirm.pairLabel \(host)"))
+                Button("pairLink.confirm.cancel") { model.dismissLinkPairing() }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityLabel(Text("pairLink.confirm.cancelLabel"))
+            }
+            .frame(maxWidth: 560)
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemBackground).ignoresSafeArea())
+            .accessibilityAddTraits(.isModal)
+            .transition(.opacity)
         case .checking where showsChecking:
             VStack(spacing: 16) {
                 ProgressView()
