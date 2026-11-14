@@ -52,6 +52,8 @@ final class PairingModel {
     private(set) var state: State = .idle
     /// What the typed address said about itself, once `check` succeeded.
     private(set) var confirmation: InstanceInfo?
+    /// Why the last `check` found no Yak, shown as a note under the field.
+    private(set) var checkProblem: PairingProblem?
 
     private let pairing: any PairingServing
     private let device: @MainActor () -> DeviceDescription
@@ -69,14 +71,27 @@ final class PairingModel {
         self.onPaired = onPaired
     }
 
-    /// Asks the typed address what it is, to show the confirmation row. A failure clears the row;
-    /// `submit` reports the reason.
+    /// Asks the typed address what it is, to show the confirmation row, or the reason it is not a Yak.
     func check(address: String) async {
         confirmation = nil
+        checkProblem = nil
         guard let url = InstanceAddress.normalize(address) else { return }
-        let info = try? await pairing.check(url)
-        guard !Task.isCancelled else { return }
-        confirmation = info
+        do throws(PairingProblem) {
+            let info = try await pairing.check(url)
+            guard !Task.isCancelled else { return }
+            confirmation = info
+        } catch {
+            guard !Task.isCancelled, error != .cancelled else { return }
+            checkProblem = error
+        }
+    }
+
+    /// Shows a problem that did not come from the pairing logic, such as the sign-in sheet failing to open.
+    func report(_ problem: PairingProblem) {
+        generation += 1
+        task?.cancel()
+        task = nil
+        state = .problem(problem)
     }
 
     /// Checks the address, starts the device flow and waits for the approval.

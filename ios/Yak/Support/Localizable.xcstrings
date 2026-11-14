@@ -461,12 +461,52 @@
         }
       }
     },
-    "signedIn.refreshFailed %@": {
+    "common.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are offline. This continues when the connection returns."
+          }
+        }
+      }
+    },
+    "signedIn.unreachable %@": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Could not reach %@. Showing what was saved on this device."
+          }
+        }
+      }
+    },
+    "signedIn.appTooOld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This version of the app is too old for your Yak. Update the app to continue."
+          }
+        }
+      }
+    },
+    "signedIn.serverTooOld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Yak is too old for this version of the app. Ask whoever runs it to update."
+          }
+        }
+      }
+    },
+    "signedIn.failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong while asking your Yak. Showing what was saved on this device."
           }
         }
       }

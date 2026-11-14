@@ -15,7 +15,10 @@ final class AppModel {
         case pairAgain(Instance)
     }
 
-    enum RefreshState: Equatable { case idle, loading, failed }
+    /// Why the last refresh of "who am I" did not work, each with its own message.
+    enum RefreshState: Equatable {
+        case idle, loading, unreachable, appTooOld, serverTooOld, failed
+    }
 
     private(set) var route: Route = .connect
     private(set) var refreshState: RefreshState = .idle
@@ -25,6 +28,7 @@ final class AppModel {
     private let tokens: any TokenStore
     private let makeClient: @Sendable (URL) -> APIClient
     let pairing: Pairing
+    let network = NetworkMonitor()
 
     init(instances: InstanceStore, tokens: any TokenStore, makeClient: @escaping @Sendable (URL) -> APIClient) {
         self.instances = instances
@@ -54,10 +58,18 @@ final class AppModel {
     /// "Pair again"; any other failure keeps the saved copy and offers a retry.
     func refreshMe(for instance: Instance) async {
         refreshState = .loading
-        let token: String?
-        do { token = try tokens.token(for: instance.id) } catch { token = nil }
-        guard let token else {
-            await markRevoked(instance)
+        let token: String
+        do {
+            // Only a missing token means "pair again". A read error (Keychain locked before the
+            // first unlock, for example) is temporary, so the token stays.
+            guard let stored = try tokens.token(for: instance.id) else {
+                await markRevoked(instance)
+                return
+            }
+            token = stored
+        } catch {
+            logFailure("Reading the token failed: \(type(of: error))")
+            refreshState = .failed
             return
         }
         do {
@@ -68,10 +80,13 @@ final class AppModel {
                 route = .signedIn(updated)
             }
         } catch let failure as APIFailure {
-            if case .unauthorized(let code) = failure, code == "device_revoked" || code == "invalid_token" {
+            switch failure {
+            case .unauthorized(let code) where code == "device_revoked" || code == "invalid_token":
                 await markRevoked(instance)
-            } else {
-                refreshState = .failed
+            case .unauthorized, .server, .notYak, .encodingFailed: refreshState = .failed
+            case .network: refreshState = .unreachable
+            case .appTooOld: refreshState = .appTooOld
+            case .serverTooOld: refreshState = .serverTooOld
             }
         } catch {
             refreshState = .failed
@@ -90,9 +105,9 @@ final class AppModel {
         await reloadRoute()
     }
 
-    private func logFailure(_ message: StaticString) {
+    private func logFailure(_ message: String) {
         #if canImport(os)
-            Logger(subsystem: "Yak", category: "AppModel").error("\(message)")
+            Logger(subsystem: "Yak", category: "AppModel").error("\(message, privacy: .public)")
         #endif
     }
 }

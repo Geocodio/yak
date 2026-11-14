@@ -8,6 +8,7 @@ struct SignedInView: View {
 
     @State private var showsAdd = false
     @State private var confirmsRemove = false
+    @State private var showsRefreshing = false
 
     var body: some View {
         NavigationStack {
@@ -23,12 +24,14 @@ struct SignedInView: View {
                         instance.pushAvailable ? "signedIn.pushOn" : "signedIn.pushOff",
                         systemImage: instance.pushAvailable ? "bell" : "bell.slash")
                 }
-                if model.refreshState == .loading {
+                if !model.network.isOnline {
+                    Section { Label("common.offline", systemImage: "wifi.slash") }
+                } else if model.refreshState == .loading && showsRefreshing {
                     Section { SlowHintRow { Task { await model.refreshMe(for: instance) } } }
                 }
-                if model.refreshState == .failed {
+                if let message = failureMessage {
                     Section {
-                        Text("signedIn.refreshFailed \(instance.name)")
+                        Text(message)
                         Button("common.retry") { Task { await model.refreshMe(for: instance) } }
                             .frame(minHeight: 44)
                     }
@@ -43,6 +46,20 @@ struct SignedInView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .task(id: instance.id) { await model.refreshMe(for: instance) }
+        .task(id: model.refreshState == .loading) {
+            // Nothing for the first 300 ms, so a quick answer does not make the list jump.
+            guard model.refreshState == .loading else {
+                showsRefreshing = false
+                return
+            }
+            do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
+            showsRefreshing = true
+        }
+        .onChange(of: model.network.isOnline) { _, isOnline in
+            if isOnline && model.refreshState != .idle && model.refreshState != .loading {
+                Task { await model.refreshMe(for: instance) }
+            }
+        }
         .sheet(isPresented: $showsAdd) {
             NavigationStack {
                 ConnectView(model: model, onDone: { showsAdd = false })
@@ -62,6 +79,18 @@ struct SignedInView: View {
             }
         }
         .sensoryFeedback(.warning, trigger: confirmsRemove)
+    }
+}
+
+extension SignedInView {
+    fileprivate var failureMessage: LocalizedStringKey? {
+        switch model.refreshState {
+        case .idle, .loading: nil
+        case .unreachable: "signedIn.unreachable \(instance.name)"
+        case .appTooOld: "signedIn.appTooOld"
+        case .serverTooOld: "signedIn.serverTooOld"
+        case .failed: "signedIn.failed"
+        }
     }
 }
 

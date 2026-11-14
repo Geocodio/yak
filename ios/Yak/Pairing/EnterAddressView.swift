@@ -13,6 +13,7 @@ struct EnterAddressView: View {
     @State private var pairingModel: PairingModel?
     @State private var address = ""
     @State private var sessionTask: Task<Void, Never>?
+    @State private var showsChecking = false
     @FocusState private var isFocused: Bool
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
 
@@ -59,6 +60,25 @@ struct EnterAddressView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .onChange(of: pairingModel.state) { _, newState in handle(newState, pairingModel) }
+        .onChange(of: model.network.isOnline) { _, isOnline in
+            guard isOnline else { return }
+            // The connection is back: run again what the lost connection stopped.
+            if pairingModel.state == .problem(.unreachable) {
+                pairingModel.reset()
+                start(pairingModel)
+            } else if pairingModel.checkProblem == .unreachable {
+                Task { await pairingModel.check(address: address) }
+            }
+        }
+        .task(id: pairingModel.state == .checking) {
+            // Nothing for the first 300 ms, then the progress state.
+            guard pairingModel.state == .checking else {
+                showsChecking = false
+                return
+            }
+            do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
+            showsChecking = true
+        }
         .sensoryFeedback(.success, trigger: isPaired(pairingModel.state))
         .sensoryFeedback(.error, trigger: isProblem(pairingModel.state))
     }
@@ -86,6 +106,12 @@ struct EnterAddressView: View {
                 do { try await Task.sleep(for: .milliseconds(600)) } catch { return }
                 await pairingModel.check(address: address)
             }
+            if !model.network.isOnline {
+                Label("common.offline", systemImage: "wifi.slash")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            } else if let problem = pairingModel.checkProblem, !isChecking {
+                Text(LocalizedStringKey(problem.titleKey)).font(.subheadline).foregroundStyle(.secondary)
+            }
             if let info = pairingModel.confirmation, !isChecking {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).accessibilityHidden(true)
@@ -100,7 +126,7 @@ struct EnterAddressView: View {
             Button {
                 start(pairingModel)
             } label: {
-                if isChecking {
+                if isChecking && showsChecking {
                     HStack(spacing: 10) {
                         ProgressView().tint(Color.yakOnRust)
                         Text("address.checking")
@@ -117,6 +143,7 @@ struct EnterAddressView: View {
             Text("address.footnote").font(.footnote).foregroundStyle(.secondary)
         }
         .animation(.spring, value: pairingModel.confirmation != nil)
+        .animation(.spring, value: pairingModel.checkProblem)
     }
 
     private func waiting(_ pairingModel: PairingModel) -> some View {
@@ -150,9 +177,15 @@ struct EnterAddressView: View {
                     _ = try await webAuthenticationSession.authenticate(
                         using: url, callbackURLScheme: "yak", preferredBrowserSession: .shared)
                 } catch {
-                    // The sheet was closed or failed to open; stop waiting. A pairing that already
-                    // succeeded cancelled this task, which must not undo it.
-                    if !Task.isCancelled { pairingModel.cancel() }
+                    // A pairing that already succeeded cancelled this task, which must not undo it.
+                    guard !Task.isCancelled else { return }
+                    if let sessionError = error as? ASWebAuthenticationSessionError,
+                        sessionError.code == .canceledLogin
+                    {
+                        pairingModel.cancel()
+                    } else {
+                        pairingModel.report(.other("web_session_failed"))
+                    }
                 }
             }
         case .paired:

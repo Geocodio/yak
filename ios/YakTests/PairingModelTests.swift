@@ -26,6 +26,13 @@ private actor FakePairing: PairingServing {
     var wait: Wait = .approve
     var checkedAddresses: [URL] = []
     var failure: PairingProblem?
+    var holdsStart = false
+    var holdsWait = false
+
+    func hold(start: Bool, wait: Bool) {
+        holdsStart = start
+        holdsWait = wait
+    }
 
     func setWait(_ wait: Wait) { self.wait = wait }
     func setFailure(_ problem: PairingProblem?) { failure = problem }
@@ -45,11 +52,13 @@ private actor FakePairing: PairingServing {
         -> PendingDeviceFlow
     {
         checkedAddresses.append(address)
+        while holdsStart { try? await Task.sleep(for: .milliseconds(5)) }
         if let failure { throw failure }
         return PendingDeviceFlow(instance: instanceInfo, url: address, code: deviceCode)
     }
 
     func waitForApproval(_ flow: PendingDeviceFlow) async throws(PairingProblem) -> Instance {
+        while holdsWait { try? await Task.sleep(for: .milliseconds(5)) }
         switch wait {
         case .approve: return pairedInstance
         case .fail(let problem): throw problem
@@ -83,14 +92,46 @@ private let device = DeviceDescription(name: "Test", model: "iPhone0,0", osVersi
     #expect(model.confirmation?.name == "Acme Yak")
 }
 
-@MainActor @Test func theStatesBetweenAreVisible() async throws {
+@MainActor @Test func aGoodAddressMovesThroughCheckingAndWaitingToPaired() async throws {
+    let fake = FakePairing()
+    await fake.hold(start: true, wait: true)
+    let model = makeModel(fake)
+    var seen: [PairingModel.State] = []
+    let submitting = Task { await model.submit(address: "yak.example.com") }
+    try await waitUntil { model.state == .checking }
+    seen.append(model.state)
+    await fake.hold(start: false, wait: true)
+    let approval = URL(string: deviceCode.verificationUrlComplete)!
+    try await waitUntil { model.state == .waitingForApproval(url: approval) }
+    seen.append(model.state)
+    await fake.hold(start: false, wait: false)
+    try await waitUntil { model.state == .paired(pairedInstance) }
+    seen.append(model.state)
+    await submitting.value
+    #expect(seen == [.checking, .waitingForApproval(url: approval), .paired(pairedInstance)])
+}
+
+@MainActor @Test func aFailedCheckKeepsItsReason() async {
+    let fake = FakePairing()
+    await fake.setFailure(.notYak)
+    let model = makeModel(fake)
+    await model.check(address: "yak.example.com")
+    #expect(model.checkProblem == .notYak)
+    #expect(model.confirmation == nil)
+}
+
+@MainActor @Test func reportingAProblemLeavesTheWaitWithThatProblem() async throws {
     let fake = FakePairing()
     await fake.setWait(.forever)
     let model = makeModel(fake)
     let submitting = Task { await model.submit(address: "yak.example.com") }
-    try await waitUntil { model.state == .waitingForApproval(url: URL(string: deviceCode.verificationUrlComplete)!) }
-    model.cancel()
+    try await waitUntil {
+        if case .waitingForApproval = model.state { return true }
+        return false
+    }
+    model.report(.other("web_session_failed"))
     await submitting.value
+    #expect(model.state == .problem(.other("web_session_failed")))
 }
 
 @MainActor @Test func cancellingTheWaitReturnsToIdle() async throws {
