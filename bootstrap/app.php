@@ -11,6 +11,8 @@ use App\Http\Middleware\VerifySessionStoreToken;
 use App\Http\Middleware\VerifySshInternalToken;
 use App\Http\Responses\CliError;
 use App\Services\PreviewAccess;
+use App\Support\ClientApi;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,6 +23,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -47,7 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
         // The preview cookie is minted as a raw Set-Cookie header on the preview host, so it is never Laravel-encrypted.
         $middleware->encryptCookies(except: [PreviewAccess::COOKIE_NAME]);
-        $middleware->validateCsrfTokens(except: ['api/cli/*', 'internal/*']);
+        $middleware->validateCsrfTokens(except: ['api/cli/*', 'api/app/*', 'internal/*']);
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
@@ -61,16 +64,18 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response('Unauthenticated.', 401);
             }
 
-            if ($request->is('api/cli/*')) {
-                return response()->json(['error' => 'unauthenticated', 'message' => 'Sign in with yak login.'], 401);
+            $api = ClientApi::for($request);
+
+            if ($api !== null) {
+                return response()->json(['error' => 'unauthenticated', 'message' => ClientApi::unauthenticatedMessage($api)], 401);
             }
 
             return null;
         });
 
-        // The CLI API answers every error as {"error", "message", "details"?}.
+        // The CLI and app APIs answer every error as {"error", "message", "details"?}.
         $exceptions->render(function (ValidationException $e, Request $request) {
-            if (! $request->is('api/cli/*')) {
+            if (ClientApi::for($request) === null) {
                 return null;
             }
 
@@ -81,7 +86,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 422);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
-            if (! $request->is('api/cli/*')) {
+            if (ClientApi::for($request) === null) {
                 return null;
             }
 
@@ -91,14 +96,21 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 429, $e->getHeaders());
         });
         $exceptions->render(function (TeleportError $e, Request $request) {
-            if (! $request->is('api/cli/*')) {
+            if (ClientApi::for($request) === null) {
                 return null;
             }
 
             return CliError::make($e->errorCode, $e->getMessage(), $e->status, $e->details);
         });
+        $exceptions->render(function (AuthorizationException|AccessDeniedHttpException $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json(['error' => 'forbidden', 'message' => 'You do not have access to this.'], 403);
+        });
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-            if (! $request->is('api/cli/*')) {
+            if (ClientApi::for($request) === null) {
                 return null;
             }
 
