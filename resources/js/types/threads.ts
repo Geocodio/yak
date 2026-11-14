@@ -118,6 +118,19 @@ export type ThreadWalkthrough = {
     isInPullRequest: boolean;
 };
 
+/** A file Claude made for the person; mirrors `App\Http\Resources\ThreadSharedFilesData`. */
+export type SharedFile = {
+    id: string;
+    name: string;
+    kind: 'report' | 'image' | 'csv' | 'pdf' | 'text' | 'file';
+    sizeBytes: number;
+    url: string;
+    sharedWithTeam: boolean;
+    /** The thread event the file's turn ended at; the card sits after the reply up to it. */
+    anchorSequence: number | null;
+    createdAt: string;
+};
+
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
@@ -128,6 +141,7 @@ export type ThreadPageData = {
     teleport: TeleportData;
     publishWarning: boolean;
     walkthrough: ThreadWalkthrough | null;
+    sharedFiles: SharedFile[];
     messages: ThreadMessage[];
     localTurns: LocalTurnsData | null;
     composer: ThreadComposer;

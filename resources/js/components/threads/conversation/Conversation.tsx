@@ -1,9 +1,9 @@
-import { router } from '@inertiajs/react';
+import { router, usePoll } from '@inertiajs/react';
 import { ArrowDown } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
-import type { LocalTurnsData, ThreadMessage, ThreadNotice as ThreadNoticeData, ThreadWalkthrough } from '@/types/threads';
+import type { LocalTurnsData, SharedFile, ThreadMessage, ThreadNotice as ThreadNoticeData, ThreadWalkthrough } from '@/types/threads';
 import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { ChildCard } from './ChildCard';
@@ -25,6 +25,8 @@ import { switchPosition } from './switchPosition';
 import { ThreadNotice } from './ThreadNotice';
 import { ToolSteps } from './ToolSteps';
 import { WalkthroughCard } from './WalkthroughCard';
+import { SharedFilesCard } from './SharedFilesCard';
+import { placeSharedFiles } from '@/components/threads/files/sharedFiles';
 import type { ConversationItem } from './conversationItem';
 
 // Browser tests drive the pure merge through this hook.
@@ -58,7 +60,7 @@ function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges
     return item.kind === 'edits' ? <EditsBlock item={item} onOpenChanges={onOpenChanges} /> : <ClaudeMessage item={item} modelLabels={modelLabels} />;
 }
 
-export function Conversation({ modelLabels = {}, threadId, repo, branch, messages, walkthrough = null, localTurns = null, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; walkthrough?: ThreadWalkthrough | null; localTurns?: LocalTurnsData | null; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ modelLabels = {}, threadId, repo, branch, messages, walkthrough = null, sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = null, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; walkthrough?: ThreadWalkthrough | null; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData | null; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
     const unsent = useUnsentMessages(threadId);
     const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(threadId);
@@ -70,6 +72,9 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
             jumpToNewest();
         }
     }, [unsent.length, jumpToNewest]);
+    // New files arrive after a turn ends; the card appears without a reload.
+    usePoll(10_000, { only: ['sharedFiles'] });
+    const { after: filesAfter, trailing: trailingFiles } = placeSharedFiles(entries, sharedFiles);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     let previousDay = '';
@@ -95,6 +100,9 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
                             <Fragment key={entry.item.key}>
                                 {before}
                                 <EventRow modelLabels={modelLabels} key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} threadId={threadId} onOpenChanges={onOpenChanges} />
+                                {(filesAfter.get(index) ?? []).map((group) => (
+                                    <SharedFilesCard key={group[0].id} files={group} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />
+                                ))}
                             </Fragment>
                         );
                     }
@@ -123,6 +131,7 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
                     <UnsentMessage key={message.key} message={message} onRetry={() => outbox.retry(threadId, message.key)} onEdit={() => onEditUnsent?.(outbox.cancel(threadId, message.key))} />
                 ))}
                 {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} />}
+                {trailingFiles.length > 0 && <SharedFilesCard files={trailingFiles} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />}
                 {switchIndex === entries.length && switchBlock}
                 {pullRequestCount > 1 && <PullRequestChips threadId={threadId} lastActivityAt={lastActivityAt} />}
                 <span
