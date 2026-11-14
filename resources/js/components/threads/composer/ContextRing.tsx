@@ -22,12 +22,12 @@ export function ContextRing({ composer, model }: { composer: ThreadComposer; mod
 
     return (
         <span className="group relative inline-flex shrink-0" data-testid="composer-context">
-            <span className={cn('inline-flex items-center gap-1.5 text-[11px]', color)} tabIndex={0} aria-label={`Context window ${meter.percent}% used`}>
+            <span className={cn('inline-flex cursor-default items-center gap-1.5 text-[11px]', color)} tabIndex={0} aria-label={`Context window ${meter.percent}% used`}>
                 <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
                     <circle cx="9" cy="9" r={RADIUS} fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
                     <circle cx="9" cy="9" r={RADIUS} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray={CIRCUMFERENCE} strokeDashoffset={CIRCUMFERENCE * (1 - meter.percent / 100)} transform="rotate(-90 9 9)" />
                 </svg>
-                <span data-testid="composer-context-label">{meter.label}</span>
+                <span className="hidden @md:inline" data-testid="composer-context-label">{meter.label}</span>
             </span>
             <span role="tooltip" className="pointer-events-none absolute bottom-full left-0 z-20 mb-2 hidden w-64 rounded-card border border-hair bg-panel p-3 text-[12px] text-muted shadow-card group-focus-within:block group-hover:block" data-testid="composer-context-tip">
                 <span className="mb-1.5 block text-[12px] font-semibold text-body">Context window</span>
