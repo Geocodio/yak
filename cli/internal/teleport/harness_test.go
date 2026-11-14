@@ -63,7 +63,7 @@ func newHarness(t *testing.T) *harness {
 	dev := srv.AddDevice("work mac")
 	h := &harness{t: t, srv: srv, device: dev, origin: origin, local: local, cwd: cwd, claudeDir: t.TempDir(), out: &bytes.Buffer{}}
 	client := api.New(srv.URL(), dev.Token, nil, "yak-cli/test")
-	client.Backoff = func(int) {}
+	client.Backoff = func(context.Context, int) error { return nil }
 	h.deps = Deps{
 		API: client, Prompter: ui.NewNonInteractive(), Out: h.out, Config: config.Config{BaseURL: srv.URL()},
 		ConfigDir: t.TempDir(), Now: func() time.Time { return time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC) },

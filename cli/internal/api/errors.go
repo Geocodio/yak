@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 )
@@ -43,4 +44,17 @@ func AsError(err error) (*Error, bool) {
 func IsCode(err error, code string) bool {
 	e, ok := AsError(err)
 	return ok && e.Code == code
+}
+
+// IsTransient reports whether err looks like the network or an overloaded server rather than a real answer:
+// a transport error or timeout, 429, or a 5xx. A cancelled context is not transient.
+func IsTransient(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return false
+	}
+	e, ok := AsError(err)
+	if !ok {
+		return true
+	}
+	return e.Status == 429 || e.Status >= 500
 }

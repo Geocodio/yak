@@ -28,7 +28,7 @@ func newFixture(t *testing.T) *fixture {
 	tok := srv.AddDevice("work mac")
 	srv.OpenTeleport(threadID, tok.Device.ID, "up", "open")
 	client := api.New(srv.URL(), tok.Token, nil, "yak-cli/test")
-	client.Backoff = func(int) {}
+	client.Backoff = func(context.Context, int) error { return nil }
 	return &fixture{srv: srv, store: Store{Client: client}, ctx: context.Background()}
 }
 

@@ -10,7 +10,7 @@ import (
 
 func client(s *Server, token string) *api.Client {
 	c := api.New(s.URL(), token, nil, "yak-cli/0.1.0 (darwin; arm64)")
-	c.Backoff = func(int) {}
+	c.Backoff = func(context.Context, int) error { return nil }
 	return c
 }
 

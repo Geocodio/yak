@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -23,9 +24,19 @@ type Client struct {
 	Token     string
 	HTTP      *http.Client
 	UserAgent string
-	// Backoff runs between retries of idempotent calls; tests replace it.
-	Backoff func(attempt int)
+	// Backoff waits between retries and returns early with the context's error when ctx ends; tests replace it.
+	Backoff func(ctx context.Context, attempt int) error
+	// TimeoutFor sizes the per-attempt timeout from the path and the request body size; tests replace it.
+	TimeoutFor func(path string, bodyBytes int) time.Duration
 }
+
+const (
+	maxAttempts = 5
+	// uplinkBytesPerSecond is the slowest link the timeout still waits for: a body gets its size at this rate on top of the base.
+	uplinkBytesPerSecond = 16 * 1024
+	baseTimeout          = 30 * time.Second
+	completeTimeout      = 60 * time.Second
+)
 
 // New builds a client; token may be empty for the device flow calls.
 func New(baseURL, token string, hc *http.Client, userAgent string) *Client {
@@ -34,7 +45,30 @@ func New(baseURL, token string, hc *http.Client, userAgent string) *Client {
 	}
 	return &Client{
 		BaseURL: strings.TrimRight(baseURL, "/"), Token: token, HTTP: hc, UserAgent: userAgent,
-		Backoff: func(attempt int) { time.Sleep(time.Duration(attempt) * 500 * time.Millisecond) },
+		Backoff: backoff, TimeoutFor: requestTimeout,
+	}
+}
+
+// requestTimeout is max(30s, 30s + bodyBytes/16 KB/s); the complete call waits at least 60s.
+func requestTimeout(path string, bodyBytes int) time.Duration {
+	base := baseTimeout
+	if strings.HasSuffix(path, "/complete") {
+		base = completeTimeout
+	}
+	return base + time.Duration(bodyBytes)*time.Second/uplinkBytesPerSecond
+}
+
+// backoff sleeps 0.5s, 1s, 2s, 4s (capped at 8s) with equal jitter, and stops early when ctx ends.
+func backoff(ctx context.Context, attempt int) error {
+	d := 500 * time.Millisecond << min(max(attempt-1, 0), 4)
+	d = d/2 + time.Duration(rand.Int64N(int64(d/2)+1))
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
 	}
 }
 
@@ -63,26 +97,51 @@ func (c *Client) Raw(ctx context.Context, method, path string, query url.Values)
 	return c.send(ctx, method, path, query, nil)
 }
 
-func (c *Client) send(ctx context.Context, method, path string, query url.Values, payload []byte) ([]byte, http.Header, error) {
-	timeout := 15 * time.Second
-	if strings.HasSuffix(path, "/complete") {
-		timeout = 60 * time.Second
-	}
-	retries := 0
+// replaySafe says a POST or PUT to path can be sent again after a lost answer: the server treats a repeated
+// append, complete, begin, cancel, checkpoint, file put or resolve as the same request.
+func replaySafe(method, path string) bool {
 	if method == http.MethodGet || method == http.MethodDelete {
-		retries = 2
+		return true
+	}
+	return strings.HasPrefix(path, "/teleports") || strings.Contains(path, "/session/") || path == "/repos/resolve"
+}
+
+// retryable says whether a failed attempt is worth repeating: a transport error or timeout, 429, 502, 503, 504,
+// and for idempotent reads any other 5xx.
+func retryable(method string, err error) bool {
+	e, ok := AsError(err)
+	if !ok {
+		return true
+	}
+	switch e.Status {
+	case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return true
+	}
+	return e.Status >= 500 && (method == http.MethodGet || method == http.MethodDelete)
+}
+
+func (c *Client) send(ctx context.Context, method, path string, query url.Values, payload []byte) ([]byte, http.Header, error) {
+	timeout := c.TimeoutFor(path, len(payload))
+	attempts := 1
+	if replaySafe(method, path) {
+		attempts = maxAttempts
 	}
 	var lastErr error
-	for attempt := 0; attempt <= retries; attempt++ {
-		if attempt > 0 {
-			c.Backoff(attempt)
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if attempt > 1 {
+			if err := c.Backoff(ctx, attempt-1); err != nil {
+				return nil, nil, err
+			}
 		}
 		data, header, err := c.once(ctx, method, path, query, payload, timeout)
 		if err == nil {
 			return data, header, nil
 		}
+		if ctx.Err() != nil {
+			return nil, nil, err
+		}
 		lastErr = err
-		if e, ok := AsError(err); !ok || e.Status < 500 {
+		if !retryable(method, err) {
 			return nil, nil, err
 		}
 	}

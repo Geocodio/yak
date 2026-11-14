@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func newTestClient(t *testing.T, h http.HandlerFunc) *Client {
@@ -15,7 +16,7 @@ func newTestClient(t *testing.T, h http.HandlerFunc) *Client {
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	c := New(srv.URL, "yakdev_tok", srv.Client(), "yak-cli/0.1.0 (darwin; arm64)")
-	c.Backoff = func(int) {}
+	c.Backoff = func(context.Context, int) error { return nil }
 	return c
 }
 
@@ -90,27 +91,114 @@ func Test426ReturnsProtocolTooOld(t *testing.T) {
 	}
 }
 
-func TestGetRetriesTwiceOn500ThenFails(t *testing.T) {
+func TestGetRetriesOn500ThenFails(t *testing.T) {
 	var n atomic.Int32
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		n.Add(1)
 		w.WriteHeader(500)
 	})
 	err := c.Do(context.Background(), "GET", "/x", nil, nil)
-	if !IsCode(err, "server_error") || n.Load() != 3 {
+	if !IsCode(err, "server_error") || n.Load() != maxAttempts {
 		t.Fatalf("calls %d, err %v", n.Load(), err)
 	}
 }
 
-func TestPostIsNotRetried(t *testing.T) {
+func TestPostOutsideSessionAndTeleportsIsNotRetried(t *testing.T) {
 	var n atomic.Int32
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		n.Add(1)
-		w.WriteHeader(500)
+		w.WriteHeader(503)
 	})
 	_ = c.Do(context.Background(), "POST", "/x", map[string]int{"a": 1}, nil)
 	if n.Load() != 1 {
 		t.Fatalf("calls %d", n.Load())
+	}
+}
+
+func TestPostToTeleportsRetriesGatewayErrorsButNotPlain500(t *testing.T) {
+	var n atomic.Int32
+	status := 502
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if n.Add(1) < 3 {
+			w.WriteHeader(status)
+			return
+		}
+		w.Write([]byte(`{}`))
+	})
+	if err := c.Do(context.Background(), "POST", "/teleports/abc/complete", map[string]int{}, nil); err != nil || n.Load() != 3 {
+		t.Fatalf("calls %d, err %v", n.Load(), err)
+	}
+	n.Store(0)
+	status = 500
+	_ = c.Do(context.Background(), "POST", "/threads/1/session/append", map[string]int{}, nil)
+	if n.Load() != 1 {
+		t.Fatalf("a plain 500 on a POST must not be retried, calls %d", n.Load())
+	}
+}
+
+func TestTransportErrorIsRetriedOnGetAndPost(t *testing.T) {
+	for _, tc := range []struct{ method, path string }{{"GET", "/threads/1/session/length"}, {"POST", "/threads/1/session/append"}} {
+		var n atomic.Int32
+		c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+			if n.Add(1) < 3 {
+				conn, _, _ := w.(http.Hijacker).Hijack()
+				conn.Close()
+				return
+			}
+			w.Write([]byte(`{"length":7}`))
+		})
+		var out struct{ Length int }
+		if err := c.Do(context.Background(), tc.method, tc.path, map[string]int{}, &out); err != nil || out.Length != 7 || n.Load() != 3 {
+			t.Fatalf("%s: calls %d, out %+v, err %v", tc.method, n.Load(), out, err)
+		}
+	}
+}
+
+func TestTimeoutIsRetried(t *testing.T) {
+	var n atomic.Int32
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if n.Add(1) == 1 {
+			<-r.Context().Done()
+			return
+		}
+		w.Write([]byte(`{}`))
+	})
+	c.TimeoutFor = func(string, int) time.Duration { return 50 * time.Millisecond }
+	if err := c.Do(context.Background(), "GET", "/me", nil, nil); err != nil || n.Load() != 2 {
+		t.Fatalf("calls %d, err %v", n.Load(), err)
+	}
+}
+
+func TestCancelledContextStopsRetrying(t *testing.T) {
+	var n atomic.Int32
+	ctx, cancel := context.WithCancel(context.Background())
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		n.Add(1)
+		cancel()
+		w.WriteHeader(503)
+	})
+	if err := c.Do(ctx, "GET", "/me", nil, nil); err == nil || n.Load() != 1 {
+		t.Fatalf("calls %d, err %v", n.Load(), err)
+	}
+}
+
+func TestBackoffStopsWhenContextEnds(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := backoff(ctx, 4); !errors.Is(err, context.Canceled) {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestRequestTimeoutScalesWithBody(t *testing.T) {
+	if got := requestTimeout("/me", 0); got != 30*time.Second {
+		t.Fatalf("%v", got)
+	}
+	if got := requestTimeout("/teleports/x/complete", 0); got != 60*time.Second {
+		t.Fatalf("%v", got)
+	}
+	if got := requestTimeout("/threads/1/session/append", 16*1024*10); got != 40*time.Second {
+		t.Fatalf("%v", got)
 	}
 }
 
