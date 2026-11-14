@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import type { PanelProps } from '@/threads/panels';
 import { ChangesPanel } from '../changes/ChangesPanel';
+import { ChangesSkeleton } from '../changes/ChangesSkeleton';
 import FilesPanel from './FilesPanel';
 import { FilesModeSwitch } from './FilesModeSwitch';
 import { resolveFilesMode, type FilesMode } from './filesMode';
@@ -21,8 +22,8 @@ export default function FilesView(props: PanelProps) {
 
     if (mode === null) {
         return (
-            <div className="flex min-h-0 flex-1 flex-col p-4 text-[13px] text-muted" data-testid="files-view-loading">
-                Loading files
+            <div className="flex min-h-0 flex-1 flex-col" data-testid="files-view-loading">
+                <ChangesSkeleton isNarrow={isNarrow} />
             </div>
         );
     }
