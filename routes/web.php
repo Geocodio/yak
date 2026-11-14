@@ -68,6 +68,7 @@ use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\Threads\ContinueTurnController;
+use App\Http\Controllers\Threads\LocalTurnsController;
 use App\Http\Controllers\Threads\NewThreadController;
 use App\Http\Controllers\Threads\Preview\ThreadPreviewHeartbeatController;
 use App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController;
@@ -309,6 +310,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('threads/{thread}/diff/files/{file}', [ThreadDiffController::class, 'showFile'])
         ->name('threads.diff.files.show')
         ->where(['file' => '[0-9]+']);
+    Route::get('threads/{thread}/local-turns', LocalTurnsController::class)
+        ->name('threads.local-turns');
     Route::get('threads/{thread}/environment', [ThreadEnvironmentController::class, 'show'])
         ->name('threads.environment.show');
     Route::post('threads/{thread}/pull-request', [ThreadPullRequestController::class, 'store'])

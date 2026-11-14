@@ -9,6 +9,7 @@ use App\Http\Resources\ThreadNoticeData;
 use App\Http\Resources\ThreadPageData;
 use App\Models\Thread;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
+use App\Services\Teleport\LocalTurns;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -25,6 +26,7 @@ class ThreadController extends Controller
 
         return Inertia::render('Threads/Show', array_merge(ThreadPageData::build($thread, $viewer), [
             'messages' => ThreadMessagesData::for($thread),
+            'localTurns' => app(LocalTurns::class)->summary($thread),
             'composer' => ThreadComposerData::for($thread, $viewer),
             'notice' => ThreadNoticeData::for($thread, $viewer),
             'modelLabels' => $this->modelLabels(),

@@ -110,7 +110,7 @@ final class ThreadMessagesData
         return $messages;
     }
 
-    private static function initials(?string $name): string
+    public static function initials(?string $name): string
     {
         $words = preg_split('/\s+/', trim((string) $name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
