@@ -97,7 +97,13 @@ private struct HealthyInstanceTransport: HTTPTransport {
 @Test(arguments: ["yak://settings", "yak://pair?code=a", "yak://pair?url=http%3A%2F%2Fx.example.com&code=a"])
 func aLinkThatIsNotAPairingLinkChangesNothing(link: String) async {
     let (model, instances) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    let activeBefore = await instances.active()
+    let routeBefore = model.route
     await model.handle(url: URL(string: link)!)
-    #expect(await instances.all().isEmpty)
+    #expect(await instances.all().count == 1)
+    #expect(await instances.active() == activeBefore)
+    #expect(model.route == routeBefore)
     #expect(model.linkPairing == nil)
+    #expect(model.linkPairingSuccessCount == 1)
 }

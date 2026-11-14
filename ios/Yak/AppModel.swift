@@ -26,6 +26,10 @@ final class AppModel {
     /// The pairing in progress for a scanned or opened link, kept while it shows a problem.
     private(set) var linkPairing: PairingModel?
     private var linkToPair: PairingLink?
+    /// Counts completed link pairings, so a view that outlives the pairing screen can play the success haptic.
+    private(set) var linkPairingSuccessCount = 0
+    /// The host of the link being paired, for the problem screen.
+    var linkHost: String? { linkToPair?.instance.host() }
 
     let instances: InstanceStore
     private let tokens: any TokenStore
@@ -60,7 +64,10 @@ final class AppModel {
         let pairingModel = makePairingModel()
         linkPairing = pairingModel
         await pairingModel.pair(link: link)
-        if case .paired = pairingModel.state, linkPairing === pairingModel { linkPairing = nil }
+        if case .paired = pairingModel.state, linkPairing === pairingModel {
+            linkPairing = nil
+            linkPairingSuccessCount += 1
+        }
     }
 
     func retryLinkPairing() async {

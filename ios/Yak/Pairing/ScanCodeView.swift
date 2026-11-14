@@ -54,7 +54,7 @@ private struct CodeScanner: UIViewControllerRepresentable {
     let onLink: (PairingLink) -> Void
     let onFailure: () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(onLink: onLink) }
+    func makeCoordinator() -> Coordinator { Coordinator(onLink: onLink, onFailure: onFailure) }
 
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let scanner = DataScannerViewController(
@@ -77,7 +77,19 @@ private struct CodeScanner: UIViewControllerRepresentable {
         let onLink: (PairingLink) -> Void
         private var hasReported = false
 
-        init(onLink: @escaping (PairingLink) -> Void) { self.onLink = onLink }
+        let onFailure: () -> Void
+
+        init(onLink: @escaping (PairingLink) -> Void, onFailure: @escaping () -> Void) {
+            self.onLink = onLink
+            self.onFailure = onFailure
+        }
+
+        func dataScanner(
+            _ scanner: DataScannerViewController,
+            becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable
+        ) {
+            onFailure()
+        }
 
         func dataScanner(
             _ scanner: DataScannerViewController, didAdd items: [RecognizedItem], allItems: [RecognizedItem]

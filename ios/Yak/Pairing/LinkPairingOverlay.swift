@@ -29,30 +29,38 @@ private struct LinkPairingOverlay: View {
         }
     }
 
+    /// The code in a link works once and for two minutes, so sending it again cannot succeed.
+    private func oneTimeCodeIsSpent(_ problem: PairingProblem) -> Bool {
+        problem == .codeExpired || problem == .codeInvalid
+    }
+
     @ViewBuilder
     private func content(_ state: PairingModel.State) -> some View {
         switch state {
         case .problem(let problem):
             VStack(spacing: 16) {
-                PairingProblemView(problem: problem, address: "", retryTitle: "problem.tryAgain") {
-                    Task { await model.retryLinkPairing() }
-                }
+                PairingProblemView(
+                    problem: problem, address: model.linkHost ?? "",
+                    retry: oneTimeCodeIsSpent(problem) ? nil : { Task { await model.retryLinkPairing() } })
                 Button("common.close") { model.dismissLinkPairing() }.buttonStyle(SecondaryButtonStyle())
             }
             .frame(maxWidth: 560)
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemBackground))
+            .background(Color(.systemBackground).ignoresSafeArea())
+            .accessibilityAddTraits(.isModal)
             .transition(.opacity)
         case .checking where showsChecking:
             VStack(spacing: 16) {
                 ProgressView()
                 Text("pairLink.checking").font(.body).foregroundStyle(.secondary)
                 SlowHint { Task { await model.retryLinkPairing() } }
+                Button("common.close") { model.dismissLinkPairing() }.buttonStyle(SecondaryButtonStyle())
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemBackground))
+            .background(Color(.systemBackground).ignoresSafeArea())
+            .accessibilityAddTraits(.isModal)
             .transition(.opacity)
         default:
             EmptyView()

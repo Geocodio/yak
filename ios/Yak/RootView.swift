@@ -19,6 +19,7 @@ struct RootView: View {
             }
         }
         .linkPairingStatus(model)
+        .sensoryFeedback(.success, trigger: model.linkPairingSuccessCount)
         .animation(.spring, value: model.route)
         .animation(.spring, value: model.linkPairing?.state)
         .task { await model.reloadRoute() }

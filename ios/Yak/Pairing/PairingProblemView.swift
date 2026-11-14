@@ -5,8 +5,8 @@ import YakKit
 struct PairingProblemView: View {
     let problem: PairingProblem
     let address: String
-    var retryTitle: LocalizedStringKey = "problem.tryAgain"
-    let retry: () -> Void
+    /// Nil hides the button, for a problem that trying again cannot fix.
+    let retry: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -24,7 +24,9 @@ struct PairingProblemView: View {
                     .background(.quaternary, in: .rect(cornerRadius: 10))
                     .accessibilityLabel(Text("problem.address \(address)"))
             }
-            Button(retryTitle, action: retry).buttonStyle(SecondaryButtonStyle())
+            if let retry {
+                Button("problem.tryAgain", action: retry).buttonStyle(SecondaryButtonStyle())
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
