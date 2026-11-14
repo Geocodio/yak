@@ -18,6 +18,9 @@ class DeviceFlow
 
     public const POLL_INTERVAL_SECONDS = 5;
 
+    /** How long after the redeem a repeated poll still gets the same token, so a lost response can be retried. */
+    public const REPEAT_WINDOW_SECONDS = 60;
+
     public function __construct(private DeviceTokens $deviceTokens) {}
 
     /**
@@ -114,7 +117,7 @@ class DeviceFlow
      *
      * @throws DeviceFlowException
      */
-    public function poll(string $deviceCode, DeviceKind $kind = DeviceKind::Computer): array
+    public function poll(#[\SensitiveParameter] string $deviceCode, DeviceKind $kind = DeviceKind::Computer): array
     {
         $outcome = DB::transaction(function () use ($deviceCode, $kind): array|DeviceFlowException {
             $authorization = DeviceAuthorization::query()
@@ -123,7 +126,11 @@ class DeviceFlow
                 ->where('kind', $kind->value)
                 ->first();
 
-            if ($authorization === null || $authorization->status === 'redeemed' || $authorization->isExpired()) {
+            if ($authorization !== null && $authorization->status === 'redeemed') {
+                return $this->repeat($authorization, $kind);
+            }
+
+            if ($authorization === null || $authorization->isExpired()) {
                 return new DeviceFlowException('expired_token', $kind === DeviceKind::Phone ? 'This sign-in code expired. Start pairing again in the app.' : 'This sign-in code expired. Run yak login again.');
             }
 
@@ -146,7 +153,7 @@ class DeviceFlow
             }
 
             $token = Crypt::decryptString($authorization->encrypted_token);
-            $authorization->update(['status' => 'redeemed', 'encrypted_token' => null]);
+            $authorization->update(['status' => 'redeemed', 'redeemed_at' => now()]);
 
             return ['token' => $token, 'device' => $authorization->device];
         });
@@ -156,5 +163,26 @@ class DeviceFlow
         }
 
         return $outcome;
+    }
+
+    /**
+     * The first poll's answer for a repeat inside the window; after it the kept token is cleared and the code is gone.
+     *
+     * @return array{token: string, device: Device}|DeviceFlowException
+     */
+    private function repeat(DeviceAuthorization $authorization, DeviceKind $kind): array|DeviceFlowException
+    {
+        $device = $authorization->device;
+        $isWithinWindow = $authorization->redeemed_at !== null && $authorization->redeemed_at->diffInSeconds(now(), true) < self::REPEAT_WINDOW_SECONDS;
+
+        if ($isWithinWindow && $authorization->encrypted_token !== null && $device !== null) {
+            return ['token' => Crypt::decryptString($authorization->encrypted_token), 'device' => $device];
+        }
+
+        if ($authorization->encrypted_token !== null) {
+            $authorization->update(['encrypted_token' => null]);
+        }
+
+        return new DeviceFlowException('expired_token', $kind === DeviceKind::Phone ? 'This sign-in code expired. Start pairing again in the app.' : 'This sign-in code expired. Run yak login again.');
     }
 }

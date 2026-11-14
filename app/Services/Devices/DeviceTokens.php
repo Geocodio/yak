@@ -19,7 +19,7 @@ class DeviceTokens
         return self::TOKEN_PREFIX . Str::random(40);
     }
 
-    public function hash(string $token): string
+    public function hash(#[\SensitiveParameter] string $token): string
     {
         return hash('sha256', $token);
     }
@@ -27,7 +27,7 @@ class DeviceTokens
     /**
      * Returns revoked devices too; the caller decides what a revoked device may do.
      */
-    public function resolve(?string $bearerToken): ?Device
+    public function resolve(#[\SensitiveParameter] ?string $bearerToken): ?Device
     {
         if ($bearerToken === null || ! str_starts_with($bearerToken, self::TOKEN_PREFIX)) {
             return null;

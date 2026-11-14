@@ -12,6 +12,6 @@ class PairDeviceRequest extends StartDeviceFlowRequest
      */
     public function rules(): array
     {
-        return ['code' => ['required', 'string', 'max:128']] + parent::rules();
+        return ['code' => ['required', 'string', 'max:128'], 'request_id' => ['nullable', 'uuid']] + parent::rules();
     }
 }

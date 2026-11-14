@@ -106,3 +106,40 @@ it('rate limits pair requests per address', function () {
     $this->postJson('/api/app/v1/device/pair', ['code' => 'nope'] + $this->phone, $this->headers)
         ->assertStatus(429)->assertJsonPath('error', 'rate_limited')->assertHeader('Retry-After');
 });
+
+it('answers a repeat with the same request id with the same token and device', function () {
+    ['code' => $code] = app(PairingCodes::class)->create(User::factory()->create());
+    $body = ['code' => $code, 'request_id' => '3f0b9e4a-6a53-4a0e-9a53-1c1b2d6c7f10'] + $this->phone;
+
+    $first = $this->postJson('/api/app/v1/device/pair', $body, $this->headers)->assertOk();
+    $this->travel(30)->seconds();
+    $second = $this->postJson('/api/app/v1/device/pair', $body, $this->headers)->assertOk();
+
+    expect($second->json())->toBe($first->json())->and(Device::count())->toBe(1);
+});
+
+it('refuses a repeat with another or no request id, and a second phone', function (?string $requestId) {
+    ['code' => $code] = app(PairingCodes::class)->create(User::factory()->create());
+    $this->postJson('/api/app/v1/device/pair', ['code' => $code, 'request_id' => '3f0b9e4a-6a53-4a0e-9a53-1c1b2d6c7f10'] + $this->phone, $this->headers)->assertOk();
+
+    $this->postJson('/api/app/v1/device/pair', ['code' => $code] + ($requestId !== null ? ['request_id' => $requestId] : []) + $this->phone, $this->headers)
+        ->assertStatus(400)->assertJsonPath('error', 'pairing_code_invalid');
+    expect(Device::count())->toBe(1);
+})->with([null, '9c1d7a52-0b1e-4f6e-8f43-2f6d7c3e9a11']);
+
+it('refuses a repeat after the code expired and clears the kept token', function () {
+    ['code' => $code, 'pairingCode' => $pairingCode] = app(PairingCodes::class)->create(User::factory()->create());
+    $body = ['code' => $code, 'request_id' => '3f0b9e4a-6a53-4a0e-9a53-1c1b2d6c7f10'] + $this->phone;
+    $this->postJson('/api/app/v1/device/pair', $body, $this->headers)->assertOk();
+    expect($pairingCode->fresh()->encrypted_token)->not->toBeNull();
+
+    $this->travel(121)->seconds();
+
+    $this->postJson('/api/app/v1/device/pair', $body, $this->headers)->assertStatus(400)->assertJsonPath('error', 'pairing_code_invalid');
+    expect($pairingCode->fresh()->encrypted_token)->toBeNull();
+});
+
+it('rejects a request id that is not a UUID', function () {
+    $this->postJson('/api/app/v1/device/pair', ['code' => 'x', 'request_id' => 'nope'] + $this->phone, $this->headers)
+        ->assertStatus(422)->assertJsonStructure(['details' => ['errors' => ['request_id']]]);
+});

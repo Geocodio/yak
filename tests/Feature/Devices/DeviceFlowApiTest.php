@@ -36,7 +36,7 @@ it('full login roundtrip returns the token once then expired_token', function ()
         ->and($body['device'])->toHaveKeys(['id', 'name', 'os', 'arch'])
         ->and($body['user'])->toHaveKeys(['id', 'name', 'email']);
 
-    $this->travel(6)->seconds();
+    $this->travel(61)->seconds();
     $this->postJson('/api/cli/v1/device/token', ['device_code' => $started['device_code']], $this->headers)
         ->assertStatus(400)->assertJson(['error' => 'expired_token']);
 });

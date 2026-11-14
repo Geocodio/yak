@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable $expires_at
  * @property CarbonImmutable|null $redeemed_at
  * @property int|null $device_id
+ * @property string|null $request_id_hash
+ * @property string|null $encrypted_token
  */
 class DevicePairingCode extends Model
 {
@@ -29,7 +31,7 @@ class DevicePairingCode extends Model
     protected $guarded = [];
 
     /** @var list<string> */
-    protected $hidden = ['code_hash'];
+    protected $hidden = ['code_hash', 'request_id_hash', 'encrypted_token'];
 
     /**
      * @return array<string, string>

@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $device_id
  * @property string|null $encrypted_token
  * @property CarbonImmutable|null $last_polled_at
+ * @property CarbonImmutable|null $redeemed_at
  * @property int $poll_interval
  * @property CarbonImmutable $expires_at
  */
@@ -57,6 +58,7 @@ class DeviceAuthorization extends Model
         return [
             'kind' => DeviceKind::class,
             'last_polled_at' => 'immutable_datetime',
+            'redeemed_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',
         ];
     }

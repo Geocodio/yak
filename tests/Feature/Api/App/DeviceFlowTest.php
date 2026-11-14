@@ -39,15 +39,19 @@ it('pairs a phone through the device flow', function () {
     ContractFixture::assertMatches('app', 'device-token', $paired->json(), ['token', 'device.id', 'user.id', 'user.name', 'user.email']);
 });
 
-it('gives the token only once and answers the same way when the poll is repeated', function () {
+it('answers the same way when the poll is repeated inside the window, then refuses', function () {
     $start = $this->postJson('/api/app/v1/device/code', $this->phone, $this->headers)->assertOk();
     approvePhone($start->json('user_code'));
     $this->travel(6)->seconds();
 
-    $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertOk();
-    $this->travel(6)->seconds();
+    $first = $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertOk();
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertOk()->assertExactJson($first->json());
+    $this->travel(30)->seconds();
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertOk()->assertExactJson($first->json());
+
+    $this->travel(31)->seconds();
     $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertStatus(400)->assertJsonPath('error', 'expired_token');
-    expect(Device::count())->toBe(1);
+    expect(Device::count())->toBe(1)->and(DeviceAuthorization::sole()->encrypted_token)->toBeNull();
 });
 
 it('accepts a 100 character name and refuses 101', function () {

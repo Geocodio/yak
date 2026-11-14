@@ -19,7 +19,7 @@ class DevicePairController extends Controller
                 'os' => $request->validated('os_version'),
                 'model' => $request->validated('model'),
                 'app_version' => $request->validated('app_version'),
-            ]);
+            ], $request->validated('request_id'));
         } catch (DeviceFlowException $exception) {
             return response()->json(['error' => $exception->errorCode, 'message' => $exception->getMessage()], 400);
         }

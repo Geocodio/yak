@@ -12,7 +12,7 @@ final class AppDeviceData
     /**
      * @return array{token: string, device: array{id: int, name: string, kind: string}, user: array{id: int, name: string, email: string}}
      */
-    public static function pairing(Device $device, string $token): array
+    public static function pairing(Device $device, #[\SensitiveParameter] string $token): array
     {
         $user = $device->user()->firstOrFail();
 
