@@ -50,11 +50,20 @@ test('the question mark opens a dialog that lists every entry in the table', fun
     $page = visit('/')->keys('[data-testid="app-shell"]', ['?'])
         ->assertVisible('[data-testid="shortcuts-dialog"]');
 
-    foreach (['openPalette', 'showShortcuts', 'newThread', 'goHome', 'nextNeedsYou', 'openPreview', 'showFiles', 'showTerminal', 'showConversation', 'openPullRequest'] as $id) {
-        $page->assertVisible('[data-testid="shortcut-' . $id . '"]');
+    $table = file_get_contents(base_path('resources/js/commandPalette/shortcuts.ts'));
+    preg_match_all("/^\\s+(\\w+): \\{ keys: \\[[^\\]]*\\], label: '([^']+)', group: '([^']+)'/m", $table, $entries, PREG_SET_ORDER);
+    preg_match_all("/\\{ keys: \\[[^\\]]*\\], label: '([^']+)' \\},/", $table, $paletteKeys, PREG_SET_ORDER);
+    expect(count($entries))->toBeGreaterThanOrEqual(12)->and(count($paletteKeys))->toBeGreaterThanOrEqual(4);
+
+    foreach ($entries as [, $id, $label]) {
+        $page->assertVisible('[data-testid="shortcut-' . $id . '"]')
+            ->assertSeeIn('[data-testid="shortcut-' . $id . '"]', $label);
     }
-    foreach (['Run the selected action', 'More actions for a result', 'Go back one step', 'Close'] as $label) {
+    foreach ($paletteKeys as [, $label]) {
         $page->assertSeeIn('[data-testid="shortcuts-dialog"]', $label);
+    }
+    foreach ([...array_unique(array_column($entries, 3)), 'In the palette'] as $heading) {
+        $page->assertSeeIn('[data-testid="shortcuts-dialog"] h3:text-is("' . $heading . '")', $heading);
     }
 });
 
