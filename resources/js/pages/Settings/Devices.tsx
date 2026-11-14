@@ -96,7 +96,7 @@ function DeviceRow({ device, onRevoke }: { device: Device; onRevoke: (device: De
                             {showLastSeen && device.last_seen_at && <> &middot; last seen {relative(device.last_seen_at)}</>}
                         </p>
                     )}
-                {device.is_stale && <p className="text-[12px] text-warn" data-testid="device-stale-hint">Not used in {device.stale_days} days. Revoke it if this {device.kind} is gone.</p>}
+                {device.is_stale && !isPhone && <p className="text-[12px] text-warn" data-testid="device-stale-hint">Not used in {device.stale_days} days. Revoke it if this {device.kind} is gone.</p>}
             </div>
             <Button variant="secondary" icon={<Trash2 size={13} />} onClick={() => onRevoke(device)} data-testid="device-revoke">Revoke</Button>
         </li>

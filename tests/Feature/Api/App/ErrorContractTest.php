@@ -113,6 +113,38 @@ it('counts failed token checks per address on both APIs', function (string $uri)
     $this->getJson($uri, $bad)->assertStatus(429)->assertJsonPath('error', 'rate_limited')->assertHeader('Retry-After');
 })->with(['/api/app/v1/me', '/api/cli/v1/me']);
 
+it('never refuses a valid token because of failures from the same address', function (string $uri, string $kind) {
+    $token = app(DeviceTokens::class)->generate();
+    ($kind === 'phone' ? Device::factory()->phone() : Device::factory())->create(['token_hash' => app(DeviceTokens::class)->hash($token)]);
+    $bad = ['X-Yak-Protocol' => '1', 'Authorization' => 'Bearer ' . app(DeviceTokens::class)->generate()];
+
+    foreach (range(1, 60) as $ignored) {
+        $this->getJson($uri, $bad)->assertUnauthorized();
+    }
+
+    $this->getJson($uri, ['X-Yak-Protocol' => '1', 'Authorization' => "Bearer {$token}"])->assertOk();
+    $this->getJson($uri, $bad)->assertStatus(429);
+})->with([['/api/app/v1/me', 'phone'], ['/api/cli/v1/me', 'computer']]);
+
+it('counts failures by the forwarded client address only from a trusted proxy', function () {
+    $bad = ['X-Yak-Protocol' => '1', 'Authorization' => 'Bearer ' . app(DeviceTokens::class)->generate()];
+    $from = fn (string $remote, string $client) => $this->withServerVariables(['REMOTE_ADDR' => $remote])->getJson('/api/app/v1/me', $bad + ['X-Forwarded-For' => $client]);
+
+    foreach (range(1, 60) as $ignored) {
+        $from('127.0.0.1', '203.0.113.10')->assertUnauthorized();
+    }
+
+    $from('127.0.0.1', '203.0.113.10')->assertStatus(429);
+    $from('127.0.0.1', '203.0.113.11')->assertUnauthorized();
+
+    // An untrusted peer cannot choose its address: both spoofed values count against 198.51.100.7.
+    foreach (range(1, 60) as $index) {
+        $from('198.51.100.7', "203.0.113.{$index}")->assertUnauthorized();
+    }
+
+    $from('198.51.100.7', '203.0.113.200')->assertStatus(429);
+});
+
 it('does not count successful token checks as failures', function () {
     $token = app(DeviceTokens::class)->generate();
     Device::factory()->phone()->create(['token_hash' => app(DeviceTokens::class)->hash($token)]);

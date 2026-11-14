@@ -39,19 +39,61 @@ it('pairs a phone through the device flow', function () {
     ContractFixture::assertMatches('app', 'device-token', $paired->json(), ['token', 'device.id', 'user.id']);
 });
 
-it('answers the same way when the poll is repeated inside the window, then refuses', function () {
-    $start = $this->postJson('/api/app/v1/device/code', $this->phone, $this->headers)->assertOk();
+function redeemedPhone(mixed $test, ?string $requestId): array
+{
+    $start = $test->postJson('/api/app/v1/device/code', $test->phone, $test->headers)->assertOk();
     approvePhone($start->json('user_code'));
+    $test->travel(6)->seconds();
+    $body = ['device_code' => $start->json('device_code')] + ($requestId !== null ? ['request_id' => $requestId] : []);
+    $first = $test->postJson('/api/app/v1/device/token', $body, $test->headers)->assertOk();
+
+    return [$start->json('device_code'), $first];
+}
+
+it('answers a repeat with the same request id inside the window', function () {
+    $requestId = '4f1c2a7e-3b5d-4c8a-9e61-2d7f0a9b1c33';
+    [$deviceCode, $first] = redeemedPhone($this, $requestId);
+
     $this->travel(6)->seconds();
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $deviceCode, 'request_id' => $requestId], $this->headers)->assertOk()->assertExactJson($first->json());
+    expect(Device::count())->toBe(1);
+});
 
-    $first = $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertOk();
-    $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertOk()->assertExactJson($first->json());
-    $this->travel(30)->seconds();
-    $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertOk()->assertExactJson($first->json());
+it('refuses a repeat with another or no request id', function (?string $requestId) {
+    [$deviceCode] = redeemedPhone($this, '4f1c2a7e-3b5d-4c8a-9e61-2d7f0a9b1c33');
 
-    $this->travel(31)->seconds();
-    $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertStatus(400)->assertJsonPath('error', 'expired_token');
-    expect(Device::count())->toBe(1)->and(DeviceAuthorization::sole()->encrypted_token)->toBeNull();
+    $this->travel(6)->seconds();
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $deviceCode] + ($requestId !== null ? ['request_id' => $requestId] : []), $this->headers)
+        ->assertStatus(400)->assertJsonPath('error', 'expired_token');
+    expect(Device::count())->toBe(1);
+})->with(['another id' => '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d', 'no id' => null]);
+
+it('refuses a repeat after the window and clears the kept token', function () {
+    $requestId = '4f1c2a7e-3b5d-4c8a-9e61-2d7f0a9b1c33';
+    [$deviceCode] = redeemedPhone($this, $requestId);
+
+    $this->travel(61)->seconds();
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $deviceCode, 'request_id' => $requestId], $this->headers)->assertStatus(400)->assertJsonPath('error', 'expired_token');
+    expect(DeviceAuthorization::sole()->encrypted_token)->toBeNull();
+});
+
+it('keeps nothing when the redeeming poll carried no request id', function () {
+    [$deviceCode] = redeemedPhone($this, null);
+
+    expect(DeviceAuthorization::sole()->encrypted_token)->toBeNull();
+    $this->travel(6)->seconds();
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $deviceCode, 'request_id' => '4f1c2a7e-3b5d-4c8a-9e61-2d7f0a9b1c33'], $this->headers)->assertStatus(400)->assertJsonPath('error', 'expired_token');
+});
+
+it('answers slow_down to a repeat sooner than the poll interval', function () {
+    $requestId = '4f1c2a7e-3b5d-4c8a-9e61-2d7f0a9b1c33';
+    [$deviceCode] = redeemedPhone($this, $requestId);
+
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $deviceCode, 'request_id' => $requestId], $this->headers)->assertStatus(400)->assertJsonPath('error', 'slow_down');
+});
+
+it('refuses a malformed request id on the poll', function () {
+    $this->postJson('/api/app/v1/device/token', ['device_code' => 'x', 'request_id' => 'nope'], $this->headers)->assertStatus(422);
 });
 
 it('accepts a 100 character name and refuses 101', function () {

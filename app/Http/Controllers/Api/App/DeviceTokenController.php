@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\App;
 
 use App\Enums\DeviceKind;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Cli\PollDeviceTokenRequest;
+use App\Http\Requests\Api\App\PollDeviceTokenRequest;
 use App\Http\Resources\AppDeviceData;
 use App\Services\Devices\DeviceFlow;
 use App\Services\Devices\DeviceFlowException;
@@ -15,7 +15,7 @@ class DeviceTokenController extends Controller
     public function __invoke(PollDeviceTokenRequest $request, DeviceFlow $deviceFlow): JsonResponse
     {
         try {
-            ['token' => $token, 'device' => $device] = $deviceFlow->poll($request->validated('device_code'), DeviceKind::Phone);
+            ['token' => $token, 'device' => $device] = $deviceFlow->poll($request->validated('device_code'), DeviceKind::Phone, $request->validated('request_id'));
         } catch (DeviceFlowException $exception) {
             return response()->json(['error' => $exception->errorCode, 'message' => $exception->getMessage()], 400);
         }

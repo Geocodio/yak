@@ -18,4 +18,4 @@ The first protocol: device flow sign-in, `me`, repository resolution, teleport a
 
 The first protocol: error contract, phone devices, pairing, `instance` and `me`.
 
-`POST device/pair` takes an optional `request_id` (a UUID). A repeat with the same code and `request_id` inside the code's 120 seconds returns the first response, so a lost response can be retried. `POST device/token` answers a repeated poll with the same response for 60 seconds after the first success.
+`POST device/pair` takes an optional `request_id` (a UUID). A repeat with the same code and `request_id` inside the code's 120 seconds returns the first response, so a lost response can be retried. `POST device/token` also takes an optional `request_id` (a UUID). A repeat with the same `device_code` and `request_id` within 60 seconds of the first success returns the same response, and still honors the poll interval. A poll without a matching `request_id` never gets the token a second time.

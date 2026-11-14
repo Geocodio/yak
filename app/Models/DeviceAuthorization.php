@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $user_id
  * @property int|null $device_id
  * @property string|null $encrypted_token
+ * @property string|null $request_id_hash
  * @property CarbonImmutable|null $last_polled_at
  * @property CarbonImmutable|null $redeemed_at
  * @property int $poll_interval
@@ -42,7 +43,7 @@ class DeviceAuthorization extends Model
     protected $guarded = [];
 
     /** @var list<string> */
-    protected $hidden = ['encrypted_token'];
+    protected $hidden = ['encrypted_token', 'request_id_hash'];
 
     /** @var array<string, mixed> */
     protected $attributes = [

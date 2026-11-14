@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -21,6 +22,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        foreach (['device_authorizations', 'devices'] as $tableName) {
+            DB::table($tableName)->where('kind', 'phone')->delete();
+        }
+
         foreach (['devices', 'device_authorizations'] as $tableName) {
             Schema::table($tableName, function (Blueprint $table) {
                 $table->dropColumn(['kind', 'model', 'app_version']);

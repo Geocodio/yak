@@ -40,36 +40,20 @@ class AuthenticateDevice
             return $this->reject('unauthenticated', ClientApi::unauthenticatedMessage($isPhoneRoute ? 'app' : 'cli'));
         }
 
-        $failureKey = 'device-token-failures:' . $request->ip();
-
-        if (RateLimiter::tooManyAttempts($failureKey, self::FAILED_CHECKS_PER_MINUTE)) {
-            throw new ThrottleRequestsException('Too Many Attempts.', null, ['Retry-After' => RateLimiter::availableIn($failureKey)]);
-        }
-
         $device = $this->deviceTokens->resolve($token);
 
-        if ($device === null) {
-            RateLimiter::hit($failureKey);
-
-            return $this->reject('invalid_token', $notRecognized);
-        }
-
-        if ($device->kind !== $expectedKind) {
-            RateLimiter::hit($failureKey);
-
-            return $this->reject('invalid_token', $isPhoneRoute ? 'This token does not belong to a phone. Pair this device with Yak again.' : 'This token does not belong to a computer. Run yak login.');
+        if ($device === null || $device->kind !== $expectedKind) {
+            return $this->fail($request, 'invalid_token', $device === null ? $notRecognized : ($isPhoneRoute ? 'This token does not belong to a phone. Pair this device with Yak again.' : 'This token does not belong to a computer. Run yak login.'));
         }
 
         if ($device->isRevoked()) {
-            return $this->reject('device_revoked', $isPhoneRoute ? 'This phone was removed in Yak. Pair it with Yak again.' : 'This computer was removed in Yak. Run yak login to connect it again.');
+            return $this->fail($request, 'device_revoked', $isPhoneRoute ? 'This phone was removed in Yak. Pair it with Yak again.' : 'This computer was removed in Yak. Run yak login to connect it again.');
         }
 
         $user = $device->user;
 
         if ($user === null) {
-            RateLimiter::hit($failureKey);
-
-            return $this->reject('invalid_token', $notRecognized);
+            return $this->fail($request, 'invalid_token', $notRecognized);
         }
 
         if ($device->last_seen_at === null || $device->last_seen_at->lt(now()->subSeconds(60))) {
@@ -90,6 +74,22 @@ class AuthenticateDevice
     private function appVersion(Request $request): ?string
     {
         return preg_match('/^YakApp\/([0-9A-Za-z.+-]{1,32})(?:\s|$)/', (string) $request->userAgent(), $matches) === 1 ? $matches[1] : null;
+    }
+
+    /**
+     * Only a failed check touches the per-address limiter, so a valid token is never refused because of other clients on the same address.
+     */
+    private function fail(Request $request, string $error, string $message): Response
+    {
+        $failureKey = 'device-token-failures:' . $request->ip();
+
+        if (RateLimiter::tooManyAttempts($failureKey, self::FAILED_CHECKS_PER_MINUTE)) {
+            throw new ThrottleRequestsException('Too Many Attempts.', null, ['Retry-After' => RateLimiter::availableIn($failureKey)]);
+        }
+
+        RateLimiter::hit($failureKey);
+
+        return $this->reject($error, $message);
     }
 
     private function reject(string $error, string $message): Response

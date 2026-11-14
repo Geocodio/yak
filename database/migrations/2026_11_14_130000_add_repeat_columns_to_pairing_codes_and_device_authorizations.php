@@ -15,6 +15,7 @@ return new class extends Migration
 
         Schema::table('device_authorizations', function (Blueprint $table) {
             $table->timestamp('redeemed_at')->nullable();
+            $table->char('request_id_hash', 64)->nullable();
         });
     }
 
@@ -25,7 +26,7 @@ return new class extends Migration
         });
 
         Schema::table('device_authorizations', function (Blueprint $table) {
-            $table->dropColumn('redeemed_at');
+            $table->dropColumn(['redeemed_at', 'request_id_hash']);
         });
     }
 };

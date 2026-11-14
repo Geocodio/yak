@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Devices\DeviceApprovalController;
 use App\Http\Resources\AppDeviceData;
 use App\Services\Devices\DeviceFlow;
 use App\Services\Devices\DeviceTokens;
@@ -54,6 +55,10 @@ it('marks every secret carrying parameter as sensitive', function (string $class
     [PairingCodes::class, 'redeem', 'code'],
     [PairingCodes::class, 'qrPayload', 'code'],
     [DeviceFlow::class, 'poll', 'deviceCode'],
+    [DeviceFlow::class, 'poll', 'requestId'],
+    [DeviceFlow::class, 'find', 'userCode'],
+    [DeviceFlow::class, 'findInAnyState', 'userCode'],
+    [DeviceApprovalController::class, 'backToPage', 'code'],
     [AppDeviceData::class, 'pairing', 'token'],
 ]);
 

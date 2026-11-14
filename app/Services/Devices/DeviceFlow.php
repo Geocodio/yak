@@ -51,7 +51,7 @@ class DeviceFlow
         return ['device_code' => $deviceCode, 'authorization' => $authorization];
     }
 
-    public function find(string $userCode): ?DeviceAuthorization
+    public function find(#[\SensitiveParameter] string $userCode): ?DeviceAuthorization
     {
         $authorization = $this->findInAnyState($userCode);
 
@@ -61,7 +61,7 @@ class DeviceFlow
     /**
      * Looks a typed code up by its normalised form whatever the row's state, so the page can tell expired from unknown.
      */
-    public function findInAnyState(string $userCode): ?DeviceAuthorization
+    public function findInAnyState(#[\SensitiveParameter] string $userCode): ?DeviceAuthorization
     {
         $normalized = strtoupper((string) preg_replace('/[\s-]+/', '', $userCode));
 
@@ -117,9 +117,9 @@ class DeviceFlow
      *
      * @throws DeviceFlowException
      */
-    public function poll(#[\SensitiveParameter] string $deviceCode, DeviceKind $kind = DeviceKind::Computer): array
+    public function poll(#[\SensitiveParameter] string $deviceCode, DeviceKind $kind = DeviceKind::Computer, #[\SensitiveParameter] ?string $requestId = null): array
     {
-        $outcome = DB::transaction(function () use ($deviceCode, $kind): array|DeviceFlowException {
+        $outcome = DB::transaction(function () use ($deviceCode, $kind, $requestId): array|DeviceFlowException {
             $authorization = DeviceAuthorization::query()
                 ->lockForUpdate()
                 ->where('device_code_hash', $this->deviceTokens->hash($deviceCode))
@@ -127,7 +127,7 @@ class DeviceFlow
                 ->first();
 
             if ($authorization !== null && $authorization->status === 'redeemed') {
-                return $this->repeat($authorization, $kind);
+                return $this->repeat($authorization, $kind, $requestId);
             }
 
             if ($authorization === null || $authorization->isExpired()) {
@@ -138,11 +138,7 @@ class DeviceFlow
                 return new DeviceFlowException('access_denied', $kind === DeviceKind::Phone ? 'The sign-in was turned down in the browser. Start pairing again in the app.' : 'The sign-in was denied.');
             }
 
-            $lastPolledAt = $authorization->last_polled_at;
-
-            if ($lastPolledAt !== null && $lastPolledAt->diffInSeconds(now(), true) < $authorization->poll_interval) {
-                $authorization->update(['last_polled_at' => now(), 'poll_interval' => $authorization->poll_interval + 5]);
-
+            if ($this->isPolledTooFast($authorization)) {
                 return new DeviceFlowException('slow_down', 'Polling too fast. Wait longer between requests.');
             }
 
@@ -153,7 +149,12 @@ class DeviceFlow
             }
 
             $token = Crypt::decryptString($authorization->encrypted_token);
-            $authorization->update(['status' => 'redeemed', 'redeemed_at' => now()]);
+            $authorization->update([
+                'status' => 'redeemed',
+                'redeemed_at' => now(),
+                'request_id_hash' => $requestId !== null ? $this->deviceTokens->hash($requestId) : null,
+                'encrypted_token' => $requestId !== null ? $authorization->encrypted_token : null,
+            ]);
 
             return ['token' => $token, 'device' => $authorization->device];
         });
@@ -166,21 +167,47 @@ class DeviceFlow
     }
 
     /**
-     * The first poll's answer for a repeat inside the window; after it the kept token is cleared and the code is gone.
+     * Records the poll; true (and a longer interval) when it came sooner than the interval allows.
+     */
+    private function isPolledTooFast(DeviceAuthorization $authorization): bool
+    {
+        $lastPolledAt = $authorization->last_polled_at;
+
+        if ($lastPolledAt !== null && $lastPolledAt->diffInSeconds(now(), true) < $authorization->poll_interval) {
+            $authorization->update(['last_polled_at' => now(), 'poll_interval' => $authorization->poll_interval + 5]);
+
+            return true;
+        }
+
+        $authorization->update(['last_polled_at' => now()]);
+
+        return false;
+    }
+
+    /**
+     * The first poll's answer for a repeat that carries the same request id inside the window; otherwise the kept token is cleared once the window has passed and the code is gone.
      *
      * @return array{token: string, device: Device}|DeviceFlowException
      */
-    private function repeat(DeviceAuthorization $authorization, DeviceKind $kind): array|DeviceFlowException
+    private function repeat(DeviceAuthorization $authorization, DeviceKind $kind, #[\SensitiveParameter] ?string $requestId): array|DeviceFlowException
     {
         $device = $authorization->device;
         $isWithinWindow = $authorization->redeemed_at !== null && $authorization->redeemed_at->diffInSeconds(now(), true) < self::REPEAT_WINDOW_SECONDS;
 
-        if ($isWithinWindow && $authorization->encrypted_token !== null && $device !== null) {
-            return ['token' => Crypt::decryptString($authorization->encrypted_token), 'device' => $device];
+        if (! $isWithinWindow && $authorization->encrypted_token !== null) {
+            $authorization->update(['encrypted_token' => null, 'request_id_hash' => null]);
         }
 
-        if ($authorization->encrypted_token !== null) {
-            $authorization->update(['encrypted_token' => null]);
+        if (
+            $isWithinWindow && $requestId !== null && $device !== null
+            && $authorization->encrypted_token !== null && $authorization->request_id_hash !== null
+            && hash_equals($authorization->request_id_hash, $this->deviceTokens->hash($requestId))
+        ) {
+            if ($this->isPolledTooFast($authorization)) {
+                return new DeviceFlowException('slow_down', 'Polling too fast. Wait longer between requests.');
+            }
+
+            return ['token' => Crypt::decryptString($authorization->encrypted_token), 'device' => $device];
         }
 
         return new DeviceFlowException('expired_token', $kind === DeviceKind::Phone ? 'This sign-in code expired. Start pairing again in the app.' : 'This sign-in code expired. Run yak login again.');
