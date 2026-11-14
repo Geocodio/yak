@@ -5,6 +5,7 @@ use App\Enums\ThreadSandboxState;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Models\ThreadDiff;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
@@ -169,4 +170,25 @@ test('a repeated keydown does not run a hotkey', function () {
     // The same key without `repeat` proves the app was ready to react to the first one.
     $page->script(sprintf($questionMark, 'false'));
     $page->assertVisible('[data-testid="shortcuts-dialog"]');
+});
+
+test('the slash key focuses the changed files filter without typing a slash', function () {
+    $thread = Thread::factory()->create();
+    ThreadDiff::factory()->for($thread)->withFiles(1)->create();
+    $this->actingAs(User::factory()->create());
+
+    visit(route('threads.show', $thread))
+        ->click('[data-testid="thread-dock-toggle-files"]')
+        ->assertPresent('[data-testid="changes-pane"]')
+        ->keys('[data-testid="app-shell"]', ['/'])
+        ->assertScript('document.activeElement.getAttribute("aria-label")', 'Filter files')
+        ->assertScript('document.activeElement.value', '');
+});
+
+test('the bracket key toggles the sidebar', function () {
+    $this->actingAs(User::factory()->create());
+
+    visit('/threads/new')->assertAttributeMissing('[data-testid="sidebar-panel"]', 'aria-hidden')
+        ->keys('[data-testid="app-shell"]', ['['])
+        ->assertAttribute('[data-testid="sidebar-panel"]', 'aria-hidden', 'true');
 });

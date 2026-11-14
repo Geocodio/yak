@@ -2,6 +2,9 @@ import { Button, Select, Tooltip, cn } from '@geocodio/console-ui';
 import { usePage } from '@inertiajs/react';
 import { Check, Columns2, GitBranch, Globe, GitPullRequest, Keyboard, Rows2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { THREAD_GROUP } from '@/commandPalette/threadPageActions';
+import type { PaletteAction } from '@/commandPalette/types';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadDiffFile } from '@/types/thread-changes';
@@ -63,18 +66,8 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
         setViewed(readViewed(viewedStorageKey));
     }, [viewedStorageKey]);
 
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            const target = event.target as HTMLElement | null;
-            const isTyping = target !== null && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-            if (event.key === '/' && !isTyping) {
-                event.preventDefault();
-                filterInput.current?.focus();
-            }
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, []);
+    const filterActions = useMemo<PaletteAction[]>(() => [{ id: 'changes-filter-files', label: 'Filter changed files', keywords: ['filter', 'search', 'find', 'changes', 'diff'], shortcut: 'filterChangedFiles', run: () => filterInput.current?.focus() }], []);
+    useCommandPaletteActions(THREAD_GROUP, filterActions);
 
     const repositories = diff?.repositories ?? [];
     const hasSeveralRepositories = repositories.length > 1;

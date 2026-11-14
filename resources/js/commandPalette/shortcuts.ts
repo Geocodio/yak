@@ -3,6 +3,7 @@ export const SHORTCUTS = {
     openPalette: { keys: ['mod', 'K'], label: 'Open the command palette', group: 'General' },
     showShortcuts: { keys: ['?'], label: 'Keyboard shortcuts', group: 'General' },
     newThread: { keys: ['C'], label: 'New thread', group: 'General' },
+    toggleSidebar: { keys: ['['], label: 'Toggle the sidebar', group: 'General' },
     goHome: { keys: ['G', 'H'], label: 'Go to Home', group: 'General' },
     nextNeedsYou: { keys: ['G', 'N'], label: 'Next thread that needs you', group: 'General' },
     openPreview: { keys: ['G', 'P'], label: 'Open preview in a new window', group: 'Thread' },
@@ -10,6 +11,7 @@ export const SHORTCUTS = {
     showTerminal: { keys: ['G', 'T'], label: 'Show terminal', group: 'Thread' },
     showConversation: { keys: ['G', 'C'], label: 'Show conversation', group: 'Thread' },
     openPullRequest: { keys: ['G', 'R'], label: 'Open pull request on GitHub', group: 'Thread' },
+    filterChangedFiles: { keys: ['/'], label: 'Filter changed files', group: 'Changes' },
 } as const;
 
 export type ShortcutId = keyof typeof SHORTCUTS;

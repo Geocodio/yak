@@ -1,6 +1,8 @@
 import { usePage } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import type { PaletteAction } from '@/commandPalette/types';
 import { IconRail } from '@/components/shell/IconRail';
 import { SectionPanel } from '@/components/shell/SectionPanel';
 import { sectionForUrl, type RailSection } from '@/components/shell/sections';
@@ -78,23 +80,12 @@ export function ShellSidebar() {
         }
     };
 
-    // The "[" shortcut reads the latest toggle without re-binding the listener.
+    // The registered action reads the latest toggle without re-registering.
     const togglePanelRef = useRef(togglePanel);
     togglePanelRef.current = togglePanel;
 
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            const target = event.target;
-            const isTyping = target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
-            if (event.key !== '[' || event.metaKey || event.ctrlKey || event.altKey || isTyping) {
-                return;
-            }
-            togglePanelRef.current();
-        };
-        window.addEventListener('keydown', onKeyDown);
-
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, []);
+    const actions = useMemo<PaletteAction[]>(() => [{ id: 'toggle-sidebar', label: 'Toggle the sidebar', keywords: ['sidebar', 'collapse', 'hide', 'show', 'threads', 'panel'], shortcut: 'toggleSidebar', run: () => togglePanelRef.current() }], []);
+    useCommandPaletteActions('Go to', actions);
 
     return (
         <aside className="hidden shrink-0 border-r border-hair bg-sidebar lg:flex" data-testid="sidebar">
