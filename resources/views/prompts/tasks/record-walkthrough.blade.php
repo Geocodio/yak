@@ -1,6 +1,10 @@
 The person asked for a walkthrough video and screenshots of the change already on this branch. Do not change any code unless the capture shows the feature is broken.
 
-Follow the VISUAL CAPTURE rules in your system prompt exactly:
+Follow these VISUAL CAPTURE rules exactly. They are the same rules as rule 6 of your standing instructions, repeated here so this request carries everything it needs:
+
+@include('prompts.partials.visual-capture')
+
+In short:
 
 1. Phase A: start the dev server, log in if needed, and confirm the change works on the real feature surface.
 2. Phase B: write `.yak-artifacts/script.json`, then record the shots with `yak-browser`, and capture the screenshots with captions in `.yak-artifacts/screenshots/`.
