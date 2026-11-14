@@ -8,6 +8,7 @@ use Database\Factories\ThreadTurnMessageFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * One UUID sent to the runner during a turn, with its lifecycle state.
@@ -55,5 +56,13 @@ class ThreadTurnMessage extends Model
     public function pendingSteeringMessage(): BelongsTo
     {
         return $this->belongsTo(PendingSteeringMessage::class);
+    }
+
+    /**
+     * @return HasMany<TaskAttachment, $this>
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(TaskAttachment::class);
     }
 }

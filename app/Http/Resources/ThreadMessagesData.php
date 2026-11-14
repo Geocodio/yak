@@ -6,6 +6,7 @@ use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Support\AttachmentReferences;
@@ -25,10 +26,17 @@ final class ThreadMessagesData
     {
         $rows = ThreadTurnMessage::query()
             ->whereHas('taskRun', fn ($runs) => $runs->where('thread_id', $thread->id))
-            ->with(['taskRun.task.attachments', 'taskRun.driver', 'pendingSteeringMessage.attachments'])
+            ->with(['taskRun.task.attachments', 'taskRun.driver', 'pendingSteeringMessage.attachments', 'attachments'])
             ->orderBy('created_at')
             ->orderBy('id')
             ->get();
+
+        // Files sent before messages carried their own belong to the task's first run.
+        $firstRunIds = TaskRun::query()
+            ->whereIn('yak_task_id', $rows->pluck('taskRun.yak_task_id')->filter()->unique())
+            ->groupBy('yak_task_id')
+            ->selectRaw('min(id) as id')
+            ->pluck('id');
 
         $messages = [];
 
@@ -46,10 +54,12 @@ final class ThreadMessagesData
                 continue;
             }
 
-            // The run's own request is the thread's first message; its files are the task's request attachments.
+            // A message shows the files it carried; the task's unlinked request files belong to its first run.
             $files = $steer !== null
                 ? $steer->attachments
-                : ($run->task?->attachments->where('context', TaskAttachment::CONTEXT_REQUEST) ?? collect());
+                : $row->attachments->concat($firstRunIds->contains($run->id)
+                    ? ($run->task?->attachments->where('context', TaskAttachment::CONTEXT_REQUEST)->whereNull('thread_turn_message_id') ?? [])
+                    : [])->unique('id')->values();
             $attachments = array_values($files->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all());
             $text = $steer !== null ? $steer->text : ($row->text ?? (string) $run->task?->description);
             $references = array_values(array_filter(array_column($attachments, 'reference')));

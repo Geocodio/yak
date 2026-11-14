@@ -1,7 +1,7 @@
 export type UnsentStatus = 'queued' | 'sending' | 'slow' | 'waiting' | 'refused';
 
 /** A message the person sent that the server has not confirmed yet. */
-export type UnsentMessage = { key: string; text: string; model: string | null; status: UnsentStatus; reason: string | null; createdAt: string };
+export type UnsentMessage = { key: string; text: string; model: string | null; files: File[]; refs: string[]; status: UnsentStatus; reason: string | null; createdAt: string };
 
 export type PostOutcome = { kind: 'sent'; redirect?: string } | { kind: 'refused'; reason: string } | { kind: 'unreachable' };
 
@@ -79,8 +79,8 @@ export function createOutbox(options: OutboxOptions) {
             return () => listeners.delete(listener);
         },
         messages: (threadId: string): UnsentMessage[] => queues.get(threadId) ?? EMPTY,
-        enqueue(threadId: string, text: string, model: string | null): void {
-            write(threadId, [...(queues.get(threadId) ?? EMPTY), { key: newKey(), text, model, status: 'queued', reason: null, createdAt: new Date().toISOString() }]);
+        enqueue(threadId: string, text: string, model: string | null, files: File[] = [], refs: string[] = []): void {
+            write(threadId, [...(queues.get(threadId) ?? EMPTY), { key: newKey(), text, model, files, refs, status: 'queued', reason: null, createdAt: new Date().toISOString() }]);
             void pump(threadId);
         },
         retry,

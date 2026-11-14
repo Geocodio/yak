@@ -21,6 +21,7 @@ use App\Models\YakTask;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use App\Services\Stacks\ResearchChildRunner;
+use App\Services\TaskAttachmentStager;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\Services\Teleport\ThreadOwnership;
 use App\Services\Threads\Repos\ThreadGitHubCredentials;
@@ -115,13 +116,14 @@ class ThreadTurns
      *
      * $intent names a request the dashboard made for the person, such as add_preview_manifest.
      * $shownText is what the timeline shows as the person's message when it differs from $prompt.
+     * $storeAttachments saves the message's files before the turn goes out, so dispatchTurn can stage them.
      *
      * @throws ThreadBusy when the thread already runs a turn
      * @throws ThreadNotOwnedByYak when a device owns the thread or a teleport is open
      */
-    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null): TaskRun
+    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null, ?Closure $storeAttachments = null): TaskRun
     {
-        [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent): array {
+        [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
 
@@ -161,7 +163,11 @@ class ThreadTurns
                 'turn_state' => TurnState::Pending,
                 'started_at' => now(),
             ]);
-            ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText, 'intent' => $intent]);
+            $message = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText, 'intent' => $intent]);
+
+            if ($storeAttachments !== null) {
+                $storeAttachments($message);
+            }
 
             $thread->forceFill([
                 'lock_holder' => ThreadLockHolder::Sandbox,
@@ -216,7 +222,7 @@ class ThreadTurns
         $run->forceFill(['turn_state' => TurnState::Running])->save();
 
         try {
-            $this->commands->turn($thread, (string) $run->prompt_uuid, (string) $run->prompt);
+            $this->commands->turn($thread, (string) $run->prompt_uuid, $this->promptWithAttachments($thread, $run));
         } catch (Throwable $exception) {
             $run->forceFill(['turn_state' => $waitingState])->save();
 
@@ -226,6 +232,23 @@ class ThreadTurns
         if (in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForAccount, ThreadBlockReason::WaitingForSandbox], true)) {
             $thread->forceFill(['blocked_reason' => null, 'blocked_at' => null])->save();
         }
+    }
+
+    /**
+     * The run's prompt followed by the files its message carried, pushed into the sandbox.
+     */
+    private function promptWithAttachments(Thread $thread, TaskRun $run): string
+    {
+        $attachments = ThreadTurnMessage::query()->where('uuid', $run->prompt_uuid)->first()?->attachments->all() ?? [];
+        $prompt = (string) $run->prompt;
+
+        if ($attachments === []) {
+            return $prompt;
+        }
+
+        $staged = (new TaskAttachmentStager(ThreadShell::for($thread)))->stage((string) $thread->sandbox_container, $attachments);
+
+        return $staged === '' ? $prompt : rtrim($prompt) . "\n\n" . $staged;
     }
 
     /**
