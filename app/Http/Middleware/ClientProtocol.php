@@ -12,7 +12,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Enforces the protocol version of the CLI or app API and stamps the server's protocol range on every response.
+ * Enforces the protocol version of the CLI or app API. StampClientProtocol adds the server's range to every response.
  */
 class ClientProtocol
 {
@@ -42,7 +42,7 @@ class ClientProtocol
         $request->attributes->set('client_protocol', $client);
 
         if ($client < $minimum) {
-            $response = response()->json([
+            return response()->json([
                 'error' => 'protocol_too_old',
                 'message' => $api === 'app'
                     ? 'This build of the Yak app is too old for this Yak. Install the latest build.'
@@ -53,13 +53,8 @@ class ClientProtocol
                     'client_protocol' => $client,
                 ],
             ], 426);
-        } else {
-            $response = $next($request);
         }
 
-        $response->headers->set('X-Yak-Protocol', (string) $current);
-        $response->headers->set('X-Yak-Min-Protocol', (string) $minimum);
-
-        return $response;
+        return $next($request);
     }
 }

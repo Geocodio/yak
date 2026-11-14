@@ -457,7 +457,7 @@ Route::prefix('api/cli/v1')->middleware('client.protocol:cli')->withoutMiddlewar
 });
 
 // App discovery: public and outside the protocol check, so an app that is too old can still read the supported range.
-Route::get('api/app/v1/instance', AppInstanceController::class)->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->name('app.instance');
+Route::get('api/app/v1/instance', AppInstanceController::class)->middleware('throttle:app-instance')->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->name('app.instance');
 
 // App API: phones, authenticated by device tokens of kind phone.
 Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->group(function (): void {

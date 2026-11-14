@@ -7,6 +7,7 @@ use App\Http\Middleware\ClientProtocol;
 use App\Http\Middleware\EnsureTaskDriveRights;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
+use App\Http\Middleware\StampClientProtocol;
 use App\Http\Middleware\VerifySessionStoreToken;
 use App\Http\Middleware\VerifySshInternalToken;
 use App\Http\Responses\CliError;
@@ -18,6 +19,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +27,7 @@ use Illuminate\Http\Response;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -38,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
         PollCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(StampClientProtocol::class);
         $middleware->trustProxies(at: ['127.0.0.1', '172.16.0.0/12']);
         $middleware->alias([
             'restrict-to-ingress' => RestrictToIngress::class,
@@ -123,5 +127,22 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json(['error' => 'not_found', 'message' => 'Not found.'], 404);
+        });
+        $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            $status = $e->getStatusCode();
+
+            return response()->json(['error' => ClientApi::errorCodeForStatus($status), 'message' => $status === 405 ? 'This endpoint does not accept that method.' : 'Yak could not handle this request.'], $status, $e->getHeaders());
+        });
+        // Registered last: anything no renderer above claimed is a server error, and the client never sees HTML or the detail.
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if (ClientApi::for($request) === null || $e instanceof HttpResponseException) {
+                return null;
+            }
+
+            return response()->json(['error' => 'server_error', 'message' => 'Yak could not handle this request. Try again.'], 500);
         });
     })->create();

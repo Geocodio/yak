@@ -7,9 +7,11 @@ use App\Models\Device;
 use App\Services\Devices\DeviceTokens;
 use App\Support\ClientApi;
 use Closure;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -17,6 +19,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class AuthenticateDevice
 {
+    public const FAILED_CHECKS_PER_MINUTE = 60;
+
     public function __construct(private DeviceTokens $deviceTokens, private ThrottleRequests $throttle) {}
 
     public static function device(Request $request): Device
@@ -36,13 +40,23 @@ class AuthenticateDevice
             return $this->reject('unauthenticated', ClientApi::unauthenticatedMessage($isPhoneRoute ? 'app' : 'cli'));
         }
 
+        $failureKey = 'device-token-failures:' . $request->ip();
+
+        if (RateLimiter::tooManyAttempts($failureKey, self::FAILED_CHECKS_PER_MINUTE)) {
+            throw new ThrottleRequestsException('Too Many Attempts.', null, ['Retry-After' => RateLimiter::availableIn($failureKey)]);
+        }
+
         $device = $this->deviceTokens->resolve($token);
 
         if ($device === null) {
+            RateLimiter::hit($failureKey);
+
             return $this->reject('invalid_token', $notRecognized);
         }
 
         if ($device->kind !== $expectedKind) {
+            RateLimiter::hit($failureKey);
+
             return $this->reject('invalid_token', $isPhoneRoute ? 'This token does not belong to a phone. Pair this device with Yak again.' : 'This token does not belong to a computer. Run yak login.');
         }
 
@@ -53,6 +67,8 @@ class AuthenticateDevice
         $user = $device->user;
 
         if ($user === null) {
+            RateLimiter::hit($failureKey);
+
             return $this->reject('invalid_token', $notRecognized);
         }
 
