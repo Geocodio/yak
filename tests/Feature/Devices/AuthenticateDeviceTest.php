@@ -76,3 +76,60 @@ it('sets no session cookie', function () {
 
     expect($response->headers->getCookies())->toBeEmpty();
 });
+
+function deviceWithToken(array $attributes = []): array
+{
+    $token = app(DeviceTokens::class)->generate();
+    $device = Device::factory()->create(['token_hash' => app(DeviceTokens::class)->hash($token)] + $attributes);
+
+    return [$device, $token];
+}
+
+it('admits only the matching kind of device', function (string $routeKind, string $deviceKind, int $status) {
+    Route::middleware(['web', 'client.protocol:app', "auth.device:{$routeKind}"])->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)
+        ->get('/api/app/v1/test-kind', fn () => response()->json(['ok' => true]));
+    [, $token] = deviceWithToken(['kind' => $deviceKind]);
+
+    $this->getJson('/api/app/v1/test-kind', ['X-Yak-Protocol' => '1', 'Authorization' => "Bearer {$token}"])->assertStatus($status);
+})->with([['phone', 'phone', 200], ['phone', 'computer', 401], ['computer', 'phone', 401], ['computer', 'computer', 200]]);
+
+it('answers invalid_token for the wrong kind and device_revoked for a revoked phone', function () {
+    Route::middleware(['web', 'client.protocol:app', 'auth.device:phone'])->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)
+        ->get('/api/app/v1/test-kind', fn () => response()->json(['ok' => true]));
+    $headers = fn (string $token) => ['X-Yak-Protocol' => '1', 'Authorization' => "Bearer {$token}"];
+
+    [, $computerToken] = deviceWithToken();
+    $this->getJson('/api/app/v1/test-kind', $headers($computerToken))->assertUnauthorized()
+        ->assertJsonPath('error', 'invalid_token')
+        ->assertJsonPath('message', 'This token does not belong to a phone. Pair this device with Yak again.');
+
+    [, $revokedToken] = deviceWithToken(['kind' => 'phone', 'revoked_at' => now()]);
+    $this->getJson('/api/app/v1/test-kind', $headers($revokedToken))->assertUnauthorized()->assertJsonPath('error', 'device_revoked');
+
+    $this->getJson('/api/app/v1/test-kind', ['X-Yak-Protocol' => '1'])->assertUnauthorized()->assertJsonPath('error', 'unauthenticated');
+});
+
+it('records the app version from the User-Agent', function () {
+    Route::middleware(['web', 'client.protocol:app', 'auth.device:phone'])->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)
+        ->get('/api/app/v1/test-kind', fn () => response()->json(['ok' => true]));
+    [$device, $token] = deviceWithToken(['kind' => 'phone', 'app_version' => '1.0.0']);
+    $headers = ['X-Yak-Protocol' => '1', 'Authorization' => "Bearer {$token}"];
+
+    $this->getJson('/api/app/v1/test-kind', $headers + ['User-Agent' => 'YakApp/(garbage)'])->assertOk();
+    expect($device->fresh()->app_version)->toBe('1.0.0');
+
+    $this->travel(2)->minutes();
+    $this->getJson('/api/app/v1/test-kind', $headers + ['User-Agent' => 'YakApp/1.2.0 (27.2.1; iPhone19,4)'])->assertOk();
+    expect($device->fresh()->app_version)->toBe('1.2.0');
+
+    $this->travel(2)->minutes();
+    $this->getJson('/api/app/v1/test-kind', $headers + ['User-Agent' => 'curl/8'])->assertOk();
+    expect($device->fresh()->app_version)->toBe('1.2.0');
+});
+
+it('keeps a phone out of every CLI route', function () {
+    [, $token] = deviceWithToken(['kind' => 'phone']);
+
+    $this->getJson('/api/cli/v1/me', ['X-Yak-Protocol' => '1', 'Authorization' => "Bearer {$token}"])
+        ->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
+});

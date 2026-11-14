@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Services\Threads\ThreadAccess;
 
 /**
- * A paired computer on Settings > Devices. Mirrored by resources/js/types/devices.ts.
+ * A paired computer or phone on Settings > Devices. Mirrored by resources/js/types/devices.ts.
  */
 final class DeviceData
 {
@@ -15,8 +15,11 @@ final class DeviceData
      * @return array{
      *     id: int,
      *     name: string,
-     *     os: string,
-     *     arch: string,
+     *     kind: string,
+     *     model: ?string,
+     *     appVersion: ?string,
+     *     os: ?string,
+     *     arch: ?string,
      *     cli_version: ?string,
      *     paired_at: string,
      *     last_seen_at: ?string,
@@ -36,6 +39,9 @@ final class DeviceData
         return [
             'id' => $device->id,
             'name' => $device->name,
+            'kind' => $device->kind->value,
+            'model' => $device->model,
+            'appVersion' => $device->app_version,
             'os' => $device->os,
             'arch' => $device->arch,
             'cli_version' => $device->cli_version,

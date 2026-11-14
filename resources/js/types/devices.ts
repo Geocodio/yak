@@ -16,8 +16,11 @@ export type DeviceApproval = {
 export type Device = {
     id: number;
     name: string;
-    os: string;
-    arch: string;
+    kind: 'computer' | 'phone';
+    model: string | null;
+    appVersion: string | null;
+    os: string | null;
+    arch: string | null;
     cli_version: string | null;
     paired_at: string;
     last_seen_at: string | null;

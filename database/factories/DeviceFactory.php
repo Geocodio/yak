@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\DeviceKind;
 use App\Models\Device;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -27,6 +28,19 @@ class DeviceFactory extends Factory
             'cli_version' => '0.1.0',
             'token_hash' => hash('sha256', 'yakdev_' . Str::random(40)),
         ];
+    }
+
+    public function phone(): static
+    {
+        return $this->state(fn () => [
+            'kind' => DeviceKind::Phone,
+            'name' => fake()->firstName() . "'s iPhone",
+            'model' => 'iPhone19,4',
+            'os' => '27.2.1',
+            'arch' => null,
+            'cli_version' => null,
+            'app_version' => '1.0.0',
+        ]);
     }
 
     public function revoked(): static

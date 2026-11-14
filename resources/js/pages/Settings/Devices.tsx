@@ -1,6 +1,6 @@
 import { Deferred, Head, Link, router } from '@inertiajs/react';
 import { Badge, Button, ConfirmDialog, EmptyState, Skeleton, StatusPill } from '@geocodio/console-ui';
-import { AlertTriangle, Check, Monitor, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, Monitor, RefreshCw, Smartphone, Trash2 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Card } from '@/components/accounts/AccountsSection';
 import { AddComputerCard } from '@/components/settings/devices/AddComputerCard';
@@ -69,19 +69,21 @@ function EmptyDevices() {
 
 function DeviceRow({ device, onRevoke }: { device: Device; onRevoke: (device: Device) => void }) {
     const owned = device.owned_threads[0];
-    const system = systemLabel(device.os, device.arch);
+    const detail = device.kind === 'phone'
+        ? [device.model, device.os ? `iOS ${device.os}` : null, device.appVersion ? `Yak app ${device.appVersion}` : 'Yak app'].filter(Boolean).join(' \u00b7 ')
+        : `${systemLabel(device.os ?? '', device.arch ?? '')} \u00b7 ${device.cli_version ? `yak ${device.cli_version}` : 'yak'}`;
     const showLastSeen = device.last_seen_at !== null && device.last_seen_at !== device.last_teleport?.at;
 
     return (
         <li className="flex flex-wrap items-start gap-3 px-4 py-3.5" data-testid="device-row">
-            <span className="grid size-8 shrink-0 place-items-center rounded-control bg-brand-soft text-brand"><Monitor size={15} aria-hidden="true" /></span>
+            <span className="grid size-8 shrink-0 place-items-center rounded-control bg-brand-soft text-brand">{device.kind === 'phone' ? <Smartphone size={15} aria-hidden="true" /> : <Monitor size={15} aria-hidden="true" />}</span>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[13.5px] font-medium">{device.name}</span>
                     {owned && <Badge tone="accent">Has the thread &ldquo;{owned.title}&rdquo;</Badge>}
                     {device.is_stale && <StatusPill tone="warn" label={`Not used in ${device.stale_days} days`} />}
                 </div>
-                <p className="text-[12px] text-muted">{system} &middot; {device.cli_version ? `yak ${device.cli_version}` : 'yak'} &middot; paired {shortDate(device.paired_at)}</p>
+                <p className="text-[12px] text-muted">{detail} &middot; paired {shortDate(device.paired_at)}</p>
                 <p className="text-[12px] text-muted">
                     {device.last_teleport
                         ? <>Last teleport {relative(device.last_teleport.at)}: <Link href={showThread.url(device.last_teleport.thread_id)} className={`rounded-[3px] text-accent-text hover:underline ${FOCUS}`}>{device.last_teleport.title}</Link></>

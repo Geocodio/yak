@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DeviceKind;
 use Carbon\CarbonImmutable;
 use Database\Factories\DeviceAuthorizationFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,8 +18,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $device_code_hash
  * @property string $user_code
  * @property string $name
- * @property string $os
- * @property string $arch
+ * @property DeviceKind $kind
+ * @property string|null $model
+ * @property string|null $app_version
+ * @property string|null $os
+ * @property string|null $arch
  * @property string|null $cli_version
  * @property string|null $requested_from_ip
  * @property string $status
@@ -51,6 +55,7 @@ class DeviceAuthorization extends Model
     protected function casts(): array
     {
         return [
+            'kind' => DeviceKind::class,
             'last_polled_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',
         ];
