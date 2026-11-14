@@ -6,9 +6,7 @@ import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/compone
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { outbox } from '@/threads/outbox/useOutbox';
-import { store as storeMessage } from '@/routes/threads/messages';
 import { stop } from '@/routes/threads';
-import type { SharedProps } from '@/types/shared';
 import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice } from '@/types/threads';
 import { composerCopy } from './composerCopy';
 import { ModelPicker } from '@/components/accounts/ModelPicker';
@@ -30,8 +28,6 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
         attachment_refs: [],
     });
     const editorRef = useRef<AttachmentTextareaHandle>(null);
-    // One key per draft: a repeat of a send whose answer was lost reaches the server as the same message.
-    const sendKey = useRef<{ text: string; key: string } | null>(null);
     const disabled = composer.state === 'disabled_closed' || composer.state === 'disabled_computer' || composer.state === 'disabled_blocked' || composer.state === 'readonly';
     const working = composer.state === 'working';
     const copy = composerCopy(notice, composer.state, teleportState);
@@ -56,38 +52,17 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
             return;
         }
 
-        // A text message goes through the send queue: it shows at once and survives a bad link.
-        // A message with files keeps the form post, because an upload needs its own progress display.
-        if (draft.files.length === 0 && draft.refs.length === 0) {
-            if (form.data.message.length > MAX_MESSAGE_LENGTH) {
-                form.setError('message', 'The message must not be longer than 20,000 characters.');
-
-                return;
-            }
-
-            outbox.enqueue(thread.id, form.data.message, form.data.model);
-            form.clearErrors();
-            form.setData('message', '');
+        // Every message goes through the send queue: it shows at once, with its images, and survives a bad link.
+        if (form.data.message.length > MAX_MESSAGE_LENGTH) {
+            form.setError('message', 'The message must not be longer than 20,000 characters.');
 
             return;
         }
-        if (sendKey.current?.text !== form.data.message) {
-            sendKey.current = { text: form.data.message, key: crypto.randomUUID() };
-        }
-        const key = sendKey.current.key;
-        form.transform((data) => ({ ...data, attachments: draft.files, attachment_refs: draft.refs, send_key: key }));
-        form.post(storeMessage.url(thread.id), {
-            preserveScroll: true,
-            onSuccess: (page) => {
-                // A refusal comes back as a flash error on a successful visit; the draft must survive it.
-                if ((page.props as unknown as SharedProps).flash.error) {
-                    return;
-                }
-                sendKey.current = null;
-                form.setData('message', '');
-                draft.clear();
-            },
-        });
+
+        outbox.enqueue(thread.id, form.data.message, form.data.model, draft.files, draft.refs);
+        form.clearErrors();
+        form.setData('message', '');
+        draft.clear();
     };
 
     const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {

@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { Spinner, cn } from '@geocodio/console-ui';
-import type { ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import type { UnsentMessage as UnsentMessageData } from '@/threads/outbox/outbox';
 import type { SharedProps } from '@/types/shared';
 
@@ -16,6 +16,9 @@ function Action({ onClick, testId, children }: { onClick: () => void; testId: st
 export function UnsentMessage({ message, onRetry, onEdit }: { message: UnsentMessageData; onRetry: () => void; onEdit: () => void }) {
     const user = usePage<SharedProps>().props.auth.user;
     const { status } = message;
+    // Object URLs for the pasted images, released when the message leaves the queue.
+    const thumbnails = useMemo(() => message.files.filter((file) => file.type.startsWith('image/')).map((file) => ({ name: file.name, url: URL.createObjectURL(file) })), [message.files]);
+    useEffect(() => () => thumbnails.forEach((thumbnail) => URL.revokeObjectURL(thumbnail.url)), [thumbnails]);
 
     return (
         <div className="flex gap-3" data-testid="thread-message-unsent" data-status={status}>
@@ -23,6 +26,13 @@ export function UnsentMessage({ message, onRetry, onEdit }: { message: UnsentMes
             <div className="min-w-0 flex-1">
                 <div className="text-[12px] font-medium text-muted">{user?.name ?? 'You'}</div>
                 <p className="mt-1 whitespace-pre-wrap break-words text-muted">{message.text}</p>
+                {thumbnails.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2" data-testid="thread-message-unsent-attachments">
+                        {thumbnails.map((thumbnail) => (
+                            <img key={thumbnail.url} src={thumbnail.url} alt={thumbnail.name} className="h-20 max-w-40 rounded-card border border-hair object-cover" />
+                        ))}
+                    </div>
+                )}
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted" role="status" data-testid="thread-message-unsent-status">
                     {(status === 'queued' || status === 'sending' || status === 'slow') && <Spinner size="sm" />}
                     {(status === 'waiting' || status === 'refused') && <span aria-hidden className={cn('size-[7px] shrink-0 rounded-pill', status === 'refused' ? 'bg-fail' : 'bg-faint')} />}

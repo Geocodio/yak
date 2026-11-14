@@ -9,6 +9,7 @@ use App\Http\Requests\Threads\SendThreadMessageRequest;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
+use App\Models\ThreadTurnMessage;
 use App\Services\Threads\ClearCommand;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadBusy;
@@ -93,8 +94,15 @@ class ThreadMessageController extends Controller
                     'record_walkthrough', 'record_walkthrough_and_open_pr' => YakPromptBuilder::recordWalkthroughPrompt(),
                     default => $text,
                 };
-                $turns->start($task, $prompt, $user, $model, shownText: $text, intent: $intent);
-                TaskAttachment::storeFromRequest($request, ['yak_task_id' => $task->id]);
+                $turns->start(
+                    $task,
+                    $prompt,
+                    $user,
+                    $model,
+                    shownText: $text,
+                    intent: $intent,
+                    storeAttachments: fn (ThreadTurnMessage $message) => TaskAttachment::storeFromRequest($request, ['yak_task_id' => $task->id, 'thread_turn_message_id' => $message->id]),
+                );
             } else {
                 $turns->steer(
                     $thread,

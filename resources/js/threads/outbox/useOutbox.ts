@@ -8,11 +8,32 @@ import { createOutbox, type PostOutcome, type UnsentMessage } from './outbox';
 const SEND_TIMEOUT_MS = 30000;
 
 async function post(threadId: string, message: UnsentMessage, signal: AbortSignal): Promise<PostOutcome> {
+    const headers: Record<string, string> = { Accept: 'application/json', 'X-XSRF-TOKEN': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' };
+    let payload: BodyInit;
+
+    // Files go as multipart, which the browser frames itself; plain text stays JSON.
+    if (message.files.length > 0) {
+        const form = new FormData();
+        form.append('message', message.text);
+        form.append('send_key', message.key);
+        if (message.model !== null) {
+            form.append('model', message.model);
+        }
+        message.files.forEach((file, index) => {
+            form.append('attachments[]', file);
+            form.append(`attachment_refs[${index}]`, message.refs[index] ?? '');
+        });
+        payload = form;
+    } else {
+        headers['Content-Type'] = 'application/json';
+        payload = JSON.stringify({ message: message.text, model: message.model, send_key: message.key });
+    }
+
     const response = await fetch(storeMessage.url(threadId), {
         method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+        headers,
         credentials: 'same-origin',
-        body: JSON.stringify({ message: message.text, model: message.model, send_key: message.key }),
+        body: payload,
         signal: AbortSignal.any([signal, AbortSignal.timeout(SEND_TIMEOUT_MS)]),
     });
 
