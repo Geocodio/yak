@@ -2,6 +2,8 @@ import { router } from '@inertiajs/react';
 import { toast } from '@geocodio/console-ui';
 import { updateThreadShare } from '@/components/threads/share/updateThreadShare';
 import { PRIVATE_PUBLISH_MESSAGE, PRIVATE_PUBLISH_TITLE } from '@/components/threads/share/PrivatePublishGate';
+import { DELETE_THREAD_CONFIRM, closeThread, closeThreadConfirm, deleteThread } from '@/lib/threadLifecycle';
+import { toggleStar } from '@/lib/threadStar';
 import { requestPullRequest } from '@/threads/panels/changes/OpenPullRequestButton';
 import { fetchJson } from '@/threads/panels/files/useFileTree';
 import { continueMethod, show as showThread, stop } from '@/routes/threads';
@@ -117,9 +119,14 @@ export type HeaderActionOptions = {
     canOpenPullRequest: boolean;
     publishWarning: boolean;
     openShareDialog: () => void;
+    canStar: boolean;
+    isStarred: boolean;
+    canClose: boolean;
+    canDelete: boolean;
+    subThreadCount: number;
 };
 
-export function headerActions({ threadId, isOwner, visibility, canOpenPullRequest, publishWarning, openShareDialog }: HeaderActionOptions): PaletteAction[] {
+export function headerActions({ threadId, isOwner, visibility, canOpenPullRequest, publishWarning, openShareDialog, canStar, isStarred, canClose, canDelete, subThreadCount }: HeaderActionOptions): PaletteAction[] {
     const makePrivate = (): void => {
         updateThreadShare(threadId, 'only_me', []).then(
             () => {
@@ -157,6 +164,22 @@ export function headerActions({ threadId, isOwner, visibility, canOpenPullReques
                       run: () => requestPullRequest(threadId, publishWarning),
                   },
               ]
+            : []),
+        ...(canStar
+            ? [
+                  {
+                      id: 'thread-star',
+                      label: isStarred ? 'Remove star' : 'Star thread',
+                      keywords: ['star', 'unstar', 'favorite', 'pin', 'bookmark', 'starred'],
+                      run: () => toggleStar(threadId),
+                  },
+              ]
+            : []),
+        ...(canClose
+            ? [{ id: 'thread-close', label: 'Close thread', keywords: ['finish', 'done', 'archive', 'end', 'shut'], confirm: closeThreadConfirm(subThreadCount), run: () => closeThread(threadId) }]
+            : []),
+        ...(canDelete
+            ? [{ id: 'thread-delete', label: 'Delete thread', keywords: ['remove', 'trash', 'erase', 'discard'], destructive: true, confirm: DELETE_THREAD_CONFIRM, run: () => deleteThread(threadId) }]
             : []),
     ];
 }

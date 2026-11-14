@@ -195,3 +195,12 @@ test('never returns the reviewed pull request of a thread the viewer cannot see'
         ->and(paletteSearch('acme/secret')->assertOk()->json('pullRequests'))->toBe([])
         ->and(paletteSearch('556')->assertOk()->json('pullRequests'))->toHaveCount(1);
 });
+
+test('a deleted thread is not found', function () {
+    $thread = Thread::factory()->create(['title' => 'Zebra removal']);
+    expect(paletteThreadTitles('zebra removal'))->toBe(['Zebra removal']);
+
+    Thread::query()->withoutGlobalScopes()->whereKey($thread->id)->delete();
+
+    expect(paletteThreadTitles('zebra removal'))->toBe([]);
+});

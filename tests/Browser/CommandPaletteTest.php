@@ -2,6 +2,7 @@
 
 use App\Enums\RunnerState;
 use App\Enums\ThreadSandboxState;
+use App\Enums\ThreadStatus;
 use App\Enums\TurnState;
 use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Models\BranchDeployment;
@@ -11,10 +12,12 @@ use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
+use App\Models\ThreadStar;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\FakeSandboxManager;
+use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Process;
@@ -177,6 +180,107 @@ test('Stop the turn asks for confirmation and stops only after confirm', functio
         ->assertSee('Stop the turn?')
         ->click('[role="alertdialog"] button:last-of-type')
         ->assertMissing('[data-testid="app-palette"]');
+});
+
+test('Star thread toggles the header star', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner);
+
+    $page = visit(route('threads.show', $thread))->resize(1440, 900)->assertAttribute('[data-testid="thread-star"]', 'aria-pressed', 'false');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'star thread')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertAttribute('[data-testid="thread-star"]', 'aria-pressed', 'true');
+
+    expect(ThreadStar::query()->where('user_id', $owner->id)->count())->toBe(1);
+});
+
+test('a starred thread offers Remove star', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner);
+    ThreadStar::query()->create(['user_id' => $owner->id, 'thread_id' => $thread->id]);
+
+    $page = visit(route('threads.show', $thread))->resize(1440, 900)->assertAttribute('[data-testid="thread-star"]', 'aria-pressed', 'true');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'remove star')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertAttribute('[data-testid="thread-star"]', 'aria-pressed', 'false');
+
+    expect(ThreadStar::query()->count())->toBe(0);
+});
+
+test('Close thread asks first, does nothing on Cancel and closes after confirm', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['sandbox_state' => ThreadSandboxState::None]);
+    $sandbox = Mockery::mock(ThreadSandbox::class);
+    $sandbox->shouldReceive('destroy')->zeroOrMoreTimes();
+    app()->instance(ThreadSandbox::class, $sandbox);
+
+    $page = visit(route('threads.show', $thread))->resize(1440, 900)->assertPresent('[data-testid="thread-menu"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'close thread')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertSee('Close this thread?')
+        ->click('Cancel')
+        ->assertMissing('[data-testid="confirm-dialog"]')
+        ->assertVisible('[data-testid="app-palette"]');
+
+    expect($thread->refresh()->status)->toBe(ThreadStatus::Open);
+
+    $page->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertSee('Close this thread?')
+        ->click('[role="alertdialog"] button:last-of-type')
+        ->assertMissing('[data-testid="app-palette"]');
+
+    expect($thread->refresh()->status)->toBe(ThreadStatus::Closed);
+});
+
+test('a closed thread offers Delete but not Close', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['status' => ThreadStatus::Closed]);
+
+    $page = visit(route('threads.show', $thread))->resize(1440, 900)->assertPresent('[data-testid="thread-header"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'thread')
+        ->assertVisible('[data-testid="palette-action-thread-delete"]')
+        ->assertMissing('[data-testid="palette-action-thread-close"]');
+});
+
+test('Delete thread asks first, does nothing on Cancel and deletes after confirm', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['sandbox_state' => ThreadSandboxState::None]);
+    $sandbox = Mockery::mock(ThreadSandbox::class);
+    $sandbox->shouldReceive('destroy')->zeroOrMoreTimes();
+    app()->instance(ThreadSandbox::class, $sandbox);
+
+    $page = visit(route('threads.show', $thread))->resize(1440, 900)->assertPresent('[data-testid="thread-menu"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'delete thread')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertSee('Delete this thread?')
+        ->assertSee('Messages, files and sub-threads are removed for good.')
+        ->click('Cancel')
+        ->assertMissing('[data-testid="confirm-dialog"]')
+        ->assertVisible('[data-testid="app-palette"]');
+
+    expect(Thread::query()->withoutGlobalScopes()->whereKey($thread->id)->exists())->toBeTrue();
+
+    $page->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertSee('Delete this thread?')
+        ->click('[role="alertdialog"] button:last-of-type')
+        ->assertMissing('[data-testid="app-palette"]');
+
+    expect(Thread::query()->withoutGlobalScopes()->whereKey($thread->id)->exists())->toBeFalse();
 });
 
 test('Share is absent for a viewer who is not the owner', function () {

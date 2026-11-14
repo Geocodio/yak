@@ -1,5 +1,5 @@
 import { ConfirmDialog, Menu, cn, toast } from '@geocodio/console-ui';
-import { Link, router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { Copy, GitPullRequest, MoreHorizontal, PanelRight, Share2, Star, Trash2, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { THREAD_GROUP, headerActions } from '@/commandPalette/threadPageActions';
@@ -11,8 +11,9 @@ import { ShareButton } from '@/components/threads/share/ShareButton';
 import { ShareThreadDialog } from '@/components/threads/share/ShareThreadDialog';
 import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
 import { breadcrumbParent } from '@/components/threads/header/breadcrumbParent';
-import { refreshThreadList, toggleStar } from '@/lib/threadStar';
-import { close, destroy, show } from '@/routes/threads';
+import { toggleStar } from '@/lib/threadStar';
+import { DELETE_THREAD_CONFIRM, closeThread, closeThreadConfirm, deleteThread } from '@/lib/threadLifecycle';
+import { show } from '@/routes/threads';
 import { ThreadDockToggles } from '@/threads/dock/ThreadDock';
 import { OpenPullRequestButton, ViewPullRequestButton } from '@/threads/panels/changes/OpenPullRequestButton';
 import type { Panel, PanelProps } from '@/threads/panels';
@@ -44,16 +45,31 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
     const [isSharing, setIsSharing] = useState(false);
     const [confirming, setConfirming] = useState<'close' | 'delete' | null>(null);
     const isDesktop = useMediaQuery('(min-width: 1024px)');
-    const canOpenPullRequest = canDrive && thread.status === 'open' && pullRequest === null && diffTotals !== null;
+    const isOpen = thread.status === 'open';
+    const canStar = thread.parentThreadId === null;
+    const canOpenPullRequest = canDrive && isOpen && pullRequest === null && diffTotals !== null;
     const showOpenPullRequest = isDesktop && canOpenPullRequest;
     const actions = useMemo(
-        () => headerActions({ threadId: thread.id, isOwner: thread.isOwner, visibility: thread.visibility, canOpenPullRequest, publishWarning, openShareDialog: () => setIsSharing(true) }),
-        [thread.id, thread.isOwner, thread.visibility, canOpenPullRequest, publishWarning],
+        () =>
+            headerActions({
+                threadId: thread.id,
+                isOwner: thread.isOwner,
+                visibility: thread.visibility,
+                canOpenPullRequest,
+                publishWarning,
+                openShareDialog: () => setIsSharing(true),
+                canStar,
+                isStarred: thread.isStarred,
+                canClose: canDrive && isOpen,
+                canDelete: canDrive,
+                subThreadCount,
+            }),
+        [thread.id, thread.isOwner, thread.visibility, canOpenPullRequest, publishWarning, canStar, thread.isStarred, canDrive, isOpen, subThreadCount],
     );
     const parent = breadcrumbParent(thread, stackParent);
     useCommandPaletteActions(THREAD_GROUP, actions);
 
-    const isOpen = thread.status === 'open';
+    const closeConfirm = closeThreadConfirm(subThreadCount);
     const menuItems = [
         ...(thread.branch !== null ? [{ key: 'copy-branch', label: 'Copy branch name', icon: <Copy size={14} />, onSelect: () => copyBranchName(thread.branch as string), testId: 'thread-menu-copy-branch' }] : []),
         ...(thread.isOwner && !isDesktop ? [{ key: 'share', label: 'Share', icon: <Share2 size={14} />, onSelect: () => setIsSharing(true), testId: 'thread-menu-share' }] : []),
@@ -63,11 +79,11 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
 
     const confirmClose = () => {
         setConfirming(null);
-        router.post(close.url(thread.id), {}, { preserveScroll: true, onFinish: refreshThreadList });
+        closeThread(thread.id);
     };
     const confirmDelete = () => {
         setConfirming(null);
-        router.delete(destroy.url(thread.id), { onFinish: refreshThreadList });
+        deleteThread(thread.id);
     };
 
     return (
@@ -84,7 +100,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                             ) : null}
                             {thread.title}
                         </h1>
-                        {thread.parentThreadId === null && (
+                        {canStar && (
                             <button
                                 type="button"
                                 aria-pressed={thread.isStarred}
@@ -155,18 +171,18 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
             <ConfirmDialog
                 open={confirming === 'close'}
                 onOpenChange={(open) => !open && setConfirming(null)}
-                title="Close this thread?"
-                body={`Its sandbox is destroyed${subThreadCount > 0 ? ` and its ${subThreadCount} ${subThreadCount === 1 ? 'sub-thread closes' : 'sub-threads close'} too` : ''}. You can still read it. It cannot be reopened.`}
-                confirmLabel="Close thread"
+                title={closeConfirm.title}
+                body={closeConfirm.body}
+                confirmLabel={closeConfirm.confirmLabel}
                 confirmTestId="thread-close-confirm"
                 onConfirm={confirmClose}
             />
             <ConfirmDialog
                 open={confirming === 'delete'}
                 onOpenChange={(open) => !open && setConfirming(null)}
-                title="Delete this thread?"
-                body="Messages, files and sub-threads are removed for good. The branch and any pull request on GitHub stay."
-                confirmLabel="Delete thread"
+                title={DELETE_THREAD_CONFIRM.title}
+                body={DELETE_THREAD_CONFIRM.body}
+                confirmLabel={DELETE_THREAD_CONFIRM.confirmLabel}
                 confirmTestId="thread-delete-confirm"
                 onConfirm={confirmDelete}
             />
