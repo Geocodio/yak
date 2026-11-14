@@ -7,9 +7,9 @@ const REQUEST_TIMEOUT_MS = 20000;
 
 /**
  * The sidebar thread list: starts from the shared first-paint data, then
- * refetches on filter change and every five
- * seconds. A filter change aborts the request in flight; a timed
- * refresh waits for it, so a link slower than the interval still gets answers.
+ * refetches on filter change and every five seconds. A filter change aborts
+ * the request in flight; a timed refresh waits for it, so a link slower than
+ * the interval still gets answers.
  */
 export function useThreadList(initial: ThreadListData | null) {
     const [data, setData] = useState<ThreadListData | null>(initial);

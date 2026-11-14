@@ -3,6 +3,7 @@
 use App\Enums\RunnerState;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
+use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Models\BranchDeployment;
 use App\Models\ClaudeAccount;
 use App\Models\PrReview;
@@ -15,6 +16,7 @@ use App\Models\YakTask;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\FakeSandboxManager;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Process;
 
 function openPalette(mixed $page): void
@@ -414,7 +416,7 @@ test('a repository page lists New thread in this repository, Open on GitHub and 
 
     $page->assertSeeIn('[data-testid="palette-action-this-repository-new-thread"]', 'New thread in this repository')
         ->assertSeeIn('[data-testid="palette-action-this-repository-open-github"]', 'Open on GitHub')
-        ->assertSeeIn('[data-testid="palette-action-this-repository-risk-profile"]', 'Risk profile');
+        ->assertSeeIn('[data-testid="palette-action-this-repository-risk-profile"]', 'Open the risk profile');
 });
 
 test('a PR review page lists Open the pull request on GitHub', function () {
@@ -430,7 +432,8 @@ test('a PR review page lists Open the pull request on GitHub', function () {
 test('a deployment page lists Open the preview and Destroy the preview, and destroy asks for confirmation', function () {
     $this->actingAs(User::factory()->create());
     $repository = Repository::factory()->create(['slug' => 'acme/website']);
-    $deployment = BranchDeployment::factory()->create(['repository_id' => $repository->id]);
+    Bus::fake();
+    $deployment = BranchDeployment::factory()->running()->create(['repository_id' => $repository->id]);
 
     $page = visit(route('deployments.show', $deployment));
     openPalette($page);
@@ -440,9 +443,18 @@ test('a deployment page lists Open the preview and Destroy the preview, and dest
         ->assertSeeIn('[data-testid="palette-action-deployment-destroy"]', 'Destroy the preview')
         ->type('[data-testid="app-palette"]', 'destroy')
         ->keys('[data-testid="app-palette"]', 'Enter')
-        ->assertSee('Destroy this deployment');
+        ->assertVisible('[data-testid="app-palette"] [role="alertdialog"], [role="alertdialog"]')
+        ->click('[role="alertdialog"] button:first-of-type')
+        ->assertMissing('[role="alertdialog"]');
 
-    expect(BranchDeployment::find($deployment->id))->not->toBeNull();
+    Bus::assertNotDispatched(DestroyDeploymentJob::class);
+
+    $page->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertSee('Destroy this deployment')
+        ->click('[role="alertdialog"] button:last-of-type')
+        ->assertMissing('[data-testid="app-palette"]');
+
+    Bus::assertDispatched(DestroyDeploymentJob::class, fn ($job) => $job->deploymentId === $deployment->id);
 });
 
 test('SSH keys lists Add SSH key and it opens the add form', function () {

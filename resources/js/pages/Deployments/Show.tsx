@@ -1,7 +1,7 @@
 import { Head, router, usePoll } from '@inertiajs/react';
 import { Badge, Button, ConfirmDialog, PageHeader, StatusPill } from '@geocodio/console-ui';
 import { AlertTriangle, ExternalLink, RotateCw, Trash2 } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import type { PaletteAction } from '@/commandPalette/types';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -46,6 +46,9 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
         });
     };
 
+    const destroyRef = useRef(destroy);
+    destroyRef.current = destroy;
+
     const actions = useMemo<PaletteAction[]>(
         () => [
             { id: 'deployment-open-preview', label: 'Open the preview', keywords: ['site', 'app', 'browser', 'url'], hint: 'new window', href: deployment.url, run: () => window.open(deployment.url, '_blank', 'noopener') },
@@ -55,10 +58,10 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
                 keywords: ['delete', 'remove', 'teardown'],
                 destructive: true,
                 confirm: { title: 'Destroy this deployment', body: `Removes the container and the hostname ${deployment.hostname}. A new push to the branch creates a fresh preview.`, confirmLabel: 'Destroy' },
-                run: () => router.delete(deployments.destroy.url(deployment.id), { preserveScroll: true }),
+                run: () => destroyRef.current(),
             },
         ],
-        [deployment.url, deployment.hostname, deployment.id],
+        [deployment.url, deployment.hostname],
     );
     useCommandPaletteActions('This deployment', actions);
 

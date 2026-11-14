@@ -1,7 +1,7 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { Badge, Button, PageHeader } from '@geocodio/console-ui';
 import { ExternalLink } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import type { PaletteAction } from '@/commandPalette/types';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -22,12 +22,15 @@ export default function ForPr({ pr, reviews }: Props) {
         form.post(rerun.url({ repoSlug: pr.repoSlug, prNumber: pr.number }), { preserveScroll: true });
     };
 
+    const rerunReviewRef = useRef(rerunReview);
+    rerunReviewRef.current = rerunReview;
+
     const actions = useMemo<PaletteAction[]>(
         () => [
             { id: 'review-open-pull-request', label: 'Open the pull request on GitHub', keywords: ['pr', 'github', 'pull request'], hint: 'new window', href: pr.url, run: () => window.open(pr.url, '_blank', 'noopener') },
-            { id: 'review-rerun', label: 'Re-run this review', keywords: ['review', 'again', 'retry'], run: () => router.post(rerun.url({ repoSlug: pr.repoSlug, prNumber: pr.number }), {}, { preserveScroll: true }) },
+            { id: 'review-rerun', label: 'Re-run this review', keywords: ['review', 'again', 'retry'], run: () => rerunReviewRef.current() },
         ],
-        [pr.url, pr.repoSlug, pr.number],
+        [pr.url],
     );
     useCommandPaletteActions('This review', actions);
 
