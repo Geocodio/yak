@@ -87,6 +87,17 @@ it('a hidden thread answers 404 before any validation', function () {
     Queue::assertNothingPushed();
 });
 
+it('a thread whose branch lives on the thread opens the pull request from it', function () {
+    $owner = User::factory()->create();
+    $thread = Thread::factory()->create(['branch' => 'yak/teleported']);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'branch_name' => null]);
+
+    $this->actingAs($owner)->post(route('threads.pull-request.store', $thread))->assertRedirect();
+
+    expect($task->fresh()->branch_name)->toBe('yak/teleported');
+    Queue::assertPushed(CreatePullRequestJob::class, fn (CreatePullRequestJob $job): bool => $job->task->is($task));
+});
+
 it('a thread without a task or branch is refused with 409', function () {
     $thread = Thread::factory()->create();
     YakTask::factory()->create(['thread_id' => $thread->id, 'branch_name' => null]);
