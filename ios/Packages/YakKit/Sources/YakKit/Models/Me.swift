@@ -13,6 +13,8 @@ public struct Me: Decodable, Sendable, Equatable {
         public let name: String
         /// Kept as text so a kind added by a newer server still decodes.
         public let kind: String
+        /// Sent by `me` only, not by the pairing responses.
+        public let pairedAt: String?
     }
 
     public struct InstanceDescription: Decodable, Sendable, Equatable {

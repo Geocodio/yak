@@ -3,15 +3,15 @@ import Testing
 
 @testable import YakKit
 
-/// Reads the server's contract fixtures. A fixture holds the string "<volatile>" where the value
-/// changes per run; typed fields get a stand-in of the right type so the real decoder runs on the real shape.
+/// Reads the server's contract fixtures as they are. A value that changes per run is a typed marker
+/// ("<volatile:string>", "<volatile:int>", "<volatile:bool>", "<volatile:null>"); `data` swaps each
+/// marker for a value of that type, so the real decoder checks the real shape and types.
 enum Fixtures {
-    static func standIn(for key: String) -> Any {
-        let values: [String: Any] = ["current": 1, "min": 1, "port": 443, "isAdmin": false, "kind": "phone"]
-        return values[key] ?? "1"
+    static func data(_ name: String) throws -> Data {
+        try JSONSerialization.data(withJSONObject: replacingMarkers(object(name)))
     }
 
-    static func data(_ name: String) throws -> Data {
+    static func object(_ name: String) throws -> Any {
         // The fixtures are read from disk through `#filePath`, not bundled as a SwiftPM resource:
         // `ios/fixtures` is a symlink to the shared fixtures, and SwiftPM copies a symlinked resource
         // as a dangling link, so a bundled copy would be empty. Walk up from this file to the `ios`
@@ -23,16 +23,30 @@ enum Fixtures {
             directory = parent
         }
         let url = directory.appendingPathComponent("fixtures/\(name).json")
-        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: url))
-        return try JSONSerialization.data(withJSONObject: replacingVolatile(object, key: ""))
+        return try JSONSerialization.jsonObject(with: Data(contentsOf: url))
     }
 
-    private static func replacingVolatile(_ value: Any, key: String) -> Any {
-        if let dictionary = value as? [String: Any] {
-            return dictionary.reduce(into: [String: Any]()) { $0[$1.key] = replacingVolatile($1.value, key: $1.key) }
+    static func replacingMarkers(_ value: Any) -> Any {
+        if let dictionary = value as? [String: Any] { return dictionary.mapValues(replacingMarkers) }
+        if let array = value as? [Any] { return array.map(replacingMarkers) }
+        switch value as? String {
+        case "<volatile:string>": return "volatile"
+        case "<volatile:int>": return 1
+        case "<volatile:bool>": return false
+        case "<volatile:null>": return NSNull()
+        default: return value
         }
-        if let text = value as? String, text == "<volatile>" { return standIn(for: key) }
-        return value
+    }
+
+    /// The fixture with the value at `path` replaced, markers swapped for values of their type.
+    static func data(_ name: String, setting path: [String], toJSON replacementJSON: String) throws -> Data {
+        let replacement = try JSONSerialization.jsonObject(with: Data(replacementJSON.utf8), options: .fragmentsAllowed)
+        func set(_ value: Any, _ path: ArraySlice<String>) -> Any {
+            guard let key = path.first, var dictionary = value as? [String: Any] else { return replacement }
+            dictionary[key] = set(dictionary[key] ?? NSNull(), path.dropFirst())
+            return dictionary
+        }
+        return try JSONSerialization.data(withJSONObject: replacingMarkers(set(object(name), path[...])))
     }
 }
 
@@ -41,9 +55,34 @@ func decodesEveryFixture(name: String) throws {
     let data = try Fixtures.data(name)
     switch name {
     case "instance": #expect(try JSONDecoder().decode(InstanceInfo.self, from: data).yak)
-    case "me": #expect(try JSONDecoder().decode(Me.self, from: data).device.kind == "phone")
+    case "me":
+        let me = try JSONDecoder().decode(Me.self, from: data)
+        #expect(me.device.kind == "phone" && me.device.pairedAt == "volatile")
     case "device-code": #expect(try JSONDecoder().decode(DeviceCode.self, from: data).interval == 5)
     default: #expect(try JSONDecoder().decode(PairingResponse.self, from: data).device.kind == "phone")
+    }
+}
+
+/// A wrongly typed field must fail the decode; this is what keeps the fixtures honest.
+@Test(arguments: [
+    ("me", ["needsYouCount"], #""0""#),
+    ("me", ["realtime", "port"], #""443""#),
+    ("me", ["user", "isAdmin"], #""false""#),
+    ("me", ["instance", "name"], "7"),
+    ("instance", ["yak"], #""yes""#),
+    ("instance", ["api", "current"], #""1""#),
+    ("device-code", ["expires_in"], #""600""#),
+    ("device-pair", ["token"], "5"),
+])
+func rejectsAWronglyTypedField(name: String, path: [String], replacement: String) throws {
+    let data = try Fixtures.data(name, setting: path, toJSON: replacement)
+    #expect(throws: DecodingError.self) {
+        switch name {
+        case "instance": _ = try JSONDecoder().decode(InstanceInfo.self, from: data)
+        case "me": _ = try JSONDecoder().decode(Me.self, from: data)
+        case "device-code": _ = try JSONDecoder().decode(DeviceCode.self, from: data)
+        default: _ = try JSONDecoder().decode(PairingResponse.self, from: data)
+        }
     }
 }
 
