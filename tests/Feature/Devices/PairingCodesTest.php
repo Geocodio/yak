@@ -102,3 +102,16 @@ it('stores only a hash of the code', function () {
         ->and(json_encode(DB::table('device_pairing_codes')->first()))->not->toContain($code)
         ->and(strlen($code))->toBe(43);
 });
+
+it('clears the kept token of a redeemed code once its life has passed', function () {
+    ['code' => $code] = app(PairingCodes::class)->create(User::factory()->create());
+    app(PairingCodes::class)->redeem($code, pairingReport(), 'request-1');
+
+    app(PairingCodes::class)->clearRepeatableTokens();
+    expect(DevicePairingCode::sole()->encrypted_token)->not->toBeNull();
+
+    $this->travel(config('yak.pairing.code_ttl_seconds') + 1)->seconds();
+    app(PairingCodes::class)->clearRepeatableTokens();
+
+    expect(DevicePairingCode::sole())->encrypted_token->toBeNull()->request_id_hash->toBeNull();
+});

@@ -7,7 +7,6 @@ use App\Models\Device;
 use App\Models\DevicePairingCode;
 use App\Models\User;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\DB;
 
 /**
  * One-time pairing codes shown as a QR code on the web and redeemed by a phone for a device token.
@@ -46,7 +45,7 @@ class PairingCodes
     {
         $invalid = new DeviceFlowException('pairing_code_invalid', 'This pairing code is not valid. Show a new QR code on the Devices page and scan it again.');
 
-        $outcome = DB::transaction(function () use ($code, $reported, $requestId, $invalid): array|DeviceFlowException {
+        $outcome = ShortLockWait::transaction(function () use ($code, $reported, $requestId, $invalid): array|DeviceFlowException {
             $pairingCode = DevicePairingCode::query()
                 ->lockForUpdate()
                 ->where('code_hash', $this->deviceTokens->hash($code))
@@ -120,6 +119,18 @@ class PairingCodes
         }
 
         return ['token' => Crypt::decryptString($pairingCode->encrypted_token), 'device' => $device];
+    }
+
+    /**
+     * Drops the kept token and request id of redeemed codes whose life has passed.
+     */
+    public function clearRepeatableTokens(): void
+    {
+        DevicePairingCode::query()
+            ->whereNotNull('redeemed_at')
+            ->where('expires_at', '<', now())
+            ->where(fn ($query) => $query->whereNotNull('encrypted_token')->orWhereNotNull('request_id_hash'))
+            ->update(['encrypted_token' => null, 'request_id_hash' => null]);
     }
 
     public function qrPayload(#[\SensitiveParameter] string $code): string
