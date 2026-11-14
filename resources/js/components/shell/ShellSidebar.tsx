@@ -87,7 +87,7 @@ export function ShellSidebar() {
 
     const isDesktop = useMediaQuery('(min-width: 1024px)');
     const actions = useMemo<PaletteAction[]>(() => (!isDesktop ? [] : [{ id: 'toggle-sidebar', label: 'Toggle the sidebar', keywords: ['sidebar', 'collapse', 'hide', 'show', 'threads', 'panel'], shortcut: 'toggleSidebar', run: () => togglePanelRef.current() }]), [isDesktop]);
-    useCommandPaletteActions('Go to', actions);
+    useCommandPaletteActions('View', actions);
 
     return (
         <aside className="hidden shrink-0 border-r border-hair bg-sidebar lg:flex" data-testid="sidebar">

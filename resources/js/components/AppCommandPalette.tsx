@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { CommandPalette, ConfirmDialog, type CommandPaletteSection } from '@geocodio/console-ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { openNewThread } from '@/components/Sidebar';
 import { NEW_THREAD_ID, NEW_THREAD_KEYWORDS, useGlobalActions } from '@/commandPalette/globalActions';
@@ -106,6 +106,16 @@ export function AppCommandPalette() {
         setQuery('');
     };
 
+    const inputRef = useRef<HTMLInputElement>(null);
+    const hasStep = step !== null;
+
+    // console-ui remounts the search input when a step starts or ends, which drops focus to the palette container.
+    useLayoutEffect(() => {
+        if (open && !pendingConfirm) {
+            inputRef.current?.focus();
+        }
+    }, [open, hasStep, pendingConfirm]);
+
     const select = (action: PaletteAction) => {
         const selection = decideSelection(action);
         if (selection.kind === 'step') {
@@ -186,6 +196,7 @@ export function AppCommandPalette() {
             <CommandPalette
                 open={open}
                 onOpenChange={onOpenChange}
+                inputRef={inputRef}
                 query={query}
                 onQueryChange={setQuery}
                 placeholder={step?.placeholder ?? 'Search or run a command…'}

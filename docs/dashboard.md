@@ -20,7 +20,7 @@ The command palette runs actions, jumps to pages and finds threads, repositories
 
 ### The empty palette
 
-With nothing typed, the palette lists every action that can run now, in groups. The group for the page you are on comes first (for example **This thread**), then **Create**, **Go to**, **Settings** and **Help**. Threads, repositories and pull requests do not appear until you type.
+With nothing typed, the palette lists every action that can run now, in groups. The group for the page you are on comes first (for example **This thread**), then **Create**, **Go to**, **View**, **Settings** and **Help**. Threads, repositories and pull requests do not appear until you type.
 
 ### What typing finds
 

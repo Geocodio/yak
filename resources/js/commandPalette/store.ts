@@ -2,7 +2,7 @@ import type { ShortcutId } from './shortcuts.ts';
 import type { ActionGroup, PaletteAction } from './types.ts';
 
 /** Groups shown after every page group, in this order. */
-export const GROUP_ORDER: string[] = ['Create', 'Go to', 'Settings', 'Help'];
+export const GROUP_ORDER: string[] = ['Create', 'Go to', 'View', 'Settings', 'Help'];
 
 const registrations = new Map<symbol, { group: string; actions: PaletteAction[] }>();
 const listeners = new Set<() => void>();

@@ -730,3 +730,136 @@ test('Take over a sub-thread asks first and marks it taken over after confirm', 
 
     expect($child->fresh()->taken_over_at)->not->toBeNull();
 });
+
+/** Sends real key presses to whichever element has focus, the way a keyboard does, instead of focusing a selector first. */
+function pressKeys(mixed $page, string ...$keys): void
+{
+    foreach ($keys as $key) {
+        $page->page()->keyDown($key);
+        $page->page()->keyUp($key);
+    }
+}
+
+function typeKeys(mixed $page, string $text): void
+{
+    pressKeys($page, ...str_split($text));
+}
+
+const PALETTE_INPUT_IS_FOCUSED = 'document.activeElement?.getAttribute("data-testid") === "app-palette"';
+
+test('Tab on a thread result keeps focus in the input, so typing filters the step', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['title' => 'Rework invoice export']);
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'invoice');
+    $page->assertVisible('[data-testid="palette-action-thread:' . $thread->public_id . '"]')->wait(0.5);
+    pressKeys($page, 'Tab');
+
+    $page->assertVisible('[data-testid="palette-step"]')
+        ->assertScript(PALETTE_INPUT_IS_FOCUSED, true);
+
+    typeKeys($page, 'copy');
+    $page->assertVisible('[data-testid="palette-action-thread-copy-link"]')
+        ->assertMissing('[data-testid="palette-action-thread-open"]')
+        ->assertValue('[data-testid="app-palette"]', 'copy');
+});
+
+test('Backspace on the empty step input returns to the results with the input focused and the query restored', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['title' => 'Rework invoice export']);
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'invoice');
+    $page->assertVisible('[data-testid="palette-action-thread:' . $thread->public_id . '"]')->wait(0.5);
+    pressKeys($page, 'Tab');
+    $page->assertVisible('[data-testid="palette-step"]');
+    pressKeys($page, 'Backspace');
+
+    $page->assertMissing('[data-testid="palette-step"]')
+        ->assertScript(PALETTE_INPUT_IS_FOCUSED, true)
+        ->assertValue('[data-testid="app-palette"]', 'invoice');
+});
+
+test('Enter on Open file keeps focus in the step input', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    app()->instance(SandboxManager::class, $sandboxes = new FakeSandboxManager);
+    $thread = paletteThread($owner);
+    $sandboxes->queueExecResult(Process::result("f\t3\talpha.txt\0f\t3\tbeta.md\0"));
+
+    $page = visit(route('threads.show', $thread))->assertPresent('[data-testid="thread-header"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'open file');
+    $page->assertVisible('[data-testid="palette-action-thread-open-file"]')->wait(0.5);
+    pressKeys($page, 'Enter');
+
+    $page->assertVisible('[data-testid="palette-step"]')
+        ->assertScript(PALETTE_INPUT_IS_FOCUSED, true);
+});
+
+test('Escape in a step returns to the root list with the input focused', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['title' => 'Rework invoice export']);
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'invoice');
+    $page->assertVisible('[data-testid="palette-action-thread:' . $thread->public_id . '"]')->wait(0.5);
+    pressKeys($page, 'Tab');
+    $page->assertVisible('[data-testid="palette-step"]');
+    pressKeys($page, 'Escape');
+
+    $page->assertMissing('[data-testid="palette-step"]')
+        ->assertVisible('[data-testid="app-palette"]')
+        ->assertScript(PALETTE_INPUT_IS_FOCUSED, true);
+});
+
+test('a plain key typed in a step goes into the input and does not trigger a hotkey', function () {
+    $owner = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $owner->id, 'validated_at' => now()]);
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['title' => 'Rework invoice export']);
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'invoice');
+    $page->assertVisible('[data-testid="palette-action-thread:' . $thread->public_id . '"]')->wait(0.5);
+    pressKeys($page, 'Tab');
+    $page->assertVisible('[data-testid="palette-step"]');
+    pressKeys($page, 'c');
+
+    $page->wait(0.5)
+        ->assertVisible('[data-testid="app-palette"]')
+        ->assertMissing('[data-testid="new-thread-dialog"]')
+        ->assertValue('[data-testid="app-palette"]', 'c');
+});
+
+test('the open palette blocks plain-key hotkeys even when focus is outside the input', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->script('(() => { const popup = document.querySelector("[data-command-palette]"); popup.setAttribute("tabindex", "-1"); popup.focus(); })()');
+    $page->assertScript('document.activeElement.hasAttribute("data-command-palette")', true);
+    pressKeys($page, 'c');
+
+    $page->wait(0.5)
+        ->assertVisible('[data-testid="app-palette"]')
+        ->assertMissing('[data-testid="new-thread-dialog"]');
+});

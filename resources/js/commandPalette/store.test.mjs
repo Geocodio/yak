@@ -68,7 +68,7 @@ test('the snapshot is stable between changes', () => {
 });
 
 test('groups come back in GROUP_ORDER with page groups first', () => {
-    assert.deepEqual(GROUP_ORDER, ['Create', 'Go to', 'Settings', 'Help']);
+    assert.deepEqual(GROUP_ORDER, ['Create', 'Go to', 'View', 'Settings', 'Help']);
     registerActions(token(), 'Help', [action('h')]);
     registerActions(token(), 'Create', [action('c')]);
     registerActions(token(), 'This thread', [action('t')]);
