@@ -10,13 +10,13 @@ export type PaletteSectionModel = { title: string; rows: PaletteRowModel[] };
  * groups; an unavailable match stays as a disabled row. A pinned action matches
  * on its own query and its section moves first.
  */
-export function buildSections(groups: ActionGroup[], query: string, pinned: { id: string; query: string } | null = null): PaletteSectionModel[] {
+export function buildSections(groups: ActionGroup[], query: string, pinned: { id: string; query: string } | null = null, boost?: (id: string) => number): PaletteSectionModel[] {
     const isEmpty = query.trim() === '';
 
     const sections = groups
         .map(({ group, actions }): PaletteSectionModel => {
             const candidates = isEmpty ? actions.filter((action) => action.unavailable === undefined) : actions;
-            const ranked = rankActions(query, candidates.filter((action) => action.id !== pinned?.id));
+            const ranked = rankActions(query, candidates.filter((action) => action.id !== pinned?.id), boost);
             const pinnedAction = candidates.find((action) => action.id === pinned?.id);
             const pinnedMatch = pinnedAction && pinned ? rankActions(pinned.query, [pinnedAction]) : [];
 

@@ -254,3 +254,139 @@ test('typing team on a private thread finds Share and no one-step visibility cha
         ->assertMissing('[data-testid="palette-action-thread-make-visible"]')
         ->assertMissing('[data-testid="palette-action-thread-make-private"]');
 });
+
+test('typing a thread title lists it under Threads and Enter opens it', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['title' => 'Rework invoice export']);
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'invoice')
+        ->assertSeeIn('[role="dialog"]', 'Threads')
+        ->assertSeeIn('[data-testid="palette-action-thread:' . $thread->public_id . '"]', 'Rework invoice export')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertPathIs(route('threads.show', $thread, false));
+});
+
+test('a closed thread shows a closed hint', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['title' => 'Retire the legacy exporter', 'status' => 'closed']);
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'legacy')
+        ->assertSeeIn('[data-testid="palette-action-thread:' . $thread->public_id . '"]', 'acme/widgets · closed');
+});
+
+test('Tab on a thread result lists its actions, and Backspace returns to the results', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['title' => 'Rework invoice export']);
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'invoice')
+        ->assertVisible('[data-testid="palette-action-thread:' . $thread->public_id . '"]')
+        ->keys('[data-testid="app-palette"]', 'Tab')
+        ->assertVisible('[data-testid="palette-action-thread-open"]')
+        ->assertVisible('[data-testid="palette-action-thread-copy-link"]')
+        ->assertSeeIn('[data-testid="palette-action-thread-open-preview"]', 'This thread has no preview yet')
+        ->keys('[data-testid="app-palette"]', 'Backspace')
+        ->assertVisible('[data-testid="palette-action-thread:' . $thread->public_id . '"]')
+        ->assertMissing('[data-testid="palette-action-thread-open"]');
+});
+
+test('a repository result offers New thread in this repository', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/website', 'name' => 'website', 'is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'website')
+        ->assertVisible('[data-testid="palette-action-repository:acme/website"]')
+        ->keys('[data-testid="app-palette"]', 'Tab')
+        ->assertSeeIn('[data-testid="palette-action-repository-new-thread"]', 'New thread in this repository')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertVisible('[data-testid="new-thread-dialog"]');
+});
+
+test('Enter on a pull request result opens GitHub in a new window', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['title' => 'Speed up the importer']);
+    ThreadRepository::query()->where('thread_id', $thread->id)->update(['pull_request_url' => 'https://github.com/acme/widgets/pull/12', 'pull_request_number' => 12]);
+
+    $page = visit('/');
+    $page->script('window.__opened = []; window.open = (...args) => { window.__opened.push(args.map(String)); return null; };');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'importer')
+        ->assertVisible('[data-testid="palette-action-pull-request:acme/widgets#12"]')
+        ->keys('[data-testid="app-palette"]', ['ArrowDown', 'Enter'])
+        ->assertMissing('[data-testid="app-palette"]');
+
+    expect(last($page->script('window.__opened')))->toBe(['https://github.com/acme/widgets/pull/12', '_blank', 'noopener']);
+});
+
+test('results from an earlier query do not replace the current ones', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $alpha = paletteThread($owner, ['title' => 'Alpha report']);
+    $beta = paletteThread($owner, ['title' => 'Beta report']);
+
+    $page = visit('/');
+    // The answer for "alpha" is held until released, then delivered after the answer for "beta".
+    $page->script(<<<'JS'
+        window.__alphaDelivered = false;
+        const realFetch = window.fetch;
+        window.fetch = (input, init) => {
+            if (!String(input).includes('query=alpha')) {
+                return realFetch(input, init);
+            }
+            return new Promise((resolve) => {
+                window.__releaseAlpha = () => realFetch(input).then((response) => {
+                    resolve(response);
+                    setTimeout(() => (window.__alphaDelivered = true), 100);
+                });
+            });
+        };
+    JS);
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'alpha')
+        ->assertScript('typeof window.__releaseAlpha === "function"')
+        ->type('[data-testid="app-palette"]', 'beta')
+        ->assertVisible('[data-testid="palette-action-thread:' . $beta->public_id . '"]');
+
+    $page->script('window.__releaseAlpha()');
+
+    $page->assertScript('window.__alphaDelivered === true')
+        ->assertVisible('[data-testid="palette-action-thread:' . $beta->public_id . '"]')
+        ->assertMissing('[data-testid="palette-action-thread:' . $alpha->public_id . '"]');
+});
+
+test('an action picked before ranks first among equal matches', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'p')
+        ->assertScript('document.querySelector(\'[data-testid="palette-action-go-pr-reviews"]\').compareDocumentPosition(document.querySelector(\'[data-testid="palette-action-go-prompts"]\')) & Node.DOCUMENT_POSITION_FOLLOWING', 4)
+        ->clear('[data-testid="app-palette"]')
+        ->click('[data-testid="palette-action-go-prompts"]')
+        ->assertPathIs('/prompts/system');
+
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'p')
+        ->assertScript('document.querySelector(\'[data-testid="palette-action-go-prompts"]\').compareDocumentPosition(document.querySelector(\'[data-testid="palette-action-go-pr-reviews"]\')) & Node.DOCUMENT_POSITION_FOLLOWING', 4);
+});

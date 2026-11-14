@@ -8,6 +8,10 @@ import { splitNewThreadQuery } from '@/commandPalette/newThreadPrompt';
 import { isMacPlatform } from '@/commandPalette/platform';
 import { KeyboardShortcutsDialog } from '@/commandPalette/KeyboardShortcutsDialog';
 import { PALETTE_ATTRIBUTE, ShortcutListener } from '@/commandPalette/ShortcutListener';
+import { boostFor, pickedFirst, recordPick } from '@/commandPalette/rankingMemory';
+import { pullRequestResultAction, repositoryResultAction, threadResultAction, type ResultEnvironment } from '@/commandPalette/resultActions';
+import { usePaletteSearch } from '@/commandPalette/usePaletteSearch';
+import { show as showThread } from '@/routes/threads';
 import { buildSections } from '@/commandPalette/sections';
 import { decideSelection, popStep, pushStep } from '@/commandPalette/selection';
 import { keycapsFor } from '@/commandPalette/shortcuts';
@@ -15,6 +19,7 @@ import type { PaletteAction, PaletteStep } from '@/commandPalette/types';
 import { useActionGroups } from '@/commandPalette/useCommandPaletteActions';
 
 const isMac = isMacPlatform();
+const resultEnvironment: ResultEnvironment = { threadUrl: (threadId) => showThread.url(threadId), openNewThread };
 const WIDE_SCREEN = '(min-width: 640px)';
 
 function useIsWideScreen(): boolean {
@@ -42,11 +47,13 @@ export function AppCommandPalette() {
     useGlobalActions();
 
     const step = steps.at(-1) ?? null;
+    const searchResults = usePaletteSearch(query, open && step === null);
 
     const close = useCallback(() => {
         setOpen(false);
         setQuery('');
         setSteps([]);
+        returnQueries.current = [];
         setPendingConfirm(null);
     }, []);
 
@@ -73,6 +80,7 @@ export function AppCommandPalette() {
     const newThreadSplit = step === null ? splitNewThreadQuery(query, NEW_THREAD_KEYWORDS) : null;
 
     const execute = (action: PaletteAction) => {
+        recordPick(action.id);
         if (action.id === NEW_THREAD_ID && newThreadSplit !== null) {
             openNewThread({ prompt: newThreadSplit.prompt });
         } else if (action.run) {
@@ -83,12 +91,20 @@ export function AppCommandPalette() {
         close();
     };
 
+    /** The query each open step returns to when it is left: a result's more step restores the search, other steps start clean. */
+    const returnQueries = useRef<string[]>([]);
+
+    const enterStep = (next: PaletteStep, returnQuery = '') => {
+        returnQueries.current.push(returnQuery);
+        setStepActions([]);
+        setSteps((stack) => pushStep(stack, next));
+        setQuery('');
+    };
+
     const select = (action: PaletteAction) => {
         const selection = decideSelection(action);
         if (selection.kind === 'step') {
-            setStepActions([]);
-            setSteps((stack) => pushStep(stack, selection.step));
-            setQuery('');
+            enterStep(selection.step);
         } else if (selection.kind === 'confirm') {
             setPendingConfirm(action);
         } else if (selection.kind === 'run') {
@@ -133,6 +149,7 @@ export function AppCommandPalette() {
             disabled: disabledReason !== undefined,
             disabledReason,
             onSelect: () => select(action),
+            ...(action.more ? { onMore: () => enterStep(action.more as PaletteStep, query), moreLabel: `More actions for ${action.label}` } : {}),
         });
 
         if (step !== null) {
@@ -141,7 +158,16 @@ export function AppCommandPalette() {
 
         const pinned = newThreadSplit ? { id: NEW_THREAD_ID, query: query.trim().split(/\s+/)[0] } : null;
 
-        return buildSections(groups, query, pinned).map((section) => ({ title: section.title, items: section.rows.map(toItem) }));
+        const actionSections = buildSections(groups, query, pinned, boostFor).map((section) => ({ title: section.title, items: section.rows.map(toItem) }));
+        const resultSections = [
+            { title: 'Threads', rows: searchResults.threads.map((row) => threadResultAction(row, resultEnvironment)) },
+            { title: 'Repositories', rows: searchResults.repositories.map((row) => repositoryResultAction(row, resultEnvironment)) },
+            { title: 'Pull requests', rows: searchResults.pullRequests.map((row) => pullRequestResultAction(row, resultEnvironment)) },
+        ]
+            .filter((section) => section.rows.length > 0)
+            .map((section) => ({ title: section.title, items: pickedFirst(section.rows, boostFor).map((action) => toItem({ action })) }));
+
+        return [...actionSections, ...resultSections];
     };
 
     return (
@@ -159,7 +185,7 @@ export function AppCommandPalette() {
                 onBack={() => {
                     setStepActions([]);
                     setSteps(popStep);
-                    setQuery('');
+                    setQuery(returnQueries.current.pop() ?? '');
                 }}
                 width="w-screen sm:w-[min(600px,calc(100vw-2rem))]"
                 {...{ [PALETTE_ATTRIBUTE]: '' }}
