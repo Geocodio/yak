@@ -65,7 +65,7 @@ it('shows the teleport to Yak dialog with the slash command on a device-owned th
     visit(route('threads.show', $thread))
         ->click('@teleport-up')
         ->assertVisible('@teleport-dialog')
-        ->assertSeeIn('@teleport-command', '/yak teleport')
+        ->assertSeeIn('@teleport-command', '/yak:yak teleport')
         ->assertVisible('@teleport-command-with-message')
         ->assertSeeIn('@teleport-dialog', 'read-only')
         ->assertNoJavascriptErrors();

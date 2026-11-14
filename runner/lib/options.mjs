@@ -21,6 +21,10 @@ export function buildOptions(start, environment, extraMcpServers = {}) {
   if (start.appendSystemPrompt) {
     options.systemPrompt = { type: 'preset', preset: 'claude_code', append: start.appendSystemPrompt };
   }
+  // A resumed session would otherwise keep sending the system prompt it recorded first: for a thread
+  // teleported from a computer that is the local prompt, without Yak's rules. Rendered fresh, Yak's
+  // current instructions reach every request.
+  options.systemPromptSnapshot = false;
   if (start.resume) options.resume = start.resume;
   // The MCP servers may hold secrets, so the start line carries only the path of a file in the sandbox.
   const fileServers = start.mcpConfigPath ? JSON.parse(readFileSync(start.mcpConfigPath, 'utf8')).mcpServers ?? {} : {};

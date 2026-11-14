@@ -46,7 +46,7 @@ type HookDeps struct {
 	Home string
 	// RefreshHandler re-registers the yak:// handler for Binary; nil disables the refresh.
 	RefreshHandler func()
-	// RunTeleport runs yak teleport with args and returns what it printed; nil leaves /yak teleport to the command file.
+	// RunTeleport runs yak teleport with args and returns what it printed; nil leaves the slash command to the command file.
 	RunTeleport func(args []string) (output string, exitCode int)
 }
 
@@ -141,7 +141,7 @@ func block(reason string) string {
 
 var slashTeleportPrompt = regexp.MustCompile(`^/yak(:yak)? teleport\b`)
 
-// slashTeleport runs /yak teleport inside the hook. Blocking the prompt shows the output to the person without a
+// slashTeleport runs /yak teleport or /yak:yak teleport inside the hook. Blocking the prompt shows the output to the person without a
 // model turn; no shell is involved, the prompt text only becomes an argument list.
 func slashTeleport(d HookDeps, prompt string) (string, bool) {
 	if d.RunTeleport == nil || !slashTeleportPrompt.MatchString(prompt) {
@@ -150,7 +150,7 @@ func slashTeleport(d HookDeps, prompt string) (string, bool) {
 	rest := strings.TrimPrefix(strings.TrimPrefix(prompt, "/yak:yak"), "/yak")
 	args, err := slash.TeleportArgs(rest)
 	if err != nil {
-		return block(fmt.Sprintf("Could not read that command: %v. Usage: /yak teleport [<thread>] [\"message\"] [options]", err)), true
+		return block(fmt.Sprintf("Could not read that command: %v. Usage: /yak:yak teleport [<thread>] [\"message\"] [options]", err)), true
 	}
 	text, _ := d.RunTeleport(args)
 	if text = strings.TrimSpace(text); text == "" {

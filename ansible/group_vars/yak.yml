@@ -65,7 +65,7 @@ incus_version_pin: "7.6"
 # 6: the agent runner baked at /opt/yak-runner for thread sandboxes.
 # 7: the runner forwards the operator variables named in agent_extra_env.
 # 8: the welcome splash replaces the Ubuntu message of the day.
-yak_sandbox_base_version: 9
+yak_sandbox_base_version: 10
 
 # Hard ceiling for yak:drain before a container recreate: every in-flight
 # task (Running or Retrying) is force-failed once this many seconds have

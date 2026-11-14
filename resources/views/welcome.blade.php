@@ -320,7 +320,7 @@
                 <h3>Out of time? Hand the session to a sandbox.</h3>
                 <div class="term">
                     <div class="term-bar"><i></i><i></i><i></i><span>claude · ~/code/geocodio</span></div>
-<pre><span class="p">&gt;</span> /yak teleport "finish the CSV export fix"
+<pre><span class="p">&gt;</span> /yak:yak teleport "finish the CSV export fix"
 
 <span class="d">  Pushed yak/csv-export-fix to github.com/Geocodio/geocodio
   Uploaded the session (412 KB)</span>
@@ -433,7 +433,7 @@
         <div class="steps">
             <div class="step"><h3>Install</h3><div class="cmd">curl -fsSL {{ route('install') }} | sh</div><p>Adds the Yak plugin to Claude Code and the <code>yak</code> command. macOS and Linux.</p></div>
             <div class="step"><h3>Sign in</h3><div class="cmd">yak login</div><p>Shows a code and opens an approval page in your browser.</p></div>
-            <div class="step"><h3>Teleport</h3><div class="cmd">/yak teleport</div><p>Run it inside any Claude Code session in a repo that Yak knows.</p></div>
+            <div class="step"><h3>Teleport</h3><div class="cmd">/yak:yak teleport</div><p>Run it inside any Claude Code session in a repo that Yak knows.</p></div>
         </div>
     </div>
 </section>
