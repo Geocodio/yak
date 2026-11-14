@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { THREAD_LIST_REFRESH_EVENT } from '@/lib/threadStar';
 import { list } from '@/routes/threads';
 import type { ThreadListData, ThreadListFilter } from '@/types/shell';
 
@@ -67,7 +68,11 @@ export function useThreadList(initial: ThreadListData | null) {
         const timeout = isInitialState ? null : window.setTimeout(() => void fetchList(true), delay);
         const interval = window.setInterval(() => !isFetching.current && void fetchList(false), REFRESH_INTERVAL_MS);
 
+        const onRefresh = () => void fetchList(false);
+        window.addEventListener(THREAD_LIST_REFRESH_EVENT, onRefresh);
+
         return () => {
+            window.removeEventListener(THREAD_LIST_REFRESH_EVENT, onRefresh);
             if (timeout !== null) {
                 window.clearTimeout(timeout);
             }

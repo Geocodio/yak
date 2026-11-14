@@ -136,19 +136,16 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             <Head title={thread.title} />
 
             <ThreadHeader
-                page={{ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, teleport }}
+                page={{ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent }}
                 dockPanels={dockPanels}
                 activeDock={activeDock}
                 diff={diff}
                 subThreadCount={subThreadCount}
-                canAddSubThread={canAddSubThread}
                 isRailOpen={isRailOpen}
                 onSelectDock={(id) => selectDock(id)}
                 onToggleRail={() => setIsRailOpen((value) => !value)}
                 onOpenChanges={() => openChanges()}
                 onOpenOverview={openOverview}
-                onAddSubThread={() => setIsAddingSubThread(true)}
-                onTeleport={() => setIsTeleportOpen(true)}
             />
             <FailedStepStrip notice={notice} threadId={thread.id} readonly={composer.state === 'readonly'} />
             <PrivateThreadBanner thread={thread} />

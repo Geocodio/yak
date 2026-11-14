@@ -17,6 +17,9 @@ class VisibilityRoutes
     private const PROBES = [
         'threads.show' => ['GET', '/threads/{thread}'],
         'threads.seen' => ['POST', '/threads/{thread}/seen'],
+        'threads.star' => ['POST', '/threads/{thread}/star', [], 302],
+        'threads.close' => ['POST', '/threads/{thread}/close', [], 302],
+        'threads.destroy' => ['DELETE', '/threads/{thread}', [], 302],
         'threads.share.show' => ['GET', '/threads/{thread}/share'],
         'threads.share.update' => ['PUT', '/threads/{thread}/share', ['mode' => 'only_me']],
         'threads.diff.show' => ['GET', '/threads/{thread}/diff'],

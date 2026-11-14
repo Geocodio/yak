@@ -88,7 +88,9 @@ use App\Http\Controllers\Threads\Stack\StackShowController;
 use App\Http\Controllers\Threads\Stack\StackStopController;
 use App\Http\Controllers\Threads\StoreThreadController;
 use App\Http\Controllers\Threads\TerminalSessionController;
+use App\Http\Controllers\Threads\ThreadCloseController;
 use App\Http\Controllers\Threads\ThreadController;
+use App\Http\Controllers\Threads\ThreadDestroyController;
 use App\Http\Controllers\Threads\ThreadDiffController;
 use App\Http\Controllers\Threads\ThreadEnvironmentController;
 use App\Http\Controllers\Threads\ThreadEventController;
@@ -100,6 +102,7 @@ use App\Http\Controllers\Threads\ThreadRepositoryController;
 use App\Http\Controllers\Threads\ThreadRepositoryProgressController;
 use App\Http\Controllers\Threads\ThreadSeenController;
 use App\Http\Controllers\Threads\ThreadShareController;
+use App\Http\Controllers\Threads\ThreadStarController;
 use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Http\Middleware\CliProtocol;
@@ -303,6 +306,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('threads/list', ThreadListController::class)->name('threads.list');
     Route::post('threads/{thread}/seen', ThreadSeenController::class)
         ->name('threads.seen');
+    Route::post('threads/{thread}/star', ThreadStarController::class)
+        ->name('threads.star');
+    Route::post('threads/{thread}/close', ThreadCloseController::class)
+        ->name('threads.close');
+    Route::delete('threads/{thread}', ThreadDestroyController::class)
+        ->name('threads.destroy');
 
     // Changes.
     Route::get('threads/{thread}/diff', [ThreadDiffController::class, 'show'])

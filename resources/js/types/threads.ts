@@ -26,6 +26,7 @@ export type ThreadData = {
     repositories: ThreadRepositoryData[];
     pullRequestCount: number;
     isOwner: boolean;
+    isStarred: boolean;
     sharedWithCount: number;
     startedOnDevice: boolean;
     preview: ThreadPreviewData;

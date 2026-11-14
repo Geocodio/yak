@@ -13,6 +13,7 @@ use App\Enums\TurnState;
 use App\Models\Scopes\VisibleThreadScope;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadStar;
 use App\Models\ThreadView;
 use App\Models\User;
 use Carbon\CarbonInterface;
@@ -22,12 +23,13 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
- * The sidebar's thread list: open root threads the viewer may see, those that
- * need the viewer first, each with its open sub-threads nested underneath.
+ * The sidebar's thread list: open root threads the viewer may see (closed ones
+ * under the Closed filter), the viewer's starred ones pinned first, then those
+ * that need the viewer, each with its sub-threads nested underneath.
  *
  * A row is `array{id: string, title: string, repo: string, status: string,
  * needsYouReason: ?string, needsYouLabel: ?string, isPrivate: bool, isShared: bool,
- * isUnattended: bool, ownerInitials: ?string, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
+ * isUnattended: bool, isStarred: bool, canDelete: bool, ownerInitials: ?string, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
  * children: list<array<string, mixed>>}`.
  */
 class ThreadList
@@ -35,15 +37,16 @@ class ThreadList
     private const LIKE_ESCAPE = '!';
 
     /**
-     * @return array{needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool}
+     * @return array{starred: list<array<string, mixed>>, needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool}
      */
     public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null): array
     {
+        $status = $filter === ThreadListFilter::Closed ? 'closed' : 'open';
         $roots = Thread::query()
             ->withoutVisibilityScope()
             ->visibleTo($user)
             ->whereNull('parent_thread_id')
-            ->where('status', 'open')
+            ->where('status', $status)
             ->when($filter === ThreadListFilter::Mine, fn (Builder $query) => self::mine($query, $user))
             ->when($filter === ThreadListFilter::StartedByYak, fn (Builder $query) => $query->whereNull('created_by_user_id'))
             ->when($search !== null && $search !== '', fn (Builder $query) => self::search($query, (string) $search))
@@ -52,7 +55,7 @@ class ThreadList
             ->withExists('shares as is_shared')
             ->with([
                 'tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
-                'children' => fn (Relation $relation) => self::scopeChildren($relation, $user),
+                'children' => fn (Relation $relation) => self::scopeChildren($relation, $user, $status),
                 'children.tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
             ])
             ->orderByRaw('last_activity_at is null')
@@ -70,6 +73,12 @@ class ThreadList
             ->whereIn('thread_id', $all->pluck('id')->all())
             ->pluck('last_seen_at', 'thread_id');
 
+        $starredIds = ThreadStar::query()
+            ->where('user_id', $user->id)
+            ->whereIn('thread_id', $roots->pluck('id')->all())
+            ->pluck('thread_id')
+            ->all();
+
         $owners = User::query()
             ->whereIn('id', $all->pluck('created_by_user_id')->filter()->unique()->all())
             ->get(['id', 'name'])
@@ -77,14 +86,15 @@ class ThreadList
 
         $startOfDay = now()->startOfDay();
         $startOfWeek = now()->startOfWeek();
+        $starred = [];
         $needsYou = [];
         $rest = [];
 
         foreach ($roots as $root) {
             $isPrivate = $root->visibility === ThreadVisibility::Private;
             $isShared = $isPrivate && (bool) $root->getAttribute('is_shared');
-            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $owners, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, []))->all());
-            $row = self::row($root, $runs, $seen, $owners, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, $children);
+            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $owners, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, [], false, false))->all());
+            $row = self::row($root, $runs, $seen, $owners, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, $children, in_array($root->id, $starredIds, true), ! $isPrivate || $root->owner_user_id === $user->id);
 
             $needyChildren = array_values(array_filter($children, fn (array $child): bool => $child['needsYouReason'] !== null));
 
@@ -94,7 +104,9 @@ class ThreadList
                 $row['needsYouLabel'] = $count . ($count === 1 ? ' sub-thread needs you' : ' sub-threads need you');
             }
 
-            if ($row['needsYouReason'] === null) {
+            if ($row['isStarred']) {
+                $starred[] = $row;
+            } elseif ($row['needsYouReason'] === null) {
                 $rest[] = $row;
             } else {
                 $needsYou[] = $row;
@@ -102,12 +114,11 @@ class ThreadList
         }
 
         return [
+            'starred' => $starred,
             'needsYou' => $needsYou,
             'threads' => $rest,
-            'needsYouCount' => count($needsYou),
-            'hasAnyThreads' => $filter === ThreadListFilter::Everyone && ($search === null || $search === '')
-                ? $roots->isNotEmpty()
-                : self::hasAnyThreads($user),
+            'needsYouCount' => count($needsYou) + count(array_filter($starred, fn (array $row): bool => $row['needsYouReason'] !== null)),
+            'hasAnyThreads' => $roots->isNotEmpty() || self::hasAnyThreads($user),
         ];
     }
 
@@ -117,19 +128,18 @@ class ThreadList
             ->withoutVisibilityScope()
             ->visibleTo($user)
             ->whereNull('parent_thread_id')
-            ->where('status', 'open')
             ->exists();
     }
 
     /**
      * @param  Relation<Thread, Thread, mixed>  $relation
      */
-    private static function scopeChildren(Relation $relation, User $user): void
+    private static function scopeChildren(Relation $relation, User $user, string $status): void
     {
         $children = $relation->getQuery()->withoutGlobalScope(VisibleThreadScope::class);
 
         app(ThreadAccess::class)->scopeVisibleTo($children, $user)
-            ->where('status', 'open')
+            ->where('status', $status)
             ->select('threads.*')
             ->addSelect(['latest_run_id' => self::latestRunId()])
             ->orderBy('id');
@@ -184,10 +194,10 @@ class ThreadList
      * @param  list<array<string, mixed>>  $children
      * @return array<string, mixed>
      */
-    private static function row(Thread $thread, Collection $runs, Collection $seen, Collection $owners, User $viewer, CarbonInterface $startOfDay, CarbonInterface $startOfWeek, bool $isPrivate, bool $isShared, array $children): array
+    private static function row(Thread $thread, Collection $runs, Collection $seen, Collection $owners, User $viewer, CarbonInterface $startOfDay, CarbonInterface $startOfWeek, bool $isPrivate, bool $isShared, array $children, bool $isStarred, bool $canDelete): array
     {
         $run = $runs->get($thread->getAttribute('latest_run_id'));
-        [$reason, $label] = self::needsYou($thread, $run, $seen->get($thread->id));
+        [$reason, $label] = $thread->isOpen() ? self::needsYou($thread, $run, $seen->get($thread->id)) : [null, null];
 
         return [
             'id' => $thread->public_id,
@@ -199,6 +209,8 @@ class ThreadList
             'isPrivate' => $isPrivate,
             'isShared' => $isShared,
             'isUnattended' => $thread->created_by_user_id === null,
+            'isStarred' => $isStarred,
+            'canDelete' => $canDelete,
             'ownerInitials' => $thread->created_by_user_id !== null && $thread->created_by_user_id !== $viewer->id
                 ? $owners->get($thread->created_by_user_id)?->initials()
                 : null,
@@ -216,6 +228,7 @@ class ThreadList
     private static function status(Thread $thread, ?TaskRun $run): ThreadListStatus
     {
         return match (true) {
+            ! $thread->isOpen() => ThreadListStatus::Closed,
             in_array($run?->getAttribute('turn_state'), [TurnState::Running, TurnState::WaitingForAccount, TurnState::WaitingForSandbox], true) => ThreadListStatus::Running,
             $thread->blocked_reason === ThreadBlockReason::WaitingForRepository => ThreadListStatus::WaitingForRepository,
             $thread->blocked_reason !== null => ThreadListStatus::Blocked,

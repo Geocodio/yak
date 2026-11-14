@@ -140,12 +140,22 @@ test('the Overview shows a preview link that opens in a new tab', function () {
         ->assertNoJavaScriptErrors();
 });
 
-test('the header menu and the composer menu both offer a sub-thread', function () {
+test('the header menu keeps only what has no other home and the composer menu offers a sub-thread', function () {
     $thread = layoutThread();
 
     visit(route('threads.show', $thread))->resize(1440, 900)
         ->click('[data-testid="thread-menu"]')
-        ->click('[data-testid="thread-menu-add-sub-thread"]')
+        ->assertMissing('[data-testid="thread-menu-add-sub-thread"]')
+        ->assertMissing('[data-testid="thread-menu-teleport"]')
+        ->assertMissing('[data-testid="thread-menu-share"]')
+        ->assertPresent('[data-testid="thread-menu-copy-branch"]')
+        ->assertPresent('[data-testid="thread-menu-close"]')
+        ->assertPresent('[data-testid="thread-menu-delete"]')
+        ->assertNoJavaScriptErrors();
+
+    visit(route('threads.show', $thread))->resize(1440, 900)
+        ->click('[data-testid="composer-plus-menu"]')
+        ->click('[data-testid="composer-add-sub-thread"]')
         ->assertVisible('[data-testid="stack-add-dialog"]')
         ->assertNoJavaScriptErrors();
 });

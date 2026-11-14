@@ -13,6 +13,7 @@ use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
 use App\Models\Thread;
 use App\Models\ThreadShare;
+use App\Models\ThreadStar;
 use App\Models\User;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Teleport\TeleportPageState;
@@ -47,6 +48,7 @@ final class ThreadPageData
      *         repositories: list<array{repo: string, role: value-of<RepositoryRole>, setupStatus: value-of<RepositorySetupStatus>}>,
      *         pullRequestCount: int,
      *         isOwner: bool,
+     *         isStarred: bool,
      *         sharedWithCount: int,
      *         startedOnDevice: bool,
      *         preview: array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: string, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string, port: ?int, coldStartCommand: ?string, setup: array{intent: ?string, isRunning: bool, endedWithoutManifest: bool}},
@@ -94,6 +96,7 @@ final class ThreadPageData
                 'repositories' => $repositories,
                 'pullRequestCount' => $thread->repositories->whereNotNull('pull_request_url')->where('role', '!=', RepositoryRole::Context)->count(),
                 'isOwner' => $isOwner,
+                'isStarred' => $viewer !== null && ThreadStar::query()->where('user_id', $viewer->id)->where('thread_id', $thread->id)->exists(),
                 'sharedWithCount' => $isOwner ? ThreadShare::query()->where('thread_id', $thread->root_thread_id ?? $thread->id)->count() : 0,
                 'startedOnDevice' => $thread->owner_side === ThreadOwnerSide::Device,
                 'preview' => app(ThreadPreviewPanelState::class)->build($thread, $viewer),
