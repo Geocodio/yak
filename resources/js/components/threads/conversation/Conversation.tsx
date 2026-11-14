@@ -21,6 +21,7 @@ import { PersonMessage } from './PersonMessage';
 import { PullRequestChips } from './PullRequestChip';
 import { EnvironmentNoteCard } from './EnvironmentNoteCard';
 import { SideSwitchDivider } from './SideSwitchDivider';
+import { switchPosition } from './switchPosition';
 import { ThreadNotice } from './ThreadNotice';
 import { ToolSteps } from './ToolSteps';
 import { WalkthroughCard } from './WalkthroughCard';
@@ -72,6 +73,14 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     let previousDay = '';
+    const switchAt = environmentSwitch?.at ?? environmentNote?.at ?? null;
+    const switchIndex = switchAt === null ? -1 : switchPosition(entries, switchAt);
+    const switchBlock = (
+        <Fragment key="environment-switch">
+            {environmentSwitch && <SideSwitchDivider {...environmentSwitch} />}
+            {environmentNote && <EnvironmentNoteCard threadId={threadId} text={environmentNote.text} from={environmentNote.from} to={environmentNote.to} />}
+        </Fragment>
+    );
 
     return (
         <>
@@ -79,8 +88,15 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
             <div ref={content} className="mx-auto flex max-w-[760px] flex-col gap-4">
                 {localTurns && <LocalTurnsFold threadId={threadId} localTurns={localTurns} modelLabels={modelLabels} />}
                 {entries.map((entry, index) => {
+                    const before = index === switchIndex ? switchBlock : null;
+
                     if (entry.type === 'event') {
-                        return <EventRow modelLabels={modelLabels} key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} threadId={threadId} onOpenChanges={onOpenChanges} />;
+                        return (
+                            <Fragment key={entry.item.key}>
+                                {before}
+                                <EventRow modelLabels={modelLabels} key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} threadId={threadId} onOpenChanges={onOpenChanges} />
+                            </Fragment>
+                        );
                     }
 
                     const day = entry.message.sentAt.slice(0, 10);
@@ -89,6 +105,7 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
 
                     return (
                         <Fragment key={entry.message.uuid ?? entry.message.id}>
+                            {before}
                             {showDay && <DayDivider iso={entry.message.sentAt} />}
                             <PersonMessage
                                 message={entry.message}
@@ -106,8 +123,7 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
                     <UnsentMessage key={message.key} message={message} onRetry={() => outbox.retry(threadId, message.key)} onEdit={() => onEditUnsent?.(outbox.cancel(threadId, message.key))} />
                 ))}
                 {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} />}
-                {environmentSwitch && <SideSwitchDivider {...environmentSwitch} />}
-                {environmentNote && <EnvironmentNoteCard threadId={threadId} text={environmentNote.text} from={environmentNote.from} to={environmentNote.to} />}
+                {switchIndex === entries.length && switchBlock}
                 {pullRequestCount > 1 && <PullRequestChips threadId={threadId} lastActivityAt={lastActivityAt} />}
                 <span
                     hidden
