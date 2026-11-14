@@ -118,8 +118,10 @@ export default function Devices({ devices }: Props) {
     const [revokedName, setRevokedName] = useState<string | null>(null);
     const [didLoadFail, setDidLoadFail] = useState(false);
     const [isAddingPhone, setIsAddingPhone] = useState(false);
-    const handlePhonePaired = useCallback(() => {
+    const [pairedName, setPairedName] = useState<string | null>(null);
+    const handlePhonePaired = useCallback((device: Device) => {
         setIsAddingPhone(false);
+        setPairedName(device.name);
         router.reload({ only: ['devices'] });
     }, []);
 
@@ -163,6 +165,13 @@ export default function Devices({ devices }: Props) {
             <Head title="Devices" />
 
             <div className="flex flex-col gap-6">
+                {pairedName !== null && (
+                    <div role="status" className="flex items-start gap-2 rounded-card border border-hair bg-ok-soft px-4 py-3 text-[13px]" data-testid="phone-paired-banner">
+                        <Check size={15} className="mt-0.5 shrink-0 text-ok" aria-hidden="true" />
+                        <p>{pairedName} is paired. It is in the list below.</p>
+                    </div>
+                )}
+
                 {revokedName !== null && (
                     <div role="status" className="flex items-start gap-2 rounded-card border border-hair bg-ok-soft px-4 py-3 text-[13px]" data-testid="device-revoked-banner">
                         <Check size={15} className="mt-0.5 shrink-0 text-ok" aria-hidden="true" />
@@ -173,7 +182,7 @@ export default function Devices({ devices }: Props) {
                 <section className="flex flex-col gap-3" aria-labelledby="devices-heading">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 id="devices-heading" className="text-[14px] font-semibold">Paired computers</h3>
-                        <Button variant="secondary" icon={<Plus size={13} />} onClick={() => setIsAddingPhone(true)} data-testid="add-phone">Add a phone</Button>
+                        <Button variant="secondary" icon={<Plus size={13} />} onClick={() => { setPairedName(null); setIsAddingPhone(true); }} data-testid="add-phone">Add a phone</Button>
                     </div>
                     {didLoadFail && devices === undefined ? failedCard : (
                         <Deferred data="devices" fallback={<LoadingRows />}>

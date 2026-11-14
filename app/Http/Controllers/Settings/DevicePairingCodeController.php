@@ -28,6 +28,7 @@ class DevicePairingCodeController extends Controller
             'qrPayload' => $qrPayload,
             'qrSvg' => (new Writer(new ImageRenderer(new RendererStyle(240, 0), new SvgImageBackEnd)))->writeString($qrPayload),
             'expiresAt' => $pairingCode->expires_at->toIso8601String(),
+            'expiresInSeconds' => max(0, (int) now()->diffInSeconds($pairingCode->expires_at, false)),
         ], 201);
     }
 

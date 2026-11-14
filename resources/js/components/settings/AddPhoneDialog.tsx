@@ -1,25 +1,25 @@
 import { Button, Dialog, Spinner } from '@geocodio/console-ui';
-import { AlertTriangle, Check, RefreshCw, Smartphone } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Smartphone } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { csrfToken } from '@/lib/csrfToken';
 import { fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
 import { show, store } from '@/routes/settings/devices/pairing-codes';
-import type { Device } from '@/types/devices';
+import type { Device, PairingCode, PairingState } from '@/types/devices';
 
-type PairingCode = { id: string; qrPayload: string; qrSvg: string; expiresAt: string };
-type PairingState = { state: 'waiting' | 'paired' | 'expired'; device: Device | null };
 type Phase = 'loading' | 'ready' | 'failed' | 'expired';
 
 const POLL_INTERVAL_MS = 2000;
+const MAX_CONSECUTIVE_POLL_FAILURES = 3;
 
 function formatCountdown(totalSeconds: number): string {
     return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`;
 }
 
-export function AddPhoneDialog({ onClose, onPaired }: { onClose: () => void; onPaired: () => void }) {
+export function AddPhoneDialog({ onClose, onPaired }: { onClose: () => void; onPaired: (device: Device) => void }) {
     const [phase, setPhase] = useState<Phase>('loading');
     const [code, setCode] = useState<PairingCode | null>(null);
     const [secondsLeft, setSecondsLeft] = useState(0);
+    const [receivedAtMs, setReceivedAtMs] = useState(0);
     const [attempt, setAttempt] = useState(0);
 
     useEffect(() => {
@@ -42,7 +42,8 @@ export function AddPhoneDialog({ onClose, onPaired }: { onClose: () => void; onP
             })
             .then((created) => {
                 setCode(created);
-                setSecondsLeft(Math.max(0, Math.ceil((new Date(created.expiresAt).getTime() - Date.now()) / 1000)));
+                setReceivedAtMs(Date.now());
+                setSecondsLeft(created.expiresInSeconds);
                 setPhase('ready');
             })
             .catch(() => !controller.signal.aborted && setPhase('failed'));
@@ -56,33 +57,58 @@ export function AddPhoneDialog({ onClose, onPaired }: { onClose: () => void; onP
         }
 
         const controller = new AbortController();
-        const expiresAtMs = new Date(code.expiresAt).getTime();
-        const tick = setInterval(() => {
-            const remaining = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
-            setSecondsLeft(remaining);
+        const deadlineMs = receivedAtMs + code.expiresInSeconds * 1000;
+        let pollTimer: ReturnType<typeof setTimeout> | undefined;
+        let failures = 0;
+        let isFinished = false;
 
-            if (remaining === 0) {
-                setPhase('expired');
-            }
-        }, 1000);
-        const poll = setInterval(() => {
+        const tick = setInterval(() => setSecondsLeft(Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000))), 1000);
+
+        const poll = () => {
             fetchJsonWithRetry<PairingState>(show.url(code.id), { signal: controller.signal })
                 .then((result) => {
-                    if (result.state === 'paired') {
-                        onPaired();
+                    failures = 0;
+
+                    if (result.state === 'paired' && result.device !== null) {
+                        isFinished = true;
+                        onPaired(result.device);
                     } else if (result.state === 'expired') {
+                        isFinished = true;
+                        setPhase('expired');
+                    } else if (Date.now() >= deadlineMs) {
+                        // The final check after the countdown found the code still waiting on the server: stop waiting.
+                        isFinished = true;
                         setPhase('expired');
                     }
                 })
-                .catch(() => undefined);
-        }, POLL_INTERVAL_MS);
+                .catch((failure: unknown) => {
+                    if (controller.signal.aborted) {
+                        return;
+                    }
+
+                    failures += 1;
+                    const isClientError = failure instanceof Error && /\(4\d\d\)/.test(failure.message);
+
+                    if (isClientError || failures >= MAX_CONSECUTIVE_POLL_FAILURES || Date.now() >= deadlineMs) {
+                        isFinished = true;
+                        setPhase('failed');
+                    }
+                })
+                .finally(() => {
+                    if (!isFinished && !controller.signal.aborted) {
+                        pollTimer = setTimeout(poll, Math.min(POLL_INTERVAL_MS, Math.max(0, deadlineMs - Date.now())));
+                    }
+                });
+        };
+
+        pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
 
         return () => {
             controller.abort();
             clearInterval(tick);
-            clearInterval(poll);
+            clearTimeout(pollTimer);
         };
-    }, [phase, code, onPaired]);
+    }, [phase, code, receivedAtMs, onPaired]);
 
     const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
@@ -132,11 +158,11 @@ export function AddPhoneDialog({ onClose, onPaired }: { onClose: () => void; onP
                     </div>
                 )}
 
-                {(phase === 'ready' || phase === 'expired') && (
+                {phase === 'ready' && (
                     <div role="status" className="flex items-center gap-2.5 rounded-card bg-panel-2 px-3.5 py-3 text-[13px]" data-testid="pairing-waiting">
                         <Smartphone size={15} aria-hidden="true" />
                         <span className="font-medium">Waiting for a phone</span>
-                        {phase === 'ready' ? <Spinner size="sm" /> : <Check size={14} className="opacity-0" aria-hidden="true" />}
+                        <Spinner size="sm" />
                     </div>
                 )}
             </div>

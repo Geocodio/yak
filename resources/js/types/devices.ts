@@ -32,3 +32,9 @@ export type Device = {
     last_teleport: { thread_id: string; title: string; at: string } | null;
     owned_threads: { id: string; title: string }[];
 };
+
+/** Mirrors the JSON returned by DevicePairingCodeController::store. */
+export type PairingCode = { id: string; qrPayload: string; qrSvg: string; expiresAt: string; expiresInSeconds: number };
+
+/** Mirrors the JSON returned by DevicePairingCodeController::show. */
+export type PairingState = { state: 'waiting' | 'paired' | 'expired'; device: Device | null };

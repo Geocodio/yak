@@ -16,7 +16,8 @@ it('pairs a phone with a code from a signed-in web session', function () {
     $created = $this->actingAs($user)->postJson(route('settings.devices.pairing-codes.store'))->assertCreated();
     parse_str(parse_url($created->json('qrPayload'), PHP_URL_QUERY), $query);
     expect($created->json('qrPayload'))->toStartWith('yak://pair?url=')->and($query['url'])->toBe(config('app.url'))
-        ->and($created->json('qrSvg'))->toContain('<svg');
+        ->and($created->json('qrSvg'))->toContain('<svg')
+        ->and($created->json('expiresInSeconds'))->toBeGreaterThan(0)->toBeLessThanOrEqual(120);
     $this->app['auth']->forgetGuards();
 
     $paired = $this->postJson('/api/app/v1/device/pair', ['code' => $query['code']] + $this->phone, $this->headers)->assertOk();
