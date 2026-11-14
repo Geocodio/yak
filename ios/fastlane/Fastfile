@@ -17,14 +17,41 @@ platform :ios do
     sh("#{File.join(IOS_ROOT, "scripts/check-rules.sh").shellescape}")
   end
 
-  desc "UI tests in the simulator"
-  lane :ui_smoke do
+  desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\""
+  lane :ui_smoke do |options|
+    device = options[:device] || "iPhone 18 Pro"
     generate
-    sh(
-      "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
-      "-destination 'platform=iOS Simulator,name=iPhone 18 Pro' -only-testing:YakUITests " \
-      "CODE_SIGNING_ALLOWED=NO"
+    stub_package = File.join(IOS_ROOT, "Packages/YakStub")
+    sh("cd #{stub_package.shellescape} && swift build -c release")
+    stub_binary = File.join(`cd #{stub_package.shellescape} && swift build -c release --show-bin-path`.strip, "yak-stub")
+    build_directory = File.join(IOS_ROOT, "build")
+    FileUtils.mkdir_p(build_directory)
+    log_path = File.join(build_directory, "yak-stub.log")
+    # Port 0 lets the stub pick a free port; it prints the port it got on its first line.
+    output_path = File.join(build_directory, "yak-stub.out")
+    stub_pid = Process.spawn(
+      stub_binary, "--port", "0", "--fixtures", File.join(IOS_ROOT, "fixtures"), "--scenario", "paired",
+      out: output_path, err: log_path
     )
+    begin
+      port = nil
+      50.times do
+        port = File.read(output_path)[/listening on 127\.0\.0\.1:(\d+)/, 1]
+        break if port
+        sleep 0.2
+      end
+      UI.user_error!("yak-stub did not start, see #{log_path}") unless port
+      result_path = File.join(build_directory, "ui-smoke-#{device.gsub(/\W+/, "-")}.xcresult")
+      FileUtils.rm_rf(result_path)
+      sh(
+        "cd #{IOS_ROOT.shellescape} && TEST_RUNNER_YAK_STUB_PORT=#{port} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+        "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} -only-testing:YakUITests " \
+        "-resultBundlePath #{result_path.shellescape} CODE_SIGNING_ALLOWED=NO"
+      )
+    ensure
+      Process.kill("TERM", stub_pid)
+      Process.wait(stub_pid)
+    end
   end
 
   desc "YakKit package tests and app unit tests"

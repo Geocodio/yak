@@ -15,10 +15,10 @@ struct PairAgainView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Image(systemName: "iphone.slash")
                     .font(.system(size: 44, weight: .light))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
                 Text("pairAgain.title \(instance.name)").font(.largeTitle.bold())
-                Text("pairAgain.body").font(.body).foregroundStyle(.secondary)
+                Text("pairAgain.body").font(.body).foregroundStyle(Color.yakMuted)
             }
             .frame(maxWidth: 560, alignment: .leading)
             .frame(maxWidth: .infinity)

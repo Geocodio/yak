@@ -37,10 +37,10 @@ struct ScanCodeView: View {
             Spacer()
             Image(systemName: "camera.fill")
                 .font(.system(size: 40, weight: .light))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
             Text("scan.unavailable.title").font(.title2.bold())
-            Text("scan.unavailable.body").font(.body).foregroundStyle(.secondary)
+            Text("scan.unavailable.body").font(.body).foregroundStyle(Color.yakMuted)
                 .multilineTextAlignment(.center)
             Spacer()
         }

@@ -14,12 +14,12 @@ struct ConnectView: View {
             VStack(alignment: .leading, spacing: 24) {
                 Image(systemName: "qrcode.viewfinder")
                     .font(.system(size: 44, weight: .light))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 12) {
                     Text("connect.title").font(.largeTitle.bold())
                     Text("connect.body")
-                        .font(.body).foregroundStyle(.secondary)
+                        .font(.body).foregroundStyle(Color.yakMuted)
                 }
                 VStack(alignment: .leading, spacing: 16) {
                     hint(number: 1, title: "connect.hint1.title", detail: "connect.hint1.detail")
@@ -74,7 +74,7 @@ struct ConnectView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)
-                Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                Text(detail).font(.subheadline).foregroundStyle(Color.yakMuted)
             }
         }
         .accessibilityElement(children: .combine)

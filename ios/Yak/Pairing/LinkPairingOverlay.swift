@@ -61,7 +61,7 @@ private struct LinkPairingOverlay: View {
         case .checking where showsChecking:
             VStack(spacing: 16) {
                 ProgressView()
-                Text("pairLink.checking").font(.body).foregroundStyle(.secondary)
+                Text("pairLink.checking").font(.body).foregroundStyle(Color.yakMuted)
                 SlowHint { Task { await model.retryLinkPairing() } }
                 Button("common.close") { model.dismissLinkPairing() }.buttonStyle(SecondaryButtonStyle())
             }
@@ -85,12 +85,12 @@ private struct LinkPairingOverlay: View {
         return VStack(alignment: .leading, spacing: 16) {
             Image(systemName: "link")
                 .font(.system(size: 40, weight: .light))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
             Text("pairLink.confirm.title").font(.title2.bold())
             VStack(alignment: .leading, spacing: 4) {
                 Text(instance.name).font(.headline)
-                Text(host).font(.subheadline.monospaced()).foregroundStyle(.secondary)
+                Text(host).font(.subheadline.monospaced()).foregroundStyle(Color.yakMuted)
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -98,7 +98,7 @@ private struct LinkPairingOverlay: View {
             .accessibilityElement(children: .combine)
             Text("pairLink.confirm.warning").font(.body)
             if replaces != nil {
-                Text("pairLink.confirm.replaces").font(.body).foregroundStyle(.secondary)
+                Text("pairLink.confirm.replaces").font(.body).foregroundStyle(Color.yakMuted)
             }
             Button {
                 Task { await model.confirmLinkPairing() }

@@ -4,6 +4,12 @@ import SwiftUI
 extension Color {
     static let yakRust = Color("Rust")
     static let yakOnRust = Color("OnRust")
+    /// Links and plain actions, and the destructive variant; the system blue and red are below the contrast bar.
+    static let yakAction = Color("Action")
+    static let yakDanger = Color("Danger")
+    /// Secondary text. The system's secondary label is too faint for the contrast audit, so this is the primary
+    /// label color at 72 percent, which adapts to light and dark.
+    static let yakMuted = Color.primary.opacity(0.72)
 }
 
 /// The one filled control on a screen.
@@ -29,6 +35,6 @@ struct SecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
-            .background(.quaternary.opacity(configuration.isPressed ? 0.6 : 1), in: .rect(cornerRadius: 14))
+            .background(Color(.systemGray5).opacity(configuration.isPressed ? 0.6 : 1), in: .rect(cornerRadius: 14))
     }
 }

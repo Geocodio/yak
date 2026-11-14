@@ -12,10 +12,10 @@ struct PairingProblemView: View {
         VStack(alignment: .leading, spacing: 16) {
             Image(systemName: symbol)
                 .font(.system(size: 40, weight: .light))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
             Text(LocalizedStringKey(problem.titleKey)).font(.title2.bold())
-            Text(LocalizedStringKey(problem.bodyKey)).font(.body).foregroundStyle(.secondary)
+            Text(LocalizedStringKey(problem.bodyKey)).font(.body).foregroundStyle(Color.yakMuted)
             if !address.isEmpty {
                 Text(address)
                     .font(.subheadline.monospaced())

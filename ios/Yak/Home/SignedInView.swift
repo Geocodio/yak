@@ -17,7 +17,7 @@ struct SignedInView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(instance.name).font(.title2.bold())
-                        Text("signedIn.signedInAs \(instance.userName)").foregroundStyle(.secondary)
+                        Text("signedIn.signedInAs \(instance.userName)").foregroundStyle(Color.yakMuted)
                     }
                     .padding(.vertical, 4)
                     .accessibilityElement(children: .combine)
@@ -40,9 +40,11 @@ struct SignedInView: View {
                 Section {
                     Button("signedIn.add") { showsAdd = true }.frame(minHeight: 44)
                     Button("signedIn.remove", role: .destructive) { confirmsRemove = true }
+                        .foregroundStyle(Color.yakDanger)
                         .frame(minHeight: 44)
                 }
             }
+            .tint(Color.yakAction)
             .navigationTitle("signedIn.title")
             .navigationBarTitleDisplayMode(.inline)
         }

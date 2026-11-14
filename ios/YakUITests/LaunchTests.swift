@@ -1,6 +1,6 @@
 import XCTest
 
-final class LaunchTests: XCTestCase {
+@MainActor final class LaunchTests: XCTestCase {
     func testLaunchShowsConnectScreen() {
         let app = XCUIApplication()
         app.launch()

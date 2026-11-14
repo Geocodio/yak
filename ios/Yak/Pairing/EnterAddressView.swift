@@ -87,7 +87,7 @@ struct EnterAddressView: View {
         let isChecking = pairingModel.state == .checking
         return VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 0) {
-                Text("address.prefix").foregroundStyle(.secondary)
+                Text("address.prefix").foregroundStyle(Color.yakMuted)
                 TextField("address.placeholder", text: $address)
                     .textContentType(.URL)
                     .keyboardType(.URL)
@@ -108,16 +108,16 @@ struct EnterAddressView: View {
             }
             if !model.network.isOnline {
                 Label("common.offline", systemImage: "wifi.slash")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                    .font(.subheadline).foregroundStyle(Color.yakMuted)
             } else if let problem = pairingModel.checkProblem, !isChecking {
-                Text(LocalizedStringKey(problem.titleKey)).font(.subheadline).foregroundStyle(.secondary)
+                Text(LocalizedStringKey(problem.titleKey)).font(.subheadline).foregroundStyle(Color.yakMuted)
             }
             if let info = pairingModel.confirmation, !isChecking {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(info.name).font(.headline)
-                        Text("address.found").font(.subheadline).foregroundStyle(.secondary)
+                        Text("address.found").font(.subheadline).foregroundStyle(Color.yakMuted)
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -140,7 +140,7 @@ struct EnterAddressView: View {
             if isChecking {
                 SlowHint { retry(pairingModel) }
             }
-            Text("address.footnote").font(.footnote).foregroundStyle(.secondary)
+            Text("address.footnote").font(.footnote).foregroundStyle(Color.yakMuted)
         }
         .animation(.spring, value: pairingModel.confirmation != nil)
         .animation(.spring, value: pairingModel.checkProblem)
@@ -152,7 +152,7 @@ struct EnterAddressView: View {
                 ProgressView()
                 Text("address.waiting")
             }
-            Text("address.waitingDetail").font(.body).foregroundStyle(.secondary)
+            Text("address.waitingDetail").font(.body).foregroundStyle(Color.yakMuted)
             Button("address.cancel") { pairingModel.cancel() }.buttonStyle(SecondaryButtonStyle())
         }
     }
@@ -216,7 +216,7 @@ struct SlowHint: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if isSlow {
-                Text("common.slow").font(.footnote).foregroundStyle(.secondary)
+                Text("common.slow").font(.footnote).foregroundStyle(Color.yakMuted)
                 Button(actionTitle, action: retry).buttonStyle(SecondaryButtonStyle())
             }
         }
