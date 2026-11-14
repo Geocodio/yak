@@ -22,6 +22,7 @@ use App\Services\PullRequestTitle;
 use App\Services\Push\PullRequestPush;
 use App\Services\ReviewReplyPoster;
 use App\Services\TaskLogger;
+use App\Services\Threads\PullRequests\PullRequestOpening;
 use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Services\WalkthroughPrSection;
 use App\Support\MarkdownText;
@@ -57,9 +58,18 @@ class CreatePullRequestJob implements ShouldQueue
             'error' => $e?->getMessage() ?? 'Job failed without exception',
             'exception_class' => $e !== null ? get_class($e) : null,
         ]);
+
+        app(PullRequestOpening::class)->finish($this->task, $e ?? new \RuntimeException('Job failed without exception'));
     }
 
     public function handle(GitHubAppService $gitHub): void
+    {
+        $this->open($gitHub);
+
+        app(PullRequestOpening::class)->finish($this->task);
+    }
+
+    private function open(GitHubAppService $gitHub): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
         $installationId = (int) config('yak.channels.github.installation_id');

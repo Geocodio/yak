@@ -1,3 +1,4 @@
+import { usePullRequestToasts } from '@/threads/usePullRequestToasts';
 import { Head } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
 import { useRef, useState, type ReactNode } from 'react';
@@ -54,6 +55,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const [isAddingSubThread, setIsAddingSubThread] = useState(false);
     const [isTeleportOpen, setIsTeleportOpen] = useState(false);
     const { stack, reload: reloadStack } = useStack(thread);
+    usePullRequestToasts(thread, pullRequest, publishWarning);
     const { diff, isLoading: isDiffLoading } = useThreadDiff(thread);
     const canAddSubThread = canDrive && stack !== null && stack.canDrive && stack.isRoot && thread.ownerSide === 'yak' && thread.status === 'open';
     const subThreadCount = stack?.children.length ?? 0;

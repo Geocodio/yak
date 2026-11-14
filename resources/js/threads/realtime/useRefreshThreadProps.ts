@@ -9,7 +9,7 @@ const RETRY_MS = 3000;
 export function livePropsSignature(threadId: string, events: Pick<ThreadEventState, 'turn' | 'thread'>): string {
     const { turn, thread } = events;
 
-    return [threadId, turn?.turnId, turn?.state, thread?.status, thread?.sandboxState, thread?.runnerState, thread?.blockedReason].join('|');
+    return [threadId, turn?.turnId, turn?.state, thread?.status, thread?.sandboxState, thread?.runnerState, thread?.blockedReason, thread?.pullRequestOpening].join('|');
 }
 
 /**
