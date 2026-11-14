@@ -1,11 +1,13 @@
 <?php
 
 use App\Enums\TurnState;
+use App\Models\ClaudeAccount;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(fn () => $this->withoutVite());
@@ -58,4 +60,16 @@ it('stack show reports the changed file count of a child, or null without a diff
     $response = $this->actingAs(User::factory()->create())->getJson(route('threads.stack.show', $root));
 
     expect(collect($response->json('children'))->pluck('filesChanged', 'id')->all())->toBe([$withDiff->public_id => 3, $withoutDiff->public_id => null]);
+});
+
+it('stack show gives the add sub-thread dialog its models, parent account and caps', function () {
+    $account = ClaudeAccount::factory()->create(['name' => 'Geocodio Max']);
+    $root = Thread::factory()->create(['claude_account_id' => $account->id]);
+
+    $this->actingAs(User::factory()->create())->getJson(route('threads.stack.show', $root))
+        ->assertJsonPath('parentAccountName', 'Geocodio Max')
+        ->assertJsonPath('maxChildren', (int) config('yak.threads.max_children'))
+        ->assertJsonPath('limit.current', (int) config('yak.threads.child_awake_limit'))
+        ->assertJsonPath('models.0.latest.value', ClaudeModelCatalog::FAMILIES[0])
+        ->assertJsonStructure(['models' => [['family', 'latest' => ['value', 'label', 'description'], 'older']]]);
 });
