@@ -1,8 +1,9 @@
 import { Deferred, Head, Link, router } from '@inertiajs/react';
 import { Badge, Button, ConfirmDialog, EmptyState, Skeleton, StatusPill } from '@geocodio/console-ui';
-import { AlertTriangle, Check, Monitor, RefreshCw, Smartphone, Trash2 } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { AlertTriangle, Check, Monitor, Plus, RefreshCw, Smartphone, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Card } from '@/components/accounts/AccountsSection';
+import { AddPhoneDialog } from '@/components/settings/AddPhoneDialog';
 import { AddComputerCard } from '@/components/settings/devices/AddComputerCard';
 import { systemLabel } from '@/components/settings/devices/systemLabel';
 import { useDocsUrl } from '@/lib/docsUrl';
@@ -116,6 +117,11 @@ export default function Devices({ devices }: Props) {
     const [isBusy, setIsBusy] = useState(false);
     const [revokedName, setRevokedName] = useState<string | null>(null);
     const [didLoadFail, setDidLoadFail] = useState(false);
+    const [isAddingPhone, setIsAddingPhone] = useState(false);
+    const handlePhonePaired = useCallback(() => {
+        setIsAddingPhone(false);
+        router.reload({ only: ['devices'] });
+    }, []);
 
     useEffect(() => {
         const fail = () => setDidLoadFail(true);
@@ -165,7 +171,10 @@ export default function Devices({ devices }: Props) {
                 )}
 
                 <section className="flex flex-col gap-3" aria-labelledby="devices-heading">
-                    <h3 id="devices-heading" className="text-[14px] font-semibold">Paired computers</h3>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 id="devices-heading" className="text-[14px] font-semibold">Paired computers</h3>
+                        <Button variant="secondary" icon={<Plus size={13} />} onClick={() => setIsAddingPhone(true)} data-testid="add-phone">Add a phone</Button>
+                    </div>
                     {didLoadFail && devices === undefined ? failedCard : (
                         <Deferred data="devices" fallback={<LoadingRows />}>
                             {devices && devices.length > 0
@@ -180,6 +189,8 @@ export default function Devices({ devices }: Props) {
                     )}
                 </section>
             </div>
+
+            {isAddingPhone && <AddPhoneDialog onClose={() => setIsAddingPhone(false)} onPaired={handlePhonePaired} />}
 
             <ConfirmDialog
                 open={revoking !== null}
