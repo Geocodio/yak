@@ -55,7 +55,6 @@ struct PairAgainView: View {
                 )
                 .linkPairingStatus(model, inSheet: true)
                 .countsAsOpenSheet(model)
-                .linkPairingStatus(model)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("address.cancel") { showsPairing = false }

@@ -114,9 +114,9 @@ private func jsonBody<Response>(_ endpoint: Endpoint<Response>) throws -> [Strin
     #expect(start.path == "device/code" && start.method == .post)
     #expect(try jsonBody(start) == ["name": "n", "model": "m", "os_version": "27", "app_version": "1"])
 
-    let poll = Endpoint.pollDeviceToken(deviceCode: "d")
+    let poll = Endpoint.pollDeviceToken(deviceCode: "d", requestID: "r")
     #expect(poll.path == "device/token" && poll.method == .post)
-    #expect(try jsonBody(poll) == ["device_code": "d"])
+    #expect(try jsonBody(poll) == ["device_code": "d", "request_id": "r"])
 
     let pair = Endpoint.pair(code: "c", name: "n", model: "m", osVersion: "27", appVersion: "1")
     #expect(pair.path == "device/pair" && pair.method == .post)

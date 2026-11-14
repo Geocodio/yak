@@ -200,6 +200,22 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
         #expect(await harness.sleeps.delays == [.seconds(5), .seconds(5), .seconds(5), .seconds(5)])
     }
 
+    @Test func aLostRedeemingPollIsRepeatedWithTheSameRequestID() async throws {
+        let harness = Harness([
+            "device/token": [.failure(.networkConnectionLost), .json(200, pairOK)], "me": [.json(200, meOK)],
+        ])
+        let pending = flow()
+        _ = try await harness.pairing.waitForApproval(pending)
+        let bodies = await harness.transport.bodies["device/token"] ?? []
+        #expect(bodies.count == 2)
+        for body in bodies {
+            let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: String])
+            #expect(json["request_id"] == pending.requestID)
+            #expect(json["device_code"] == "dc")
+        }
+        #expect(await harness.store.all().count == 1)
+    }
+
     @Test func pollingThroughNetworkFailuresStillEndsAtTheCodeExpiry() async {
         let harness = Harness(["device/token": [.failure(.notConnectedToInternet)]])
         await #expect(throws: PairingProblem.codeExpired) {

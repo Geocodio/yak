@@ -65,8 +65,12 @@ private struct PairBody: Encodable, Sendable {
 
 private struct PollBody: Encodable, Sendable {
     let deviceCode: String
+    let requestID: String
 
-    enum CodingKeys: String, CodingKey { case deviceCode = "device_code" }
+    enum CodingKeys: String, CodingKey {
+        case deviceCode = "device_code"
+        case requestID = "request_id"
+    }
 }
 
 extension Endpoint where Response == Me {
@@ -85,8 +89,9 @@ extension Endpoint where Response == DeviceCode {
 }
 
 extension Endpoint where Response == PairingResponse {
-    public static func pollDeviceToken(deviceCode: String) -> Endpoint<PairingResponse> {
-        Endpoint(method: .post, path: "device/token", body: PollBody(deviceCode: deviceCode))
+    public static func pollDeviceToken(deviceCode: String, requestID: String) -> Endpoint<PairingResponse> {
+        Endpoint(
+            method: .post, path: "device/token", body: PollBody(deviceCode: deviceCode, requestID: requestID))
     }
 
     /// `requestID` makes a repeat of the same redeem safe: a server that knows it answers the repeat with

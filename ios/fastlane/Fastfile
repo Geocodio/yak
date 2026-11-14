@@ -28,22 +28,23 @@ platform :ios do
     end
   end
 
-  desc "Quality-bar walkthrough, screenshots in build/screenshots/<device>/<appearance>: " \
+  desc "Quality-bar walkthrough, screenshots in build/screenshots/<device>/<appearance>/<orientation>: " \
        "fastlane walkthrough device:\"iPhone 18 Pro\" appearance:dark|light|largest-text orientation:landscape only:testName"
   lane :walkthrough do |options|
     device = options[:device] || "iPhone 18 Pro"
     appearance = options[:appearance] || "light"
+    orientation = options[:orientation] || "portrait"
     device_folder = device.gsub(/\W+/, "-").gsub(/\A-+|-+\z/, "")
     environment = {
-      "YAK_SHOT_DIR" => File.join(IOS_ROOT, "build/screenshots", device_folder, appearance),
+      "YAK_SHOT_DIR" => File.join(IOS_ROOT, "build/screenshots", device_folder, appearance, orientation),
       "YAK_APPEARANCE" => appearance == "dark" ? "dark" : "light",
       "YAK_TEXT_SIZE" => appearance == "largest-text" ? "largest" : "normal",
-      "YAK_ORIENTATION" => options[:orientation] || "portrait"
+      "YAK_ORIENTATION" => orientation
     }
     # A filtered run adds to the set already on disk; only a full run starts clean.
     FileUtils.rm_rf(environment["YAK_SHOT_DIR"]) unless options[:only]
     with_stub do |port, build_directory|
-      result_path = File.join(build_directory, "walkthrough-#{device_folder}-#{appearance}.xcresult")
+      result_path = File.join(build_directory, "walkthrough-#{device_folder}-#{appearance}-#{orientation}.xcresult")
       FileUtils.rm_rf(result_path)
       selection = "-only-testing:YakUITests/WalkthroughTests#{options[:only] ? "/#{options[:only]}" : ""}"
       run_ui_tests(device, port, result_path, selection, environment)

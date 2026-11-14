@@ -26,11 +26,14 @@ public struct PendingDeviceFlow: Sendable {
     public let instance: InstanceInfo
     public let url: URL
     public let code: DeviceCode
+    /// One per sign-in attempt, sent on every poll so a repeat after a lost answer gets the same token.
+    public let requestID: String
 
-    public init(instance: InstanceInfo, url: URL, code: DeviceCode) {
+    public init(instance: InstanceInfo, url: URL, code: DeviceCode, requestID: String = UUID().uuidString) {
         self.instance = instance
         self.url = url
         self.code = code
+        self.requestID = requestID
     }
 }
 
@@ -126,7 +129,7 @@ public actor Pairing {
             waited += interval
             if Task.isCancelled { throw .cancelled }
             do {
-                let response = try await client.send(.pollDeviceToken(deviceCode: flow.code.deviceCode))
+                let response = try await client.send(.pollDeviceToken(deviceCode: flow.code.deviceCode, requestID: flow.requestID))
                 return try await store(response, url: flow.url, client: client)
             } catch let failure as APIFailure {
                 // A dropped request is no answer from the instance: keep polling until the code expires.
