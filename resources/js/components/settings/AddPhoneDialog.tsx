@@ -118,7 +118,7 @@ export function AddPhoneDialog({ onClose, onPaired }: { onClose: () => void; onP
             open
             onOpenChange={(open) => !open && onClose()}
             title="Add a phone"
-            description="Open the Yak app on your iPhone and scan this code. The phone is paired to your account at once."
+            description="Open the Yak app on your phone or iPad and scan this code. The phone is paired to your account at once."
             width="w-[min(560px,100vw)]"
             data-testid="add-phone-dialog"
             footer={<div className="flex justify-end"><Button variant="tertiary" onClick={onClose}>Close</Button></div>}

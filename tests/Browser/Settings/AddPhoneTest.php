@@ -11,12 +11,14 @@ it('shows a QR code only after a click and names the phone once it pairs', funct
     $page->assertMissing('[data-testid="pairing-qr"]')
         ->click('[data-testid="add-phone"]')
         ->assertVisible('[data-testid="pairing-qr"]')
-        ->assertSee('The code works once');
+        ->assertSee('The code works once')
+        ->assertSee('Open the Yak app on your phone or iPad and scan this code.');
 
     parse_str((string) parse_url($page->attribute('[data-testid="pairing-qr"]', 'data-qr-payload'), PHP_URL_QUERY), $query);
     app(PairingCodes::class)->redeem($query['code'], ['name' => 'Test phone', 'model' => 'iPhone19,4', 'os' => '27.2.1', 'app_version' => '1.0.0']);
 
-    $page->wait(4)->assertVisible('[data-testid="phone-paired-banner"]')->assertSee('Test phone is paired.')->assertMissing('[data-testid="pairing-qr"]');
+    $page->wait(4)->assertVisible('[data-testid="phone-paired-banner"]')->assertSee('Test phone is paired.')->assertMissing('[data-testid="pairing-qr"]')
+        ->assertSee('27.2.1')->assertDontSee('iOS 27.2.1');
     expect(DevicePairingCode::sole()->redeemed_at)->not->toBeNull();
 });
 

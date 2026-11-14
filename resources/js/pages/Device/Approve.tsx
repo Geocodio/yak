@@ -11,7 +11,7 @@ import type { DeviceApproval } from '@/types/devices';
 
 function deviceSystem({ os, arch, kind }: Pick<DeviceApproval, 'os' | 'arch' | 'kind'>): string {
     if (kind === 'phone') {
-        return os === null ? 'Unknown' : `iOS ${os}`;
+        return os === null ? 'Unknown' : os;
     }
 
     return os === null || arch === null ? 'Unknown' : systemLabel(os, arch);

@@ -72,7 +72,7 @@ function DeviceRow({ device, onRevoke }: { device: Device; onRevoke: (device: De
     const owned = device.owned_threads[0];
     const isPhone = device.kind === 'phone';
     const detail = isPhone
-        ? [device.model, device.os ? `iOS ${device.os}` : null, device.app_version ? `Yak app ${device.app_version}` : 'Yak app'].filter(Boolean).join(' \u00b7 ')
+        ? [device.model, device.os || null, device.app_version ? `Yak app ${device.app_version}` : 'Yak app'].filter(Boolean).join(' \u00b7 ')
         : `${systemLabel(device.os ?? '', device.arch ?? '')} \u00b7 ${device.cli_version ? `yak ${device.cli_version}` : 'yak'}`;
     const showLastSeen = device.last_seen_at !== null && device.last_seen_at !== device.last_teleport?.at;
 
