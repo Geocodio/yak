@@ -5,6 +5,7 @@ namespace App\Services\Teleport;
 use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 
 /**
  * Guarantees a branch exists on the remote before a teleport down records its head.
@@ -19,6 +20,8 @@ class EnsurePushedBranch
      */
     public function ensure(Thread $thread, string $path, string $branch): void
     {
+        app(ThreadGitHubCredentials::class)->ensureFresh($thread);
+
         if ($this->existsOnRemote($thread, $path, $branch)) {
             return;
         }

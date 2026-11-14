@@ -5,9 +5,11 @@ use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\FakeSandboxManager;
+use App\Services\Threads\IncusThreadSandboxManager;
 use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
     $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
@@ -135,4 +137,26 @@ it('does nothing without a configured installation', function () {
     app(ThreadGitHubCredentials::class)->install(Thread::factory()->create());
 
     Http::assertNothingSent();
+});
+
+it('replaces sandbox tokens only once they may have expired', function () {
+    $thread = Thread::factory()->create(['repo' => 'acme/app']);
+    $sandboxes = Mockery::mock(IncusThreadSandboxManager::class);
+    $sandboxes->shouldReceive('exec')->andReturn(Process::result());
+    $github = Mockery::mock(AppService::class);
+    $github->shouldReceive('getScopedInstallationToken')->twice()->andReturn('ghs_write');
+    $github->shouldReceive('getReadOnlyInstallationToken')->twice()->andReturn('ghs_read');
+    $credentials = new ThreadGitHubCredentials($github, $sandboxes);
+
+    $credentials->ensureFresh($thread);
+    $credentials->ensureFresh($thread);
+    $this->travel(46)->minutes();
+    $credentials->ensureFresh($thread);
+});
+
+it('never mints tokens for a sandbox that is not real', function () {
+    $github = Mockery::mock(AppService::class);
+    $github->shouldNotReceive('getScopedInstallationToken');
+
+    (new ThreadGitHubCredentials($github, new FakeSandboxManager))->ensureFresh(Thread::factory()->create());
 });

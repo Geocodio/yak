@@ -23,6 +23,7 @@ use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\Services\Teleport\ThreadOwnership;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -207,6 +208,9 @@ class ThreadTurns
 
         // The turn is recorded as running before the command goes out: the broker can answer no_runner within
         // milliseconds, and the driver only recovers a lost runner for a turn that is already running.
+        // Claude pushes during the turn, so the sandbox needs a token that outlives it.
+        app(ThreadGitHubCredentials::class)->ensureFresh($thread);
+
         $waitingState = $run->getAttribute('turn_state');
         self::trackUuid($run, (string) $run->prompt_uuid);
         $run->forceFill(['turn_state' => TurnState::Running])->save();

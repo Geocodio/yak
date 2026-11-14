@@ -8,6 +8,7 @@ use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
 use App\Services\Teleport\RepositoryWip;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use Illuminate\Contracts\Process\ProcessResult;
 use Throwable;
 
@@ -67,6 +68,8 @@ class WipPreserver
 
     private function run(Thread $thread, string $message): WipResult
     {
+        app(ThreadGitHubCredentials::class)->ensureFresh($thread);
+
         // A thread without a branch has nowhere to push; nothing is preserved.
         if (blank($thread->branch)) {
             return new WipResult(false, false, null);

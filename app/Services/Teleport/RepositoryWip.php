@@ -8,6 +8,7 @@ use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Support\LocalLinkFiles;
 use Illuminate\Contracts\Process\ProcessResult;
 
@@ -26,6 +27,8 @@ class RepositoryWip
      */
     public function preserve(Thread $thread, ThreadRepository $repository): WipResult
     {
+        app(ThreadGitHubCredentials::class)->ensureFresh($thread);
+
         if ($repository->role === RepositoryRole::Context || blank($repository->branch)) {
             return new WipResult(false, false, null);
         }

@@ -5,8 +5,12 @@ namespace App\Services\Threads\Repos;
 use App\Channels\GitHub\AppService;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\IncusThreadSandboxManager;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 /**
  * Gives a thread sandbox GitHub tokens limited to the repositories of the
@@ -19,6 +23,9 @@ class ThreadGitHubCredentials
     private const GIT_TOKEN_FILE = '/home/yak/.config/yak/git-token';
 
     private const GH_TOKEN_FILE = '/home/yak/.config/yak/gh-token';
+
+    /** Installation tokens live an hour; anything older than this is replaced before Yak or Claude pushes. */
+    private const FRESH_SECONDS = 45 * 60;
 
     private const CREDENTIAL_HELPER = '!f() { echo protocol=https; echo host=github.com; echo username=x-access-token; echo "password=$(cat ' . self::GIT_TOKEN_FILE . ')"; }; f';
 
@@ -45,6 +52,31 @@ class ThreadGitHubCredentials
         if ($configured->failed()) {
             throw new RuntimeException('Could not configure the git credential helper in the sandbox');
         }
+
+        Cache::put($this->freshKey($thread), true, self::FRESH_SECONDS);
+    }
+
+    /**
+     * Mints new tokens when the ones in the sandbox may have expired, so a push long after the last turn or
+     * restore still authenticates. Only a real sandbox holds tokens.
+     */
+    public function ensureFresh(Thread $thread): void
+    {
+        if (! $this->sandboxes instanceof IncusThreadSandboxManager || Cache::has($this->freshKey($thread))) {
+            return;
+        }
+
+        try {
+            $this->install($thread);
+        } catch (Throwable $exception) {
+            // The current token may still work; the push reports its own failure if it does not.
+            Log::warning('Refreshing the sandbox GitHub token failed', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
+        }
+    }
+
+    private function freshKey(Thread $thread): string
+    {
+        return "thread-git-token-fresh:{$thread->id}";
     }
 
     /** Mints fresh tokens, for a repository added to a running thread. */
