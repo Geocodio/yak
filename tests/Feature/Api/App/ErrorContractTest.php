@@ -168,3 +168,11 @@ it('binds a numeric thread id by primary key on the app API like on the CLI API'
 
     $this->getJson("/api/{$api}/v1/test-bind/{$thread->id}", ['X-Yak-Protocol' => '1'])->assertOk()->assertJsonPath('id', $thread->id);
 })->with(['cli', 'app']);
+
+it('stamps the protocol headers on a payload too large response', function () {
+    $this->call('POST', '/api/app/v1/device/code', [], [], [], ['CONTENT_LENGTH' => 1024 ** 4, 'HTTP_ACCEPT' => 'application/json', 'HTTP_X_YAK_PROTOCOL' => '1'])
+        ->assertStatus(413)
+        ->assertJsonPath('error', 'payload_too_large')
+        ->assertHeader('X-Yak-Protocol')
+        ->assertHeader('X-Yak-Min-Protocol');
+});

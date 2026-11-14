@@ -41,7 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
         PollCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(StampClientProtocol::class);
+        $middleware->prepend(StampClientProtocol::class);
         $middleware->trustProxies(at: ['127.0.0.1', '172.16.0.0/12']);
         $middleware->alias([
             'restrict-to-ingress' => RestrictToIngress::class,

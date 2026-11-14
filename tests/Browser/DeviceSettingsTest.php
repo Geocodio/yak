@@ -51,8 +51,28 @@ test('a person with no computers sees the install command and the waiting row', 
 
     visit('/settings/devices')
         ->assertNoJavaScriptErrors()
+        ->assertSee('No devices paired')
         ->assertPresent('[data-testid="teleport-install-command"]')
         ->assertSee('/install | sh')
         ->assertPresent('[data-testid="teleport-waiting"]')
         ->assertSee('Waiting for your computer');
+});
+
+test('a stale phone shows no computer-only hint while a stale computer does', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    Device::factory()->phone()->forUser($user)->stale()->create(['name' => 'Test phone']);
+
+    visit('/settings/devices')
+        ->assertSee('Paired devices')
+        ->assertSee('Test phone')
+        ->assertMissing('[data-testid="device-stale-hint"]')
+        ->assertDontSee('Never teleported')
+        ->assertNoJavaScriptErrors();
+
+    Device::factory()->forUser($user)->stale()->create(['name' => 'old-mac']);
+
+    visit('/settings/devices')
+        ->assertPresent('[data-testid="device-stale-hint"]')
+        ->assertSee('Never teleported');
 });

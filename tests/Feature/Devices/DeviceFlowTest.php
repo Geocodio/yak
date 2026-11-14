@@ -62,3 +62,14 @@ it('a second approve of the same code fails', function () {
 
     expect(fn () => $this->flow->approve($authorization, $user, null))->toThrow(DeviceFlowException::class);
 });
+
+it('clears kept tokens once the repeat window has passed', function () {
+    $fresh = DeviceAuthorization::factory()->create(['status' => 'redeemed', 'redeemed_at' => now()->subSeconds(10), 'encrypted_token' => 'kept', 'request_id_hash' => 'hash']);
+    $old = DeviceAuthorization::factory()->create(['status' => 'redeemed', 'redeemed_at' => now()->subSeconds(DeviceFlow::REPEAT_WINDOW_SECONDS + 1), 'encrypted_token' => 'kept', 'request_id_hash' => 'hash']);
+
+    $this->flow->clearRepeatableTokens();
+
+    expect($fresh->fresh()->encrypted_token)->toBe('kept')
+        ->and($old->fresh()->encrypted_token)->toBeNull()
+        ->and($old->fresh()->request_id_hash)->toBeNull();
+});

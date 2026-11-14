@@ -14,7 +14,7 @@
         "widgets": true
     },
     "instance": {
-        "name": "Yak",
+        "name": "Example Yak",
         "url": "<volatile:string>",
         "version": "2026.11.1"
     },

@@ -37,8 +37,8 @@ export const SETTINGS_SECTIONS: SettingsNavSection[] = [
                 href: '/settings/devices',
                 label: 'Devices',
                 icon: icon(Monitor),
-                description: 'The computers that can teleport threads to and from Yak.',
-                keywords: ['teleport', 'login', 'token'],
+                description: 'The computers and phones paired with Yak.',
+                keywords: ['teleport', 'login', 'token', 'phone'],
             },
             {
                 slug: 'notifications',

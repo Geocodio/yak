@@ -167,6 +167,18 @@ class DeviceFlow
     }
 
     /**
+     * Drops the kept token and request id of redeemed authorizations whose repeat window has passed.
+     */
+    public function clearRepeatableTokens(): void
+    {
+        DeviceAuthorization::query()
+            ->where('status', 'redeemed')
+            ->where('redeemed_at', '<', now()->subSeconds(self::REPEAT_WINDOW_SECONDS))
+            ->where(fn ($query) => $query->whereNotNull('encrypted_token')->orWhereNotNull('request_id_hash'))
+            ->update(['encrypted_token' => null, 'request_id_hash' => null]);
+    }
+
+    /**
      * Records the poll; true (and a longer interval) when it came sooner than the interval allows.
      */
     private function isPolledTooFast(DeviceAuthorization $authorization): bool

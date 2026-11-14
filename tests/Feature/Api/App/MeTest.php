@@ -23,6 +23,7 @@ it('reports what the app needs at runtime', function () {
     config([
         'yak.apns' => ['key' => 'secret-key-material', 'key_id' => 'kid', 'team_id' => 'tid', 'bundle_id' => 'com.example.yak', 'environment' => 'production'],
         'app.version' => '2026.11.1',
+        'yak.instance_name' => 'Example Yak',
         'broadcasting.default' => 'reverb',
         'broadcasting.connections.reverb.key' => 'reverb-key',
         'broadcasting.connections.reverb.options' => ['host' => 'ws.example.test', 'port' => 443, 'scheme' => 'https'],
