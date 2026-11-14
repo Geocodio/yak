@@ -12,7 +12,7 @@ beforeEach(function () {
 });
 
 it('pairs a phone with a code from a signed-in web session', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['name' => 'Test Person', 'email' => 'person@example.test']);
     $created = $this->actingAs($user)->postJson(route('settings.devices.pairing-codes.store'))->assertCreated();
     parse_str(parse_url($created->json('qrPayload'), PHP_URL_QUERY), $query);
     expect($created->json('qrPayload'))->toStartWith('yak://pair?url=')->and($query['url'])->toBe(config('app.url'))
@@ -21,7 +21,7 @@ it('pairs a phone with a code from a signed-in web session', function () {
     $this->app['auth']->forgetGuards();
 
     $paired = $this->postJson('/api/app/v1/device/pair', ['code' => $query['code']] + $this->phone, $this->headers)->assertOk();
-    ContractFixture::assertMatches('app', 'device-pair', $paired->json(), ['token', 'device.id', 'user.id', 'user.name', 'user.email']);
+    ContractFixture::assertMatches('app', 'device-pair', $paired->json(), ['token', 'device.id', 'user.id']);
     expect($paired->json('token'))->toStartWith('yakdev_')->and($paired->json('device.kind'))->toBe('phone');
 
     $this->actingAs($user)->getJson(route('settings.devices.pairing-codes.show', $created->json('id')))

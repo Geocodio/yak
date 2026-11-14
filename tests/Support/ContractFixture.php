@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use InvalidArgumentException;
 use PHPUnit\Framework\Assert;
 
 /**
@@ -9,12 +10,10 @@ use PHPUnit\Framework\Assert;
  */
 class ContractFixture
 {
-    public const VOLATILE_MARKER = '<volatile>';
-
     /**
      * @param  'cli'|'app'  $api
      * @param  array<mixed>  $payload
-     * @param  list<string>  $volatile  dot paths, `*` matches any key, whose values are replaced by the marker
+     * @param  list<string>  $volatile  dot paths, `*` matches any key, whose values are replaced by a marker that names the value's type, such as `<volatile:int>`
      */
     public static function assertMatches(string $api, string $name, array $payload, array $volatile = []): void
     {
@@ -60,11 +59,25 @@ class ContractFixture
 
         foreach ($keys as $key) {
             if ($segments === []) {
-                $node[$key] = self::VOLATILE_MARKER;
+                $node[$key] = self::marker($node[$key]);
             } elseif (is_array($node[$key])) {
                 self::mask($node[$key], $segments);
             }
         }
+    }
+
+    /**
+     * Pins the type of a value that varies between runs. A change of type still fails the comparison.
+     */
+    private static function marker(mixed $value): string
+    {
+        return match (true) {
+            is_string($value) => '<volatile:string>',
+            is_int($value) => '<volatile:int>',
+            is_bool($value) => '<volatile:bool>',
+            $value === null => '<volatile:null>',
+            default => throw new InvalidArgumentException('Only strings, integers, booleans and null can be masked, got ' . get_debug_type($value) . '.'),
+        };
     }
 
     private static function sortKeys(mixed $value): mixed

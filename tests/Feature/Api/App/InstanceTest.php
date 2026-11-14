@@ -3,12 +3,12 @@
 use Tests\Support\ContractFixture;
 
 it('describes the instance without auth or a protocol header', function () {
-    config(['yak.instance_name' => 'Example Yak', 'yak.app.protocol' => 4, 'yak.app.min_protocol' => 2]);
+    config(['yak.instance_name' => 'Example Yak', 'yak.app.protocol' => 1, 'yak.app.min_protocol' => 1]);
 
     $response = $this->getJson('/api/app/v1/instance')->assertOk()
-        ->assertExactJson(['yak' => true, 'name' => 'Example Yak', 'api' => ['current' => 4, 'min' => 2], 'pairing' => ['qr' => true, 'address' => true]]);
+        ->assertExactJson(['yak' => true, 'name' => 'Example Yak', 'api' => ['current' => 1, 'min' => 1], 'pairing' => ['qr' => true, 'address' => true]]);
 
-    ContractFixture::assertMatches('app', 'instance', $response->json(), ['name', 'api.current', 'api.min']);
+    ContractFixture::assertMatches('app', 'instance', $response->json());
 });
 
 it('falls back to the application name when no instance name is set', function () {

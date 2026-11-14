@@ -4,19 +4,19 @@
         "maxFiles": 8
     },
     "device": {
-        "id": "<volatile>",
-        "kind": "<volatile>",
-        "name": "<volatile>",
-        "pairedAt": "<volatile>"
+        "id": "<volatile:int>",
+        "kind": "phone",
+        "name": "Test phone",
+        "pairedAt": "<volatile:string>"
     },
     "features": {
         "liveActivities": true,
         "widgets": true
     },
     "instance": {
-        "name": "<volatile>",
-        "url": "<volatile>",
-        "version": "<volatile>"
+        "name": "Yak",
+        "url": "<volatile:string>",
+        "version": "2026.11.1"
     },
     "needsYouCount": 0,
     "push": {
@@ -25,19 +25,19 @@
         "environment": "production"
     },
     "realtime": {
-        "host": "<volatile>",
-        "key": "<volatile>",
-        "port": "<volatile>",
-        "scheme": "<volatile>"
+        "host": "ws.example.test",
+        "key": "reverb-key",
+        "port": 443,
+        "scheme": "https"
     },
     "terminal": {
-        "wsUrl": "<volatile>"
+        "wsUrl": "<volatile:string>"
     },
     "user": {
-        "email": "<volatile>",
-        "id": "<volatile>",
-        "initials": "<volatile>",
-        "isAdmin": "<volatile>",
-        "name": "<volatile>"
+        "email": "person@example.test",
+        "id": "<volatile:int>",
+        "initials": "TP",
+        "isAdmin": false,
+        "name": "Test Person"
     }
 }

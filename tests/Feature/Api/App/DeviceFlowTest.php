@@ -29,14 +29,14 @@ it('pairs a phone through the device flow', function () {
     $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertStatus(400)->assertJsonPath('error', 'authorization_pending');
 
     $this->travel(6)->seconds();
-    approvePhone($start->json('user_code'));
+    approvePhone($start->json('user_code'), User::factory()->create(['name' => 'Test Person', 'email' => 'person@example.test']));
 
     $this->travel(6)->seconds();
     $paired = $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertOk();
     expect($paired->json('token'))->toStartWith('yakdev_')
         ->and($paired->json('device.kind'))->toBe('phone')
         ->and(Device::sole())->name->toBe('Test phone 🌎')->model->toBe('iPhone19,4')->os->toBe('27.2.1')->app_version->toBe('1.0.0');
-    ContractFixture::assertMatches('app', 'device-token', $paired->json(), ['token', 'device.id', 'user.id', 'user.name', 'user.email']);
+    ContractFixture::assertMatches('app', 'device-token', $paired->json(), ['token', 'device.id', 'user.id']);
 });
 
 it('answers the same way when the poll is repeated inside the window, then refuses', function () {

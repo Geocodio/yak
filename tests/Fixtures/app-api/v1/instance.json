@@ -1,9 +1,9 @@
 {
     "api": {
-        "current": "<volatile>",
-        "min": "<volatile>"
+        "current": 1,
+        "min": 1
     },
-    "name": "<volatile>",
+    "name": "Example Yak",
     "pairing": {
         "address": true,
         "qr": true
