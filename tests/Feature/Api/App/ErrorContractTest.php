@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\ClientProtocol;
 use App\Models\Device;
+use App\Models\Thread;
 use App\Services\Devices\DeviceTokens;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -128,3 +129,10 @@ it('limits instance discovery to 60 a minute per address', function () {
 
     $this->getJson('/api/app/v1/instance')->assertStatus(429)->assertJsonPath('error', 'rate_limited')->assertHeader('X-Yak-Protocol');
 });
+
+it('binds a numeric thread id by primary key on the app API like on the CLI API', function (string $api) {
+    $thread = Thread::factory()->create();
+    Route::middleware(['web'])->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->get("/api/{$api}/v1/test-bind/{thread}", fn (Thread $thread) => response()->json(['id' => $thread->id]));
+
+    $this->getJson("/api/{$api}/v1/test-bind/{$thread->id}", ['X-Yak-Protocol' => '1'])->assertOk()->assertJsonPath('id', $thread->id);
+})->with(['cli', 'app']);

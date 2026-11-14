@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns;
 
+use App\Support\ClientApi;
 use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -11,7 +12,7 @@ use Illuminate\Http\Request;
  * Gives a model an eight character public_id that URLs and route parameters use
  * instead of the integer primary key. A numeric URL segment is a legacy link: a
  * GET redirects to the public id when the viewer may see the row (the global
- * scopes decide), the CLI API still accepts it, and every other request misses.
+ * scopes decide), the client APIs (CLI and app) still accept it, and every other request misses.
  *
  * @mixin Model
  */
@@ -62,7 +63,7 @@ trait HasPublicId
 
         $request = request();
 
-        if ($request->is('api/cli/*')) {
+        if (ClientApi::for($request) !== null) {
             return parent::resolveRouteBinding($value, $this->getKeyName());
         }
 

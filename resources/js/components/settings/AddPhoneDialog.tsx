@@ -56,6 +56,7 @@ export function AddPhoneDialog({ onClose, onPaired }: { onClose: () => void; onP
             return;
         }
 
+        // usePoll reloads an Inertia page's props. This dialog watches a JSON endpoint that no page renders, so it polls with fetch and a timer.
         const controller = new AbortController();
         const deadlineMs = receivedAtMs + code.expiresInSeconds * 1000;
         let pollTimer: ReturnType<typeof setTimeout> | undefined;

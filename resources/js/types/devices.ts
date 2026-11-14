@@ -21,7 +21,7 @@ export type Device = {
     name: string;
     kind: 'computer' | 'phone';
     model: string | null;
-    appVersion: string | null;
+    app_version: string | null;
     os: string | null;
     arch: string | null;
     cli_version: string | null;

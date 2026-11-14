@@ -24,6 +24,8 @@ return new class extends Migration
         foreach (['devices', 'device_authorizations'] as $tableName) {
             Schema::table($tableName, function (Blueprint $table) {
                 $table->dropColumn(['kind', 'model', 'app_version']);
+                $table->string('os', 16)->nullable(false)->change();
+                $table->string('arch', 16)->nullable(false)->change();
             });
         }
     }

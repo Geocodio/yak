@@ -31,6 +31,7 @@ function Facts({ device }: { device: DeviceApproval }) {
     const rows: [string, string][] = [
         ['Name', device.name ?? 'Unknown'],
         ['System', deviceSystem(device)],
+        ...(device.kind === 'phone' && device.model !== null ? [['Model', device.model] as [string, string]] : []),
         device.kind === 'phone'
             ? ['App', device.app_version === null ? 'Yak' : `Yak ${device.app_version}`]
             : ['Plugin', device.cli_version === null ? 'yak' : `yak ${device.cli_version}`],
@@ -87,7 +88,7 @@ function Confirm({ device }: { device: DeviceApproval }) {
     return (
         <>
             <Icon tone="neutral">{phone ? <Smartphone size={20} /> : <Monitor size={20} />}</Icon>
-            <h1 className="text-center text-[18px] font-semibold tracking-tight" data-testid="device-state">{phone ? `Connect ${device.model ?? 'this phone'} to Yak?` : 'Connect this computer to Yak?'}</h1>
+            <h1 className="text-center text-[18px] font-semibold tracking-tight" data-testid="device-state">{phone ? `Connect ${device.name ?? 'this phone'} to Yak?` : 'Connect this computer to Yak?'}</h1>
             <p className="mt-1.5 text-center text-[13px] leading-relaxed text-muted">{phone ? 'Check that this code is the one in the Yak app.' : 'Check that this code is the one in your terminal.'}</p>
             <div className="mt-4 rounded-card bg-panel-2 py-4 text-center" aria-label={`Code ${code}`}><span className="font-mono text-[28px] font-semibold tracking-[0.18em]" data-testid="device-code">{code}</span></div>
             <div className="mt-4"><Facts device={device} /></div>

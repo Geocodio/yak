@@ -38,7 +38,7 @@ function shortDate(iso: string): string {
 
 function LoadingRows() {
     return (
-        <Card className="divide-y divide-hair" aria-busy="true" aria-label="Loading computers" data-testid="devices-loading">
+        <Card className="divide-y divide-hair" aria-busy="true" aria-label="Loading devices" data-testid="devices-loading">
             {[0, 1].map((index) => (
                 <div key={index} className="flex items-center gap-3 px-4 py-3.5">
                     <Skeleton className="size-8 rounded-control" />
@@ -58,8 +58,8 @@ function EmptyDevices() {
             <Card className="p-8">
                 <EmptyState
                     icon={<Monitor size={18} />}
-                    title="No computers paired"
-                    body="Pair a computer to teleport threads between it and Yak. Until then threads you start on Yak stay on Yak."
+                    title="No devices paired"
+                    body="Pair a phone to follow your threads from it, or a computer to teleport threads between it and Yak. Until then threads you start on Yak stay on Yak."
                     action={<a href={guideUrl} target="_blank" rel="noreferrer" className={`rounded-[3px] text-[12.5px] text-accent-text hover:underline ${FOCUS}`}>How teleport works</a>}
                 />
             </Card>
@@ -70,14 +70,15 @@ function EmptyDevices() {
 
 function DeviceRow({ device, onRevoke }: { device: Device; onRevoke: (device: Device) => void }) {
     const owned = device.owned_threads[0];
-    const detail = device.kind === 'phone'
-        ? [device.model, device.os ? `iOS ${device.os}` : null, device.appVersion ? `Yak app ${device.appVersion}` : 'Yak app'].filter(Boolean).join(' \u00b7 ')
+    const isPhone = device.kind === 'phone';
+    const detail = isPhone
+        ? [device.model, device.os ? `iOS ${device.os}` : null, device.app_version ? `Yak app ${device.app_version}` : 'Yak app'].filter(Boolean).join(' \u00b7 ')
         : `${systemLabel(device.os ?? '', device.arch ?? '')} \u00b7 ${device.cli_version ? `yak ${device.cli_version}` : 'yak'}`;
     const showLastSeen = device.last_seen_at !== null && device.last_seen_at !== device.last_teleport?.at;
 
     return (
         <li className="flex flex-wrap items-start gap-3 px-4 py-3.5" data-testid="device-row">
-            <span className="grid size-8 shrink-0 place-items-center rounded-control bg-brand-soft text-brand">{device.kind === 'phone' ? <Smartphone size={15} aria-hidden="true" /> : <Monitor size={15} aria-hidden="true" />}</span>
+            <span className="grid size-8 shrink-0 place-items-center rounded-control bg-brand-soft text-brand">{isPhone ? <Smartphone size={15} aria-hidden="true" /> : <Monitor size={15} aria-hidden="true" />}</span>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[13.5px] font-medium">{device.name}</span>
@@ -85,13 +86,17 @@ function DeviceRow({ device, onRevoke }: { device: Device; onRevoke: (device: De
                     {device.is_stale && <StatusPill tone="warn" label={`Not used in ${device.stale_days} days`} />}
                 </div>
                 <p className="text-[12px] text-muted">{detail} &middot; paired {shortDate(device.paired_at)}</p>
-                <p className="text-[12px] text-muted">
-                    {device.last_teleport
-                        ? <>Last teleport {relative(device.last_teleport.at)}: <Link href={showThread.url(device.last_teleport.thread_id)} className={`rounded-[3px] text-accent-text hover:underline ${FOCUS}`}>{device.last_teleport.title}</Link></>
-                        : 'Never teleported'}
-                    {showLastSeen && device.last_seen_at && <> &middot; last seen {relative(device.last_seen_at)}</>}
-                </p>
-                {device.is_stale && <p className="text-[12px] text-warn" data-testid="device-stale-hint">Not used in {device.stale_days} days. Revoke it if this computer is gone.</p>}
+                {isPhone
+                    ? device.last_seen_at && <p className="text-[12px] text-muted">Last seen {relative(device.last_seen_at)}</p>
+                    : (
+                        <p className="text-[12px] text-muted">
+                            {device.last_teleport
+                                ? <>Last teleport {relative(device.last_teleport.at)}: <Link href={showThread.url(device.last_teleport.thread_id)} className={`rounded-[3px] text-accent-text hover:underline ${FOCUS}`}>{device.last_teleport.title}</Link></>
+                                : 'Never teleported'}
+                            {showLastSeen && device.last_seen_at && <> &middot; last seen {relative(device.last_seen_at)}</>}
+                        </p>
+                    )}
+                {device.is_stale && <p className="text-[12px] text-warn" data-testid="device-stale-hint">Not used in {device.stale_days} days. Revoke it if this {device.kind} is gone.</p>}
             </div>
             <Button variant="secondary" icon={<Trash2 size={13} />} onClick={() => onRevoke(device)} data-testid="device-revoke">Revoke</Button>
         </li>
@@ -101,6 +106,10 @@ function DeviceRow({ device, onRevoke }: { device: Device; onRevoke: (device: De
 function revokeBody(device: Device | null): ReactNode {
     if (device === null) {
         return '';
+    }
+
+    if (device.kind === 'phone') {
+        return <>This phone can no longer use Yak. Its token stops working at once. You can pair it again from the Yak app.</>;
     }
 
     const [owned, ...others] = device.owned_threads;
@@ -115,7 +124,7 @@ function revokeBody(device: Device | null): ReactNode {
 export default function Devices({ devices }: Props) {
     const [revoking, setRevoking] = useState<Device | null>(null);
     const [isBusy, setIsBusy] = useState(false);
-    const [revokedName, setRevokedName] = useState<string | null>(null);
+    const [revoked, setRevoked] = useState<Device | null>(null);
     const [didLoadFail, setDidLoadFail] = useState(false);
     const [isAddingPhone, setIsAddingPhone] = useState(false);
     const [pairedName, setPairedName] = useState<string | null>(null);
@@ -147,7 +156,7 @@ export default function Devices({ devices }: Props) {
         router.delete(destroy.url(target.id), {
             preserveScroll: true,
             onSuccess: () => {
-                setRevokedName(target.name);
+                setRevoked(target);
                 setRevoking(null);
             },
             onFinish: () => setIsBusy(false),
@@ -156,7 +165,7 @@ export default function Devices({ devices }: Props) {
 
     const failedCard = (
         <Card className="p-8" data-testid="devices-load-failed">
-            <EmptyState icon={<AlertTriangle size={18} />} title="Could not load your computers" body="Yak could not reach its server, so your list may be out of date. Nothing was changed. Try again in a moment." action={<Button variant="secondary" icon={<RefreshCw size={13} />} onClick={retry}>Try again</Button>} />
+            <EmptyState icon={<AlertTriangle size={18} />} title="Could not load your devices" body="Yak could not reach its server, so your list may be out of date. Nothing was changed. Try again in a moment." action={<Button variant="secondary" icon={<RefreshCw size={13} />} onClick={retry}>Try again</Button>} />
         </Card>
     );
 
@@ -172,16 +181,16 @@ export default function Devices({ devices }: Props) {
                     </div>
                 )}
 
-                {revokedName !== null && (
+                {revoked !== null && (
                     <div role="status" className="flex items-start gap-2 rounded-card border border-hair bg-ok-soft px-4 py-3 text-[13px]" data-testid="device-revoked-banner">
                         <Check size={15} className="mt-0.5 shrink-0 text-ok" aria-hidden="true" />
-                        <p>Revoked {revokedName}. Its token stopped working right away. To use that computer again, run <code className="font-mono">yak login</code> on it.</p>
+                        <p>Revoked {revoked.name}. Its token stopped working right away. {revoked.kind === 'phone' ? 'To use that phone again, pair it again from the Yak app.' : <>To use that computer again, run <code className="font-mono">yak login</code> on it.</>}</p>
                     </div>
                 )}
 
                 <section className="flex flex-col gap-3" aria-labelledby="devices-heading">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 id="devices-heading" className="text-[14px] font-semibold">Paired computers</h3>
+                        <h3 id="devices-heading" className="text-[14px] font-semibold">Paired devices</h3>
                         <Button variant="secondary" icon={<Plus size={13} />} onClick={() => { setPairedName(null); setIsAddingPhone(true); }} data-testid="add-phone">Add a phone</Button>
                     </div>
                     {didLoadFail && devices === undefined ? failedCard : (
@@ -206,7 +215,7 @@ export default function Devices({ devices }: Props) {
                 onOpenChange={(open) => !open && setRevoking(null)}
                 title={`Revoke ${revoking?.name ?? ''}?`}
                 body={revokeBody(revoking)}
-                confirmLabel="Revoke computer"
+                confirmLabel={`Revoke ${revoking?.kind ?? 'device'}`}
                 confirmTestId="device-revoke-confirm"
                 busy={isBusy}
                 onConfirm={confirmRevoke}

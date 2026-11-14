@@ -42,7 +42,7 @@ it('shows the kind, model and app version of a phone', function () {
     ($this->partial)()
         ->assertJsonPath('props.devices.0.kind', 'phone')
         ->assertJsonPath('props.devices.0.model', 'iPhone19,4')
-        ->assertJsonPath('props.devices.0.appVersion', '1.2.0')
+        ->assertJsonPath('props.devices.0.app_version', '1.2.0')
         ->assertJsonPath('props.devices.0.arch', null);
 });
 
