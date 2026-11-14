@@ -240,3 +240,17 @@ test('Make private states that nobody else can read the thread', function () {
         ->assertSee('Make this thread private?')
         ->assertSee('Only you can see this thread. Nobody else can read its conversation, changes or details.');
 });
+
+test('typing team on a private thread finds Share and no one-step visibility change', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner);
+
+    $page = visit(route('threads.show', $thread))->assertPresent('[data-testid="thread-header"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'team')
+        ->assertVisible('[data-testid="palette-action-thread-share"]')
+        ->assertMissing('[data-testid="palette-action-thread-make-visible"]')
+        ->assertMissing('[data-testid="palette-action-thread-make-private"]');
+});

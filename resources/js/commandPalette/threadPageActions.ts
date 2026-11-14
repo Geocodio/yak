@@ -120,11 +120,11 @@ export type HeaderActionOptions = {
 };
 
 export function headerActions({ threadId, isOwner, visibility, canOpenPullRequest, publishWarning, openShareDialog }: HeaderActionOptions): PaletteAction[] {
-    const changeVisibility = (mode: 'only_me' | 'everyone', success: string): void => {
-        updateThreadShare(threadId, mode, []).then(
+    const makePrivate = (): void => {
+        updateThreadShare(threadId, 'only_me', []).then(
             () => {
                 router.reload({ only: ['thread', 'publishWarning'] });
-                toast.success(success);
+                toast.success('This thread is private');
             },
             () => toast.error('Could not change who can see this thread.'),
         );
@@ -133,22 +133,18 @@ export function headerActions({ threadId, isOwner, visibility, canOpenPullReques
     return [
         ...(isOwner
             ? [
-                  { id: 'thread-share', label: 'Share', keywords: ['people', 'invite', 'access', 'permissions'], run: openShareDialog },
-                  visibility === 'team'
-                      ? {
-                            id: 'thread-make-private',
-                            label: 'Make private (only me)',
-                            keywords: ['visibility', 'hide', 'only me', 'lock'],
-                            confirm: { title: 'Make this thread private?', body: 'Only you can see this thread. Nobody else can read its conversation, changes or details.', confirmLabel: 'Make private' },
-                            run: () => changeVisibility('only_me', 'This thread is private'),
-                        }
-                      : {
-                            id: 'thread-make-visible',
-                            label: 'Share with everyone on the team',
-                            keywords: ['visibility', 'make visible', 'team', 'public', 'unlock'],
-                            confirm: { title: 'Make this thread visible to the team?', body: 'Everyone on the team can read its conversation, changes and details.', confirmLabel: 'Make visible' },
-                            run: () => changeVisibility('everyone', 'This thread is visible to the team'),
-                        },
+                  { id: 'thread-share', label: 'Share', keywords: ['people', 'invite', 'access', 'permissions', 'team', 'everyone', 'visible', 'public', 'visibility'], run: openShareDialog },
+                  ...(visibility === 'team'
+                      ? [
+                            {
+                                id: 'thread-make-private',
+                                label: 'Make private (only me)',
+                                keywords: ['visibility', 'hide', 'only me', 'lock'],
+                                confirm: { title: 'Make this thread private?', body: 'Only you can see this thread. Nobody else can read its conversation, changes or details.', confirmLabel: 'Make private' },
+                                run: makePrivate,
+                            },
+                        ]
+                      : []),
               ]
             : []),
         ...(canOpenPullRequest
