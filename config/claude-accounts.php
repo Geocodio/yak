@@ -21,11 +21,12 @@ return [
     ],
 
     /*
-     * Context window in tokens by exact model id. Sonnet 5.5 and Haiku 5.5 are the sizes the runner
-     * reports as `contextWindow` in recorded result events. Opus 5.5 and Fable 5.2 are not verified
-     * and use the default.
+     * Context window in tokens by exact model id, as Anthropic documents them. A model missing here
+     * uses the default.
      */
     'context_windows' => [
+        'claude-fable-5-2' => 1_000_000,
+        'claude-opus-5-5' => 1_000_000,
         'claude-sonnet-5-5' => 1_000_000,
         'claude-haiku-5-5' => 1_000_000,
     ],
