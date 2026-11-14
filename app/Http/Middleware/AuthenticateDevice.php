@@ -65,7 +65,7 @@ class AuthenticateDevice
         $request->setUserResolver(fn () => $user);
         Auth::guard('web')->setUser($user);
 
-        return $this->throttle->handle($request, $next, 'cli-device');
+        return $this->throttle->handle($request, $next, $isPhoneRoute ? 'app-device' : 'cli-device');
     }
 
     /**

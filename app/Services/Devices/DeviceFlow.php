@@ -2,6 +2,7 @@
 
 namespace App\Services\Devices;
 
+use App\Enums\DeviceKind;
 use App\Models\Device;
 use App\Models\DeviceAuthorization;
 use App\Models\User;
@@ -20,7 +21,9 @@ class DeviceFlow
     public function __construct(private DeviceTokens $deviceTokens) {}
 
     /**
-     * @param  array{name: string, os: string, arch: string, cli_version?: string|null}  $reported
+     * A computer reports `os` and `arch`; a phone reports its OS version as `os`, plus `model` and `app_version`.
+     *
+     * @param  array{name: string, os: string, arch?: string|null, cli_version?: string|null, kind?: DeviceKind, model?: string|null, app_version?: string|null}  $reported
      * @return array{device_code: string, authorization: DeviceAuthorization}
      */
     public function start(array $reported, ?string $ip): array
@@ -32,8 +35,11 @@ class DeviceFlow
             'user_code' => $this->deviceTokens->generateUserCode(),
             'name' => $reported['name'],
             'os' => $reported['os'],
-            'arch' => $reported['arch'],
+            'arch' => $reported['arch'] ?? null,
             'cli_version' => $reported['cli_version'] ?? null,
+            'kind' => $reported['kind'] ?? DeviceKind::Computer,
+            'model' => $reported['model'] ?? null,
+            'app_version' => $reported['app_version'] ?? null,
             'requested_from_ip' => $ip,
             'poll_interval' => self::POLL_INTERVAL_SECONDS,
             'expires_at' => now()->addSeconds(self::EXPIRES_IN_SECONDS),
@@ -81,6 +87,9 @@ class DeviceFlow
                 'os' => $locked->os,
                 'arch' => $locked->arch,
                 'cli_version' => $locked->cli_version,
+                'kind' => $locked->kind,
+                'model' => $locked->model,
+                'app_version' => $locked->app_version,
                 'token_hash' => $this->deviceTokens->hash($token),
             ]);
 
@@ -105,16 +114,17 @@ class DeviceFlow
      *
      * @throws DeviceFlowException
      */
-    public function poll(string $deviceCode): array
+    public function poll(string $deviceCode, DeviceKind $kind = DeviceKind::Computer): array
     {
-        $outcome = DB::transaction(function () use ($deviceCode): array|DeviceFlowException {
+        $outcome = DB::transaction(function () use ($deviceCode, $kind): array|DeviceFlowException {
             $authorization = DeviceAuthorization::query()
                 ->lockForUpdate()
                 ->where('device_code_hash', $this->deviceTokens->hash($deviceCode))
+                ->where('kind', $kind->value)
                 ->first();
 
             if ($authorization === null || $authorization->status === 'redeemed' || $authorization->isExpired()) {
-                return new DeviceFlowException('expired_token', 'This sign-in code expired. Run yak login again.');
+                return new DeviceFlowException('expired_token', $kind === DeviceKind::Phone ? 'This sign-in code expired. Start pairing again in the app.' : 'This sign-in code expired. Run yak login again.');
             }
 
             if ($authorization->status === 'denied') {

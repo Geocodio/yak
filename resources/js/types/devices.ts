@@ -5,7 +5,10 @@ export type DeviceApproval = {
     state: DeviceApprovalState;
     code: string | null;
     name: string | null;
-    os: 'darwin' | 'linux' | null;
+    kind: 'computer' | 'phone';
+    model: string | null;
+    app_version: string | null;
+    os: string | null;
     arch: 'arm64' | 'x86_64' | null;
     cli_version: string | null;
     requested_at: string | null;
