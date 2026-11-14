@@ -7,6 +7,7 @@ import { NEW_THREAD_ID, NEW_THREAD_KEYWORDS, useGlobalActions } from '@/commandP
 import { splitNewThreadQuery } from '@/commandPalette/newThreadPrompt';
 import { isMacPlatform } from '@/commandPalette/platform';
 import { buildSections } from '@/commandPalette/sections';
+import { decideSelection, popStep, pushStep } from '@/commandPalette/selection';
 import { keycapsFor } from '@/commandPalette/shortcuts';
 import type { PaletteAction, PaletteStep } from '@/commandPalette/types';
 import { useActionGroups } from '@/commandPalette/useCommandPaletteActions';
@@ -101,15 +102,14 @@ export function AppCommandPalette() {
     };
 
     const select = (action: PaletteAction) => {
-        if (action.unavailable !== undefined) {
-            return;
-        }
-        if (action.steps) {
-            setSteps((stack) => [...stack, action.steps as PaletteStep]);
+        const selection = decideSelection(action);
+        if (selection.kind === 'step') {
+            setStepActions([]);
+            setSteps((stack) => pushStep(stack, selection.step));
             setQuery('');
-        } else if (action.confirm) {
+        } else if (selection.kind === 'confirm') {
             setPendingConfirm(action);
-        } else {
+        } else if (selection.kind === 'run') {
             execute(action);
         }
     };
@@ -147,7 +147,8 @@ export function AppCommandPalette() {
             sections={buildItems()}
             step={step ? { title: step.title } : undefined}
             onBack={() => {
-                setSteps((stack) => stack.slice(0, -1));
+                setStepActions([]);
+                setSteps(popStep);
                 setQuery('');
             }}
             width="w-screen sm:w-[min(600px,calc(100vw-2rem))]"
