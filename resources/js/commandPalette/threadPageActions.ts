@@ -32,11 +32,11 @@ export type ShowActionOptions = {
 };
 
 export function showActions({ threadId, dockPanelIds, hasChanges, parent, canAddSubThread, teleportLabel, handlers }: ShowActionOptions): PaletteAction[] {
-    const panel = (id: string, label: string, keywords: string[], shortcut?: 'showFiles' | 'showTerminal'): PaletteAction[] =>
-        dockPanelIds.includes(id) ? [{ id: `thread-show-${id}`, label, keywords: ['show', 'open', 'panel', ...keywords], shortcut, run: () => handlers.selectView(id) }] : [];
+    const panel = (id: string, label: string, keywords: string[], extras: Pick<PaletteAction, 'shortcut'> = {}): PaletteAction[] =>
+        dockPanelIds.includes(id) ? [{ id: `thread-show-${id}`, label, keywords: ['show', 'open', 'panel', ...keywords], ...extras, run: () => handlers.selectView(id) }] : [];
 
     return [
-        ...panel('files', 'Show files', ['browse', 'tree', 'code', 'editor'], 'showFiles'),
+        ...panel('files', 'Show files', ['browse', 'tree', 'code', 'editor'], { shortcut: 'showFiles' }),
         {
             id: 'thread-show-changes',
             label: 'Show changes',
@@ -44,7 +44,7 @@ export function showActions({ threadId, dockPanelIds, hasChanges, parent, canAdd
             unavailable: hasChanges ? undefined : 'This thread has no changes yet',
             run: () => handlers.openChanges(),
         },
-        ...panel('terminal', 'Show terminal', ['shell', 'console', 'command line'], 'showTerminal'),
+        ...panel('terminal', 'Show terminal', ['shell', 'console', 'command line'], { shortcut: 'showTerminal' }),
         ...panel('preview', 'Show preview panel', ['site', 'app', 'browser']),
         { id: 'thread-show-conversation', label: 'Show conversation', keywords: ['chat', 'messages', 'close panel'], shortcut: 'showConversation', run: () => handlers.showConversation() },
         { id: 'thread-toggle-overview', label: 'Toggle the overview', keywords: ['rail', 'sidebar', 'environment', 'details'], run: () => handlers.toggleOverview() },

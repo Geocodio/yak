@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { createSequenceMatcher, isTypingTarget, keycapsFor, SHORTCUTS } from './shortcuts.ts';
 
@@ -60,10 +61,10 @@ function sourceFiles(directory) {
 }
 
 test('every shortcut except openPalette is bound by an action', () => {
-    const sources = sourceFiles('resources/js').filter((path) => !path.endsWith('commandPalette/shortcuts.ts')).map((path) => readFileSync(path, 'utf8'));
+    const sources = sourceFiles(fileURLToPath(new URL('..', import.meta.url))).filter((path) => !path.endsWith('commandPalette/shortcuts.ts')).map((path) => readFileSync(path, 'utf8'));
     for (const id of Object.keys(SHORTCUTS).filter((key) => key !== 'openPalette')) {
         assert.ok(
-            sources.some((source) => source.includes(`'${id}'`)),
+            sources.some((source) => new RegExp(`shortcut:\\s*['\"]${id}['\"]`).test(source)),
             `${id} has no action`,
         );
     }

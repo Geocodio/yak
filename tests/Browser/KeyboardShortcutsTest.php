@@ -82,9 +82,11 @@ test('a hotkey letter typed in an input types the letter and runs nothing', func
 
     $page = visit(route('threads.show', $thread))->assertPresent('[data-testid="thread-header"]')
         ->click('[data-testid="thread-composer-input"]')
-        ->keys('[data-testid="thread-composer-input"]', ['c'])
+        ->keys('[data-testid="thread-composer-input"]', ['c', '?'])
+        ->wait(1)
         ->assertMissing('[data-testid="new-thread-dialog"]')
-        ->assertValue('[data-testid="thread-composer-input"]', 'c');
+        ->assertMissing('[data-testid="shortcuts-dialog"]')
+        ->assertValue('[data-testid="thread-composer-input"]', 'c?');
 
     $page->keys('[data-testid="app-shell"]', ['Meta+k'])
         ->assertVisible('[data-testid="app-palette"]')
@@ -94,10 +96,12 @@ test('a hotkey letter typed in an input types the letter and runs nothing', func
         ->keys('[data-testid="app-palette"]', 'Enter')
         ->assertSeeIn('[data-testid="files-open-path"]', 'alpha.txt')
         ->click('.cm-content')
-        ->keys('.cm-content', ['c'])
-        ->assertMissing('[data-testid="new-thread-dialog"]');
+        ->keys('.cm-content', ['c', '?'])
+        ->wait(1)
+        ->assertMissing('[data-testid="new-thread-dialog"]')
+        ->assertMissing('[data-testid="shortcuts-dialog"]');
 
-    expect($page->script("document.querySelector('.cm-content').innerText"))->toContain('c');
+    expect($page->script("document.querySelector('.cm-content').innerText"))->toContain('c?');
 });
 
 test('G then P away from a thread page does nothing', function () {
@@ -109,8 +113,9 @@ test('G then P away from a thread page does nothing', function () {
         ->keys('[data-testid="app-shell"]', ['p'])
         ->assertPathIs('/');
 
-    // The harness itself may call window.open once; a preview open would add another.
-    expect(count($page->script('window.__opened')))->toBeLessThanOrEqual(1);
+    // The harness's own script() call invokes window.open(null); any other call would be a preview open.
+    $opened = array_filter($page->script('window.__opened'), fn (array $call) => $call[0] !== 'null');
+    expect($opened)->toBeEmpty();
 });
 
 test('Cmd+K opens the palette while focus is in the composer', function () {
@@ -136,4 +141,32 @@ test('G then P on a thread page opens the preview', function () {
     $page->keys('[data-testid="app-shell"]', ['g'])->keys('[data-testid="app-shell"]', ['p']);
 
     expect(last($page->script('window.__opened')))->toBe(['https://widgets.yak.example.com/', '_blank', 'noopener']);
+});
+
+test('a hotkey does nothing while a menu is open', function () {
+    $owner = userWithNewThreadSetup();
+    $this->actingAs($owner);
+    $thread = shortcutThread($owner);
+
+    $page = visit(route('threads.show', $thread))->assertPresent('[data-testid="thread-header"]')
+        ->click('[data-testid="thread-menu"]')
+        ->assertPresent('[role="menu"]');
+    // Base UI stops keydown at the menu itself, so the key is sent from outside it, as with focus elsewhere on the page.
+    $page->script("document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '?', shiftKey: true, bubbles: true }))");
+    $page->wait(1)
+        ->assertMissing('[data-testid="shortcuts-dialog"]');
+});
+
+test('a repeated keydown does not run a hotkey', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/')->assertPresent('[data-testid="app-shell"]');
+    $questionMark = "document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '?', shiftKey: true, repeat: %s, bubbles: true }))";
+
+    $page->script(sprintf($questionMark, 'true'));
+    $page->wait(1)->assertMissing('[data-testid="shortcuts-dialog"]');
+
+    // The same key without `repeat` proves the app was ready to react to the first one.
+    $page->script(sprintf($questionMark, 'false'));
+    $page->assertVisible('[data-testid="shortcuts-dialog"]');
 });

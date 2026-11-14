@@ -104,7 +104,8 @@ export function AppCommandPalette() {
         const onToggleRequest = () => (open ? close() : setOpen(true));
         const onRunRequest = (event: Event) => {
             const action = (event as CustomEvent<PaletteAction>).detail;
-            if (decideSelection(action).kind === 'confirm' || action.steps) {
+            const { kind } = decideSelection(action);
+            if (kind === 'confirm' || kind === 'step') {
                 setOpen(true);
             }
             selectRef.current(action);
