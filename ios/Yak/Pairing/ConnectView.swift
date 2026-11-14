@@ -8,6 +8,7 @@ struct ConnectView: View {
 
     @State private var showsAddress = false
     @State private var showsScan = false
+    @ScaledMetric(relativeTo: .subheadline) private var stepSize: CGFloat = 28
 
     var body: some View {
         ActionPage(isHidden: model.linkPairing != nil) {
@@ -54,7 +55,7 @@ struct ConnectView: View {
         HStack(alignment: .top, spacing: 14) {
             Text("\(number)")
                 .font(.subheadline.bold())
-                .frame(width: 28, height: 28)
+                .frame(minWidth: stepSize, minHeight: stepSize)
                 .overlay(Circle().stroke(Color.yakMuted, lineWidth: 1))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {

@@ -69,7 +69,16 @@ import XCTest
         // The system's own prompt covers the screen; this is how the person sees it.
         try shoot("sign-in-wait-system-prompt", audits: false)
         try continuePastSystemPrompt()
-        try shoot("sign-in-wait", audits: false)
+        // The web sign-in sheet is open over the waiting screen; the sheet is the system's, so it is not audited.
+        try shoot("sign-in-wait-sheet", audits: false)
+        // Closing the sheet shows what the person sees next in the app.
+        let sheet = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
+        let close = sheet.buttons.matching(NSPredicate(format: "label IN {'Close', 'Done', 'Cancel'}")).firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "no close button on the sign-in sheet")
+        close.tap()
+        // A closed sheet cancels the sign-in and leaves the address screen, ready to try again.
+        XCTAssertTrue(app.buttons["Continue to sign in"].waitForExistence(timeout: 10))
+        try shoot("sign-in-wait")
     }
 
     func testAddressNoteForNotYak() throws {
@@ -325,9 +334,12 @@ import XCTest
 
     /// Taps Continue on the system's "wants to sign in" prompt, which opens the sign-in sheet.
     private func continuePastSystemPrompt() throws {
-        let alert = app.alerts.firstMatch
+        // The prompt belongs to the system, not to the app, so it is found through SpringBoard.
+        let alert = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.firstMatch
         let continueButton = alert.buttons["Continue"]
-        if alert.waitForExistence(timeout: 5) { continueButton.tap() }
+        XCTAssertTrue(alert.waitForExistence(timeout: 5), "no sign-in prompt")
+        continueButton.tap()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 5), "the sign-in prompt is still up")
         Thread.sleep(forTimeInterval: 1)
     }
 
@@ -364,14 +376,7 @@ import XCTest
             // The screen under a pairing overlay is out of the accessibility tree and covered; a finding on an
             // element that cannot be found or reached is not something a person sees.
             if issue.auditType == .contrast, let element = issue.element,
-                !label(element.label).exists || !element.isHittable
-            {
-                return true
-            }
-            // On the iPhone Duo the buttons of the connect screen stay in the accessibility tree behind the opaque
-            // overlay, which VoiceOver skips because the overlay is modal. They are not visible, so they are not judged.
-            if name.hasPrefix("link-"), issue.auditType == .contrast,
-                ["Scan a code", "Enter an address"].contains(issue.element?.label)
+                !label(element.label).exists
             {
                 return true
             }
@@ -380,10 +385,23 @@ import XCTest
             // Text below the screen on a scrolling page, or a finding without an element, cannot be judged by
             // the pixels shown.
             let screenBottom = app.windows.firstMatch.frame.maxY
-            if issue.auditType == .contrast, issue.element.map({ $0.frame.maxY > screenBottom }) ?? true {
+            // At the largest text size a page scrolls, and the line cut by the screen edge has no element of its own.
+            if issue.auditType == .contrast, issue.element == nil, environment["YAK_TEXT_SIZE"] == "largest",
+                app.scrollViews.firstMatch.exists
+            {
                 return true
             }
-            if issue.element?.label == "Cancel", [.contrast, .dynamicType].contains(issue.auditType) { return true }
+            if issue.auditType == .contrast, let element = issue.element, element.frame.maxY > screenBottom {
+                return true
+            }
+            // The Cancel in a navigation bar is the toolbar button, which is dimmed under a sheet's dimming and
+            // sized by the system; the Cancel buttons in the page are judged.
+            if let element = issue.element, element.label == "Cancel",
+                [.contrast, .dynamicType].contains(issue.auditType),
+                app.navigationBars.allElementsBoundByIndex.contains(where: { $0.frame.contains(element.frame) })
+            {
+                return true
+            }
             // The address field is one line by design: an address never wraps.
             if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
             XCTFail(

@@ -10,7 +10,13 @@ struct RootView: View {
             } else {
                 switch model.route {
                 case .connect:
-                    NavigationStack { ConnectView(model: model) }
+                    // The connect screen is not built while a pairing link covers it: a covered screen stays in
+                    // the accessibility tree of a wide screen, and a link replaces whatever was being typed anyway.
+                    if model.linkPairing == nil {
+                        NavigationStack { ConnectView(model: model) }
+                    } else {
+                        Color(.systemBackground).ignoresSafeArea()
+                    }
                 case .signedIn(let instance):
                     SignedInView(model: model, instance: instance)
                 case .pairAgain(let instance):

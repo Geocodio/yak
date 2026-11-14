@@ -39,7 +39,8 @@ platform :ios do
       "YAK_TEXT_SIZE" => appearance == "largest-text" ? "largest" : "normal",
       "YAK_ORIENTATION" => options[:orientation] || "portrait"
     }
-    FileUtils.rm_rf(environment["YAK_SHOT_DIR"])
+    # A filtered run adds to the set already on disk; only a full run starts clean.
+    FileUtils.rm_rf(environment["YAK_SHOT_DIR"]) unless options[:only]
     with_stub do |port, build_directory|
       result_path = File.join(build_directory, "walkthrough-#{device_folder}-#{appearance}.xcresult")
       FileUtils.rm_rf(result_path)

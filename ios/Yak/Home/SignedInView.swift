@@ -53,6 +53,10 @@ struct SignedInView: View {
                 }
             }
             .tint(Color.yakAction)
+            // The list keeps a readable width on a wide screen, like the pairing screens.
+            .frame(maxWidth: 640)
+            .frame(maxWidth: .infinity)
+            .background(Color(.systemGroupedBackground))
             .hidesBehindLinkPairing(model)
             .navigationTitle("signedIn.title")
             .navigationBarTitleDisplayMode(.inline)

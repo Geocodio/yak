@@ -42,6 +42,7 @@
       }
     },
     "connect.hint1.detail": {
+      "comment": "Quotes the dashboard's Settings, Devices page, whose button is labelled Add a phone.",
       "localizations": {
         "en": {
           "stringUnit": {
