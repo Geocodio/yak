@@ -103,6 +103,7 @@ public actor APIClient {
         }
         let status = response.statusCode
         if (200..<300).contains(status) {
+            if data.isEmpty, let empty = EmptyResponse() as? Response { return empty }
             guard let decoded = try? JSONDecoder().decode(Response.self, from: data) else { throw .notYak }
             return decoded
         }
