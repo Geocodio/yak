@@ -1,11 +1,556 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "Yak" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Yak" } }
+  "sourceLanguage": "en",
+  "strings": {
+    "Yak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak"
+          }
+        }
+      }
+    },
+    "connect.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect to your Yak"
+          }
+        }
+      }
+    },
+    "connect.body %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak runs on your company's own server. Pair this %@ with it to work on your threads from anywhere."
+          }
+        }
+      }
+    },
+    "connect.hint1.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On your computer, open Yak"
+          }
+        }
+      }
+    },
+    "connect.hint1.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings, Devices, Add a phone"
+          }
+        }
+      }
+    },
+    "connect.hint2.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan the code it shows"
+          }
+        }
+      }
+    },
+    "connect.hint2.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No typing and no sign-in on the phone"
+          }
+        }
+      }
+    },
+    "connect.scan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan a code"
+          }
+        }
+      }
+    },
+    "connect.enterAddress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an address"
+          }
+        }
+      }
+    },
+    "address.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect to your Yak"
+          }
+        }
+      }
+    },
+    "address.prefix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "https://"
+          }
+        }
+      }
+    },
+    "address.placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "yak.example.com"
+          }
+        }
+      }
+    },
+    "address.found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak found. It works with this app version."
+          }
+        }
+      }
+    },
+    "address.continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue to sign in"
+          }
+        }
+      }
+    },
+    "address.footnote": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You sign in with Google on your instance and approve this device. The app talks only to your instance."
+          }
+        }
+      }
+    },
+    "address.checking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking the address"
+          }
+        }
+      }
+    },
+    "address.waiting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for you to approve this device"
+          }
+        }
+      }
+    },
+    "address.waitingDetail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish signing in with Google, then approve this device on your instance."
+          }
+        }
+      }
+    },
+    "address.cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "common.slow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The connection is slow."
+          }
+        }
+      }
+    },
+    "common.retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
+    "problem.tryAgain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again"
+          }
+        }
+      }
+    },
+    "problem.address %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Address: %@"
+          }
+        }
+      }
+    },
+    "problem.invalidAddress.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That is not an address"
+          }
+        }
+      }
+    },
+    "problem.invalidAddress.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type the address of your Yak, for example yak.example.com."
+          }
+        }
+      }
+    },
+    "problem.notYak.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Yak at this address"
+          }
+        }
+      }
+    },
+    "problem.notYak.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server answered, but it is not a Yak instance. Check the address with your admin."
+          }
+        }
+      }
+    },
+    "problem.unreachable.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot reach the server"
+          }
+        }
+      }
+    },
+    "problem.unreachable.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If your Yak is behind a VPN, connect the VPN first, then try again."
+          }
+        }
+      }
+    },
+    "problem.serverTooOld.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Yak needs an update"
+          }
+        }
+      }
+    },
+    "problem.serverTooOld.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The instance is older than this app supports. Ask your admin to update it."
+          }
+        }
+      }
+    },
+    "problem.appTooOld.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app needs an update"
+          }
+        }
+      }
+    },
+    "problem.appTooOld.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This instance is newer than the app. Install the latest build from TestFlight."
+          }
+        }
+      }
+    },
+    "problem.codeInvalid.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code did not work"
+          }
+        }
+      }
+    },
+    "problem.codeInvalid.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It may have been used already. Show a new one on your computer."
+          }
+        }
+      }
+    },
+    "problem.codeExpired.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code expired"
+          }
+        }
+      }
+    },
+    "problem.codeExpired.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codes last two minutes. Show a new one on your computer."
+          }
+        }
+      }
+    },
+    "problem.denied.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in was declined"
+          }
+        }
+      }
+    },
+    "problem.denied.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device was declined on your instance. Try again, or ask your admin."
+          }
+        }
+      }
+    },
+    "problem.other.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing did not finish"
+          }
+        }
+      }
+    },
+    "problem.other.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the connection and the address, then try again."
+          }
+        }
+      }
+    },
+    "signedIn.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak"
+          }
+        }
+      }
+    },
+    "signedIn.signedInAs %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed in as %@"
+          }
+        }
+      }
+    },
+    "signedIn.pushOn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push notifications are on"
+          }
+        }
+      }
+    },
+    "signedIn.pushOff": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No push from this build"
+          }
+        }
+      }
+    },
+    "signedIn.refreshing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refreshing"
+          }
+        }
+      }
+    },
+    "signedIn.refreshFailed %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not reach %@. Showing what was saved on this device."
+          }
+        }
+      }
+    },
+    "signedIn.add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add an instance"
+          }
+        }
+      }
+    },
+    "signedIn.remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove this instance"
+          }
+        }
+      }
+    },
+    "signedIn.removeTitle %@ %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %1$@ from this %2$@?"
+          }
+        }
+      }
+    },
+    "signedIn.removeConfirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
+    "pairAgain.title %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device was removed from %@"
+          }
+        }
+      }
+    },
+    "pairAgain.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone removed it in Settings, Devices, or it was not used for 90 days. The saved copies of its threads are erased from this device."
+          }
+        }
+      }
+    },
+    "pairAgain.pair": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pair again"
+          }
+        }
+      }
+    },
+    "pairAgain.remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove this instance"
+          }
+        }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

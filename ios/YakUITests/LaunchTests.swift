@@ -1,9 +1,9 @@
 import XCTest
 
 final class LaunchTests: XCTestCase {
-    func testLaunchShowsTitle() {
+    func testLaunchShowsConnectScreen() {
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.staticTexts["Yak"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Connect to your Yak"].waitForExistence(timeout: 5))
     }
 }
