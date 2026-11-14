@@ -3,11 +3,12 @@ import { ArrowDown } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
-import type { ThreadMessage, ThreadNotice as ThreadNoticeData } from '@/types/threads';
+import type { LocalTurnsData, ThreadMessage, ThreadNotice as ThreadNoticeData } from '@/types/threads';
 import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { ChildCard } from './ChildCard';
 import { ConnectionStrip } from './ConnectionStrip';
+import { LocalTurnsFold } from './LocalTurnsFold';
 import { UnsentMessage } from './UnsentMessage';
 import { useStickToBottom } from './useStickToBottom';
 import { RepositoryCard } from './RepositoryCard';
@@ -55,7 +56,7 @@ function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges
     return item.kind === 'edits' ? <EditsBlock item={item} onOpenChanges={onOpenChanges} /> : <ClaudeMessage item={item} modelLabels={modelLabels} />;
 }
 
-export function Conversation({ modelLabels = {}, threadId, repo, branch, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ modelLabels = {}, threadId, repo, branch, messages, localTurns = null, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; localTurns?: LocalTurnsData | null; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
     const unsent = useUnsentMessages(threadId);
     const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(threadId);
@@ -75,6 +76,7 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
         <>
         <div ref={scroller} className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-8" data-testid="thread-conversation-scroller">
             <div ref={content} className="mx-auto flex max-w-[760px] flex-col gap-4">
+                {localTurns && <LocalTurnsFold threadId={threadId} localTurns={localTurns} modelLabels={modelLabels} />}
                 {entries.map((entry, index) => {
                     if (entry.type === 'event') {
                         return <EventRow modelLabels={modelLabels} key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} threadId={threadId} onOpenChanges={onOpenChanges} />;

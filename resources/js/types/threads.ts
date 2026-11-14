@@ -1,3 +1,4 @@
+import type { StepView } from '@/components/activity/types';
 import type { ModelFamily, PickerAccount } from '@/types/claudeAccounts';
 import type { AttachmentData } from '@/types/tasks';
 export type ThreadRepositoryData = {
@@ -109,12 +110,34 @@ export type ThreadPageData = {
     teleport: TeleportData;
     publishWarning: boolean;
     messages: ThreadMessage[];
+    localTurns: LocalTurnsData | null;
     composer: ThreadComposer;
     notice: ThreadNotice | null;
     capacity: ThreadCapacity | null;
     stackParent: { id: string; name: string; title: string } | null;
     /** Catalog label of each model id and family alias. */
     modelLabels: Record<string, string>;
+};
+
+/** One turn from the person's computer; mirrors the `Turn` shape of `App\Services\Teleport\LocalTurns`. */
+export type LocalTurn = {
+    id: number;
+    at: string;
+    text: string;
+    html: string;
+    items: ({ kind: 'text'; key: string; html: string; model: string | null } | { kind: 'tools'; key: string; steps: StepView[] })[];
+};
+
+/** The `localTurns` prop of `Threads/Show`: the fold summary and the newest turns. */
+export type LocalTurnsData = {
+    count: number;
+    firstPromptText: string;
+    startedAt: string;
+    endedAt: string;
+    hasMore: boolean;
+    authorName: string;
+    authorInitials: string;
+    turns: LocalTurn[];
 };
 
 export type ThreadMessage = {

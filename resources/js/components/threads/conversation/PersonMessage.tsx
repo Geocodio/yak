@@ -1,10 +1,10 @@
-import { Clock } from 'lucide-react';
+import { Clock, Laptop } from 'lucide-react';
 import { MessageWithAttachments } from '@/components/attachments/Attachments';
 import { Prose } from '@/components/Prose';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage } from '@/types/threads';
 
-export function PersonMessage({ message, pending, onOpenMedia, modelLabels = {} }: { modelLabels?: Record<string, string>; message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
+export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabels = {} }: { origin?: 'local'; modelLabels?: Record<string, string>; message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
     const time = new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
     return (
@@ -18,6 +18,12 @@ export function PersonMessage({ message, pending, onOpenMedia, modelLabels = {} 
                 <div className="flex flex-wrap items-baseline gap-x-2 text-[12px]">
                     <span className="font-medium text-body">{message.authorName ?? 'Someone'}</span>
                     <span className="text-faint">{time}</span>
+                    {origin === 'local' && (
+                        <span className="inline-flex items-center gap-1 rounded-pill bg-panel-2 py-px pr-2 pl-1.5 text-[11px] text-muted" title="This turn ran on your computer" data-testid="thread-message-origin-local">
+                            <Laptop className="size-[11px]" aria-hidden />
+                            Your computer
+                        </span>
+                    )}
                     {pending && (
                         <span className="inline-flex items-center gap-1 text-faint" data-testid="thread-message-not-read">
                             <Clock className="size-3" aria-hidden />

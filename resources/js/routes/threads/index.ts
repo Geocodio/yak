@@ -209,7 +209,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:19
+* @see app/Http/Controllers/Threads/ThreadController.php:20
 * @route '/threads/{thread}'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -224,7 +224,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:19
+* @see app/Http/Controllers/Threads/ThreadController.php:20
 * @route '/threads/{thread}'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -257,7 +257,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:19
+* @see app/Http/Controllers/Threads/ThreadController.php:20
 * @route '/threads/{thread}'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -267,7 +267,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:19
+* @see app/Http/Controllers/Threads/ThreadController.php:20
 * @route '/threads/{thread}'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -378,6 +378,74 @@ seen.post = (args: { thread: string | { public_id: string } } | [thread: string 
 })
 
 /**
+* @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
+* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @route '/threads/{thread}/local-turns'
+*/
+export const localTurns = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: localTurns.url(args, options),
+    method: 'get',
+})
+
+localTurns.definition = {
+    methods: ["get","head"],
+    url: '/threads/{thread}/local-turns',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
+* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @route '/threads/{thread}/local-turns'
+*/
+localTurns.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return localTurns.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
+* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @route '/threads/{thread}/local-turns'
+*/
+localTurns.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: localTurns.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
+* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @route '/threads/{thread}/local-turns'
+*/
+localTurns.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: localTurns.url(args, options),
+    method: 'head',
+})
+
+/**
 * @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
 * @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
 * @route '/threads/new/repository-access'
@@ -476,6 +544,7 @@ const threads = {
     list: Object.assign(list, list),
     seen: Object.assign(seen, seen),
     diff: Object.assign(diff, diff),
+    localTurns: Object.assign(localTurns, localTurns),
     environment: Object.assign(environment, environment),
     pullRequest: Object.assign(pullRequest, pullRequest),
     events: Object.assign(events, events),
