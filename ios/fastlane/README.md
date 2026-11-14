@@ -39,6 +39,14 @@ Format check and project rules
 
 UI smoke tests against the stub server: fastlane ui_smoke device:"iPhone Duo"
 
+### ios walkthrough
+
+```sh
+[bundle exec] fastlane ios walkthrough
+```
+
+Quality-bar walkthrough, screenshots in build/screenshots/<device>/<appearance>: fastlane walkthrough device:"iPhone 18 Pro" appearance:dark|light|largest-text orientation:landscape only:testName
+
 ### ios test
 
 ```sh

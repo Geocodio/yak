@@ -20,6 +20,48 @@ platform :ios do
   desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\""
   lane :ui_smoke do |options|
     device = options[:device] || "iPhone 18 Pro"
+    with_stub do |port, build_directory|
+      result_path = File.join(build_directory, "ui-smoke-#{device.gsub(/\W+/, "-")}.xcresult")
+      FileUtils.rm_rf(result_path)
+      run_ui_tests(device, port, result_path, "-only-testing:YakUITests -skip-testing:YakUITests/WalkthroughTests", {})
+    end
+  end
+
+  desc "Quality-bar walkthrough, screenshots in build/screenshots/<device>/<appearance>: " \
+       "fastlane walkthrough device:\"iPhone 18 Pro\" appearance:dark|light|largest-text orientation:landscape only:testName"
+  lane :walkthrough do |options|
+    device = options[:device] || "iPhone 18 Pro"
+    appearance = options[:appearance] || "light"
+    device_folder = device.gsub(/\W+/, "-")
+    environment = {
+      "YAK_SHOT_DIR" => File.join(IOS_ROOT, "build/screenshots", device_folder, appearance),
+      "YAK_APPEARANCE" => appearance == "dark" ? "dark" : "light",
+      "YAK_TEXT_SIZE" => appearance == "largest-text" ? "largest" : "normal",
+      "YAK_ORIENTATION" => options[:orientation] || "portrait"
+    }
+    FileUtils.rm_rf(environment["YAK_SHOT_DIR"])
+    with_stub do |port, build_directory|
+      result_path = File.join(build_directory, "walkthrough-#{device_folder}-#{appearance}.xcresult")
+      FileUtils.rm_rf(result_path)
+      selection = "-only-testing:YakUITests/WalkthroughTests#{options[:only] ? "/#{options[:only]}" : ""}"
+      run_ui_tests(device, port, result_path, selection, environment)
+    end
+  end
+
+  desc "YakKit package tests and app unit tests"
+  lane :test do
+    generate
+    sh("cd #{File.join(IOS_ROOT, "Packages/YakKit").shellescape} && swift test -Xswiftc -warnings-as-errors")
+    sh("cd #{File.join(IOS_ROOT, "Packages/YakStub").shellescape} && swift test -Xswiftc -warnings-as-errors")
+    sh(
+      "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+      "-destination 'platform=iOS Simulator,name=iPhone 18 Pro' -only-testing:YakTests " \
+      "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+    )
+  end
+
+  # Builds and starts yak-stub on a free port, yields the port and the build directory, stops it afterwards.
+  def with_stub
     generate
     stub_package = File.join(IOS_ROOT, "Packages/YakStub")
     sh("cd #{stub_package.shellescape} && swift build -c release -Xswiftc -warnings-as-errors")
@@ -41,28 +83,19 @@ platform :ios do
         sleep 0.2
       end
       UI.user_error!("yak-stub did not start, see #{log_path}") unless port
-      result_path = File.join(build_directory, "ui-smoke-#{device.gsub(/\W+/, "-")}.xcresult")
-      FileUtils.rm_rf(result_path)
-      sh(
-        "cd #{IOS_ROOT.shellescape} && TEST_RUNNER_YAK_STUB_PORT=#{port} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
-        "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} -only-testing:YakUITests " \
-        "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
-      )
+      yield port, build_directory
     ensure
       Process.kill("TERM", stub_pid)
       Process.wait(stub_pid)
     end
   end
 
-  desc "YakKit package tests and app unit tests"
-  lane :test do
-    generate
-    sh("cd #{File.join(IOS_ROOT, "Packages/YakKit").shellescape} && swift test -Xswiftc -warnings-as-errors")
-    sh("cd #{File.join(IOS_ROOT, "Packages/YakStub").shellescape} && swift test -Xswiftc -warnings-as-errors")
+  def run_ui_tests(device, port, result_path, selection, environment)
+    variables = environment.merge("YAK_STUB_PORT" => port).map { |name, value| "TEST_RUNNER_#{name}=#{value.shellescape}" }.join(" ")
     sh(
-      "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
-      "-destination 'platform=iOS Simulator,name=iPhone 18 Pro' -only-testing:YakTests " \
-      "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+      "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+      "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} #{selection} " \
+      "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
     )
   end
 end
