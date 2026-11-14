@@ -39,7 +39,7 @@ it('measures the active session against each model window', function () {
     expect($composer['context'])->toBe(['tokens' => 200, 'input' => 10, 'cacheRead' => 150, 'cacheCreation' => 40])
         ->and($composer['contextWindows']['claude-sonnet-5-5'])->toBe(1_000_000)
         ->and($composer['contextWindows']['sonnet'])->toBe(1_000_000)
-        ->and($composer['contextWindows']['opus'])->toBe(200_000)
+        ->and($composer['contextWindows']['opus'])->toBe(1_000_000)
         ->and($composer['contextWindows']['default'])->toBe(200_000);
 });
 
