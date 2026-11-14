@@ -16,6 +16,7 @@ import Settings from './Settings'
 import PromptController from './PromptController'
 import PromptPreviewController from './PromptPreviewController'
 import PromptVersionController from './PromptVersionController'
+import PaletteSearchController from './PaletteSearchController'
 import PrReviews from './PrReviews'
 import Deployments from './Deployments'
 import Threads from './Threads'
@@ -45,6 +46,7 @@ const Controllers = {
     PromptController: Object.assign(PromptController, PromptController),
     PromptPreviewController: Object.assign(PromptPreviewController, PromptPreviewController),
     PromptVersionController: Object.assign(PromptVersionController, PromptVersionController),
+    PaletteSearchController: Object.assign(PaletteSearchController, PaletteSearchController),
     PrReviews: Object.assign(PrReviews, PrReviews),
     Deployments: Object.assign(Deployments, Deployments),
     Threads: Object.assign(Threads, Threads),

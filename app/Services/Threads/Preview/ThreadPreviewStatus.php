@@ -40,7 +40,10 @@ class ThreadPreviewStatus
         ];
     }
 
-    private function state(Thread $thread): string
+    /**
+     * The state from the thread's loaded columns and the cached dev server state, without reloading the thread.
+     */
+    public function state(Thread $thread): string
     {
         if (! $thread->isOpen()) {
             return 'closed';

@@ -38,6 +38,7 @@ use App\Http\Controllers\Internal\ThreadPreviewHostStatusController;
 use App\Http\Controllers\Internal\ThreadPreviewWakeController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\ObservationController;
+use App\Http\Controllers\PaletteSearchController;
 use App\Http\Controllers\PromptController;
 use App\Http\Controllers\PromptPreviewController;
 use App\Http\Controllers\PromptVersionController;
@@ -254,6 +255,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('prompts/{slug}/versions/{version}', [PromptVersionController::class, 'show'])
         ->name('prompts.versions.show')
         ->where('version', '[0-9]+');
+    Route::get('palette/search', PaletteSearchController::class)->name('palette.search');
     Route::get('pr-reviews', PrReviewFeedbackController::class)->name('pr-reviews');
     Route::get('pr-reviews/for/{repoSlug}/{prNumber}', [PrReviewForPrController::class, 'show'])
         ->name('pr-reviews.for-pr')

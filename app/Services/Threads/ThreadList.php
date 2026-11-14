@@ -164,12 +164,22 @@ class ThreadList
     }
 
     /**
+     * A contains pattern for `lower(column) like ? escape '!'`: the search is lowercased and `%`, `_` and `!` match literally.
+     */
+    public static function likePattern(string $search): string
+    {
+        $escape = self::LIKE_ESCAPE;
+
+        return '%' . preg_replace('/[' . preg_quote($escape, '/') . '%_]/', $escape . '$0', Str::lower($search)) . '%';
+    }
+
+    /**
      * @param  Builder<Thread>  $query
      */
     private static function search(Builder $query, string $search): void
     {
         $escape = self::LIKE_ESCAPE;
-        $pattern = '%' . preg_replace('/[' . preg_quote($escape, '/') . '%_]/', $escape . '$0', Str::lower($search)) . '%';
+        $pattern = self::likePattern($search);
 
         $query->where(function (Builder $query) use ($pattern, $escape): void {
             $query->whereRaw("lower(threads.title) like ? escape '{$escape}'", [$pattern])

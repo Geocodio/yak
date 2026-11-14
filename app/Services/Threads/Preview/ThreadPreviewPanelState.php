@@ -97,6 +97,24 @@ class ThreadPreviewPanelState
         /** @var 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot' $state */
         $state = $this->status->for($thread)['state'];
 
+        return $this->withAsleep($thread, $state);
+    }
+
+    /**
+     * The preview address of a thread whose columns are already loaded, for list surfaces: it runs no query
+     * and never assigns a hostname.
+     */
+    public function loadedUrlFor(Thread $thread): ?string
+    {
+        if ($thread->preview_hostname === null) {
+            return null;
+        }
+
+        return $this->urlFor($thread, $this->withAsleep($thread, $this->status->state($thread)));
+    }
+
+    private function withAsleep(Thread $thread, string $state): string
+    {
         $isAsleep = $thread->isOpen()
             && $thread->owner_side === ThreadOwnerSide::Yak
             && in_array($thread->sandbox_state, [ThreadSandboxState::Paused, ThreadSandboxState::Stopped], true);
