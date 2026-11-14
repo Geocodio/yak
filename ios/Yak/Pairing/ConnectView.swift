@@ -10,27 +10,24 @@ struct ConnectView: View {
     @State private var showsScan = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Image(systemName: "qrcode.viewfinder")
-                    .font(.system(size: 44, weight: .light))
-                    .foregroundStyle(Color.yakMuted)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("connect.title").font(.largeTitle.bold())
-                    Text("connect.body")
-                        .font(.body).foregroundStyle(Color.yakMuted)
-                }
-                VStack(alignment: .leading, spacing: 16) {
-                    hint(number: 1, title: "connect.hint1.title", detail: "connect.hint1.detail")
-                    hint(number: 2, title: "connect.hint2.title", detail: "connect.hint2.detail")
-                }
+        ActionPage(isHidden: model.linkPairing != nil) {
+            Image(systemName: "qrcode.viewfinder")
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(Color.yakMuted)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("connect.title").font(.largeTitle.bold())
+                Text("connect.body")
+                    .font(.body).foregroundStyle(Color.yakMuted)
             }
-            .frame(maxWidth: 560, alignment: .leading)
-            .frame(maxWidth: .infinity)
-            .padding(24)
+            VStack(alignment: .leading, spacing: 16) {
+                hint(number: 1, title: "connect.hint1.title", detail: "connect.hint1.detail")
+                hint(number: 2, title: "connect.hint2.title", detail: "connect.hint2.detail")
+            }
+        } actions: {
+            Button("connect.scan") { showsScan = true }.buttonStyle(PrimaryButtonStyle())
+            Button("connect.enterAddress") { showsAddress = true }.buttonStyle(SecondaryButtonStyle())
         }
-        .safeAreaInset(edge: .bottom) { buttons }
         .onChange(of: model.wantsScanner, initial: true) {
             guard model.wantsScanner else { return }
             model.wantsScanner = false
@@ -53,24 +50,12 @@ struct ConnectView: View {
         }
     }
 
-    private var buttons: some View {
-        VStack(spacing: 12) {
-            Button("connect.scan") { showsScan = true }.buttonStyle(PrimaryButtonStyle())
-            Button("connect.enterAddress") { showsAddress = true }.buttonStyle(SecondaryButtonStyle())
-        }
-        .frame(maxWidth: 560)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity)
-        .background(.bar)
-    }
-
     private func hint(number: Int, title: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Text("\(number)")
                 .font(.subheadline.bold())
                 .frame(width: 28, height: 28)
-                .background(.quaternary, in: .circle)
+                .overlay(Circle().stroke(Color.yakMuted, lineWidth: 1))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)

@@ -26,15 +26,23 @@ struct SignedInView: View {
                         systemImage: instance.pushAvailable ? "bell" : "bell.slash")
                 }
                 if !model.network.isOnline {
-                    Section { Label("common.offline", systemImage: "wifi.slash") }
+                    Section {
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Image(systemName: "wifi.slash").accessibilityHidden(true)
+                            Text("common.offline")
+                        }
+                    }
                 } else if model.refreshState == .loading && showsRefreshing {
                     Section { SlowHintRow { Task { await model.refreshMe(for: instance) } } }
                 }
                 if let message = failureMessage, model.network.isOnline {
                     Section {
-                        Text(message)
-                        Button("common.retry") { Task { await model.refreshMe(for: instance) } }
-                            .frame(minHeight: 44)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(message)
+                            Button("common.retry") { Task { await model.refreshMe(for: instance) } }
+                                .buttonStyle(SecondaryButtonStyle())
+                        }
+                        .padding(.vertical, 4)
                     }
                 }
                 Section {
@@ -45,6 +53,7 @@ struct SignedInView: View {
                 }
             }
             .tint(Color.yakAction)
+            .hidesBehindLinkPairing(model)
             .navigationTitle("signedIn.title")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -116,7 +125,7 @@ private struct SlowHintRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                ProgressView()
+                ProgressView().accessibilityHidden(true)
                 Text("signedIn.refreshing")
             }
             SlowHint(retry: retry)

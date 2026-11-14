@@ -5,6 +5,8 @@ import YakKit
 struct PairingProblemView: View {
     let problem: PairingProblem
     let address: String
+    /// The typed-address flow has no code from a computer, so an expiry there has its own wording.
+    var isTypedAddress = false
     /// Nil hides the button, for a problem that trying again cannot fix.
     let retry: (() -> Void)?
 
@@ -14,8 +16,8 @@ struct PairingProblemView: View {
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
-            Text(LocalizedStringKey(problem.titleKey)).font(.title2.bold())
-            Text(LocalizedStringKey(problem.bodyKey)).font(.body).foregroundStyle(Color.yakMuted)
+            Text(LocalizedStringKey(titleKey)).font(.title2.bold())
+            Text(LocalizedStringKey(bodyKey)).font(.body).foregroundStyle(Color.yakMuted)
             if !address.isEmpty {
                 Text(address)
                     .font(.subheadline.monospaced())
@@ -31,6 +33,10 @@ struct PairingProblemView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
     }
+
+    private var usesApprovalWording: Bool { isTypedAddress && problem == .codeExpired }
+    private var titleKey: String { usesApprovalWording ? "problem.approvalExpired.title" : problem.titleKey }
+    private var bodyKey: String { usesApprovalWording ? "problem.approvalExpired.body" : problem.bodyKey }
 
     private var symbol: String {
         switch problem {

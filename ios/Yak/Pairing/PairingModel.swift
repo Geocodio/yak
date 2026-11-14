@@ -38,7 +38,7 @@ extension PairingProblem {
     /// Every key name a screen can ask for, so a test can check the catalog.
     static let allKeyNames = [
         "invalidAddress", "notYak", "unreachable", "serverTooOld", "appTooOld", "codeInvalid",
-        "codeExpired", "denied", "other", "signInPage", "codeMayBeUsed",
+        "codeExpired", "denied", "other", "signInPage", "codeMayBeUsed", "approvalExpired",
     ]
 }
 

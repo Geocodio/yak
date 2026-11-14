@@ -15,6 +15,7 @@ struct EnterAddressView: View {
     @State private var sessionTask: Task<Void, Never>?
     @State private var showsChecking = false
     @FocusState private var isFocused: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
 
     var body: some View {
@@ -40,53 +41,65 @@ struct EnterAddressView: View {
     }
 
     private func content(_ pairingModel: PairingModel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("address.title").font(.largeTitle.bold())
-                switch pairingModel.state {
-                case .problem(let problem):
-                    PairingProblemView(problem: problem, address: address) { pairingModel.reset() }
-                case .waitingForApproval:
-                    waiting(pairingModel)
-                case .paired:
-                    ProgressView()
-                default:
-                    form(pairingModel)
+        ScrollViewReader { scroller in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("address.title").font(.largeTitle.bold())
+                    switch pairingModel.state {
+                    case .problem(let problem):
+                        PairingProblemView(problem: problem, address: address, isTypedAddress: true) {
+                            pairingModel.reset()
+                        }
+                    case .waitingForApproval:
+                        waiting(pairingModel)
+                    case .paired:
+                        ProgressView()
+                    default:
+                        form(pairingModel)
+                    }
+                }
+                .frame(maxWidth: 560, alignment: .leading)
+                .frame(maxWidth: .infinity)
+                .padding(24)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: pairingModel.confirmation != nil) { _, isFound in
+                // The keyboard may cover the button that the found instance makes useful.
+                if isFound { withAnimation { scroller.scrollTo("continue", anchor: .bottom) } }
+            }
+            .onChange(of: pairingModel.state) { _, newState in handle(newState, pairingModel) }
+            .onChange(of: model.network.isOnline) { _, isOnline in
+                guard isOnline else { return }
+                // The connection is back: run again what the lost connection stopped.
+                if pairingModel.state == .problem(.unreachable) {
+                    pairingModel.reset()
+                    start(pairingModel)
+                } else if pairingModel.checkProblem == .unreachable {
+                    Task { await pairingModel.check(address: address) }
                 }
             }
-            .frame(maxWidth: 560, alignment: .leading)
-            .frame(maxWidth: .infinity)
-            .padding(24)
-        }
-        .scrollDismissesKeyboard(.interactively)
-        .onChange(of: pairingModel.state) { _, newState in handle(newState, pairingModel) }
-        .onChange(of: model.network.isOnline) { _, isOnline in
-            guard isOnline else { return }
-            // The connection is back: run again what the lost connection stopped.
-            if pairingModel.state == .problem(.unreachable) {
-                pairingModel.reset()
-                start(pairingModel)
-            } else if pairingModel.checkProblem == .unreachable {
-                Task { await pairingModel.check(address: address) }
+            .task(id: pairingModel.state == .checking) {
+                // Nothing for the first 300 ms, then the progress state.
+                guard pairingModel.state == .checking else {
+                    showsChecking = false
+                    return
+                }
+                do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
+                showsChecking = true
             }
+            .sensoryFeedback(.success, trigger: isPaired(pairingModel.state))
+            .sensoryFeedback(.error, trigger: isProblem(pairingModel.state))
         }
-        .task(id: pairingModel.state == .checking) {
-            // Nothing for the first 300 ms, then the progress state.
-            guard pairingModel.state == .checking else {
-                showsChecking = false
-                return
-            }
-            do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
-            showsChecking = true
-        }
-        .sensoryFeedback(.success, trigger: isPaired(pairingModel.state))
-        .sensoryFeedback(.error, trigger: isProblem(pairingModel.state))
     }
 
     private func form(_ pairingModel: PairingModel) -> some View {
         let isChecking = pairingModel.state == .checking
         return VStack(alignment: .leading, spacing: 20) {
-            HStack(spacing: 0) {
+            // The prefix goes above the field at accessibility sizes, where both would not fit on one line.
+            let layout =
+                dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout(spacing: 0))
+            layout {
                 Text("address.prefix").foregroundStyle(Color.yakMuted)
                 TextField("address.placeholder", text: $address)
                     .textContentType(.URL)
@@ -128,7 +141,7 @@ struct EnterAddressView: View {
             } label: {
                 if isChecking && showsChecking {
                     HStack(spacing: 10) {
-                        ProgressView().tint(Color.yakOnRust)
+                        ProgressView().tint(Color.yakOnRust).accessibilityHidden(true)
                         Text("address.checking")
                     }
                 } else {
@@ -136,7 +149,7 @@ struct EnterAddressView: View {
                 }
             }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(isChecking || address.trimmingCharacters(in: .whitespaces).isEmpty)
+            .id("continue")
             if isChecking {
                 SlowHint { retry(pairingModel) }
             }
@@ -149,7 +162,7 @@ struct EnterAddressView: View {
     private func waiting(_ pairingModel: PairingModel) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 10) {
-                ProgressView()
+                ProgressView().accessibilityHidden(true)
                 Text("address.waiting")
             }
             Text("address.waitingDetail").font(.body).foregroundStyle(Color.yakMuted)
@@ -191,6 +204,9 @@ struct EnterAddressView: View {
         case .paired:
             sessionTask?.cancel()
             onDone?()
+        case .problem:
+            // A problem found while the sign-in sheet is open closes it, and closing it does not undo the problem.
+            sessionTask?.cancel()
         default:
             break
         }

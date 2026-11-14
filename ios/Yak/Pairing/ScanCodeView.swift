@@ -25,28 +25,38 @@ struct ScanCodeView: View {
             } else {
                 unavailable
             }
-            Button("scan.enterAddress", action: onEnterAddress)
-                .buttonStyle(SecondaryButtonStyle())
-                .padding(24)
+            if isScannerAvailable { enterAddressButton }
         }
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    private var enterAddressButton: some View {
+        Button("scan.enterAddress", action: onEnterAddress)
+            .buttonStyle(SecondaryButtonStyle())
+            .padding(24)
+    }
+
     private var unavailable: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: "camera.fill")
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(Color.yakMuted)
-                .accessibilityHidden(true)
-            Text("scan.unavailable.title").font(.title2.bold())
-            Text("scan.unavailable.body").font(.body).foregroundStyle(Color.yakMuted)
+        ScrollView {
+            VStack(spacing: 0) {
+                VStack(spacing: 16) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 40, weight: .light))
+                        .foregroundStyle(Color.yakMuted)
+                        .accessibilityHidden(true)
+                    Text("scan.unavailable.title").font(.title2.bold())
+                    Text("scan.unavailable.body").font(.body).foregroundStyle(Color.yakMuted)
+                }
                 .multilineTextAlignment(.center)
-            Spacer()
+                .padding(.horizontal, 24)
+                .padding(.top, 80)
+                .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .combine)
+                enterAddressButton.frame(maxWidth: 560)
+            }
         }
-        .padding(.horizontal, 24)
-        .frame(maxWidth: 560)
-        .accessibilityElement(children: .combine)
+        .scrollBounceBehavior(.basedOnSize)
     }
 }
 

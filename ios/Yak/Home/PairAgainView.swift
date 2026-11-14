@@ -10,31 +10,26 @@ struct PairAgainView: View {
     @State private var showsScanner = false
     @State private var confirmsRemove = false
 
+    /// The saved address as a person types it: host and port, no scheme.
+    private var typedAddress: String {
+        guard let host = instance.url.host() else { return "" }
+        return instance.url.port.map { "\(host):\($0)" } ?? host
+    }
+
     var body: some View {
-        ScrollView {
+        ActionPage(isHidden: model.linkPairing != nil) {
+            Image(systemName: "xmark.circle")
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(Color.yakMuted)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 16) {
-                Image(systemName: "iphone.slash")
-                    .font(.system(size: 44, weight: .light))
-                    .foregroundStyle(Color.yakMuted)
-                    .accessibilityHidden(true)
                 Text("pairAgain.title \(instance.name)").font(.largeTitle.bold())
                 Text("pairAgain.body").font(.body).foregroundStyle(Color.yakMuted)
             }
-            .frame(maxWidth: 560, alignment: .leading)
-            .frame(maxWidth: .infinity)
-            .padding(24)
-        }
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 12) {
-                Button("pairAgain.pair") { showsPairing = true }.buttonStyle(PrimaryButtonStyle())
-                Button("pairAgain.remove", role: .destructive) { confirmsRemove = true }
-                    .buttonStyle(SecondaryButtonStyle())
-            }
-            .frame(maxWidth: 560)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(.bar)
+        } actions: {
+            Button("pairAgain.pair") { showsPairing = true }.buttonStyle(PrimaryButtonStyle())
+            Button("pairAgain.remove", role: .destructive) { confirmsRemove = true }
+                .buttonStyle(SecondaryButtonStyle())
         }
         .onChange(of: model.wantsScanner, initial: true) { _, wantsScanner in
             // The scanner sheet's ConnectView takes the request and clears the flag.
@@ -54,7 +49,7 @@ struct PairAgainView: View {
         .sheet(isPresented: $showsPairing) {
             NavigationStack {
                 EnterAddressView(
-                    model: model, initialAddress: instance.url.absoluteString.replacing("https://", with: ""),
+                    model: model, initialAddress: typedAddress,
                     onDone: { showsPairing = false }
                 )
                 .toolbar {

@@ -66,7 +66,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No typing and no sign-in on the phone"
+            "value": "No typing and no sign-in on this device"
           }
         }
       }
@@ -446,7 +446,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yak could not open the page where you approve this phone. Try again."
+            "value": "Yak could not open the page where you approve this device. Try again."
           }
         }
       }
@@ -807,6 +807,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel pairing"
+          }
+        }
+      }
+    },
+    "problem.approvalExpired.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sign-in timed out"
+          }
+        }
+      }
+    },
+    "problem.approvalExpired.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device was not approved in time. Try again and finish signing in on your instance."
           }
         }
       }
