@@ -88,6 +88,22 @@ it('renders every list surface for a stranger as if the private graph did not ex
     }
 });
 
+it('keeps the private graph out of palette search for a stranger and finds it for the owner', function () {
+    $search = fn ($user, string $query): string => json_encode($this->actingAs($user)->getJson(route('palette.search', ['query' => $query]))->assertOk()->json());
+
+    foreach (['other', 'admin'] as $stranger) {
+        foreach ([VisibilityWorld::TITLE, VisibilityWorld::REPO, VisibilityWorld::BRANCH, 'Quarterly', 'payroll', 'layoff'] as $query) {
+            $encoded = $search($this->world->{$stranger}, $query);
+
+            expect($encoded)->not->toContain(VisibilityWorld::TITLE)
+                ->and($encoded)->not->toContain(VisibilityWorld::REPO)
+                ->and($encoded)->not->toContain(VisibilityWorld::BRANCH);
+        }
+    }
+
+    expect($search($this->world->owner, 'Quarterly'))->toContain($this->world->thread->public_id);
+});
+
 it('keeps a private thread and its child out of notification recipients', function () {
     $recipients = fn (Thread $thread) => array_map(
         fn ($user) => $user->id,

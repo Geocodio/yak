@@ -12,6 +12,7 @@ const openInNewWindow = (url: string): void => {
     window.open(url, '_blank', 'noopener');
 };
 
+/** The hotkeys act on the thread being viewed, so a result's own actions carry none. */
 export function threadResultAction(row: PaletteSearchThread, environment: ResultEnvironment): PaletteAction {
     const href = environment.threadUrl(row.id);
 
@@ -21,7 +22,7 @@ export function threadResultAction(row: PaletteSearchThread, environment: Result
         keywords: [],
         hint: row.status === 'closed' ? `${row.repo} · closed` : row.repo,
         href,
-        more: moreStep(row.title, [{ id: 'thread-open', label: 'Open thread', keywords: [], href }, ...threadDataActions(row)]),
+        more: moreStep(row.title, [{ id: 'thread-open', label: 'Open thread', keywords: [], href }, ...threadDataActions(row).map(({ shortcut: _shortcut, ...action }) => action)]),
     };
 }
 
@@ -35,7 +36,7 @@ export function repositoryResultAction(row: PaletteSearchRepository, environment
         hint: 'repository',
         href: row.url,
         more: moreStep(row.name, [
-            { id: 'repository-new-thread', label: 'New thread in this repository', keywords: [], run: () => environment.openNewThread({ repository: row.slug }) },
+            ...(row.isActive ? [{ id: 'repository-new-thread', label: 'New thread in this repository', keywords: [], run: () => environment.openNewThread({ repository: row.slug }) }] : []),
             ...(githubUrl === null ? [] : [{ id: 'repository-open-github', label: 'Open on GitHub', keywords: [], hint: 'new window', run: () => openInNewWindow(githubUrl) }]),
         ]),
     };

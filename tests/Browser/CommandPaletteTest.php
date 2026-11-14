@@ -1,16 +1,21 @@
 <?php
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\RunnerState;
+use App\Enums\StackThreadMessageKind;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
 use App\Enums\TurnState;
 use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Models\BranchDeployment;
 use App\Models\ClaudeAccount;
+use App\Models\CoOwnerRequest;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Models\StackThreadMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadDiff;
 use App\Models\ThreadRepository;
 use App\Models\ThreadStar;
 use App\Models\User;
@@ -178,7 +183,7 @@ test('Stop the turn asks for confirmation and stops only after confirm', functio
 
     $page->keys('[data-testid="app-palette"]', 'Enter')
         ->assertSee('Stop the turn?')
-        ->click('[role="alertdialog"] button:last-of-type')
+        ->click('[data-testid="palette-confirm-accept"]')
         ->assertMissing('[data-testid="app-palette"]');
 });
 
@@ -235,7 +240,7 @@ test('Close thread asks first, does nothing on Cancel and closes after confirm',
 
     $page->keys('[data-testid="app-palette"]', 'Enter')
         ->assertSee('Close this thread?')
-        ->click('[role="alertdialog"] button:last-of-type')
+        ->click('[data-testid="palette-confirm-accept"]')
         ->assertMissing('[data-testid="app-palette"]');
 
     expect($thread->refresh()->status)->toBe(ThreadStatus::Closed);
@@ -277,7 +282,7 @@ test('Delete thread asks first, does nothing on Cancel and deletes after confirm
 
     $page->keys('[data-testid="app-palette"]', 'Enter')
         ->assertSee('Delete this thread?')
-        ->click('[role="alertdialog"] button:last-of-type')
+        ->click('[data-testid="palette-confirm-accept"]')
         ->assertMissing('[data-testid="app-palette"]');
 
     expect(Thread::query()->withoutGlobalScopes()->whereKey($thread->id)->exists())->toBeFalse();
@@ -547,15 +552,15 @@ test('a deployment page lists Open the preview and Destroy the preview, and dest
         ->assertSeeIn('[data-testid="palette-action-deployment-destroy"]', 'Destroy the preview')
         ->type('[data-testid="app-palette"]', 'destroy')
         ->keys('[data-testid="app-palette"]', 'Enter')
-        ->assertVisible('[data-testid="app-palette"] [role="alertdialog"], [role="alertdialog"]')
-        ->click('[role="alertdialog"] button:first-of-type')
-        ->assertMissing('[role="alertdialog"]');
+        ->assertVisible('[data-testid="palette-confirm"]')
+        ->click('[data-testid="palette-confirm-cancel"]')
+        ->assertMissing('[data-testid="palette-confirm"]');
 
     Bus::assertNotDispatched(DestroyDeploymentJob::class);
 
     $page->keys('[data-testid="app-palette"]', 'Enter')
         ->assertSee('Destroy this deployment')
-        ->click('[role="alertdialog"] button:last-of-type')
+        ->click('[data-testid="palette-confirm-accept"]')
         ->assertMissing('[data-testid="app-palette"]');
 
     Bus::assertDispatched(DestroyDeploymentJob::class, fn ($job) => $job->deploymentId === $deployment->id);
@@ -582,4 +587,146 @@ test('Claude accounts lists Add Claude account and it opens the add dialog', fun
     $page->type('[data-testid="app-palette"]', 'add claude')
         ->keys('[data-testid="app-palette"]', 'Enter')
         ->assertVisible('[data-testid="account-save"]');
+});
+
+test('Open a pull request is disabled with the reason while a co-owner has to approve', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = Thread::factory()->create();
+    ThreadDiff::factory()->for($thread)->withFiles(1)->create();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'branch_name' => 'yak/work']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'root_task_id' => $task->id, 'status' => CoOwnerRequestStatus::Pending]);
+
+    $page = visit(route('threads.show', $thread))->assertVisible('[data-testid="pull-request-held"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'open a pull request')
+        ->assertSeeIn('[data-testid="palette-action-thread-create-pull-request"]', 'Waiting for a co-owner')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertMissing('[data-testid="palette-confirm"]')
+        ->assertVisible('[data-testid="app-palette"]');
+});
+
+test('Filter changed files from the palette leaves the filter input focused', function () {
+    $thread = Thread::factory()->create();
+    ThreadDiff::factory()->for($thread)->withFiles(2)->create();
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('threads.show', $thread))->click('[data-testid="thread-dock-toggle-files"]')->assertPresent('[data-testid="changes-filter-hint"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'filter changed')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertMissing('[data-testid="app-palette"]')
+        ->assertScript('document.activeElement.getAttribute("aria-label")', 'Filter files');
+});
+
+test('Focus the composer from the palette leaves the composer focused', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner);
+
+    $page = visit(route('threads.show', $thread))->assertVisible('[data-testid="thread-composer-input"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'focus the composer')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertMissing('[data-testid="app-palette"]')
+        ->assertScript('document.activeElement.getAttribute("data-testid")', 'thread-composer-input');
+});
+
+test('a search answer that lands after the palette closed does not show on reopen', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['title' => 'Gamma report']);
+
+    $page = visit('/');
+    $page->script(<<<'JS'
+        window.__gammaDelivered = false;
+        const realFetch = window.fetch;
+        window.fetch = (input, init) => {
+            if (!String(input).includes('query=gamma')) {
+                return realFetch(input, init);
+            }
+            return new Promise((resolve) => {
+                window.__releaseGamma = () => realFetch(input).then((response) => {
+                    resolve(response);
+                    setTimeout(() => (window.__gammaDelivered = true), 100);
+                });
+            });
+        };
+    JS);
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'gamma')
+        ->assertScript('typeof window.__releaseGamma === "function"')
+        ->keys('[data-testid="app-palette"]', 'Escape')
+        ->assertMissing('[data-testid="app-palette"]');
+
+    $page->script('window.__releaseGamma()');
+    $page->assertScript('window.__gammaDelivered === true');
+    openPalette($page);
+
+    $page->assertMissing('[data-testid="palette-action-thread:' . $thread->public_id . '"]');
+});
+
+test('Drop a sub-thread asks first, keeps it on Cancel and closes it after confirm', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $parent = paletteThread($owner);
+    $child = Thread::factory()->child($parent)->create(['name' => 'builder', 'title' => 'Build the client']);
+    StackThreadMessage::factory()->create([
+        'root_thread_id' => $parent->id,
+        'from_thread_id' => $child->id,
+        'to_thread_id' => $parent->id,
+        'kind' => StackThreadMessageKind::Failure,
+        'text' => 'Sub-thread builder failed before finishing.',
+        'delivered_at' => now(),
+    ]);
+
+    $page = visit(route('threads.show', $parent))->assertPresent('[data-testid="stack-child-' . $child->public_id . '"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'drop a sub')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertVisible('[data-testid="palette-action-thread-stack-drop-' . $child->public_id . '"]')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertSeeIn('[data-testid="palette-confirm"]', 'Drop builder?')
+        ->click('[data-testid="palette-confirm-cancel"]')
+        ->assertMissing('[data-testid="palette-confirm"]');
+
+    expect($child->fresh()->isOpen())->toBeTrue();
+
+    $page->keys('[data-testid="app-palette"]', 'Enter')
+        ->click('[data-testid="palette-confirm-accept"]')
+        ->assertMissing('[data-testid="app-palette"]');
+
+    expect($child->fresh()->isOpen())->toBeFalse();
+});
+
+test('Take over a sub-thread asks first and marks it taken over after confirm', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $parent = paletteThread($owner);
+    $child = Thread::factory()->child($parent)->create(['name' => 'builder', 'title' => 'Build the client']);
+    StackThreadMessage::factory()->create([
+        'root_thread_id' => $parent->id,
+        'from_thread_id' => $child->id,
+        'to_thread_id' => $parent->id,
+        'kind' => StackThreadMessageKind::Failure,
+        'text' => 'Sub-thread builder failed before finishing.',
+        'delivered_at' => now(),
+    ]);
+
+    $page = visit(route('threads.show', $parent))->assertPresent('[data-testid="stack-child-' . $child->public_id . '"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'take over')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertVisible('[data-testid="palette-action-thread-stack-take-over-' . $child->public_id . '"]')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertSeeIn('[data-testid="palette-confirm"]', 'Take over builder?')
+        ->click('[data-testid="palette-confirm-accept"]')
+        ->assertMissing('[data-testid="app-palette"]');
+
+    expect($child->fresh()->taken_over_at)->not->toBeNull();
 });

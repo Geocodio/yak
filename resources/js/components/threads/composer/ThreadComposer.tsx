@@ -2,6 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import { Button, Menu } from '@geocodio/console-ui';
 import { Layers, Plus } from 'lucide-react';
 import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
+import { focusAfterPaletteCloses } from '@/commandPalette/focusAfterPaletteCloses';
 import { THREAD_GROUP, composerActions } from '@/commandPalette/threadPageActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { canContinueTurn } from '@/components/threads/conversation/GuardStopCard';
@@ -50,8 +51,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
                 canStop: !disabled,
                 canContinue,
                 canFocus: !disabled,
-                // The palette closes first and hands focus back to the page, so the composer takes it on the next frame.
-                focusComposer: () => requestAnimationFrame(() => inputRef.current?.focus()),
+                focusComposer: () => focusAfterPaletteCloses(inputRef.current),
             }),
         [thread.id, working, disabled, canContinue],
     );

@@ -8,7 +8,9 @@ import { requestPullRequest } from '@/threads/panels/changes/OpenPullRequestButt
 import { fetchJson } from '@/threads/panels/files/useFileTree';
 import { continueMethod, show as showThread, stop } from '@/routes/threads';
 import type { StackChild } from '@/types/stack';
-import type { FileEntryData, FileTreeResponse } from '@/types/thread-files';
+import type { FileTreeResponse } from '@/types/thread-files';
+import { openFileStep } from './openFileStep';
+import { pullRequestUnavailableReason } from './pullRequestAvailability';
 import type { PaletteAction } from './types';
 
 /** The group every thread page action registers under. */
@@ -53,63 +55,8 @@ export function showActions({ threadId, dockPanelIds, hasChanges, parent, canAdd
         ...(canAddSubThread ? [{ id: 'thread-add-sub-thread', label: 'Add a sub-thread', keywords: ['stack', 'child', 'split', 'new'], run: () => handlers.addSubThread() }] : []),
         ...(teleportLabel === null ? [] : [{ id: 'thread-teleport', label: teleportLabel, keywords: ['teleport', 'computer', 'device', 'local', 'hand over'], run: () => handlers.teleport() }]),
         ...(parent === null ? [] : [{ id: 'thread-go-to-parent', label: 'Go to the parent thread', keywords: ['up', 'back', 'stack', parent.title], hint: parent.title, run: () => router.visit(showThread.url(parent.id)) }]),
-        { id: 'thread-open-file', label: 'Open file', keywords: ['find', 'search', 'editor', 'code'], steps: openFileStep(threadId, handlers.openFile) },
+        { id: 'thread-open-file', label: 'Open file', keywords: ['find', 'search', 'editor', 'code'], steps: openFileStep((path) => fetchJson<FileTreeResponse>(`/threads/${threadId}/files?${new URLSearchParams({ scope: 'repo', path })}`), handlers.openFile) },
     ];
-}
-
-const MAXIMUM_FILE_ROWS = 50;
-const MAXIMUM_DIRECTORIES = 60;
-const SKIPPED_DIRECTORIES = new Set(['.git', 'node_modules', 'vendor']);
-
-/**
- * A step that lists the repository's files matching the query. Directories load breadth first, one level at a time,
- * and each is fetched once for the life of the step.
- */
-export function openFileStep(threadId: string, openFile: (path: string) => void): NonNullable<PaletteAction['steps']> {
-    const directories = new Map<string, Promise<FileEntryData[]>>();
-    const load = (path: string): Promise<FileEntryData[]> => {
-        if (!directories.has(path)) {
-            const query = new URLSearchParams({ scope: 'repo', path });
-            directories.set(
-                path,
-                fetchJson<FileTreeResponse>(`/threads/${threadId}/files?${query}`)
-                    .then(({ status, body }) => (status === 200 ? (body.entries ?? []) : []))
-                    .catch(() => []),
-            );
-        }
-
-        return directories.get(path) as Promise<FileEntryData[]>;
-    };
-
-    return {
-        title: 'Open file',
-        placeholder: 'Search files…',
-        items: async (query) => {
-            const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-            const matches: PaletteAction[] = [];
-            let level = [''];
-            let visited = 0;
-
-            while (level.length > 0 && matches.length < MAXIMUM_FILE_ROWS && visited < MAXIMUM_DIRECTORIES) {
-                const batch = level.slice(0, MAXIMUM_DIRECTORIES - visited);
-                visited += batch.length;
-                const listings = await Promise.all(batch.map(load));
-                level = [];
-
-                for (const entry of listings.flat()) {
-                    if (entry.isDirectory) {
-                        if (!SKIPPED_DIRECTORIES.has(entry.name)) {
-                            level.push(entry.path);
-                        }
-                    } else if (matches.length < MAXIMUM_FILE_ROWS && words.every((word) => entry.path.toLowerCase().includes(word))) {
-                        matches.push({ id: `thread-file-${entry.path}`, label: entry.path, keywords: [], run: () => openFile(entry.path) });
-                    }
-                }
-            }
-
-            return matches;
-        },
-    };
 }
 
 export type HeaderActionOptions = {
@@ -117,6 +64,7 @@ export type HeaderActionOptions = {
     isOwner: boolean;
     visibility: 'team' | 'private';
     canOpenPullRequest: boolean;
+    pullRequestOpeningState: 'opening' | 'held' | 'failed' | null | undefined;
     publishWarning: boolean;
     openShareDialog: () => void;
     canStar: boolean;
@@ -126,7 +74,7 @@ export type HeaderActionOptions = {
     subThreadCount: number;
 };
 
-export function headerActions({ threadId, isOwner, visibility, canOpenPullRequest, publishWarning, openShareDialog, canStar, isStarred, canClose, canDelete, subThreadCount }: HeaderActionOptions): PaletteAction[] {
+export function headerActions({ threadId, isOwner, visibility, canOpenPullRequest, pullRequestOpeningState, publishWarning, openShareDialog, canStar, isStarred, canClose, canDelete, subThreadCount }: HeaderActionOptions): PaletteAction[] {
     const makePrivate = (): void => {
         updateThreadShare(threadId, 'only_me', []).then(
             () => {
@@ -160,6 +108,7 @@ export function headerActions({ threadId, isOwner, visibility, canOpenPullReques
                       id: 'thread-create-pull-request',
                       label: 'Open a pull request',
                       keywords: ['pr', 'create', 'publish', 'github', 'review'],
+                      unavailable: pullRequestUnavailableReason(pullRequestOpeningState),
                       confirm: publishWarning ? { title: PRIVATE_PUBLISH_TITLE, body: PRIVATE_PUBLISH_MESSAGE, confirmLabel: 'Open PR anyway' } : undefined,
                       run: () => requestPullRequest(threadId, publishWarning),
                   },

@@ -69,3 +69,15 @@ test('every shortcut except openPalette is bound by an action', () => {
         );
     }
 });
+
+const KEYDOWN_LISTENER_ALLOWLIST = ['commandPalette/ShortcutListener.tsx', 'components/settings/FontPicker.tsx', 'components/tasks/TranscriptOverlay.tsx', 'components/tasks/MediaLightbox.tsx'];
+
+test('no component binds a keydown listener of its own outside the allowlist', () => {
+    const root = fileURLToPath(new URL('..', import.meta.url));
+    const offenders = sourceFiles(root)
+        .filter((path) => !/\.test\./.test(path))
+        .filter((path) => /addEventListener\(\s*['"]keydown['"]/.test(readFileSync(path, 'utf8')))
+        .map((path) => path.slice(root.length))
+        .filter((path) => !KEYDOWN_LISTENER_ALLOWLIST.includes(path));
+    assert.deepEqual(offenders, [], `${offenders.join(', ')} binds keydown directly. Add an entry to SHORTCUTS in commandPalette/shortcuts.ts and bind it through an action's shortcut instead.`);
+});

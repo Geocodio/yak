@@ -56,6 +56,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                 isOwner: thread.isOwner,
                 visibility: thread.visibility,
                 canOpenPullRequest,
+                pullRequestOpeningState: thread.pullRequestOpening?.state,
                 publishWarning,
                 openShareDialog: () => setIsSharing(true),
                 canStar,
@@ -64,7 +65,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                 canDelete: canDrive,
                 subThreadCount,
             }),
-        [thread.id, thread.isOwner, thread.visibility, canOpenPullRequest, publishWarning, canStar, thread.isStarred, canDrive, isOpen, subThreadCount],
+        [thread.id, thread.isOwner, thread.visibility, canOpenPullRequest, thread.pullRequestOpening?.state, publishWarning, canStar, thread.isStarred, canDrive, isOpen, subThreadCount],
     );
     const parent = breadcrumbParent(thread, stackParent);
     useCommandPaletteActions(THREAD_GROUP, actions);
