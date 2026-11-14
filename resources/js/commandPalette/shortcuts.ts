@@ -34,7 +34,8 @@ const shortcutEntries = Object.entries(SHORTCUTS) as [ShortcutId, { keys: readon
 /**
  * Matches single keys and two-key sequences against `SHORTCUTS`. A sequence
  * lapses when the second key arrives more than `timeoutMilliseconds` after the
- * first. `mod` shortcuts are not handled here.
+ * first. A key that does not complete a sequence is read as a fresh key. Callers
+ * pass plain keys only (no ctrl, meta or alt); `mod` shortcuts are not handled here.
  */
 export function createSequenceMatcher(timeoutMilliseconds: number): (key: string, now: number) => ShortcutId | null {
     let pendingKey: string | null = null;
@@ -47,8 +48,9 @@ export function createSequenceMatcher(timeoutMilliseconds: number): (key: string
 
         if (firstKey !== null) {
             const sequence = shortcutEntries.find(([, shortcut]) => shortcut.keys.length === 2 && shortcut.keys[0] === firstKey && shortcut.keys[1] === pressed);
-
-            return sequence ? sequence[0] : null;
+            if (sequence) {
+                return sequence[0];
+            }
         }
 
         const single = shortcutEntries.find(([, shortcut]) => shortcut.keys.length === 1 && shortcut.keys[0] === pressed);

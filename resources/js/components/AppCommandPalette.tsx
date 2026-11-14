@@ -1,11 +1,13 @@
 import { router } from '@inertiajs/react';
 import { CommandPalette, ConfirmDialog, type CommandPaletteSection } from '@geocodio/console-ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { openNewThread } from '@/components/Sidebar';
 import { NEW_THREAD_ID, NEW_THREAD_KEYWORDS, useGlobalActions } from '@/commandPalette/globalActions';
 import { splitNewThreadQuery } from '@/commandPalette/newThreadPrompt';
 import { isMacPlatform } from '@/commandPalette/platform';
+import { KeyboardShortcutsDialog } from '@/commandPalette/KeyboardShortcutsDialog';
+import { PALETTE_ATTRIBUTE, ShortcutListener } from '@/commandPalette/ShortcutListener';
 import { buildSections } from '@/commandPalette/sections';
 import { decideSelection, popStep, pushStep } from '@/commandPalette/selection';
 import { keycapsFor } from '@/commandPalette/shortcuts';
@@ -51,26 +53,6 @@ export function AppCommandPalette() {
     const onOpenChange = (next: boolean) => (next ? setOpen(true) : close());
 
     useEffect(() => {
-        const onKey = (event: KeyboardEvent) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
-                event.preventDefault();
-                if (open) {
-                    close();
-                } else {
-                    setOpen(true);
-                }
-            }
-        };
-        const onOpenRequest = () => setOpen(true);
-        window.addEventListener('keydown', onKey);
-        window.addEventListener('yak:open-palette', onOpenRequest);
-        return () => {
-            window.removeEventListener('keydown', onKey);
-            window.removeEventListener('yak:open-palette', onOpenRequest);
-        };
-    }, [open, close]);
-
-    useEffect(() => {
         if (step === null) {
             setStepActions([]);
 
@@ -114,6 +96,30 @@ export function AppCommandPalette() {
         }
     };
 
+    const selectRef = useRef(select);
+    selectRef.current = select;
+
+    useEffect(() => {
+        const onOpenRequest = () => setOpen(true);
+        const onToggleRequest = () => (open ? close() : setOpen(true));
+        const onRunRequest = (event: Event) => {
+            const action = (event as CustomEvent<PaletteAction>).detail;
+            if (decideSelection(action).kind === 'confirm' || action.steps) {
+                setOpen(true);
+            }
+            selectRef.current(action);
+        };
+        window.addEventListener('yak:open-palette', onOpenRequest);
+        window.addEventListener('yak:toggle-palette', onToggleRequest);
+        window.addEventListener('yak:run-palette-action', onRunRequest);
+
+        return () => {
+            window.removeEventListener('yak:open-palette', onOpenRequest);
+            window.removeEventListener('yak:toggle-palette', onToggleRequest);
+            window.removeEventListener('yak:run-palette-action', onRunRequest);
+        };
+    }, [open, close]);
+
     const buildItems = (): CommandPaletteSection[] => {
         const toItem = ({ action, disabledReason }: { action: PaletteAction; disabledReason?: string }) => ({
             id: action.id,
@@ -138,33 +144,38 @@ export function AppCommandPalette() {
     };
 
     return (
-        <CommandPalette
-            open={open}
-            onOpenChange={onOpenChange}
-            query={query}
-            onQueryChange={setQuery}
-            placeholder={step?.placeholder ?? 'Search or run a command…'}
-            sections={buildItems()}
-            step={step ? { title: step.title } : undefined}
-            onBack={() => {
-                setStepActions([]);
-                setSteps(popStep);
-                setQuery('');
-            }}
-            width="w-screen sm:w-[min(600px,calc(100vw-2rem))]"
-            inputProps={{ 'data-testid': 'app-palette' } as React.InputHTMLAttributes<HTMLInputElement>}
-        >
-            {pendingConfirm?.confirm ? (
-                <ConfirmDialog
-                    open
-                    onOpenChange={(next) => !next && setPendingConfirm(null)}
-                    title={pendingConfirm.confirm.title}
-                    body={pendingConfirm.confirm.body}
-                    confirmLabel={pendingConfirm.confirm.confirmLabel}
-                    destructive={pendingConfirm.destructive}
-                    onConfirm={() => execute(pendingConfirm)}
-                />
-            ) : null}
-        </CommandPalette>
+        <>
+            <ShortcutListener />
+            <KeyboardShortcutsDialog />
+            <CommandPalette
+                open={open}
+                onOpenChange={onOpenChange}
+                query={query}
+                onQueryChange={setQuery}
+                placeholder={step?.placeholder ?? 'Search or run a command…'}
+                sections={buildItems()}
+                step={step ? { title: step.title } : undefined}
+                onBack={() => {
+                    setStepActions([]);
+                    setSteps(popStep);
+                    setQuery('');
+                }}
+                width="w-screen sm:w-[min(600px,calc(100vw-2rem))]"
+                {...{ [PALETTE_ATTRIBUTE]: '' }}
+                inputProps={{ 'data-testid': 'app-palette' } as React.InputHTMLAttributes<HTMLInputElement>}
+            >
+                {pendingConfirm?.confirm ? (
+                    <ConfirmDialog
+                        open
+                        onOpenChange={(next) => !next && setPendingConfirm(null)}
+                        title={pendingConfirm.confirm.title}
+                        body={pendingConfirm.confirm.body}
+                        confirmLabel={pendingConfirm.confirm.confirmLabel}
+                        destructive={pendingConfirm.destructive}
+                        onConfirm={() => execute(pendingConfirm)}
+                    />
+                ) : null}
+            </CommandPalette>
+        </>
     );
 }

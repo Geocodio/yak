@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import { createSequenceMatcher, isTypingTarget, keycapsFor, SHORTCUTS } from './shortcuts.ts';
 
@@ -40,4 +42,29 @@ test('isTypingTarget', () => {
 test('keycapsFor swaps mod per platform', () => {
     assert.deepEqual(keycapsFor('openPalette', true), ['⌘', 'K']);
     assert.deepEqual(keycapsFor('openPalette', false), ['Ctrl', 'K']);
+});
+
+test('a second key that is itself a first key restarts the sequence', () => {
+    const matcher = createSequenceMatcher(1000);
+    assert.equal(matcher('g', 0), null);
+    assert.equal(matcher('g', 100), null);
+    assert.equal(matcher('p', 200), 'openPreview');
+});
+
+function sourceFiles(directory) {
+    return readdirSync(directory).flatMap((name) => {
+        const path = join(directory, name);
+
+        return statSync(path).isDirectory() ? sourceFiles(path) : /\.(ts|tsx)$/.test(name) ? [path] : [];
+    });
+}
+
+test('every shortcut except openPalette is bound by an action', () => {
+    const sources = sourceFiles('resources/js').filter((path) => !path.endsWith('commandPalette/shortcuts.ts')).map((path) => readFileSync(path, 'utf8'));
+    for (const id of Object.keys(SHORTCUTS).filter((key) => key !== 'openPalette')) {
+        assert.ok(
+            sources.some((source) => source.includes(`'${id}'`)),
+            `${id} has no action`,
+        );
+    }
 });
