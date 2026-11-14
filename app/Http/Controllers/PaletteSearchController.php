@@ -15,7 +15,6 @@ class PaletteSearchController extends Controller
 
         return response()->json(PaletteSearchData::from(
             $search->search($request->user() ?? abort(401), (string) ($validated['query'] ?? '')),
-            $search,
         ));
     }
 }

@@ -159,15 +159,20 @@ test('caps each list at 10', function () {
 });
 
 test('runs a fixed number of queries for 10 thread rows', function () {
+    config(['cache.default' => 'database']);
+    Cache::forgetDriver('database');
+
     $count = function (int $rows): int {
         Thread::query()->delete();
         foreach (range(1, $rows) as $index) {
-            $thread = Thread::factory()->paused()->create(['title' => "perf {$index}", 'preview_hostname' => "t-perf{$index}.yak.test"]);
+            $thread = Thread::factory()->paused()->create(['title' => "perf {$index}", 'sandbox_state' => 'running', 'preview_hostname' => "t-perf{$index}.yak.test"]);
+            Cache::put("thread-preview:state:{$thread->id}", 'ready');
             ThreadRepository::factory()->withPullRequest($index)->create(['thread_id' => $thread->id]);
         }
         DB::flushQueryLog();
         DB::enableQueryLog();
-        paletteSearch('perf')->assertOk();
+        $urls = collect(paletteSearch('perf')->assertOk()->json('threads'))->pluck('previewUrl');
+        expect($urls)->toHaveCount($rows)->each->toStartWith('https://t-perf');
         $queries = count(DB::getQueryLog());
         DB::disableQueryLog();
 
@@ -178,4 +183,15 @@ test('runs a fixed number of queries for 10 thread rows', function () {
     $ten = $count(10);
 
     expect($ten)->toBe($one);
+});
+
+test('never returns the reviewed pull request of a thread the viewer cannot see', function () {
+    $hidden = Thread::factory()->private(User::factory()->create())->create(['title' => 'hidden work']);
+    ThreadRepository::factory()->withPullRequest(555)->create(['thread_id' => $hidden->id, 'repo' => 'acme/secret', 'pull_request_url' => 'https://github.com/acme/secret/pull/555']);
+    PrReview::factory()->create(['repo' => 'acme/secret', 'pr_number' => 555]);
+    PrReview::factory()->create(['repo' => 'acme/open', 'pr_number' => 556]);
+
+    expect(paletteSearch('555')->assertOk()->json('pullRequests'))->toBe([])
+        ->and(paletteSearch('acme/secret')->assertOk()->json('pullRequests'))->toBe([])
+        ->and(paletteSearch('556')->assertOk()->json('pullRequests'))->toHaveCount(1);
 });

@@ -6,7 +6,9 @@ use App\Enums\RepositoryRole;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\User;
+use App\Services\Threads\Preview\ThreadPreviewDevServer;
 use App\Services\Threads\Preview\ThreadPreviewPanelState;
 use App\Services\Threads\ThreadList;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,32 +23,53 @@ class PaletteSearch
 
     private const MINIMUM_LENGTH = 2;
 
-    public function __construct(private ThreadPreviewPanelState $previews) {}
+    public function __construct(
+        private ThreadPreviewPanelState $previews,
+        private ThreadPreviewDevServer $devServer,
+    ) {}
 
     /**
-     * @return array{threads: list<Thread>, repositories: list<Repository>, pullRequests: list<array{number: int, title: string, repo: string, url: string, threadId: ?string, reviewUrl: ?string}>}
+     * @return array{threads: list<Thread>, previewUrls: array<int, ?string>, repositories: list<Repository>, pullRequests: list<array{number: int, title: string, repo: string, url: string, threadId: ?string, reviewUrl: ?string}>}
      */
     public function search(User $user, string $query): array
     {
         $query = trim($query);
 
         if (mb_strlen($query) < self::MINIMUM_LENGTH) {
-            return ['threads' => [], 'repositories' => [], 'pullRequests' => []];
+            return ['threads' => [], 'previewUrls' => [], 'repositories' => [], 'pullRequests' => []];
         }
 
         $pattern = ThreadList::likePattern($query);
         $number = preg_match('/^#?(\d+)$/', $query, $matches) === 1 ? (int) $matches[1] : null;
 
+        $threads = $this->threads($user, $pattern);
+
         return [
-            'threads' => $this->threads($user, $pattern),
+            'threads' => $threads,
+            'previewUrls' => $this->previewUrls($threads),
             'repositories' => $this->repositories($pattern),
             'pullRequests' => $this->pullRequests($user, $pattern, $number),
         ];
     }
 
-    public function previewUrl(Thread $thread): ?string
+    /**
+     * Preview addresses keyed by thread id. The dev server states of the threads that can have one come from a
+     * single cache read.
+     *
+     * @param  list<Thread>  $threads
+     * @return array<int, ?string>
+     */
+    private function previewUrls(array $threads): array
     {
-        return $this->previews->loadedUrlFor($thread);
+        $withHostname = array_filter($threads, fn (Thread $thread): bool => $thread->preview_hostname !== null);
+        $states = $this->devServer->states($withHostname);
+        $urls = [];
+
+        foreach ($threads as $thread) {
+            $urls[$thread->id] = $this->previews->loadedUrlFor($thread, $states[$thread->id] ?? null);
+        }
+
+        return $urls;
     }
 
     /**
@@ -127,6 +150,11 @@ class PaletteSearch
         }
 
         $reviews = PrReview::query()
+            ->whereNotExists(ThreadRepository::query()
+                ->selectRaw('1')
+                ->whereColumn('thread_repositories.pull_request_url', 'pr_reviews.pr_url')
+                ->whereNotIn('thread_repositories.thread_id', Thread::query()->withoutVisibilityScope()->visibleTo($user)->select('threads.id'))
+                ->toBase())
             ->selectRaw('repo, pr_number, max(pr_url) as pr_url, max(submitted_at) as latest_review_at')
             ->where(fn (Builder $match) => $match
                 ->when($number !== null, fn (Builder $query) => $query->where('pr_number', $number))

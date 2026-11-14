@@ -4,7 +4,6 @@ namespace App\Http\Resources;
 
 use App\Models\Repository;
 use App\Models\Thread;
-use App\Services\PaletteSearch;
 
 /**
  * The command palette's search results. Mirrored by resources/js/types/paletteSearch.ts.
@@ -12,14 +11,14 @@ use App\Services\PaletteSearch;
 final class PaletteSearchData
 {
     /**
-     * @param  array{threads: list<Thread>, repositories: list<Repository>, pullRequests: list<array{number: int, title: string, repo: string, url: string, threadId: ?string, reviewUrl: ?string}>}  $results
+     * @param  array{threads: list<Thread>, previewUrls: array<int, ?string>, repositories: list<Repository>, pullRequests: list<array{number: int, title: string, repo: string, url: string, threadId: ?string, reviewUrl: ?string}>}  $results
      * @return array{
      *     threads: list<array{id: string, title: string, repo: string, branch: ?string, status: 'open'|'closed', previewUrl: ?string, pullRequestUrl: ?string, lastActivityAt: ?string}>,
      *     repositories: list<array{slug: string, name: string, url: string, githubUrl: ?string}>,
      *     pullRequests: list<array{number: int, title: string, repo: string, url: string, threadId: ?string, reviewUrl: ?string}>,
      * }
      */
-    public static function from(array $results, PaletteSearch $search): array
+    public static function from(array $results): array
     {
         return [
             'threads' => array_map(fn (Thread $thread): array => [
@@ -28,7 +27,7 @@ final class PaletteSearchData
                 'repo' => $thread->repo,
                 'branch' => $thread->branch,
                 'status' => $thread->status->value,
-                'previewUrl' => $search->previewUrl($thread),
+                'previewUrl' => $results['previewUrls'][$thread->id] ?? null,
                 'pullRequestUrl' => $thread->repositories->first()?->pull_request_url,
                 'lastActivityAt' => $thread->last_activity_at?->toIso8601String(),
             ], $results['threads']),
