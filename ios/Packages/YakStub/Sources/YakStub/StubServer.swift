@@ -3,15 +3,17 @@ import Network
 
 /// An HTTP/1.1 server on the loopback interface that plays one `Scenario` at a time. The scenario is
 /// switched by `POST /__stub/scenario` with the scenario name as the body, so one running server serves
-/// every UI test.
+/// every UI test. `GET /__stub/online` answers `yes` or `no`; `POST /__stub/online` with that body sets it, and
+/// the app in test mode reads it as its network state. A new scenario puts it back to `yes`.
 final class StubServer: Sendable {
     private let fixtures: StubFixtures
-    private let current: ScenarioBox
+    private let current: Locked<Scenario>
+    private let online = Locked(true)
     private let listener: NWListener
 
     init(port: UInt16, fixtures: StubFixtures, scenario: Scenario) throws {
         self.fixtures = fixtures
-        self.current = ScenarioBox(scenario)
+        self.current = Locked(scenario)
         let parameters = NWParameters.tcp
         parameters.requiredInterfaceType = .loopback
         listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port) ?? .any)
@@ -56,9 +58,19 @@ final class StubServer: Sendable {
                     return StubReply(answer: Scenario.error(400, "unknown_scenario", "No scenario named \(name)."))
                 }
                 current.set(scenario)
+                online.set(true)
             }
             let body = Data(current.get().rawValue.utf8)
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: body))
+        }
+        if request.path == "/__stub/online" {
+            if request.method == "POST" {
+                online.set(
+                    String(decoding: request.body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+                        != "no")
+            }
+            return StubReply(
+                answer: .reply(status: 200, contentType: "text/plain", body: Data((online.get() ? "yes" : "no").utf8)))
         }
         let host = request.headers["host"] ?? "127.0.0.1"
         return current.get().reply(to: request, baseURL: "http://\(host)", fixtures: fixtures)
@@ -118,14 +130,14 @@ final class StubServer: Sendable {
     }
 }
 
-/// The scenario in play, readable and changeable from any connection.
-private final class ScenarioBox: @unchecked Sendable {
+/// A value readable and changeable from any connection.
+private final class Locked<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
-    private var scenario: Scenario
+    private var value: Value
 
-    init(_ scenario: Scenario) { self.scenario = scenario }
-    func get() -> Scenario { lock.withLock { scenario } }
-    func set(_ new: Scenario) { lock.withLock { scenario = new } }
+    init(_ value: Value) { self.value = value }
+    func get() -> Value { lock.withLock { value } }
+    func set(_ new: Value) { lock.withLock { value = new } }
 }
 
 /// Lets only the first of several callbacks through.

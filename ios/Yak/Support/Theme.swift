@@ -4,7 +4,7 @@ import SwiftUI
 extension Color {
     static let yakRust = Color("Rust")
     static let yakOnRust = Color("OnRust")
-    /// Links and plain actions, and the destructive variant; the system blue and red are below the contrast bar.
+    /// Links and plain actions: the rust as text color, which passes the contrast bar where the fill color does not.
     static let yakAction = Color("Action")
     static let yakDanger = Color("Danger")
     /// Secondary text. The system's secondary label is too faint for the contrast audit, so this is the primary

@@ -98,6 +98,15 @@ enum Scenario: String, CaseIterable, Sendable {
     /// The pairing code is too old: `device/pair` answers 400 `pairing_code_expired`.
     case codeExpired = "code-expired"
 
+    /// The typed-address flow: the person has not approved yet, so `device/token` answers `authorization_pending` for ever.
+    case approvalPending = "approval-pending"
+    /// The person denied the request: `device/token` answers 400 `access_denied`.
+    case approvalDenied = "approval-denied"
+    /// The device code ran out: `device/token` answers 400 `expired_token`.
+    case approvalExpired = "approval-expired"
+    /// The server asks the app to poll less often: `device/token` answers 400 `slow_down`.
+    case approvalSlowDown = "approval-slow-down"
+
     static let apiPrefix = "/api/app/v1/"
     static let slowDelay = Duration.seconds(10)
 
@@ -157,7 +166,14 @@ enum Scenario: String, CaseIterable, Sendable {
             default: return json("device-pair")
             }
         case "POST device/code": return json("device-code")
-        case "POST device/token": return json("device-token")
+        case "POST device/token":
+            switch self {
+            case .approvalPending: return Self.error(400, "authorization_pending", "Waiting for approval.")
+            case .approvalDenied: return Self.error(400, "access_denied", "The request was denied.")
+            case .approvalExpired: return Self.error(400, "expired_token", "This code expired.")
+            case .approvalSlowDown: return Self.error(400, "slow_down", "Poll less often.")
+            default: return json("device-token")
+            }
         case "DELETE device": return .reply(status: 204, contentType: "application/json", body: Data())
         default: return Self.error(404, "not_found", "Not found.")
         }

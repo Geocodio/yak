@@ -24,10 +24,16 @@ struct StubControl {
         return components.url!
     }
 
-    func play(_ scenario: String) throws {
-        var request = URLRequest(url: URL(string: "\(url)/__stub/scenario")!)
+    func play(_ scenario: String) throws { try post("scenario", scenario) }
+
+    /// Takes the app offline or back online; the app in test mode reads this as its network state.
+    func setOnline(_ isOnline: Bool) throws { try post("online", isOnline ? "yes" : "no") }
+
+    private func post(_ endpoint: String, _ body: String) throws {
+        let scenario = body
+        var request = URLRequest(url: URL(string: "\(url)/__stub/\(endpoint)")!)
         request.httpMethod = "POST"
-        request.httpBody = Data(scenario.utf8)
+        request.httpBody = Data(body.utf8)
         let done = XCTestExpectation(description: "scenario set")
         nonisolated(unsafe) var status = 0
         URLSession.shared.dataTask(with: request) { _, response, _ in
@@ -35,6 +41,6 @@ struct StubControl {
             done.fulfill()
         }.resume()
         XCTWaiter().wait(for: [done], timeout: 5)
-        XCTAssertEqual(status, 200, "the stub did not accept the scenario \(scenario)")
+        XCTAssertEqual(status, 200, "the stub did not accept \(endpoint) \(scenario)")
     }
 }

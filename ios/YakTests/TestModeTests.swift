@@ -18,4 +18,27 @@ import YakKit
         #expect(TestMode.parse(URL(string: "yak://pair?url=http%3A%2F%2Fyak.example.com&code=abc")!) == nil)
         #expect(TestMode.parse(URL(string: "yak://pair?url=https%3A%2F%2Fyak.example.com&code=abc")!) != nil)
     }
+
+    @MainActor @Test func theNetworkMonitorFollowsItsPollInsteadOfTheRealPath() async throws {
+        let answer = LockedFlag(false)
+        let monitor = NetworkMonitor(poll: { answer.value }, interval: .milliseconds(10))
+        try await waitUntil { !monitor.isOnline }
+        answer.value = true
+        try await waitUntil { monitor.isOnline }
+    }
+
+    @MainActor private func waitUntil(_ condition: () -> Bool) async throws {
+        for _ in 0..<300 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(condition())
+    }
+}
+
+private final class LockedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag: Bool
+    init(_ flag: Bool) { self.flag = flag }
+    var value: Bool {
+        get { lock.withLock { flag } }
+        set { lock.withLock { flag = newValue } }
+    }
 }

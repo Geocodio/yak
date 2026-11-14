@@ -90,6 +90,21 @@ private func json(_ reply: StubReply) throws -> [String: Any] {
         #expect(try status(reply(.codeUsed, "GET", "instance")) == 200)
     }
 
+    @Test func approvalScenariosAnswerTheTokenPollWithTheirErrorAndEverythingElseLikePaired() throws {
+        let cases: [(Scenario, String)] = [
+            (.approvalPending, "authorization_pending"), (.approvalDenied, "access_denied"),
+            (.approvalExpired, "expired_token"), (.approvalSlowDown, "slow_down"),
+        ]
+        for (scenario, code) in cases {
+            let answer = try reply(scenario, "POST", "device/token")
+            #expect(status(answer) == 400)
+            #expect(try json(answer)["error"] as? String == code)
+            #expect(try json(reply(scenario, "POST", "device/code"))["device_code"] as? String == "stub-device-code")
+            #expect(try json(reply(scenario, "GET", "instance"))["yak"] as? Bool == true)
+        }
+        #expect(try status(reply(.paired, "POST", "device/token")) == 200)
+    }
+
     @Test func everyScenarioNameParses() {
         for scenario in Scenario.allCases { #expect(Scenario(rawValue: scenario.rawValue) == scenario) }
     }

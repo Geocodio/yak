@@ -39,14 +39,16 @@ final class AppModel {
     private let parseLink: @Sendable (URL) -> PairingLink?
     /// Runs once before the first route is chosen; UI tests seed their instance here.
     private var prepare: (@Sendable (InstanceStore) async -> Void)?
-    let network = NetworkMonitor()
+    let network: NetworkMonitor
 
     init(
         instances: InstanceStore, tokens: any TokenStore, makeClient: @escaping @Sendable (URL) -> APIClient,
         normalizeAddress: @escaping @Sendable (String) -> URL? = InstanceAddress.normalize,
         parseLink: @escaping @Sendable (URL) -> PairingLink? = { PairingLink(url: $0) },
-        prepare: (@Sendable (InstanceStore) async -> Void)? = nil
+        prepare: (@Sendable (InstanceStore) async -> Void)? = nil,
+        network: NetworkMonitor = NetworkMonitor()
     ) {
+        self.network = network
         self.normalizeAddress = normalizeAddress
         self.parseLink = parseLink
         self.prepare = prepare

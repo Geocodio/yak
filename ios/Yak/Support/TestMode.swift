@@ -6,7 +6,8 @@
     ///
     /// Launch arguments: `-yakTestInstance <url>` turns it on, `-yakTestToken <token>` also starts the app
     /// paired with that instance, `-yakTestKeychainLocked YES` makes reading a token fail like a locked
-    /// Keychain. In test mode nothing is read from or written to the real Keychain or `UserDefaults`, and
+    /// Keychain. The network state comes from the stub's `/__stub/online`, so a test can take the app offline and
+    /// bring it back. In test mode nothing is read from or written to the real Keychain or `UserDefaults`, and
     /// plain `http://127.0.0.1` addresses and pairing links are accepted, which Release never does.
     struct TestMode {
         let instance: URL
@@ -36,12 +37,24 @@
                 normalizeAddress: Self.normalize, parseLink: Self.parse,
                 prepare: { instances in
                     if let token = seed.token {
-                        _ = try? await instances.add(
-                            url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",
-                            token: token)
+                        do {
+                            _ = try await instances.add(
+                                url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",
+                                token: token)
+                        } catch {
+                            preconditionFailure("test mode could not seed the instance: \(error)")
+                        }
                     }
                     if seed.isKeychainLocked { lockable.lockReads() }
-                })
+                },
+                network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }))
+        }
+
+        /// Reads `GET /__stub/online`; a stub that cannot be reached counts as online, so a stopped stub is not "offline".
+        @Sendable static func stubIsOnline(at instance: URL) async -> Bool {
+            guard let (data, _) = try? await URLSession.shared.data(from: instance.appending(path: "__stub/online"))
+            else { return true }
+            return String(decoding: data, as: UTF8.self) != "no"
         }
 
         private static func isLoopback(_ address: String) -> Bool { address.lowercased().hasPrefix("http://127.0.0.1") }

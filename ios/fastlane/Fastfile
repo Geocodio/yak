@@ -22,7 +22,7 @@ platform :ios do
     device = options[:device] || "iPhone 18 Pro"
     generate
     stub_package = File.join(IOS_ROOT, "Packages/YakStub")
-    sh("cd #{stub_package.shellescape} && swift build -c release")
+    sh("cd #{stub_package.shellescape} && swift build -c release -Xswiftc -warnings-as-errors")
     stub_binary = File.join(`cd #{stub_package.shellescape} && swift build -c release --show-bin-path`.strip, "yak-stub")
     build_directory = File.join(IOS_ROOT, "build")
     FileUtils.mkdir_p(build_directory)
@@ -46,7 +46,7 @@ platform :ios do
       sh(
         "cd #{IOS_ROOT.shellescape} && TEST_RUNNER_YAK_STUB_PORT=#{port} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
         "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} -only-testing:YakUITests " \
-        "-resultBundlePath #{result_path.shellescape} CODE_SIGNING_ALLOWED=NO"
+        "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
       )
     ensure
       Process.kill("TERM", stub_pid)
@@ -58,6 +58,7 @@ platform :ios do
   lane :test do
     generate
     sh("cd #{File.join(IOS_ROOT, "Packages/YakKit").shellescape} && swift test")
+    sh("cd #{File.join(IOS_ROOT, "Packages/YakStub").shellescape} && swift test -Xswiftc -warnings-as-errors")
     sh(
       "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
       "-destination 'platform=iOS Simulator,name=iPhone 18 Pro' -only-testing:YakTests " \
