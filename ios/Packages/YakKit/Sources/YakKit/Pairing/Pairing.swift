@@ -75,16 +75,20 @@ public actor Pairing {
             code: link.code, requestID: requestID, name: device.name, model: device.model,
             osVersion: device.osVersion, appVersion: device.appVersion)
         let response: PairingResponse
+        var wasRepeated = false
         do {
             do {
                 response = try await client.send(endpoint)
             } catch .network(let code) where Self.isWorthRepeating(code) {
+                wasRepeated = true
                 response = try await client.send(endpoint)
             }
         } catch {
             // Only a clear answer from the instance settles the code; anything else leaves it unknown.
             let problem = PairingProblem(error)
             switch problem {
+            // After a repeat, a server that ignores `requestID` refuses the code the first attempt may have redeemed.
+            case .codeInvalid where wasRepeated, .codeExpired where wasRepeated: throw .codeMayBeUsed
             case .codeInvalid, .codeExpired, .appTooOld, .serverTooOld, .cancelled: throw problem
             default: throw .codeMayBeUsed
             }

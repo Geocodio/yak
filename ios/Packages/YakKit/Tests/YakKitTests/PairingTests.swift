@@ -169,6 +169,15 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
         #expect(await harness.store.all().isEmpty)
     }
 
+    @Test func aRepeatRefusedAsInvalidMeansTheCodeMayBeUsed() async {
+        let harness = Harness(["device/pair": [.failure(.timedOut), refusal("pairing_code_invalid")]])
+        await #expect(throws: PairingProblem.codeMayBeUsed) {
+            try await harness.pairing.pair(link: link, device: device)
+        }
+        #expect(await harness.transport.paths == ["device/pair", "device/pair"])
+        #expect(await harness.store.all().isEmpty)
+    }
+
     @Test func aRefusedRedeemIsNotRepeated() async {
         let harness = Harness(["device/pair": [refusal("pairing_code_invalid")]])
         await #expect(throws: PairingProblem.codeInvalid) { try await harness.pairing.pair(link: link, device: device) }
