@@ -32,7 +32,7 @@ public struct EmptyResponse: Decodable, Sendable, Equatable {
     public init() {}
 }
 
-private struct DeviceDescription: Encodable, Sendable {
+private struct DevicePayload: Encodable, Sendable {
     let name: String
     let model: String
     let osVersion: String
@@ -47,7 +47,7 @@ private struct DeviceDescription: Encodable, Sendable {
 
 private struct PairBody: Encodable, Sendable {
     let code: String
-    let description: DeviceDescription
+    let description: DevicePayload
 
     enum CodingKeys: String, CodingKey { case code }
 
@@ -74,7 +74,7 @@ extension Endpoint where Response == DeviceCode {
     public static func startDeviceFlow(name: String, model: String, osVersion: String, appVersion: String)
         -> Endpoint<DeviceCode>
     {
-        let description = DeviceDescription(name: name, model: model, osVersion: osVersion, appVersion: appVersion)
+        let description = DevicePayload(name: name, model: model, osVersion: osVersion, appVersion: appVersion)
         return Endpoint(method: .post, path: "device/code", body: description)
     }
 }
@@ -87,7 +87,7 @@ extension Endpoint where Response == PairingResponse {
     public static func pair(code: String, name: String, model: String, osVersion: String, appVersion: String)
         -> Endpoint<PairingResponse>
     {
-        let description = DeviceDescription(name: name, model: model, osVersion: osVersion, appVersion: appVersion)
+        let description = DevicePayload(name: name, model: model, osVersion: osVersion, appVersion: appVersion)
         return Endpoint(
             method: .post, path: "device/pair",
             body: PairBody(code: code, description: description))

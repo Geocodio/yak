@@ -32,6 +32,8 @@ public actor APIClient {
     private let token: String?
     private let transport: any HTTPTransport
     private let userAgent: String
+    private let appVersion: String
+    private let systemDescription: String
     private let sleep: @Sendable (Duration) async throws -> Void
 
     /// Delays before the retries of a GET: three retries, four attempts in all.
@@ -46,8 +48,17 @@ public actor APIClient {
         self.baseURL = baseURL
         self.token = token
         self.transport = transport
+        self.appVersion = appVersion
+        self.systemDescription = systemDescription
         self.userAgent = "YakApp/\(appVersion) (\(systemDescription))"
         self.sleep = sleep
+    }
+
+    /// The same client for the same instance, sending `token` as the bearer token.
+    public func authenticated(token: String) -> APIClient {
+        APIClient(
+            baseURL: baseURL, token: token, transport: transport, appVersion: appVersion,
+            systemDescription: systemDescription, sleep: sleep)
     }
 
     public func send<Response: Decodable & Sendable>(_ endpoint: Endpoint<Response>) async throws(APIFailure)
