@@ -13,9 +13,10 @@ import { UnsentMessage } from './UnsentMessage';
 import { useStickToBottom } from './useStickToBottom';
 import { RepositoryCard } from './RepositoryCard';
 import { ClaudeMessage } from './ClaudeMessage';
+import { PendingStep } from '@/components/activity/CurrentStep';
 import { DayDivider } from './DayDivider';
 import { EditsBlock } from './EditsBlock';
-import { createReadTracker } from './mergeConversation';
+import { createReadTracker, type ConversationEntry } from './mergeConversation';
 import { mergeConversation, useConversation } from './useConversation';
 import { PersonMessage } from './PersonMessage';
 import { PullRequestChips } from './PullRequestChip';
@@ -60,10 +61,32 @@ function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges
     return item.kind === 'edits' ? <EditsBlock item={item} onOpenChanges={onOpenChanges} /> : <ClaudeMessage item={item} modelLabels={modelLabels} />;
 }
 
-export function Conversation({ modelLabels = {}, threadId, repo, branch, messages, walkthrough = null, sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = null, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; walkthrough?: ThreadWalkthrough | null; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData | null; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+/**
+ * The row that says Claude has the message before anything else shows: queued while the newest message is unread,
+ * thinking while the turn runs with no live step on screen. Sending rows and notice cards speak for themselves.
+ */
+function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseShown: boolean): { queued: boolean; since: string | null } | null {
+    const last = entries.at(-1);
+
+    if (otherwiseShown || last === undefined) {
+        return null;
+    }
+    if (last.type === 'person' && last.pending) {
+        return { queued: true, since: last.message.sentAt };
+    }
+    if (!working || (last.type === 'event' && last.item.kind === 'tools' && last.item.running === true)) {
+        return null;
+    }
+
+    return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
+}
+
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, walkthrough = null, sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = null, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; walkthrough?: ThreadWalkthrough | null; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData | null; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
     const unsent = useUnsentMessages(threadId);
-    const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(threadId);
+    const latest = entries.at(-1);
+    const latestKey = `${latest === undefined ? '' : latest.type === 'event' ? latest.item.key : (latest.message.uuid ?? latest.message.id)}:${unsent.length}`;
+    const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
 
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
     // The person's own message always comes into view, also after they scrolled up.
@@ -78,6 +101,7 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     let previousDay = '';
+    const waiting = waitingRow(entries, working, unsent.length > 0 || notice !== null);
     const switchAt = environmentSwitch?.at ?? environmentNote?.at ?? null;
     const switchIndex = switchAt === null ? -1 : switchPosition(entries, switchAt);
     const switchBlock = (
@@ -132,6 +156,11 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
                 ))}
                 {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} />}
                 {trailingFiles.length > 0 && <SharedFilesCard files={trailingFiles} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />}
+                {waiting !== null && (
+                    <div className="ml-9">
+                        <PendingStep since={waiting.since} label={waiting.queued ? 'Queued. Claude picks this up next.' : 'Thinking…'} quiet={waiting.queued} testId={waiting.queued ? 'thread-queued' : 'thread-thinking'} />
+                    </div>
+                )}
                 {switchIndex === entries.length && switchBlock}
                 {pullRequestCount > 1 && <PullRequestChips threadId={threadId} lastActivityAt={lastActivityAt} />}
                 <span

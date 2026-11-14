@@ -76,7 +76,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
     return (
         <div className="shrink-0 border-t border-hair bg-app px-4 py-4 sm:px-8" data-testid="thread-composer">
             <div className="mx-auto max-w-[820px]">
-                <div className="relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
+                <div className="@container relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
                     <AttachmentDropOverlay draft={draft} />
                     <AttachmentTextarea
                         ref={editorRef}

@@ -52,6 +52,13 @@ it('places a read message at readAfterSequence and a live read one after the ans
     threadMergePage()->assertScript(threadMergeScript("[{$anchored},{$live}]", "['b']", $items), '["i1","i2","a","i3","b"]');
 });
 
+it('keeps the person\'s messages in send order when an earlier one was read later', function () use ($person, $event) {
+    $first = str_replace(["state:'pending'", 'readAfterSequence:null'], ["state:'read'", 'readAfterSequence:3'], $person);
+    $second = str_replace(["'a'", "'m-a'", '00:00:00Z', "state:'pending'", 'readAfterSequence:null'], ["'b'", "'m-b'", '00:00:30Z', "state:'read'", 'readAfterSequence:1'], $person);
+    $items = '[' . implode(',', array_map($event, [1, 2, 3])) . ']';
+    threadMergePage()->assertScript(threadMergeScript("[{$first},{$second}]", '[]', $items), '["i1","a","b","i2","i3"]');
+});
+
 it('places a live read message where Claude read it', function () use ($person, $event) {
     $items = '[' . implode(',', array_map($event, [1, 2, 3])) . ']';
     threadMergePage()->assertScript(threadMergeScript("[{$person}]", "['a']", $items, '{a: 2}'), '["i1","i2","a","i3"]');
@@ -78,6 +85,21 @@ it('shows a message sent while Claude works greyed', function () {
         ->assertVisible('[data-testid="thread-message-pending"]')
         ->assertSeeIn('[data-testid="thread-message-pending"]', 'Not read yet')
         ->assertScript("getComputedStyle(document.querySelector('[data-testid=\"thread-message-pending\"]')).opacity", '1')
+        ->assertSeeIn('[data-testid="thread-queued"]', 'Queued. Claude picks this up next.')
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows Claude thinking once it read the message and before its first step', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Fix the bug']);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => 'running']);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Started]);
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->public_id}")
+        ->assertSeeIn('[data-testid="thread-thinking"]', 'Thinking…')
+        ->assertMissing('[data-testid="thread-queued"]')
         ->assertNoJavaScriptErrors();
 });
 
