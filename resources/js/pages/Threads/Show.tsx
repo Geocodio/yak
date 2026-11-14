@@ -122,6 +122,10 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         onOpenChanges: openChanges,
         onOpenFile: openFile,
         onSelectView: (id) => selectDock(id),
+        onShowConversation: () => {
+            selectDock(null);
+            setPhoneTab('chat');
+        },
         onCloseRail: isOverlayRail ? () => setIsRailOpen(false) : undefined,
         onAddSubThread: canAddSubThread ? () => setIsAddingSubThread(true) : undefined,
         onTeleport: () => setIsTeleportOpen(true),

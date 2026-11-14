@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
 final class ThreadMessagesData
 {
     /**
-     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
+     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', intent: ?string, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
      */
     public static function for(Thread $thread): array
     {
@@ -69,6 +69,7 @@ final class ThreadMessagesData
                     TurnMessageState::Started, TurnMessageState::Completed => 'read',
                     TurnMessageState::Cancelled => 'cancelled',
                 },
+                'intent' => $row->intent,
                 'sentAt' => $row->created_at?->toIso8601String() ?? '',
                 'readAfterSequence' => null,
                 'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($text), $references),
@@ -99,6 +100,7 @@ final class ThreadMessagesData
                 'authorInitials' => self::initials($queued->author_name),
                 'model' => $queued->model,
                 'state' => 'pending',
+                'intent' => null,
                 'sentAt' => $queued->created_at?->toIso8601String() ?? '',
                 'readAfterSequence' => null,
                 'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($queued->text), array_values(array_filter(array_column($attachments, 'reference')))),

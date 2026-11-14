@@ -35,6 +35,11 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
                 <MessageWithAttachments attachments={message.attachments} onOpenMedia={onOpenMedia}>
                     <Prose html={message.bodyHtml} className="mt-1" />
                 </MessageWithAttachments>
+                {message.intent !== null && (
+                    <p className="mt-1 text-[12px] text-faint" data-testid="thread-message-intent">
+                        {message.intent === 'add_preview_manifest' ? 'Sent from the Preview panel: set up the preview' : 'Sent from the Preview panel: fix the preview'}
+                    </p>
+                )}
             </div>
         </div>
     );

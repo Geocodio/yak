@@ -23,6 +23,8 @@ export type PanelProps = {
     onOpenChanges?: (path?: string) => void;
     /** Opens another view, such as Preview. */
     onSelectView?: (id: string) => void;
+    /** Closes the dock so the conversation shows. */
+    onShowConversation?: () => void;
     /** Opens Files in Everything mode, with one file in the editor. */
     onOpenFile?: (path: string) => void;
     /** The Files mode asked for; null lets the view pick by whether the thread has changes. */

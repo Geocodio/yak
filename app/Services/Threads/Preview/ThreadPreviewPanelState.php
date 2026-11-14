@@ -6,9 +6,11 @@ use App\Enums\ThreadKind;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSandboxState;
 use App\Models\Thread;
+use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Services\Teleport\TeleportPageState;
 use App\Services\Threads\ThreadAccess;
+use App\Services\Threads\ThreadTurns;
 
 /**
  * Props for the Preview dock panel. Reads recorded state only and never wakes
@@ -24,7 +26,7 @@ class ThreadPreviewPanelState
     ) {}
 
     /**
-     * @return array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: string, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string, port: ?int, coldStartCommand: ?string}
+     * @return array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: string, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string, port: ?int, coldStartCommand: ?string, setup: array{intent: ?string, isRunning: bool, endedWithoutManifest: bool}}
      */
     public function build(Thread $thread, ?User $viewer): array
     {
@@ -55,7 +57,35 @@ class ThreadPreviewPanelState
             'personAwakeCap' => (int) config('yak.threads.person_awake_cap'),
             'port' => $hint['port'],
             'coldStartCommand' => $hint['coldStart'],
+            'setup' => $this->setupFor($thread, $state),
             'teleportCommand' => $state === 'local_machine' ? (app(TeleportPageState::class)->for($thread, $viewer)['command'] ?: null) : null,
+        ];
+    }
+
+    /**
+     * The latest request the Preview card made of Claude: whether its turn still runs, and whether it
+     * ended with the preview file still missing.
+     *
+     * @return array{intent: ?string, isRunning: bool, endedWithoutManifest: bool}
+     */
+    private function setupFor(Thread $thread, string $state): array
+    {
+        $message = ThreadTurnMessage::query()
+            ->whereNotNull('intent')
+            ->whereHas('taskRun', fn ($runs) => $runs->where('thread_id', $thread->id))
+            ->latest('id')
+            ->first();
+
+        if ($message === null) {
+            return ['intent' => null, 'isRunning' => false, 'endedWithoutManifest' => false];
+        }
+
+        $isRunning = ThreadTurns::activeTurn($thread)?->id === $message->task_run_id;
+
+        return [
+            'intent' => $message->intent,
+            'isRunning' => $isRunning,
+            'endedWithoutManifest' => ! $isRunning && $message->intent === 'add_preview_manifest' && $state === 'no_manifest',
         ];
     }
 

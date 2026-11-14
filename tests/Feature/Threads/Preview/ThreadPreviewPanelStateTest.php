@@ -1,9 +1,13 @@
 <?php
 
 use App\Enums\ThreadKind;
+use App\Enums\TurnState;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadShare;
+use App\Models\ThreadTurnMessage;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Services\Threads\Preview\ThreadPreviewPanelState;
 use Illuminate\Support\Facades\Cache;
 
@@ -109,4 +113,39 @@ it('carries the manifest port and cold start command once the dev server has rea
     Cache::put("thread-preview:manifest:{$thread->id}", ['port' => 5173, 'coldStart' => 'pnpm dev']);
 
     expect(panelState($thread))->toMatchArray(['port' => 5173, 'coldStartCommand' => 'pnpm dev']);
+});
+
+function setupRequest(Thread $thread, string $intent, TurnState $turnState): void
+{
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => $turnState]);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'intent' => $intent]);
+}
+
+it('reports no setup request when the card never asked Claude', function () {
+    expect(panelState(previewRunningThread())['setup'])->toBe(['intent' => null, 'isRunning' => false, 'endedWithoutManifest' => false]);
+});
+
+it('reports a running setup turn', function () {
+    $thread = previewRunningThread();
+    Cache::put("thread-preview:state:{$thread->id}", 'no_manifest');
+    setupRequest($thread, 'add_preview_manifest', TurnState::Running);
+
+    expect(panelState($thread)['setup'])->toBe(['intent' => 'add_preview_manifest', 'isRunning' => true, 'endedWithoutManifest' => false]);
+});
+
+it('reports a setup turn that ended with the manifest still missing', function () {
+    $thread = previewRunningThread();
+    Cache::put("thread-preview:state:{$thread->id}", 'no_manifest');
+    setupRequest($thread, 'add_preview_manifest', TurnState::Completed);
+
+    expect(panelState($thread)['setup'])->toBe(['intent' => 'add_preview_manifest', 'isRunning' => false, 'endedWithoutManifest' => true]);
+});
+
+it('does not report a failed setup once a manifest exists', function () {
+    $thread = previewRunningThread();
+    Cache::put("thread-preview:state:{$thread->id}", 'ready');
+    setupRequest($thread, 'add_preview_manifest', TurnState::Completed);
+
+    expect(panelState($thread)['setup']['endedWithoutManifest'])->toBeFalse();
 });

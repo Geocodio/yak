@@ -85,7 +85,7 @@ class ThreadMessageController extends Controller
                     'fix_preview' => YakPromptBuilder::previewSetupPrompt('failing'),
                     default => $text,
                 };
-                $turns->start($task, $prompt, $user, $model, shownText: $text);
+                $turns->start($task, $prompt, $user, $model, shownText: $text, intent: $intent);
                 TaskAttachment::storeFromRequest($request, ['yak_task_id' => $task->id]);
             } else {
                 $turns->steer(

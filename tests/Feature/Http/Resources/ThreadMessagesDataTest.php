@@ -111,3 +111,10 @@ it('carries the request attachments of the first message', function () {
         ->and($message['attachmentIds'])->toBe([$image->id])
         ->and($message['bodyHtml'])->toContain('data-attachment-ref="Image #1"');
 });
+
+it('carries the intent of a request the dashboard made', function () {
+    [$thread, , $run] = threadWithRun();
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'text' => 'Please set up the preview', 'intent' => 'add_preview_manifest']);
+
+    expect(ThreadMessagesData::for($thread)[0])->toMatchArray(['text' => 'Please set up the preview', 'intent' => 'add_preview_manifest']);
+});

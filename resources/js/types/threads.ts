@@ -66,6 +66,14 @@ export type ThreadPreviewData = {
     teleportCommand: string | null;
     port: number | null;
     coldStartCommand: string | null;
+    setup: ThreadPreviewSetup;
+};
+
+/** The latest request the Preview card made of Claude. */
+export type ThreadPreviewSetup = {
+    intent: 'add_preview_manifest' | 'fix_preview' | null;
+    isRunning: boolean;
+    endedWithoutManifest: boolean;
 };
 
 export type HeldEventData = {
@@ -148,6 +156,7 @@ export type ThreadMessage = {
     authorInitials: string;
     model: string | null;
     state: 'pending' | 'read' | 'cancelled';
+    intent: 'add_preview_manifest' | 'fix_preview' | null;
     sentAt: string;
     readAfterSequence: number | null;
     attachmentIds: number[];

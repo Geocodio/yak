@@ -4,7 +4,7 @@ import { AlertTriangle, Check, FileQuestion, Moon, Monitor, Trash2, Lock } from 
 import type { ReactNode } from 'react';
 import { CopyableAddress } from '@/components/CopyableAddress';
 import type { SharedProps } from '@/types/shared';
-import type { ThreadPreviewData, ThreadPreviewState } from '@/types/threads';
+import type { ThreadPreviewData, ThreadPreviewSetup, ThreadPreviewState } from '@/types/threads';
 import { store as storeMessage } from '@/routes/threads/messages';
 import { progressPercent, stepDetails, stepStatuses, type StepStatus } from './previewState';
 
@@ -19,6 +19,9 @@ type Props = {
     isRestoring: boolean;
     onRestore: () => void;
     onRetry: () => void;
+    /** The latest Ask Claude request for this thread's preview; null for a sub-thread target. */
+    setup?: ThreadPreviewSetup | null;
+    onShowConversation?: () => void;
 };
 
 const SAMPLE_MANIFEST = `port: 3000
@@ -82,9 +85,34 @@ function LogTail({ lines, label }: { lines: string[]; label?: string }) {
     );
 }
 
-export function PreviewStateCard({ state, threadId, preview, canDrive, canRestore, log, error, isRestoring, onRestore, onRetry }: Props) {
+export function PreviewStateCard({ state, threadId, preview, canDrive, canRestore, log, error, isRestoring, onRestore, onRetry, setup = null, onShowConversation }: Props) {
     const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
     const askClaude = (message: string, intent: 'add_preview_manifest' | 'fix_preview') => router.post(storeMessage.url(threadId), { message, intent }, { preserveScroll: true });
+
+    if (setup?.isRunning === true && (state === 'no_manifest' || state === 'failing')) {
+        const isAdding = setup.intent === 'add_preview_manifest';
+
+        return (
+            <Card
+                testId="preview-state-setup-running"
+                icon={<span className="h-3.5 w-3.5 animate-spin rounded-pill border-2 border-hair border-t-info" aria-hidden="true" />}
+                title={isAdding ? 'Claude is setting up the preview' : 'Claude is fixing the preview'}
+                subtitle={isAdding ? 'Writing .yak/preview.yml, then starting the app to check that it answers.' : 'Looking at the dev server and checking that the app answers.'}
+            >
+                <div role="progressbar" aria-label="Preview setup running" className="h-1.5 overflow-hidden rounded-pill bg-panel-2">
+                    <div className="h-full w-2/5 animate-pulse rounded-pill bg-info" />
+                </div>
+                {onShowConversation !== undefined && (
+                    <div>
+                        <Button variant="secondary" onClick={onShowConversation} data-testid="preview-show-conversation">
+                            Jump to the conversation
+                        </Button>
+                    </div>
+                )}
+                <p className="text-[12px] text-muted">The preview opens by itself once the file is committed and the app answers. You can leave the tab.</p>
+            </Card>
+        );
+    }
 
     switch (state) {
         case 'sandbox_asleep':
@@ -172,6 +200,33 @@ export function PreviewStateCard({ state, threadId, preview, canDrive, canRestor
             );
 
         case 'no_manifest':
+            if (setup?.endedWithoutManifest === true) {
+                return (
+                    <Card
+                        testId="preview-state-setup-ended"
+                        icon={<AlertTriangle size={16} className="text-fail" />}
+                        title="Claude did not finish the preview file"
+                        subtitle="The turn ended and .yak/preview.yml is still missing."
+                    >
+                        <pre className="overflow-auto rounded-chip border border-hair bg-app p-2 font-mono text-[11.5px] leading-5 text-body" data-testid="preview-sample-manifest">
+                            {SAMPLE_MANIFEST}
+                        </pre>
+                        <div className="flex flex-wrap items-center gap-3">
+                            {canDrive && (
+                                <Button variant="primary" onClick={() => askClaude(ASK_ADD_MANIFEST_MESSAGE, 'add_preview_manifest')} data-testid="preview-ask-claude-add">
+                                    Ask Claude again
+                                </Button>
+                            )}
+                            {onShowConversation !== undefined && (
+                                <Button variant="secondary" onClick={onShowConversation} data-testid="preview-show-conversation">
+                                    See what Claude said
+                                </Button>
+                            )}
+                        </div>
+                    </Card>
+                );
+            }
+
             return (
                 <Card
                     testId="preview-state-no-manifest"

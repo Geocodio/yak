@@ -13,7 +13,7 @@ import type { ThreadPreviewState } from '@/types/threads';
 
 const LIVE_PILL_MILLISECONDS = 4_000;
 
-export function PreviewPanel({ thread, canDrive }: PanelProps) {
+export function PreviewPanel({ thread, canDrive, onShowConversation }: PanelProps) {
     const preview = thread.preview;
     const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
     const [selectedId, setSelectedId] = useState(thread.id);
@@ -86,6 +86,8 @@ export function PreviewPanel({ thread, canDrive }: PanelProps) {
                     isRestoring={restoring}
                     onRestore={requestRestore}
                     onRetry={requestRetry}
+                    setup={target.threadId === thread.id ? preview.setup : null}
+                    onShowConversation={onShowConversation}
                 />
             )}
 

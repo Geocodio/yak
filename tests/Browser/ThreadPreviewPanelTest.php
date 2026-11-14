@@ -1,8 +1,12 @@
 <?php
 
 use App\Enums\ThreadSandboxState;
+use App\Enums\TurnState;
+use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadTurnMessage;
 use App\Models\User;
+use App\Models\YakTask;
 use Illuminate\Support\Facades\Cache;
 
 test('a thread with a stopped sandbox shows the waking state in the Preview panel', function () {
@@ -83,5 +87,39 @@ test('a thread on your computer explains teleport', function () {
         ->click('[data-testid="thread-dock-toggle-preview"]')
         ->assertSee('This thread runs on your computer')
         ->assertSee('How teleport works')
+        ->assertNoJavaScriptErrors();
+});
+
+test('while Claude sets up the preview the card shows progress and a way to the conversation', function () {
+    $owner = User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create(['sandbox_state' => ThreadSandboxState::Running]);
+    Cache::put("thread-preview:state:{$thread->id}", 'no_manifest');
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Running]);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'text' => 'Please set up the preview', 'intent' => 'add_preview_manifest']);
+    $this->actingAs($owner);
+
+    visit('/threads/' . $thread->public_id)
+        ->click('[data-testid="thread-dock-toggle-preview"]')
+        ->assertSee('Claude is setting up the preview')
+        ->assertMissing('[data-testid="preview-ask-claude-add"]')
+        ->assertVisible('[data-testid="preview-show-conversation"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a setup turn that ended without a manifest lets you ask again', function () {
+    $owner = User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create(['sandbox_state' => ThreadSandboxState::Running]);
+    Cache::put("thread-preview:state:{$thread->id}", 'no_manifest');
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Completed]);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'text' => 'Please set up the preview', 'intent' => 'add_preview_manifest']);
+    $this->actingAs($owner);
+
+    visit('/threads/' . $thread->public_id)
+        ->click('[data-testid="thread-dock-toggle-preview"]')
+        ->assertSee('Claude did not finish the preview file')
+        ->assertVisible('[data-testid="preview-ask-claude-add"]')
+        ->assertVisible('[data-testid="preview-show-conversation"]')
         ->assertNoJavaScriptErrors();
 });

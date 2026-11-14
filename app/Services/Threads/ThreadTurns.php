@@ -112,14 +112,15 @@ class ThreadTurns
      * A thread that is blocked on its account keeps the new turn pending and
      * the caller reads blocked_reason; a thread never moves to another account.
      *
+     * $intent names a request the dashboard made for the person, such as add_preview_manifest.
      * $shownText is what the timeline shows as the person's message when it differs from $prompt.
      *
      * @throws ThreadBusy when the thread already runs a turn
      * @throws ThreadNotOwnedByYak when a device owns the thread or a teleport is open
      */
-    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null): TaskRun
+    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null): TaskRun
     {
-        [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText): array {
+        [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
 
@@ -159,7 +160,7 @@ class ThreadTurns
                 'turn_state' => TurnState::Pending,
                 'started_at' => now(),
             ]);
-            ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText]);
+            ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText, 'intent' => $intent]);
 
             $thread->forceFill([
                 'lock_holder' => ThreadLockHolder::Sandbox,
