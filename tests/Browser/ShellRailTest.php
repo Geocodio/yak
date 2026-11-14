@@ -34,7 +34,7 @@ test('the command palette still offers Channels', function () {
 
     $page->keys('[data-testid="app-shell"]', ['Meta+k'])
         ->assertVisible('[data-testid="app-palette"]')
-        ->assertVisible('[data-testid="palette-item-Channels"]')
+        ->assertVisible('[data-testid="palette-action-go-channels"]')
         ->assertNoJavaScriptErrors();
 });
 

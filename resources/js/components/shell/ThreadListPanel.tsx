@@ -67,7 +67,7 @@ export function ThreadListPanel({
                 <Button
                     variant="primary"
                     icon={<Plus size={14} />}
-                    onClick={openNewThread}
+                    onClick={() => openNewThread()}
                     className={cn("w-full", touch && "h-10")}
                     data-testid="new-thread"
                 >

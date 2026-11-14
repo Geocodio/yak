@@ -42,6 +42,7 @@ export function StartThreadForm({
     isQueueing = false,
     isRepoBlocked = false,
     example,
+    initialDescription = '',
 }: Omit<NewThreadPageData, 'emailToYakAddress'> & {
     onStarted?: () => void;
     autoFocus?: boolean;
@@ -53,13 +54,15 @@ export function StartThreadForm({
     isRepoBlocked?: boolean;
     /** A request an example chip dropped in: it replaces the description and mode, and the composer takes focus. */
     example?: StartExample;
+    /** Text the description starts with. */
+    initialDescription?: string;
 }) {
     const { docs } = usePage<SharedProps>().props;
     const field = useStartField();
     const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[]; repositories: PickerRepository[] }>({
         repo: defaultRepo ?? '',
         mode: 'fix',
-        description: '',
+        description: initialDescription,
         claude_account_id: '',
         model: null,
         attachments: [],

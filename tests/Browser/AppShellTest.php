@@ -52,7 +52,7 @@ test('the app shell renders the sidebar nav and the command palette opens', func
 
     // The palette lists every destination, so Channels is reachable from
     // any page.
-    $page->assertVisible('[data-testid="palette-item-Channels"]');
+    $page->assertVisible('[data-testid="palette-action-go-channels"]');
 
     $page->assertNoJavaScriptErrors();
 });

@@ -52,7 +52,7 @@ export function MobileTabBar() {
             className="lg:hidden"
             LinkComponent={PrefetchingTabLink}
             items={items}
-            action={{ label: 'New thread', icon: <Plus size={24} />, onSelect: openNewThread, testId: 'tab-new-task' }}
+            action={{ label: 'New thread', icon: <Plus size={24} />, onSelect: () => openNewThread(), testId: 'tab-new-task' }}
             data-testid="mobile-tab-bar"
         />
     );

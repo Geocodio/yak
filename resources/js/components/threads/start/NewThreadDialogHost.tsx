@@ -7,9 +7,11 @@ import type { SharedProps } from '@/types/shared';
 export function NewThreadDialogHost() {
     const { newThread } = usePage<SharedProps>().props;
     const [open, setOpen] = useState(false);
+    const [initial, setInitial] = useState<{ prompt?: string; repository?: string }>({});
 
     useEffect(() => {
-        const show = () => {
+        const show = (event: Event) => {
+            setInitial((event as CustomEvent<{ prompt?: string; repository?: string } | null>).detail ?? {});
             router.reload({ only: ['newThread'], onSuccess: () => setOpen(true) });
         };
         window.addEventListener('yak:open-new-thread', show);
@@ -21,5 +23,5 @@ export function NewThreadDialogHost() {
         return null;
     }
 
-    return <NewThreadDialog open={open} onOpenChange={setOpen} {...newThread} />;
+    return <NewThreadDialog open={open} onOpenChange={setOpen} initialPrompt={initial.prompt} initialRepository={initial.repository} {...newThread} />;
 }

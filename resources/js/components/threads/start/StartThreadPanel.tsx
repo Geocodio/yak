@@ -21,6 +21,8 @@ type Props = Omit<NewThreadPageData, 'emailToYakAddress'> & {
     autoFocus?: boolean;
     /** A request dropped into the composer by an example chip. */
     example?: StartExample;
+    /** Text the description starts with. */
+    initialDescription?: string;
 };
 
 type SetupSnapshot = { status: RepositorySetupState; step: string | null };

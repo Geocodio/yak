@@ -1,20 +1,63 @@
 import { router } from '@inertiajs/react';
-import { CommandPalette, type CommandPaletteSection } from '@geocodio/console-ui';
-import { useEffect, useState } from 'react';
+import { CommandPalette, ConfirmDialog, type CommandPaletteSection } from '@geocodio/console-ui';
+import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
-import { NAV_ITEMS, SECONDARY_NAV_ITEMS, SETTINGS_ITEM, openNewThread } from '@/components/Sidebar';
+import { openNewThread } from '@/components/Sidebar';
+import { NEW_THREAD_ID, NEW_THREAD_KEYWORDS, useGlobalActions } from '@/commandPalette/globalActions';
+import { splitNewThreadQuery } from '@/commandPalette/newThreadPrompt';
+import { isMacPlatform } from '@/commandPalette/platform';
+import { buildSections } from '@/commandPalette/sections';
+import { keycapsFor } from '@/commandPalette/shortcuts';
+import type { PaletteAction, PaletteStep } from '@/commandPalette/types';
+import { useActionGroups } from '@/commandPalette/useCommandPaletteActions';
 
-const ALL_NAV = [...NAV_ITEMS, ...SECONDARY_NAV_ITEMS, SETTINGS_ITEM];
+const isMac = isMacPlatform();
+const WIDE_SCREEN = '(min-width: 640px)';
+
+function useIsWideScreen(): boolean {
+    const [isWide, setIsWide] = useState(() => window.matchMedia(WIDE_SCREEN).matches);
+
+    useEffect(() => {
+        const query = window.matchMedia(WIDE_SCREEN);
+        const update = () => setIsWide(query.matches);
+        query.addEventListener('change', update);
+
+        return () => query.removeEventListener('change', update);
+    }, []);
+
+    return isWide;
+}
 
 export function AppCommandPalette() {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
+    const [steps, setSteps] = useState<PaletteStep[]>([]);
+    const [stepActions, setStepActions] = useState<PaletteAction[]>([]);
+    const [pendingConfirm, setPendingConfirm] = useState<PaletteAction | null>(null);
+    const isWide = useIsWideScreen();
+    const groups = useActionGroups();
+    useGlobalActions();
+
+    const step = steps.at(-1) ?? null;
+
+    const close = useCallback(() => {
+        setOpen(false);
+        setQuery('');
+        setSteps([]);
+        setPendingConfirm(null);
+    }, []);
+
+    const onOpenChange = (next: boolean) => (next ? setOpen(true) : close());
 
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
                 event.preventDefault();
-                setOpen((value) => !value);
+                if (open) {
+                    close();
+                } else {
+                    setOpen(true);
+                }
             }
         };
         const onOpenRequest = () => setOpen(true);
@@ -24,41 +67,103 @@ export function AppCommandPalette() {
             window.removeEventListener('keydown', onKey);
             window.removeEventListener('yak:open-palette', onOpenRequest);
         };
-    }, []);
+    }, [open, close]);
 
-    const filtered = ALL_NAV.filter((item) => item.label.toLowerCase().includes(query.toLowerCase()));
+    useEffect(() => {
+        if (step === null) {
+            setStepActions([]);
 
-    const sections: CommandPaletteSection[] = [
-        {
-            title: 'Navigate',
-            items: filtered.map((item) => ({
-                id: item.label,
-                label: item.label,
-                hint: 'page',
-                href: item.url,
-                onSelect: () => {
-                    router.visit(item.url);
-                    setOpen(false);
-                },
-            })),
-        },
-        {
-            title: 'Actions',
-            items: [
-                { id: 'new', label: 'New task', shortcut: ['C'], onSelect: () => { openNewThread(); setOpen(false); } },
-            ].filter((action) => action.label.toLowerCase().includes(query.toLowerCase())),
-        },
-    ];
+            return;
+        }
+        let isCurrent = true;
+        Promise.resolve(step.items(query)).then((items) => {
+            if (isCurrent) {
+                setStepActions(items);
+            }
+        });
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [step, query]);
+
+    const newThreadSplit = step === null ? splitNewThreadQuery(query, NEW_THREAD_KEYWORDS) : null;
+
+    const execute = (action: PaletteAction) => {
+        if (action.id === NEW_THREAD_ID && newThreadSplit !== null) {
+            openNewThread({ prompt: newThreadSplit.prompt });
+        } else if (action.run) {
+            action.run();
+        } else if (action.href) {
+            router.visit(action.href);
+        }
+        close();
+    };
+
+    const select = (action: PaletteAction) => {
+        if (action.unavailable !== undefined) {
+            return;
+        }
+        if (action.steps) {
+            setSteps((stack) => [...stack, action.steps as PaletteStep]);
+            setQuery('');
+        } else if (action.confirm) {
+            setPendingConfirm(action);
+        } else {
+            execute(action);
+        }
+    };
+
+    const buildItems = (): CommandPaletteSection[] => {
+        const toItem = ({ action, disabledReason }: { action: PaletteAction; disabledReason?: string }) => ({
+            id: action.id,
+            testId: `palette-action-${action.id}`,
+            label: action.label,
+            hint: action.hint,
+            href: action.href,
+            destructive: action.destructive,
+            shortcut: action.shortcut && isWide ? keycapsFor(action.shortcut, isMac) : undefined,
+            disabled: disabledReason !== undefined,
+            disabledReason,
+            onSelect: () => select(action),
+        });
+
+        if (step !== null) {
+            return [{ items: stepActions.map((action) => toItem({ action, disabledReason: action.unavailable })) }];
+        }
+
+        const pinned = newThreadSplit ? { id: NEW_THREAD_ID, query: query.trim().split(/\s+/)[0] } : null;
+
+        return buildSections(groups, query, pinned).map((section) => ({ title: section.title, items: section.rows.map(toItem) }));
+    };
 
     return (
         <CommandPalette
             open={open}
-            onOpenChange={setOpen}
+            onOpenChange={onOpenChange}
             query={query}
             onQueryChange={setQuery}
-            placeholder="Jump to a task, repo, or page…"
-            sections={sections}
+            placeholder={step?.placeholder ?? 'Search or run a command…'}
+            sections={buildItems()}
+            step={step ? { title: step.title } : undefined}
+            onBack={() => {
+                setSteps((stack) => stack.slice(0, -1));
+                setQuery('');
+            }}
+            width="w-screen sm:w-[min(600px,calc(100vw-2rem))]"
             inputProps={{ 'data-testid': 'app-palette' } as React.InputHTMLAttributes<HTMLInputElement>}
-        />
+        >
+            {pendingConfirm?.confirm ? (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => !next && setPendingConfirm(null)}
+                    title={pendingConfirm.confirm.title}
+                    body={pendingConfirm.confirm.body}
+                    confirmLabel={pendingConfirm.confirm.confirmLabel}
+                    destructive={pendingConfirm.destructive}
+                    onConfirm={() => execute(pendingConfirm)}
+                />
+            ) : null}
+        </CommandPalette>
     );
 }
