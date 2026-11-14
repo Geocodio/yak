@@ -11,7 +11,10 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->withoutVite();
-    config(['yak.threads.session_store_path' => storage_path('framework/testing/session-store-' . uniqid())]);
+    config([
+        'yak.threads.session_store_path' => storage_path('framework/testing/session-store-' . uniqid()),
+        'yak.threads.session_store_key' => base64_encode(sodium_crypto_secretbox_keygen()),
+    ]);
 });
 
 afterEach(fn () => File::deleteDirectory(config('yak.threads.session_store_path')));

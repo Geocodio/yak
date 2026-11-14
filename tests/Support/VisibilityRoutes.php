@@ -28,6 +28,7 @@ class VisibilityRoutes
         'threads.preview.warm' => ['POST', '/threads/{thread}/preview/warm'],
         'threads.events.index' => ['GET', '/threads/{thread}/events'],
         'threads.events.show' => ['GET', '/threads/{thread}/events/{sequence}'],
+        'threads.local-turns' => ['GET', '/threads/{thread}/local-turns'],
         'threads.pull-request.store' => ['POST', '/threads/{thread}/pull-request', ['acknowledged_private_publish' => true], 302],
         'threads.teleport-request.store' => ['POST', '/threads/{thread}/teleport-request', ['acknowledged_private_publish' => true]],
         'threads.teleport-request.destroy' => ['DELETE', '/threads/{thread}/teleport-request'],
