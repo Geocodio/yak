@@ -17,7 +17,7 @@ class DeviceTokenController extends Controller
         try {
             ['token' => $token, 'device' => $device] = $deviceFlow->poll($request->validated('device_code'), DeviceKind::Phone, $request->validated('request_id'));
         } catch (DeviceFlowException $exception) {
-            return response()->json(['error' => $exception->errorCode, 'message' => $exception->getMessage()], 400);
+            return response()->json(['error' => $exception->errorCode, 'message' => $exception->getMessage()], $exception->status);
         }
 
         return response()->json(AppDeviceData::pairing($device, $token));

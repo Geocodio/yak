@@ -21,7 +21,7 @@ class DevicePairController extends Controller
                 'app_version' => $request->validated('app_version'),
             ], $request->validated('request_id'));
         } catch (DeviceFlowException $exception) {
-            return response()->json(['error' => $exception->errorCode, 'message' => $exception->getMessage()], 400);
+            return response()->json(['error' => $exception->errorCode, 'message' => $exception->getMessage()], $exception->status);
         }
 
         return response()->json(AppDeviceData::pairing($device, $token));

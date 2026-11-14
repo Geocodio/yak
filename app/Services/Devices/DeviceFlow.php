@@ -7,7 +7,6 @@ use App\Models\Device;
 use App\Models\DeviceAuthorization;
 use App\Models\User;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\DB;
 
 /**
  * The device authorization flow: a client (the CLI or a phone) starts it, a signed-in user approves it, the client redeems the token once.
@@ -74,7 +73,7 @@ class DeviceFlow
 
     public function approve(DeviceAuthorization $authorization, User $user, ?string $name): Device
     {
-        return DB::transaction(function () use ($authorization, $user, $name): Device {
+        return ShortLockWait::transaction(function () use ($authorization, $user, $name): Device {
             $locked = DeviceAuthorization::query()->lockForUpdate()->findOrFail($authorization->id);
 
             if ($locked->status !== 'pending' || $locked->isExpired()) {
@@ -119,7 +118,7 @@ class DeviceFlow
      */
     public function poll(#[\SensitiveParameter] string $deviceCode, DeviceKind $kind = DeviceKind::Computer, #[\SensitiveParameter] ?string $requestId = null): array
     {
-        $outcome = DB::transaction(function () use ($deviceCode, $kind, $requestId): array|DeviceFlowException {
+        $outcome = ShortLockWait::transaction(function () use ($deviceCode, $kind, $requestId): array|DeviceFlowException {
             $authorization = DeviceAuthorization::query()
                 ->lockForUpdate()
                 ->where('device_code_hash', $this->deviceTokens->hash($deviceCode))
