@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { BrandMarkIcon, Button, TextInput, cn } from '@geocodio/console-ui';
-import { Check, Monitor, ShieldAlert, TimerOff } from 'lucide-react';
+import { Check, Monitor, ShieldAlert, Smartphone, TimerOff } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { systemLabel } from '@/components/settings/devices/systemLabel';
 import { useDocsUrl } from '@/lib/docsUrl';
@@ -86,7 +86,7 @@ function Confirm({ device }: { device: DeviceApproval }) {
 
     return (
         <>
-            <Icon tone="neutral"><Monitor size={20} /></Icon>
+            <Icon tone="neutral">{phone ? <Smartphone size={20} /> : <Monitor size={20} />}</Icon>
             <h1 className="text-center text-[18px] font-semibold tracking-tight" data-testid="device-state">{phone ? `Connect ${device.model ?? 'this phone'} to Yak?` : 'Connect this computer to Yak?'}</h1>
             <p className="mt-1.5 text-center text-[13px] leading-relaxed text-muted">{phone ? 'Check that this code is the one in the Yak app.' : 'Check that this code is the one in your terminal.'}</p>
             <div className="mt-4 rounded-card bg-panel-2 py-4 text-center" aria-label={`Code ${code}`}><span className="font-mono text-[28px] font-semibold tracking-[0.18em]" data-testid="device-code">{code}</span></div>
@@ -114,7 +114,7 @@ function Body({ device }: { device: DeviceApproval }) {
                     <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{device.kind === 'phone' ? 'Go back to the Yak app. It finishes by itself, and you can close this tab.' : <>Go back to your terminal. <code className="font-mono text-[12px]">yak login</code> finishes by itself, and you can close this tab.</>}</p>
                     <div className="mt-4 text-left"><Facts device={device} /></div>
                     <p className="mt-4 flex justify-center gap-4 text-[13px]">
-                        <Link href={devices.url()} className="text-accent hover:underline">See your computers</Link>
+                        <Link href={devices.url()} className="text-accent hover:underline">{device.kind === 'phone' ? 'See your devices' : 'See your computers'}</Link>
                         <a href={firstTeleportUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">What to try first</a>
                     </p>
                 </div>

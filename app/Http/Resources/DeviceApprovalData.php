@@ -19,7 +19,7 @@ final class DeviceApprovalData
             'state' => $state,
             'code' => $authorization !== null ? $authorization->user_code : $typedCode,
             'name' => $name ?? $authorization?->name,
-            'kind' => ($authorization?->kind ?? DeviceKind::Computer)->value,
+            'kind' => ($authorization->kind ?? DeviceKind::Computer)->value,
             'model' => $authorization?->model,
             'app_version' => $authorization?->app_version,
             'os' => $authorization?->os,

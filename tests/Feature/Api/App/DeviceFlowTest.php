@@ -130,9 +130,9 @@ it('asks for a too-old app build with 426', function () {
     $this->postJson('/api/app/v1/device/code', $this->phone, ['X-Yak-Protocol' => '0'])->assertStatus(426);
 });
 
-it('shows the approval page the reported phone model', function () {
+it('shows the reported phone model on the approval page', function () {
     $start = $this->postJson('/api/app/v1/device/code', $this->phone, $this->headers)->assertOk();
 
     $this->actingAs(User::factory()->create())->get(route('device.show', ['code' => $start->json('user_code')]))
-        ->assertInertia(fn ($page) => $page->where('state', 'confirm')->where('kind', 'phone')->where('model', 'iPhone19,4')->where('os', '27.2.1'));
+        ->assertInertia(fn ($page) => $page->where('state', 'confirm')->where('kind', 'phone')->where('model', 'iPhone19,4')->where('os', '27.2.1')->where('app_version', '1.0.0'));
 });
