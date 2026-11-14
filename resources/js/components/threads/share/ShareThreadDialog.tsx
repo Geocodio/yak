@@ -4,8 +4,8 @@ import { AlertCircle, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useDocsUrl } from '@/lib/docsUrl';
 import { fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
-import { csrfToken } from '@/lib/csrfToken';
-import { show, update } from '@/routes/threads/share';
+import { show } from '@/routes/threads/share';
+import { updateThreadShare } from './updateThreadShare';
 import type { ThreadShareMode, ThreadShareState } from '@/types/thread-share';
 import type { ThreadData } from '@/types/threads';
 
@@ -40,19 +40,8 @@ export function ShareThreadDialog({ thread, onClose }: { thread: ThreadData; onC
 
         setIsSubmitting(true);
         setHasSaveFailed(false);
-        fetch(update.url(thread.id), {
-            method: 'PUT',
-            credentials: 'same-origin',
-            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
-            body: JSON.stringify({ mode, user_ids: mode === 'people' ? userIds : [] }),
-        })
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(String(response.status));
-                }
-
-                router.reload({ only: ['thread', 'publishWarning'], onFinish: onClose });
-            })
+        updateThreadShare(thread.id, mode, userIds)
+            .then(() => router.reload({ only: ['thread', 'publishWarning'], onFinish: onClose }))
             .catch(() => { setHasSaveFailed(true); setIsSubmitting(false); });
     };
 

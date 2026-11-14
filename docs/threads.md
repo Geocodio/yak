@@ -24,7 +24,7 @@ After you start, a progress list shows each repository being prepared. The threa
 
 ## The thread list
 
-The sidebar lists open threads (hide it with the panel button at the top of the list or the `[` key, and bring it back with **Show threads** on the icon rail), newest activity first, grouped as **Needs you**, **Today**, **This week** and **Older**. A search box filters by title or repository. Sub-threads sit under their parent (see [Sub-threads](sub-threads.md)). Closed threads leave the list. While you can see no thread at all, the list shows only "Your threads show up here" and hides search and filters. A filter or search with no result says "No threads here" or "No matches".
+The sidebar lists open threads (hide it with the panel button at the top of the list or the `[` key, and bring it back with **Show threads** on the icon rail), newest activity first, grouped as **Needs you**, **Today**, **This week** and **Older**. The search icon button beside **New thread** opens the command palette, which finds threads by title, repository or branch, closed ones included (see [Command palette](dashboard.md#command-palette-and-keyboard-shortcuts)). Sub-threads sit under their parent (see [Sub-threads](sub-threads.md)). Closed threads leave the list. While you can see no thread at all, the list shows only "Your threads show up here" and hides the filters. A filter with no result says "No threads here".
 
 | Filter | Shows |
 | --- | --- |

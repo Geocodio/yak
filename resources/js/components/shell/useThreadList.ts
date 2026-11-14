@@ -3,20 +3,18 @@ import { THREAD_LIST_REFRESH_EVENT } from '@/lib/threadStar';
 import { list } from '@/routes/threads';
 import type { ThreadListData, ThreadListFilter } from '@/types/shell';
 
-const SEARCH_DEBOUNCE_MS = 250;
 const REFRESH_INTERVAL_MS = 5000;
 const REQUEST_TIMEOUT_MS = 20000;
 
 /**
  * The sidebar thread list: starts from the shared first-paint data, then
- * refetches on filter or search change (search debounced) and every five
- * seconds. A filter or search change aborts the request in flight; a timed
- * refresh waits for it, so a link slower than the interval still gets answers.
+ * refetches on filter change and every five seconds. A filter change aborts
+ * the request in flight; a timed refresh waits for it, so a link slower than
+ * the interval still gets answers.
  */
 export function useThreadList(initial: ThreadListData | null) {
     const [data, setData] = useState<ThreadListData | null>(initial);
     const [filter, setFilter] = useState<ThreadListFilter>('mine');
-    const [search, setSearch] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const controllerRef = useRef<AbortController | null>(null);
     const isFetching = useRef(false);
@@ -24,11 +22,11 @@ export function useThreadList(initial: ThreadListData | null) {
 
     useEffect(() => {
         // Shared props refresh on every Inertia visit; follow them while the
-        // default Mine list with no search is showing.
-        if (filter === 'mine' && search === '' && initial) {
+        // default Mine list is showing.
+        if (filter === 'mine' && initial) {
             setData(initial);
         }
-    }, [initial, filter, search]);
+    }, [initial, filter]);
 
     useEffect(() => {
         const fetchList = async (showLoading: boolean) => {
@@ -40,11 +38,7 @@ export function useThreadList(initial: ThreadListData | null) {
             }
             isFetching.current = true;
             try {
-                const query: { filter: ThreadListFilter; search?: string } = { filter };
-                if (search !== '') {
-                    query.search = search;
-                }
-                const response = await fetch(list.url({ query }), {
+                const response = await fetch(list.url({ query: { filter } }), {
                     headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin',
                     signal: AbortSignal.any([controller.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
@@ -64,8 +58,7 @@ export function useThreadList(initial: ThreadListData | null) {
 
         const isInitialState = isFirstRun.current;
         isFirstRun.current = false;
-        const delay = search === '' ? 0 : SEARCH_DEBOUNCE_MS;
-        const timeout = isInitialState ? null : window.setTimeout(() => void fetchList(true), delay);
+        const timeout = isInitialState ? null : window.setTimeout(() => void fetchList(true), 0);
         const interval = window.setInterval(() => !isFetching.current && void fetchList(false), REFRESH_INTERVAL_MS);
 
         const onRefresh = () => void fetchList(false);
@@ -79,7 +72,7 @@ export function useThreadList(initial: ThreadListData | null) {
             window.clearInterval(interval);
             controllerRef.current?.abort();
         };
-    }, [filter, search]);
+    }, [filter]);
 
-    return { data, filter, setFilter, search, setSearch, isLoading };
+    return { data, filter, setFilter, isLoading };
 }

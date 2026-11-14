@@ -20,22 +20,20 @@ test('returns the mine list by default', function () {
         ->assertJsonCount(1, 'threads');
 });
 
-test('the everyone filter and search apply', function () {
+test('the everyone filter applies', function () {
     $user = User::factory()->create();
     Thread::factory()->create(['title' => 'Fix the cache']);
     Thread::factory()->create(['title' => 'Other work']);
 
-    $this->actingAs($user)->getJson(route('threads.list', ['filter' => 'everyone', 'search' => 'cache']))
+    $this->actingAs($user)->getJson(route('threads.list', ['filter' => 'everyone']))
         ->assertOk()
-        ->assertJsonCount(1, 'threads')
-        ->assertJsonPath('threads.0.title', 'Fix the cache');
+        ->assertJsonCount(2, 'threads');
 });
 
-test('rejects an unknown filter and a 101 character search with 422', function () {
+test('rejects an unknown filter with 422', function () {
     $this->actingAs(User::factory()->create());
 
     $this->getJson(route('threads.list', ['filter' => 'bogus']))->assertUnprocessable();
-    $this->getJson(route('threads.list', ['search' => str_repeat('a', 101)]))->assertUnprocessable();
 });
 
 test('seen creates then updates the view row', function () {

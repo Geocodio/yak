@@ -1,7 +1,9 @@
 import { Button, ConfirmDialog } from '@geocodio/console-ui';
 import { Head, router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import type { PaletteAction } from '@/commandPalette/types';
 import { AddKeyDialog } from '@/components/settings/ssh/AddKeyDialog';
 import { ConfigSnippet } from '@/components/settings/ssh/ConfigSnippet';
 import { GithubKeysSection } from '@/components/settings/ssh/GithubKeysSection';
@@ -18,6 +20,9 @@ export default function SshKeys({ githubKeys, uploadedKeys, github, config }: Pr
     const [removing, setRemoving] = useState<SshKey | null>(null);
     const [isBusy, setIsBusy] = useState(false);
     const hasNoKeys = githubKeys.length === 0 && uploadedKeys.length === 0;
+
+    const actions = useMemo<PaletteAction[]>(() => [{ id: 'ssh-add-key', label: 'Add SSH key', keywords: ['upload', 'public key', 'new', 'extra'], run: () => setIsAdding(true) }], []);
+    useCommandPaletteActions('SSH keys', actions);
 
     const confirmRemove = () => {
         if (removing === null) {

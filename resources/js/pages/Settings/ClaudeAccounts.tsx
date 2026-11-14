@@ -1,7 +1,9 @@
 import { Deferred, Head, router } from '@inertiajs/react';
 import { Badge, Button, EmptyState, Skeleton } from '@geocodio/console-ui';
 import { AlertTriangle, KeyRound, Lock, Plus, RefreshCw, Terminal } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import type { PaletteAction } from '@/commandPalette/types';
 import { AccountDialog, type AccountDialogMode } from '@/components/accounts/AccountDialog';
 import { AccountsSection, Card } from '@/components/accounts/AccountsSection';
 import { AwakeShareCard, type AwakeShareRow } from '@/components/accounts/AwakeShareCard';
@@ -100,6 +102,15 @@ export default function ClaudeAccounts({ accounts, yakAccounts, canManageYakAcco
     };
     const hasDefault = (accounts ?? []).some((account) => account.isDefault);
     const isLoaded = accounts !== undefined && yakAccounts !== undefined;
+
+    const actions = useMemo<PaletteAction[]>(
+        () => [
+            ...(isLoaded ? [{ id: 'claude-accounts-add', label: 'Add Claude account', keywords: ['new', 'token', 'subscription', 'key'], run: () => setDialog({ mode: 'add' }) }] : []),
+            ...(isLoaded && canManageYakAccounts ? [{ id: 'claude-accounts-add-yak', label: 'Add Yak account', keywords: ['shared', 'admin', 'new'], run: () => setDialog({ mode: 'addSystem' }) }] : []),
+        ],
+        [isLoaded, canManageYakAccounts],
+    );
+    useCommandPaletteActions('Claude accounts', actions);
 
     const failedCard = (
         <Card className="p-4" data-testid="accounts-load-failed">

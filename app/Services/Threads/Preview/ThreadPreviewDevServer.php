@@ -89,6 +89,30 @@ class ThreadPreviewDevServer
         return Cache::get($this->key('state', $thread), 'starting');
     }
 
+    /**
+     * The states of several threads in one cache read, keyed by thread id.
+     *
+     * @param  iterable<Thread>  $threads
+     * @return array<int, string>
+     */
+    public function states(iterable $threads): array
+    {
+        $keys = [];
+
+        foreach ($threads as $thread) {
+            $keys[$thread->id] = $this->key('state', $thread);
+        }
+
+        $found = Cache::many(array_values($keys));
+        $states = [];
+
+        foreach ($keys as $id => $key) {
+            $states[$id] = $found[$key] ?? 'starting';
+        }
+
+        return $states;
+    }
+
     public function error(Thread $thread): ?string
     {
         return Cache::get($this->key('error', $thread));

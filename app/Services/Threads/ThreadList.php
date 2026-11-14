@@ -39,7 +39,7 @@ class ThreadList
     /**
      * @return array{starred: list<array<string, mixed>>, needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool}
      */
-    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null): array
+    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine): array
     {
         $status = $filter === ThreadListFilter::Closed ? 'closed' : 'open';
         $roots = Thread::query()
@@ -49,7 +49,6 @@ class ThreadList
             ->where('status', $status)
             ->when($filter === ThreadListFilter::Mine, fn (Builder $query) => self::mine($query, $user))
             ->when($filter === ThreadListFilter::StartedByYak, fn (Builder $query) => $query->whereNull('created_by_user_id'))
-            ->when($search !== null && $search !== '', fn (Builder $query) => self::search($query, (string) $search))
             ->select('threads.*')
             ->addSelect(['latest_run_id' => self::latestRunId()])
             ->withExists('shares as is_shared')
@@ -174,17 +173,13 @@ class ThreadList
     }
 
     /**
-     * @param  Builder<Thread>  $query
+     * A contains pattern for `lower(column) like ? escape '!'`: the search is lowercased and `%`, `_` and `!` match literally.
      */
-    private static function search(Builder $query, string $search): void
+    public static function likePattern(string $search): string
     {
         $escape = self::LIKE_ESCAPE;
-        $pattern = '%' . preg_replace('/[' . preg_quote($escape, '/') . '%_]/', $escape . '$0', Str::lower($search)) . '%';
 
-        $query->where(function (Builder $query) use ($pattern, $escape): void {
-            $query->whereRaw("lower(threads.title) like ? escape '{$escape}'", [$pattern])
-                ->orWhereRaw("lower(threads.repo) like ? escape '{$escape}'", [$pattern]);
-        });
+        return '%' . preg_replace('/[' . preg_quote($escape, '/') . '%_]/', $escape . '$0', Str::lower($search)) . '%';
     }
 
     /**

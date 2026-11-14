@@ -3,6 +3,7 @@ import { Monitor } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import { formatTime } from '@/components/shell/formatTime';
 import { CopyButton } from '@/components/threads/environment/LinkActions';
+import { canTeleportThread } from '@/components/threads/teleport/canTeleportThread';
 import { ownerLabel } from '@/components/threads/teleport/TeleportNotice';
 import { sshKeys } from '@/routes/settings';
 import type { PanelProps } from '@/threads/panels';
@@ -32,7 +33,7 @@ export function AccessGroup({ thread, environment, onTeleport }: PanelProps & { 
 
                 <OverviewRow label="Runs on" testId="environment-runs-on">
                     <span className="min-w-0 flex-1 truncate">{isOnDevice ? ownerLabel(teleport) : 'Yak sandbox'}</span>
-                    {teleport.canTeleport && teleport.state !== 'teleporting' && onTeleport !== undefined && (
+                    {canTeleportThread(teleport) && onTeleport !== undefined && (
                         <Button variant="secondary" className="h-7 shrink-0" icon={<Monitor size={12} />} onClick={onTeleport} data-testid={isOnDevice ? 'teleport-up' : 'teleport-button'}>
                             {isOnDevice ? 'Teleport to Yak' : 'Teleport'}
                         </Button>

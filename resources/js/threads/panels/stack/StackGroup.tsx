@@ -1,8 +1,10 @@
 import { Button, ConfirmDialog } from '@geocodio/console-ui';
 import { router } from '@inertiajs/react';
 import { Layers, Plus } from 'lucide-react';
-import { useState } from 'react';
-import { stop } from '@/routes/threads/stack';
+import { useMemo, useRef, useState } from 'react';
+import { THREAD_GROUP, stackActions } from '@/commandPalette/threadPageActions';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import { drop, split, stop, takeOver } from '@/routes/threads/stack';
 import type { PanelProps } from '@/threads/panels';
 import { OverviewGroup } from '../environment/OverviewRow';
 import { AwakeLimitStepper } from './AwakeLimitStepper';
@@ -11,11 +13,24 @@ import { StackMessages } from './StackMessages';
 
 /**
  * The first Overview group once a thread has sub-threads, or is one: status and diff counts of each,
- * the Awake at once stepper, and Stop stack. Adding a sub-thread lives in the composer and header menus.
+ * the Awake at once stepper, and Stop stack. Adding a sub-thread lives here, in the composer menu and in the command palette.
  */
 export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAddSubThread }: PanelProps) {
     const [isConfirmingStop, setIsConfirmingStop] = useState(false);
     const [isStopping, setIsStopping] = useState(false);
+
+    const children = stack?.children;
+    const reloadRef = useRef(reloadStack);
+    reloadRef.current = reloadStack;
+    const actions = useMemo(
+        () =>
+            stackActions(children ?? [], (action, childId) => {
+                const route = { takeOver, split, drop }[action];
+                router.post(route.url(childId), {}, { preserveScroll: true, onFinish: () => reloadRef.current() });
+            }),
+        [children],
+    );
+    useCommandPaletteActions(THREAD_GROUP, actions);
 
     if (stack === null || (stack.children.length === 0 && stack.parent === null)) {
         return null;

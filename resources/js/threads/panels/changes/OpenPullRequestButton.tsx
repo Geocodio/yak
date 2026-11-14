@@ -24,6 +24,7 @@ function recordItem(thread: ThreadData, isRecording: boolean, onSelect: () => vo
 
 /** Asks the server to open the PR; the job's outcome arrives through the thread's `pullRequestOpening`. */
 export function requestPullRequest(threadId: string, acknowledgePrivate: boolean, onFinish?: () => void) {
+    toast.info('Opening the pull request', { description: 'Yak is creating it on GitHub. This takes a few seconds.' });
     router.post(store.url(threadId), acknowledgePrivate ? { acknowledged_private_publish: true } : {}, {
         preserveScroll: true,
         onError: () => toast.error('Could not open the pull request', { description: 'Yak could not start it. Try again in a moment.' }),
@@ -45,7 +46,6 @@ export function OpenPullRequestButton({ thread, publishWarning, variant = 'prima
 
     const submit = () => {
         setProcessing(true);
-        toast.info('Opening the pull request', { description: 'Yak is creating it on GitHub. This takes a few seconds.' });
         requestPullRequest(thread.id, publishWarning, () => setProcessing(false));
     };
 

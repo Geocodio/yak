@@ -2,6 +2,12 @@ import { Button, Select, Tooltip, cn } from '@geocodio/console-ui';
 import { usePage } from '@inertiajs/react';
 import { Check, Columns2, GitBranch, Globe, GitPullRequest, Keyboard, LoaderCircle, Rows2, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { focusAfterPaletteCloses } from '@/commandPalette/focusAfterPaletteCloses';
+import { shortcutLabel } from '@/commandPalette/shortcuts';
+import { isMacPlatform } from '@/commandPalette/platform';
+import { THREAD_GROUP } from '@/commandPalette/threadPageActions';
+import type { PaletteAction } from '@/commandPalette/types';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadDiffFile } from '@/types/thread-changes';
@@ -95,18 +101,8 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
         return () => clearTimeout(timer);
     }, [isJustUpdated]);
 
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            const target = event.target as HTMLElement | null;
-            const isTyping = target !== null && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-            if (event.key === '/' && !isTyping) {
-                event.preventDefault();
-                filterInput.current?.focus();
-            }
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, []);
+    const filterActions = useMemo<PaletteAction[]>(() => [{ id: 'changes-filter-files', label: 'Filter changed files', keywords: ['filter', 'search', 'find', 'changes', 'diff'], shortcut: 'filterChangedFiles', run: () => focusAfterPaletteCloses(filterInput.current) }], []);
+    useCommandPaletteActions(THREAD_GROUP, filterActions);
 
     const repositories = diff?.repositories ?? [];
     const hasSeveralRepositories = repositories.length > 1;
@@ -282,7 +278,7 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
                 {diffSwitch}
                 {!isNarrow && (
                     <>
-                        <Tooltip label="/ filter files">
+                        <Tooltip label={`${shortcutLabel('filterChangedFiles', isMacPlatform())} filter files`}>
                             <button type="button" aria-label="Keyboard shortcuts" className="cursor-pointer text-muted hover:text-body">
                                 <Keyboard size={14} />
                             </button>

@@ -51,14 +51,14 @@ function inertiaProps($test, string $uri, $user): array
     return $response->getStatusCode() === 200 ? AssertableInertia::fromTestResponse($response)->toArray()['props'] : ['status' => $response->getStatusCode()];
 }
 
-it('leaves the thread list, search and needs-you count free of a private thread', function (string $stranger, string $filter, ?string $search) {
-    $list = ThreadList::for($this->world->{$stranger}, ThreadListFilter::from($filter), $search);
+it('leaves the thread list and needs-you count free of a private thread', function (string $stranger, string $filter) {
+    $list = ThreadList::for($this->world->{$stranger}, ThreadListFilter::from($filter));
     $encoded = json_encode($list);
 
     expect($encoded)->not->toContain(VisibilityWorld::TITLE)
         ->and($encoded)->not->toContain(VisibilityWorld::REPO)
-        ->and($list['needsYouCount'])->toBe($filter === 'everyone' && $search === null ? 1 : 0);
-})->with(['other', 'admin'])->with(['mine', 'everyone'])->with([null, 'Quarterly', 'payroll', 'layoff']);
+        ->and($list['needsYouCount'])->toBe($filter === 'everyone' ? 1 : 0);
+})->with(['other', 'admin'])->with(['mine', 'everyone']);
 
 it('shows the owner the private thread with its child and counts it', function () {
     $list = ThreadList::for($this->world->owner, ThreadListFilter::Everyone);
@@ -66,8 +66,6 @@ it('shows the owner the private thread with its child and counts it', function (
     expect(collect([...$list['needsYou'], ...$list['threads']])->pluck('id')->all())->toContain($this->world->thread->public_id)
         ->and(collect($list['needsYou'])->firstWhere('id', $this->world->thread->public_id)['children'])->toHaveCount(1)
         ->and($list['needsYouCount'])->toBe(2);
-
-    expect(json_encode(ThreadList::for($this->world->owner, ThreadListFilter::Everyone, 'Quarterly')))->toContain(VisibilityWorld::TITLE);
 });
 
 it('renders every list surface for a stranger as if the private graph did not exist', function (string $name, string $stranger) {
@@ -88,6 +86,22 @@ it('renders every list surface for a stranger as if the private graph did not ex
             yield "{$name} as {$stranger}" => [$name, $stranger];
         }
     }
+});
+
+it('keeps the private graph out of palette search for a stranger and finds it for the owner', function () {
+    $search = fn ($user, string $query): string => json_encode($this->actingAs($user)->getJson(route('palette.search', ['query' => $query]))->assertOk()->json());
+
+    foreach (['other', 'admin'] as $stranger) {
+        foreach ([VisibilityWorld::TITLE, VisibilityWorld::REPO, VisibilityWorld::BRANCH, 'Quarterly', 'payroll', 'layoff'] as $query) {
+            $encoded = $search($this->world->{$stranger}, $query);
+
+            expect($encoded)->not->toContain(VisibilityWorld::TITLE)
+                ->and($encoded)->not->toContain(VisibilityWorld::REPO)
+                ->and($encoded)->not->toContain(VisibilityWorld::BRANCH);
+        }
+    }
+
+    expect($search($this->world->owner, 'Quarterly'))->toContain($this->world->thread->public_id);
 });
 
 it('keeps a private thread and its child out of notification recipients', function () {

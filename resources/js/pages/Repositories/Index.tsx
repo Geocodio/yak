@@ -1,7 +1,9 @@
 import { Head, router } from '@inertiajs/react';
 import { Badge, Button, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tr } from '@geocodio/console-ui';
 import { Plus, Star } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import type { PaletteAction } from '@/commandPalette/types';
 import { AppLayout } from '@/layouts/AppLayout';
 import { rowLinkHandlers } from '@/lib/visitRow';
 import repos from '@/routes/repos';
@@ -24,6 +26,9 @@ function setupTone(status: string): 'ok' | 'warn' | 'fail' | 'info' | 'idle' {
 }
 
 export default function Index({ repositories }: Props) {
+    const actions = useMemo<PaletteAction[]>(() => [{ id: 'repositories-add', label: 'Add repository', keywords: ['new', 'create', 'connect', 'github'], href: repos.create.url() }], []);
+    useCommandPaletteActions('Repositories', actions);
+
     return (
         <>
             <Head title="Repositories" />

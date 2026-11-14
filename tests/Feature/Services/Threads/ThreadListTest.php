@@ -116,19 +116,6 @@ test('rows sort by last activity with null last and bucket into today, this week
         ->and($rows[3]['lastActivityAt'])->toBeNull();
 });
 
-test('search matches title and repo and treats percent literally', function () {
-    $user = User::factory()->create();
-    $a = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Fix the CACHE', 'repo' => 'acme/one']);
-    $b = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Other', 'repo' => 'acme/billing']);
-    $c = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => '100% done', 'repo' => 'acme/two']);
-
-    expect(listedIds(ThreadList::for($user, search: 'cache')))->toBe([$a->public_id])
-        ->and(listedIds(ThreadList::for($user, search: 'BILLING')))->toBe([$b->public_id])
-        ->and(listedIds(ThreadList::for($user, search: '%')))->toBe([$c->public_id])
-        ->and(listedIds(ThreadList::for($user, search: '_')))->toBe([])
-        ->and(listedIds(ThreadList::for($user, search: str_repeat('x', 300))))->toBe([]);
-});
-
 test('a thread with no runs and no activity renders as stopped', function () {
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'last_activity_at' => null]);

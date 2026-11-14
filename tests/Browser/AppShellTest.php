@@ -52,7 +52,7 @@ test('the app shell renders the sidebar nav and the command palette opens', func
 
     // The palette lists every destination, so Channels is reachable from
     // any page.
-    $page->assertVisible('[data-testid="palette-item-Channels"]');
+    $page->assertVisible('[data-testid="palette-action-go-channels"]');
 
     $page->assertNoJavaScriptErrors();
 });
@@ -106,5 +106,17 @@ test('on a phone the round button opens the new thread dialog from any page', fu
     $page->click('[data-testid="tab-new-task"]')
         ->assertVisible('[data-testid="new-thread-dialog"]')
         ->assertVisible('[data-testid="start-thread-description"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('clicking the search button opens the command palette', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/threads/new');
+
+    $page->assertMissing('[data-testid="thread-search"]')
+        ->assertVisible('[data-testid="thread-search-button"]')
+        ->click('[data-testid="thread-search-button"]')
+        ->assertVisible('[data-testid="app-palette"]')
         ->assertNoJavaScriptErrors();
 });

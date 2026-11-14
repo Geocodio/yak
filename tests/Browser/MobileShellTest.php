@@ -21,3 +21,15 @@ test('the phone shell opens a left drawer from the header toggle and closes it a
         ->assertMissing('[data-testid="mobile-nav"]')
         ->assertNoJavaScriptErrors();
 });
+
+test('the navigation drawer search button opens the palette at phone width', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/threads/new')->on()->mobile();
+
+    $page->click('[data-testid="mobile-nav-toggle"]')
+        ->assertVisible('[data-testid="mobile-nav"]')
+        ->click('[data-testid="mobile-nav"] [data-testid="thread-search-button"]')
+        ->assertVisible('[data-testid="app-palette"]')
+        ->assertNoJavaScriptErrors();
+});

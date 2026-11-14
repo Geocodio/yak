@@ -8,6 +8,104 @@ The icon rail on the left has four sections: Threads, Operations, Insights and S
 
 The Yak logo and `/` open home. When you can see at least one thread, home opens the most recently active one. When you can see none, home shows a Welcome page: a checklist (Add a repository, Add a Claude account, and an optional Connect a channel) and, once the first two are done, the new thread form. A slim setup bar above the pages says what is left for you: connect your own Claude account, set up [Teleport](teleport.md), replace a token that stopped working, or (for admins) add the shared Yak account. You can dismiss the neutral reminders.
 
+## Command palette and keyboard shortcuts
+
+The command palette runs actions, jumps to pages and finds threads, repositories and pull requests from one input.
+
+### Open it
+
+- Press `Cmd+K` on a Mac or `Ctrl+K` elsewhere. Press it again to close the palette.
+- Select the search icon button beside **New thread** at the top of the thread list in the sidebar.
+- On a phone, open the navigation drawer. The Threads tab has the same search icon button beside **New thread**.
+
+### The empty palette
+
+With nothing typed, the palette lists every action that can run now, in groups. The group for the page you are on comes first (for example **This thread**), then **Create**, **Go to**, **View**, **Settings** and **Help**. Threads, repositories and pull requests do not appear until you type.
+
+### What typing finds
+
+- **Actions and pages**, by label and by keyword. Typing `terminal` finds **Show terminal**. Typing `ssh` finds the SSH keys page.
+- **Threads**, open and closed, sub-threads included, by title, repository or branch.
+- **Repositories**, by name.
+- **Pull requests**, by exact number (with or without `#`, so `#812` and `812` both work), by thread title or by repository.
+
+Thread, repository and pull request search starts at two characters. You only see threads you are allowed to see, so a private thread of someone else never appears (see [Private threads](threads.md#sharing-and-private-threads)).
+
+Ranking remembers what you pick. An action or result you chose before moves up among equal matches. The memory lives in this browser only. It is not shared with other browsers or people.
+
+### Results
+
+- `Enter` opens a thread or a repository. On a pull request it opens the pull request on GitHub in a new window.
+- `Tab`, or the **More** button on the row, lists the actions of that result. For a thread these include opening the preview, opening the pull request and copying the branch name or link. For a repository they include **New thread in this repository** and **Open on GitHub**. Hotkeys do not apply to these actions.
+- `Backspace` on an empty input goes back one step.
+- `Esc` closes the palette.
+
+A repository that is turned off still appears in search. It does not offer **New thread in this repository**, because the new thread dialog lists only active repositories.
+
+### Start a thread from the palette
+
+Type `new`, `create`, `start` or `spawn` followed by text, for example `new fix the login redirect on website`. **New thread** runs first, and `Enter` opens the New thread dialog with that text filled in as the description.
+
+### Actions that cannot run now
+
+An action that cannot run now stays hidden while the input is empty. Once you type something that matches it, the palette shows it disabled, with the reason. For example, **Next thread that needs you** says "Nothing needs you" when no thread waits on you, and **Show changes** says "This thread has no changes yet".
+
+### Actions for the current page
+
+Each page adds its own group. Actions marked "asks first" open a confirmation dialog above the palette. Nothing runs until you confirm. Cancel returns you to the palette.
+
+| Page | Actions |
+| --- | --- |
+| A thread | **Show files**, **Show terminal**, **Show preview panel**, **Show changes**, **Show conversation**, **Toggle the overview**, **Go to the parent thread** (on a sub-thread), **Open file** (a step that searches the repository and opens the file in the Files panel), **Open preview in a new window**, **Open pull request on GitHub**, **Copy branch name**, **Copy thread link**, **Open a pull request**, **Star thread** or **Remove star**, **Close thread**, **Delete thread**, **Stop the turn**, **Continue the turn**, **Focus the composer**, **Filter changed files** (when the changes list is open), **Add a sub-thread**, **Teleport to your computer** or **Teleport to Yak** |
+| A thread you own | **Share**, which opens the Share dialog, and **Make private (only me)** on a thread the team can see |
+| A thread with sub-threads that failed | **Take over a sub-thread**, **Split a sub-thread**, **Drop a sub-thread**. Each picks the sub-thread first |
+| A repository | **New thread in this repository**, **Open on GitHub**, **Open the risk profile** |
+| Repositories | **Add repository** |
+| A PR review | **Open the pull request on GitHub**, **Re-run this review** |
+| A deployment | **Open the preview**, **Destroy the preview** |
+| SSH keys | **Add SSH key** |
+| Claude accounts | **Add Claude account**, and **Add Yak account** for admins |
+
+These ask first: **Make private (only me)**, **Close thread**, **Delete thread**, **Stop the turn**, **Take over**, **Split** and **Drop** on a sub-thread, and **Destroy the preview**. **Open a pull request** asks first when the thread is private, because the pull request would be visible on GitHub (see [Private threads](threads.md#sharing-and-private-threads)).
+
+Some thread actions follow the state of the thread. **Open a pull request** appears when you can drive the thread, it is open, it has changes and it has no pull request yet. It is disabled with a reason while the pull request is being opened ("The pull request is being opened") or waits for a co-owner ("Waiting for a co-owner"). **Stop the turn** says "No turn is running" when the thread is idle. **Open file** shows "Files are not available right now" when the sandbox is asleep and cannot list files.
+
+### Who can see a thread
+
+The palette can make a thread private, with **Make private (only me)**. It has no action that widens access. To let more people see a thread, use **Share**, which opens the Share dialog, and choose who there.
+
+### Keyboard shortcuts
+
+Hotkeys do not fire while you type in a field, or while a dialog or menu is open. Press `?` to open the full list in a dialog.
+
+Keys written as `G H` are sequences: press `G`, then `H`. The second key must follow within one second, or the sequence starts over.
+
+| Group | Keys | Action |
+| --- | --- | --- |
+| General | `Cmd+K` / `Ctrl+K` | Open the command palette |
+| General | `?` | Keyboard shortcuts |
+| General | `C` | New thread |
+| General | `[` | Toggle the sidebar |
+| General | `G H` | Go to Home |
+| General | `G N` | Next thread that needs you |
+| Thread | `G P` | Open preview in a new window |
+| Thread | `G F` | Show files |
+| Thread | `G T` | Show terminal |
+| Thread | `G C` | Show conversation |
+| Thread | `G R` | Open pull request on GitHub |
+| Changes | `/` | Filter changed files |
+
+Keys inside the open palette:
+
+| Keys | Action |
+| --- | --- |
+| `Enter` | Run the selected action |
+| `Tab` | More actions for a result |
+| `Backspace` | Go back one step |
+| `Esc` | Close |
+
+The Thread keys act on the thread you are viewing. They do nothing on other pages, and the row of an action that cannot run now is skipped.
+
 ## Task log
 
 The task log (Operations > Task log) is the list of everything that channels and the dashboard asked Yak to do. It is a log: you start work from the thread list, not from here. Each task runs as a turn in a thread (see [Concepts](concepts.md)). Open it from Operations or the command palette. Three tabs split the list: Tasks, PR Reviews and Setup, each with a count. Filter by status, source, repository or pull request, search, and sort by newest, oldest, source, author or repository. A "Needs co-owner" chip lists tasks waiting for a second person to approve. Open a task to see its logs, runs, cost and pull request, and to retry or cancel it.

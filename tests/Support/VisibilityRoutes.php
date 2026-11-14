@@ -223,7 +223,7 @@ class VisibilityRoutes
      */
     public static function lists(): array
     {
-        return ['tasks', 'threads.list', 'deployments', 'costs', 'analytics', 'system', 'pr-reviews', 'observations'];
+        return ['tasks', 'threads.list', 'deployments', 'costs', 'analytics', 'system', 'pr-reviews', 'observations', 'palette.search'];
     }
 
     /**

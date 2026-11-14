@@ -1,7 +1,11 @@
 import { router, useForm } from '@inertiajs/react';
 import { Button, Menu } from '@geocodio/console-ui';
 import { Layers, Plus } from 'lucide-react';
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
+import { focusAfterPaletteCloses } from '@/commandPalette/focusAfterPaletteCloses';
+import { THREAD_GROUP, composerActions } from '@/commandPalette/threadPageActions';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import { canContinueTurn } from '@/components/threads/conversation/GuardStopCard';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
@@ -29,6 +33,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
         attachment_refs: [],
     });
     const editorRef = useRef<AttachmentTextareaHandle>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
     const disabled = composer.state === 'disabled_closed' || composer.state === 'disabled_computer' || composer.state === 'disabled_blocked' || composer.state === 'readonly';
     const working = composer.state === 'working';
     const copy = composerCopy(notice, composer.state, teleportState);
@@ -37,6 +42,20 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
         firstNumber: composer.nextAttachmentNumber,
         onAdd: (added) => editorRef.current?.insertTokens(added),
     });
+    const canContinue = notice !== null && canContinueTurn(notice, composer.state === 'readonly');
+    const actions = useMemo(
+        () =>
+            composerActions({
+                threadId: thread.id,
+                isWorking: working,
+                canStop: !disabled,
+                canContinue,
+                canFocus: !disabled,
+                focusComposer: () => focusAfterPaletteCloses(inputRef.current),
+            }),
+        [thread.id, working, disabled, canContinue],
+    );
+    useCommandPaletteActions(THREAD_GROUP, actions);
     const errors = form.errors as Record<string, string | undefined>;
     const empty = form.data.message.trim() === '';
 
@@ -80,6 +99,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
                     <AttachmentDropOverlay draft={draft} />
                     <AttachmentTextarea
                         ref={editorRef}
+                        inputRef={inputRef}
                         draft={draft}
                         rows={2}
                         placeholder={isOffline && !disabled ? 'Add a message. It is sent when the connection is back.' : copy.placeholder}

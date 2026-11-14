@@ -55,8 +55,8 @@ export const SECONDARY_NAV_ITEMS: NavItem[] = [{ label: 'Channels', icon: Inbox,
 
 export const SETTINGS_ITEM: NavItem = { label: 'Settings', icon: SettingsIcon, url: profileEdit.url() };
 
-export function openNewThread(): void {
-    window.dispatchEvent(new CustomEvent('yak:open-new-thread'));
+export function openNewThread(options: { prompt?: string; repository?: string } = {}): void {
+    window.dispatchEvent(new CustomEvent('yak:open-new-thread', { detail: options }));
 }
 
 export function openPalette(): void {

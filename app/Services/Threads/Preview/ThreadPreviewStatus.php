@@ -40,7 +40,13 @@ class ThreadPreviewStatus
         ];
     }
 
-    private function state(Thread $thread): string
+    /**
+     * The state from the thread's loaded columns and the cached dev server state, without reloading the thread.
+     * A caller that read the dev server states in one batch passes this thread's.
+     *
+     * @return 'ready'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot'
+     */
+    public function state(Thread $thread, ?string $devServerState = null): string
     {
         if (! $thread->isOpen()) {
             return 'closed';
@@ -52,7 +58,7 @@ class ThreadPreviewStatus
 
         return match ($thread->sandbox_state) {
             ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed => 'destroyed',
-            ThreadSandboxState::Running => match ($this->devServer->state($thread)) {
+            ThreadSandboxState::Running => match ($devServerState ?? $this->devServer->state($thread)) {
                 'ready' => 'ready',
                 'failing' => 'failing',
                 'no_manifest' => 'no_manifest',

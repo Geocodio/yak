@@ -3,6 +3,9 @@ import { OctagonPause } from 'lucide-react';
 import { continueMethod } from '@/routes/threads';
 import type { ThreadNotice } from '@/types/threads';
 
+/** Whether the guard stop offers Continue: the notice allows it and the viewer can send messages. */
+export const canContinueTurn = (notice: ThreadNotice, readonly: boolean): boolean => notice.canContinue && !readonly;
+
 export function GuardStopCard({ notice, threadId, readonly }: { notice: ThreadNotice; threadId: string; readonly: boolean }) {
     return (
         <div className="rounded-card bg-warn-soft p-4" data-testid="thread-notice" data-kind={notice.kind}>
@@ -11,7 +14,7 @@ export function GuardStopCard({ notice, threadId, readonly }: { notice: ThreadNo
                 <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-medium text-body">{notice.title}</p>
                     <p className="mt-1 text-[13px] text-muted">{notice.body}</p>
-                    {notice.canContinue && !readonly && (
+                    {canContinueTurn(notice, readonly) && (
                         <button
                             type="button"
                             data-testid="thread-continue"
