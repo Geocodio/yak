@@ -25,6 +25,10 @@ return [
         'min_protocol' => 1,
     ],
 
+    'pairing' => [
+        'code_ttl_seconds' => 120,
+    ],
+
     'teleport' => [
         'marketplace' => env('YAK_TELEPORT_MARKETPLACE', 'Geocodio/yak'),
         'expiry_minutes' => (int) env('YAK_TELEPORT_EXPIRY_MINUTES', 30),

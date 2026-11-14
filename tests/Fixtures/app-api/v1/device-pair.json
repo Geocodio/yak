@@ -1,0 +1,13 @@
+{
+    "device": {
+        "id": "<volatile>",
+        "kind": "phone",
+        "name": "Test phone 🌎"
+    },
+    "token": "<volatile>",
+    "user": {
+        "email": "<volatile>",
+        "id": "<volatile>",
+        "name": "<volatile>"
+    }
+}

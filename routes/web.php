@@ -3,6 +3,7 @@
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\Api\App\DeviceCodeController as AppDeviceCodeController;
 use App\Http\Controllers\Api\App\DeviceController as AppDeviceController;
+use App\Http\Controllers\Api\App\DevicePairController as AppDevicePairController;
 use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenController;
 use App\Http\Controllers\Api\Cli\SessionFileController;
 use App\Http\Controllers\Api\Cli\SshLookupController;
@@ -457,6 +458,7 @@ Route::prefix('api/cli/v1')->middleware('client.protocol:cli')->withoutMiddlewar
 Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->group(function (): void {
     Route::post('device/code', AppDeviceCodeController::class)->middleware('throttle:app-device-code')->name('app.device.code');
     Route::post('device/token', AppDeviceTokenController::class)->name('app.device.token');
+    Route::post('device/pair', AppDevicePairController::class)->middleware('throttle:app-device-code')->name('app.device.pair');
 
     Route::middleware('auth.device:phone')->group(function (): void {
         Route::delete('device', [AppDeviceController::class, 'destroy'])->name('app.device.destroy');

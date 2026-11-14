@@ -68,6 +68,40 @@ token.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
+* @see \App\Http\Controllers\Api\App\DevicePairController::__invoke
+* @see app/Http/Controllers/Api/App/DevicePairController.php:14
+* @route '/api/app/v1/device/pair'
+*/
+export const pair = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: pair.url(options),
+    method: 'post',
+})
+
+pair.definition = {
+    methods: ["post"],
+    url: '/api/app/v1/device/pair',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\App\DevicePairController::__invoke
+* @see app/Http/Controllers/Api/App/DevicePairController.php:14
+* @route '/api/app/v1/device/pair'
+*/
+pair.url = (options?: RouteQueryOptions) => {
+    return pair.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\App\DevicePairController::__invoke
+* @see app/Http/Controllers/Api/App/DevicePairController.php:14
+* @route '/api/app/v1/device/pair'
+*/
+pair.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: pair.url(options),
+    method: 'post',
+})
+
+/**
 * @see \App\Http\Controllers\Api\App\DeviceController::destroy
 * @see app/Http/Controllers/Api/App/DeviceController.php:13
 * @route '/api/app/v1/device'
@@ -104,6 +138,7 @@ destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
 const device = {
     code: Object.assign(code, code),
     token: Object.assign(token, token),
+    pair: Object.assign(pair, pair),
     destroy: Object.assign(destroy, destroy),
 }
 
