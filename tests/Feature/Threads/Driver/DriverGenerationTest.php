@@ -5,11 +5,13 @@ use App\Enums\TurnState;
 use App\Events\RunnerExited;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
+use App\Models\YakTask;
 use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadTurns;
+use App\YakPromptBuilder;
 use Illuminate\Support\Facades\Event;
 
 require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
@@ -157,4 +159,27 @@ it('records the turn as running before the command reaches the broker', function
     app(ThreadTurns::class)->dispatchTurn($thread, $run);
 
     expect($stateWhenSent)->toBe(TurnState::Running);
+});
+
+it('starts a runner with the current standing instructions, not the stored ones', function () {
+    [$thread, $run] = runningTurnFor(['prompt_uuid' => 'prompt-1', 'prompt' => 'Go']);
+    $run->forceFill(['turn_state' => TurnState::Pending])->save();
+    $thread->forceFill(['runner_state' => RunnerState::None, 'append_system_prompt' => 'Old instructions.'])->save();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'repo' => $thread->repo]);
+    $commands = Mockery::mock(ThreadCommands::class);
+    $commands->shouldReceive('startRunner')->once()->with(Mockery::any(), Mockery::any(), Mockery::any(), YakPromptBuilder::threadSystemPrompt($task, $thread), Mockery::any());
+    $commands->shouldReceive('turn', 'setModel')->byDefault();
+    app()->instance(ThreadCommands::class, $commands);
+
+    app(ThreadTurns::class)->dispatchTurn($thread, $run);
+
+    expect($thread->refresh()->append_system_prompt)->not->toBe('Old instructions.');
+});
+
+it('keeps the instructions a sub-thread was given', function () {
+    $parent = Thread::factory()->create();
+    $child = Thread::factory()->create(['parent_thread_id' => $parent->id, 'append_system_prompt' => 'Child rules.']);
+    YakTask::factory()->create(['thread_id' => $child->id]);
+
+    expect(YakPromptBuilder::refreshThreadSystemPrompt($child))->toBe('Child rules.');
 });

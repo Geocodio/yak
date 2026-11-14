@@ -24,6 +24,7 @@ use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\Services\Teleport\ThreadOwnership;
 use App\Services\Threads\Repos\ThreadGitHubCredentials;
+use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -198,7 +199,7 @@ class ThreadTurns
                 $thread,
                 $account,
                 $thread->fresh_session_pending ? null : $thread->activeSession()?->session_id,
-                (string) $thread->append_system_prompt,
+                YakPromptBuilder::refreshThreadSystemPrompt($thread),
                 $thread->sharesParentSandbox() ? ResearchChildRunner::worktreePath($thread) : null,
             );
             $thread->forceFill(['fresh_session_pending' => false])->save();

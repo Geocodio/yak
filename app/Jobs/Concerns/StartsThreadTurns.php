@@ -80,7 +80,7 @@ trait StartsThreadTurns
                 $prompt = rtrim($prompt) . "\n\n" . $staged;
             }
 
-            $thread->forceFill(['append_system_prompt' => trim(YakPromptBuilder::systemPrompt($this->task) . "\n\n" . ThreadRepositoryPrompt::section($thread))])->save();
+            $thread->forceFill(['append_system_prompt' => YakPromptBuilder::threadSystemPrompt($this->task, $thread)])->save();
 
             $driver = $this->task->started_by_user_id === null ? null : User::query()->find($this->task->started_by_user_id);
             $run = app(ThreadTurns::class)->start($this->task, $prompt, $driver, null);

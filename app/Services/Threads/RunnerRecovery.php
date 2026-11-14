@@ -8,6 +8,7 @@ use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
+use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -70,7 +71,7 @@ class RunnerRecovery
         $promptNeverStarted = $prompt !== null && in_array($prompt->state, [TurnMessageState::Sent, TurnMessageState::Queued], true);
 
         $this->commands->kill($thread);
-        $this->commands->startRunner($thread, $account, $thread->activeSession()?->session_id, (string) $thread->append_system_prompt);
+        $this->commands->startRunner($thread, $account, $thread->activeSession()?->session_id, YakPromptBuilder::refreshThreadSystemPrompt($thread));
 
         $messages
             ->filter(fn (ThreadTurnMessage $message): bool => $message->state === TurnMessageState::Started)

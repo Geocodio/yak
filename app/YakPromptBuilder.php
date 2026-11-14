@@ -7,7 +7,9 @@ use App\DataTransferObjects\CIBuildFailure;
 use App\Enums\TaskMode;
 use App\Facades\Prompts;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\Threads\Repos\ThreadRepositoryPrompt;
 
 class YakPromptBuilder
 {
@@ -25,6 +27,28 @@ class YakPromptBuilder
             'channelRules' => $channelRules,
             'repoInstructions' => $repoInstructions,
         ]);
+    }
+
+    /** The standing instructions of a thread's runner: the system prompt plus the thread's repository section. */
+    public static function threadSystemPrompt(YakTask $task, Thread $thread): string
+    {
+        return trim(self::systemPrompt($task) . "\n\n" . ThreadRepositoryPrompt::section($thread));
+    }
+
+    /**
+     * Re-renders a top-level thread's standing instructions so a runner always starts with the current ones.
+     * The text is deterministic, so an unchanged template keeps the prompt cache warm. Sub-threads keep the
+     * instructions they were given. The caller saves the thread.
+     */
+    public static function refreshThreadSystemPrompt(Thread $thread): string
+    {
+        $task = $thread->isChild() ? null : $thread->pullRequestTask();
+
+        if ($task !== null) {
+            $thread->forceFill(['append_system_prompt' => self::threadSystemPrompt($task, $thread)]);
+        }
+
+        return (string) $thread->append_system_prompt;
     }
 
     /**
