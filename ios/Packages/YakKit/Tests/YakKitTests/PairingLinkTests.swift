@@ -17,4 +17,9 @@ import Testing
         #expect(PairingLink(url: URL(string: "yak://pair?url=https%3A%2F%2Fyak.example.com")!) == nil)
         #expect(PairingLink(url: URL(string: "https://pair?url=https%3A%2F%2Fyak.example.com&code=x")!) == nil)
     }
+
+    @Test func releaseRuleRefusesPlainHTTPToLoopback() {
+        let url = URL(string: "yak://pair?url=http%3A%2F%2F127.0.0.1%3A8080&code=x")!
+        #expect(PairingLink(url: url) == nil)
+    }
 }

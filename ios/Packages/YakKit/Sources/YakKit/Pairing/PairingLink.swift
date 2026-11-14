@@ -5,6 +5,12 @@ public struct PairingLink: Equatable, Sendable {
     public let instance: URL
     public let code: String
 
+    /// For a caller that has already validated `instance`. `init?(url:)` is the parser and requires https.
+    public init(instance: URL, code: String) {
+        self.instance = instance
+        self.code = code
+    }
+
     public init?(url: URL) {
         guard url.scheme?.lowercased() == "yak", url.host?.lowercased() == "pair",
             let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,

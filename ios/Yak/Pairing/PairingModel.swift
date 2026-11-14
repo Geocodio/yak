@@ -63,6 +63,7 @@ final class PairingModel {
     private(set) var checkProblem: PairingProblem?
 
     private let pairing: any PairingServing
+    private let normalizeAddress: @Sendable (String) -> URL?
     private let device: @MainActor () -> DeviceDescription
     private let onPaired: @MainActor (Instance) async -> Void
     private let pairedInstances: @MainActor () async -> [Instance]
@@ -75,8 +76,10 @@ final class PairingModel {
         pairing: any PairingServing,
         device: @escaping @MainActor () -> DeviceDescription,
         onPaired: @escaping @MainActor (Instance) async -> Void = { _ in },
-        pairedInstances: @escaping @MainActor () async -> [Instance] = { [] }
+        pairedInstances: @escaping @MainActor () async -> [Instance] = { [] },
+        normalizeAddress: @escaping @Sendable (String) -> URL? = InstanceAddress.normalize
     ) {
+        self.normalizeAddress = normalizeAddress
         self.pairedInstances = pairedInstances
         self.pairing = pairing
         self.device = device
@@ -87,7 +90,7 @@ final class PairingModel {
     func check(address: String) async {
         confirmation = nil
         checkProblem = nil
-        guard let url = InstanceAddress.normalize(address) else { return }
+        guard let url = normalizeAddress(address) else { return }
         do throws(PairingProblem) {
             let info = try await pairing.check(url)
             guard !Task.isCancelled else { return }
@@ -108,7 +111,7 @@ final class PairingModel {
 
     /// Checks the address, starts the device flow and waits for the approval.
     func submit(address: String) async {
-        guard let url = InstanceAddress.normalize(address) else {
+        guard let url = normalizeAddress(address) else {
             state = .problem(.invalidAddress)
             return
         }

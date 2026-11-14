@@ -35,9 +35,21 @@ final class AppModel {
     private let tokens: any TokenStore
     private let makeClient: @Sendable (URL) -> APIClient
     let pairing: Pairing
+    private let normalizeAddress: @Sendable (String) -> URL?
+    private let parseLink: @Sendable (URL) -> PairingLink?
+    /// Runs once before the first route is chosen; UI tests seed their instance here.
+    private var prepare: (@Sendable (InstanceStore) async -> Void)?
     let network = NetworkMonitor()
 
-    init(instances: InstanceStore, tokens: any TokenStore, makeClient: @escaping @Sendable (URL) -> APIClient) {
+    init(
+        instances: InstanceStore, tokens: any TokenStore, makeClient: @escaping @Sendable (URL) -> APIClient,
+        normalizeAddress: @escaping @Sendable (String) -> URL? = InstanceAddress.normalize,
+        parseLink: @escaping @Sendable (URL) -> PairingLink? = { PairingLink(url: $0) },
+        prepare: (@Sendable (InstanceStore) async -> Void)? = nil
+    ) {
+        self.normalizeAddress = normalizeAddress
+        self.parseLink = parseLink
+        self.prepare = prepare
         self.instances = instances
         self.tokens = tokens
         self.makeClient = makeClient
@@ -50,12 +62,13 @@ final class AppModel {
         PairingModel(
             pairing: pairing, device: { DeviceDescription.current() },
             onPaired: { [weak self] _ in await self?.reloadRoute() },
-            pairedInstances: { [weak self] in await self?.instances.all() ?? [] })
+            pairedInstances: { [weak self] in await self?.instances.all() ?? [] },
+            normalizeAddress: normalizeAddress)
     }
 
     /// Starts pairing with the instance a `yak://pair` link names, up to the confirmation; any other URL changes nothing.
     func handle(url: URL) async {
-        guard let link = PairingLink(url: url) else { return }
+        guard let link = parseLink(url) else { return }
         await pair(link: link)
     }
 
@@ -104,6 +117,10 @@ final class AppModel {
     }
 
     func reloadRoute() async {
+        if let prepare {
+            self.prepare = nil
+            await prepare(instances)
+        }
         if let active = await instances.active() {
             // An unreadable token still shows the signed-in screen, which says so and offers a retry.
             // Only a missing token means "Pair again".
