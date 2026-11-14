@@ -9,6 +9,7 @@ export function ClaudeMessage({ item, modelLabels = {} }: { item: ConversationIt
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-[12px] font-medium text-body">
                     Claude
+                    {item.at && <span className="font-normal text-faint">{new Date(item.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>}
                     {item.model && (
                         <span className="rounded-pill bg-panel-2 px-1.5 py-px font-mono text-[10px] font-normal text-muted" data-testid="thread-model-chip">
                             {modelLabels[item.model] ?? item.model}

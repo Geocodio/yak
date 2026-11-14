@@ -17,6 +17,8 @@ export type ConversationItem = {
     /** True while a tools item still has a tool use without a result. */
     running?: boolean;
     model?: string;
+    /** When the entry was recorded, for the time in Claude's header. */
+    at?: string;
     files?: string[];
     added?: number;
     removed?: number;

@@ -213,11 +213,11 @@ class ThreadTurns
             $this->commands->setModel($thread, $thread->model);
         }
 
-        // The turn is recorded as running before the command goes out: the broker can answer no_runner within
-        // milliseconds, and the driver only recovers a lost runner for a turn that is already running.
         // Claude pushes during the turn, so the sandbox needs a token that outlives it.
         app(ThreadGitHubCredentials::class)->ensureFresh($thread);
 
+        // The turn is recorded as running before the command goes out: the broker can answer no_runner within
+        // milliseconds, and the driver only recovers a lost runner for a turn that is already running.
         $waitingState = $run->getAttribute('turn_state');
         self::trackUuid($run, (string) $run->prompt_uuid);
         $run->forceFill(['turn_state' => TurnState::Running])->save();

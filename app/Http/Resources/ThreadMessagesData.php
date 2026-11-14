@@ -8,6 +8,7 @@ use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadEvent;
 use App\Models\ThreadTurnMessage;
 use App\Support\AttachmentReferences;
 use App\Support\Markdown;
@@ -38,6 +39,7 @@ final class ThreadMessagesData
             ->selectRaw('min(id) as id')
             ->pluck('id');
 
+        $readAt = self::readSequences($thread);
         $messages = [];
 
         foreach ($rows as $row) {
@@ -81,7 +83,7 @@ final class ThreadMessagesData
                 },
                 'intent' => $row->intent,
                 'sentAt' => $row->created_at?->toIso8601String() ?? '',
-                'readAfterSequence' => null,
+                'readAfterSequence' => $readAt['messages'][$row->uuid] ?? $readAt['turns'][$run->id] ?? null,
                 'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($text), $references),
                 'attachments' => $attachments,
                 'attachmentIds' => array_values($files->pluck('id')->map(fn ($id): int => (int) $id)->all()),
@@ -120,6 +122,37 @@ final class ThreadMessagesData
         }
 
         return $messages;
+    }
+
+    /**
+     * The event sequence at which Claude took in each message, so the conversation places a message right before the
+     * reply it started instead of with earlier history: a message's own "started" state, else its turn starting.
+     *
+     * @return array{messages: array<string, int>, turns: array<int, int>}
+     */
+    private static function readSequences(Thread $thread): array
+    {
+        $sequences = ['messages' => [], 'turns' => []];
+
+        $events = ThreadEvent::query()
+            ->where('thread_id', $thread->id)
+            ->whereIn('type', ['message.state', 'turn'])
+            ->orderBy('sequence')
+            ->get(['type', 'sequence', 'payload']);
+
+        foreach ($events as $event) {
+            $payload = $event->payload;
+
+            if ($event->type === 'message.state' && ($payload['state'] ?? null) === 'started' && is_string($payload['uuid'] ?? null)) {
+                $sequences['messages'][$payload['uuid']] ??= $event->sequence;
+            }
+
+            if ($event->type === 'turn' && ($payload['state'] ?? null) === 'running' && is_int($payload['turnId'] ?? null)) {
+                $sequences['turns'][$payload['turnId']] ??= $event->sequence;
+            }
+        }
+
+        return $sequences;
     }
 
     public static function initials(?string $name): string

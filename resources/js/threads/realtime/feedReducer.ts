@@ -1,24 +1,24 @@
 import type { ThreadEventState } from '../../types/thread-events';
 import { type EventAction, initialEventState, reduceEvents } from './reducer.ts';
 
-export type ThreadEventFeed = { state: ThreadEventState; entrySequences: number[] };
+export type ThreadEventFeed = { state: ThreadEventState; entrySequences: number[]; entryTimes: string[] };
 
 export function initialFeed(): ThreadEventFeed {
-    return { state: initialEventState(), entrySequences: [] };
+    return { state: initialEventState(), entrySequences: [], entryTimes: [] };
 }
 
 /**
  * Runs `reduceEvents` unchanged and records the envelope sequence of every entry it appended.
- * `entrySequences[i]` is the sequence of `state.entries[i]`; an entry the reducer dropped records nothing.
+ * `entrySequences[i]` is the sequence of `state.entries[i]` and `entryTimes[i]` its time; an entry the reducer dropped records nothing.
  */
 export function reduceFeed(feed: ThreadEventFeed, action: EventAction): ThreadEventFeed {
     if (action.kind !== 'events') {
         const state = reduceEvents(feed.state, action);
 
-        return { state, entrySequences: action.kind === 'reset' ? [] : feed.entrySequences };
+        return action.kind === 'reset' ? { state, entrySequences: [], entryTimes: [] } : { state, entrySequences: feed.entrySequences, entryTimes: feed.entryTimes };
     }
 
-    let { state, entrySequences } = feed;
+    let { state, entrySequences, entryTimes } = feed;
 
     for (const event of action.events) {
         const before = state.entries.length;
@@ -26,6 +26,7 @@ export function reduceFeed(feed: ThreadEventFeed, action: EventAction): ThreadEv
 
         if (state.entries.length > before) {
             entrySequences = [...entrySequences, event.sequence];
+            entryTimes = [...entryTimes, event.createdAt];
         }
     }
 
@@ -33,5 +34,5 @@ export function reduceFeed(feed: ThreadEventFeed, action: EventAction): ThreadEv
         state = reduceEvents(state, { kind: 'events', events: [], latestSequence: action.latestSequence });
     }
 
-    return { state, entrySequences };
+    return { state, entrySequences, entryTimes };
 }

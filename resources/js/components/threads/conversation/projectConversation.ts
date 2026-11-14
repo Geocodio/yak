@@ -160,7 +160,7 @@ function joinRuns(previous: ConversationItem, item: ConversationItem): Conversat
 }
 
 /** Turns the live thread state into conversation items plus the sequence at which each user message was read. */
-export function projectConversation(state: Source, entrySequences: number[]): { items: ConversationItem[]; readSequences: Record<string, number> } {
+export function projectConversation(state: Source, entrySequences: number[], entryTimes: string[] = []): { items: ConversationItem[]; readSequences: Record<string, number> } {
     const results = new Map<string, ToolResult>();
     state.entries.forEach((entry) => {
         if (entry.role === 'tool_result') {
@@ -178,7 +178,8 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
         const sequence = entrySequences[index] ?? state.lastSequence;
 
         if (entry.role === 'assistant') {
-            projectAssistant(entry, sequence, results, model).forEach((item) => {
+            projectAssistant(entry, sequence, results, model).forEach((projected) => {
+                const item = entryTimes[index] ? { ...projected, at: entryTimes[index] } : projected;
                 const previous = items[items.length - 1];
                 const joinsPrevious = item.kind === 'tools' && previous?.kind === 'tools' && !personSpoke;
 
