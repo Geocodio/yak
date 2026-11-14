@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The device authorization flow: the CLI starts it, a signed-in user approves it, the CLI redeems the token once.
+ * The device authorization flow: a client (the CLI or a phone) starts it, a signed-in user approves it, the client redeems the token once.
  */
 class DeviceFlow
 {
@@ -128,7 +128,7 @@ class DeviceFlow
             }
 
             if ($authorization->status === 'denied') {
-                return new DeviceFlowException('access_denied', 'The sign-in was denied.');
+                return new DeviceFlowException('access_denied', $kind === DeviceKind::Phone ? 'The sign-in was turned down in the browser. Start pairing again in the app.' : 'The sign-in was denied.');
             }
 
             $lastPolledAt = $authorization->last_polled_at;

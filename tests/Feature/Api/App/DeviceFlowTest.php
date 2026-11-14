@@ -87,6 +87,27 @@ it('answers expired_token when the approving user was deleted before the poll', 
     expect(Device::count())->toBe(0);
 });
 
+it('answers access_denied with a next step when the person turns the phone down', function () {
+    $start = $this->postJson('/api/app/v1/device/code', $this->phone, $this->headers)->assertOk();
+    $this->actingAs(User::factory()->create())->post(route('device.deny'), ['code' => $start->json('user_code')])->assertRedirect();
+    app('auth')->forgetGuards();
+    $this->travel(6)->seconds();
+
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)
+        ->assertStatus(400)->assertJsonPath('error', 'access_denied');
+});
+
+it('answers slow_down when the phone polls faster than the interval', function () {
+    $start = $this->postJson('/api/app/v1/device/code', $this->phone, $this->headers)->assertOk();
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertJsonPath('error', 'authorization_pending');
+
+    $this->postJson('/api/app/v1/device/token', ['device_code' => $start->json('device_code')], $this->headers)->assertStatus(400)->assertJsonPath('error', 'slow_down');
+});
+
+it('refuses a token poll without a device code with 422', function () {
+    $this->postJson('/api/app/v1/device/token', [], $this->headers)->assertStatus(422)->assertJsonPath('error', 'validation_failed');
+});
+
 it('answers expired_token for an unknown or expired device code', function () {
     $this->postJson('/api/app/v1/device/token', ['device_code' => 'nope'], $this->headers)->assertStatus(400)->assertJsonPath('error', 'expired_token');
 

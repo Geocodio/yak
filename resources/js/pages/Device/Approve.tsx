@@ -115,7 +115,7 @@ function Body({ device }: { device: DeviceApproval }) {
                     <div className="mt-4 text-left"><Facts device={device} /></div>
                     <p className="mt-4 flex justify-center gap-4 text-[13px]">
                         <Link href={devices.url()} className="text-accent hover:underline">{device.kind === 'phone' ? 'See your devices' : 'See your computers'}</Link>
-                        <a href={firstTeleportUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">What to try first</a>
+                        {device.kind !== 'phone' && <a href={firstTeleportUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">What to try first</a>}
                     </p>
                 </div>
             );
