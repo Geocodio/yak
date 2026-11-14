@@ -177,3 +177,13 @@ test('viewer shows back-to-task link', function () {
     $response->assertSee(route('tasks.show', $task));
     $response->assertSee('back-to-task', false);
 });
+
+test('signedUrl stays the same within the hour so a playing video is not reloaded', function () {
+    $artifact = Artifact::factory()->screenshot()->create(['yak_task_id' => YakTask::factory()->create()->id]);
+    $this->travelTo(now()->setTime(11, 5, 0));
+    $first = $artifact->signedUrl();
+
+    $this->travelTo(now()->setTime(11, 47, 30));
+
+    expect($artifact->signedUrl())->toBe($first);
+});

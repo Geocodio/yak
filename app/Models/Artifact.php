@@ -122,11 +122,14 @@ class Artifact extends Model
         return YakTask::publicIdForKey($this->yak_task_id);
     }
 
+    /**
+     * The expiry is rounded up to the hour, so the URL stays the same between page reloads and a playing video keeps playing.
+     */
     public function signedUrl(int $expiryDays = 7): string
     {
         return URL::temporarySignedRoute(
             'artifacts.show',
-            now()->addDays($expiryDays),
+            now()->startOfHour()->addDays($expiryDays)->addHour(),
             ['task' => $this->taskPublicId(), 'filename' => $this->filename]
         );
     }
