@@ -20,5 +20,18 @@ return [
         ['id' => 'claude-haiku-5-5', 'family' => 'haiku', 'label' => 'Haiku 5.5'],
     ],
 
+    /*
+     * Context window in tokens by exact model id, as Anthropic documents them. A model missing here
+     * uses the default.
+     */
+    'context_windows' => [
+        'claude-fable-5-2' => 1_000_000,
+        'claude-opus-5-5' => 1_000_000,
+        'claude-sonnet-5-5' => 1_000_000,
+        'claude-haiku-5-5' => 1_000_000,
+    ],
+
+    'default_context_window' => 200_000,
+
     'expiry_warning_days' => 14,
 ];
