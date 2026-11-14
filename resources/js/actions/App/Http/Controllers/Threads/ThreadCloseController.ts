@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadCloseController::__invoke
-* @see app/Http/Controllers/Threads/ThreadCloseController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadCloseController.php:13
 * @route '/threads/{thread}/close'
 */
 const ThreadCloseController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ ThreadCloseController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadCloseController::__invoke
-* @see app/Http/Controllers/Threads/ThreadCloseController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadCloseController.php:13
 * @route '/threads/{thread}/close'
 */
 ThreadCloseController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ ThreadCloseController.url = (args: { thread: string | { public_id: string } } | 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadCloseController::__invoke
-* @see app/Http/Controllers/Threads/ThreadCloseController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadCloseController.php:13
 * @route '/threads/{thread}/close'
 */
 ThreadCloseController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

@@ -3,8 +3,10 @@
 namespace App\Services\Threads;
 
 use App\Jobs\CreatePullRequestJob;
+use App\Models\Artifact;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadEvent;
 use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
@@ -49,6 +51,7 @@ class ThreadArtifacts
 
         $this->dropSupersededRecording($task, $collected);
         $artifacts = ArtifactPersister::persist($task);
+        $this->anchorSharedFiles($thread, $artifacts);
 
         $shell->run($container, 'rm -rf ' . escapeshellarg("{$workspacePath}/.yak-artifacts"));
 
@@ -79,6 +82,26 @@ class ThreadArtifacts
         }
 
         CreatePullRequestJob::dispatch($task);
+    }
+
+    /**
+     * A turn's shared files sit in the conversation after the last event the thread had when they were collected.
+     *
+     * @param  array<int, Artifact>  $artifacts
+     */
+    private function anchorSharedFiles(Thread $thread, array $artifacts): void
+    {
+        $shared = array_filter($artifacts, fn (Artifact $artifact): bool => $artifact->role === Artifact::SHARED_ROLE);
+
+        if ($shared === []) {
+            return;
+        }
+
+        $sequence = ThreadEvent::query()->where('thread_id', $thread->id)->max('sequence');
+
+        foreach ($shared as $artifact) {
+            $artifact->update(['anchor_sequence' => $sequence]);
+        }
     }
 
     private function dropSupersededRecording(YakTask $task, string $collected): void

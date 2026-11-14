@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadDestroyController::__invoke
-* @see app/Http/Controllers/Threads/ThreadDestroyController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDestroyController.php:14
 * @route '/threads/{thread}'
 */
 const ThreadDestroyController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -16,7 +16,7 @@ ThreadDestroyController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadDestroyController::__invoke
-* @see app/Http/Controllers/Threads/ThreadDestroyController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDestroyController.php:14
 * @route '/threads/{thread}'
 */
 ThreadDestroyController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ ThreadDestroyController.url = (args: { thread: string | { public_id: string } } 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadDestroyController::__invoke
-* @see app/Http/Controllers/Threads/ThreadDestroyController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDestroyController.php:14
 * @route '/threads/{thread}'
 */
 ThreadDestroyController.delete = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

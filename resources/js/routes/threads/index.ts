@@ -1,6 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import messages from './messages'
 import restore from './restore'
+import sharedFiles from './shared-files'
 import diff from './diff'
 import environment from './environment'
 import pullRequest from './pull-request'
@@ -209,7 +210,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:22
 * @route '/threads/{thread}'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -224,7 +225,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:22
 * @route '/threads/{thread}'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -257,7 +258,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:22
 * @route '/threads/{thread}'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -267,7 +268,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:22
 * @route '/threads/{thread}'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -379,7 +380,7 @@ seen.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadStarController::__invoke
-* @see app/Http/Controllers/Threads/ThreadStarController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadStarController.php:17
 * @route '/threads/{thread}/star'
 */
 export const star = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -394,7 +395,7 @@ star.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadStarController::__invoke
-* @see app/Http/Controllers/Threads/ThreadStarController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadStarController.php:17
 * @route '/threads/{thread}/star'
 */
 star.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -427,7 +428,7 @@ star.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadStarController::__invoke
-* @see app/Http/Controllers/Threads/ThreadStarController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadStarController.php:17
 * @route '/threads/{thread}/star'
 */
 star.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -437,7 +438,7 @@ star.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadCloseController::__invoke
-* @see app/Http/Controllers/Threads/ThreadCloseController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadCloseController.php:13
 * @route '/threads/{thread}/close'
 */
 export const close = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -452,7 +453,7 @@ close.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadCloseController::__invoke
-* @see app/Http/Controllers/Threads/ThreadCloseController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadCloseController.php:13
 * @route '/threads/{thread}/close'
 */
 close.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -485,7 +486,7 @@ close.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadCloseController::__invoke
-* @see app/Http/Controllers/Threads/ThreadCloseController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadCloseController.php:13
 * @route '/threads/{thread}/close'
 */
 close.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -495,7 +496,7 @@ close.post = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadDestroyController::__invoke
-* @see app/Http/Controllers/Threads/ThreadDestroyController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDestroyController.php:14
 * @route '/threads/{thread}'
 */
 export const destroy = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -510,7 +511,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadDestroyController::__invoke
-* @see app/Http/Controllers/Threads/ThreadDestroyController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDestroyController.php:14
 * @route '/threads/{thread}'
 */
 destroy.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -543,7 +544,7 @@ destroy.url = (args: { thread: string | { public_id: string } } | [thread: strin
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadDestroyController::__invoke
-* @see app/Http/Controllers/Threads/ThreadDestroyController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDestroyController.php:14
 * @route '/threads/{thread}'
 */
 destroy.delete = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -720,6 +721,7 @@ const threads = {
     star: Object.assign(star, star),
     close: Object.assign(close, close),
     destroy: Object.assign(destroy, destroy),
+    sharedFiles: Object.assign(sharedFiles, sharedFiles),
     diff: Object.assign(diff, diff),
     localTurns: Object.assign(localTurns, localTurns),
     environment: Object.assign(environment, environment),

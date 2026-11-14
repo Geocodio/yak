@@ -39,12 +39,20 @@ class Artifact extends Model
     public const array RENDER_INPUT_ROLES = ['shot', 'still'];
 
     /**
+     * Files Claude made for the person (reports, charts, datasets). They show only in the shared-files UI and
+     * never reach the pull request, the walkthrough or the render pipeline.
+     */
+    public const string SHARED_ROLE = 'shared';
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'created_at' => 'datetime',
+            'shared_at' => 'datetime',
+            'shared_with_team' => 'boolean',
         ];
     }
 
@@ -53,6 +61,10 @@ class Artifact extends Model
         static::creating(function (Artifact $artifact): void {
             if (in_array($artifact->role, self::PUBLIC_ROLES, strict: true) && $artifact->public_token === null) {
                 $artifact->public_token = (string) Str::ulid();
+            }
+
+            if ($artifact->role === self::SHARED_ROLE && $artifact->public_id === null) {
+                $artifact->public_id = (string) Str::ulid();
             }
         });
     }
@@ -68,6 +80,30 @@ class Artifact extends Model
         }
 
         return route('artifacts.public', ['token' => $this->public_token]);
+    }
+
+    /**
+     * @param  Builder<Artifact>  $query
+     * @return Builder<Artifact>
+     */
+    public function scopeShared(Builder $query): Builder
+    {
+        return $query->where('role', self::SHARED_ROLE);
+    }
+
+    /**
+     * What a shared file is, from its extension: `report` (HTML), `image`, `csv`, `pdf`, `text` or `file`.
+     */
+    public function sharedKind(): string
+    {
+        return match (strtolower(pathinfo((string) $this->filename, PATHINFO_EXTENSION))) {
+            'html' => 'report',
+            'png', 'jpg', 'jpeg', 'gif', 'webp' => 'image',
+            'csv' => 'csv',
+            'pdf' => 'pdf',
+            'md', 'txt' => 'text',
+            default => 'file',
+        };
     }
 
     /**

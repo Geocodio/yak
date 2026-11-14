@@ -46,6 +46,17 @@ class ArtifactFactory extends Factory
         });
     }
 
+    public function shared(string $filename = 'report.html'): static
+    {
+        return $this->state(fn (): array => [
+            'type' => 'file',
+            'role' => 'shared',
+            'filename' => $filename,
+            'disk_path' => "shared/{$filename}",
+            'size_bytes' => 2048,
+        ]);
+    }
+
     public function video(): static
     {
         return $this->state(function (): array {

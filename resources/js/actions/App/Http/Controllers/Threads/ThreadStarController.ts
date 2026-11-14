@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadStarController::__invoke
-* @see app/Http/Controllers/Threads/ThreadStarController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadStarController.php:17
 * @route '/threads/{thread}/star'
 */
 const ThreadStarController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ ThreadStarController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadStarController::__invoke
-* @see app/Http/Controllers/Threads/ThreadStarController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadStarController.php:17
 * @route '/threads/{thread}/star'
 */
 ThreadStarController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ ThreadStarController.url = (args: { thread: string | { public_id: string } } | [
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadStarController::__invoke
-* @see app/Http/Controllers/Threads/ThreadStarController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadStarController.php:17
 * @route '/threads/{thread}/star'
 */
 ThreadStarController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

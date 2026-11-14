@@ -19,6 +19,7 @@ import PromptVersionController from './PromptVersionController'
 import PrReviews from './PrReviews'
 import Deployments from './Deployments'
 import Threads from './Threads'
+import SharedFileController from './SharedFileController'
 import Devices from './Devices'
 import Cli from './Cli'
 import Api from './Api'
@@ -48,6 +49,7 @@ const Controllers = {
     PrReviews: Object.assign(PrReviews, PrReviews),
     Deployments: Object.assign(Deployments, Deployments),
     Threads: Object.assign(Threads, Threads),
+    SharedFileController: Object.assign(SharedFileController, SharedFileController),
     Devices: Object.assign(Devices, Devices),
     Cli: Object.assign(Cli, Cli),
     Api: Object.assign(Api, Api),

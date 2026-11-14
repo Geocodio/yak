@@ -64,6 +64,8 @@ class VisibilityWorld
 
     public Artifact $artifact;
 
+    public Artifact $sharedFile;
+
     public PrReview $prReview;
 
     public CoOwnerRequest $coOwnerRequest;
@@ -140,6 +142,7 @@ class VisibilityWorld
         ]);
         $world->attachment = TaskAttachment::factory()->create(['yak_task_id' => $world->task->id]);
         $world->artifact = Artifact::factory()->create(['yak_task_id' => $world->task->id, 'filename' => 'shot.png', 'disk_path' => 'private/shot.png']);
+        $world->sharedFile = Artifact::factory()->shared()->create(['yak_task_id' => $world->task->id]);
         $world->prReview = PrReview::factory()->create(['yak_task_id' => $world->task->id, 'repo' => self::REPO, 'pr_number' => 77]);
 
         $world->telemetryEvent = TelemetryEvent::factory()->named('pr.opened')->create([

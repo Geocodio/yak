@@ -24,7 +24,7 @@ class ChainMediaResolver
             // drop every legacy screenshot along with the render inputs.
             ->where(function (Builder $query): void {
                 $query->whereNull('role')
-                    ->orWhereNotIn('role', Artifact::RENDER_INPUT_ROLES);
+                    ->orWhereNotIn('role', [...Artifact::RENDER_INPUT_ROLES, Artifact::SHARED_ROLE]);
             })
             ->get();
     }

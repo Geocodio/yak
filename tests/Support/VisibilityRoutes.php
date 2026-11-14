@@ -22,6 +22,7 @@ class VisibilityRoutes
         'threads.destroy' => ['DELETE', '/threads/{thread}', [], 302],
         'threads.share.show' => ['GET', '/threads/{thread}/share'],
         'threads.share.update' => ['PUT', '/threads/{thread}/share', ['mode' => 'only_me']],
+        'threads.shared-files.team-share' => ['PUT', '/threads/{thread}/files/{sharedFile}/team-share', ['shared' => true]],
         'threads.diff.show' => ['GET', '/threads/{thread}/diff'],
         'threads.diff.files.show' => ['GET', '/threads/{thread}/diff/files/{file}'],
         'threads.environment.show' => ['GET', '/threads/{thread}/environment'],
@@ -117,6 +118,7 @@ class VisibilityRoutes
                 '{deployment}' => $id === $missing ? $missingPublicId : $deployment,
                 '{attachment}' => (string) ($id === $missing ? $missing : $world->attachment->id),
                 '{repository}' => (string) ($id === $missing ? $missing : $world->repository->id),
+                '{sharedFile}' => $id === $missing ? '0000000000000000000000000z' : (string) $world->sharedFile->public_id,
                 '{file}' => (string) ($id === $missing ? $missing : $world->diffFile->id),
                 '{sequence}' => (string) ($id === $missing ? $missing : $world->event->sequence),
                 '{row}' => (string) ($id === $missing ? $missing : $world->pullRequestRow->id),
@@ -205,6 +207,8 @@ class VisibilityRoutes
             'tasks.store', 'tasks.setup-card.dismiss',
             // Token-only public image roles for PR bodies; the route lists nothing and resolves by a 26 character token.
             'artifacts.public',
+            // One shared file by its 26 character id: thread readers, or any signed-in user once the file is shared with the team; everyone else gets the missing-file 404.
+            'shared-files.show', 'shared-files.raw',
             // Host-only protocol for the broker and the CLI behind the session-store token: no signed-in user exists to filter for.
             'session-store.append', 'session-store.checkpoint', 'session-store.file', 'session-store.files',
             'session-store.length', 'session-store.read', 'session-store.tree',
