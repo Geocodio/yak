@@ -37,7 +37,7 @@ class ThreadDeleter
             ->push($thread);
 
         foreach ($threads as $member) {
-            $this->sandbox->destroy($member);
+            $this->sandbox->destroy($member, preserveWork: false);
 
             if (! in_array($member->refresh()->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroyed], true)) {
                 throw new RuntimeException('The sandbox could not be destroyed yet. Try again in a moment.');

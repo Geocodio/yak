@@ -115,7 +115,7 @@ test('deleting a thread removes it, its sub-threads and their rows, and leaves G
     ThreadStar::factory()->create(['user_id' => $user->id, 'thread_id' => $thread->id]);
     ThreadEvent::query()->create(['thread_id' => $thread->id, 'sequence' => 1, 'type' => 'note', 'payload' => []]);
     $sandbox = Mockery::mock(ThreadSandbox::class);
-    $sandbox->shouldReceive('destroy')->twice();
+    $sandbox->shouldReceive('destroy')->twice()->with(Mockery::any(), false);
     app()->instance(ThreadSandbox::class, $sandbox);
 
     $this->actingAs($user)->from(route('threads.show', $thread))->delete(route('threads.destroy', $thread))->assertRedirect(route('home'));
@@ -134,7 +134,7 @@ test('deleting from the sidebar list leaves the person where they are', function
     $thread = Thread::factory()->closed()->create();
     $other = Thread::factory()->create();
     $sandbox = Mockery::mock(ThreadSandbox::class);
-    $sandbox->shouldReceive('destroy')->once();
+    $sandbox->shouldReceive('destroy')->once()->with(Mockery::any(), false);
     app()->instance(ThreadSandbox::class, $sandbox);
 
     $this->actingAs($user)->from(route('threads.show', $other))->delete(route('threads.destroy', $thread))

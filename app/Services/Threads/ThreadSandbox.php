@@ -110,7 +110,7 @@ class ThreadSandbox
         }
     }
 
-    public function destroy(Thread $thread): void
+    public function destroy(Thread $thread, bool $preserveWork = true): void
     {
         if ($thread->sharesParentSandbox()) {
             $this->releaseResearchChild($thread);
@@ -131,20 +131,23 @@ class ThreadSandbox
                 return;
             }
 
-            $priorState = $thread->sandbox_state;
-            $this->wakeForPreserve($thread);
+            // Deleting a thread discards its sandbox as is: nothing is synced or pushed, so the branch stays untouched.
+            if ($preserveWork) {
+                $priorState = $thread->sandbox_state;
+                $this->wakeForPreserve($thread);
 
-            try {
-                $this->sessions->syncFromSandbox($thread);
-            } catch (Throwable $exception) {
-                Log::warning('Session sync failed while destroying a thread sandbox', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
-            }
+                try {
+                    $this->sessions->syncFromSandbox($thread);
+                } catch (Throwable $exception) {
+                    Log::warning('Session sync failed while destroying a thread sandbox', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
+                }
 
-            // Never destroy a sandbox whose work could not be pushed; the sweep retries.
-            if (! $this->preserveWork($thread)) {
-                $this->restorePriorState($thread, $priorState);
+                // Never destroy a sandbox whose work could not be pushed; the sweep retries.
+                if (! $this->preserveWork($thread)) {
+                    $this->restorePriorState($thread, $priorState);
 
-                return;
+                    return;
+                }
             }
 
             $this->sandboxes->destroy($thread);

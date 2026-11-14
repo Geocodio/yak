@@ -46,6 +46,18 @@ test('destroy pushes uncommitted work before deleting', function () {
         ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed);
 });
 
+test('destroy without preserving work pushes nothing to the branch', function () {
+    $thread = keepWorkThread($this->git);
+    $before = $this->git->git(['rev-parse', $this->git->branch]);
+    file_put_contents("{$this->git->workspace}/work.txt", 'discarded');
+
+    app(ThreadSandbox::class)->destroy($thread, preserveWork: false);
+
+    expect($this->git->git(['rev-parse', $this->git->branch]))->toBe($before)
+        ->and(keepWorkOperations($this->git))->toBe(['destroy'])
+        ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed);
+});
+
 test('a failed wip push blocks the destroy', function () {
     $thread = keepWorkThread($this->git);
     $this->git->rejectPushes();
