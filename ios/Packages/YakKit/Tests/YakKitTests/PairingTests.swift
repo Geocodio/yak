@@ -11,12 +11,14 @@ import Testing
 private actor RoutedTransport: HTTPTransport {
     private var routes: [String: [FakeTransport.Result]]
     private(set) var paths: [String] = []
+    private(set) var authorizations: [String: String?] = [:]
 
     init(_ routes: [String: [FakeTransport.Result]]) { self.routes = routes }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let path = request.url!.path.replacingOccurrences(of: "/api/app/v1/", with: "")
         paths.append(path)
+        authorizations[path] = request.value(forHTTPHeaderField: "Authorization")
         guard var queue = routes[path], !queue.isEmpty else {
             return (Data(), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!)
         }
@@ -53,12 +55,13 @@ private func refusal(_ code: String, status: Int = 400) -> FakeTransport.Result 
 private struct Harness {
     let transport: RoutedTransport
     let store: InstanceStore
+    let tokens = InMemoryTokenStore()
     let sleeps: SleepRecorder
     let pairing: Pairing
 
     init(_ routes: [String: [FakeTransport.Result]]) {
         transport = RoutedTransport(routes)
-        store = InstanceStore(defaults: MemoryDefaults(), tokens: InMemoryTokenStore(), now: { Date() })
+        store = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
         let sleeps = SleepRecorder()
         self.sleeps = sleeps
         let transport = transport
@@ -91,6 +94,23 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
         #expect(instance.name == "Acme Yak")
         #expect(instance.userName == "Sam Lee")
         #expect(await harness.store.state(of: instance.id) == .ready)
+        let authorizations = await harness.transport.authorizations
+        #expect(authorizations["me"] == "Bearer yakdev_secret")
+        #expect(authorizations["instance"] == .some(nil))
+        #expect(authorizations["device/pair"] == .some(nil))
+        #expect(try harness.tokens.token(for: instance.id) == "yakdev_secret")
+    }
+
+    @Test(arguments: [FakeTransport.Result.json(500, "oops"), .failure(.notConnectedToInternet)])
+    func aFailingMeKeepsThePairedInstance(me: FakeTransport.Result) async throws {
+        let harness = Harness([
+            "instance": [.json(200, instanceOK)], "device/pair": [.json(200, pairOK)], "me": [me],
+        ])
+        let instance = try await harness.pairing.pair(link: link, device: device)
+        #expect(instance.name == "yak.example.com")
+        #expect(await harness.store.all().count == 1)
+        #expect(await harness.store.state(of: instance.id) == .ready)
+        #expect(try harness.tokens.token(for: instance.id) == "yakdev_secret")
     }
 
     @Test func aWebSiteThatIsNotYakIsReported() async {

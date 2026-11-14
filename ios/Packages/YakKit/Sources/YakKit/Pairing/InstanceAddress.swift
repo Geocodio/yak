@@ -2,7 +2,7 @@ import Foundation
 
 public enum InstanceAddress {
     /// Turns what a person typed into the instance's base URL: always https, lowercase host, optional
-    /// port, no path. Returns nil when the input is not a usable host.
+    /// non-default port, no path. Returns nil when the input is not a usable host.
     public static func normalize(_ input: String) -> URL? {
         var text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !text.contains(where: \.isWhitespace) else { return nil }
@@ -19,7 +19,7 @@ public enum InstanceAddress {
         components.host = host.lowercased()
         if parts.count == 2 {
             guard let port = Int(parts[1]), (1...65535).contains(port) else { return nil }
-            components.port = port
+            if port != 443 { components.port = port }
         }
         return components.url
     }

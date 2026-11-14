@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(os)
+    import os
+#endif
+
 #if canImport(FoundationNetworking)
     import FoundationNetworking
 #endif
@@ -113,14 +117,36 @@ public actor Pairing {
     private func store(_ response: PairingResponse, url: URL, client: APIClient) async throws(PairingProblem)
         -> Instance
     {
+        let instance: Instance
         do {
-            let instance = try await instances.add(
+            instance = try await instances.add(
                 url: url, name: url.host ?? url.absoluteString, userName: response.user.name,
                 token: response.token)
-            if let me = try? await client.authenticated(token: response.token).send(.me()) {
-                try await instances.update(instance.id, from: me)
-            }
-            return await instances.all().first { $0.id == instance.id } ?? instance
         } catch { throw .other("storage_failed") }
+        do {
+            let me = try await client.authenticated(token: response.token).send(.me())
+            try await instances.update(instance.id, from: me)
+        } catch let failure as APIFailure {
+            logMeFailure(failure)
+        } catch { throw .other("storage_failed") }
+        return await instances.all().first { $0.id == instance.id } ?? instance
     }
+}
+
+/// Logs which kind of failure the `me` refresh hit: the case or the server error code, never the
+/// token or a response body. Linux has no `os.Logger`, so it is a no-op there.
+private func logMeFailure(_ failure: APIFailure) {
+    #if canImport(os)
+        let reason: String
+        switch failure {
+        case .server(let error): reason = "server \(error.code)"
+        case .unauthorized(let code): reason = "unauthorized \(code)"
+        case .network(let code): reason = "network \(code.rawValue)"
+        case .appTooOld: reason = "appTooOld"
+        case .serverTooOld: reason = "serverTooOld"
+        case .notYak: reason = "notYak"
+        case .encodingFailed: reason = "encodingFailed"
+        }
+        Logger(subsystem: "YakKit", category: "Pairing").error("me refresh failed: \(reason, privacy: .public)")
+    #endif
 }

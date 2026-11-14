@@ -11,6 +11,7 @@ import Testing
         ("  yak.example.com  ", "https://yak.example.com"),
         ("https://yak.example.com/threads/abc", "https://yak.example.com"),
         ("yak.example.com:8443", "https://yak.example.com:8443"),
+        ("yak.example.com:443", "https://yak.example.com"),
     ])
     func normalizesWhatPeopleType(input: String, expected: String) {
         #expect(InstanceAddress.normalize(input)?.absoluteString == expected)

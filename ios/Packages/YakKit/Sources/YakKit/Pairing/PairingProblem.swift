@@ -2,6 +2,8 @@
 public enum PairingProblem: Error, Equatable, Sendable {
     case invalidAddress, notYak, unreachable, serverTooOld, appTooOld, codeInvalid, codeExpired, denied
     case cancelled
+    /// Diagnostic only: the payload may be a raw server message or error code and must not be shown
+    /// as is. Screens show a plain-words message with a retry.
     case other(String)
 
     init(_ failure: APIFailure) {
