@@ -125,3 +125,15 @@ private func failure(of transport: FakeTransport, recorder: SleepRecorder = Slee
     _ = try await makeClient(transport).send(Endpoint<InstanceInfo>(method: .post, path: "x", body: ["a": "b"]))
     #expect(await transport.requests[0].httpBody == Data(#"{"a":"b"}"#.utf8))
 }
+
+@Test(arguments: [
+    #"1e30"#, #"-3"#, #"2.5"#, #""3""#, #"null"#, #"9223372036854775808"#, #"1e400"#,
+])
+func aBadMinimumProtocolIsNotYakAndNeverTraps(minimum: String) async {
+    let body = #"{"error":"protocol_too_old","details":{"min_protocol":\#(minimum)}}"#
+    #expect(await failure(of: FakeTransport(.json(426, body))) == .notYak)
+}
+
+@Test func aMissingMinimumProtocolIsNotYak() async {
+    #expect(await failure(of: FakeTransport(.json(426, #"{"error":"protocol_too_old","details":{}}"#))) == .notYak)
+}

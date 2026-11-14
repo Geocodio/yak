@@ -124,8 +124,12 @@ public actor APIClient {
                 ? .server(APIError(status: status, code: "unknown", message: "", details: [:])) : .notYak
         }
         if status == 426, error.code == "protocol_too_old" {
-            guard case .number(let minimum)? = error.details["min_protocol"] else { throw .notYak }
-            throw .appTooOld(minimum: Int(minimum))
+            // A number from the network never goes through a trapping conversion: a missing,
+            // negative, fractional or out-of-range value is not a Yak answer.
+            guard case .number(let number)? = error.details["min_protocol"],
+                let minimum = Int(exactly: number), minimum >= 0
+            else { throw .notYak }
+            throw .appTooOld(minimum: minimum)
         }
         if status == 401 { throw .unauthorized(code: error.code) }
         throw .server(error)
