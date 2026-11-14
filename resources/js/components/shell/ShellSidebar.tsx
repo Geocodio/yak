@@ -32,7 +32,10 @@ export function ShellSidebar() {
     const [picked, setPicked] = useState<RailSection | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(readCollapsed);
     const isDocked = useThreadDocked();
+    // A docked thread panel hides the sidebar until the person asks for it with the rail.
+    const [isOpenedOverDock, setIsOpenedOverDock] = useState(false);
     const active = picked ?? sectionForUrl(url);
+    const isPanelHidden = isCollapsed || (isDocked && !isOpenedOverDock);
 
     useMarkThreadSeen(url);
 
@@ -40,14 +43,12 @@ export function ShellSidebar() {
         setPicked(null);
     }, [url]);
 
-    const select = (section: RailSection) => {
-        if (section === active && section === 'threads') {
-            const next = !isCollapsed;
-            setIsCollapsed(next);
-            writeCollapsed(next);
-            return;
-        }
-        setPicked(section);
+    useEffect(() => {
+        setIsOpenedOverDock(false);
+    }, [url, isDocked]);
+
+    const open = () => {
+        setIsOpenedOverDock(isDocked);
         if (isCollapsed) {
             setIsCollapsed(false);
             writeCollapsed(false);
@@ -55,14 +56,26 @@ export function ShellSidebar() {
     };
 
     const collapse = () => {
+        setIsOpenedOverDock(false);
         setIsCollapsed(true);
         writeCollapsed(true);
     };
 
+    const select = (section: RailSection) => {
+        if (section === active && section === 'threads' && !isPanelHidden) {
+            collapse();
+            return;
+        }
+        setPicked(section);
+        open();
+    };
+
     const togglePanel = () => {
-        const next = !isCollapsed;
-        setIsCollapsed(next);
-        writeCollapsed(next);
+        if (isPanelHidden) {
+            open();
+        } else {
+            collapse();
+        }
     };
 
     // The "[" shortcut reads the latest toggle without re-binding the listener.
@@ -83,11 +96,9 @@ export function ShellSidebar() {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
 
-    const isPanelHidden = isCollapsed || isDocked;
-
     return (
         <aside className="hidden shrink-0 border-r border-hair bg-sidebar lg:flex" data-testid="sidebar">
-            <IconRail active={active} onSelect={select} onShowThreads={isCollapsed && !isDocked ? togglePanel : undefined} />
+            <IconRail active={active} onSelect={select} onShowThreads={isPanelHidden ? open : undefined} />
             <div
                 className={cn('min-h-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none', isPanelHidden ? 'w-0' : 'w-[300px]')}
                 aria-hidden={isPanelHidden || undefined}

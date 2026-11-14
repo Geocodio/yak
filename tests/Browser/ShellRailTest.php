@@ -82,6 +82,19 @@ test('a docked thread panel leaves only the rail on a wide screen', function () 
         ->assertNoJavaScriptErrors();
 });
 
+test('a rail button opens the sidebar over a docked thread panel', function (string $section) {
+    $this->actingAs(User::factory()->create());
+    $thread = Thread::factory()->create();
+
+    visit(route('threads.show', $thread))
+        ->click('[data-testid="thread-dock-toggle-preview"]')
+        ->assertAttribute('[data-testid="sidebar-panel"]', 'aria-hidden', 'true')
+        ->click('[data-testid="rail-' . $section . '"]')
+        ->assertVisible('[data-testid="sidebar-panel"]')
+        ->assertAttributeMissing('[data-testid="sidebar-panel"]', 'aria-hidden')
+        ->assertNoJavaScriptErrors();
+})->with(['threads', 'operations']);
+
 test('the Overview rail floats over the open view behind a header toggle at laptop width', function () {
     $this->actingAs(User::factory()->create());
     $thread = Thread::factory()->create();
