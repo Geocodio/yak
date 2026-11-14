@@ -11,9 +11,10 @@ public struct Endpoint<Response>: Sendable {
     public let method: Method
     /// Relative to `/api/app/v1/`, without a leading slash.
     public let path: String
-    public let body: Data?
+    /// Encoded as JSON by `APIClient.send`, where an encoding failure is thrown.
+    public let body: (any Encodable & Sendable)?
 
-    public init(method: Method, path: String, body: Data? = nil) {
+    public init(method: Method, path: String, body: (any Encodable & Sendable)? = nil) {
         self.method = method
         self.path = path
         self.body = body
@@ -31,7 +32,7 @@ public struct EmptyResponse: Decodable, Sendable, Equatable {
     public init() {}
 }
 
-private struct DeviceDescription: Encodable {
+private struct DeviceDescription: Encodable, Sendable {
     let name: String
     let model: String
     let osVersion: String
@@ -44,7 +45,7 @@ private struct DeviceDescription: Encodable {
     }
 }
 
-private struct PairBody: Encodable {
+private struct PairBody: Encodable, Sendable {
     let code: String
     let description: DeviceDescription
 
@@ -57,7 +58,7 @@ private struct PairBody: Encodable {
     }
 }
 
-private struct PollBody: Encodable {
+private struct PollBody: Encodable, Sendable {
     let deviceCode: String
 
     enum CodingKeys: String, CodingKey { case deviceCode = "device_code" }
@@ -74,13 +75,13 @@ extension Endpoint where Response == DeviceCode {
         -> Endpoint<DeviceCode>
     {
         let description = DeviceDescription(name: name, model: model, osVersion: osVersion, appVersion: appVersion)
-        return Endpoint(method: .post, path: "device/code", body: try? JSONEncoder().encode(description))
+        return Endpoint(method: .post, path: "device/code", body: description)
     }
 }
 
 extension Endpoint where Response == PairingResponse {
     public static func pollDeviceToken(deviceCode: String) -> Endpoint<PairingResponse> {
-        Endpoint(method: .post, path: "device/token", body: try? JSONEncoder().encode(PollBody(deviceCode: deviceCode)))
+        Endpoint(method: .post, path: "device/token", body: PollBody(deviceCode: deviceCode))
     }
 
     public static func pair(code: String, name: String, model: String, osVersion: String, appVersion: String)
@@ -89,7 +90,7 @@ extension Endpoint where Response == PairingResponse {
         let description = DeviceDescription(name: name, model: model, osVersion: osVersion, appVersion: appVersion)
         return Endpoint(
             method: .post, path: "device/pair",
-            body: try? JSONEncoder().encode(PairBody(code: code, description: description)))
+            body: PairBody(code: code, description: description))
     }
 }
 

@@ -82,7 +82,7 @@ private func failure(of transport: FakeTransport, recorder: SleepRecorder = Slee
 @Test func doesNotRetryAPost() async {
     let transport = FakeTransport(.failure(.timedOut))
     let client = makeClient(transport)
-    let endpoint = Endpoint<InstanceInfo>(method: .post, path: "device/pair", body: Data("{}".utf8))
+    let endpoint = Endpoint<InstanceInfo>(method: .post, path: "device/pair", body: ["a": "b"])
     do {
         _ = try await client.send(endpoint)
         Issue.record("expected a failure")
@@ -99,4 +99,29 @@ private func failure(of transport: FakeTransport, recorder: SleepRecorder = Slee
     let failure = await failure(of: transport)
     #expect(!String(describing: client).contains("yakdev_"))
     #expect(!String(describing: failure as Any).contains("yakdev_"))
+}
+
+@Test func anEmptyNoContentAnswerDecodesAsEmptyResponse() async throws {
+    let transport = FakeTransport(.json(204, ""))
+    let result = try await makeClient(transport).send(.unpair())
+    #expect(result == EmptyResponse())
+    let request = await transport.requests[0]
+    #expect(request.httpMethod == "DELETE")
+    #expect(request.url?.path == "/api/app/v1/device")
+}
+
+@Test func anEmptyOKAnswerToMeIsNotYak() async {
+    let transport = FakeTransport(.json(200, ""))
+    do {
+        _ = try await makeClient(transport).send(.me())
+        Issue.record("expected a failure")
+    } catch {
+        #expect(error == .notYak)
+    }
+}
+
+@Test func sendsTheEncodedBody() async throws {
+    let transport = FakeTransport(.json(200, instanceBody))
+    _ = try await makeClient(transport).send(Endpoint<InstanceInfo>(method: .post, path: "x", body: ["a": "b"]))
+    #expect(await transport.requests[0].httpBody == Data(#"{"a":"b"}"#.utf8))
 }

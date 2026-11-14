@@ -13,10 +13,14 @@ enum Fixtures {
 
     static func data(_ name: String) throws -> Data {
         // Read through the ios/fixtures symlink: SwiftPM copies a symlinked resource as a dangling link.
-        let url = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("fixtures/\(name).json")
+        // Walk up from this file to the `ios` directory, so a moved file fails with a clear message.
+        var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        while directory.lastPathComponent != "ios" {
+            let parent = directory.deletingLastPathComponent()
+            try #require(parent != directory, "FixtureDecodingTests.swift must live under the ios directory")
+            directory = parent
+        }
+        let url = directory.appendingPathComponent("fixtures/\(name).json")
         let object = try JSONSerialization.jsonObject(with: Data(contentsOf: url))
         return try JSONSerialization.data(withJSONObject: replacingVolatile(object, key: ""))
     }
@@ -58,15 +62,28 @@ func decodesEveryFixture(name: String) throws {
     #expect(try JSONDecoder().decode(Holder.self, from: Data(#"{"id":"<volatile>"}"#.utf8)).id.value == "<volatile>")
 }
 
+private func jsonBody<Response>(_ endpoint: Endpoint<Response>) throws -> [String: String] {
+    let body = try #require(endpoint.body)
+    let data = try JSONEncoder().encode(body)
+    return try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
+}
+
 @Test func endpointsCarryTheDocumentedBodies() throws {
     let start = Endpoint.startDeviceFlow(name: "n", model: "m", osVersion: "27", appVersion: "1")
     #expect(start.path == "device/code" && start.method == .post)
-    let startData = try #require(start.body)
-    let body = try #require(JSONSerialization.jsonObject(with: startData) as? [String: String])
-    #expect(body == ["name": "n", "model": "m", "os_version": "27", "app_version": "1"])
+    #expect(try jsonBody(start) == ["name": "n", "model": "m", "os_version": "27", "app_version": "1"])
+
+    let poll = Endpoint.pollDeviceToken(deviceCode: "d")
+    #expect(poll.path == "device/token" && poll.method == .post)
+    #expect(try jsonBody(poll) == ["device_code": "d"])
+
     let pair = Endpoint.pair(code: "c", name: "n", model: "m", osVersion: "27", appVersion: "1")
-    let pairData = try #require(pair.body)
-    let pairBody = try #require(JSONSerialization.jsonObject(with: pairData) as? [String: String])
-    #expect(pairBody["code"] == "c" && pairBody["os_version"] == "27")
-    #expect(Endpoint.unpair().method == .delete)
+    #expect(pair.path == "device/pair" && pair.method == .post)
+    #expect(
+        try jsonBody(pair) == ["code": "c", "name": "n", "model": "m", "os_version": "27", "app_version": "1"])
+
+    let me = Endpoint.me()
+    #expect(me.path == "me" && me.method == .get && me.body == nil)
+    let unpair = Endpoint.unpair()
+    #expect(unpair.path == "device" && unpair.method == .delete)
 }

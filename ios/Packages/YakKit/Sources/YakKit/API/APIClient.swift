@@ -53,7 +53,7 @@ public actor APIClient {
     public func send<Response: Decodable & Sendable>(_ endpoint: Endpoint<Response>) async throws(APIFailure)
         -> Response
     {
-        let request = makeRequest(endpoint)
+        let request = try makeRequest(endpoint)
         let maximumRetries = endpoint.method == .get ? Self.retryDelays.count : 0
         var attempt = 0
         while true {
@@ -76,7 +76,7 @@ public actor APIClient {
         }
     }
 
-    private func makeRequest<Response>(_ endpoint: Endpoint<Response>) -> URLRequest {
+    private func makeRequest<Response>(_ endpoint: Endpoint<Response>) throws(APIFailure) -> URLRequest {
         var request = URLRequest(url: baseURL.appendingPathComponent("api/app/v1/\(endpoint.path)"))
         request.httpMethod = endpoint.method.rawValue
         request.timeoutInterval = 15
@@ -87,7 +87,8 @@ public actor APIClient {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         if let body = endpoint.body {
-            request.httpBody = body
+            guard let encoded = try? JSONEncoder().encode(body) else { throw .encodingFailed }
+            request.httpBody = encoded
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         return request

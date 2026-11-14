@@ -84,4 +84,6 @@ public enum APIFailure: Error, Equatable, Sendable {
     case network(URLError.Code)
     /// A body that is not JSON in the expected shape.
     case notYak
+    /// The request body could not be encoded; nothing was sent.
+    case encodingFailed
 }
