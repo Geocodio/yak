@@ -34,6 +34,11 @@ test('it sets systemPrompt preset claude_code with the append text', () => {
   assert.deepEqual(buildOptions(start({ appendSystemPrompt: 'extra' }), {}).systemPrompt, { type: 'preset', preset: 'claude_code', append: 'extra' });
 });
 
+test('it renders the system prompt fresh on every request, also on resume', () => {
+  assert.equal(buildOptions(start({ appendSystemPrompt: 'extra', resume: 'sess-1' }), {}).systemPromptSnapshot, false);
+  assert.equal(buildOptions(start(), {}).systemPromptSnapshot, false);
+});
+
 test('it passes resume only when set', () => {
   assert.equal('resume' in buildOptions(start(), {}), false);
   assert.equal(buildOptions(start({ resume: 'sess-1' }), {}).resume, 'sess-1');
