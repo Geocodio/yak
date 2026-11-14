@@ -1,7 +1,7 @@
 import { Button, ConfirmDialog } from '@geocodio/console-ui';
 import { router } from '@inertiajs/react';
 import { Layers, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { THREAD_GROUP, stackActions } from '@/commandPalette/threadPageActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { drop, split, stop, takeOver } from '@/routes/threads/stack';
@@ -20,14 +20,14 @@ export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAdd
     const [isStopping, setIsStopping] = useState(false);
 
     const children = stack?.children;
+    const reloadRef = useRef(reloadStack);
+    reloadRef.current = reloadStack;
     const actions = useMemo(
         () =>
             stackActions(children ?? [], (action, childId) => {
                 const route = { takeOver, split, drop }[action];
-                router.post(route.url(childId), {}, { preserveScroll: true, onFinish: reloadStack });
+                router.post(route.url(childId), {}, { preserveScroll: true, onFinish: () => reloadRef.current() });
             }),
-        // The reload handler is read when an action runs, so its identity does not re-register them.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [children],
     );
     useCommandPaletteActions(THREAD_GROUP, actions);

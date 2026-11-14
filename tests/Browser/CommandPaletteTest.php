@@ -226,3 +226,17 @@ test('Open file searches the file tree and opens the file in the files panel', f
         ->assertMissing('[data-testid="app-palette"]')
         ->assertSeeIn('[data-testid="files-open-path"]', 'beta.md');
 });
+
+test('Make private states that nobody else can read the thread', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+    $thread = paletteThread($owner, ['visibility' => 'team']);
+
+    $page = visit(route('threads.show', $thread))->assertPresent('[data-testid="thread-header"]');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'make private')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertSee('Make this thread private?')
+        ->assertSee('Only you can see this thread. Nobody else can read its conversation, changes or details.');
+});

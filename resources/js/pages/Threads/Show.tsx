@@ -12,7 +12,7 @@ import { breadcrumbParent } from '@/components/threads/header/breadcrumbParent';
 import { ThreadHeader } from '@/components/threads/header/ThreadHeader';
 import { PrivateThreadBanner } from '@/components/threads/share/PrivateThreadBanner';
 import { ChildParentBanner } from '@/components/threads/stack/ChildParentBanner';
-import { canTeleportThread } from '@/components/threads/teleport/canTeleportThread';
+import { canTeleportThread, teleportLabel as teleportLabelFor } from '@/components/threads/teleport/canTeleportThread';
 import { TeleportConversationNotices } from '@/components/threads/teleport/TeleportConversationNotices';
 import { TeleportToComputerDialog } from '@/components/threads/teleport/TeleportToComputerDialog';
 import { TeleportToYakDialog } from '@/components/threads/teleport/TeleportToYakDialog';
@@ -148,7 +148,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const pageHandlers = useRef(handlers);
     pageHandlers.current = handlers;
     const parent = breadcrumbParent(thread, stackParent);
-    const teleportLabel = canTeleportThread(teleport) ? (teleport.state === 'on_device' ? 'Teleport to Yak' : 'Teleport to your computer') : null;
+    const teleportLabel = canTeleportThread(teleport) ? teleportLabelFor(teleport) : null;
     const previewTargets = thread.preview.targets.map((target) => ({ title: target.title, url: target.url }));
     const previewTargetsKey = JSON.stringify(previewTargets);
     const dockPanelKey = dockPanelIds.join(',');

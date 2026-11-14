@@ -10,7 +10,7 @@ import { ThreadHeaderMeta } from '@/components/threads/header/ThreadHeaderMeta';
 import { ShareButton } from '@/components/threads/share/ShareButton';
 import { ShareThreadDialog } from '@/components/threads/share/ShareThreadDialog';
 import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
-import { canTeleportThread } from '@/components/threads/teleport/canTeleportThread';
+import { canTeleportThread, teleportLabel } from '@/components/threads/teleport/canTeleportThread';
 import { breadcrumbParent } from '@/components/threads/header/breadcrumbParent';
 import { show } from '@/routes/threads';
 import { ThreadDockToggles } from '@/threads/dock/ThreadDock';
@@ -58,7 +58,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
 
     const menuItems = [
         ...(canAddSubThread ? [{ key: 'sub-thread', label: 'Add a sub-thread', icon: <Layers size={14} />, onSelect: onAddSubThread, testId: 'thread-menu-add-sub-thread' }] : []),
-        ...(canTeleport ? [{ key: 'teleport', label: teleport.state === 'on_device' ? 'Teleport to Yak' : 'Teleport to your computer', icon: <Monitor size={14} />, onSelect: onTeleport, testId: 'thread-menu-teleport' }] : []),
+        ...(canTeleport ? [{ key: 'teleport', label: teleportLabel(teleport), icon: <Monitor size={14} />, onSelect: onTeleport, testId: 'thread-menu-teleport' }] : []),
         ...(thread.branch !== null ? [{ key: 'copy-branch', label: 'Copy branch name', icon: <Copy size={14} />, dividerAbove: true, onSelect: () => copyBranchName(thread.branch as string), testId: 'thread-menu-copy-branch' }] : []),
         ...(thread.isOwner ? [{ key: 'share', label: 'Share', icon: <Share2 size={14} />, onSelect: () => setIsSharing(true), testId: 'thread-menu-share' }] : []),
     ];

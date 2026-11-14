@@ -137,16 +137,16 @@ export function headerActions({ threadId, isOwner, visibility, canOpenPullReques
                   visibility === 'team'
                       ? {
                             id: 'thread-make-private',
-                            label: 'Make private',
+                            label: 'Make private (only me)',
                             keywords: ['visibility', 'hide', 'only me', 'lock'],
-                            confirm: { title: 'Make this thread private?', body: 'Only you and the people you share it with can see it.', confirmLabel: 'Make private' },
+                            confirm: { title: 'Make this thread private?', body: 'Only you can see this thread. Nobody else can read its conversation, changes or details.', confirmLabel: 'Make private' },
                             run: () => changeVisibility('only_me', 'This thread is private'),
                         }
                       : {
                             id: 'thread-make-visible',
-                            label: 'Make visible to the team',
-                            keywords: ['visibility', 'everyone', 'public', 'unlock'],
-                            confirm: { title: 'Make this thread visible to the team?', body: 'Everyone on the team can see it.', confirmLabel: 'Make visible' },
+                            label: 'Share with everyone on the team',
+                            keywords: ['visibility', 'make visible', 'team', 'public', 'unlock'],
+                            confirm: { title: 'Make this thread visible to the team?', body: 'Everyone on the team can read its conversation, changes and details.', confirmLabel: 'Make visible' },
                             run: () => changeVisibility('everyone', 'This thread is visible to the team'),
                         },
               ]
