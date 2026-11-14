@@ -9,6 +9,8 @@ use App\Models\ThreadDiff;
 use App\Models\ThreadRepository;
 use App\Models\ThreadShare;
 use App\Models\User;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -89,6 +91,23 @@ it('adds a child from the thread page', function () {
         ->and($child->name)->toBe('docs-scout')
         ->and($child->model)->toBe('haiku');
     Queue::assertPushed(StartChildThreadJob::class, fn (StartChildThreadJob $job) => $job->childThreadId === $child->id);
+});
+
+it('adds a child pinned to a specific model version', function () {
+    Queue::fake();
+    Cache::forever(ClaudeModelCatalog::CACHE_KEY, [
+        ['id' => 'claude-opus-5-5', 'family' => 'opus', 'label' => 'Opus 5.5', 'createdAt' => '2026-05-01T00:00:00Z'],
+        ['id' => 'claude-opus-5', 'family' => 'opus', 'label' => 'Opus 5', 'createdAt' => '2026-02-01T00:00:00Z'],
+    ]);
+
+    $response = $this->actingAs($this->user)->postJson(route('threads.stack.children.store', $this->root), [
+        'name' => 'Pinned',
+        'brief' => 'Do it.',
+        'kind' => 'mockup',
+        'model' => 'claude-opus-5',
+    ])->assertCreated();
+
+    expect(Thread::query()->findOrFail($response->json('id'))->model)->toBe('claude-opus-5');
 });
 
 it('refuses a child from a child, a device-owned parent and an invalid kind', function () {

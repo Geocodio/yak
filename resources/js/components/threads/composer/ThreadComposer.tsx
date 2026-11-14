@@ -13,6 +13,7 @@ import { stop } from '@/routes/threads';
 import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice } from '@/types/threads';
 import { composerCopy } from './composerCopy';
 import { ModelPicker } from '@/components/accounts/ModelPicker';
+import { ContextRing } from './ContextRing';
 
 const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
     disabled_closed: 'This thread is closed.',
@@ -94,7 +95,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
     return (
         <div className="shrink-0 border-t border-hair bg-app px-4 py-4 sm:px-8" data-testid="thread-composer">
             <div className="mx-auto max-w-[820px]">
-                <div className="relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
+                <div className="@container relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
                     <AttachmentDropOverlay draft={draft} />
                     <AttachmentTextarea
                         ref={editorRef}
@@ -130,6 +131,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
                             )}
                             {!disabled && <AttachButton draft={draft} disabled={form.processing} />}
                             <ModelPicker variant="inline" models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} disabled={disabled} testId="composer-model" />
+                            <ContextRing composer={composer} model={form.data.model} />
                             <span className="truncate text-[11px] text-faint" data-testid="thread-composer-hint">
                                 {DISABLED_COPY[composer.state] ?? copy.hint}
                             </span>

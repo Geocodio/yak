@@ -3,7 +3,9 @@
 // group of the Overview rail), and importing it here.
 export {};
 import './environment';
+import './context';
 import './stack';
 import './preview';
 import '@/threads/panels/terminal';
 import './files';
+import './shared-files';

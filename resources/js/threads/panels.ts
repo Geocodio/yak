@@ -1,15 +1,20 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { FilesMode, FocusRequest } from '@/threads/panels/files/filesMode';
 import type { StackData } from '@/types/stack';
-import type { TeleportData, ThreadCapacity, ThreadComposer, ThreadData, ThreadNotice } from '@/types/threads';
+import type { SharedFile, TeleportData, ThreadCapacity, ThreadComposer, ThreadData, ThreadNotice } from '@/types/threads';
 import type { ThreadDiffSummary } from '@/types/thread-changes';
 
 export type PanelProps = {
     thread: ThreadData;
     canDrive: boolean;
     notice?: ThreadNotice | null;
+    /** The files Claude made for the person, newest last. */
+    sharedFiles?: SharedFile[];
     composerState?: ThreadComposer['state'];
     capacity?: ThreadCapacity | null;
+    composer?: ThreadComposer;
+    /** Catalog label of each model id and family alias. */
+    modelLabels?: Record<string, string>;
     accountName?: string | null;
     environmentSwitch?: TeleportData['environmentSwitch'];
     /** The thread's stack, loaded once by the page; null until it arrives. */

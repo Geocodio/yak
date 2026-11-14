@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Models\StackThreadMessage;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Stacks\StackListing;
 use App\Services\Stacks\StackUsage;
 use App\Services\Threads\ThreadAccess;
@@ -30,6 +31,8 @@ final class StackData
      *     children: list<array{id: string, name: string, title: string, kind: string, model: ?string, state: string, step: ?string, resultSummary: ?string, branch: ?string, repo: ?string, pullRequestUrl: ?string, ciStatus: ?string, filesChanged: ?int, queued: bool, messagesPaused: bool, takenOver: bool, canOverride: bool}>,
      *     limit: array{current: int, max: int, awake: int, waiting: int},
      *     maxChildren: int,
+     *     models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>,
+     *     parentAccountName: ?string,
      *     usage: array{turnCount: int, costUsd: float, activeHours: float, note: string},
      *     messages: list<array{id: int, fromName: string, toName: string, kind: string, text: string, createdAt: string}>,
      *     canDrive: bool,
@@ -101,6 +104,8 @@ final class StackData
             'children' => $children,
             'limit' => ['current' => $root->child_awake_limit, 'max' => (int) config('yak.threads.person_awake_cap'), 'awake' => $awake, 'waiting' => $waiting],
             'maxChildren' => (int) config('yak.threads.max_children'),
+            'models' => app(ClaudeModelCatalog::class)->families(),
+            'parentAccountName' => $root->claudeAccount?->name,
             'usage' => [
                 'turnCount' => $usage['turnCount'],
                 'costUsd' => $usage['costUsd'],

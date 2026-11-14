@@ -82,7 +82,8 @@ final class ThreadMessagesData
                     TurnMessageState::Cancelled => 'cancelled',
                 },
                 'intent' => $row->intent,
-                'sentAt' => $row->created_at?->toIso8601String() ?? '',
+                // A steer row is made when Yak hands the message over; the person sent it when its pending row was made.
+                'sentAt' => ($steer->created_at ?? $row->created_at)?->toIso8601String() ?? '',
                 'readAfterSequence' => $readAt['messages'][$row->uuid] ?? $readAt['turns'][$run->id] ?? null,
                 'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($text), $references),
                 'attachments' => $attachments,

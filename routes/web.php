@@ -53,6 +53,7 @@ use App\Http\Controllers\Repositories\RepositoryController;
 use App\Http\Controllers\Repositories\RiskProfileController;
 use App\Http\Controllers\Settings\McpLoginController;
 use App\Http\Controllers\Settings\McpServerController;
+use App\Http\Controllers\SharedFileController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\SystemController;
 use App\Http\Controllers\TaskAttachmentController;
@@ -89,7 +90,9 @@ use App\Http\Controllers\Threads\Stack\StackShowController;
 use App\Http\Controllers\Threads\Stack\StackStopController;
 use App\Http\Controllers\Threads\StoreThreadController;
 use App\Http\Controllers\Threads\TerminalSessionController;
+use App\Http\Controllers\Threads\ThreadCloseController;
 use App\Http\Controllers\Threads\ThreadController;
+use App\Http\Controllers\Threads\ThreadDestroyController;
 use App\Http\Controllers\Threads\ThreadDiffController;
 use App\Http\Controllers\Threads\ThreadEnvironmentController;
 use App\Http\Controllers\Threads\ThreadEventController;
@@ -101,6 +104,8 @@ use App\Http\Controllers\Threads\ThreadRepositoryController;
 use App\Http\Controllers\Threads\ThreadRepositoryProgressController;
 use App\Http\Controllers\Threads\ThreadSeenController;
 use App\Http\Controllers\Threads\ThreadShareController;
+use App\Http\Controllers\Threads\ThreadSharedFileController;
+use App\Http\Controllers\Threads\ThreadStarController;
 use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Http\Middleware\CliProtocol;
@@ -305,8 +310,25 @@ Route::middleware(['auth'])->group(function () {
     Route::get('threads/list', ThreadListController::class)->name('threads.list');
     Route::post('threads/{thread}/seen', ThreadSeenController::class)
         ->name('threads.seen');
+    Route::post('threads/{thread}/star', ThreadStarController::class)
+        ->name('threads.star');
+    Route::post('threads/{thread}/close', ThreadCloseController::class)
+        ->name('threads.close');
+    Route::delete('threads/{thread}', ThreadDestroyController::class)
+        ->name('threads.destroy');
 
     // Changes.
+    Route::put('threads/{thread}/files/{sharedFile}/team-share', ThreadSharedFileController::class)
+        ->where('sharedFile', '[0-9A-Za-z]{26}')
+        ->name('threads.shared-files.team-share');
+
+    Route::get('files/{publicId}', [SharedFileController::class, 'show'])
+        ->where('publicId', '[0-9A-Za-z]{26}')
+        ->name('shared-files.show');
+    Route::get('files/{publicId}/raw', [SharedFileController::class, 'raw'])
+        ->where('publicId', '[0-9A-Za-z]{26}')
+        ->name('shared-files.raw');
+
     Route::get('threads/{thread}/diff', [ThreadDiffController::class, 'show'])
         ->name('threads.diff.show');
     Route::get('threads/{thread}/diff/files/{file}', [ThreadDiffController::class, 'showFile'])

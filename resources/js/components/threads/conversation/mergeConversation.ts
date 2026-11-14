@@ -19,12 +19,29 @@ function sameTime(a: ThreadMessage, b: ThreadMessage): number {
 }
 
 /**
+ * Orders read messages by the sequence at which Claude took them in, but never ahead of a message sent earlier:
+ * walking back from the newest, each message's place is the earliest of its own and every later-sent message's.
+ */
+function sendOrderPlaces(messages: ThreadMessage[], anchorOf: (message: ThreadMessage) => number | null): Map<ThreadMessage, number> {
+    const place = new Map<ThreadMessage, number>();
+    let earliest = Infinity;
+
+    for (let index = messages.length - 1; index >= 0; index--) {
+        earliest = Math.min(earliest, anchorOf(messages[index])!);
+        place.set(messages[index], earliest);
+    }
+
+    return place;
+}
+
+/**
  * Interleaves the person's messages with the model's events.
  * - messages and items are de-duplicated (by uuid or id, and by item key);
  * - an unread message is greyed and sits at the end;
  * - a read message with `readAfterSequence` follows the last event up to that sequence;
  * - a message read live follows the event at its `readSequences` entry, or the answer when none is known, at the end of the events;
- * - a message the server already marks read without a sequence is earlier history and keeps send order at the top.
+ * - a message the server already marks read without a sequence is earlier history and keeps send order at the top;
+ * - the person's messages never pass each other: a message read later than one sent after it moves up beside that one.
  */
 export function mergeConversation(messages: ThreadMessage[], readUuids: string[], items: ConversationItem[], readSequences: Record<string, number> = {}): ConversationEntry[] {
     const live = new Set(readUuids);
@@ -36,7 +53,9 @@ export function mergeConversation(messages: ThreadMessage[], readUuids: string[]
     const anchorOf = (message: ThreadMessage): number | null => message.readAfterSequence ?? (message.uuid === null ? null : (readSequences[message.uuid] ?? null));
 
     const history = visible.filter((message) => message.state === 'read' && message.readAfterSequence === null);
-    const anchored = visible.filter((message) => isRead(message) && anchorOf(message) !== null).sort((a, b) => anchorOf(a)! - anchorOf(b)!);
+    const readInSendOrder = visible.filter((message) => isRead(message) && anchorOf(message) !== null);
+    const places = sendOrderPlaces(readInSendOrder, anchorOf);
+    const anchored = [...readInSendOrder].sort((a, b) => places.get(a)! - places.get(b)!);
     const justRead = visible.filter((message) => isRead(message) && message.state !== 'read' && anchorOf(message) === null);
     const pending = visible.filter((message) => !isRead(message));
 
@@ -50,7 +69,7 @@ export function mergeConversation(messages: ThreadMessage[], readUuids: string[]
 
     ordered.forEach((item) => {
         entries.push({ type: 'event', item });
-        while (next < anchored.length && anchorOf(anchored[next])! <= item.sequence) {
+        while (next < anchored.length && places.get(anchored[next])! <= item.sequence) {
             entries.push(person(anchored[next++], false));
         }
     });

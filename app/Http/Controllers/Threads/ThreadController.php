@@ -7,6 +7,7 @@ use App\Http\Resources\ThreadComposerData;
 use App\Http\Resources\ThreadMessagesData;
 use App\Http\Resources\ThreadNoticeData;
 use App\Http\Resources\ThreadPageData;
+use App\Http\Resources\ThreadSharedFilesData;
 use App\Http\Resources\ThreadWalkthroughData;
 use App\Models\Thread;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
@@ -29,6 +30,7 @@ class ThreadController extends Controller
             'messages' => ThreadMessagesData::for($thread),
             'localTurns' => app(LocalTurns::class)->summary($thread),
             'walkthrough' => ThreadWalkthroughData::for($thread),
+            'sharedFiles' => ThreadSharedFilesData::for($thread),
             'composer' => ThreadComposerData::for($thread, $viewer),
             'notice' => ThreadNoticeData::for($thread, $viewer),
             'modelLabels' => $this->modelLabels(),

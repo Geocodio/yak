@@ -4,6 +4,7 @@ use App\Enums\RunnerState;
 use App\Enums\SteeringMode;
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
+use App\Http\Resources\ThreadMessagesData;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
@@ -96,4 +97,17 @@ it('runs the attachment callback before delivery', function () {
     }, 'thread');
 
     expect($order)->toBe(['store', 'steer']);
+});
+
+it('dates a delivered steer by when the person sent it', function () {
+    [$thread] = runningThreadWithTask();
+    fakeTurnCollaborators()['commands']->shouldReceive('steer')->once();
+    $this->travelTo(now()->setTime(11, 44, 0));
+
+    $message = app(ThreadTurns::class)->steer($thread, 'did you push?', User::factory()->create(), null, null, 'thread');
+    ThreadTurnMessage::query()->where('uuid', $message->uuid)->update(['created_at' => now()->addMinutes(3)]);
+
+    $shown = collect(ThreadMessagesData::for($thread))->firstWhere('uuid', $message->uuid);
+
+    expect($shown['sentAt'])->toBe($message->created_at->toIso8601String());
 });

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\RunnerState;
 use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -33,6 +34,17 @@ test('it shows an empty state', function () {
     $page->click('[data-testid="thread-dock-toggle-files"]')
         ->click('[data-testid="files-mode-changed"]')
         ->assertPresent('[data-testid="changes-empty"]');
+});
+
+test('the empty state says Claude is working while the runner is busy', function () {
+    $thread = Thread::factory()->create(['runner_state' => RunnerState::Busy]);
+
+    $page = visit(route('threads.show', $thread));
+
+    $page->click('[data-testid="thread-dock-toggle-files"]')
+        ->click('[data-testid="files-mode-changed"]')
+        ->assertSeeIn('[data-testid="changes-working"]', 'Claude is working')
+        ->assertSeeIn('[data-testid="changes-empty"]', 'when this turn ends');
 });
 
 test('it shows the working note while a turn runs', function () {

@@ -6,6 +6,10 @@ import StoreThreadController from './StoreThreadController'
 import ThreadController from './ThreadController'
 import ThreadListController from './ThreadListController'
 import ThreadSeenController from './ThreadSeenController'
+import ThreadStarController from './ThreadStarController'
+import ThreadCloseController from './ThreadCloseController'
+import ThreadDestroyController from './ThreadDestroyController'
+import ThreadSharedFileController from './ThreadSharedFileController'
 import ThreadDiffController from './ThreadDiffController'
 import LocalTurnsController from './LocalTurnsController'
 import ThreadEnvironmentController from './ThreadEnvironmentController'
@@ -32,6 +36,10 @@ const Threads = {
     ThreadController: Object.assign(ThreadController, ThreadController),
     ThreadListController: Object.assign(ThreadListController, ThreadListController),
     ThreadSeenController: Object.assign(ThreadSeenController, ThreadSeenController),
+    ThreadStarController: Object.assign(ThreadStarController, ThreadStarController),
+    ThreadCloseController: Object.assign(ThreadCloseController, ThreadCloseController),
+    ThreadDestroyController: Object.assign(ThreadDestroyController, ThreadDestroyController),
+    ThreadSharedFileController: Object.assign(ThreadSharedFileController, ThreadSharedFileController),
     ThreadDiffController: Object.assign(ThreadDiffController, ThreadDiffController),
     LocalTurnsController: Object.assign(LocalTurnsController, LocalTurnsController),
     ThreadEnvironmentController: Object.assign(ThreadEnvironmentController, ThreadEnvironmentController),

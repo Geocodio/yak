@@ -1,4 +1,4 @@
-import { Skeleton, cn } from '@geocodio/console-ui';
+import { cn } from '@geocodio/console-ui';
 import { ChevronsUpDown } from 'lucide-react';
 import { diffWordsWithSpace, parsePatch } from 'diff';
 import hljs from 'highlight.js/lib/core';
@@ -13,6 +13,8 @@ import yaml from 'highlight.js/lib/languages/yaml';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { ThreadDiffFile, ThreadDiffFilePatch } from '@/types/thread-changes';
 import { useJson } from '../useJson';
+import { DiffSkeleton } from './DiffSkeleton';
+import { patchUrl } from './useThreadDiff';
 
 const LANGUAGE_BY_EXTENSION: Record<string, string> = {
     php: 'php',
@@ -243,7 +245,7 @@ type Props = {
 };
 
 export function DiffViewer({ threadId, file, mode, canExpand = false }: Props) {
-    const { data, isLoading, error } = useJson<ThreadDiffFilePatch>(`/threads/${threadId}/diff/files/${file.id}`);
+    const { data, isLoading, error } = useJson<ThreadDiffFilePatch>(patchUrl(threadId, file.id));
     const patch = data?.patch ?? null;
     const blocks = useMemo(() => {
         try {
@@ -286,7 +288,7 @@ export function DiffViewer({ threadId, file, mode, canExpand = false }: Props) {
     } else if (file.isTooLarge) {
         body = <p className="p-3 font-sans text-[12.5px] text-muted">Too large to show</p>;
     } else if (data === null) {
-        body = isLoading ? <Skeleton className="m-3 h-24" /> : <p className="p-3 font-sans text-[12.5px] text-muted">{error ?? 'The diff could not be loaded.'}</p>;
+        body = isLoading ? <DiffSkeleton additions={file.additions} deletions={file.deletions} /> : <p className="p-3 font-sans text-[12.5px] text-muted">{error ?? 'The diff could not be loaded.'}</p>;
     } else if (blocks === null) {
         body = <p className="p-3 font-sans text-[12.5px] text-muted">The diff could not be read.</p>;
     } else if (patch === null || blocks.length === 0) {

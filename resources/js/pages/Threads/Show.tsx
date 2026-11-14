@@ -1,3 +1,4 @@
+import { usePullRequestToasts } from '@/threads/usePullRequestToasts';
 import { Head } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
@@ -42,7 +43,7 @@ const WIDE_RAIL_QUERY = '(min-width: 1200px)';
 /** From this width the page shows the views side by side; below it the phone tabs take over. */
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
-export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, brief, messages, localTurns, notice, composer, capacity, teleport, stackParent, modelLabels }: Props) {
+export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, messages, localTurns, notice, composer, capacity, teleport, stackParent, modelLabels }: Props) {
     const dockPanels = dockPanelsFor(thread);
     const dock = useDockState();
     const dockPanelIds = dockPanels.map((panel) => panel.id);
@@ -59,6 +60,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const [isAddingSubThread, setIsAddingSubThread] = useState(false);
     const [isTeleportOpen, setIsTeleportOpen] = useState(false);
     const { stack, reload: reloadStack } = useStack(thread);
+    usePullRequestToasts(thread, pullRequest, publishWarning);
     const { diff, isLoading: isDiffLoading } = useThreadDiff(thread);
     const canAddSubThread = canDrive && stack !== null && stack.canDrive && stack.isRoot && thread.ownerSide === 'yak' && thread.status === 'open';
     const subThreadCount = stack?.children.length ?? 0;
@@ -113,7 +115,10 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         thread,
         canDrive,
         notice,
+        sharedFiles,
         composerState: composer.state,
+        composer,
+        modelLabels,
         capacity,
         accountName: composer.accountName,
         environmentSwitch: teleport.environmentSwitch,
@@ -185,19 +190,16 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             <Head title={thread.title} />
 
             <ThreadHeader
-                page={{ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, teleport }}
+                page={{ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent }}
                 dockPanels={dockPanels}
                 activeDock={activeDock}
                 diff={diff}
                 subThreadCount={subThreadCount}
-                canAddSubThread={canAddSubThread}
                 isRailOpen={isRailOpen}
                 onSelectDock={(id) => selectDock(id)}
                 onToggleRail={() => setIsRailOpen((value) => !value)}
                 onOpenChanges={() => openChanges()}
                 onOpenOverview={openOverview}
-                onAddSubThread={() => setIsAddingSubThread(true)}
-                onTeleport={() => setIsTeleportOpen(true)}
             />
             <FailedStepStrip notice={notice} threadId={thread.id} readonly={composer.state === 'readonly'} />
             <PrivateThreadBanner thread={thread} />
@@ -212,7 +214,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} walkthrough={walkthrough} localTurns={localTurns} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />
+                    <Conversation working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurns} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />
                     <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
                 </div>
 
@@ -244,7 +246,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             </div>
 
             {isAddingSubThread && stack !== null && (
-                <AddChildDialog threadId={thread.id} parentTitle={thread.title} awake={stack.limit.awake} limit={stack.limit.current} childCount={stack.children.length} maxChildren={stack.maxChildren} onClose={() => setIsAddingSubThread(false)} onAdded={() => { reloadStack(); openOverview(); }} />
+                <AddChildDialog threadId={thread.id} parentTitle={thread.title} stack={{ models: stack.models, parentAccountName: stack.parentAccountName, maxChildren: stack.maxChildren, awake: stack.limit.awake, limit: stack.limit.current, childCount: stack.children.length }} onClose={() => setIsAddingSubThread(false)} onAdded={() => { reloadStack(); openOverview(); }} />
             )}
             {teleport.state === 'on_device' ? (
                 <TeleportToYakDialog thread={thread} teleport={teleport} open={isTeleportOpen} onClose={() => setIsTeleportOpen(false)} />

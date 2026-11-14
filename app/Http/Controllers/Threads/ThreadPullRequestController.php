@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\OpenThreadPullRequestRequest;
 use App\Jobs\CreatePullRequestJob;
 use App\Models\Thread;
+use App\Services\Threads\PullRequests\PullRequestOpening;
 use App\Services\Threads\ThreadPublishGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
@@ -26,13 +27,14 @@ class ThreadPullRequestController extends Controller
 
         // Threads started from the dashboard or by teleport keep their branch on the thread, not on the task.
         $task = $thread->pullRequestTask();
-        $branch = $task?->branch_name ?? $thread->branch;
+        $branch = $task->branch_name ?? $thread->branch;
         abort_if($task === null || blank($branch), 409, 'This thread has no changes to publish yet.');
 
         if ($task->branch_name === null) {
             $task->update(['branch_name' => $branch]);
         }
 
+        app(PullRequestOpening::class)->start($thread);
         CreatePullRequestJob::dispatch($task);
 
         return back();

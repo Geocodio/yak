@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $session_id
  * @property string|null $parent_session_id
  * @property ThreadSessionKind $kind
+ * @property array{input: int, cacheRead: int, cacheCreation: int}|null $context_usage Input side of the session's latest assistant message; null until one is measured.
  */
 class ThreadSession extends Model
 {
@@ -28,7 +29,7 @@ class ThreadSession extends Model
      */
     protected function casts(): array
     {
-        return ['kind' => ThreadSessionKind::class];
+        return ['kind' => ThreadSessionKind::class, 'context_usage' => 'array'];
     }
 
     /**

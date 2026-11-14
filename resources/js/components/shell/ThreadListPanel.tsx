@@ -19,10 +19,11 @@ const FILTERS: { value: ThreadListFilter; label: string }[] = [
     { value: "mine", label: "Mine" },
     { value: "yak", label: "Started by Yak" },
     { value: "everyone", label: "Everyone" },
+    { value: "closed", label: "Closed" },
 ];
 
 const FILTER_HELP =
-    "Mine: threads you started or took part in, plus unattended threads on repos you follow. Started by Yak: threads that came from a channel, such as Sentry or Slack. Everyone: every thread you can see.";
+    "Mine: threads you started or took part in, plus unattended threads on repos you follow. Started by Yak: threads that came from a channel, such as Sentry or Slack. Everyone: every thread you can see. Closed: threads that were closed, hidden from the other views.";
 
 export function ThreadListPanel({
     onCollapse,
@@ -40,6 +41,7 @@ export function ThreadListPanel({
         data !== null && !data.hasAnyThreads;
     const isEmpty =
         data !== null &&
+        data.starred.length === 0 &&
         data.needsYou.length === 0 &&
         data.threads.length === 0;
     const rowsOf = (group: "today" | "this_week" | "older") =>
@@ -102,7 +104,7 @@ export function ThreadListPanel({
                 ) : (
                     <>
                         <div
-                            className="flex items-center gap-1.5"
+                            className="flex flex-wrap items-center gap-1.5"
                             data-testid="thread-filter"
                         >
                             <div
@@ -164,9 +166,15 @@ export function ThreadListPanel({
                 ) : (
                     <>
                         <ThreadGroup
+                            groupKey="starred"
+                            title="Starred"
+                            rows={data.starred}
+                            activeThreadId={activeThreadId}
+                        />
+                        <ThreadGroup
                             groupKey="needs-you"
                             title="Needs you"
-                            count={data.needsYouCount}
+                            count={data.needsYou.length}
                             rows={data.needsYou}
                             activeThreadId={activeThreadId}
                         />
