@@ -47,6 +47,7 @@ Schedule::command('yak:thread-sandboxes')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:reap-account-slots')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:close-idle-threads')->hourly()->withoutOverlapping();
 Schedule::command('model:prune', ['--model' => [DeviceAuthorization::class, DevicePairingCode::class]])->daily();
+Schedule::command('yak:revoke-idle-phones')->daily();
 Schedule::command('yak:expire-teleports')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:dataset-sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:ssh-sweep')->hourly()->withoutOverlapping();

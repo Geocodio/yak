@@ -39,6 +39,7 @@ return [
 
     'pairing' => [
         'code_ttl_seconds' => 120,
+        'idle_days' => 90,
     ],
 
     'teleport' => [
