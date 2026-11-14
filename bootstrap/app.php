@@ -14,6 +14,7 @@ use App\Services\PreviewAccess;
 use App\Support\ClientApi;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -108,6 +109,13 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json(['error' => 'forbidden', 'message' => 'You do not have access to this.'], 403);
+        });
+        $exceptions->render(function (QueryException $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json(['error' => 'unavailable', 'message' => 'Yak cannot answer right now. Try again in a moment.'], 503);
         });
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if (ClientApi::for($request) === null) {

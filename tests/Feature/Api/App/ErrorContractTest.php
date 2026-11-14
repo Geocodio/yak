@@ -3,12 +3,14 @@
 use App\Http\Middleware\ClientProtocol;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 beforeEach(function () {
     Route::middleware(['web', 'client.protocol:app'])->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->group(function () {
+        Route::get('/api/app/v1/test-db-down', fn () => throw new QueryException('mysql', 'select secret from x', [], new PDOException('SQLSTATE[HY000] [2002]')));
         Route::post('/api/app/v1/test-post', fn () => response()->json(['ok' => true]));
         Route::get('/api/app/v1/test-forbidden', fn () => throw new AuthorizationException);
         Route::get('/api/app/v1/test-denied', fn () => throw new AccessDeniedHttpException);
@@ -49,4 +51,11 @@ it('keeps the CLI wording on CLI routes', function () {
 it('sets no cookie and needs no csrf token on app routes', function () {
     $response = $this->postJson('/api/app/v1/test-post', [], ['X-Yak-Protocol' => '1'])->assertOk();
     expect($response->headers->getCookies())->toBeEmpty();
+});
+
+it('answers 503 unavailable without leaking SQL when the database is down, whatever the Accept header', function () {
+    $response = $this->get('/api/app/v1/test-db-down', ['X-Yak-Protocol' => '1']);
+
+    $response->assertStatus(503)->assertExactJson(['error' => 'unavailable', 'message' => 'Yak cannot answer right now. Try again in a moment.']);
+    expect($response->getContent())->not->toContain('SQLSTATE')->not->toContain('select');
 });
