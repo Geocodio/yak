@@ -30,6 +30,8 @@ export type ThreadData = {
     sharedWithCount: number;
     startedOnDevice: boolean;
     preview: ThreadPreviewData;
+    /** A pull request asked for from this page: opening, held for a co-owner, or failed; null otherwise. */
+    pullRequestOpening: { state: 'opening' | 'held' | 'failed'; error: string | null; at: string | null } | null;
 };
 
 export type ThreadPreviewState =

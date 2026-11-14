@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Button, Menu } from '@geocodio/console-ui';
+import { Button, Menu, toast } from '@geocodio/console-ui';
 import { ChevronDown, GitPullRequest, Video } from 'lucide-react';
 import { useState } from 'react';
 import { PrivatePublishGate } from '@/components/threads/share/PrivatePublishGate';
@@ -22,6 +22,15 @@ function recordItem(thread: ThreadData, isRecording: boolean, onSelect: () => vo
     return { key: 'record', label: isRecording ? 'Recording walkthrough' : 'Record walkthrough', icon: <Video size={14} />, disabled: isRecording || thread.runnerState === 'busy', onSelect, testId: 'record-walkthrough' };
 }
 
+/** Asks the server to open the PR; the job's outcome arrives through the thread's `pullRequestOpening`. */
+export function requestPullRequest(threadId: string, acknowledgePrivate: boolean, onFinish?: () => void) {
+    router.post(store.url(threadId), acknowledgePrivate ? { acknowledged_private_publish: true } : {}, {
+        preserveScroll: true,
+        onError: () => toast.error('Could not open the pull request', { description: 'Yak could not start it. Try again in a moment.' }),
+        onFinish,
+    });
+}
+
 const chevronClass = 'h-8 w-8 shrink-0 justify-center rounded-l-none rounded-r-[8px] p-0';
 
 /**
@@ -32,14 +41,22 @@ const chevronClass = 'h-8 w-8 shrink-0 justify-center rounded-l-none rounded-r-[
  */
 export function OpenPullRequestButton({ thread, publishWarning, variant = 'primary', className, isRecording = false }: { thread: ThreadData; publishWarning: boolean; variant?: 'primary' | 'secondary'; className?: string; isRecording?: boolean }) {
     const [processing, setProcessing] = useState(false);
+    const isOpening = processing || thread.pullRequestOpening?.state === 'opening';
 
     const submit = () => {
-        router.post(
-            store.url(thread.id),
-            publishWarning ? { acknowledged_private_publish: true } : {},
-            { preserveScroll: true, onStart: () => setProcessing(true), onFinish: () => setProcessing(false) },
-        );
+        setProcessing(true);
+        toast.info('Opening the pull request', { description: 'Yak is creating it on GitHub. This takes a few seconds.' });
+        requestPullRequest(thread.id, publishWarning, () => setProcessing(false));
     };
+
+    if (thread.pullRequestOpening?.state === 'held') {
+        return (
+            <span className="inline-flex h-8 shrink-0 items-center rounded-[8px] border border-hair bg-panel px-3" data-testid="pull-request-held">
+                <span className="inline-flex h-[18px] items-center rounded-pill bg-panel-2 px-2 text-[11.5px] text-muted">Waiting for a co-owner</span>
+            </span>
+        );
+    }
+
     const triggerClass = variant === 'primary' ? 'border border-l border-accent bg-accent text-accent-ink hover:opacity-90' : 'border border-hair bg-panel text-body hover:bg-panel-2';
 
     return (
@@ -48,8 +65,8 @@ export function OpenPullRequestButton({ thread, publishWarning, variant = 'prima
                 <PrivatePublishGate required={publishWarning} onConfirm={() => requestWalkthrough(thread.id, 'record_walkthrough_and_open_pr', publishWarning)}>
                     {(recordAndOpen) => (
                         <span className="inline-flex" data-testid="open-pull-request-split">
-                            <Button variant={variant} icon={<GitPullRequest size={13} />} pending={processing} onClick={openPullRequest} className={`${className ?? ''} rounded-r-none`} data-testid="open-pull-request">
-                                Open PR
+                            <Button variant={variant} icon={<GitPullRequest size={13} />} pending={isOpening} disabled={isOpening} onClick={openPullRequest} className={`${className ?? ''} rounded-r-none`} data-testid="open-pull-request">
+                                {isOpening ? 'Opening PR…' : 'Open PR'}
                             </Button>
                             <Menu
                                 trigger={<ChevronDown size={14} aria-hidden />}

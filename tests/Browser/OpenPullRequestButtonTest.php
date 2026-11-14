@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Jobs\CreatePullRequestJob;
+use App\Models\CoOwnerRequest;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
 use App\Models\ThreadRepository;
@@ -85,5 +87,29 @@ test('a thread with an open pull request keeps Record walkthrough in the arrow m
         ->assertSeeIn('[data-testid="thread-header-pr"]', '#12')
         ->click('[data-testid="view-pull-request-menu"]')
         ->assertVisible('[data-testid="record-walkthrough"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('opening a pull request says so at once and keeps the button busy until the job is done', function () {
+    $this->actingAs(User::factory()->create());
+
+    openChangesTab(Thread::factory()->create())
+        ->click('[data-testid="open-pull-request"]')
+        ->assertSee('Opening the pull request')
+        ->assertSeeIn('[data-testid="open-pull-request"]', 'Opening PR…')
+        ->assertAttribute('[data-testid="open-pull-request"]', 'disabled', '')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a pull request held for a co-owner shows the wait instead of the button', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = Thread::factory()->create();
+    ThreadDiff::factory()->for($thread)->withFiles(1)->create();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'branch_name' => 'yak/work']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'root_task_id' => $task->id, 'status' => CoOwnerRequestStatus::Pending]);
+
+    visit(route('threads.show', $thread))
+        ->assertSeeIn('[data-testid="pull-request-held"]', 'Waiting for a co-owner')
+        ->assertMissing('[data-testid="open-pull-request"]')
         ->assertNoJavaScriptErrors();
 });

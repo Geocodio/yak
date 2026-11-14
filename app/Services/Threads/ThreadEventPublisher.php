@@ -4,6 +4,7 @@ namespace App\Services\Threads;
 
 use App\Events\ThreadEventBroadcast;
 use App\Models\Thread;
+use App\Services\Threads\PullRequests\PullRequestOpening;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -152,7 +153,7 @@ class ThreadEventPublisher
     }
 
     /**
-     * @return array{status: string, sandboxState: string, runnerState: string, blockedReason: string|null}
+     * @return array{status: string, sandboxState: string, runnerState: string, blockedReason: string|null, pullRequestOpening: 'opening'|'failed'|null}
      */
     private function threadState(int $threadId): array
     {
@@ -163,6 +164,7 @@ class ThreadEventPublisher
             'sandboxState' => $thread->sandbox_state->value,
             'runnerState' => $thread->runner_state->value,
             'blockedReason' => $thread->blocked_reason?->value,
+            'pullRequestOpening' => app(PullRequestOpening::class)->flag($threadId),
         ];
     }
 }

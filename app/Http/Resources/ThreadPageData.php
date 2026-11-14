@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Teleport\TeleportPageState;
 use App\Services\Threads\Preview\ThreadPreviewPanelState;
+use App\Services\Threads\PullRequests\PullRequestOpening;
 use App\Services\Threads\SandboxCapacity;
 use App\Services\Threads\ThreadAccess;
 
@@ -52,6 +53,7 @@ final class ThreadPageData
      *         sharedWithCount: int,
      *         startedOnDevice: bool,
      *         preview: array{state: 'ready'|'sandbox_asleep'|'waking_sandbox'|'starting_dev_server'|'failing'|'no_manifest'|'invalid_manifest'|'destroyed'|'closed'|'local_machine'|'waiting_for_slot', url: ?string, host: ?string, repoLabel: string, canRestore: bool, safariFallback: bool, targets: list<array{threadId: string, title: string, kind: string, url: ?string, state: string, canRestore: bool}>, awakeCap: int, personAwakeCap: int, teleportCommand: ?string, port: ?int, coldStartCommand: ?string, setup: array{intent: ?string, isRunning: bool, endedWithoutManifest: bool}},
+     *         pullRequestOpening: ?array{state: 'opening'|'held'|'failed', error: ?string, at: ?string},
      *     },
      *     canDrive: bool,
      *     diffTotals: ?array{additions: int, deletions: int},
@@ -100,6 +102,7 @@ final class ThreadPageData
                 'sharedWithCount' => $isOwner ? ThreadShare::query()->where('thread_id', $thread->root_thread_id ?? $thread->id)->count() : 0,
                 'startedOnDevice' => $thread->owner_side === ThreadOwnerSide::Device,
                 'preview' => app(ThreadPreviewPanelState::class)->build($thread, $viewer),
+                'pullRequestOpening' => app(PullRequestOpening::class)->stateFor($thread),
             ],
             'canDrive' => $access->canDrive($viewer, $thread),
             'diffTotals' => self::diffTotals($thread),
