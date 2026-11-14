@@ -32,7 +32,7 @@ class PairingCodes
     }
 
     /**
-     * Redeems a code once. The row lock makes two phones that scan the same code at the same moment race: the loser sees it redeemed.
+     * Redeems a code once. The row lock and the conditional write both make two phones that scan the same code at the same moment race: the loser sees it redeemed and its device is rolled back.
      *
      * @param  array{name: string, os: string, model: string, app_version: string}  $reported
      * @return array{token: string, device: Device}
@@ -67,7 +67,12 @@ class PairingCodes
                 'token_hash' => $this->deviceTokens->hash($token),
             ]);
 
-            $pairingCode->update(['redeemed_at' => now(), 'device_id' => $device->id]);
+            $claimed = DevicePairingCode::query()->whereKey($pairingCode->id)->whereNull('redeemed_at')
+                ->update(['redeemed_at' => now(), 'device_id' => $device->id]);
+
+            if ($claimed !== 1) {
+                throw new DeviceFlowException('pairing_code_invalid', 'This pairing code is not valid. Show a new QR code on the Devices page and scan it again.');
+            }
 
             return ['token' => $token, 'device' => $device];
         });

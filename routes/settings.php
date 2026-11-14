@@ -59,7 +59,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('settings/claude-accounts/{account}', [ClaudeAccountController::class, 'update'])->name('settings.claude-accounts.update');
     Route::delete('settings/claude-accounts/{account}', [ClaudeAccountController::class, 'destroy'])->name('settings.claude-accounts.destroy');
     Route::get('settings/devices', [SettingsDeviceController::class, 'index'])->name('settings.devices');
-    Route::post('settings/devices/pairing-codes', [DevicePairingCodeController::class, 'store'])->name('settings.devices.pairing-codes.store');
+    Route::post('settings/devices/pairing-codes', [DevicePairingCodeController::class, 'store'])->middleware('throttle:10,1')->name('settings.devices.pairing-codes.store');
     Route::get('settings/devices/pairing-codes/{devicePairingCode}', [DevicePairingCodeController::class, 'show'])->name('settings.devices.pairing-codes.show');
     Route::delete('settings/devices/{device}', [SettingsDeviceController::class, 'destroy'])->name('settings.devices.destroy');
     Route::get('settings/people', [PeopleController::class, 'index'])->name('settings.people');

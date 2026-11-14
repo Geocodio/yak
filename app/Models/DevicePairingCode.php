@@ -4,9 +4,11 @@ namespace App\Models;
 
 use Carbon\CarbonImmutable;
 use Database\Factories\DevicePairingCodeFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -22,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class DevicePairingCode extends Model
 {
     /** @use HasFactory<DevicePairingCodeFactory> */
-    use HasFactory, HasUlids;
+    use HasFactory, HasUlids, Prunable;
 
     protected $guarded = [];
 
@@ -59,5 +61,13 @@ class DevicePairingCode extends Model
     public function isExpired(): bool
     {
         return $this->expires_at->isPast();
+    }
+
+    /**
+     * @return Builder<static>
+     */
+    public function prunable(): Builder
+    {
+        return static::query()->where('expires_at', '<', now()->subDay());
     }
 }

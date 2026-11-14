@@ -38,6 +38,33 @@ it('lets exactly one of two scans of the same code win', function () {
     expect($outcomes)->toBe(['paired', 'pairing_code_invalid'])->and(Device::count())->toBe(1);
 });
 
+it('loses the write when another scan claims the code between the read and the write', function () {
+    ['code' => $code, 'pairingCode' => $pairingCode] = app(PairingCodes::class)->create(User::factory()->create());
+    DevicePairingCode::retrieved(fn () => DevicePairingCode::query()->whereKey($pairingCode->id)->update(['redeemed_at' => now()]));
+
+    try {
+        app(PairingCodes::class)->redeem($code, pairingReport());
+        $this->fail('The second scan must be refused.');
+    } catch (DeviceFlowException $exception) {
+        expect($exception->errorCode)->toBe('pairing_code_invalid');
+    } finally {
+        DevicePairingCode::flushEventListeners();
+    }
+
+    DevicePairingCode::flushEventListeners();
+
+    expect(Device::count())->toBe(0);
+});
+
+it('prunes codes that expired more than a day ago', function () {
+    $old = DevicePairingCode::factory()->create(['expires_at' => now()->subDays(2)]);
+    $recent = DevicePairingCode::factory()->create(['expires_at' => now()->subHour()]);
+
+    $this->artisan('model:prune', ['--model' => [DevicePairingCode::class]]);
+
+    expect(DevicePairingCode::find($old->id))->toBeNull()->and(DevicePairingCode::find($recent->id))->not->toBeNull();
+});
+
 it('expires after 120 seconds', function () {
     ['code' => $code] = app(PairingCodes::class)->create(User::factory()->create());
 

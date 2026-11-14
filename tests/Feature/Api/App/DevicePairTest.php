@@ -71,4 +71,37 @@ it('refuses a pair request without the protocol header', function () {
 
 it('needs a session to create a code', function () {
     $this->postJson(route('settings.devices.pairing-codes.store'))->assertUnauthorized();
+    $this->post(route('settings.devices.pairing-codes.store'))->assertRedirect();
+    expect(DevicePairingCode::count())->toBe(0);
+});
+
+it('needs a session to read a code state', function () {
+    $pairingCode = DevicePairingCode::factory()->create();
+
+    $this->getJson(route('settings.devices.pairing-codes.show', $pairingCode))->assertUnauthorized()->assertJsonMissingPath('state');
+});
+
+it('reports a redeemed code as paired even when its device is gone', function () {
+    $pairingCode = DevicePairingCode::factory()->create(['redeemed_at' => now(), 'device_id' => null]);
+
+    $this->actingAs($pairingCode->user)->getJson(route('settings.devices.pairing-codes.show', $pairingCode))
+        ->assertOk()->assertJson(['state' => 'paired', 'device' => null]);
+});
+
+it('rate limits creating pairing codes per person', function () {
+    $user = User::factory()->create();
+    foreach (range(1, 10) as $ignored) {
+        $this->actingAs($user)->postJson(route('settings.devices.pairing-codes.store'))->assertCreated();
+    }
+
+    $this->actingAs($user)->postJson(route('settings.devices.pairing-codes.store'))->assertStatus(429);
+});
+
+it('rate limits pair requests per address', function () {
+    foreach (range(1, 10) as $ignored) {
+        $this->postJson('/api/app/v1/device/pair', ['code' => 'nope'] + $this->phone, $this->headers)->assertStatus(400);
+    }
+
+    $this->postJson('/api/app/v1/device/pair', ['code' => 'nope'] + $this->phone, $this->headers)
+        ->assertStatus(429)->assertJsonPath('error', 'rate_limited')->assertHeader('Retry-After');
 });

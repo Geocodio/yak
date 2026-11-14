@@ -39,7 +39,7 @@ class DevicePairingCodeController extends Controller
         $device = $devicePairingCode->device;
 
         return response()->json([
-            'state' => $device !== null ? 'paired' : ($devicePairingCode->isExpired() ? 'expired' : 'waiting'),
+            'state' => $devicePairingCode->redeemed_at !== null ? 'paired' : ($devicePairingCode->isExpired() ? 'expired' : 'waiting'),
             'device' => $device !== null ? DeviceData::from($device, $user) : null,
         ]);
     }
