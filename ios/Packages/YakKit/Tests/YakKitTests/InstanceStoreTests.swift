@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import YakKit
 
 private final class InMemoryKeyValueStore: KeyValueStore, @unchecked Sendable {
@@ -31,9 +32,11 @@ private func makeStore(
     @Test func addingTheSameAddressTwiceReplacesTheEntry() async throws {
         let tokens = InMemoryTokenStore()
         let store = makeStore(tokens: tokens)
-        _ = try await store.add(url: address, name: "A", userName: "U", token: "yakdev_1")
+        let first = try await store.add(url: address, name: "A", userName: "U", token: "yakdev_1")
         let second = try await store.add(url: address, name: "A", userName: "U", token: "yakdev_2")
         #expect(await store.all().count == 1)
+        #expect(first.id == second.id)
+        #expect(try tokens.token(for: first.id) == nil || first.id == second.id)
         #expect(try tokens.token(for: second.id) == "yakdev_2")
     }
 

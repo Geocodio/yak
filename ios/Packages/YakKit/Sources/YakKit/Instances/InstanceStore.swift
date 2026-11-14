@@ -1,15 +1,29 @@
 import Foundation
 
+#if canImport(os)
+    import os
+#endif
+
 /// The two calls the store needs from `UserDefaults`.
 public protocol KeyValueStore: Sendable {
     func data(forKey key: String) -> Data?
     func set(_ value: Data?, forKey key: String)
 }
 
-extension UserDefaults: KeyValueStore {
-    public func set(_ value: Data?, forKey key: String) {
-        set(value as Any?, forKey: key)
+// Foundation on Linux marks UserDefaults as non-Sendable; Linux tests use the in-memory store.
+#if canImport(Darwin)
+    extension UserDefaults: KeyValueStore {
+        public func set(_ value: Data?, forKey key: String) {
+            set(value as Any?, forKey: key)
+        }
     }
+#endif
+
+/// Logs a failure message (never stored content). Linux has no `os.Logger`, so it is a no-op there.
+private func logFailure(_ message: String) {
+    #if canImport(os)
+        Logger(subsystem: "YakKit", category: "InstanceStore").error("\(message, privacy: .public)")
+    #endif
 }
 
 public enum InstanceState: Equatable, Sendable { case ready, needsPairing }
@@ -32,12 +46,22 @@ public actor InstanceStore {
         self.defaults = defaults
         self.tokens = tokens
         self.now = now
-        // An unreadable list is treated as empty: the person pairs again instead of the app crashing.
-        self.instances = defaults.data(forKey: Self.instancesKey)
-            .flatMap { try? JSONDecoder().decode([Instance].self, from: $0) } ?? []
+        self.instances = Self.loadInstances(from: defaults)
         self.activeID = defaults.data(forKey: Self.activeKey)
             .flatMap { String(data: $0, encoding: .utf8) }
             .flatMap(UUID.init(uuidString:))
+    }
+
+    /// An unreadable list is treated as empty: the person pairs again instead of the app crashing.
+    /// The failure is logged without any stored content.
+    private static func loadInstances(from defaults: KeyValueStore) -> [Instance] {
+        guard let data = defaults.data(forKey: instancesKey) else { return [] }
+        do {
+            return try JSONDecoder().decode([Instance].self, from: data)
+        } catch {
+            logFailure("Stored instance list is unreadable, starting empty: \(type(of: error))")
+            return []
+        }
     }
 
     /// Most recently used first.
@@ -49,17 +73,27 @@ public actor InstanceStore {
         instances.first { $0.id == activeID } ?? all().first
     }
 
-    /// `.needsPairing` when the token is missing or cannot be read.
+    /// `.needsPairing` when the token is missing or cannot be read. A read error (for example the
+    /// Keychain being locked before first unlock) is logged and shown as needing pairing, because
+    /// the signature has no third state; the entry and its token are left untouched.
     public func state(of instance: UUID) -> InstanceState {
-        guard let token = try? tokens.token(for: instance), !token.isEmpty else { return .needsPairing }
-        return .ready
+        do {
+            guard let token = try tokens.token(for: instance), !token.isEmpty else {
+                return .needsPairing
+            }
+            return .ready
+        } catch {
+            logFailure("Token read failed: \(type(of: error))")
+            return .needsPairing
+        }
     }
 
     /// An entry with the same URL is replaced in place, so there is never a duplicate row.
     @discardableResult
     public func add(url: URL, name: String, userName: String, token: String) throws -> Instance {
         let existingIndex = instances.firstIndex { $0.url == url }
-        var instance = existingIndex.map { instances[$0] }
+        var instance =
+            existingIndex.map { instances[$0] }
             ?? Instance(url: url, name: name, userName: userName, lastUsedAt: now())
         instance.name = name
         instance.userName = userName
