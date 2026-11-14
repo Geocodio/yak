@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 )
 
 // Error is the contract error envelope plus the HTTP status.
@@ -54,7 +56,8 @@ func IsTransient(err error) bool {
 	}
 	e, ok := AsError(err)
 	if !ok {
-		return true
+		var netErr net.Error
+		return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.As(err, &netErr)
 	}
 	return e.Status == 429 || e.Status >= 500
 }

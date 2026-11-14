@@ -57,6 +57,9 @@ type DownResult struct {
 // serverStopped marks a failure after which Yak already ended the teleport, so there is nothing to cancel.
 type serverStopped struct{ *UserError }
 
+// errPollsLost marks the failure of a teleport whose status could not be read; the server still owns it.
+var errPollsLost = errors.New("lost the connection to Yak")
+
 var progressLines = map[string]string{
 	"wait_turn": "Waited for the running turn to finish", "stop_turn": "Stopped the running turn",
 	"commit_wip": "Yak committed its work", "push": "Yak pushed the branch", "sync_session": "Yak synced the session",
@@ -109,6 +112,10 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 		if err == nil || done || errors.As(err, &stopped) || api.IsCode(err, "teleport_failed") || api.IsCode(err, "teleport_expired") || api.IsCode(err, "device_revoked") {
 			return
 		}
+		if api.IsTransient(err) || errors.Is(err, errPollsLost) {
+			// The network failed, not the teleport: Yak keeps the prepared work and expires the teleport itself.
+			return
+		}
 		reason := "error"
 		var refusal *Refusal
 		switch {
@@ -140,8 +147,11 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	if err != nil {
 		return result, err
 	}
-	if _, err := repo.Run("fetch", "--quiet", remote, "refs/heads/"+branch); err != nil {
-		return result, userErrorf(err, "Could not fetch %s from GitHub: %v", branch, err)
+	if err := d.gitNetwork(ctx, repo, "fetch", "--quiet", remote, "refs/heads/"+branch); err != nil {
+		if isCancelled(err) {
+			return result, err
+		}
+		return result, userErrorf(err, "Could not fetch %s from GitHub: %v. Run yak teleport again to resume.", branch, err)
 	}
 	if _, err := repo.Run("cat-file", "-e", tip+"^{commit}"); err != nil {
 		return result, userErrorf(err, "GitHub does not have the commit Yak pushed for %s.", branch)
@@ -189,7 +199,13 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	}
 	var completed api.CompleteDownResponse
 	if err := d.API.Do(ctx, "POST", "/teleports/"+started.TeleportID+"/complete", body, &completed); err != nil {
-		return result, friendly(err)
+		if isCancelled(err) {
+			return result, err
+		}
+		if api.IsTransient(err) {
+			return result, userErrorf(err, "Yak did not answer the final step (%v). The thread is applied here, and Yak may already have moved it. Run yak teleport again to check and finish.", err)
+		}
+		return result, resumable(err)
 	}
 	done = true
 
@@ -273,14 +289,25 @@ func pollReady(ctx context.Context, d Deps, started api.BeginDownResponse) (api.
 	shown := map[string]bool{}
 	state := ""
 	wait := max(started.Teleport.PollAfterSeconds, 1)
+	failures := 0
 	for polls := 0; polls <= maxPolls; polls++ {
 		if err := ctx.Err(); err != nil {
 			return api.DownManifest{}, err
 		}
 		var raw json.RawMessage
 		if err := d.API.Do(ctx, "GET", "/teleports/"+started.TeleportID, nil, &raw); err != nil {
-			return api.DownManifest{}, friendly(err)
+			if api.IsTransient(err) {
+				if failures++; failures >= maxPollFailures {
+					return api.DownManifest{}, userErrorf(errPollsLost, "Lost the connection to Yak while it prepared the thread (%v). Yak keeps the thread and the prepared work. Run yak teleport again to resume.", err)
+				}
+				if serr := d.sleep(ctx, time.Duration(wait)*time.Second); serr != nil {
+					return api.DownManifest{}, serr
+				}
+				continue
+			}
+			return api.DownManifest{}, resumable(err)
 		}
+		failures = 0
 		var probe struct {
 			State    string        `json:"state"`
 			Teleport *api.Teleport `json:"teleport"`
@@ -325,7 +352,9 @@ func pollReady(ctx context.Context, d Deps, started api.BeginDownResponse) (api.
 		if tp.PollAfterSeconds > 0 {
 			wait = tp.PollAfterSeconds
 		}
-		d.Sleep(time.Duration(wait) * time.Second)
+		if err := d.sleep(ctx, time.Duration(wait)*time.Second); err != nil {
+			return api.DownManifest{}, err
+		}
 	}
 	return api.DownManifest{}, userErrorf(nil, "Yak took too long to prepare the thread. Run yak teleport again.")
 }
@@ -581,7 +610,7 @@ func cloneExtra(d Deps, root string, extra api.ManifestRepo) AppliedRepo {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return failed(err.Error())
 	}
-	if _, err := (gitx.Repo{Dir: root}).Run("clone", "--quiet", "--no-checkout", extra.CloneURL, path); err != nil {
+	if _, err := (gitx.Repo{Dir: root}).RunNetwork(context.Background(), "clone", "--quiet", "--no-checkout", extra.CloneURL, path); err != nil {
 		os.RemoveAll(path)
 		return failed(cloneFailureReason(extra.Repo, err))
 	}

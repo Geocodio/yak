@@ -113,6 +113,9 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		existing = &lookup.Thread
 		if existing.Status != "closed" {
 			if existing.OwnerSide == "yak" {
+				if done, ok := alreadyOnYak(ctx, d, sid, existing); ok {
+					return done, nil
+				}
 				return UpResult{}, friendly(&api.Error{Status: 409, Code: "thread_owned_by_yak", Details: map[string]any{"thread_id": existing.ID}})
 			}
 			if branch, detached, _ := primaryRepo.CurrentBranch(); !detached && existing.Branch != "" && branch != existing.Branch {
@@ -198,8 +201,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		completeRepos = append(completeRepos, api.CompleteUpRepo{Repo: planned.Repo, Branch: planned.Branch, HeadSHA: head})
 	}
 	push := func(r *upRepo) error {
-		_, err := r.repo.Run("push", r.remote, "refs/heads/"+r.prepared.Branch+":refs/heads/"+r.prepared.Branch)
-		return err
+		return d.gitNetwork(ctx, r.repo, "push", r.remote, "refs/heads/"+r.prepared.Branch+":refs/heads/"+r.prepared.Branch)
 	}
 	for _, r := range repos {
 		if pushes[r.slug+"/"+r.role] == nil {
@@ -211,7 +213,10 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		}
 		if err := push(r); err != nil {
 			d.cancel(ctx, started.TeleportID, "error", "push failed")
-			return UpResult{}, userErrorf(err, "Could not push %s to %s. Nothing was uploaded and Yak did not take the thread: %v", r.prepared.Branch, r.slug, err)
+			if isCancelled(err) {
+				return UpResult{}, err
+			}
+			return UpResult{}, userErrorf(err, "Could not push %s to %s: %v. This checkout is now on %s, the session was not uploaded, and Yak did not take the thread. Run yak teleport again to retry.", r.prepared.Branch, r.slug, err, r.prepared.Branch)
 		}
 		d.say("Pushed %s to github.com/%s", r.prepared.Branch, r.slug)
 	}
@@ -227,8 +232,11 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 			d.cancel(ctx, started.TeleportID, "diverged", err.Error())
 			return UpResult{}, userErrorf(err, "Yak's copy of this session differs from the one on this computer, so nothing was overwritten. The teleport is cancelled.")
 		}
+		if isCancelled(err) {
+			return UpResult{}, err
+		}
 		if _, isAPI := api.AsError(err); isAPI {
-			return UpResult{}, friendly(err)
+			return UpResult{}, resumable(err)
 		}
 		return UpResult{}, userErrorf(err, "The upload was interrupted (%v). Run yak teleport again to resume it.", err)
 	}
@@ -244,6 +252,10 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		}
 		return nil
 	})
+	var unconfirmed *unconfirmedError
+	if errors.As(err, &unconfirmed) {
+		err = nil
+	}
 	if err != nil {
 		return UpResult{}, err
 	}
@@ -254,6 +266,11 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	}
 	if err := config.WriteMarker(d.ConfigDir, sid, marker); err != nil {
 		return UpResult{}, userErrorf(err, "Yak has the thread, but this computer could not record it: %v", err)
+	}
+	if unconfirmed != nil {
+		d.say("Yak accepted the teleport and has the thread, so this session is now read-only. This computer lost the connection (%v) before Yak confirmed it was ready.", unconfirmed.cause)
+		d.say("Check on it at %s", started.Thread.URL)
+		return UpResult{ThreadID: started.Thread.ID, ThreadURL: started.Thread.URL, TeleportID: started.TeleportID, Branch: completeRepos[0].Branch}, nil
 	}
 	if done.Sandbox.State == "waiting_for_slot" {
 		d.say("Yak has no free sandbox right now. The thread is on Yak and will start when one is free.")
@@ -272,6 +289,39 @@ func discardAllDetached(repos []*upRepo) {
 			discardDetached(r.repo)
 		}
 	}
+}
+
+// unconfirmedError means Yak accepted the complete call but the polls that would show the sandbox ready kept
+// failing on the network.
+type unconfirmedError struct{ cause error }
+
+func (e *unconfirmedError) Error() string {
+	return "Yak accepted the teleport but did not confirm it finished"
+}
+func (e *unconfirmedError) Unwrap() error { return e.cause }
+
+// alreadyOnYak recognises a thread that an earlier run of this command handed to Yak, when its answer never
+// reached this computer. The marker is written now so hooks treat the session as read-only.
+func alreadyOnYak(ctx context.Context, d Deps, sid string, thread *api.Thread) (UpResult, bool) {
+	if _, has := config.ReadMarker(d.ConfigDir, sid); has || thread.LastTeleportUp == nil {
+		return UpResult{}, false
+	}
+	var earlier api.Teleport
+	if err := d.API.Do(ctx, "GET", "/teleports/"+thread.LastTeleportUp.TeleportID, nil, &earlier); err != nil {
+		return UpResult{}, false
+	}
+	if earlier.Direction != "up" || earlier.State != "completed" {
+		return UpResult{}, false
+	}
+	marker := config.Marker{
+		ThreadID: thread.ID, TeleportID: earlier.TeleportID, Owner: "yak", ThreadURL: thread.URL, BaseURL: d.Config.BaseURL, WrittenAt: d.Now(),
+	}
+	if err := config.WriteMarker(d.ConfigDir, sid, marker); err != nil {
+		d.say("! Could not record that Yak has the thread: %v", err)
+	}
+	d.say("Yak already has this thread from an earlier teleport. This session is now read-only.")
+	d.say("Continue at %s", thread.URL)
+	return UpResult{ThreadID: thread.ID, ThreadURL: thread.URL, TeleportID: earlier.TeleportID, Branch: thread.Branch}, true
 }
 
 func completeUp(ctx context.Context, d Deps, started api.BeginUpResponse, req api.CompleteUpRequest, rePush func() error) (api.CompleteUpResponse, error) {
@@ -297,8 +347,15 @@ func completeUp(ctx context.Context, d Deps, started api.BeginUpResponse, req ap
 		if e, ok := api.AsError(err); ok && e.Code == "teleport_failed" {
 			return resp, userErrorf(err, "Yak could not finish the teleport: %s. Nothing changed on this computer.", firstNonEmpty(detail(e, "message"), e.Message))
 		}
-		return resp, friendly(err)
+		if isCancelled(err) {
+			return resp, err
+		}
+		if api.IsTransient(err) {
+			return resp, userErrorf(err, "Yak did not answer the final step (%v). It may already have the thread. Run yak teleport again to check and resume.", err)
+		}
+		return resp, resumable(err)
 	}
+	failures := 0
 	for polls := 0; resp.Teleport.State != "completed"; polls++ {
 		if resp.Teleport.State == "failed" || resp.Teleport.State == "cancelled" || resp.Teleport.State == "expired" || polls > maxPolls {
 			msg := "the teleport did not finish"
@@ -307,13 +364,21 @@ func completeUp(ctx context.Context, d Deps, started api.BeginUpResponse, req ap
 			}
 			return resp, userErrorf(nil, "Yak could not finish the teleport: %s. Nothing changed on this computer.", msg)
 		}
-		d.Sleep(time.Duration(max(resp.Teleport.PollAfterSeconds, 1)) * time.Second)
-		if ctx.Err() != nil {
-			return resp, ctx.Err()
+		if err := d.sleep(ctx, time.Duration(max(resp.Teleport.PollAfterSeconds, 1))*time.Second); err != nil {
+			return resp, err
 		}
-		if err := d.API.Do(ctx, "GET", "/teleports/"+started.TeleportID, nil, &resp.Teleport); err != nil {
-			return resp, friendly(err)
+		var next api.Teleport
+		if err := d.API.Do(ctx, "GET", "/teleports/"+started.TeleportID, nil, &next); err != nil {
+			if !api.IsTransient(err) {
+				return resp, resumable(err)
+			}
+			if failures++; failures >= maxPollFailures {
+				return resp, &unconfirmedError{cause: err}
+			}
+			continue
 		}
+		failures = 0
+		resp.Teleport = next
 	}
 	return resp, nil
 }

@@ -87,6 +87,20 @@ func friendly(err error) error {
 	return err
 }
 
+// resumable turns an error that ends a teleport halfway into one that names the next step. Teleport-specific
+// errors already read as advice, and auth and protocol errors keep their own handling in the command.
+func resumable(err error) error {
+	err = friendly(err)
+	var userErr *UserError
+	if errors.As(err, &userErr) {
+		return err
+	}
+	if api.IsCode(err, "protocol_too_old") || api.IsCode(err, "device_revoked") || api.IsCode(err, "invalid_token") || isCancelled(err) {
+		return err
+	}
+	return userErrorf(err, "%v. Run yak teleport again to resume.", strings.TrimRight(err.Error(), "."))
+}
+
 // expiryPhrase names the idle window the server reported, such as "45 minutes".
 func expiryPhrase(minutes string) string {
 	switch minutes {
@@ -111,6 +125,45 @@ func (d Deps) say(format string, a ...any) { fmt.Fprintf(d.Out, format+"\n", a..
 // cancel tells Yak the teleport is off. It runs even when ctx is already cancelled and never fails the caller.
 func (d Deps) cancel(ctx context.Context, teleportID, reason, detail string) {
 	_ = d.API.Do(context.WithoutCancel(ctx), "POST", "/teleports/"+teleportID+"/cancel", api.CancelRequest{Reason: reason, Detail: detail}, nil)
+}
+
+// sleep waits for d through the injectable Sleep and returns early with ctx's error when ctx ends, so Ctrl-C
+// does not wait out a poll interval.
+func (d Deps) sleep(ctx context.Context, wait time.Duration) error {
+	done := make(chan struct{})
+	go func() {
+		d.Sleep(wait)
+		close(done)
+	}()
+	select {
+	case <-done:
+		return ctx.Err()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+const (
+	gitNetworkAttempts = 3
+	// maxPollFailures is how many polls in a row may fail on the network before the teleport stops waiting.
+	maxPollFailures = 5
+)
+
+// gitNetwork runs a git command that talks to a remote, trying again after a failure with a growing pause.
+// A cancelled ctx stops it at once.
+func (d Deps) gitNetwork(ctx context.Context, repo gitx.Repo, args ...string) error {
+	var err error
+	for attempt := 1; attempt <= gitNetworkAttempts; attempt++ {
+		if attempt > 1 {
+			if serr := d.sleep(ctx, time.Duration(attempt-1)*2*time.Second); serr != nil {
+				return serr
+			}
+		}
+		if _, err = repo.RunNetwork(ctx, args...); err == nil || ctx.Err() != nil {
+			return err
+		}
+	}
+	return err
 }
 
 func isCancelled(err error) bool { return errors.Is(err, context.Canceled) }

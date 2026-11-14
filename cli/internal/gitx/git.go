@@ -3,6 +3,7 @@ package gitx
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -32,11 +33,25 @@ func (r Repo) RunBytes(args ...string) ([]byte, error) { return r.RunInput(nil, 
 
 // RunInput is RunBytes with stdin, for commands such as check-ignore --stdin -z.
 func (r Repo) RunInput(stdin []byte, args ...string) ([]byte, error) {
-	cmd := exec.Command("git", append([]string{"-C", r.Dir}, args...)...)
+	return r.run(context.Background(), nil, stdin, args...)
+}
+
+// lowSpeedEnv makes git give up on a transfer that stays under 1 KB/s for 30 seconds instead of hanging.
+var lowSpeedEnv = []string{"GIT_HTTP_LOW_SPEED_LIMIT=1000", "GIT_HTTP_LOW_SPEED_TIME=30"}
+
+// RunNetwork runs one git command that talks to a remote (push, fetch, clone). It stops when ctx ends and
+// when the transfer stalls; the caller decides whether to try again.
+func (r Repo) RunNetwork(ctx context.Context, args ...string) (string, error) {
+	out, err := r.run(ctx, lowSpeedEnv, nil, args...)
+	return strings.TrimRight(string(out), "\r\n"), err
+}
+
+func (r Repo) run(ctx context.Context, extraEnv []string, stdin []byte, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", r.Dir}, args...)...)
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}
-	cmd.Env = append(append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0"), r.Env...)
+	cmd.Env = append(append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0"), append(extraEnv, r.Env...)...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
