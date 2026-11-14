@@ -205,10 +205,19 @@ class ThreadTurns
             $this->commands->setModel($thread, $thread->model);
         }
 
-        $this->commands->turn($thread, (string) $run->prompt_uuid, (string) $run->prompt);
+        // The turn is recorded as running before the command goes out: the broker can answer no_runner within
+        // milliseconds, and the driver only recovers a lost runner for a turn that is already running.
+        $waitingState = $run->getAttribute('turn_state');
         self::trackUuid($run, (string) $run->prompt_uuid);
-
         $run->forceFill(['turn_state' => TurnState::Running])->save();
+
+        try {
+            $this->commands->turn($thread, (string) $run->prompt_uuid, (string) $run->prompt);
+        } catch (Throwable $exception) {
+            $run->forceFill(['turn_state' => $waitingState])->save();
+
+            throw $exception;
+        }
 
         if (in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForAccount, ThreadBlockReason::WaitingForSandbox], true)) {
             $thread->forceFill(['blocked_reason' => null, 'blocked_at' => null])->save();

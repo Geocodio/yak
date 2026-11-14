@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\RunnerState;
+use App\Enums\TurnState;
 use App\Events\RunnerExited;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
@@ -8,6 +9,7 @@ use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
+use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Facades\Event;
 
 require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
@@ -123,4 +125,36 @@ it('ignores a no_runner for a uuid the turn is not waiting on', function () {
     app(ThreadDriver::class)->handle($noRunner);
 
     expect($run->refresh()->restart_count)->toBe(0);
+});
+
+it('forgets the runner of an idle thread when the broker restarts', function () {
+    [$thread, $run] = runningTurnFor();
+    $run->forceFill(['turn_state' => TurnState::Completed])->save();
+    $thread->forceFill(['runner_state' => RunnerState::Idle])->save();
+    $commands = Mockery::mock(ThreadCommands::class);
+    $commands->shouldReceive('revokePlaceholder')->once();
+    $commands->shouldNotReceive('startRunner');
+    app()->instance(ThreadCommands::class, $commands);
+
+    $restarted = app(BrokerStreams::class)->pushOut('threads:' . $thread->id, 1, 1, ['type' => 'broker', 'event' => 'restarted'], fromBroker: true);
+    app(ThreadDriver::class)->handle($restarted);
+
+    expect($thread->refresh()->runner_state)->toBe(RunnerState::None);
+});
+
+it('records the turn as running before the command reaches the broker', function () {
+    [$thread, $run] = runningTurnFor(['prompt_uuid' => 'prompt-1', 'prompt' => 'Go']);
+    $run->forceFill(['turn_state' => TurnState::Pending])->save();
+    $thread->forceFill(['runner_state' => RunnerState::Idle])->save();
+    $stateWhenSent = null;
+    $commands = Mockery::mock(ThreadCommands::class);
+    $commands->shouldReceive('setModel')->byDefault();
+    $commands->shouldReceive('turn')->once()->andReturnUsing(function () use ($run, &$stateWhenSent): void {
+        $stateWhenSent = $run->fresh()->getAttribute('turn_state');
+    });
+    app()->instance(ThreadCommands::class, $commands);
+
+    app(ThreadTurns::class)->dispatchTurn($thread, $run);
+
+    expect($stateWhenSent)->toBe(TurnState::Running);
 });

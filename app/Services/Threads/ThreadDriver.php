@@ -331,6 +331,14 @@ class ThreadDriver
     {
         $run = ThreadTurns::runningTurn($thread);
 
+        // A restarted broker killed every runner, so an idle thread must start a new one for its next turn.
+        if ($run === null && BrokerLine::event($line) !== 'no_runner' && in_array($thread->runner_state, [RunnerState::Idle, RunnerState::Busy], true)) {
+            $thread->forceFill(['runner_state' => RunnerState::None]);
+            $this->commands->revokePlaceholder($thread);
+
+            return;
+        }
+
         if ($run === null || ! in_array($thread->runner_state, [RunnerState::Idle, RunnerState::Busy], true)) {
             return;
         }
