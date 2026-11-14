@@ -1,7 +1,11 @@
 import { Deferred, Head, useForm } from '@inertiajs/react';
 import { Badge, Button, Field, PageHeader, Select, Skeleton, StatusPill, Textarea, TextInput, Tooltip } from '@geocodio/console-ui';
 import { BookOpen, ExternalLink, Info, RefreshCw, Sparkles } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import type { PaletteAction } from '@/commandPalette/types';
+import { openNewThread } from '@/components/Sidebar';
+import { show as showRiskProfile } from '@/routes/repos/risk-profile';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { AppLayout } from '@/layouts/AppLayout';
 import { DangerZone } from '@/components/repositories/DangerZone';
@@ -323,6 +327,22 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
     });
 
     const isPrReviewEnabled = isPrReviewOn ?? form.data.pr_review_enabled;
+
+    const repositorySlug = repository?.slug ?? null;
+    const repositoryGithubUrl = repository?.githubUrl ?? null;
+    const hasRiskProfileLink = isEditing && !isReadingConfig && isPrReviewEnabled;
+    const repositoryActions = useMemo<PaletteAction[]>(() => {
+        if (repositorySlug === null) {
+            return [];
+        }
+
+        return [
+            { id: 'this-repository-new-thread', label: 'New thread in this repository', keywords: ['create', 'start', 'spawn'], run: () => openNewThread({ repository: repositorySlug }) },
+            ...(repositoryGithubUrl === null ? [] : [{ id: 'this-repository-open-github', label: 'Open on GitHub', keywords: ['repo', 'code', 'source'], hint: 'new window', href: repositoryGithubUrl, run: () => window.open(repositoryGithubUrl, '_blank', 'noopener') }]),
+            ...(hasRiskProfileLink ? [{ id: 'this-repository-risk-profile', label: 'Open the risk profile', keywords: ['risk', 'review', 'approval'], href: showRiskProfile.url(repositorySlug) }] : []),
+        ];
+    }, [repositorySlug, repositoryGithubUrl, hasRiskProfileLink]);
+    useCommandPaletteActions('This repository', repositoryActions);
 
     const manifestErrors = form.errors as Partial<Record<'manifest.port' | 'manifest.health_probe_path' | 'manifest.wake_timeout_seconds', string>>;
 

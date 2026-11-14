@@ -3,7 +3,9 @@
 use App\Enums\RunnerState;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
+use App\Models\BranchDeployment;
 use App\Models\ClaudeAccount;
+use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -389,4 +391,79 @@ test('an action picked before ranks first among equal matches', function () {
 
     $page->type('[data-testid="app-palette"]', 'p')
         ->assertScript('document.querySelector(\'[data-testid="palette-action-go-prompts"]\').compareDocumentPosition(document.querySelector(\'[data-testid="palette-action-go-pr-reviews"]\')) & Node.DOCUMENT_POSITION_FOLLOWING', 4);
+});
+
+test('Repositories lists Add repository', function () {
+    $this->actingAs(User::factory()->create());
+    Repository::factory()->create(['slug' => 'acme/website']);
+
+    $page = visit('/repos');
+    openPalette($page);
+
+    $page->assertSeeIn('[data-testid="palette-action-repositories-add"]', 'Add repository')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertPathIs('/repos/create');
+});
+
+test('a repository page lists New thread in this repository, Open on GitHub and Risk profile', function () {
+    $this->actingAs(User::factory()->create());
+    $repository = Repository::factory()->create(['slug' => 'acme/website', 'pr_review_enabled' => true]);
+
+    $page = visit(route('repos.edit', $repository));
+    openPalette($page);
+
+    $page->assertSeeIn('[data-testid="palette-action-this-repository-new-thread"]', 'New thread in this repository')
+        ->assertSeeIn('[data-testid="palette-action-this-repository-open-github"]', 'Open on GitHub')
+        ->assertSeeIn('[data-testid="palette-action-this-repository-risk-profile"]', 'Risk profile');
+});
+
+test('a PR review page lists Open the pull request on GitHub', function () {
+    $this->actingAs(User::factory()->create());
+    $review = PrReview::factory()->create(['repo' => 'acme/website', 'pr_number' => 12]);
+
+    $page = visit(route('pr-reviews.for-pr', ['repoSlug' => $review->repo, 'prNumber' => $review->pr_number]));
+    openPalette($page);
+
+    $page->assertSeeIn('[data-testid="palette-action-review-open-pull-request"]', 'Open the pull request on GitHub');
+});
+
+test('a deployment page lists Open the preview and Destroy the preview, and destroy asks for confirmation', function () {
+    $this->actingAs(User::factory()->create());
+    $repository = Repository::factory()->create(['slug' => 'acme/website']);
+    $deployment = BranchDeployment::factory()->create(['repository_id' => $repository->id]);
+
+    $page = visit(route('deployments.show', $deployment));
+    openPalette($page);
+
+    $page->assertSeeIn('[role="dialog"]', 'This deployment')
+        ->assertSeeIn('[data-testid="palette-action-deployment-open-preview"]', 'Open the preview')
+        ->assertSeeIn('[data-testid="palette-action-deployment-destroy"]', 'Destroy the preview')
+        ->type('[data-testid="app-palette"]', 'destroy')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertSee('Destroy this deployment');
+
+    expect(BranchDeployment::find($deployment->id))->not->toBeNull();
+});
+
+test('SSH keys lists Add SSH key and it opens the add form', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/settings/ssh-keys');
+    openPalette($page);
+
+    $page->assertSeeIn('[data-testid="palette-action-ssh-add-key"]', 'Add SSH key')
+        ->type('[data-testid="app-palette"]', 'add ssh')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertVisible('[data-testid="ssh-key-public"]');
+});
+
+test('Claude accounts lists Add Claude account and it opens the add dialog', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/settings/claude-accounts');
+    openPalette($page);
+
+    $page->type('[data-testid="app-palette"]', 'add claude')
+        ->keys('[data-testid="app-palette"]', 'Enter')
+        ->assertVisible('[data-testid="account-save"]');
 });
