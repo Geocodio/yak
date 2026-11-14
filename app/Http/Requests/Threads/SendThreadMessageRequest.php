@@ -17,6 +17,7 @@ class SendThreadMessageRequest extends FormRequest
         return [
             'message' => ['required', 'string', 'max:20000'],
             'model' => ['nullable', 'string', ClaudeModelCatalog::rule()],
+            'intent' => ['nullable', 'string', 'in:add_preview_manifest,fix_preview'],
             'send_key' => ['nullable', 'uuid'],
             ...TaskAttachment::rules(),
         ];

@@ -130,6 +130,14 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['taskDescription', 'answers', 'note', 'answeredBy', 'isLastRound'],
             ],
+            'tasks-preview-setup' => [
+                'view' => 'prompts.tasks.preview-setup',
+                'label' => 'Preview setup',
+                'description' => 'Sent when someone clicks "Ask Claude to add it" or "Ask Claude to fix it" on a thread preview. Carries the full preview.yml schema and a definition of done: write the file, run cold_start in the sandbox, confirm the app answers on the health probe path.',
+                'category' => 'advanced',
+                'type' => 'task',
+                'variables' => ['situation'],
+            ],
             'tasks-follow-up' => [
                 'view' => 'prompts.tasks.follow-up',
                 'label' => 'Follow-up',

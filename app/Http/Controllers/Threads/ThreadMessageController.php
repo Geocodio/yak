@@ -13,6 +13,7 @@ use App\Services\Threads\ClearCommand;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadTurns;
+use App\YakPromptBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -70,8 +71,21 @@ class ThreadMessageController extends Controller
                     : redirect()->to($continued)->with('success', 'Started a new thread continued from this one.');
             }
 
+            $intent = $request->validated('intent');
+
+            if ($intent !== null && ThreadTurns::activeTurn($thread) !== null) {
+                $this->release($claim);
+
+                return $this->refuse($request, 'Claude is already working on this thread.');
+            }
+
             if (ThreadTurns::activeTurn($thread) === null) {
-                $turns->start($task, $text, $user, $model);
+                $prompt = match ($intent) {
+                    'add_preview_manifest' => YakPromptBuilder::previewSetupPrompt('missing'),
+                    'fix_preview' => YakPromptBuilder::previewSetupPrompt('failing'),
+                    default => $text,
+                };
+                $turns->start($task, $prompt, $user, $model, shownText: $text);
                 TaskAttachment::storeFromRequest($request, ['yak_task_id' => $task->id]);
             } else {
                 $turns->steer(
