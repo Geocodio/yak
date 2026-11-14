@@ -30,6 +30,19 @@ import XCTest
         try audit()
     }
 
+    func testGoingOfflineShowsTheOfflineLineAndComingBackRemovesIt() throws {
+        try stub.play("paired")
+        launch(paired: true)
+        let offline = label(containing: "You are offline")
+        XCTAssertTrue(label(containing: "Signed in as Test Person").waitForExistence(timeout: 10))
+        XCTAssertFalse(offline.exists)
+        try stub.setOnline(false)
+        XCTAssertTrue(offline.waitForExistence(timeout: 15))
+        try stub.setOnline(true)
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: offline)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 15), .completed)
+    }
+
     func testARevokedPhoneIsAskedToPairAgain() throws {
         try stub.play("revoked")
         launch(paired: true)

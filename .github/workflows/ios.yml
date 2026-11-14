@@ -89,4 +89,4 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test YakKit
         working-directory: ios/Packages/YakKit
-        run: swift test
+        run: swift test -Xswiftc -warnings-as-errors

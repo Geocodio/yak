@@ -1,8 +1,11 @@
 import XCTest
 
 @MainActor final class LaunchTests: XCTestCase {
-    func testLaunchShowsConnectScreen() {
+    func testLaunchShowsConnectScreen() throws {
+        let stub = try StubControl()
+        try stub.play("not-yak")
         let app = XCUIApplication()
+        app.launchArguments = ["-yakTestInstance", stub.url]
         app.launch()
         XCTAssertTrue(app.staticTexts["Connect to your Yak"].waitForExistence(timeout: 5))
     }

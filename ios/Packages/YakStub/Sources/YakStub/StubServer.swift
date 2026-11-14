@@ -65,9 +65,13 @@ final class StubServer: Sendable {
         }
         if request.path == "/__stub/online" {
             if request.method == "POST" {
-                online.set(
-                    String(decoding: request.body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-                        != "no")
+                let text = String(decoding: request.body, as: UTF8.self)
+                let state = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard state == "yes" || state == "no" else {
+                    return StubReply(
+                        answer: Scenario.error(400, "unknown_online_state", "Send yes or no, not \(state)."))
+                }
+                online.set(state == "yes")
             }
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data((online.get() ? "yes" : "no").utf8)))
