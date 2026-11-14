@@ -16,3 +16,5 @@ video/out
 video/.remotion-cache
 video/fixtures/*.webm
 video/fixtures/*.mp4
+
+ios
