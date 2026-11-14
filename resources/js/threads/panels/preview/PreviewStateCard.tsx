@@ -25,8 +25,8 @@ const SAMPLE_MANIFEST = `port: 3000
 cold_start: npm run dev
 health_probe_path: /`;
 
-const ASK_FIX_MESSAGE = 'The preview did not start: the dev server is not answering. Please look at the dev server output and fix it.';
-const ASK_ADD_MANIFEST_MESSAGE = 'Please add a .yak/preview.yml so Yak can run this app as a preview: the port, the cold_start command and a health probe path.';
+const ASK_FIX_MESSAGE = 'The preview did not start. Please find out why and fix it.';
+const ASK_ADD_MANIFEST_MESSAGE = 'Please set up the preview: add a .yak/preview.yml and check that the app starts.';
 
 const STEPS = ['Wake the sandbox', 'Start the dev server', 'Wait for the app to answer'];
 
@@ -84,7 +84,7 @@ function LogTail({ lines, label }: { lines: string[]; label?: string }) {
 
 export function PreviewStateCard({ state, threadId, preview, canDrive, canRestore, log, error, isRestoring, onRestore, onRetry }: Props) {
     const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
-    const askClaude = (message: string) => router.post(storeMessage.url(threadId), { message }, { preserveScroll: true });
+    const askClaude = (message: string, intent: 'add_preview_manifest' | 'fix_preview') => router.post(storeMessage.url(threadId), { message, intent }, { preserveScroll: true });
 
     switch (state) {
         case 'sandbox_asleep':
@@ -157,7 +157,7 @@ export function PreviewStateCard({ state, threadId, preview, canDrive, canRestor
                             Try again
                         </Button>
                         {canDrive && (
-                            <Button variant="secondary" onClick={() => askClaude(ASK_FIX_MESSAGE)} data-testid="preview-ask-claude">
+                            <Button variant="secondary" onClick={() => askClaude(ASK_FIX_MESSAGE, 'fix_preview')} data-testid="preview-ask-claude">
                                 Ask Claude to fix it
                             </Button>
                         )}
@@ -184,7 +184,7 @@ export function PreviewStateCard({ state, threadId, preview, canDrive, canRestor
                     </pre>
                     <div className="flex flex-wrap items-center gap-3">
                         {canDrive && (
-                            <Button variant="primary" onClick={() => askClaude(ASK_ADD_MANIFEST_MESSAGE)} data-testid="preview-ask-claude-add">
+                            <Button variant="primary" onClick={() => askClaude(ASK_ADD_MANIFEST_MESSAGE, 'add_preview_manifest')} data-testid="preview-ask-claude-add">
                                 Ask Claude to add it
                             </Button>
                         )}

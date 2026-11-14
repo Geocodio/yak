@@ -163,6 +163,16 @@ class YakPromptBuilder
     }
 
     /**
+     * The request behind the preview card's "Ask Claude" buttons.
+     *
+     * @param  'missing'|'failing'  $situation
+     */
+    public static function previewSetupPrompt(string $situation): string
+    {
+        return Prompts::render('tasks-preview-setup', ['situation' => $situation]);
+    }
+
+    /**
      * Build the prompt for a follow-up question on a finished research task.
      * The previous answer is included so the turn still has context when the
      * Claude session cannot be resumed.

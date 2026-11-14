@@ -51,7 +51,7 @@ final class ThreadMessagesData
                 ? $steer->attachments
                 : ($run->task?->attachments->where('context', TaskAttachment::CONTEXT_REQUEST) ?? collect());
             $attachments = array_values($files->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all());
-            $text = $steer !== null ? $steer->text : (string) $run->task?->description;
+            $text = $steer !== null ? $steer->text : ($row->text ?? (string) $run->task?->description);
             $references = array_values(array_filter(array_column($attachments, 'reference')));
 
             $authorName = $steer !== null ? $steer->author_name : $run->driver?->name;
