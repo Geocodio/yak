@@ -147,11 +147,11 @@ test('available memory counts arc above minimum as free', function () {
 
 test('pool used percent is cached for fifteen seconds', function () {
     Cache::flush();
-    Process::fake(['*' => Process::result("Resources:\n  Space used: 1.00TiB\n  Total space: 4.00TiB\n")]);
+    Process::fake(['*' => Process::result("info:\n  driver: zfs\n  name: default\n  space used: \"1099511627776\"\n  total space: \"4398046511104\"\n")]);
 
     expect(incusManager()->poolUsedPercent())->toBe(25.0);
     expect(incusManager()->poolUsedPercent())->toBe(25.0);
-    Process::assertRanTimes(fn ($p) => str_contains(implode(' ', $p->command), 'storage info'), 1);
+    Process::assertRanTimes(fn ($p) => str_contains(implode(' ', $p->command), 'storage info default --bytes'), 1);
 
     $this->travel(16)->seconds();
     incusManager()->poolUsedPercent();

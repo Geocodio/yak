@@ -207,25 +207,18 @@ class IncusThreadSandboxManager implements SandboxManager
     {
         return Cache::remember(self::POOL_CACHE_KEY, self::POOL_CACHE_SECONDS, function (): float {
             $pool = (string) config('yak.sandbox.incus_pool', 'default');
-            $result = Process::timeout(self::QUERY_TIMEOUT)->run(['incus', 'storage', 'info', $pool, '--resource']);
+            $result = Process::timeout(self::QUERY_TIMEOUT)->run(['incus', 'storage', 'info', $pool, '--bytes']);
 
             if ($result->failed()
-                || ! preg_match('/Space used:\s*([\d.]+)\s*(\w+)/i', $result->output(), $used)
-                || ! preg_match('/Total space:\s*([\d.]+)\s*(\w+)/i', $result->output(), $total)) {
+                || ! preg_match('/space used:\s*"?(\d+)"?/i', $result->output(), $used)
+                || ! preg_match('/total space:\s*"?(\d+)"?/i', $result->output(), $total)) {
                 throw SandboxCommandFailed::for('pool usage', $result);
             }
 
-            $totalBytes = $this->toBytes((float) $total[1], $total[2]);
+            $totalBytes = (float) $total[1];
 
-            return $totalBytes > 0 ? round($this->toBytes((float) $used[1], $used[2]) / $totalBytes * 100, 2) : 100.0;
+            return $totalBytes > 0 ? round((float) $used[1] / $totalBytes * 100, 2) : 100.0;
         });
-    }
-
-    private function toBytes(float $value, string $unit): float
-    {
-        $exponent = ['b' => 0, 'kib' => 1, 'mib' => 2, 'gib' => 3, 'tib' => 4, 'pib' => 5][strtolower($unit)] ?? 0;
-
-        return $value * 1024 ** $exponent;
     }
 
     /** Best effort: a missed lookup clears any previous address so the preview waker resolves and records it itself. */
