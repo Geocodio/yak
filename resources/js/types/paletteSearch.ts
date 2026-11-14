@@ -15,6 +15,8 @@ export type PaletteSearchRepository = {
     name: string;
     url: string;
     githubUrl: string | null;
+    /** The new-thread dialog lists only active repositories. */
+    isActive: boolean;
 };
 
 export type PaletteSearchPullRequest = {

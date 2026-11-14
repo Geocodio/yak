@@ -34,8 +34,8 @@ const goTo = (id: string, label: string, url: string, keywords: string[] = []): 
     run: () => router.visit(url),
 });
 
-/** Registers the actions available on every page and returns them. Called once, by `AppCommandPalette`. */
-export function useGlobalActions(): PaletteAction[] {
+/** Registers the actions available on every page. Called once, by `AppCommandPalette`. */
+export function useGlobalActions(): void {
     const { props, url } = usePage<SharedProps>();
     const currentThreadId = /^\/threads\/([^/?#]+)/.exec(url.split('?')[0])?.[1] ?? null;
     const nextThread = props.threadList?.needsYou.find((row) => row.id !== currentThreadId) ?? null;
@@ -95,6 +95,4 @@ export function useGlobalActions(): PaletteAction[] {
     useCommandPaletteActions('Go to', goToActions);
     useCommandPaletteActions('Settings', settings);
     useCommandPaletteActions('Help', help);
-
-    return useMemo(() => [...create, ...goToActions, ...settings, ...help], [create, goToActions, settings, help]);
 }

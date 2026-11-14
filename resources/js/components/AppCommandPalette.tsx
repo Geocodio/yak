@@ -49,6 +49,9 @@ export function AppCommandPalette() {
     const step = steps.at(-1) ?? null;
     const searchResults = usePaletteSearch(query, open && step === null);
 
+    /** The query each open step returns to when it is left: a result's more step restores the search, other steps start clean. */
+    const returnQueries = useRef<string[]>([]);
+
     const close = useCallback(() => {
         setOpen(false);
         setQuery('');
@@ -66,11 +69,13 @@ export function AppCommandPalette() {
             return;
         }
         let isCurrent = true;
-        Promise.resolve(step.items(query)).then((items) => {
-            if (isCurrent) {
-                setStepActions(items);
-            }
-        });
+        Promise.resolve(step.items(query))
+            .catch((): PaletteAction[] => [])
+            .then((items) => {
+                if (isCurrent) {
+                    setStepActions(items);
+                }
+            });
 
         return () => {
             isCurrent = false;
@@ -80,7 +85,10 @@ export function AppCommandPalette() {
     const newThreadSplit = step === null ? splitNewThreadQuery(query, NEW_THREAD_KEYWORDS) : null;
 
     const execute = (action: PaletteAction) => {
-        recordPick(action.id);
+        // Rows inside a step (files, sub-threads, a result's own actions) never rank, so only root picks are remembered.
+        if (step === null) {
+            recordPick(action.id);
+        }
         if (action.id === NEW_THREAD_ID && newThreadSplit !== null) {
             openNewThread({ prompt: newThreadSplit.prompt });
         } else if (action.run) {
@@ -90,9 +98,6 @@ export function AppCommandPalette() {
         }
         close();
     };
-
-    /** The query each open step returns to when it is left: a result's more step restores the search, other steps start clean. */
-    const returnQueries = useRef<string[]>([]);
 
     const enterStep = (next: PaletteStep, returnQuery = '') => {
         returnQueries.current.push(returnQuery);
@@ -138,7 +143,10 @@ export function AppCommandPalette() {
     }, [open, close]);
 
     const buildItems = (): CommandPaletteSection[] => {
-        const toItem = ({ action, disabledReason }: { action: PaletteAction; disabledReason?: string }) => ({
+        const toItem = ({ action, disabledReason }: { action: PaletteAction; disabledReason?: string }) => {
+            const more = action.more;
+
+            return {
             id: action.id,
             testId: `palette-action-${action.id}`,
             label: action.label,
@@ -149,8 +157,9 @@ export function AppCommandPalette() {
             disabled: disabledReason !== undefined,
             disabledReason,
             onSelect: () => select(action),
-            ...(action.more ? { onMore: () => enterStep(action.more as PaletteStep, query), moreLabel: `More actions for ${action.label}` } : {}),
-        });
+            ...(more ? { onMore: () => enterStep(more, query), moreLabel: `More actions for ${action.label}` } : {}),
+            };
+        };
 
         if (step !== null) {
             return [{ items: stepActions.map((action) => toItem({ action, disabledReason: action.unavailable })) }];
@@ -194,6 +203,9 @@ export function AppCommandPalette() {
                 {pendingConfirm?.confirm ? (
                     <ConfirmDialog
                         open
+                        data-testid="palette-confirm"
+                        confirmTestId="palette-confirm-accept"
+                        cancelTestId="palette-confirm-cancel"
                         onOpenChange={(next) => !next && setPendingConfirm(null)}
                         title={pendingConfirm.confirm.title}
                         body={pendingConfirm.confirm.body}

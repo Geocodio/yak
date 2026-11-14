@@ -1,6 +1,6 @@
 import type { TeleportData } from '@/types/threads';
 
-/** Whether the header menu and the command palette offer Teleport. */
+/** Whether the Environment panel and the command palette offer Teleport. */
 export const canTeleportThread = (teleport: TeleportData): boolean => teleport.canTeleport && teleport.state !== 'teleporting';
 
 /** The Teleport label for the thread's current side. */

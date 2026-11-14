@@ -106,6 +106,7 @@ test('finds a repository by name', function () {
         'name' => 'Zebra API',
         'url' => route('repos.edit', $repository),
         'githubUrl' => $repository->githubUrl(),
+        'isActive' => true,
     ]);
 });
 
@@ -143,6 +144,16 @@ test('matches thread pull requests on the thread title', function () {
     ThreadRepository::factory()->withPullRequest(12)->create(['thread_id' => $thread->id]);
 
     paletteSearch('quokka')->assertOk()->assertJsonPath('pullRequests.0.number', 12);
+});
+
+test('returns a pull request for each repository of one thread', function () {
+    $thread = Thread::factory()->create(['title' => 'Two repository change']);
+    ThreadRepository::factory()->withPullRequest(5)->create(['thread_id' => $thread->id, 'repo' => 'acme/first']);
+    ThreadRepository::factory()->withPullRequest(6)->create(['thread_id' => $thread->id, 'repo' => 'acme/second']);
+
+    $repositories = array_column(paletteSearch('two repository')->assertOk()->json('pullRequests'), 'repo');
+
+    expect($repositories)->toEqualCanonicalizing(['acme/first', 'acme/second']);
 });
 
 test('caps each list at 10', function () {

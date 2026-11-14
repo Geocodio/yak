@@ -134,10 +134,10 @@ class PaletteSearch
                 ->orWhereRaw("lower(thread_repositories.repo) like ? escape '!'", [$pattern]))
             ->orderByDesc('threads.last_activity_at')
             ->orderBy('thread_repositories.id')
-            ->limit(self::LIMIT * 5)
+            ->limit(self::LIMIT)
             ->get(['threads.public_id', 'threads.title', 'thread_repositories.thread_id', 'thread_repositories.repo', 'thread_repositories.pull_request_number', 'thread_repositories.pull_request_url']);
 
-        foreach ($threadPullRequests->unique('thread_id') as $row) {
+        foreach ($threadPullRequests as $row) {
             $url = (string) $row->getAttribute('pull_request_url');
             $rows[$url] = [
                 'number' => (int) $row->getAttribute('pull_request_number'),

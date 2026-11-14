@@ -27,6 +27,7 @@ function scoreWord(word: string, label: string, keywords: string[]): number {
         return 2;
     }
 
+    // Letters in order are matched against the label only: across keywords they would match nearly everything.
     return isSubsequence(word, label) ? 1 : 0;
 }
 

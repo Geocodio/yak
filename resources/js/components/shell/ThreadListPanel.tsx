@@ -7,7 +7,7 @@ import {
     cn,
 } from "@geocodio/console-ui";
 import { CircleHelp, PanelLeftClose, Plus, Search } from "lucide-react";
-import { keycapsFor } from "@/commandPalette/shortcuts";
+import { shortcutLabel } from "@/commandPalette/shortcuts";
 import { isMacPlatform } from "@/commandPalette/platform";
 import { ThreadGroup } from "@/components/shell/ThreadGroup";
 import { useThreadList } from "@/components/shell/useThreadList";
@@ -78,7 +78,7 @@ export function ThreadListPanel({
                         New thread
                     </Button>
                     <Tooltip
-                        label={`Search ${keycapsFor("openPalette", isMacPlatform()).join(" ")}`}
+                        label={`Search ${shortcutLabel("openPalette", isMacPlatform())}`}
                     >
                         <Button
                             variant="secondary"

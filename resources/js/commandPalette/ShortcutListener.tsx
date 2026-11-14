@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { createSequenceMatcher, isTypingTarget } from './shortcuts';
+import { SHORTCUTS, createSequenceMatcher, isTypingTarget } from './shortcuts';
 import { findActionByShortcut } from './store';
 
 const SEQUENCE_TIMEOUT_MILLISECONDS = 1000;
+const PALETTE_KEY = SHORTCUTS.openPalette.keys[1].toLowerCase();
 
 /** The palette marks its own popup with this attribute so it does not count as a blocking surface. */
 export const PALETTE_ATTRIBUTE = 'data-command-palette';
@@ -23,7 +24,7 @@ export function ShortcutListener() {
         const match = createSequenceMatcher(SEQUENCE_TIMEOUT_MILLISECONDS);
 
         const onKeyDown = (event: KeyboardEvent) => {
-            if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+            if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === PALETTE_KEY) {
                 event.preventDefault();
                 if (!event.repeat) {
                     window.dispatchEvent(new CustomEvent('yak:toggle-palette'));

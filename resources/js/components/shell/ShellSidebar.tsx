@@ -7,6 +7,7 @@ import { IconRail } from '@/components/shell/IconRail';
 import { SectionPanel } from '@/components/shell/SectionPanel';
 import { sectionForUrl, type RailSection } from '@/components/shell/sections';
 import { ThreadListPanel } from '@/components/shell/ThreadListPanel';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 import { useMarkThreadSeen } from '@/components/shell/useMarkThreadSeen';
 import { useThreadDocked } from '@/components/shell/useThreadDocked';
 
@@ -84,7 +85,8 @@ export function ShellSidebar() {
     const togglePanelRef = useRef(togglePanel);
     togglePanelRef.current = togglePanel;
 
-    const actions = useMemo<PaletteAction[]>(() => [{ id: 'toggle-sidebar', label: 'Toggle the sidebar', keywords: ['sidebar', 'collapse', 'hide', 'show', 'threads', 'panel'], shortcut: 'toggleSidebar', run: () => togglePanelRef.current() }], []);
+    const isDesktop = useMediaQuery('(min-width: 1024px)');
+    const actions = useMemo<PaletteAction[]>(() => (!isDesktop ? [] : [{ id: 'toggle-sidebar', label: 'Toggle the sidebar', keywords: ['sidebar', 'collapse', 'hide', 'show', 'threads', 'panel'], shortcut: 'toggleSidebar', run: () => togglePanelRef.current() }]), [isDesktop]);
     useCommandPaletteActions('Go to', actions);
 
     return (

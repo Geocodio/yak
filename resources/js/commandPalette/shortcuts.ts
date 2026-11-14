@@ -31,6 +31,11 @@ export function keycapsFor(id: ShortcutId, isMac: boolean): string[] {
     return SHORTCUTS[id].keys.map((key) => (key === 'mod' ? modifier : key));
 }
 
+/** One-line text for a tooltip: "⌘K" on Mac, "Ctrl+K" elsewhere. */
+export function shortcutLabel(id: ShortcutId, isMac: boolean): string {
+    return keycapsFor(id, isMac).join(isMac ? '' : '+');
+}
+
 const shortcutEntries = Object.entries(SHORTCUTS) as [ShortcutId, { keys: readonly string[] }][];
 
 /**

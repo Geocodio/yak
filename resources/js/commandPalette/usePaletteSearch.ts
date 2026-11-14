@@ -14,9 +14,8 @@ const NO_RESULTS: PaletteSearchResults = { threads: [], repositories: [], pullRe
  * next answer arrives; they clear when the palette closes or the query is too
  * short. An answer to an older query, or one that lands after close, is dropped.
  */
-export function usePaletteSearch(query: string, isOpen: boolean): { threads: PaletteSearchThread[]; repositories: PaletteSearchRepository[]; pullRequests: PaletteSearchPullRequest[]; isLoading: boolean } {
+export function usePaletteSearch(query: string, isOpen: boolean): { threads: PaletteSearchThread[]; repositories: PaletteSearchRepository[]; pullRequests: PaletteSearchPullRequest[] } {
     const [results, setResults] = useState<PaletteSearchResults>(NO_RESULTS);
-    const [isLoading, setIsLoading] = useState(false);
     const guard = useRef<ReturnType<typeof latestOnly<PaletteSearchResults>> | null>(null);
     guard.current ??= latestOnly<PaletteSearchResults>();
     const trimmed = query.trim();
@@ -25,25 +24,21 @@ export function usePaletteSearch(query: string, isOpen: boolean): { threads: Pal
     useEffect(() => {
         if (!isSearching) {
             setResults(NO_RESULTS);
-            setIsLoading(false);
 
             return;
         }
 
         const controller = new AbortController();
-        setIsLoading(true);
         const timer = setTimeout(() => {
             (guard.current as NonNullable<typeof guard.current>)(fetchJsonWithRetry<PaletteSearchResults>(search.url({ query: { query: trimmed } }), { signal: controller.signal }))
                 .then((body) => {
                     if (body !== null && !controller.signal.aborted) {
                         setResults(body);
-                        setIsLoading(false);
                     }
                 })
                 .catch(() => {
                     if (!controller.signal.aborted) {
                         setResults(NO_RESULTS);
-                        setIsLoading(false);
                     }
                 });
         }, DEBOUNCE_MILLISECONDS);
@@ -54,5 +49,5 @@ export function usePaletteSearch(query: string, isOpen: boolean): { threads: Pal
         };
     }, [isSearching, trimmed]);
 
-    return { ...results, isLoading };
+    return results;
 }

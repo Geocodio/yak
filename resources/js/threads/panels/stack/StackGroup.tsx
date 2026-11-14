@@ -13,7 +13,7 @@ import { StackMessages } from './StackMessages';
 
 /**
  * The first Overview group once a thread has sub-threads, or is one: status and diff counts of each,
- * the Awake at once stepper, and Stop stack. Adding a sub-thread lives in the composer and header menus.
+ * the Awake at once stepper, and Stop stack. Adding a sub-thread lives here, in the composer menu and in the command palette.
  */
 export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAddSubThread }: PanelProps) {
     const [isConfirmingStop, setIsConfirmingStop] = useState(false);

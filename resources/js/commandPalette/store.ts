@@ -14,11 +14,7 @@ function rebuildSnapshot(): void {
         merged.set(group, [...(merged.get(group) ?? []), ...actions]);
     }
 
-    const rank = (group: string): number => {
-        const position = GROUP_ORDER.indexOf(group);
-
-        return position === -1 ? -1 : position;
-    };
+    const rank = (group: string): number => GROUP_ORDER.indexOf(group);
 
     snapshot = [...merged.entries()]
         .map(([group, actions]) => ({ group, actions }))
