@@ -28,3 +28,11 @@ it('does nothing on an empty table and is safe to repeat', function () {
 
     expect($idle->fresh()->revoked_at->equalTo($revokedAt))->toBeTrue();
 });
+
+it('revokes every idle phone when they span several chunks', function () {
+    $idle = Device::factory()->phone()->count(7)->create(['last_seen_at' => now()->subDays(120)]);
+
+    $this->artisan('yak:revoke-idle-phones', ['--chunk' => 2])->assertSuccessful();
+
+    expect(Device::query()->whereIn('id', $idle->pluck('id'))->whereNull('revoked_at')->count())->toBe(0);
+});

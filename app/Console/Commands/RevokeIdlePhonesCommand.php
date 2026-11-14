@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 
 class RevokeIdlePhonesCommand extends Command
 {
-    protected $signature = 'yak:revoke-idle-phones';
+    protected $signature = 'yak:revoke-idle-phones {--chunk=500 : Rows read per batch}';
 
     protected $description = 'Revoke phones that have not connected for the configured number of idle days';
 
@@ -24,10 +24,10 @@ class RevokeIdlePhonesCommand extends Command
             ->where(fn ($query) => $query
                 ->where('last_seen_at', '<', $cutoff)
                 ->orWhere(fn ($never) => $never->whereNull('last_seen_at')->where('created_at', '<', $cutoff)))
-            ->each(function (Device $device) use ($revoker, &$revoked): void {
+            ->eachById(function (Device $device) use ($revoker, &$revoked): void {
                 $revoker->revoke($device);
                 $revoked++;
-            });
+            }, max(1, (int) $this->option('chunk')));
 
         $this->info("Revoked {$revoked} idle phones.");
 
