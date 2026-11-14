@@ -12,8 +12,10 @@ enum Fixtures {
     }
 
     static func data(_ name: String) throws -> Data {
-        // Read through the ios/fixtures symlink: SwiftPM copies a symlinked resource as a dangling link.
-        // Walk up from this file to the `ios` directory, so a moved file fails with a clear message.
+        // The fixtures are read from disk through `#filePath`, not bundled as a SwiftPM resource:
+        // `ios/fixtures` is a symlink to the shared fixtures, and SwiftPM copies a symlinked resource
+        // as a dangling link, so a bundled copy would be empty. Walk up from this file to the `ios`
+        // directory, so a moved file fails with a clear message.
         var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         while directory.lastPathComponent != "ios" {
             let parent = directory.deletingLastPathComponent()

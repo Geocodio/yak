@@ -77,6 +77,20 @@ final class AppModel {
         }
     }
 
+    /// Set when the person asks to scan again after a pairing problem; `ConnectView` takes it and opens the scanner.
+    var wantsScanner = false
+
+    /// Ends the link pairing and asks for the scanner.
+    func scanAgain() {
+        dismissLinkPairing()
+        wantsScanner = true
+    }
+
+    /// Gives up on a redeem that takes too long without asking the instance anything else.
+    func abandonLinkRedeem() {
+        linkPairing?.abandonRedeem()
+    }
+
     func retryLinkPairing() async {
         guard let link = linkToPair else { return }
         await pair(link: link)
@@ -90,7 +104,9 @@ final class AppModel {
 
     func reloadRoute() async {
         if let active = await instances.active() {
-            route = await instances.state(of: active.id) == .ready ? .signedIn(active) : .pairAgain(active)
+            // An unreadable token still shows the signed-in screen, which says so and offers a retry.
+            // Only a missing token means "Pair again".
+            route = await instances.state(of: active.id) == .needsPairing ? .pairAgain(active) : .signedIn(active)
         } else {
             route = .connect
         }

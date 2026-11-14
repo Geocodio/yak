@@ -26,9 +26,13 @@ private actor FakePairing: PairingServing {
     var wait: Wait = .approve
     var checkedAddresses: [URL] = []
     var pairedLinks: [PairingLink] = []
+    var requestIDs: [String?] = []
+    var holdsPair = false
     var failure: PairingProblem?
     var holdsStart = false
     var holdsWait = false
+
+    func holdPair(_ holds: Bool) { holdsPair = holds }
 
     func hold(start: Bool, wait: Bool) {
         holdsStart = start
@@ -44,8 +48,14 @@ private actor FakePairing: PairingServing {
         return instanceInfo
     }
 
-    func pair(link: PairingLink, device: DeviceDescription) async throws(PairingProblem) -> Instance {
+    func pair(link: PairingLink, device: DeviceDescription, requestID: String?) async throws(PairingProblem)
+        -> Instance
+    {
         pairedLinks.append(link)
+        requestIDs.append(requestID)
+        while holdsPair {
+            do { try await Task.sleep(for: .milliseconds(5)) } catch { throw .cancelled }
+        }
         if let failure { throw failure }
         return pairedInstance
     }
@@ -180,6 +190,57 @@ private let pairingLink = PairingLink(url: URL(string: "yak://pair?url=https%3A%
     #expect(await fake.pairedLinks == [pairingLink])
 }
 
+@MainActor @Test func theConfirmationStaysWhileTheCodeIsRedeemedAndNothingIsCheckedAgain() async throws {
+    let fake = FakePairing()
+    let model = makeModel(fake)
+    await model.pair(link: pairingLink)
+    await fake.holdPair(true)
+    let confirming = Task { await model.confirm() }
+    try await waitUntil { model.state == .redeeming(link: pairingLink, instance: instanceInfo, replaces: nil) }
+    #expect(await fake.checkedAddresses.count == 1)
+    await fake.holdPair(false)
+    await confirming.value
+    #expect(model.state == .paired(pairedInstance))
+    #expect(await fake.checkedAddresses.count == 1)
+}
+
+@MainActor @Test func eachConfirmationSendsItsOwnRequestID() async {
+    let fake = FakePairing()
+    let model = makeModel(fake)
+    await model.pair(link: pairingLink)
+    await model.confirm()
+    await model.pair(link: pairingLink)
+    await model.confirm()
+    let ids = await fake.requestIDs
+    #expect(ids.count == 2)
+    #expect(ids[0] != nil && ids[1] != nil && ids[0] != ids[1])
+}
+
+@MainActor @Test func givingUpOnARedeemShowsTheCodeMayBeUsedProblemAndIgnoresALateAnswer() async throws {
+    let fake = FakePairing()
+    let model = makeModel(fake)
+    await model.pair(link: pairingLink)
+    await fake.holdPair(true)
+    let confirming = Task { await model.confirm() }
+    try await waitUntil {
+        if case .redeeming = model.state { return true }
+        return false
+    }
+    model.abandonRedeem()
+    #expect(model.state == .problem(.codeMayBeUsed))
+    await fake.holdPair(false)
+    await confirming.value
+    #expect(model.state == .problem(.codeMayBeUsed))
+    #expect(await fake.checkedAddresses.count == 1)
+}
+
+@MainActor @Test func abandoningOutsideARedeemChangesNothing() async {
+    let model = makeModel(FakePairing())
+    await model.pair(link: pairingLink)
+    model.abandonRedeem()
+    #expect(model.state == .confirming(link: pairingLink, instance: instanceInfo, replaces: nil))
+}
+
 @MainActor @Test func cancellingAConfirmationStoresNothingAndSendsNoPairRequest() async {
     let fake = FakePairing()
     let model = makeModel(fake)
@@ -216,6 +277,7 @@ func everyProblemHasItsScreenText(name: String) {
 @Test func eachProblemMapsToItsOwnKeys() {
     let problems: [PairingProblem] = [
         .invalidAddress, .notYak, .unreachable, .serverTooOld, .appTooOld, .codeInvalid, .codeExpired, .denied,
+        .codeMayBeUsed,
     ]
     #expect(Set(problems.map(\.titleKey)).count == problems.count)
     #expect(PairingProblem.other("x").titleKey == "problem.other.title")

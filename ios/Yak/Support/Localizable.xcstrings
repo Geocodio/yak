@@ -21,12 +21,12 @@
         }
       }
     },
-    "connect.body %@": {
+    "connect.body": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yak runs on your company's own server. Pair this %@ with it to work on your threads from anywhere."
+            "value": "Yak runs on your company's own server. Pair this device with it to work on your threads from anywhere."
           }
         }
       }
@@ -351,6 +351,26 @@
         }
       }
     },
+    "problem.codeMayBeUsed.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This code may already be used"
+          }
+        }
+      }
+    },
+    "problem.codeMayBeUsed.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show a new code on your computer and scan again."
+          }
+        }
+      }
+    },
     "problem.codeExpired.title": {
       "localizations": {
         "en": {
@@ -536,7 +556,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone could not read its saved sign-in. Unlock it and try again."
+            "value": "Yak cannot read its saved sign-in yet. Unlock the device and try again."
           }
         }
       }
@@ -561,12 +581,12 @@
         }
       }
     },
-    "signedIn.removeTitle %@ %@": {
+    "signedIn.removeTitle %@": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove %1$@ from this %2$@?"
+            "value": "Remove %@ from this device?"
           }
         }
       }
@@ -727,6 +747,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pair"
+          }
+        }
+      }
+    },
+    "pairLink.confirm.pairing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing"
+          }
+        }
+      }
+    },
+    "pairLink.giveUp": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop waiting"
+          }
+        }
+      }
+    },
+    "pairLink.scanAgain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan again"
           }
         }
       }

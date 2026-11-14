@@ -49,7 +49,7 @@ struct PairAgainView: View {
             }
         }
         .confirmationDialog(
-            Text("signedIn.removeTitle \(instance.name) \(DeviceDescription.kindName)"),
+            Text("signedIn.removeTitle \(instance.name)"),
             isPresented: $confirmsRemove, titleVisibility: .visible
         ) {
             Button("signedIn.removeConfirm", role: .destructive) { Task { await model.remove(instance) } }

@@ -9,7 +9,7 @@ struct YakApp: App {
         let tokens = KeychainTokenStore(accessGroup: nil)
         let instances = InstanceStore(defaults: UserDefaults.standard, tokens: tokens, now: { Date() })
         let version = DeviceDescription.appVersion()
-        let system = "iOS \(DeviceDescription.current().osVersion); \(DeviceDescription.hardwareModel())"
+        let system = DeviceDescription.current().systemDescription
         _model = State(
             initialValue: AppModel(
                 instances: instances, tokens: tokens,

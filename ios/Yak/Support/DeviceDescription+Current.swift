@@ -24,7 +24,4 @@ extension DeviceDescription {
     static func appVersion() -> String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
-
-    /// "iPhone" or "iPad", for copy that names the device.
-    @MainActor static var kindName: String { UIDevice.current.model }
 }

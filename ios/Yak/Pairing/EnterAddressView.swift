@@ -207,8 +207,9 @@ struct EnterAddressView: View {
     }
 }
 
-/// After 8 seconds of waiting, says the connection is slow and offers a retry.
+/// After 8 seconds of waiting, says the connection is slow and offers an action, a retry unless told otherwise.
 struct SlowHint: View {
+    var actionTitle: LocalizedStringKey = "common.retry"
     let retry: () -> Void
     @State private var isSlow = false
 
@@ -216,7 +217,7 @@ struct SlowHint: View {
         VStack(alignment: .leading, spacing: 8) {
             if isSlow {
                 Text("common.slow").font(.footnote).foregroundStyle(.secondary)
-                Button("common.retry", action: retry).buttonStyle(SecondaryButtonStyle())
+                Button(actionTitle, action: retry).buttonStyle(SecondaryButtonStyle())
             }
         }
         .task {

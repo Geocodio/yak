@@ -73,7 +73,7 @@ private struct HealthyInstanceTransport: HTTPTransport {
         makeClient: {
             APIClient(
                 baseURL: $0, token: nil, transport: HealthyInstanceTransport(), appVersion: "1",
-                systemDescription: "test")
+                systemDescription: "test", sleep: { _ in })
         })
     return (model, instances)
 }
@@ -111,4 +111,40 @@ func aLinkThatIsNotAPairingLinkChangesNothing(link: String) async {
     #expect(model.route == routeBefore)
     #expect(model.linkPairing == nil)
     #expect(model.linkPairingSuccessCount == 1)
+}
+
+@MainActor @Test func anUnreadableTokenAtLaunchShowsTheSignedInScreenNotPairAgain() async throws {
+    let tokens = LockableTokenStore()
+    let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
+    let instance = try await instances.add(
+        url: URL(string: "https://yak.example.com")!, name: "Acme", userName: "Ada", token: "secret")
+    let model = AppModel(
+        instances: instances, tokens: tokens,
+        makeClient: { _ in
+            Issue.record("no request expected")
+            fatalError()
+        })
+    tokens.lockReads()
+    await model.reloadRoute()
+    #expect(model.route == .signedIn(instance))
+    #expect(try tokens.inner.token(for: instance.id) == "secret")
+}
+
+@MainActor @Test func aMissingTokenAtLaunchShowsPairAgain() async throws {
+    let tokens = InMemoryTokenStore()
+    let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
+    let instance = try await instances.add(
+        url: URL(string: "https://yak.example.com")!, name: "Acme", userName: "Ada", token: "secret")
+    try tokens.removeToken(for: instance.id)
+    let model = AppModel(instances: instances, tokens: tokens, makeClient: { _ in fatalError() })
+    await model.reloadRoute()
+    #expect(model.route == .pairAgain(instance))
+}
+
+@MainActor @Test func scanningAgainClosesThePairingAndAsksForTheScanner() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    model.scanAgain()
+    #expect(model.linkPairing == nil)
+    #expect(model.wantsScanner)
 }

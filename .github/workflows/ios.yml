@@ -26,6 +26,8 @@ defaults:
 
 jobs:
   static:
+    # GitHub's hosted Xcode 27 image. Never register a self-hosted runner under this label: this
+    # workflow runs pull request code, and a self-hosted machine would run it with local access.
     runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4

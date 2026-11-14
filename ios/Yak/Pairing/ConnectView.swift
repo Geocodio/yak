@@ -12,13 +12,13 @@ struct ConnectView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Image(systemName: DeviceDescription.kindName == "iPad" ? "ipad" : "iphone")
+                Image(systemName: "qrcode.viewfinder")
                     .font(.system(size: 44, weight: .light))
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 12) {
                     Text("connect.title").font(.largeTitle.bold())
-                    Text("connect.body \(DeviceDescription.kindName)")
+                    Text("connect.body")
                         .font(.body).foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 16) {
@@ -31,6 +31,11 @@ struct ConnectView: View {
             .padding(24)
         }
         .safeAreaInset(edge: .bottom) { buttons }
+        .onChange(of: model.wantsScanner, initial: true) {
+            guard model.wantsScanner else { return }
+            model.wantsScanner = false
+            showsScan = true
+        }
         .navigationDestination(isPresented: $showsScan) {
             ScanCodeView(
                 onLink: { link in

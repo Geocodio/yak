@@ -17,6 +17,16 @@ platform :ios do
     sh("#{File.join(IOS_ROOT, "scripts/check-rules.sh").shellescape}")
   end
 
+  desc "UI tests in the simulator"
+  lane :ui_smoke do
+    generate
+    sh(
+      "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+      "-destination 'platform=iOS Simulator,name=iPhone 18 Pro' -only-testing:YakUITests " \
+      "CODE_SIGNING_ALLOWED=NO"
+    )
+  end
+
   desc "YakKit package tests and app unit tests"
   lane :test do
     generate

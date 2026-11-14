@@ -5,7 +5,8 @@ import YakKit
 /// What `PairingModel` needs from the pairing logic; `Pairing` conforms, tests fake it.
 protocol PairingServing: Sendable {
     func check(_ address: URL) async throws(PairingProblem) -> InstanceInfo
-    func pair(link: PairingLink, device: DeviceDescription) async throws(PairingProblem) -> Instance
+    func pair(link: PairingLink, device: DeviceDescription, requestID: String?) async throws(PairingProblem)
+        -> Instance
     func startDeviceFlow(address: URL, device: DeviceDescription) async throws(PairingProblem)
         -> PendingDeviceFlow
     func waitForApproval(_ flow: PendingDeviceFlow) async throws(PairingProblem) -> Instance
@@ -27,6 +28,7 @@ extension PairingProblem {
         case .appTooOld: "appTooOld"
         case .codeInvalid: "codeInvalid"
         case .codeExpired: "codeExpired"
+        case .codeMayBeUsed: "codeMayBeUsed"
         case .denied: "denied"
         case .other("web_session_failed"): "signInPage"
         case .cancelled, .other: "other"
@@ -36,7 +38,7 @@ extension PairingProblem {
     /// Every key name a screen can ask for, so a test can check the catalog.
     static let allKeyNames = [
         "invalidAddress", "notYak", "unreachable", "serverTooOld", "appTooOld", "codeInvalid",
-        "codeExpired", "denied", "other", "signInPage",
+        "codeExpired", "denied", "other", "signInPage", "codeMayBeUsed",
     ]
 }
 
@@ -48,6 +50,8 @@ final class PairingModel {
         case waitingForApproval(url: URL)
         /// A pairing link was checked and waits for the person to confirm; nothing is stored yet.
         case confirming(link: PairingLink, instance: InstanceInfo, replaces: Instance?)
+        /// The code of the confirmed link is being redeemed. The confirmation stays on screen, busy.
+        case redeeming(link: PairingLink, instance: InstanceInfo, replaces: Instance?)
         case problem(PairingProblem)
         case paired(Instance)
     }
@@ -64,6 +68,8 @@ final class PairingModel {
     private let pairedInstances: @MainActor () async -> [Instance]
     private var task: Task<Void, Never>?
     private var generation = 0
+    /// Names one redeem of one link, so a repeat of it reaches the instance as the same request.
+    private var requestID = UUID().uuidString
 
     init(
         pairing: any PairingServing,
@@ -135,6 +141,7 @@ final class PairingModel {
             guard mine == generation else { return }
             switch outcome {
             case .success(let info):
+                requestID = UUID().uuidString
                 state = .confirming(
                     link: link, instance: info, replaces: paired.first { $0.url == link.instance })
             case .failure(.cancelled): state = .idle
@@ -145,13 +152,25 @@ final class PairingModel {
         await running.value
     }
 
-    /// Redeems the code of the link being confirmed.
+    /// Redeems the code of the link being confirmed. It sends no instance check: that happened
+    /// before the confirmation.
     func confirm() async {
-        guard case .confirming(let link, _, _) = state else { return }
+        guard case .confirming(let link, let info, let replaces) = state else { return }
+        state = .redeeming(link: link, instance: info, replaces: replaces)
+        let requestID = requestID
         await run { (model) throws(PairingProblem) in
-            model.state = .checking
-            return try await model.pairing.pair(link: link, device: model.device())
+            try await model.pairing.pair(link: link, device: model.device(), requestID: requestID)
         }
+    }
+
+    /// Gives up waiting for a redeem. The instance may have accepted the code already, so the
+    /// person is told to start over with a new one instead of checking the instance again.
+    func abandonRedeem() {
+        guard case .redeeming = state else { return }
+        generation += 1
+        task?.cancel()
+        task = nil
+        state = .problem(.codeMayBeUsed)
     }
 
     /// Stops a check or a wait and returns to the start.

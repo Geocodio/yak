@@ -31,7 +31,7 @@ private struct LinkPairingOverlay: View {
 
     /// The code in a link works once and for two minutes, so sending it again cannot succeed.
     private func oneTimeCodeIsSpent(_ problem: PairingProblem) -> Bool {
-        problem == .codeExpired || problem == .codeInvalid
+        problem == .codeExpired || problem == .codeInvalid || problem == .codeMayBeUsed
     }
 
     @ViewBuilder
@@ -42,7 +42,11 @@ private struct LinkPairingOverlay: View {
                 PairingProblemView(
                     problem: problem, address: model.linkHost ?? "",
                     retry: oneTimeCodeIsSpent(problem) ? nil : { Task { await model.retryLinkPairing() } })
-                Button("common.close") { model.dismissLinkPairing() }.buttonStyle(SecondaryButtonStyle())
+                if problem == .codeMayBeUsed {
+                    Button("pairLink.scanAgain") { model.scanAgain() }.buttonStyle(PrimaryButtonStyle())
+                } else {
+                    Button("common.close") { model.dismissLinkPairing() }.buttonStyle(SecondaryButtonStyle())
+                }
             }
             .frame(maxWidth: 560)
             .padding(24)
@@ -51,38 +55,9 @@ private struct LinkPairingOverlay: View {
             .accessibilityAddTraits(.isModal)
             .transition(.opacity)
         case .confirming(let link, let instance, let replaces):
-            let host = link.instance.host() ?? link.instance.absoluteString
-            VStack(alignment: .leading, spacing: 16) {
-                Image(systemName: "link")
-                    .font(.system(size: 40, weight: .light))
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                Text("pairLink.confirm.title").font(.title2.bold())
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(instance.name).font(.headline)
-                    Text(host).font(.subheadline.monospaced()).foregroundStyle(.secondary)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary, in: .rect(cornerRadius: 10))
-                .accessibilityElement(children: .combine)
-                Text("pairLink.confirm.warning").font(.body)
-                if replaces != nil {
-                    Text("pairLink.confirm.replaces").font(.body).foregroundStyle(.secondary)
-                }
-                Button("pairLink.confirm.pair") { Task { await model.confirmLinkPairing() } }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .accessibilityLabel(Text("pairLink.confirm.pairLabel \(host)"))
-                Button("pairLink.confirm.cancel") { model.dismissLinkPairing() }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityLabel(Text("pairLink.confirm.cancelLabel"))
-            }
-            .frame(maxWidth: 560)
-            .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemBackground).ignoresSafeArea())
-            .accessibilityAddTraits(.isModal)
-            .transition(.opacity)
+            confirmation(link: link, instance: instance, replaces: replaces, isRedeeming: false)
+        case .redeeming(let link, let instance, let replaces):
+            confirmation(link: link, instance: instance, replaces: replaces, isRedeeming: true)
         case .checking where showsChecking:
             VStack(spacing: 16) {
                 ProgressView()
@@ -98,5 +73,61 @@ private struct LinkPairingOverlay: View {
         default:
             EmptyView()
         }
+    }
+
+    /// The confirmation, which stays as it is while the code is redeemed: "Pair" shows its progress
+    /// and cannot be tapped again, "Cancel" is disabled, and a slow connection offers to stop
+    /// waiting. Nothing behind it shows through or can be tapped.
+    private func confirmation(link: PairingLink, instance: InstanceInfo, replaces: Instance?, isRedeeming: Bool)
+        -> some View
+    {
+        let host = link.instance.host() ?? link.instance.absoluteString
+        return VStack(alignment: .leading, spacing: 16) {
+            Image(systemName: "link")
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text("pairLink.confirm.title").font(.title2.bold())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(instance.name).font(.headline)
+                Text(host).font(.subheadline.monospaced()).foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary, in: .rect(cornerRadius: 10))
+            .accessibilityElement(children: .combine)
+            Text("pairLink.confirm.warning").font(.body)
+            if replaces != nil {
+                Text("pairLink.confirm.replaces").font(.body).foregroundStyle(.secondary)
+            }
+            Button {
+                Task { await model.confirmLinkPairing() }
+            } label: {
+                if isRedeeming {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("pairLink.confirm.pairing")
+                    }
+                } else {
+                    Text("pairLink.confirm.pair")
+                }
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(isRedeeming)
+            .accessibilityLabel(Text(isRedeeming ? "pairLink.confirm.pairing" : "pairLink.confirm.pairLabel \(host)"))
+            Button("pairLink.confirm.cancel") { model.dismissLinkPairing() }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(isRedeeming)
+                .accessibilityLabel(Text("pairLink.confirm.cancelLabel"))
+            if isRedeeming {
+                SlowHint(actionTitle: "pairLink.giveUp") { model.abandonLinkRedeem() }
+            }
+        }
+        .frame(maxWidth: 560)
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground).ignoresSafeArea())
+        .accessibilityAddTraits(.isModal)
+        .transition(.opacity)
     }
 }

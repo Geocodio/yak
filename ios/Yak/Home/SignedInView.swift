@@ -6,6 +6,7 @@ struct SignedInView: View {
     let model: AppModel
     let instance: Instance
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showsAdd = false
     @State private var confirmsRemove = false
     @State private var showsRefreshing = false
@@ -61,6 +62,15 @@ struct SignedInView: View {
             }
         }
         .onChange(of: instance.id) { showsAdd = false }
+        .onChange(of: model.wantsScanner) { _, wantsScanner in
+            if wantsScanner { showsAdd = true }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // The Keychain may be readable again once the device is unlocked.
+            if phase == .active && model.refreshState == .tokenUnreadable {
+                Task { await model.refreshMe(for: instance) }
+            }
+        }
         .sheet(isPresented: $showsAdd) {
             NavigationStack {
                 ConnectView(model: model, onDone: { showsAdd = false })
@@ -73,7 +83,7 @@ struct SignedInView: View {
             }
         }
         .confirmationDialog(
-            Text("signedIn.removeTitle \(instance.name) \(DeviceDescription.kindName)"),
+            Text("signedIn.removeTitle \(instance.name)"),
             isPresented: $confirmsRemove, titleVisibility: .visible
         ) {
             Button("signedIn.removeConfirm", role: .destructive) {
