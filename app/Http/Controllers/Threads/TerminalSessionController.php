@@ -7,6 +7,7 @@ use App\Models\Thread;
 use App\Services\Ssh\GitHubKeyDirectory;
 use App\Services\Ssh\SshAccess;
 use App\Services\Ssh\TerminalTokens;
+use App\Services\Threads\SandboxCapacity;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,8 @@ class TerminalSessionController extends Controller
 
     /**
      * Answers {url, token, expires_at}; the url already carries the token. A 202 {state: "waiting"} means the sandbox
-     * is queued for a slot and the page should ask again.
+     * is queued for a slot and the page should ask again; `limit` names the cap that is full (person_share, global_cap,
+     * memory_floor) or is null when the slot freed up in the meantime.
      */
     public function store(
         Request $request,
@@ -34,6 +36,7 @@ class TerminalSessionController extends Controller
         ThreadSandbox $sandbox,
         TerminalTokens $tokens,
         GitHubKeyDirectory $github,
+        SandboxCapacity $capacity,
     ): JsonResponse {
         $user = $request->user();
         $thread = Thread::withoutGlobalScopes()->where('public_id', $thread)->first();
@@ -55,7 +58,7 @@ class TerminalSessionController extends Controller
         $github->refresh($user);
 
         if (! $sandbox->ensureAwake($thread)->ready) {
-            return response()->json(['state' => 'waiting'], 202);
+            return response()->json(['state' => 'waiting', 'limit' => $capacity->needsEviction($thread)?->value], 202);
         }
 
         $token = $tokens->issue($user, $thread, $origin);

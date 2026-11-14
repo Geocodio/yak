@@ -5,8 +5,16 @@ import { MAX_RECONNECT_TRIES, backoffDelay, classifyClose, decodeControl, encode
 
 export type TerminalSessionState = 'idle' | 'connecting' | 'connected' | 'lost' | 'denied' | 'waiting' | 'unavailable';
 
+/** Which step of opening a shell is in flight: the sandbox waking, the socket opening, or the wait for the first bytes. */
+export type TerminalPhase = 'sandbox' | 'link' | 'shell';
+
+/** Why Yak queued the sandbox for a slot, as the session endpoint reports it. */
+export type TerminalLimit = 'person_share' | 'global_cap' | 'memory_floor';
+
 export type TerminalSession = {
     state: TerminalSessionState;
+    phase: TerminalPhase;
+    limit: TerminalLimit | null;
     reason: string | null;
     connect: () => void;
     send: (data: string) => void;
@@ -15,7 +23,7 @@ export type TerminalSession = {
 };
 
 const WAIT_POLL_MS = 2000;
-const WAIT_LIMIT_MS = 120_000;
+export const WAIT_LIMIT_MS = 120_000;
 
 /** Tests may set `window.__yakTerminalBackoff` to stretch or shrink the reconnect delays. */
 function reconnectDelay(attempt: number): number {
@@ -28,6 +36,8 @@ function reconnectDelay(attempt: number): number {
 export function useTerminalSession(threadId: string): TerminalSession {
     const [state, setState] = useState<TerminalSessionState>('idle');
     const [reason, setReason] = useState<string | null>(null);
+    const [phase, setPhase] = useState<TerminalPhase>('sandbox');
+    const [limit, setLimit] = useState<TerminalLimit | null>(null);
     const socket = useRef<WebSocket | null>(null);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const attempt = useRef(0);
@@ -51,6 +61,7 @@ export function useTerminalSession(threadId: string): TerminalSession {
             const stale = () => generation.current !== mine;
             setState(waitStartedAt === null ? 'connecting' : 'waiting');
             setReason(null);
+            setPhase('sandbox');
 
             const scheduleRetry = (message: string) => {
                 setState('lost');
@@ -87,6 +98,11 @@ export function useTerminalSession(threadId: string): TerminalSession {
 
                     return;
                 }
+                const queued = (await response.json().catch(() => ({}))) as { limit?: TerminalLimit | null };
+                if (stale()) {
+                    return;
+                }
+                setLimit(queued.limit ?? null);
                 setState('waiting');
                 timer.current = setTimeout(() => void start(startedAt), WAIT_POLL_MS);
 
@@ -108,13 +124,15 @@ export function useTerminalSession(threadId: string): TerminalSession {
             if (stale()) {
                 return;
             }
+            setLimit(null);
+            setPhase('link');
 
             const ws = new WebSocket(url);
             ws.binaryType = 'arraybuffer';
             socket.current = ws;
             ws.onopen = () => {
                 attempt.current = 0;
-                setState('connected');
+                setPhase('shell');
                 if (size.current) {
                     ws.send(encodeResize(size.current.cols, size.current.rows));
                 }
@@ -129,6 +147,7 @@ export function useTerminalSession(threadId: string): TerminalSession {
 
                     return;
                 }
+                setState('connected');
                 emit(new Uint8Array(event.data as ArrayBuffer));
             };
             ws.onclose = (event: CloseEvent) => {
@@ -199,5 +218,5 @@ export function useTerminalSession(threadId: string): TerminalSession {
         };
     }, []);
 
-    return { state, reason, connect, send, resize, onData };
+    return { state, phase, limit, reason, connect, send, resize, onData };
 }

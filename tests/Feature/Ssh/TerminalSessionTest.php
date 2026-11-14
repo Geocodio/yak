@@ -65,7 +65,16 @@ it('answers 202 waiting when no sandbox slot is free', function () {
     Thread::factory()->paused()->create(['sandbox_state' => ThreadSandboxState::Running]);
     $thread = Thread::factory()->stopped()->create();
 
-    openTerminal(User::factory()->create(), $thread->public_id)->assertStatus(202)->assertExactJson(['state' => 'waiting']);
+    openTerminal(User::factory()->create(), $thread->public_id)->assertStatus(202)->assertExactJson(['state' => 'waiting', 'limit' => 'global_cap']);
+});
+
+it('names the per person share as the limit when the owner is at their share', function () {
+    config(['yak.threads.person_awake_cap' => 1]);
+    $user = User::factory()->create();
+    Thread::factory()->paused()->create(['owner_user_id' => $user->id, 'sandbox_state' => ThreadSandboxState::Running]);
+    $thread = Thread::factory()->stopped()->create(['owner_user_id' => $user->id]);
+
+    openTerminal($user, $thread->public_id)->assertStatus(202)->assertExactJson(['state' => 'waiting', 'limit' => 'person_share']);
 });
 
 it('refuses a viewer who cannot drive with 403', function () {

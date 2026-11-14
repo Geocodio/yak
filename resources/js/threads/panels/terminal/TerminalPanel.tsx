@@ -17,15 +17,16 @@ const TerminalView = lazy(() => import('./TerminalView'));
 type SessionProps = {
     threadId: string;
     sandboxState: PanelProps['thread']['sandboxState'];
+    personAwakeCap: number;
     active: boolean;
     clearToken: number;
     onState: (state: TerminalSessionState) => void;
 };
 
 /** One shell: its own token, socket and xterm. Inactive tabs stay mounted so their shells keep running. */
-function TerminalSessionBody({ threadId, sandboxState, active, clearToken, onState }: SessionProps) {
+function TerminalSessionBody({ threadId, sandboxState, personAwakeCap, active, clearToken, onState }: SessionProps) {
     const session = useTerminalSession(threadId);
-    const { state, reason, connect, send, resize, onData } = session;
+    const { state, phase, limit, reason, connect, send, resize, onData } = session;
     const controls = useRef<TerminalControls | null>(null);
     const [ctrlArmed, setCtrlArmed] = useState(false);
     const ctrlRef = useRef(false);
@@ -78,7 +79,7 @@ function TerminalSessionBody({ threadId, sandboxState, active, clearToken, onSta
                 </Suspense>
                 {state !== 'connected' && state !== 'idle' && state !== 'lost' && (
                     <div className="absolute inset-0 bg-sidebar">
-                        <SessionState state={state} reason={reason} sandboxState={sandboxState} onReconnect={connect} />
+                        <SessionState state={state} phase={phase} limit={limit} reason={reason} sandboxState={sandboxState} personAwakeCap={personAwakeCap} onReconnect={connect} />
                     </div>
                 )}
             </div>
@@ -127,7 +128,7 @@ export function TerminalPanel({ thread, canDrive }: PanelProps) {
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-hair px-3 py-2">
                 <TerminalTabs tabs={tabs} activeId={activeId} onSelect={setActiveId} onAdd={addTab} onClose={closeTab} />
                 <div className="flex shrink-0 items-center gap-2">
-                    <TerminalStatus state={states[activeId] ?? 'idle'} />
+                    <TerminalStatus state={states[activeId] ?? 'idle'} sandboxState={thread.sandboxState} />
                     <IconButton label="Clear terminal" data-testid="terminal-clear" onClick={() => setClearToken((value) => value + 1)}>
                         <Eraser size={14} />
                     </IconButton>
@@ -138,6 +139,7 @@ export function TerminalPanel({ thread, canDrive }: PanelProps) {
                     key={tab.id}
                     threadId={thread.id}
                     sandboxState={thread.sandboxState}
+                    personAwakeCap={thread.preview.personAwakeCap}
                     active={tab.id === activeId}
                     clearToken={clearToken}
                     onState={(state) => setStates((current) => (current[tab.id] === state ? current : { ...current, [tab.id]: state }))}

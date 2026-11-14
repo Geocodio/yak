@@ -44,6 +44,8 @@ function installTerminalSocketStub($page): void
             setTimeout(() => {
                 this.readyState = 1;
                 this.onopen && this.onopen({});
+                // A real shell prints its welcome splash straight away; the overlay lifts on these first bytes.
+                setTimeout(() => this.onmessage && this.onmessage({ data: new TextEncoder().encode('$ ').buffer }), 0);
             }, 0);
         }
         send(data) {
@@ -270,4 +272,23 @@ test('a device-owned thread shows the teleport command only to its owner', funct
     $page = visit(route('threads.show', Thread::factory()->ownedByDevice()->create()));
     openTerminalTab($page);
     $page->assertPresent('[data-testid="terminal-device"]')->assertMissing('[data-testid="terminal-teleport-command"]');
+});
+
+test('a full per person share is named on the waiting screen', function () {
+    $page = visit(route('threads.show', terminalRunningThread()));
+    installTerminalSocketStub($page);
+    $page->script(<<<'JS'
+(() => {
+    const realFetch = window.fetch;
+    window.fetch = (input, init) => String(input).includes('/terminal-sessions')
+        ? Promise.resolve(new Response(JSON.stringify({ state: 'waiting', limit: 'person_share' }), { status: 202, headers: { 'Content-Type': 'application/json' } }))
+        : realFetch(input, init);
+})();
+JS);
+    openTerminalTab($page);
+    waitForTerminal($page, statusIs('waiting'));
+
+    $page->assertSeeIn('[data-testid="terminal-limit"]', 'You have reached your limit of');
+    $page->assertSeeIn('[data-testid="terminal-waiting"]', 'waiting for a free slot');
+    $page->assertNoJavaScriptErrors();
 });
