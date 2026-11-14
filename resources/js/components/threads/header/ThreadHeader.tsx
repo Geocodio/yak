@@ -1,13 +1,17 @@
 import { Menu, toast } from '@geocodio/console-ui';
 import { Link } from '@inertiajs/react';
 import { Copy, GitPullRequest, Layers, Monitor, MoreHorizontal, PanelRight, Share2 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { THREAD_GROUP, headerActions } from '@/commandPalette/threadPageActions';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { StatusPill } from '@/components/threads/StatusPill';
 import { ThreadHeaderMeta } from '@/components/threads/header/ThreadHeaderMeta';
 import { ShareButton } from '@/components/threads/share/ShareButton';
 import { ShareThreadDialog } from '@/components/threads/share/ShareThreadDialog';
 import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
+import { canTeleportThread } from '@/components/threads/teleport/canTeleportThread';
+import { breadcrumbParent } from '@/components/threads/header/breadcrumbParent';
 import { show } from '@/routes/threads';
 import { ThreadDockToggles } from '@/threads/dock/ThreadDock';
 import { OpenPullRequestButton, ViewPullRequestButton } from '@/threads/panels/changes/OpenPullRequestButton';
@@ -42,8 +46,15 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
     const { thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, teleport } = page;
     const [isSharing, setIsSharing] = useState(false);
     const isDesktop = useMediaQuery('(min-width: 1024px)');
-    const canTeleport = teleport.canTeleport && teleport.state !== 'teleporting';
-    const showOpenPullRequest = isDesktop && canDrive && thread.status === 'open' && pullRequest === null && diffTotals !== null;
+    const canTeleport = canTeleportThread(teleport);
+    const canOpenPullRequest = canDrive && thread.status === 'open' && pullRequest === null && diffTotals !== null;
+    const showOpenPullRequest = isDesktop && canOpenPullRequest;
+    const parent = breadcrumbParent(thread, stackParent);
+    const actions = useMemo(
+        () => headerActions({ threadId: thread.id, isOwner: thread.isOwner, visibility: thread.visibility, canOpenPullRequest, publishWarning, openShareDialog: () => setIsSharing(true) }),
+        [thread.id, thread.isOwner, thread.visibility, canOpenPullRequest, publishWarning],
+    );
+    useCommandPaletteActions(THREAD_GROUP, actions);
 
     const menuItems = [
         ...(canAddSubThread ? [{ key: 'sub-thread', label: 'Add a sub-thread', icon: <Layers size={14} />, onSelect: onAddSubThread, testId: 'thread-menu-add-sub-thread' }] : []),
@@ -58,9 +69,9 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                 <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
                         <h1 className="line-clamp-2 text-[15px] lg:line-clamp-1 font-semibold text-body" data-testid="thread-title">
-                            {stackParent !== null && thread.parentThreadId !== null ? (
+                            {parent !== null ? (
                                 <>
-                                    <Link href={show.url(stackParent.id)} className="text-muted hover:underline" data-testid="thread-breadcrumb-parent">{stackParent.title}</Link>
+                                    <Link href={show.url(parent.id)} className="text-muted hover:underline" data-testid="thread-breadcrumb-parent">{parent.title}</Link>
                                     <span className="text-muted"> / </span>
                                 </>
                             ) : null}

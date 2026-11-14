@@ -1,7 +1,9 @@
 import { Button, Dialog } from '@geocodio/console-ui';
 import { useState, type ReactNode } from 'react';
 
-const MESSAGE =
+export const PRIVATE_PUBLISH_TITLE = 'Open a pull request from a private thread?';
+
+export const PRIVATE_PUBLISH_MESSAGE =
     'This thread is private. Opening a pull request publishes its branch and a description written from the private conversation to GitHub.';
 
 /**
@@ -31,7 +33,7 @@ export function PrivatePublishGate({
                 <Dialog
                     open
                     onOpenChange={(open) => !open && setIsOpen(false)}
-                    title="Open a pull request from a private thread?"
+                    title={PRIVATE_PUBLISH_TITLE}
                     data-testid="private-publish-dialog"
                     footer={
                         <div className="flex items-center justify-end gap-2">
@@ -40,7 +42,7 @@ export function PrivatePublishGate({
                         </div>
                     }
                 >
-                    <p className="text-[13px]">{MESSAGE}</p>
+                    <p className="text-[13px]">{PRIVATE_PUBLISH_MESSAGE}</p>
                 </Dialog>
             )}
         </>

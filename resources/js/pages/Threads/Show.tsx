@@ -1,13 +1,18 @@
 import { Head } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
-import { useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { THREAD_GROUP, showActions, type ShowActionOptions } from '@/commandPalette/threadPageActions';
+import { threadDataActions } from '@/commandPalette/threadDataActions';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
 import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { ChildBriefCard } from '@/components/threads/header/ChildBriefCard';
+import { breadcrumbParent } from '@/components/threads/header/breadcrumbParent';
 import { ThreadHeader } from '@/components/threads/header/ThreadHeader';
 import { PrivateThreadBanner } from '@/components/threads/share/PrivateThreadBanner';
 import { ChildParentBanner } from '@/components/threads/stack/ChildParentBanner';
+import { canTeleportThread } from '@/components/threads/teleport/canTeleportThread';
 import { TeleportConversationNotices } from '@/components/threads/teleport/TeleportConversationNotices';
 import { TeleportToComputerDialog } from '@/components/threads/teleport/TeleportToComputerDialog';
 import { TeleportToYakDialog } from '@/components/threads/teleport/TeleportToYakDialog';
@@ -130,6 +135,50 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         onAddSubThread: canAddSubThread ? () => setIsAddingSubThread(true) : undefined,
         onTeleport: () => setIsTeleportOpen(true),
     };
+
+    const handlers: ShowActionOptions['handlers'] = {
+        selectView: (id) => selectDock(id),
+        openChanges: () => openChanges(),
+        showConversation: () => panelProps.onShowConversation?.(),
+        toggleOverview: () => (isDesktop ? setIsRailOpen((value) => !value) : openOverview()),
+        addSubThread: () => setIsAddingSubThread(true),
+        teleport: () => setIsTeleportOpen(true),
+        openFile,
+    };
+    const pageHandlers = useRef(handlers);
+    pageHandlers.current = handlers;
+    const parent = breadcrumbParent(thread, stackParent);
+    const teleportLabel = canTeleportThread(teleport) ? (teleport.state === 'on_device' ? 'Teleport to Yak' : 'Teleport to your computer') : null;
+    const previewTargets = thread.preview.targets.map((target) => ({ title: target.title, url: target.url }));
+    const previewTargetsKey = JSON.stringify(previewTargets);
+    const dockPanelKey = dockPanelIds.join(',');
+    const hasChanges = diffTotals !== null;
+    const parentId = parent?.id ?? null;
+    const parentTitle = parent?.title ?? null;
+    const threadActions = useMemo(
+        () => [
+            ...threadDataActions({ id: thread.id, branch: thread.branch, previewUrl: thread.preview.url, previewTargets: JSON.parse(previewTargetsKey), pullRequestUrl: pullRequest?.url ?? null }),
+            ...showActions({
+                threadId: thread.id,
+                dockPanelIds: dockPanelKey === '' ? [] : dockPanelKey.split(','),
+                hasChanges,
+                parent: parentId === null || parentTitle === null ? null : { id: parentId, title: parentTitle },
+                canAddSubThread,
+                teleportLabel,
+                handlers: {
+                    selectView: (id) => pageHandlers.current.selectView(id),
+                    openChanges: () => pageHandlers.current.openChanges(),
+                    showConversation: () => pageHandlers.current.showConversation(),
+                    toggleOverview: () => pageHandlers.current.toggleOverview(),
+                    addSubThread: () => pageHandlers.current.addSubThread(),
+                    teleport: () => pageHandlers.current.teleport(),
+                    openFile: (path) => pageHandlers.current.openFile(path),
+                },
+            }),
+        ],
+        [thread.id, thread.branch, thread.preview.url, previewTargetsKey, pullRequest?.url, dockPanelKey, hasChanges, parentId, parentTitle, canAddSubThread, teleportLabel],
+    );
+    useCommandPaletteActions(THREAD_GROUP, threadActions);
 
     return (
         <>

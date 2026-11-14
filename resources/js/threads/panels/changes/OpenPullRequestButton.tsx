@@ -22,6 +22,11 @@ function recordItem(thread: ThreadData, isRecording: boolean, onSelect: () => vo
     return { key: 'record', label: isRecording ? 'Recording walkthrough' : 'Record walkthrough', icon: <Video size={14} />, disabled: isRecording || thread.runnerState === 'busy', onSelect, testId: 'record-walkthrough' };
 }
 
+/** Asks the server to open the pull request for the thread's branch. */
+export function requestPullRequest(threadId: string, publishWarning: boolean, callbacks: { onStart?: () => void; onFinish?: () => void } = {}) {
+    router.post(store.url(threadId), publishWarning ? { acknowledged_private_publish: true } : {}, { preserveScroll: true, ...callbacks });
+}
+
 const chevronClass = 'h-8 w-8 shrink-0 justify-center rounded-l-none rounded-r-[8px] p-0';
 
 /**
@@ -33,13 +38,7 @@ const chevronClass = 'h-8 w-8 shrink-0 justify-center rounded-l-none rounded-r-[
 export function OpenPullRequestButton({ thread, publishWarning, variant = 'primary', className, isRecording = false }: { thread: ThreadData; publishWarning: boolean; variant?: 'primary' | 'secondary'; className?: string; isRecording?: boolean }) {
     const [processing, setProcessing] = useState(false);
 
-    const submit = () => {
-        router.post(
-            store.url(thread.id),
-            publishWarning ? { acknowledged_private_publish: true } : {},
-            { preserveScroll: true, onStart: () => setProcessing(true), onFinish: () => setProcessing(false) },
-        );
-    };
+    const submit = () => requestPullRequest(thread.id, publishWarning, { onStart: () => setProcessing(true), onFinish: () => setProcessing(false) });
     const triggerClass = variant === 'primary' ? 'border border-l border-accent bg-accent text-accent-ink hover:opacity-90' : 'border border-hair bg-panel text-body hover:bg-panel-2';
 
     return (

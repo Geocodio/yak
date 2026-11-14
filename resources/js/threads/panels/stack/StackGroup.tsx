@@ -1,8 +1,10 @@
 import { Button, ConfirmDialog } from '@geocodio/console-ui';
 import { router } from '@inertiajs/react';
 import { Layers, Plus } from 'lucide-react';
-import { useState } from 'react';
-import { stop } from '@/routes/threads/stack';
+import { useMemo, useState } from 'react';
+import { THREAD_GROUP, stackActions } from '@/commandPalette/threadPageActions';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import { drop, split, stop, takeOver } from '@/routes/threads/stack';
 import type { PanelProps } from '@/threads/panels';
 import { OverviewGroup } from '../environment/OverviewRow';
 import { AwakeLimitStepper } from './AwakeLimitStepper';
@@ -16,6 +18,19 @@ import { StackMessages } from './StackMessages';
 export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAddSubThread }: PanelProps) {
     const [isConfirmingStop, setIsConfirmingStop] = useState(false);
     const [isStopping, setIsStopping] = useState(false);
+
+    const children = stack?.children;
+    const actions = useMemo(
+        () =>
+            stackActions(children ?? [], (action, childId) => {
+                const route = { takeOver, split, drop }[action];
+                router.post(route.url(childId), {}, { preserveScroll: true, onFinish: reloadStack });
+            }),
+        // The reload handler is read when an action runs, so its identity does not re-register them.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [children],
+    );
+    useCommandPaletteActions(THREAD_GROUP, actions);
 
     if (stack === null || (stack.children.length === 0 && stack.parent === null)) {
         return null;
