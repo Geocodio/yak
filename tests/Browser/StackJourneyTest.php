@@ -138,7 +138,7 @@ it('opens the Add a sub-thread dialog with the approved copy', function () {
         ->click('[data-testid="composer-add-sub-thread"]')
         ->assertSeeIn('[data-testid="stack-add-dialog"]', 'Add a sub-thread')
         ->assertSeeIn('[data-testid="stack-add-dialog"]', 'Sub-thread of Ship the importer')
-        ->assertSeeIn('[data-testid="stack-add-dialog"]', 'Implement')
+        ->assertSeeIn('[data-testid="stack-add-kind-implement"]', 'Implement')
         ->assertMissing('[data-testid="stack-add-notice"]')
         ->assertScript('document.querySelector(\'[data-testid="stack-add-name"]\').placeholder', 'reverb-events')
         ->assertSeeIn('[data-testid="stack-add-submit"]', 'Start sub-thread');
