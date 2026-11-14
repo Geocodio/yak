@@ -25,8 +25,7 @@ class ThreadPullRequestController extends Controller
         ThreadPublishGuard::assertAcknowledged($thread, $request->acknowledgedPrivatePublish());
 
         // Threads started from the dashboard or by teleport keep their branch on the thread, not on the task.
-        $task = $thread->tasks()->whereNotNull('branch_name')->latest('id')->first()
-            ?? $thread->tasks()->latest('id')->first();
+        $task = $thread->pullRequestTask();
         $branch = $task?->branch_name ?? $thread->branch;
         abort_if($task === null || blank($branch), 409, 'This thread has no changes to publish yet.');
 

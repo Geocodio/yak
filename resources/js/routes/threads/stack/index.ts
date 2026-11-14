@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 import children from './children'
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildOverrideController::takeOver
-* @see app/Http/Controllers/Threads/Stack/ChildOverrideController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildOverrideController.php:19
 * @route '/threads/{thread}/stack/take-over'
 */
 export const takeOver = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -17,7 +17,7 @@ takeOver.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildOverrideController::takeOver
-* @see app/Http/Controllers/Threads/Stack/ChildOverrideController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildOverrideController.php:19
 * @route '/threads/{thread}/stack/take-over'
 */
 takeOver.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -50,7 +50,7 @@ takeOver.url = (args: { thread: string | { public_id: string } } | [thread: stri
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildOverrideController::takeOver
-* @see app/Http/Controllers/Threads/Stack/ChildOverrideController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildOverrideController.php:19
 * @route '/threads/{thread}/stack/take-over'
 */
 takeOver.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -60,7 +60,7 @@ takeOver.post = (args: { thread: string | { public_id: string } } | [thread: str
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildOverrideController::split
-* @see app/Http/Controllers/Threads/Stack/ChildOverrideController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildOverrideController.php:27
 * @route '/threads/{thread}/stack/split'
 */
 export const split = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -75,7 +75,7 @@ split.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildOverrideController::split
-* @see app/Http/Controllers/Threads/Stack/ChildOverrideController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildOverrideController.php:27
 * @route '/threads/{thread}/stack/split'
 */
 split.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -108,7 +108,7 @@ split.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildOverrideController::split
-* @see app/Http/Controllers/Threads/Stack/ChildOverrideController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildOverrideController.php:27
 * @route '/threads/{thread}/stack/split'
 */
 split.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -118,7 +118,7 @@ split.post = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildOverrideController::drop
-* @see app/Http/Controllers/Threads/Stack/ChildOverrideController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildOverrideController.php:40
 * @route '/threads/{thread}/stack/drop'
 */
 export const drop = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -133,7 +133,7 @@ drop.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildOverrideController::drop
-* @see app/Http/Controllers/Threads/Stack/ChildOverrideController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildOverrideController.php:40
 * @route '/threads/{thread}/stack/drop'
 */
 drop.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -166,7 +166,7 @@ drop.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildOverrideController::drop
-* @see app/Http/Controllers/Threads/Stack/ChildOverrideController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildOverrideController.php:40
 * @route '/threads/{thread}/stack/drop'
 */
 drop.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -176,7 +176,7 @@ drop.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackLimitController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackLimitController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackLimitController.php:17
 * @route '/threads/{thread}/stack/limit'
 */
 export const limit = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -191,7 +191,7 @@ limit.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackLimitController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackLimitController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackLimitController.php:17
 * @route '/threads/{thread}/stack/limit'
 */
 limit.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -224,7 +224,7 @@ limit.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackLimitController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackLimitController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackLimitController.php:17
 * @route '/threads/{thread}/stack/limit'
 */
 limit.patch = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -234,7 +234,7 @@ limit.patch = (args: { thread: string | { public_id: string } } | [thread: strin
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackStopController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackStopController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackStopController.php:16
 * @route '/threads/{thread}/stack/stop'
 */
 export const stop = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -249,7 +249,7 @@ stop.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackStopController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackStopController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackStopController.php:16
 * @route '/threads/{thread}/stack/stop'
 */
 stop.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -282,7 +282,7 @@ stop.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackStopController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackStopController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackStopController.php:16
 * @route '/threads/{thread}/stack/stop'
 */
 stop.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -292,7 +292,7 @@ stop.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackShowController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -307,7 +307,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackShowController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -340,7 +340,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackShowController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -350,7 +350,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackShowController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

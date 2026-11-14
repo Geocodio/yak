@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadDiffController::show
-* @see app/Http/Controllers/Threads/ThreadDiffController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDiffController.php:22
 * @route '/threads/{thread}/diff/files/{file}'
 */
 export const show = (args: { thread: string | { public_id: string }, file: string | number } | [thread: string | { public_id: string }, file: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadDiffController::show
-* @see app/Http/Controllers/Threads/ThreadDiffController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDiffController.php:22
 * @route '/threads/{thread}/diff/files/{file}'
 */
 show.url = (args: { thread: string | { public_id: string }, file: string | number } | [thread: string | { public_id: string }, file: string | number ], options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ show.url = (args: { thread: string | { public_id: string }, file: string | numbe
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadDiffController::show
-* @see app/Http/Controllers/Threads/ThreadDiffController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDiffController.php:22
 * @route '/threads/{thread}/diff/files/{file}'
 */
 show.get = (args: { thread: string | { public_id: string }, file: string | number } | [thread: string | { public_id: string }, file: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -54,7 +54,7 @@ show.get = (args: { thread: string | { public_id: string }, file: string | numbe
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadDiffController::show
-* @see app/Http/Controllers/Threads/ThreadDiffController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadDiffController.php:22
 * @route '/threads/{thread}/diff/files/{file}'
 */
 show.head = (args: { thread: string | { public_id: string }, file: string | number } | [thread: string | { public_id: string }, file: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

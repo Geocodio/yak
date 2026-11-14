@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackStopController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackStopController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackStopController.php:16
 * @route '/threads/{thread}/stack/stop'
 */
 const StackStopController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ StackStopController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackStopController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackStopController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackStopController.php:16
 * @route '/threads/{thread}/stack/stop'
 */
 StackStopController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ StackStopController.url = (args: { thread: string | { public_id: string } } | [t
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackStopController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackStopController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackStopController.php:16
 * @route '/threads/{thread}/stack/stop'
 */
 StackStopController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

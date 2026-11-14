@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
-* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
 * @route '/threads/new/repository-setup'
 */
 const RepositorySetupStatusController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ RepositorySetupStatusController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
-* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
 * @route '/threads/new/repository-setup'
 */
 RepositorySetupStatusController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ RepositorySetupStatusController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
-* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
 * @route '/threads/new/repository-setup'
 */
 RepositorySetupStatusController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ RepositorySetupStatusController.get = (options?: RouteQueryOptions): RouteDefini
 
 /**
 * @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
-* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
 * @route '/threads/new/repository-setup'
 */
 RepositorySetupStatusController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::edit
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 export const edit = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ edit.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::edit
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 edit.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ edit.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::edit
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::edit
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::update
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:23
 * @route '/settings/linear'
 */
 export const update = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -60,7 +60,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::update
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:23
 * @route '/settings/linear'
 */
 update.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ update.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::update
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:23
 * @route '/settings/linear'
 */
 update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -79,7 +79,7 @@ update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::disconnect
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:36
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:36
 * @route '/settings/linear'
 */
 export const disconnect = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -94,7 +94,7 @@ disconnect.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::disconnect
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:36
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:36
 * @route '/settings/linear'
 */
 disconnect.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ disconnect.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::disconnect
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:36
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:36
 * @route '/settings/linear'
 */
 disconnect.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

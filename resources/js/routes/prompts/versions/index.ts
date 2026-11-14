@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PromptVersionController::show
-* @see app/Http/Controllers/PromptVersionController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PromptVersionController.php:12
 * @route '/prompts/{slug}/versions/{version}'
 */
 export const show = (args: { slug: string | number, version: string | number } | [slug: string | number, version: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\PromptVersionController::show
-* @see app/Http/Controllers/PromptVersionController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PromptVersionController.php:12
 * @route '/prompts/{slug}/versions/{version}'
 */
 show.url = (args: { slug: string | number, version: string | number } | [slug: string | number, version: string | number ], options?: RouteQueryOptions) => {
@@ -42,7 +42,7 @@ show.url = (args: { slug: string | number, version: string | number } | [slug: s
 
 /**
 * @see \App\Http\Controllers\PromptVersionController::show
-* @see app/Http/Controllers/PromptVersionController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PromptVersionController.php:12
 * @route '/prompts/{slug}/versions/{version}'
 */
 show.get = (args: { slug: string | number, version: string | number } | [slug: string | number, version: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -52,7 +52,7 @@ show.get = (args: { slug: string | number, version: string | number } | [slug: s
 
 /**
 * @see \App\Http\Controllers\PromptVersionController::show
-* @see app/Http/Controllers/PromptVersionController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PromptVersionController.php:12
 * @route '/prompts/{slug}/versions/{version}'
 */
 show.head = (args: { slug: string | number, version: string | number } | [slug: string | number, version: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

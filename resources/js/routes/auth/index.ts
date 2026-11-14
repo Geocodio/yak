@@ -3,7 +3,7 @@ import google723582 from './google'
 import linear from './linear'
 /**
 * @see \App\Http\Controllers\Auth\GoogleAuthController::google
-* @see app/Http/Controllers/Auth/GoogleAuthController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/GoogleAuthController.php:13
 * @route '/auth/google'
 */
 export const google = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -18,7 +18,7 @@ google.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\GoogleAuthController::google
-* @see app/Http/Controllers/Auth/GoogleAuthController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/GoogleAuthController.php:13
 * @route '/auth/google'
 */
 google.url = (options?: RouteQueryOptions) => {
@@ -27,7 +27,7 @@ google.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\GoogleAuthController::google
-* @see app/Http/Controllers/Auth/GoogleAuthController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/GoogleAuthController.php:13
 * @route '/auth/google'
 */
 google.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -37,7 +37,7 @@ google.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\GoogleAuthController::google
-* @see app/Http/Controllers/Auth/GoogleAuthController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/GoogleAuthController.php:13
 * @route '/auth/google'
 */
 google.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 import login from './login'
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::store
-* @see app/Http/Controllers/Settings/McpServerController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:40
 * @route '/mcp'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -17,7 +17,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::store
-* @see app/Http/Controllers/Settings/McpServerController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:40
 * @route '/mcp'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -26,7 +26,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::store
-* @see app/Http/Controllers/Settings/McpServerController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:40
 * @route '/mcp'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -36,7 +36,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::logout
-* @see app/Http/Controllers/Settings/McpServerController.php:107
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:107
 * @route '/mcp/{name}/logout'
 */
 export const logout = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -51,7 +51,7 @@ logout.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::logout
-* @see app/Http/Controllers/Settings/McpServerController.php:107
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:107
 * @route '/mcp/{name}/logout'
 */
 logout.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -78,7 +78,7 @@ logout.url = (args: { name: string | number } | [name: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::logout
-* @see app/Http/Controllers/Settings/McpServerController.php:107
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:107
 * @route '/mcp/{name}/logout'
 */
 logout.post = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -88,7 +88,7 @@ logout.post = (args: { name: string | number } | [name: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::destroy
-* @see app/Http/Controllers/Settings/McpServerController.php:80
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:80
 * @route '/mcp/{name}'
 */
 export const destroy = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -103,7 +103,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::destroy
-* @see app/Http/Controllers/Settings/McpServerController.php:80
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:80
 * @route '/mcp/{name}'
 */
 destroy.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -130,7 +130,7 @@ destroy.url = (args: { name: string | number } | [name: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::destroy
-* @see app/Http/Controllers/Settings/McpServerController.php:80
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:80
 * @route '/mcp/{name}'
 */
 destroy.delete = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

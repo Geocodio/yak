@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
 const ThreadPreviewRestoreController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ ThreadPreviewRestoreController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
 ThreadPreviewRestoreController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ ThreadPreviewRestoreController.url = (args: { thread: string | { public_id: stri
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
 ThreadPreviewRestoreController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Cli\DeviceController::destroy
-* @see app/Http/Controllers/Cli/DeviceController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceController.php:13
 * @route '/api/cli/v1/device'
 */
 export const destroy = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -16,7 +16,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceController::destroy
-* @see app/Http/Controllers/Cli/DeviceController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceController.php:13
 * @route '/api/cli/v1/device'
 */
 destroy.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ destroy.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceController::destroy
-* @see app/Http/Controllers/Cli/DeviceController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceController.php:13
 * @route '/api/cli/v1/device'
 */
 destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

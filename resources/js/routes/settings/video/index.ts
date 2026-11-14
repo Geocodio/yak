@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../
 import logo from './logo'
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::update
-* @see app/Http/Controllers/Settings/VideoThemeController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:31
 * @route '/settings/video'
 */
 export const update = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -17,7 +17,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::update
-* @see app/Http/Controllers/Settings/VideoThemeController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:31
 * @route '/settings/video'
 */
 update.url = (options?: RouteQueryOptions) => {
@@ -26,7 +26,7 @@ update.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::update
-* @see app/Http/Controllers/Settings/VideoThemeController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:31
 * @route '/settings/video'
 */
 update.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -36,7 +36,7 @@ update.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::reset
-* @see app/Http/Controllers/Settings/VideoThemeController.php:70
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:70
 * @route '/settings/video/reset'
 */
 export const reset = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -51,7 +51,7 @@ reset.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::reset
-* @see app/Http/Controllers/Settings/VideoThemeController.php:70
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:70
 * @route '/settings/video/reset'
 */
 reset.url = (options?: RouteQueryOptions) => {
@@ -60,7 +60,7 @@ reset.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::reset
-* @see app/Http/Controllers/Settings/VideoThemeController.php:70
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:70
 * @route '/settings/video/reset'
 */
 reset.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -70,7 +70,7 @@ reset.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::sample
-* @see app/Http/Controllers/Settings/VideoThemeController.php:89
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:89
 * @route '/settings/video/sample'
 */
 export const sample = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -85,7 +85,7 @@ sample.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::sample
-* @see app/Http/Controllers/Settings/VideoThemeController.php:89
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:89
 * @route '/settings/video/sample'
 */
 sample.url = (options?: RouteQueryOptions) => {
@@ -94,7 +94,7 @@ sample.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::sample
-* @see app/Http/Controllers/Settings/VideoThemeController.php:89
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:89
 * @route '/settings/video/sample'
 */
 sample.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

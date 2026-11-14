@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\MergeOrderController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
 * @route '/threads/{thread}/pull-requests/order'
 */
 const MergeOrderController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -16,7 +16,7 @@ MergeOrderController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\MergeOrderController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
 * @route '/threads/{thread}/pull-requests/order'
 */
 MergeOrderController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ MergeOrderController.url = (args: { thread: string | { public_id: string } } | [
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\MergeOrderController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
 * @route '/threads/{thread}/pull-requests/order'
 */
 MergeOrderController.put = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({

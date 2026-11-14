@@ -12,6 +12,7 @@ use App\Models\Thread;
 use App\Services\Threads\ClearCommand;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadBusy;
+use App\Services\Threads\ThreadPublishGuard;
 use App\Services\Threads\ThreadTurns;
 use App\YakPromptBuilder;
 use Illuminate\Http\JsonResponse;
@@ -48,6 +49,12 @@ class ThreadMessageController extends Controller
         $text = (string) $request->validated('message');
         $model = $request->validated('model');
         $task = $thread->tasks()->latest('id')->firstOrFail();
+
+        // Recording and then opening the PR publishes a private conversation, so it needs the same acknowledgement as Open PR.
+        if ($request->validated('intent') === 'record_walkthrough_and_open_pr') {
+            ThreadPublishGuard::assertAcknowledged($thread, $request->acknowledgedPrivatePublish());
+        }
+
         $sendKey = $request->validated('send_key');
         $claim = $sendKey === null ? null : "thread-send:{$thread->id}:{$user?->id}:{$sendKey}";
 
@@ -83,6 +90,7 @@ class ThreadMessageController extends Controller
                 $prompt = match ($intent) {
                     'add_preview_manifest' => YakPromptBuilder::previewSetupPrompt('missing'),
                     'fix_preview' => YakPromptBuilder::previewSetupPrompt('failing'),
+                    'record_walkthrough', 'record_walkthrough_and_open_pr' => YakPromptBuilder::recordWalkthroughPrompt(),
                     default => $text,
                 };
                 $turns->start($task, $prompt, $user, $model, shownText: $text, intent: $intent);

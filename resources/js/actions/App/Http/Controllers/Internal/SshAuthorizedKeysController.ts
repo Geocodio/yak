@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\SshAuthorizedKeysController::__invoke
-* @see app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
 * @route '/internal/ssh/authorized-keys'
 */
 const SshAuthorizedKeysController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ SshAuthorizedKeysController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshAuthorizedKeysController::__invoke
-* @see app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
 * @route '/internal/ssh/authorized-keys'
 */
 SshAuthorizedKeysController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ SshAuthorizedKeysController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshAuthorizedKeysController::__invoke
-* @see app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
 * @route '/internal/ssh/authorized-keys'
 */
 SshAuthorizedKeysController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

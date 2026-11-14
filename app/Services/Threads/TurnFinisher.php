@@ -62,9 +62,13 @@ class TurnFinisher
         $events[] = $to === TurnState::Completed ? new TurnCompleted($run) : new TurnFailed($run);
 
         if ($wasRunning) {
-            $events[] = function () use ($thread): void {
+            $events[] = function () use ($thread, $run, $to): void {
                 $this->isolated(fn () => $this->sessions->syncFromSandbox($thread));
                 $this->isolated(fn () => $this->artifacts->collect($thread));
+
+                if ($to === TurnState::Completed) {
+                    $this->isolated(fn () => $this->artifacts->openPullRequestIfRequested($thread, $run));
+                }
                 $this->isolated(fn () => $this->sandbox->pauseIfIdle($thread));
             };
         }

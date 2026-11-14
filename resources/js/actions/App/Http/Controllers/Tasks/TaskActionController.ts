@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retry
-* @see app/Http/Controllers/Tasks/TaskActionController.php:39
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:39
 * @route '/tasks/{task}/retry'
 */
 export const retry = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ retry.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retry
-* @see app/Http/Controllers/Tasks/TaskActionController.php:39
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:39
 * @route '/tasks/{task}/retry'
 */
 retry.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ retry.url = (args: { task: string | { public_id: string } } | [task: string | { 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retry
-* @see app/Http/Controllers/Tasks/TaskActionController.php:39
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:39
 * @route '/tasks/{task}/retry'
 */
 retry.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ retry.post = (args: { task: string | { public_id: string } } | [task: string | {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::cancel
-* @see app/Http/Controllers/Tasks/TaskActionController.php:229
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:229
 * @route '/tasks/{task}/cancel'
 */
 export const cancel = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -74,7 +74,7 @@ cancel.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::cancel
-* @see app/Http/Controllers/Tasks/TaskActionController.php:229
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:229
 * @route '/tasks/{task}/cancel'
 */
 cancel.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ cancel.url = (args: { task: string | { public_id: string } } | [task: string | {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::cancel
-* @see app/Http/Controllers/Tasks/TaskActionController.php:229
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:229
 * @route '/tasks/{task}/cancel'
 */
 cancel.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -117,7 +117,7 @@ cancel.post = (args: { task: string | { public_id: string } } | [task: string | 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::rerunReview
-* @see app/Http/Controllers/Tasks/TaskActionController.php:285
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:285
 * @route '/tasks/{task}/rerun-review'
 */
 export const rerunReview = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -132,7 +132,7 @@ rerunReview.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::rerunReview
-* @see app/Http/Controllers/Tasks/TaskActionController.php:285
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:285
 * @route '/tasks/{task}/rerun-review'
 */
 rerunReview.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -165,7 +165,7 @@ rerunReview.url = (args: { task: string | { public_id: string } } | [task: strin
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::rerunReview
-* @see app/Http/Controllers/Tasks/TaskActionController.php:285
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:285
 * @route '/tasks/{task}/rerun-review'
 */
 rerunReview.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -175,7 +175,7 @@ rerunReview.post = (args: { task: string | { public_id: string } } | [task: stri
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retryRender
-* @see app/Http/Controllers/Tasks/TaskActionController.php:350
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:350
 * @route '/tasks/{task}/retry-render'
 */
 export const retryRender = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -190,7 +190,7 @@ retryRender.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retryRender
-* @see app/Http/Controllers/Tasks/TaskActionController.php:350
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:350
 * @route '/tasks/{task}/retry-render'
 */
 retryRender.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -223,7 +223,7 @@ retryRender.url = (args: { task: string | { public_id: string } } | [task: strin
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retryRender
-* @see app/Http/Controllers/Tasks/TaskActionController.php:350
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:350
 * @route '/tasks/{task}/retry-render'
 */
 retryRender.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -233,7 +233,7 @@ retryRender.post = (args: { task: string | { public_id: string } } | [task: stri
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::reroute
-* @see app/Http/Controllers/Tasks/TaskActionController.php:363
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:363
 * @route '/tasks/{task}/reroute'
 */
 export const reroute = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -248,7 +248,7 @@ reroute.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::reroute
-* @see app/Http/Controllers/Tasks/TaskActionController.php:363
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:363
 * @route '/tasks/{task}/reroute'
 */
 reroute.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -281,7 +281,7 @@ reroute.url = (args: { task: string | { public_id: string } } | [task: string | 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::reroute
-* @see app/Http/Controllers/Tasks/TaskActionController.php:363
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskActionController.php:363
 * @route '/tasks/{task}/reroute'
 */
 reroute.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

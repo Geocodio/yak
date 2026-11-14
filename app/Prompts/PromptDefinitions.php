@@ -138,6 +138,14 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['situation'],
             ],
+            'tasks-record-walkthrough' => [
+                'view' => 'prompts.tasks.record-walkthrough',
+                'label' => 'Record walkthrough',
+                'description' => 'Sent when someone chooses "Record walkthrough" on a thread. Tells Claude to record the walkthrough and screenshots of the change already on the branch, following the visual capture rules, without changing code.',
+                'category' => 'advanced',
+                'type' => 'task',
+                'variables' => [],
+            ],
             'tasks-follow-up' => [
                 'view' => 'prompts.tasks.follow-up',
                 'label' => 'Follow-up',

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\AnalyticsController::__invoke
-* @see app/Http/Controllers/AnalyticsController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/AnalyticsController.php:15
 * @route '/analytics'
 */
 const AnalyticsController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ AnalyticsController.definition = {
 
 /**
 * @see \App\Http\Controllers\AnalyticsController::__invoke
-* @see app/Http/Controllers/AnalyticsController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/AnalyticsController.php:15
 * @route '/analytics'
 */
 AnalyticsController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ AnalyticsController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AnalyticsController::__invoke
-* @see app/Http/Controllers/AnalyticsController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/AnalyticsController.php:15
 * @route '/analytics'
 */
 AnalyticsController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ AnalyticsController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> 
 
 /**
 * @see \App\Http\Controllers\AnalyticsController::__invoke
-* @see app/Http/Controllers/AnalyticsController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/AnalyticsController.php:15
 * @route '/analytics'
 */
 AnalyticsController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

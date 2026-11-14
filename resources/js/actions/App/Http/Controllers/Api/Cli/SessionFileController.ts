@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::length
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:31
 * @route '/api/cli/v1/threads/{thread}/session/length'
 */
 export const length = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ length.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::length
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:31
 * @route '/api/cli/v1/threads/{thread}/session/length'
 */
 length.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ length.url = (args: { thread: string | number } | [thread: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::length
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:31
 * @route '/api/cli/v1/threads/{thread}/session/length'
 */
 length.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -53,7 +53,7 @@ length.get = (args: { thread: string | number } | [thread: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::length
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:31
 * @route '/api/cli/v1/threads/{thread}/session/length'
 */
 length.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -63,7 +63,7 @@ length.head = (args: { thread: string | number } | [thread: string | number ] | 
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::append
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:39
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:39
 * @route '/api/cli/v1/threads/{thread}/session/append'
 */
 export const append = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -78,7 +78,7 @@ append.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::append
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:39
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:39
 * @route '/api/cli/v1/threads/{thread}/session/append'
 */
 append.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -105,7 +105,7 @@ append.url = (args: { thread: string | number } | [thread: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::append
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:39
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:39
 * @route '/api/cli/v1/threads/{thread}/session/append'
 */
 append.post = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -115,7 +115,7 @@ append.post = (args: { thread: string | number } | [thread: string | number ] | 
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::checkpoint
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:73
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:73
 * @route '/api/cli/v1/threads/{thread}/session/checkpoint'
 */
 export const checkpoint = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -130,7 +130,7 @@ checkpoint.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::checkpoint
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:73
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:73
 * @route '/api/cli/v1/threads/{thread}/session/checkpoint'
 */
 checkpoint.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -157,7 +157,7 @@ checkpoint.url = (args: { thread: string | number } | [thread: string | number ]
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::checkpoint
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:73
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:73
 * @route '/api/cli/v1/threads/{thread}/session/checkpoint'
 */
 checkpoint.post = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -167,7 +167,7 @@ checkpoint.post = (args: { thread: string | number } | [thread: string | number 
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::file
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:91
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:91
 * @route '/api/cli/v1/threads/{thread}/session/file'
 */
 export const file = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -182,7 +182,7 @@ file.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::file
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:91
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:91
 * @route '/api/cli/v1/threads/{thread}/session/file'
 */
 file.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -209,7 +209,7 @@ file.url = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::file
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:91
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:91
 * @route '/api/cli/v1/threads/{thread}/session/file'
 */
 file.put = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -219,7 +219,7 @@ file.put = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::files
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:115
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:115
 * @route '/api/cli/v1/threads/{thread}/session/files'
 */
 export const files = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -234,7 +234,7 @@ files.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::files
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:115
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:115
 * @route '/api/cli/v1/threads/{thread}/session/files'
 */
 files.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -261,7 +261,7 @@ files.url = (args: { thread: string | number } | [thread: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::files
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:115
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:115
 * @route '/api/cli/v1/threads/{thread}/session/files'
 */
 files.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -271,7 +271,7 @@ files.get = (args: { thread: string | number } | [thread: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::files
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:115
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:115
 * @route '/api/cli/v1/threads/{thread}/session/files'
 */
 files.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -281,7 +281,7 @@ files.head = (args: { thread: string | number } | [thread: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::read
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:123
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:123
 * @route '/api/cli/v1/threads/{thread}/session/read'
 */
 export const read = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -296,7 +296,7 @@ read.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::read
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:123
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:123
 * @route '/api/cli/v1/threads/{thread}/session/read'
 */
 read.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -323,7 +323,7 @@ read.url = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::read
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:123
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:123
 * @route '/api/cli/v1/threads/{thread}/session/read'
 */
 read.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -333,7 +333,7 @@ read.get = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::read
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:123
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:123
 * @route '/api/cli/v1/threads/{thread}/session/read'
 */
 read.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -343,7 +343,7 @@ read.head = (args: { thread: string | number } | [thread: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::tree
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:145
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:149
 * @route '/api/cli/v1/threads/{thread}/session/tree'
 */
 export const tree = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -358,7 +358,7 @@ tree.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::tree
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:145
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:149
 * @route '/api/cli/v1/threads/{thread}/session/tree'
 */
 tree.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -385,7 +385,7 @@ tree.url = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::tree
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:145
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:149
 * @route '/api/cli/v1/threads/{thread}/session/tree'
 */
 tree.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -395,7 +395,7 @@ tree.get = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SessionFileController::tree
-* @see app/Http/Controllers/Api/Cli/SessionFileController.php:145
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/SessionFileController.php:149
 * @route '/api/cli/v1/threads/{thread}/session/tree'
 */
 tree.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

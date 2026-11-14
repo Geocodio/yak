@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../
 import devices from './devices'
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::preferences
-* @see app/Http/Controllers/Settings/NotificationController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:24
 * @route '/settings/notifications'
 */
 export const preferences = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -17,7 +17,7 @@ preferences.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::preferences
-* @see app/Http/Controllers/Settings/NotificationController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:24
 * @route '/settings/notifications'
 */
 preferences.url = (options?: RouteQueryOptions) => {
@@ -26,7 +26,7 @@ preferences.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::preferences
-* @see app/Http/Controllers/Settings/NotificationController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:24
 * @route '/settings/notifications'
 */
 preferences.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({

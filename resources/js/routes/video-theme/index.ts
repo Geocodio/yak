@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\VideoThemeAssetController::logo
-* @see app/Http/Controllers/VideoThemeAssetController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/VideoThemeAssetController.php:17
 * @route '/video-theme/logo'
 */
 export const logo = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ logo.definition = {
 
 /**
 * @see \App\Http\Controllers\VideoThemeAssetController::logo
-* @see app/Http/Controllers/VideoThemeAssetController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/VideoThemeAssetController.php:17
 * @route '/video-theme/logo'
 */
 logo.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ logo.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\VideoThemeAssetController::logo
-* @see app/Http/Controllers/VideoThemeAssetController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/VideoThemeAssetController.php:17
 * @route '/video-theme/logo'
 */
 logo.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ logo.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\VideoThemeAssetController::logo
-* @see app/Http/Controllers/VideoThemeAssetController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/VideoThemeAssetController.php:17
 * @route '/video-theme/logo'
 */
 logo.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ logo.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\VideoThemeAssetController::sample
-* @see app/Http/Controllers/VideoThemeAssetController.php:44
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/VideoThemeAssetController.php:44
 * @route '/video-theme/sample'
 */
 export const sample = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -60,7 +60,7 @@ sample.definition = {
 
 /**
 * @see \App\Http\Controllers\VideoThemeAssetController::sample
-* @see app/Http/Controllers/VideoThemeAssetController.php:44
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/VideoThemeAssetController.php:44
 * @route '/video-theme/sample'
 */
 sample.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ sample.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\VideoThemeAssetController::sample
-* @see app/Http/Controllers/VideoThemeAssetController.php:44
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/VideoThemeAssetController.php:44
 * @route '/video-theme/sample'
 */
 sample.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -79,7 +79,7 @@ sample.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\VideoThemeAssetController::sample
-* @see app/Http/Controllers/VideoThemeAssetController.php:44
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/VideoThemeAssetController.php:44
 * @route '/video-theme/sample'
 */
 sample.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

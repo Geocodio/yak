@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:21
 * @route '/settings/profile'
 */
 export const edit = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ edit.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:21
 * @route '/settings/profile'
 */
 edit.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ edit.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:21
 * @route '/settings/profile'
 */
 edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:21
 * @route '/settings/profile'
 */
 edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:40
 * @route '/settings/profile'
 */
 export const update = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -60,7 +60,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:40
 * @route '/settings/profile'
 */
 update.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ update.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:40
 * @route '/settings/profile'
 */
 update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -79,7 +79,7 @@ update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::updateDirectMessages
-* @see app/Http/Controllers/Settings/ProfileController.php:55
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:55
 * @route '/settings/profile/direct-messages'
 */
 export const updateDirectMessages = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -94,7 +94,7 @@ updateDirectMessages.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::updateDirectMessages
-* @see app/Http/Controllers/Settings/ProfileController.php:55
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:55
 * @route '/settings/profile/direct-messages'
 */
 updateDirectMessages.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ updateDirectMessages.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::updateDirectMessages
-* @see app/Http/Controllers/Settings/ProfileController.php:55
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:55
 * @route '/settings/profile/direct-messages'
 */
 updateDirectMessages.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -113,7 +113,7 @@ updateDirectMessages.patch = (options?: RouteQueryOptions): RouteDefinition<'pat
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::resendVerification
-* @see app/Http/Controllers/Settings/ProfileController.php:64
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:64
 * @route '/settings/profile/resend-verification'
 */
 export const resendVerification = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -128,7 +128,7 @@ resendVerification.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::resendVerification
-* @see app/Http/Controllers/Settings/ProfileController.php:64
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:64
 * @route '/settings/profile/resend-verification'
 */
 resendVerification.url = (options?: RouteQueryOptions) => {
@@ -137,7 +137,7 @@ resendVerification.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::resendVerification
-* @see app/Http/Controllers/Settings/ProfileController.php:64
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:64
 * @route '/settings/profile/resend-verification'
 */
 resendVerification.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

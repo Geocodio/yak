@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\SshListenersController::__invoke
-* @see app/Http/Controllers/Internal/SshListenersController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshListenersController.php:14
 * @route '/internal/ssh/listeners'
 */
 const SshListenersController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ SshListenersController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshListenersController::__invoke
-* @see app/Http/Controllers/Internal/SshListenersController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshListenersController.php:14
 * @route '/internal/ssh/listeners'
 */
 SshListenersController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ SshListenersController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshListenersController::__invoke
-* @see app/Http/Controllers/Internal/SshListenersController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshListenersController.php:14
 * @route '/internal/ssh/listeners'
 */
 SshListenersController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ SshListenersController.get = (options?: RouteQueryOptions): RouteDefinition<'get
 
 /**
 * @see \App\Http\Controllers\Internal\SshListenersController::__invoke
-* @see app/Http/Controllers/Internal/SshListenersController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshListenersController.php:14
 * @route '/internal/ssh/listeners'
 */
 SshListenersController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::refresh
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:61
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryActionController.php:61
 * @route '/repos/{repository}/config/refresh'
 */
 export const refresh = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ refresh.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::refresh
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:61
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryActionController.php:61
 * @route '/repos/{repository}/config/refresh'
 */
 refresh.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ refresh.url = (args: { repository: string | number | { slug: string | number } }
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::refresh
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:61
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryActionController.php:61
 * @route '/repos/{repository}/config/refresh'
 */
 refresh.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ refresh.post = (args: { repository: string | number | { slug: string | number } 
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::migrate
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:68
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryActionController.php:68
 * @route '/repos/{repository}/config/migrate'
 */
 export const migrate = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -74,7 +74,7 @@ migrate.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::migrate
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:68
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryActionController.php:68
 * @route '/repos/{repository}/config/migrate'
 */
 migrate.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ migrate.url = (args: { repository: string | number | { slug: string | number } }
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::migrate
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:68
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryActionController.php:68
 * @route '/repos/{repository}/config/migrate'
 */
 migrate.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

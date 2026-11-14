@@ -10,12 +10,12 @@ import { ShareThreadDialog } from '@/components/threads/share/ShareThreadDialog'
 import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
 import { show } from '@/routes/threads';
 import { ThreadDockToggles } from '@/threads/dock/ThreadDock';
-import { OpenPullRequestButton } from '@/threads/panels/changes/OpenPullRequestButton';
+import { OpenPullRequestButton, ViewPullRequestButton } from '@/threads/panels/changes/OpenPullRequestButton';
 import type { Panel, PanelProps } from '@/threads/panels';
 import type { ThreadPageData } from '@/types/threads';
 
 type Props = {
-    page: Pick<ThreadPageData, 'thread' | 'canDrive' | 'diffTotals' | 'pullRequest' | 'publishWarning' | 'notice' | 'composer' | 'stackParent' | 'teleport'>;
+    page: Pick<ThreadPageData, 'thread' | 'canDrive' | 'diffTotals' | 'pullRequest' | 'publishWarning' | 'walkthrough' | 'notice' | 'composer' | 'stackParent' | 'teleport'>;
     dockPanels: Panel[];
     activeDock: Panel | null;
     diff: PanelProps['diff'];
@@ -39,7 +39,7 @@ function copyBranchName(branch: string): void {
 
 /** The thread page header: title and status, the repo line, the three views, the one Open PR action, and the overflow menu. */
 export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, canAddSubThread, isRailOpen, onSelectDock, onToggleRail, onOpenChanges, onOpenOverview, onAddSubThread, onTeleport }: Props) {
-    const { thread, canDrive, diffTotals, pullRequest, publishWarning, notice, composer, stackParent, teleport } = page;
+    const { thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, teleport } = page;
     const [isSharing, setIsSharing] = useState(false);
     const isDesktop = useMediaQuery('(min-width: 1024px)');
     const canTeleport = teleport.canTeleport && teleport.state !== 'teleporting';
@@ -75,15 +75,19 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                 <ThreadDockToggles thread={thread} panels={dockPanels} active={activeDock} diff={diff} onSelect={onSelectDock} />
 
                 {isDesktop && pullRequest !== null ? (
-                    <a href={pullRequest.url} target="_blank" rel="noreferrer" className="inline-flex h-8 shrink-0 items-center gap-2 rounded-[8px] border border-hair bg-panel px-3 text-[13px] font-medium text-body hover:bg-panel-2" data-testid="thread-header-pr">
-                        <GitPullRequest size={13} aria-hidden />
-                        #{pullRequest.number}
-                        <span className="inline-flex h-[18px] items-center rounded-pill bg-panel-2 px-2 text-[11.5px] text-ok">Open</span>
-                    </a>
+                    canDrive && thread.status === 'open' ? (
+                        <ViewPullRequestButton thread={thread} pullRequest={pullRequest} isRecording={walkthrough?.isRecording ?? false} />
+                    ) : (
+                        <a href={pullRequest.url} target="_blank" rel="noreferrer" className="inline-flex h-8 shrink-0 items-center gap-2 rounded-[8px] border border-hair bg-panel px-3 text-[13px] font-medium text-body hover:bg-panel-2" data-testid="thread-header-pr">
+                            <GitPullRequest size={13} aria-hidden />
+                            #{pullRequest.number}
+                            <span className="inline-flex h-[18px] items-center rounded-pill bg-panel-2 px-2 text-[11.5px] text-ok">Open</span>
+                        </a>
+                    )
                 ) : (
                     showOpenPullRequest && (
                         <span className="inline-flex shrink-0" data-testid="thread-header-open-pr">
-                            <OpenPullRequestButton thread={thread} publishWarning={publishWarning} />
+                            <OpenPullRequestButton thread={thread} publishWarning={publishWarning} isRecording={walkthrough?.isRecording ?? false} />
                         </span>
                     )
                 )}

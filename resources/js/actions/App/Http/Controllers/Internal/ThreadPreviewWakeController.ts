@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewWakeController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
 * @route '/internal/threads/preview/wake'
 */
 const ThreadPreviewWakeController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ ThreadPreviewWakeController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewWakeController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
 * @route '/internal/threads/preview/wake'
 */
 ThreadPreviewWakeController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ ThreadPreviewWakeController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewWakeController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
 * @route '/internal/threads/preview/wake'
 */
 ThreadPreviewWakeController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ ThreadPreviewWakeController.get = (options?: RouteQueryOptions): RouteDefinition
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewWakeController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
 * @route '/internal/threads/preview/wake'
 */
 ThreadPreviewWakeController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

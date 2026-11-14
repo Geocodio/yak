@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\RiskProfileController::__invoke
-* @see app/Http/Controllers/Repositories/RiskProfileController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RiskProfileController.php:19
 * @route '/repos/{repository}/risk-profile'
 */
 const RiskProfileController = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ RiskProfileController.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RiskProfileController::__invoke
-* @see app/Http/Controllers/Repositories/RiskProfileController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RiskProfileController.php:19
 * @route '/repos/{repository}/risk-profile'
 */
 RiskProfileController.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ RiskProfileController.url = (args: { repository: string | number | { slug: strin
 
 /**
 * @see \App\Http\Controllers\Repositories\RiskProfileController::__invoke
-* @see app/Http/Controllers/Repositories/RiskProfileController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RiskProfileController.php:19
 * @route '/repos/{repository}/risk-profile'
 */
 RiskProfileController.get = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ RiskProfileController.get = (args: { repository: string | number | { slug: strin
 
 /**
 * @see \App\Http\Controllers\Repositories\RiskProfileController::__invoke
-* @see app/Http/Controllers/Repositories/RiskProfileController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RiskProfileController.php:19
 * @route '/repos/{repository}/risk-profile'
 */
 RiskProfileController.head = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

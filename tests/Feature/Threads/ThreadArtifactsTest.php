@@ -2,6 +2,7 @@
 
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
+use App\Jobs\CreatePullRequestJob;
 use App\Jobs\RenderWalkthroughJob;
 use App\Models\Artifact;
 use App\Models\TaskRun;
@@ -89,6 +90,7 @@ it('collects nothing when the sandbox has no artifacts folder', function () {
 it('collects when a turn ends', function () {
     $fakes = fakeTurnCollaborators();
     $artifacts = Mockery::mock(ThreadArtifacts::class);
+    $artifacts->shouldReceive('openPullRequestIfRequested')->once();
     $artifacts->shouldReceive('collect')->once()->with(Mockery::on(fn (Thread $thread) => $thread->is($this->thread)));
     app()->instance(ThreadArtifacts::class, $artifacts);
     $sessions = Mockery::mock(SessionFileSync::class);
@@ -100,4 +102,13 @@ it('collects when a turn ends', function () {
     $finisher = app(TurnFinisher::class);
     $finisher->finish($this->thread, $run, TurnState::Completed, $events);
     $finisher->dispatch($events);
+});
+
+it('refreshes the body of an open pull request when screenshots were collected', function () {
+    $this->task->update(['pr_url' => 'https://github.com/acme/web/pull/9']);
+    queueRecording($this->sandboxes, ['screenshots/form.png' => 'png']);
+
+    app(ThreadArtifacts::class)->collect($this->thread);
+
+    Queue::assertPushed(CreatePullRequestJob::class, fn (CreatePullRequestJob $job) => $job->refreshOnly);
 });

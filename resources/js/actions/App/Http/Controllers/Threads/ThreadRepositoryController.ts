@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::update
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadRepositoryController.php:24
 * @route '/threads/{thread}/repositories/{repository}'
 */
 export const update = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::update
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadRepositoryController.php:24
 * @route '/threads/{thread}/repositories/{repository}'
 */
 update.url = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
@@ -46,7 +46,7 @@ update.url = (args: { thread: string | { public_id: string }, repository: string
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::update
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadRepositoryController.php:24
 * @route '/threads/{thread}/repositories/{repository}'
 */
 update.patch = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -56,7 +56,7 @@ update.patch = (args: { thread: string | { public_id: string }, repository: stri
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::retry
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:37
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadRepositoryController.php:37
 * @route '/threads/{thread}/repositories/{repository}/retry'
 */
 export const retry = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -71,7 +71,7 @@ retry.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::retry
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:37
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadRepositoryController.php:37
 * @route '/threads/{thread}/repositories/{repository}/retry'
 */
 retry.url = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
@@ -101,7 +101,7 @@ retry.url = (args: { thread: string | { public_id: string }, repository: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::retry
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:37
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadRepositoryController.php:37
 * @route '/threads/{thread}/repositories/{repository}/retry'
 */
 retry.post = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({

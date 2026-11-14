@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Cli\DeviceCodeController::__invoke
-* @see app/Http/Controllers/Cli/DeviceCodeController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceCodeController.php:13
 * @route '/api/cli/v1/device/code'
 */
 const DeviceCodeController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ DeviceCodeController.definition = {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceCodeController::__invoke
-* @see app/Http/Controllers/Cli/DeviceCodeController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceCodeController.php:13
 * @route '/api/cli/v1/device/code'
 */
 DeviceCodeController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ DeviceCodeController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceCodeController::__invoke
-* @see app/Http/Controllers/Cli/DeviceCodeController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceCodeController.php:13
 * @route '/api/cli/v1/device/code'
 */
 DeviceCodeController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

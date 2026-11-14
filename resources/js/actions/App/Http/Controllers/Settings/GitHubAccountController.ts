@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::connect
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:26
 * @route '/settings/github/connect'
 */
 export const connect = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ connect.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::connect
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:26
 * @route '/settings/github/connect'
 */
 connect.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ connect.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::connect
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:26
 * @route '/settings/github/connect'
 */
 connect.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ connect.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::connect
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:26
 * @route '/settings/github/connect'
 */
 connect.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ connect.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::callback
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:41
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:41
 * @route '/settings/github/callback'
 */
 export const callback = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -60,7 +60,7 @@ callback.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::callback
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:41
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:41
 * @route '/settings/github/callback'
 */
 callback.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ callback.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::callback
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:41
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:41
 * @route '/settings/github/callback'
 */
 callback.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -79,7 +79,7 @@ callback.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::callback
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:41
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:41
 * @route '/settings/github/callback'
 */
 callback.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -89,7 +89,7 @@ callback.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::disconnect
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:82
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:84
 * @route '/settings/github'
 */
 export const disconnect = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -104,7 +104,7 @@ disconnect.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::disconnect
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:82
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:84
 * @route '/settings/github'
 */
 disconnect.url = (options?: RouteQueryOptions) => {
@@ -113,7 +113,7 @@ disconnect.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\GitHubAccountController::disconnect
-* @see app/Http/Controllers/Settings/GitHubAccountController.php:82
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/GitHubAccountController.php:84
 * @route '/settings/github'
 */
 disconnect.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

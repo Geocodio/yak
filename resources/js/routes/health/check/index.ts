@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\HealthController::refresh
-* @see app/Http/Controllers/HealthController.php:66
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/HealthController.php:66
 * @route '/health/{check}/refresh'
 */
 export const refresh = (args: { check: string | number } | [check: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ refresh.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::refresh
-* @see app/Http/Controllers/HealthController.php:66
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/HealthController.php:66
 * @route '/health/{check}/refresh'
 */
 refresh.url = (args: { check: string | number } | [check: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ refresh.url = (args: { check: string | number } | [check: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\HealthController::refresh
-* @see app/Http/Controllers/HealthController.php:66
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/HealthController.php:66
 * @route '/health/{check}/refresh'
 */
 refresh.post = (args: { check: string | number } | [check: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

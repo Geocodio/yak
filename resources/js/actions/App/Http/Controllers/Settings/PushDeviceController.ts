@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::store
-* @see app/Http/Controllers/Settings/PushDeviceController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:16
 * @route '/settings/notifications/devices'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::store
-* @see app/Http/Controllers/Settings/PushDeviceController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:16
 * @route '/settings/notifications/devices'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::store
-* @see app/Http/Controllers/Settings/PushDeviceController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:16
 * @route '/settings/notifications/devices'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::update
-* @see app/Http/Controllers/Settings/PushDeviceController.php:39
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:39
 * @route '/settings/notifications/devices/{pushDevice}'
 */
 export const update = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -50,7 +50,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::update
-* @see app/Http/Controllers/Settings/PushDeviceController.php:39
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:39
 * @route '/settings/notifications/devices/{pushDevice}'
 */
 update.url = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -83,7 +83,7 @@ update.url = (args: { pushDevice: string | number | { id: string | number } } | 
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::update
-* @see app/Http/Controllers/Settings/PushDeviceController.php:39
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:39
 * @route '/settings/notifications/devices/{pushDevice}'
 */
 update.patch = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -93,7 +93,7 @@ update.patch = (args: { pushDevice: string | number | { id: string | number } } 
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::destroy
-* @see app/Http/Controllers/Settings/PushDeviceController.php:48
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:48
 * @route '/settings/notifications/devices/{pushDevice}'
 */
 export const destroy = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -108,7 +108,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::destroy
-* @see app/Http/Controllers/Settings/PushDeviceController.php:48
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:48
 * @route '/settings/notifications/devices/{pushDevice}'
 */
 destroy.url = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -141,7 +141,7 @@ destroy.url = (args: { pushDevice: string | number | { id: string | number } } |
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::destroy
-* @see app/Http/Controllers/Settings/PushDeviceController.php:48
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:48
 * @route '/settings/notifications/devices/{pushDevice}'
 */
 destroy.delete = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -151,7 +151,7 @@ destroy.delete = (args: { pushDevice: string | number | { id: string | number } 
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::test
-* @see app/Http/Controllers/Settings/PushDeviceController.php:57
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:57
 * @route '/settings/notifications/devices/{pushDevice}/test'
 */
 export const test = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -166,7 +166,7 @@ test.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::test
-* @see app/Http/Controllers/Settings/PushDeviceController.php:57
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:57
 * @route '/settings/notifications/devices/{pushDevice}/test'
 */
 test.url = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -199,7 +199,7 @@ test.url = (args: { pushDevice: string | number | { id: string | number } } | [p
 
 /**
 * @see \App\Http\Controllers\Settings\PushDeviceController::test
-* @see app/Http/Controllers/Settings/PushDeviceController.php:57
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PushDeviceController.php:57
 * @route '/settings/notifications/devices/{pushDevice}/test'
 */
 test.post = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

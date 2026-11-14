@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\PullRequestImageController::__invoke
-* @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
 export const show = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\PullRequestImageController::__invoke
-* @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
 show.url = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ show.url = (args: { task: string | { public_id: string }, asset: string | number
 
 /**
 * @see \App\Http\Controllers\Tasks\PullRequestImageController::__invoke
-* @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
 show.get = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -54,7 +54,7 @@ show.get = (args: { task: string | { public_id: string }, asset: string | number
 
 /**
 * @see \App\Http\Controllers\Tasks\PullRequestImageController::__invoke
-* @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/PullRequestImageController.php:26
 * @route '/tasks/{task}/pr-images/{asset}'
 */
 show.head = (args: { task: string | { public_id: string }, asset: string | number } | [task: string | { public_id: string }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -3,7 +3,7 @@ import device from './device'
 import repos from './repos'
 /**
 * @see \App\Http\Controllers\Cli\MeController::__invoke
-* @see app/Http/Controllers/Cli/MeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/MeController.php:14
 * @route '/api/cli/v1/me'
 */
 export const me = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -18,7 +18,7 @@ me.definition = {
 
 /**
 * @see \App\Http\Controllers\Cli\MeController::__invoke
-* @see app/Http/Controllers/Cli/MeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/MeController.php:14
 * @route '/api/cli/v1/me'
 */
 me.url = (options?: RouteQueryOptions) => {
@@ -27,7 +27,7 @@ me.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Cli\MeController::__invoke
-* @see app/Http/Controllers/Cli/MeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/MeController.php:14
 * @route '/api/cli/v1/me'
 */
 me.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -37,7 +37,7 @@ me.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Cli\MeController::__invoke
-* @see app/Http/Controllers/Cli/MeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/MeController.php:14
 * @route '/api/cli/v1/me'
 */
 me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

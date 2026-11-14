@@ -3,7 +3,7 @@ import directMessages from './direct-messages'
 import emailAddresses from './email-addresses'
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:21
 * @route '/settings/profile'
 */
 export const edit = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -18,7 +18,7 @@ edit.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:21
 * @route '/settings/profile'
 */
 edit.url = (options?: RouteQueryOptions) => {
@@ -27,7 +27,7 @@ edit.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:21
 * @route '/settings/profile'
 */
 edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -37,7 +37,7 @@ edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:21
 * @route '/settings/profile'
 */
 edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -47,7 +47,7 @@ edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:40
 * @route '/settings/profile'
 */
 export const update = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -62,7 +62,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:40
 * @route '/settings/profile'
 */
 update.url = (options?: RouteQueryOptions) => {
@@ -71,7 +71,7 @@ update.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ProfileController.php:40
 * @route '/settings/profile'
 */
 update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({

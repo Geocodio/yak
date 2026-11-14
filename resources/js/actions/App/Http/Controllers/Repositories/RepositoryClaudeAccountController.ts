@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::updateMine
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:13
 * @route '/repos/{repository}/claude-account'
 */
 export const updateMine = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -16,7 +16,7 @@ updateMine.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::updateMine
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:13
 * @route '/repos/{repository}/claude-account'
 */
 updateMine.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ updateMine.url = (args: { repository: string | number | { slug: string | number 
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::updateMine
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:13
 * @route '/repos/{repository}/claude-account'
 */
 updateMine.put = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -59,7 +59,7 @@ updateMine.put = (args: { repository: string | number | { slug: string | number 
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::updateUnattended
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
 * @route '/repos/{repository}/unattended-claude-account'
 */
 export const updateUnattended = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -74,7 +74,7 @@ updateUnattended.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::updateUnattended
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
 * @route '/repos/{repository}/unattended-claude-account'
 */
 updateUnattended.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ updateUnattended.url = (args: { repository: string | number | { slug: string | n
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::updateUnattended
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
 * @route '/repos/{repository}/unattended-claude-account'
 */
 updateUnattended.put = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({

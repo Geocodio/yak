@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\DismissSetupCardController::__invoke
-* @see app/Http/Controllers/Tasks/DismissSetupCardController.php:11
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/DismissSetupCardController.php:11
 * @route '/tasks/setup-card/dismiss'
 */
 const DismissSetupCardController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ DismissSetupCardController.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\DismissSetupCardController::__invoke
-* @see app/Http/Controllers/Tasks/DismissSetupCardController.php:11
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/DismissSetupCardController.php:11
 * @route '/tasks/setup-card/dismiss'
 */
 DismissSetupCardController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ DismissSetupCardController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\DismissSetupCardController::__invoke
-* @see app/Http/Controllers/Tasks/DismissSetupCardController.php:11
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/DismissSetupCardController.php:11
 * @route '/tasks/setup-card/dismiss'
 */
 DismissSetupCardController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

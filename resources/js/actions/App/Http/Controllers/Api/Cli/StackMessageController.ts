@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\Cli\StackMessageController::index
-* @see app/Http/Controllers/Api/Cli/StackMessageController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/StackMessageController.php:23
 * @route '/api/cli/v1/threads/{thread}/stack-messages'
 */
 export const index = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\StackMessageController::index
-* @see app/Http/Controllers/Api/Cli/StackMessageController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/StackMessageController.php:23
 * @route '/api/cli/v1/threads/{thread}/stack-messages'
 */
 index.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ index.url = (args: { thread: string | number } | [thread: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Api\Cli\StackMessageController::index
-* @see app/Http/Controllers/Api/Cli/StackMessageController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/StackMessageController.php:23
 * @route '/api/cli/v1/threads/{thread}/stack-messages'
 */
 index.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -53,7 +53,7 @@ index.get = (args: { thread: string | number } | [thread: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Api\Cli\StackMessageController::index
-* @see app/Http/Controllers/Api/Cli/StackMessageController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/StackMessageController.php:23
 * @route '/api/cli/v1/threads/{thread}/stack-messages'
 */
 index.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -63,7 +63,7 @@ index.head = (args: { thread: string | number } | [thread: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Api\Cli\StackMessageController::ack
-* @see app/Http/Controllers/Api/Cli/StackMessageController.php:38
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/StackMessageController.php:38
 * @route '/api/cli/v1/threads/{thread}/stack-messages/ack'
 */
 export const ack = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -78,7 +78,7 @@ ack.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\StackMessageController::ack
-* @see app/Http/Controllers/Api/Cli/StackMessageController.php:38
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/StackMessageController.php:38
 * @route '/api/cli/v1/threads/{thread}/stack-messages/ack'
 */
 ack.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -105,7 +105,7 @@ ack.url = (args: { thread: string | number } | [thread: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\Api\Cli\StackMessageController::ack
-* @see app/Http/Controllers/Api/Cli/StackMessageController.php:38
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/StackMessageController.php:38
 * @route '/api/cli/v1/threads/{thread}/stack-messages/ack'
 */
 ack.post = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

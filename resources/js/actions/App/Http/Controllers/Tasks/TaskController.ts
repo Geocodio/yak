@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 export const show = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 show.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ show.url = (args: { task: string | { public_id: string } } | [task: string | { p
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 show.get = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ show.get = (args: { task: string | { public_id: string } } | [task: string | { p
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 show.head = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +69,7 @@ show.head = (args: { task: string | { public_id: string } } | [task: string | { 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::logEntries
-* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskController.php:69
 * @route '/tasks/{task}/log-entries'
 */
 export const logEntries = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -84,7 +84,7 @@ logEntries.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::logEntries
-* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskController.php:69
 * @route '/tasks/{task}/log-entries'
 */
 logEntries.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -117,7 +117,7 @@ logEntries.url = (args: { task: string | { public_id: string } } | [task: string
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::logEntries
-* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskController.php:69
 * @route '/tasks/{task}/log-entries'
 */
 logEntries.get = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -127,7 +127,7 @@ logEntries.get = (args: { task: string | { public_id: string } } | [task: string
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::logEntries
-* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskController.php:69
 * @route '/tasks/{task}/log-entries'
 */
 logEntries.head = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

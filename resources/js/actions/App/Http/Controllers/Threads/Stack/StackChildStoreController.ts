@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackChildStoreController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
 * @route '/threads/{thread}/stack/children'
 */
 const StackChildStoreController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ StackChildStoreController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackChildStoreController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
 * @route '/threads/{thread}/stack/children'
 */
 StackChildStoreController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ StackChildStoreController.url = (args: { thread: string | { public_id: string } 
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackChildStoreController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
 * @route '/threads/{thread}/stack/children'
 */
 StackChildStoreController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

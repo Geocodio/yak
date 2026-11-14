@@ -9,7 +9,7 @@ import people9bdfa7 from './people'
 import sshKeysBc2a90 from './ssh-keys'
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::linear
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 export const linear = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -24,7 +24,7 @@ linear.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::linear
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 linear.url = (options?: RouteQueryOptions) => {
@@ -33,7 +33,7 @@ linear.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::linear
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 linear.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -43,7 +43,7 @@ linear.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::linear
-* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 linear.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -53,7 +53,7 @@ linear.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::notifications
-* @see app/Http/Controllers/Settings/NotificationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:16
 * @route '/settings/notifications'
 */
 export const notifications = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -68,7 +68,7 @@ notifications.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::notifications
-* @see app/Http/Controllers/Settings/NotificationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:16
 * @route '/settings/notifications'
 */
 notifications.url = (options?: RouteQueryOptions) => {
@@ -77,7 +77,7 @@ notifications.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::notifications
-* @see app/Http/Controllers/Settings/NotificationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:16
 * @route '/settings/notifications'
 */
 notifications.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -87,7 +87,7 @@ notifications.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::notifications
-* @see app/Http/Controllers/Settings/NotificationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:16
 * @route '/settings/notifications'
 */
 notifications.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -97,7 +97,7 @@ notifications.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::video
-* @see app/Http/Controllers/Settings/VideoThemeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:21
 * @route '/settings/video'
 */
 export const video = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -112,7 +112,7 @@ video.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::video
-* @see app/Http/Controllers/Settings/VideoThemeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:21
 * @route '/settings/video'
 */
 video.url = (options?: RouteQueryOptions) => {
@@ -121,7 +121,7 @@ video.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::video
-* @see app/Http/Controllers/Settings/VideoThemeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:21
 * @route '/settings/video'
 */
 video.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -131,7 +131,7 @@ video.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::video
-* @see app/Http/Controllers/Settings/VideoThemeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:21
 * @route '/settings/video'
 */
 video.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -141,7 +141,7 @@ video.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::claudeAccounts
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 export const claudeAccounts = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -156,7 +156,7 @@ claudeAccounts.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::claudeAccounts
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 claudeAccounts.url = (options?: RouteQueryOptions) => {
@@ -165,7 +165,7 @@ claudeAccounts.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::claudeAccounts
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 claudeAccounts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -175,7 +175,7 @@ claudeAccounts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ClaudeAccountController::claudeAccounts
-* @see app/Http/Controllers/Settings/ClaudeAccountController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/ClaudeAccountController.php:34
 * @route '/settings/claude-accounts'
 */
 claudeAccounts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -185,7 +185,7 @@ claudeAccounts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 export const devices = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -200,7 +200,7 @@ devices.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 devices.url = (options?: RouteQueryOptions) => {
@@ -209,7 +209,7 @@ devices.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 devices.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -219,7 +219,7 @@ devices.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\DeviceController::devices
-* @see app/Http/Controllers/Settings/DeviceController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/DeviceController.php:17
 * @route '/settings/devices'
 */
 devices.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -229,7 +229,7 @@ devices.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\PeopleController::people
-* @see app/Http/Controllers/Settings/PeopleController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PeopleController.php:16
 * @route '/settings/people'
 */
 export const people = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -244,7 +244,7 @@ people.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\PeopleController::people
-* @see app/Http/Controllers/Settings/PeopleController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PeopleController.php:16
 * @route '/settings/people'
 */
 people.url = (options?: RouteQueryOptions) => {
@@ -253,7 +253,7 @@ people.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\PeopleController::people
-* @see app/Http/Controllers/Settings/PeopleController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PeopleController.php:16
 * @route '/settings/people'
 */
 people.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -263,7 +263,7 @@ people.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\PeopleController::people
-* @see app/Http/Controllers/Settings/PeopleController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/PeopleController.php:16
 * @route '/settings/people'
 */
 people.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -273,7 +273,7 @@ people.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::sshKeys
-* @see app/Http/Controllers/Settings/SshKeyController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:22
 * @route '/settings/ssh-keys'
 */
 export const sshKeys = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -288,7 +288,7 @@ sshKeys.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::sshKeys
-* @see app/Http/Controllers/Settings/SshKeyController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:22
 * @route '/settings/ssh-keys'
 */
 sshKeys.url = (options?: RouteQueryOptions) => {
@@ -297,7 +297,7 @@ sshKeys.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::sshKeys
-* @see app/Http/Controllers/Settings/SshKeyController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:22
 * @route '/settings/ssh-keys'
 */
 sshKeys.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -307,7 +307,7 @@ sshKeys.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::sshKeys
-* @see app/Http/Controllers/Settings/SshKeyController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:22
 * @route '/settings/ssh-keys'
 */
 sshKeys.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

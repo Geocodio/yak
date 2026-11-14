@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::index
-* @see app/Http/Controllers/Settings/SshKeyController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:22
 * @route '/settings/ssh-keys'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::index
-* @see app/Http/Controllers/Settings/SshKeyController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:22
 * @route '/settings/ssh-keys'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::index
-* @see app/Http/Controllers/Settings/SshKeyController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:22
 * @route '/settings/ssh-keys'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::index
-* @see app/Http/Controllers/Settings/SshKeyController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:22
 * @route '/settings/ssh-keys'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::store
-* @see app/Http/Controllers/Settings/SshKeyController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:27
 * @route '/settings/ssh-keys'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -60,7 +60,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::store
-* @see app/Http/Controllers/Settings/SshKeyController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:27
 * @route '/settings/ssh-keys'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::store
-* @see app/Http/Controllers/Settings/SshKeyController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:27
 * @route '/settings/ssh-keys'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -79,7 +79,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::refresh
-* @see app/Http/Controllers/Settings/SshKeyController.php:47
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:47
 * @route '/settings/ssh-keys/refresh'
 */
 export const refresh = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ refresh.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::refresh
-* @see app/Http/Controllers/Settings/SshKeyController.php:47
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:47
 * @route '/settings/ssh-keys/refresh'
 */
 refresh.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ refresh.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::refresh
-* @see app/Http/Controllers/Settings/SshKeyController.php:47
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:47
 * @route '/settings/ssh-keys/refresh'
 */
 refresh.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ refresh.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::destroy
-* @see app/Http/Controllers/Settings/SshKeyController.php:38
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:38
 * @route '/settings/ssh-keys/{key}'
 */
 export const destroy = (args: { key: number | { id: number } } | [key: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -128,7 +128,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::destroy
-* @see app/Http/Controllers/Settings/SshKeyController.php:38
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:38
 * @route '/settings/ssh-keys/{key}'
 */
 destroy.url = (args: { key: number | { id: number } } | [key: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -161,7 +161,7 @@ destroy.url = (args: { key: number | { id: number } } | [key: number | { id: num
 
 /**
 * @see \App\Http\Controllers\Settings\SshKeyController::destroy
-* @see app/Http/Controllers/Settings/SshKeyController.php:38
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/SshKeyController.php:38
 * @route '/settings/ssh-keys/{key}'
 */
 destroy.delete = (args: { key: number | { id: number } } | [key: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\SshWakeController::__invoke
-* @see app/Http/Controllers/Internal/SshWakeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshWakeController.php:14
 * @route '/internal/ssh/wake'
 */
 const SshWakeController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ SshWakeController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshWakeController::__invoke
-* @see app/Http/Controllers/Internal/SshWakeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshWakeController.php:14
 * @route '/internal/ssh/wake'
 */
 SshWakeController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ SshWakeController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshWakeController::__invoke
-* @see app/Http/Controllers/Internal/SshWakeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshWakeController.php:14
 * @route '/internal/ssh/wake'
 */
 SshWakeController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

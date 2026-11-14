@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\InstallScriptController::__invoke
-* @see app/Http/Controllers/InstallScriptController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/InstallScriptController.php:13
 * @route '/install'
 */
 const InstallScriptController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ InstallScriptController.definition = {
 
 /**
 * @see \App\Http\Controllers\InstallScriptController::__invoke
-* @see app/Http/Controllers/InstallScriptController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/InstallScriptController.php:13
 * @route '/install'
 */
 InstallScriptController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ InstallScriptController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\InstallScriptController::__invoke
-* @see app/Http/Controllers/InstallScriptController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/InstallScriptController.php:13
 * @route '/install'
 */
 InstallScriptController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ InstallScriptController.get = (options?: RouteQueryOptions): RouteDefinition<'ge
 
 /**
 * @see \App\Http\Controllers\InstallScriptController::__invoke
-* @see app/Http/Controllers/InstallScriptController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/InstallScriptController.php:13
 * @route '/install'
 */
 InstallScriptController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

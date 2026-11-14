@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\ManifestController::update
-* @see app/Http/Controllers/Repositories/ManifestController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/ManifestController.php:12
 * @route '/repos/{repository}/manifest'
 */
 export const update = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\ManifestController::update
-* @see app/Http/Controllers/Repositories/ManifestController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/ManifestController.php:12
 * @route '/repos/{repository}/manifest'
 */
 update.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ update.url = (args: { repository: string | number | { slug: string | number } } 
 
 /**
 * @see \App\Http\Controllers\Repositories\ManifestController::update
-* @see app/Http/Controllers/Repositories/ManifestController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/ManifestController.php:12
 * @route '/repos/{repository}/manifest'
 */
 update.put = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({

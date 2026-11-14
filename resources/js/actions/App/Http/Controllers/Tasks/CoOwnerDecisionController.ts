@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::approve
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
 * @route '/tasks/{task}/co-owner/approve'
 */
 export const approve = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ approve.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::approve
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
 * @route '/tasks/{task}/co-owner/approve'
 */
 approve.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ approve.url = (args: { task: string | { public_id: string } } | [task: string | 
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::approve
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
 * @route '/tasks/{task}/co-owner/approve'
 */
 approve.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ approve.post = (args: { task: string | { public_id: string } } | [task: string |
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::requestChanges
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
 * @route '/tasks/{task}/co-owner/request-changes'
 */
 export const requestChanges = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -74,7 +74,7 @@ requestChanges.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::requestChanges
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
 * @route '/tasks/{task}/co-owner/request-changes'
 */
 requestChanges.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ requestChanges.url = (args: { task: string | { public_id: string } } | [task: st
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::requestChanges
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
 * @route '/tasks/{task}/co-owner/request-changes'
 */
 requestChanges.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -117,7 +117,7 @@ requestChanges.post = (args: { task: string | { public_id: string } } | [task: s
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::reject
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
 * @route '/tasks/{task}/co-owner/reject'
 */
 export const reject = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -132,7 +132,7 @@ reject.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::reject
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
 * @route '/tasks/{task}/co-owner/reject'
 */
 reject.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -165,7 +165,7 @@ reject.url = (args: { task: string | { public_id: string } } | [task: string | {
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::reject
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
 * @route '/tasks/{task}/co-owner/reject'
 */
 reject.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -175,7 +175,7 @@ reject.post = (args: { task: string | { public_id: string } } | [task: string | 
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::withdraw
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
 * @route '/tasks/{task}/co-owner/withdraw'
 */
 export const withdraw = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -190,7 +190,7 @@ withdraw.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::withdraw
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
 * @route '/tasks/{task}/co-owner/withdraw'
 */
 withdraw.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -223,7 +223,7 @@ withdraw.url = (args: { task: string | { public_id: string } } | [task: string |
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::withdraw
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
 * @route '/tasks/{task}/co-owner/withdraw'
 */
 withdraw.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -233,7 +233,7 @@ withdraw.post = (args: { task: string | { public_id: string } } | [task: string 
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::checkAccess
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
 * @route '/tasks/{task}/co-owner/check-access'
 */
 export const checkAccess = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -248,7 +248,7 @@ checkAccess.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::checkAccess
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
 * @route '/tasks/{task}/co-owner/check-access'
 */
 checkAccess.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -281,7 +281,7 @@ checkAccess.url = (args: { task: string | { public_id: string } } | [task: strin
 
 /**
 * @see \App\Http\Controllers\Tasks\CoOwnerDecisionController::checkAccess
-* @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
 * @route '/tasks/{task}/co-owner/check-access'
 */
 checkAccess.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

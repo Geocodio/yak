@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\TaskClarificationAnswerController::__invoke
-* @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
 * @route '/tasks/{task}/clarification-answers'
 */
 const TaskClarificationAnswerController = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ TaskClarificationAnswerController.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskClarificationAnswerController::__invoke
-* @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
 * @route '/tasks/{task}/clarification-answers'
 */
 TaskClarificationAnswerController.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ TaskClarificationAnswerController.url = (args: { task: string | { public_id: str
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskClarificationAnswerController::__invoke
-* @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
 * @route '/tasks/{task}/clarification-answers'
 */
 TaskClarificationAnswerController.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

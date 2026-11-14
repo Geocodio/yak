@@ -3,7 +3,7 @@ import { ArrowDown } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
-import type { LocalTurnsData, ThreadMessage, ThreadNotice as ThreadNoticeData } from '@/types/threads';
+import type { LocalTurnsData, ThreadMessage, ThreadNotice as ThreadNoticeData, ThreadWalkthrough } from '@/types/threads';
 import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { ChildCard } from './ChildCard';
@@ -23,6 +23,7 @@ import { EnvironmentNoteCard } from './EnvironmentNoteCard';
 import { SideSwitchDivider } from './SideSwitchDivider';
 import { ThreadNotice } from './ThreadNotice';
 import { ToolSteps } from './ToolSteps';
+import { WalkthroughCard } from './WalkthroughCard';
 import type { ConversationItem } from './conversationItem';
 
 // Browser tests drive the pure merge through this hook.
@@ -56,7 +57,7 @@ function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges
     return item.kind === 'edits' ? <EditsBlock item={item} onOpenChanges={onOpenChanges} /> : <ClaudeMessage item={item} modelLabels={modelLabels} />;
 }
 
-export function Conversation({ modelLabels = {}, threadId, repo, branch, messages, localTurns = null, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; localTurns?: LocalTurnsData | null; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ modelLabels = {}, threadId, repo, branch, messages, walkthrough = null, localTurns = null, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; walkthrough?: ThreadWalkthrough | null; localTurns?: LocalTurnsData | null; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
     const unsent = useUnsentMessages(threadId);
     const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(threadId);
@@ -104,6 +105,7 @@ export function Conversation({ modelLabels = {}, threadId, repo, branch, message
                 {unsent.map((message) => (
                     <UnsentMessage key={message.key} message={message} onRetry={() => outbox.retry(threadId, message.key)} onEdit={() => onEditUnsent?.(outbox.cancel(threadId, message.key))} />
                 ))}
+                {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} />}
                 {environmentSwitch && <SideSwitchDivider {...environmentSwitch} />}
                 {environmentNote && <EnvironmentNoteCard threadId={threadId} text={environmentNote.text} from={environmentNote.from} to={environmentNote.to} />}
                 {pullRequestCount > 1 && <PullRequestChips threadId={threadId} lastActivityAt={lastActivityAt} />}

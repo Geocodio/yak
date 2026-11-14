@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Home\HomeController::__invoke
-* @see app/Http/Controllers/Home/HomeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 const HomeController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ HomeController.definition = {
 
 /**
 * @see \App\Http\Controllers\Home\HomeController::__invoke
-* @see app/Http/Controllers/Home/HomeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 HomeController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ HomeController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Home\HomeController::__invoke
-* @see app/Http/Controllers/Home/HomeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 HomeController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ HomeController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Home\HomeController::__invoke
-* @see app/Http/Controllers/Home/HomeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 HomeController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

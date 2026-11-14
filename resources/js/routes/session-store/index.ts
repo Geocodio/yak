@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::append
-* @see app/Http/Controllers/Internal/SessionStoreController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:21
 * @route '/internal/session-store/{thread}/append'
 */
 export const append = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ append.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::append
-* @see app/Http/Controllers/Internal/SessionStoreController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:21
 * @route '/internal/session-store/{thread}/append'
 */
 append.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ append.url = (args: { thread: string | number } | [thread: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::append
-* @see app/Http/Controllers/Internal/SessionStoreController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:21
 * @route '/internal/session-store/{thread}/append'
 */
 append.post = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -53,7 +53,7 @@ append.post = (args: { thread: string | number } | [thread: string | number ] | 
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::length
-* @see app/Http/Controllers/Internal/SessionStoreController.php:56
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:56
 * @route '/internal/session-store/{thread}/length'
 */
 export const length = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -68,7 +68,7 @@ length.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::length
-* @see app/Http/Controllers/Internal/SessionStoreController.php:56
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:56
 * @route '/internal/session-store/{thread}/length'
 */
 length.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -95,7 +95,7 @@ length.url = (args: { thread: string | number } | [thread: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::length
-* @see app/Http/Controllers/Internal/SessionStoreController.php:56
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:56
 * @route '/internal/session-store/{thread}/length'
 */
 length.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -105,7 +105,7 @@ length.get = (args: { thread: string | number } | [thread: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::length
-* @see app/Http/Controllers/Internal/SessionStoreController.php:56
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:56
 * @route '/internal/session-store/{thread}/length'
 */
 length.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -115,7 +115,7 @@ length.head = (args: { thread: string | number } | [thread: string | number ] | 
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::checkpoint
-* @see app/Http/Controllers/Internal/SessionStoreController.php:63
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:63
 * @route '/internal/session-store/{thread}/checkpoint'
 */
 export const checkpoint = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -130,7 +130,7 @@ checkpoint.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::checkpoint
-* @see app/Http/Controllers/Internal/SessionStoreController.php:63
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:63
 * @route '/internal/session-store/{thread}/checkpoint'
 */
 checkpoint.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -157,7 +157,7 @@ checkpoint.url = (args: { thread: string | number } | [thread: string | number ]
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::checkpoint
-* @see app/Http/Controllers/Internal/SessionStoreController.php:63
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:63
 * @route '/internal/session-store/{thread}/checkpoint'
 */
 checkpoint.post = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -167,7 +167,7 @@ checkpoint.post = (args: { thread: string | number } | [thread: string | number 
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::file
-* @see app/Http/Controllers/Internal/SessionStoreController.php:81
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:81
 * @route '/internal/session-store/{thread}/file'
 */
 export const file = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -182,7 +182,7 @@ file.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::file
-* @see app/Http/Controllers/Internal/SessionStoreController.php:81
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:81
 * @route '/internal/session-store/{thread}/file'
 */
 file.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -209,7 +209,7 @@ file.url = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::file
-* @see app/Http/Controllers/Internal/SessionStoreController.php:81
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:81
 * @route '/internal/session-store/{thread}/file'
 */
 file.put = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -219,7 +219,7 @@ file.put = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::read
-* @see app/Http/Controllers/Internal/SessionStoreController.php:115
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:115
 * @route '/internal/session-store/{thread}/read'
 */
 export const read = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -234,7 +234,7 @@ read.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::read
-* @see app/Http/Controllers/Internal/SessionStoreController.php:115
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:115
 * @route '/internal/session-store/{thread}/read'
 */
 read.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -261,7 +261,7 @@ read.url = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::read
-* @see app/Http/Controllers/Internal/SessionStoreController.php:115
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:115
 * @route '/internal/session-store/{thread}/read'
 */
 read.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -271,7 +271,7 @@ read.get = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::read
-* @see app/Http/Controllers/Internal/SessionStoreController.php:115
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:115
 * @route '/internal/session-store/{thread}/read'
 */
 read.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -281,7 +281,7 @@ read.head = (args: { thread: string | number } | [thread: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::files
-* @see app/Http/Controllers/Internal/SessionStoreController.php:108
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:108
 * @route '/internal/session-store/{thread}/files'
 */
 export const files = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -296,7 +296,7 @@ files.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::files
-* @see app/Http/Controllers/Internal/SessionStoreController.php:108
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:108
 * @route '/internal/session-store/{thread}/files'
 */
 files.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -323,7 +323,7 @@ files.url = (args: { thread: string | number } | [thread: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::files
-* @see app/Http/Controllers/Internal/SessionStoreController.php:108
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:108
 * @route '/internal/session-store/{thread}/files'
 */
 files.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -333,7 +333,7 @@ files.get = (args: { thread: string | number } | [thread: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::files
-* @see app/Http/Controllers/Internal/SessionStoreController.php:108
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:108
 * @route '/internal/session-store/{thread}/files'
 */
 files.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -343,7 +343,7 @@ files.head = (args: { thread: string | number } | [thread: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::tree
-* @see app/Http/Controllers/Internal/SessionStoreController.php:135
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:135
 * @route '/internal/session-store/{thread}/tree'
 */
 export const tree = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -358,7 +358,7 @@ tree.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::tree
-* @see app/Http/Controllers/Internal/SessionStoreController.php:135
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:135
 * @route '/internal/session-store/{thread}/tree'
 */
 tree.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -385,7 +385,7 @@ tree.url = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::tree
-* @see app/Http/Controllers/Internal/SessionStoreController.php:135
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:135
 * @route '/internal/session-store/{thread}/tree'
 */
 tree.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -395,7 +395,7 @@ tree.get = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::tree
-* @see app/Http/Controllers/Internal/SessionStoreController.php:135
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SessionStoreController.php:135
 * @route '/internal/session-store/{thread}/tree'
 */
 tree.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::update
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
 export const update = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::update
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
 update.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ update.url = (args: { deployment: string | { public_id: string } } | [deployment
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::update
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
 update.patch = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({

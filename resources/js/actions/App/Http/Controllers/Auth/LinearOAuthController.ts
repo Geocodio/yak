@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Auth\LinearOAuthController::redirect
-* @see app/Http/Controllers/Auth/LinearOAuthController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/LinearOAuthController.php:16
 * @route '/auth/linear'
 */
 export const redirect = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ redirect.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\LinearOAuthController::redirect
-* @see app/Http/Controllers/Auth/LinearOAuthController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/LinearOAuthController.php:16
 * @route '/auth/linear'
 */
 redirect.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ redirect.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\LinearOAuthController::redirect
-* @see app/Http/Controllers/Auth/LinearOAuthController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/LinearOAuthController.php:16
 * @route '/auth/linear'
 */
 redirect.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ redirect.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\LinearOAuthController::redirect
-* @see app/Http/Controllers/Auth/LinearOAuthController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/LinearOAuthController.php:16
 * @route '/auth/linear'
 */
 redirect.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ redirect.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\LinearOAuthController::callback
-* @see app/Http/Controllers/Auth/LinearOAuthController.php:28
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/LinearOAuthController.php:28
 * @route '/auth/linear/callback'
 */
 export const callback = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -60,7 +60,7 @@ callback.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\LinearOAuthController::callback
-* @see app/Http/Controllers/Auth/LinearOAuthController.php:28
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/LinearOAuthController.php:28
 * @route '/auth/linear/callback'
 */
 callback.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ callback.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\LinearOAuthController::callback
-* @see app/Http/Controllers/Auth/LinearOAuthController.php:28
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/LinearOAuthController.php:28
 * @route '/auth/linear/callback'
 */
 callback.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -79,7 +79,7 @@ callback.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\LinearOAuthController::callback
-* @see app/Http/Controllers/Auth/LinearOAuthController.php:28
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Auth/LinearOAuthController.php:28
 * @route '/auth/linear/callback'
 */
 callback.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

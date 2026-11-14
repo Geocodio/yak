@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\DeploymentStatusController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentStatusController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentStatusController.php:12
 * @route '/internal/deployments/status'
 */
 const DeploymentStatusController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ DeploymentStatusController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentStatusController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentStatusController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentStatusController.php:12
 * @route '/internal/deployments/status'
 */
 DeploymentStatusController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ DeploymentStatusController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentStatusController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentStatusController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentStatusController.php:12
 * @route '/internal/deployments/status'
 */
 DeploymentStatusController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ DeploymentStatusController.get = (options?: RouteQueryOptions): RouteDefinition<
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentStatusController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentStatusController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentStatusController.php:12
 * @route '/internal/deployments/status'
 */
 DeploymentStatusController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

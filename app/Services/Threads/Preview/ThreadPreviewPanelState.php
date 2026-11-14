@@ -71,7 +71,7 @@ class ThreadPreviewPanelState
     private function setupFor(Thread $thread, string $state): array
     {
         $message = ThreadTurnMessage::query()
-            ->whereNotNull('intent')
+            ->whereIn('intent', ['add_preview_manifest', 'fix_preview'])
             ->whereHas('taskRun', fn ($runs) => $runs->where('thread_id', $thread->id))
             ->latest('id')
             ->first();

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalCheckController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalCheckController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalCheckController.php:15
 * @route '/internal/ssh/terminal/check'
 */
 const SshTerminalCheckController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ SshTerminalCheckController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalCheckController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalCheckController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalCheckController.php:15
 * @route '/internal/ssh/terminal/check'
 */
 SshTerminalCheckController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ SshTerminalCheckController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalCheckController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalCheckController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalCheckController.php:15
 * @route '/internal/ssh/terminal/check'
 */
 SshTerminalCheckController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

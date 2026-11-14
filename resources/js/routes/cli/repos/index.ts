@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Cli\RepositoryResolveController::__invoke
-* @see app/Http/Controllers/Cli/RepositoryResolveController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/RepositoryResolveController.php:12
 * @route '/api/cli/v1/repos/resolve'
 */
 export const resolve = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ resolve.definition = {
 
 /**
 * @see \App\Http\Controllers\Cli\RepositoryResolveController::__invoke
-* @see app/Http/Controllers/Cli/RepositoryResolveController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/RepositoryResolveController.php:12
 * @route '/api/cli/v1/repos/resolve'
 */
 resolve.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ resolve.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Cli\RepositoryResolveController::__invoke
-* @see app/Http/Controllers/Cli/RepositoryResolveController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/RepositoryResolveController.php:12
 * @route '/api/cli/v1/repos/resolve'
 */
 resolve.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

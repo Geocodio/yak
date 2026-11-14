@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ContinueTurnController.php:19
 * @route '/threads/{thread}/continue'
 */
 const ContinueTurnController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ ContinueTurnController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ContinueTurnController.php:19
 * @route '/threads/{thread}/continue'
 */
 ContinueTurnController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ ContinueTurnController.url = (args: { thread: string | { public_id: string } } |
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ContinueTurnController.php:19
 * @route '/threads/{thread}/continue'
 */
 ContinueTurnController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

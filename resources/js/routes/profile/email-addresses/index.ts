@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::store
-* @see app/Http/Controllers/Settings/EmailAddressController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/EmailAddressController.php:26
 * @route '/settings/profile/email-addresses'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::store
-* @see app/Http/Controllers/Settings/EmailAddressController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/EmailAddressController.php:26
 * @route '/settings/profile/email-addresses'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::store
-* @see app/Http/Controllers/Settings/EmailAddressController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/EmailAddressController.php:26
 * @route '/settings/profile/email-addresses'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::resend
-* @see app/Http/Controllers/Settings/EmailAddressController.php:48
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/EmailAddressController.php:48
 * @route '/settings/profile/email-addresses/{emailAddress}/resend'
 */
 export const resend = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -50,7 +50,7 @@ resend.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::resend
-* @see app/Http/Controllers/Settings/EmailAddressController.php:48
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/EmailAddressController.php:48
 * @route '/settings/profile/email-addresses/{emailAddress}/resend'
 */
 resend.url = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -83,7 +83,7 @@ resend.url = (args: { emailAddress: number | { id: number } } | [emailAddress: n
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::resend
-* @see app/Http/Controllers/Settings/EmailAddressController.php:48
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/EmailAddressController.php:48
 * @route '/settings/profile/email-addresses/{emailAddress}/resend'
 */
 resend.post = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -93,7 +93,7 @@ resend.post = (args: { emailAddress: number | { id: number } } | [emailAddress: 
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::destroy
-* @see app/Http/Controllers/Settings/EmailAddressController.php:63
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/EmailAddressController.php:63
 * @route '/settings/profile/email-addresses/{emailAddress}'
 */
 export const destroy = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -108,7 +108,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::destroy
-* @see app/Http/Controllers/Settings/EmailAddressController.php:63
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/EmailAddressController.php:63
 * @route '/settings/profile/email-addresses/{emailAddress}'
 */
 destroy.url = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -141,7 +141,7 @@ destroy.url = (args: { emailAddress: number | { id: number } } | [emailAddress: 
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::destroy
-* @see app/Http/Controllers/Settings/EmailAddressController.php:63
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/EmailAddressController.php:63
 * @route '/settings/profile/email-addresses/{emailAddress}'
 */
 destroy.delete = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

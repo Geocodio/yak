@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\AskToFixController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
 const AskToFixController = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ AskToFixController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\AskToFixController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
 AskToFixController.url = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ AskToFixController.url = (args: { thread: string | { public_id: string }, reposi
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\AskToFixController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
 AskToFixController.post = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({

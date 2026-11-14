@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::begin
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:23
 * @route '/api/cli/v1/teleports'
 */
 export const begin = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ begin.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::begin
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:23
 * @route '/api/cli/v1/teleports'
 */
 begin.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ begin.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::begin
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:23
 * @route '/api/cli/v1/teleports'
 */
 begin.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ begin.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::show
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:49
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:49
 * @route '/api/cli/v1/teleports/{teleport}'
 */
 export const show = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -50,7 +50,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::show
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:49
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:49
 * @route '/api/cli/v1/teleports/{teleport}'
 */
 show.url = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -77,7 +77,7 @@ show.url = (args: { teleport: string | number } | [teleport: string | number ] |
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::show
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:49
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:49
 * @route '/api/cli/v1/teleports/{teleport}'
 */
 show.get = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -87,7 +87,7 @@ show.get = (args: { teleport: string | number } | [teleport: string | number ] |
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::show
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:49
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:49
 * @route '/api/cli/v1/teleports/{teleport}'
 */
 show.head = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -97,7 +97,7 @@ show.head = (args: { teleport: string | number } | [teleport: string | number ] 
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::complete
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:74
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:74
 * @route '/api/cli/v1/teleports/{teleport}/complete'
 */
 export const complete = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -112,7 +112,7 @@ complete.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::complete
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:74
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:74
 * @route '/api/cli/v1/teleports/{teleport}/complete'
 */
 complete.url = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -139,7 +139,7 @@ complete.url = (args: { teleport: string | number } | [teleport: string | number
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::complete
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:74
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:74
 * @route '/api/cli/v1/teleports/{teleport}/complete'
 */
 complete.post = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -149,7 +149,7 @@ complete.post = (args: { teleport: string | number } | [teleport: string | numbe
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::cancel
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:61
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:61
 * @route '/api/cli/v1/teleports/{teleport}/cancel'
 */
 export const cancel = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -164,7 +164,7 @@ cancel.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::cancel
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:61
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:61
 * @route '/api/cli/v1/teleports/{teleport}/cancel'
 */
 cancel.url = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -191,7 +191,7 @@ cancel.url = (args: { teleport: string | number } | [teleport: string | number ]
 
 /**
 * @see \App\Http\Controllers\Api\Cli\TeleportController::cancel
-* @see app/Http/Controllers/Api/Cli/TeleportController.php:61
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/TeleportController.php:61
 * @route '/api/cli/v1/teleports/{teleport}/cancel'
 */
 cancel.post = (args: { teleport: string | number } | [teleport: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

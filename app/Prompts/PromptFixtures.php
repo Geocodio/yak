@@ -236,6 +236,9 @@ class PromptFixtures
                 ['label' => 'No preview.yml yet', 'data' => ['situation' => 'missing']],
                 ['label' => 'Dev server not answering', 'data' => ['situation' => 'failing']],
             ],
+            'tasks-record-walkthrough' => [
+                ['label' => 'Current change', 'data' => []],
+            ],
             'tasks-follow-up' => [
                 [
                     'label' => 'Requested change',

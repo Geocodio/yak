@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Cli\DeviceCodeController::__invoke
-* @see app/Http/Controllers/Cli/DeviceCodeController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceCodeController.php:13
 * @route '/api/cli/v1/device/code'
 */
 export const code = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ code.definition = {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceCodeController::__invoke
-* @see app/Http/Controllers/Cli/DeviceCodeController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceCodeController.php:13
 * @route '/api/cli/v1/device/code'
 */
 code.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ code.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceCodeController::__invoke
-* @see app/Http/Controllers/Cli/DeviceCodeController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceCodeController.php:13
 * @route '/api/cli/v1/device/code'
 */
 code.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ code.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceTokenController::__invoke
-* @see app/Http/Controllers/Cli/DeviceTokenController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceTokenController.php:13
 * @route '/api/cli/v1/device/token'
 */
 export const token = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -50,7 +50,7 @@ token.definition = {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceTokenController::__invoke
-* @see app/Http/Controllers/Cli/DeviceTokenController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceTokenController.php:13
 * @route '/api/cli/v1/device/token'
 */
 token.url = (options?: RouteQueryOptions) => {
@@ -59,7 +59,7 @@ token.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceTokenController::__invoke
-* @see app/Http/Controllers/Cli/DeviceTokenController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceTokenController.php:13
 * @route '/api/cli/v1/device/token'
 */
 token.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -69,7 +69,7 @@ token.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceController::destroy
-* @see app/Http/Controllers/Cli/DeviceController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceController.php:13
 * @route '/api/cli/v1/device'
 */
 export const destroy = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -84,7 +84,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceController::destroy
-* @see app/Http/Controllers/Cli/DeviceController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceController.php:13
 * @route '/api/cli/v1/device'
 */
 destroy.url = (options?: RouteQueryOptions) => {
@@ -93,7 +93,7 @@ destroy.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceController::destroy
-* @see app/Http/Controllers/Cli/DeviceController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceController.php:13
 * @route '/api/cli/v1/device'
 */
 destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

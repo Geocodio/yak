@@ -108,6 +108,15 @@ export type TeleportData = {
     canTeleport: boolean;
 };
 
+/** The latest walkthrough recording; mirrors `App\Http\Resources\ThreadWalkthroughData`. */
+export type ThreadWalkthrough = {
+    isRecording: boolean;
+    isRendering: boolean;
+    video: { url: string; thumbnailUrl: string | null; durationSeconds: number; chapters: { title: string; startSeconds: number }[] } | null;
+    screenshots: { url: string; caption: string | null }[];
+    isInPullRequest: boolean;
+};
+
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
@@ -117,6 +126,7 @@ export type ThreadPageData = {
     brief: { text: string; kind: string; model: string | null; startedAt: string; branch: string | null } | null;
     teleport: TeleportData;
     publishWarning: boolean;
+    walkthrough: ThreadWalkthrough | null;
     messages: ThreadMessage[];
     localTurns: LocalTurnsData | null;
     composer: ThreadComposer;
@@ -156,7 +166,7 @@ export type ThreadMessage = {
     authorInitials: string;
     model: string | null;
     state: 'pending' | 'read' | 'cancelled';
-    intent: 'add_preview_manifest' | 'fix_preview' | null;
+    intent: 'add_preview_manifest' | 'fix_preview' | 'record_walkthrough' | 'record_walkthrough_and_open_pr' | null;
     sentAt: string;
     readAfterSequence: number | null;
     attachmentIds: number[];

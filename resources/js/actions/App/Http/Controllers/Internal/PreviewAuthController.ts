@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
-* @see app/Http/Controllers/Internal/PreviewAuthController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/PreviewAuthController.php:17
 * @route '/internal/deployments/preview-auth'
 */
 const PreviewAuthController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ PreviewAuthController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
-* @see app/Http/Controllers/Internal/PreviewAuthController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/PreviewAuthController.php:17
 * @route '/internal/deployments/preview-auth'
 */
 PreviewAuthController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ PreviewAuthController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
-* @see app/Http/Controllers/Internal/PreviewAuthController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/PreviewAuthController.php:17
 * @route '/internal/deployments/preview-auth'
 */
 PreviewAuthController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ PreviewAuthController.get = (options?: RouteQueryOptions): RouteDefinition<'get'
 
 /**
 * @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
-* @see app/Http/Controllers/Internal/PreviewAuthController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/PreviewAuthController.php:17
 * @route '/internal/deployments/preview-auth'
 */
 PreviewAuthController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

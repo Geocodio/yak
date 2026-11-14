@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::update
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/QueuedMessageController.php:20
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 export const update = (args: { task: string | { public_id: string }, message: string | number } | [task: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::update
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/QueuedMessageController.php:20
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 update.url = (args: { task: string | { public_id: string }, message: string | number } | [task: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ update.url = (args: { task: string | { public_id: string }, message: string | nu
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::update
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/QueuedMessageController.php:20
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 update.patch = (args: { task: string | { public_id: string }, message: string | number } | [task: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -54,7 +54,7 @@ update.patch = (args: { task: string | { public_id: string }, message: string | 
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::destroy
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:43
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/QueuedMessageController.php:43
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 export const destroy = (args: { task: string | { public_id: string }, message: string | number } | [task: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -69,7 +69,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::destroy
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:43
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/QueuedMessageController.php:43
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 destroy.url = (args: { task: string | { public_id: string }, message: string | number } | [task: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions) => {
@@ -97,7 +97,7 @@ destroy.url = (args: { task: string | { public_id: string }, message: string | n
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::destroy
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:43
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/QueuedMessageController.php:43
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 destroy.delete = (args: { task: string | { public_id: string }, message: string | number } | [task: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

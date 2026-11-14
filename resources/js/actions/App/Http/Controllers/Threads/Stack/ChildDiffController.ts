@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildDiffController::__invoke
-* @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
 const ChildDiffController = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ ChildDiffController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildDiffController::__invoke
-* @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
 ChildDiffController.url = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions) => {
@@ -46,7 +46,7 @@ ChildDiffController.url = (args: { thread: string | { public_id: string }, child
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildDiffController::__invoke
-* @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
 ChildDiffController.get = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -56,7 +56,7 @@ ChildDiffController.get = (args: { thread: string | { public_id: string }, child
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildDiffController::__invoke
-* @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
 ChildDiffController.head = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

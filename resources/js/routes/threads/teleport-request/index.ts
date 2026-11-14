@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::store
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
 * @route '/threads/{thread}/teleport-request'
 */
 export const store = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::store
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
 * @route '/threads/{thread}/teleport-request'
 */
 store.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::store
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadTeleportRequestController.php:21
 * @route '/threads/{thread}/teleport-request'
 */
 store.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ store.post = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::destroy
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
 * @route '/threads/{thread}/teleport-request'
 */
 export const destroy = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -74,7 +74,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::destroy
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
 * @route '/threads/{thread}/teleport-request'
 */
 destroy.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ destroy.url = (args: { thread: string | { public_id: string } } | [thread: strin
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTeleportRequestController::destroy
-* @see app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadTeleportRequestController.php:38
 * @route '/threads/{thread}/teleport-request'
 */
 destroy.delete = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

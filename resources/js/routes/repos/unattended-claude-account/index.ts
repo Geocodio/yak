@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::update
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
 * @route '/repos/{repository}/unattended-claude-account'
 */
 export const update = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::update
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
 * @route '/repos/{repository}/unattended-claude-account'
 */
 update.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ update.url = (args: { repository: string | number | { slug: string | number } } 
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::update
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
 * @route '/repos/{repository}/unattended-claude-account'
 */
 update.put = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackChildStoreController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
 * @route '/threads/{thread}/stack/children'
 */
 export const store = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackChildStoreController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
 * @route '/threads/{thread}/stack/children'
 */
 store.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackChildStoreController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackChildStoreController.php:20
 * @route '/threads/{thread}/stack/children'
 */
 store.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ store.post = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildDiffController::__invoke
-* @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
 export const diff = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -74,7 +74,7 @@ diff.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildDiffController::__invoke
-* @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
 diff.url = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions) => {
@@ -104,7 +104,7 @@ diff.url = (args: { thread: string | { public_id: string }, child: string | { pu
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildDiffController::__invoke
-* @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
 diff.get = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -114,7 +114,7 @@ diff.get = (args: { thread: string | { public_id: string }, child: string | { pu
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\ChildDiffController::__invoke
-* @see app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/ChildDiffController.php:16
 * @route '/threads/{thread}/stack/children/{child}/diff'
 */
 diff.head = (args: { thread: string | { public_id: string }, child: string | { public_id: string } } | [thread: string | { public_id: string }, child: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

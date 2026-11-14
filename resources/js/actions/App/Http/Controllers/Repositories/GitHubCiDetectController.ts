@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\GitHubCiDetectController::__invoke
-* @see app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
 * @route '/repos/github-detect'
 */
 const GitHubCiDetectController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ GitHubCiDetectController.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\GitHubCiDetectController::__invoke
-* @see app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
 * @route '/repos/github-detect'
 */
 GitHubCiDetectController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ GitHubCiDetectController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Repositories\GitHubCiDetectController::__invoke
-* @see app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
 * @route '/repos/github-detect'
 */
 GitHubCiDetectController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ GitHubCiDetectController.get = (options?: RouteQueryOptions): RouteDefinition<'g
 
 /**
 * @see \App\Http\Controllers\Repositories\GitHubCiDetectController::__invoke
-* @see app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
 * @route '/repos/github-detect'
 */
 GitHubCiDetectController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
-* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositoryAccessController.php:15
 * @route '/threads/new/repository-access'
 */
 const RepositoryAccessController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ RepositoryAccessController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
-* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositoryAccessController.php:15
 * @route '/threads/new/repository-access'
 */
 RepositoryAccessController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ RepositoryAccessController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
-* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositoryAccessController.php:15
 * @route '/threads/new/repository-access'
 */
 RepositoryAccessController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ RepositoryAccessController.get = (options?: RouteQueryOptions): RouteDefinition<
 
 /**
 * @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
-* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositoryAccessController.php:15
 * @route '/threads/new/repository-access'
 */
 RepositoryAccessController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

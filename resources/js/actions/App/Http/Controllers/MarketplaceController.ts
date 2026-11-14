@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\MarketplaceController::store
-* @see app/Http/Controllers/MarketplaceController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/MarketplaceController.php:14
 * @route '/marketplaces'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\MarketplaceController::store
-* @see app/Http/Controllers/MarketplaceController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/MarketplaceController.php:14
 * @route '/marketplaces'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\MarketplaceController::store
-* @see app/Http/Controllers/MarketplaceController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/MarketplaceController.php:14
 * @route '/marketplaces'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\MarketplaceController::refresh
-* @see app/Http/Controllers/MarketplaceController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/MarketplaceController.php:34
 * @route '/marketplaces/refresh'
 */
 export const refresh = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -50,7 +50,7 @@ refresh.definition = {
 
 /**
 * @see \App\Http\Controllers\MarketplaceController::refresh
-* @see app/Http/Controllers/MarketplaceController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/MarketplaceController.php:34
 * @route '/marketplaces/refresh'
 */
 refresh.url = (options?: RouteQueryOptions) => {
@@ -59,7 +59,7 @@ refresh.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\MarketplaceController::refresh
-* @see app/Http/Controllers/MarketplaceController.php:34
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/MarketplaceController.php:34
 * @route '/marketplaces/refresh'
 */
 refresh.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -69,7 +69,7 @@ refresh.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\MarketplaceController::destroy
-* @see app/Http/Controllers/MarketplaceController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/MarketplaceController.php:25
 * @route '/marketplaces/{name}'
 */
 export const destroy = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -84,7 +84,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\MarketplaceController::destroy
-* @see app/Http/Controllers/MarketplaceController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/MarketplaceController.php:25
 * @route '/marketplaces/{name}'
 */
 destroy.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -111,7 +111,7 @@ destroy.url = (args: { name: string | number } | [name: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\MarketplaceController::destroy
-* @see app/Http/Controllers/MarketplaceController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/MarketplaceController.php:25
 * @route '/marketplaces/{name}'
 */
 destroy.delete = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\CostDashboardController::__invoke
-* @see app/Http/Controllers/CostDashboardController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 const CostDashboardController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ CostDashboardController.definition = {
 
 /**
 * @see \App\Http\Controllers\CostDashboardController::__invoke
-* @see app/Http/Controllers/CostDashboardController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 CostDashboardController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ CostDashboardController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\CostDashboardController::__invoke
-* @see app/Http/Controllers/CostDashboardController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 CostDashboardController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ CostDashboardController.get = (options?: RouteQueryOptions): RouteDefinition<'ge
 
 /**
 * @see \App\Http\Controllers\CostDashboardController::__invoke
-* @see app/Http/Controllers/CostDashboardController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 CostDashboardController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\RestoreRetryController::__invoke
-* @see app/Http/Controllers/Threads/RestoreRetryController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RestoreRetryController.php:16
 * @route '/threads/{thread}/restore/retry'
 */
 const RestoreRetryController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ RestoreRetryController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\RestoreRetryController::__invoke
-* @see app/Http/Controllers/Threads/RestoreRetryController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RestoreRetryController.php:16
 * @route '/threads/{thread}/restore/retry'
 */
 RestoreRetryController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ RestoreRetryController.url = (args: { thread: string | { public_id: string } } |
 
 /**
 * @see \App\Http\Controllers\Threads\RestoreRetryController::__invoke
-* @see app/Http/Controllers/Threads/RestoreRetryController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RestoreRetryController.php:16
 * @route '/threads/{thread}/restore/retry'
 */
 RestoreRetryController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

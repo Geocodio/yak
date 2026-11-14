@@ -35,7 +35,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Home\HomeController::__invoke
-* @see app/Http/Controllers/Home/HomeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -50,7 +50,7 @@ home.definition = {
 
 /**
 * @see \App\Http\Controllers\Home\HomeController::__invoke
-* @see app/Http/Controllers/Home/HomeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -59,7 +59,7 @@ home.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Home\HomeController::__invoke
-* @see app/Http/Controllers/Home/HomeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -69,7 +69,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Home\HomeController::__invoke
-* @see app/Http/Controllers/Home/HomeController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Home/HomeController.php:21
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -79,7 +79,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\InstallScriptController::__invoke
-* @see app/Http/Controllers/InstallScriptController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/InstallScriptController.php:13
 * @route '/install'
 */
 export const install = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -94,7 +94,7 @@ install.definition = {
 
 /**
 * @see \App\Http\Controllers\InstallScriptController::__invoke
-* @see app/Http/Controllers/InstallScriptController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/InstallScriptController.php:13
 * @route '/install'
 */
 install.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ install.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\InstallScriptController::__invoke
-* @see app/Http/Controllers/InstallScriptController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/InstallScriptController.php:13
 * @route '/install'
 */
 install.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -113,7 +113,7 @@ install.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\InstallScriptController::__invoke
-* @see app/Http/Controllers/InstallScriptController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/InstallScriptController.php:13
 * @route '/install'
 */
 install.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -207,7 +207,7 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:32
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskListController.php:32
 * @route '/tasks'
 */
 export const tasks = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -222,7 +222,7 @@ tasks.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:32
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskListController.php:32
 * @route '/tasks'
 */
 tasks.url = (options?: RouteQueryOptions) => {
@@ -231,7 +231,7 @@ tasks.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:32
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskListController.php:32
 * @route '/tasks'
 */
 tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -241,7 +241,7 @@ tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:32
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskListController.php:32
 * @route '/tasks'
 */
 tasks.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -251,7 +251,7 @@ tasks.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\CostDashboardController::__invoke
-* @see app/Http/Controllers/CostDashboardController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 export const costs = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -266,7 +266,7 @@ costs.definition = {
 
 /**
 * @see \App\Http\Controllers\CostDashboardController::__invoke
-* @see app/Http/Controllers/CostDashboardController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 costs.url = (options?: RouteQueryOptions) => {
@@ -275,7 +275,7 @@ costs.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\CostDashboardController::__invoke
-* @see app/Http/Controllers/CostDashboardController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 costs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -285,7 +285,7 @@ costs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\CostDashboardController::__invoke
-* @see app/Http/Controllers/CostDashboardController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 costs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -295,7 +295,7 @@ costs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\AnalyticsController::__invoke
-* @see app/Http/Controllers/AnalyticsController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/AnalyticsController.php:15
 * @route '/analytics'
 */
 export const analytics = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -310,7 +310,7 @@ analytics.definition = {
 
 /**
 * @see \App\Http\Controllers\AnalyticsController::__invoke
-* @see app/Http/Controllers/AnalyticsController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/AnalyticsController.php:15
 * @route '/analytics'
 */
 analytics.url = (options?: RouteQueryOptions) => {
@@ -319,7 +319,7 @@ analytics.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\AnalyticsController::__invoke
-* @see app/Http/Controllers/AnalyticsController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/AnalyticsController.php:15
 * @route '/analytics'
 */
 analytics.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -329,7 +329,7 @@ analytics.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\AnalyticsController::__invoke
-* @see app/Http/Controllers/AnalyticsController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/AnalyticsController.php:15
 * @route '/analytics'
 */
 analytics.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -339,7 +339,7 @@ analytics.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryController.php:29
 * @route '/repos'
 */
 export const repos = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -354,7 +354,7 @@ repos.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryController.php:29
 * @route '/repos'
 */
 repos.url = (options?: RouteQueryOptions) => {
@@ -363,7 +363,7 @@ repos.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryController.php:29
 * @route '/repos'
 */
 repos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -373,7 +373,7 @@ repos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Repositories/RepositoryController.php:29
 * @route '/repos'
 */
 repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -383,7 +383,7 @@ repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 export const observations = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -398,7 +398,7 @@ observations.definition = {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 observations.url = (options?: RouteQueryOptions) => {
@@ -407,7 +407,7 @@ observations.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 observations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -417,7 +417,7 @@ observations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 observations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -427,7 +427,7 @@ observations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 export const health = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -442,7 +442,7 @@ health.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 health.url = (options?: RouteQueryOptions) => {
@@ -451,7 +451,7 @@ health.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 health.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -461,7 +461,7 @@ health.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:40
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 health.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -471,7 +471,7 @@ health.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/SystemController.php:31
 * @route '/system/{path?}'
 */
 export const system = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -486,7 +486,7 @@ system.definition = {
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/SystemController.php:31
 * @route '/system/{path?}'
 */
 system.url = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -517,7 +517,7 @@ system.url = (args?: { path?: string | number } | [path: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/SystemController.php:31
 * @route '/system/{path?}'
 */
 system.get = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -527,7 +527,7 @@ system.get = (args?: { path?: string | number } | [path: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:31
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/SystemController.php:31
 * @route '/system/{path?}'
 */
 system.head = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -537,7 +537,7 @@ system.head = (args?: { path?: string | number } | [path: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:73
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/ChannelController.php:73
 * @route '/channels'
 */
 export const channels = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -552,7 +552,7 @@ channels.definition = {
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:73
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/ChannelController.php:73
 * @route '/channels'
 */
 channels.url = (options?: RouteQueryOptions) => {
@@ -561,7 +561,7 @@ channels.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:73
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/ChannelController.php:73
 * @route '/channels'
 */
 channels.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -571,7 +571,7 @@ channels.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:73
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/ChannelController.php:73
 * @route '/channels'
 */
 channels.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -581,7 +581,7 @@ channels.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\SkillController::skills
-* @see app/Http/Controllers/SkillController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 export const skills = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -596,7 +596,7 @@ skills.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::skills
-* @see app/Http/Controllers/SkillController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 skills.url = (options?: RouteQueryOptions) => {
@@ -605,7 +605,7 @@ skills.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SkillController::skills
-* @see app/Http/Controllers/SkillController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 skills.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -615,7 +615,7 @@ skills.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\SkillController::skills
-* @see app/Http/Controllers/SkillController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 skills.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -625,7 +625,7 @@ skills.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::mcp
-* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:25
 * @route '/mcp'
 */
 export const mcp = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -640,7 +640,7 @@ mcp.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::mcp
-* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:25
 * @route '/mcp'
 */
 mcp.url = (options?: RouteQueryOptions) => {
@@ -649,7 +649,7 @@ mcp.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::mcp
-* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:25
 * @route '/mcp'
 */
 mcp.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -659,7 +659,7 @@ mcp.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::mcp
-* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpServerController.php:25
 * @route '/mcp'
 */
 mcp.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -669,7 +669,7 @@ mcp.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\PromptController::prompts
-* @see app/Http/Controllers/PromptController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PromptController.php:23
 * @route '/prompts'
 */
 export const prompts = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -684,7 +684,7 @@ prompts.definition = {
 
 /**
 * @see \App\Http\Controllers\PromptController::prompts
-* @see app/Http/Controllers/PromptController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PromptController.php:23
 * @route '/prompts'
 */
 prompts.url = (options?: RouteQueryOptions) => {
@@ -693,7 +693,7 @@ prompts.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PromptController::prompts
-* @see app/Http/Controllers/PromptController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PromptController.php:23
 * @route '/prompts'
 */
 prompts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -703,7 +703,7 @@ prompts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\PromptController::prompts
-* @see app/Http/Controllers/PromptController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PromptController.php:23
 * @route '/prompts'
 */
 prompts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -713,7 +713,7 @@ prompts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
 * @route '/pr-reviews'
 */
 export const prReviews = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -728,7 +728,7 @@ prReviews.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
 * @route '/pr-reviews'
 */
 prReviews.url = (options?: RouteQueryOptions) => {
@@ -737,7 +737,7 @@ prReviews.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
 * @route '/pr-reviews'
 */
 prReviews.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -747,7 +747,7 @@ prReviews.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
 * @route '/pr-reviews'
 */
 prReviews.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -757,7 +757,7 @@ prReviews.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentController.php:20
 * @route '/deployments'
 */
 export const deployments = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -772,7 +772,7 @@ deployments.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentController.php:20
 * @route '/deployments'
 */
 deployments.url = (options?: RouteQueryOptions) => {
@@ -781,7 +781,7 @@ deployments.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentController.php:20
 * @route '/deployments'
 */
 deployments.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -791,7 +791,7 @@ deployments.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentController.php:20
 * @route '/deployments'
 */
 deployments.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

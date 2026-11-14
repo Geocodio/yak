@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::destroy
-* @see app/Http/Controllers/Settings/VideoThemeController.php:77
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:77
 * @route '/settings/video/logo'
 */
 export const destroy = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -16,7 +16,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::destroy
-* @see app/Http/Controllers/Settings/VideoThemeController.php:77
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:77
 * @route '/settings/video/logo'
 */
 destroy.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ destroy.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\VideoThemeController::destroy
-* @see app/Http/Controllers/Settings/VideoThemeController.php:77
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/VideoThemeController.php:77
 * @route '/settings/video/logo'
 */
 destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

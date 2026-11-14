@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\SshAuthorizedKeysController::__invoke
-* @see app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
 * @route '/internal/ssh/authorized-keys'
 */
 export const authorizedKeys = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ authorizedKeys.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshAuthorizedKeysController::__invoke
-* @see app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
 * @route '/internal/ssh/authorized-keys'
 */
 authorizedKeys.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ authorizedKeys.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshAuthorizedKeysController::__invoke
-* @see app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshAuthorizedKeysController.php:14
 * @route '/internal/ssh/authorized-keys'
 */
 authorizedKeys.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ authorizedKeys.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
 
 /**
 * @see \App\Http\Controllers\Internal\SshListenersController::__invoke
-* @see app/Http/Controllers/Internal/SshListenersController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshListenersController.php:14
 * @route '/internal/ssh/listeners'
 */
 export const listeners = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -50,7 +50,7 @@ listeners.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshListenersController::__invoke
-* @see app/Http/Controllers/Internal/SshListenersController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshListenersController.php:14
 * @route '/internal/ssh/listeners'
 */
 listeners.url = (options?: RouteQueryOptions) => {
@@ -59,7 +59,7 @@ listeners.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshListenersController::__invoke
-* @see app/Http/Controllers/Internal/SshListenersController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshListenersController.php:14
 * @route '/internal/ssh/listeners'
 */
 listeners.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -69,7 +69,7 @@ listeners.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\SshListenersController::__invoke
-* @see app/Http/Controllers/Internal/SshListenersController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshListenersController.php:14
 * @route '/internal/ssh/listeners'
 */
 listeners.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -79,7 +79,7 @@ listeners.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\SshWakeController::__invoke
-* @see app/Http/Controllers/Internal/SshWakeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshWakeController.php:14
 * @route '/internal/ssh/wake'
 */
 export const wake = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ wake.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshWakeController::__invoke
-* @see app/Http/Controllers/Internal/SshWakeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshWakeController.php:14
 * @route '/internal/ssh/wake'
 */
 wake.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ wake.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshWakeController::__invoke
-* @see app/Http/Controllers/Internal/SshWakeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshWakeController.php:14
 * @route '/internal/ssh/wake'
 */
 wake.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ wake.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalRedeemController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
 * @route '/internal/ssh/terminal/redeem'
 */
 export const terminalRedeem = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -128,7 +128,7 @@ terminalRedeem.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalRedeemController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
 * @route '/internal/ssh/terminal/redeem'
 */
 terminalRedeem.url = (options?: RouteQueryOptions) => {
@@ -137,7 +137,7 @@ terminalRedeem.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalRedeemController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
 * @route '/internal/ssh/terminal/redeem'
 */
 terminalRedeem.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -147,7 +147,7 @@ terminalRedeem.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalCheckController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalCheckController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalCheckController.php:15
 * @route '/internal/ssh/terminal/check'
 */
 export const terminalCheck = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -162,7 +162,7 @@ terminalCheck.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalCheckController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalCheckController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalCheckController.php:15
 * @route '/internal/ssh/terminal/check'
 */
 terminalCheck.url = (options?: RouteQueryOptions) => {
@@ -171,7 +171,7 @@ terminalCheck.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalCheckController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalCheckController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalCheckController.php:15
 * @route '/internal/ssh/terminal/check'
 */
 terminalCheck.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -181,7 +181,7 @@ terminalCheck.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
 
 /**
 * @see \App\Http\Controllers\Internal\SshActivityController::__invoke
-* @see app/Http/Controllers/Internal/SshActivityController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshActivityController.php:17
 * @route '/internal/ssh/activity'
 */
 export const activity = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -196,7 +196,7 @@ activity.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshActivityController::__invoke
-* @see app/Http/Controllers/Internal/SshActivityController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshActivityController.php:17
 * @route '/internal/ssh/activity'
 */
 activity.url = (options?: RouteQueryOptions) => {
@@ -205,7 +205,7 @@ activity.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshActivityController::__invoke
-* @see app/Http/Controllers/Internal/SshActivityController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshActivityController.php:17
 * @route '/internal/ssh/activity'
 */
 activity.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

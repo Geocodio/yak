@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalRedeemController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
 * @route '/internal/ssh/terminal/redeem'
 */
 const SshTerminalRedeemController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ SshTerminalRedeemController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalRedeemController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
 * @route '/internal/ssh/terminal/redeem'
 */
 SshTerminalRedeemController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ SshTerminalRedeemController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\SshTerminalRedeemController::__invoke
-* @see app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/SshTerminalRedeemController.php:21
 * @route '/internal/ssh/terminal/redeem'
 */
 SshTerminalRedeemController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

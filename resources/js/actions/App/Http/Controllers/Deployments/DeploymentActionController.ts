@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::updateHibernation
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
 export const updateHibernation = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -16,7 +16,7 @@ updateHibernation.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::updateHibernation
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
 updateHibernation.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ updateHibernation.url = (args: { deployment: string | { public_id: string } } | 
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::updateHibernation
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
 updateHibernation.patch = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -59,7 +59,7 @@ updateHibernation.patch = (args: { deployment: string | { public_id: string } } 
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::rebuild
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:51
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:51
 * @route '/deployments/{deployment}/rebuild'
 */
 export const rebuild = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -74,7 +74,7 @@ rebuild.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::rebuild
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:51
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:51
 * @route '/deployments/{deployment}/rebuild'
 */
 rebuild.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ rebuild.url = (args: { deployment: string | { public_id: string } } | [deploymen
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::rebuild
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:51
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:51
 * @route '/deployments/{deployment}/rebuild'
 */
 rebuild.post = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -117,7 +117,7 @@ rebuild.post = (args: { deployment: string | { public_id: string } } | [deployme
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::destroy
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:58
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:58
 * @route '/deployments/{deployment}'
 */
 export const destroy = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -132,7 +132,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::destroy
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:58
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:58
 * @route '/deployments/{deployment}'
 */
 destroy.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -165,7 +165,7 @@ destroy.url = (args: { deployment: string | { public_id: string } } | [deploymen
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::destroy
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:58
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:58
 * @route '/deployments/{deployment}'
 */
 destroy.delete = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\TerminalSessionController::store
-* @see app/Http/Controllers/Threads/TerminalSessionController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/TerminalSessionController.php:31
 * @route '/threads/{thread}/terminal-sessions'
 */
 export const store = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\TerminalSessionController::store
-* @see app/Http/Controllers/Threads/TerminalSessionController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/TerminalSessionController.php:31
 * @route '/threads/{thread}/terminal-sessions'
 */
 store.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ store.url = (args: { thread: string | number } | [thread: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Threads\TerminalSessionController::store
-* @see app/Http/Controllers/Threads/TerminalSessionController.php:29
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/TerminalSessionController.php:31
 * @route '/threads/{thread}/terminal-sessions'
 */
 store.post = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewStatusController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
 export const status = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ status.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewStatusController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
 status.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ status.url = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewStatusController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
 status.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ status.get = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewStatusController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewStatusController.php:14
 * @route '/threads/{thread}/preview/status'
 */
 status.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +69,7 @@ status.head = (args: { thread: string | { public_id: string } } | [thread: strin
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewHeartbeatController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewHeartbeatController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewHeartbeatController.php:15
 * @route '/threads/{thread}/preview/heartbeat'
 */
 export const heartbeat = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -84,7 +84,7 @@ heartbeat.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewHeartbeatController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewHeartbeatController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewHeartbeatController.php:15
 * @route '/threads/{thread}/preview/heartbeat'
 */
 heartbeat.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -117,7 +117,7 @@ heartbeat.url = (args: { thread: string | { public_id: string } } | [thread: str
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewHeartbeatController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewHeartbeatController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewHeartbeatController.php:15
 * @route '/threads/{thread}/preview/heartbeat'
 */
 heartbeat.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -127,7 +127,7 @@ heartbeat.post = (args: { thread: string | { public_id: string } } | [thread: st
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewWarmController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
 * @route '/threads/{thread}/preview/warm'
 */
 export const warm = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -142,7 +142,7 @@ warm.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewWarmController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
 * @route '/threads/{thread}/preview/warm'
 */
 warm.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -175,7 +175,7 @@ warm.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewWarmController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewWarmController.php:19
 * @route '/threads/{thread}/preview/warm'
 */
 warm.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -185,7 +185,7 @@ warm.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
 export const restore = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -200,7 +200,7 @@ restore.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
 restore.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -233,7 +233,7 @@ restore.url = (args: { thread: string | { public_id: string } } | [thread: strin
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
 * @route '/threads/{thread}/preview/restore'
 */
 restore.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -243,7 +243,7 @@ restore.post = (args: { thread: string | { public_id: string } } | [thread: stri
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewWakeController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
 * @route '/internal/threads/preview/wake'
 */
 export const wake = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -258,7 +258,7 @@ wake.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewWakeController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
 * @route '/internal/threads/preview/wake'
 */
 wake.url = (options?: RouteQueryOptions) => {
@@ -267,7 +267,7 @@ wake.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewWakeController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
 * @route '/internal/threads/preview/wake'
 */
 wake.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -277,7 +277,7 @@ wake.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewWakeController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewWakeController.php:27
 * @route '/internal/threads/preview/wake'
 */
 wake.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -287,7 +287,7 @@ wake.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewHostStatusController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
 * @route '/internal/threads/preview/status'
 */
 export const hostStatus = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -302,7 +302,7 @@ hostStatus.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewHostStatusController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
 * @route '/internal/threads/preview/status'
 */
 hostStatus.url = (options?: RouteQueryOptions) => {
@@ -311,7 +311,7 @@ hostStatus.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewHostStatusController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
 * @route '/internal/threads/preview/status'
 */
 hostStatus.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -321,7 +321,7 @@ hostStatus.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewHostStatusController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
 * @route '/internal/threads/preview/status'
 */
 hostStatus.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

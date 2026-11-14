@@ -199,6 +199,15 @@ class Thread extends Model
     }
 
     /**
+     * The task that carries the thread's branch, pull request and artifacts: the latest one with a branch, else the latest.
+     */
+    public function pullRequestTask(): ?YakTask
+    {
+        return $this->tasks()->whereNotNull('branch_name')->latest('id')->first()
+            ?? $this->tasks()->latest('id')->first();
+    }
+
+    /**
      * Each run is one turn.
      *
      * @return HasMany<TaskRun, $this>

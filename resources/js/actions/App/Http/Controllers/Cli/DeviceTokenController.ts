@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Cli\DeviceTokenController::__invoke
-* @see app/Http/Controllers/Cli/DeviceTokenController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceTokenController.php:13
 * @route '/api/cli/v1/device/token'
 */
 const DeviceTokenController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ DeviceTokenController.definition = {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceTokenController::__invoke
-* @see app/Http/Controllers/Cli/DeviceTokenController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceTokenController.php:13
 * @route '/api/cli/v1/device/token'
 */
 DeviceTokenController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ DeviceTokenController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Cli\DeviceTokenController::__invoke
-* @see app/Http/Controllers/Cli/DeviceTokenController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/DeviceTokenController.php:13
 * @route '/api/cli/v1/device/token'
 */
 DeviceTokenController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\PullRequestsShowController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\PullRequestsShowController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\PullRequestsShowController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\PullRequestsShowController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/PullRequestsShowController.php:17
 * @route '/threads/{thread}/pull-requests'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +69,7 @@ show.head = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\MergeOrderController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
 * @route '/threads/{thread}/pull-requests/order'
 */
 export const order = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -84,7 +84,7 @@ order.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\MergeOrderController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
 * @route '/threads/{thread}/pull-requests/order'
 */
 order.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -117,7 +117,7 @@ order.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\MergeOrderController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/MergeOrderController.php:17
 * @route '/threads/{thread}/pull-requests/order'
 */
 order.put = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -127,7 +127,7 @@ order.put = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\AskToFixController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
 export const fix = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -142,7 +142,7 @@ fix.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\AskToFixController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
 fix.url = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions) => {
@@ -170,7 +170,7 @@ fix.url = (args: { thread: string | { public_id: string }, repository: string | 
 
 /**
 * @see \App\Http\Controllers\Threads\PullRequests\AskToFixController::__invoke
-* @see app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/PullRequests/AskToFixController.php:19
 * @route '/threads/{thread}/pull-requests/{repository}/fix'
 */
 fix.post = (args: { thread: string | { public_id: string }, repository: string | number } | [thread: string | { public_id: string }, repository: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({

@@ -15,7 +15,7 @@ import repositories from './repositories'
 import pullRequests from './pull-requests'
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:122
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadMessageController.php:136
 * @route '/threads/{thread}/stop'
 */
 export const stop = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -30,7 +30,7 @@ stop.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:122
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadMessageController.php:136
 * @route '/threads/{thread}/stop'
 */
 stop.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -63,7 +63,7 @@ stop.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:122
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadMessageController.php:136
 * @route '/threads/{thread}/stop'
 */
 stop.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -73,7 +73,7 @@ stop.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ContinueTurnController.php:19
 * @route '/threads/{thread}/continue'
 */
 export const continueMethod = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -88,7 +88,7 @@ continueMethod.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ContinueTurnController.php:19
 * @route '/threads/{thread}/continue'
 */
 continueMethod.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -121,7 +121,7 @@ continueMethod.url = (args: { thread: string | { public_id: string } } | [thread
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ContinueTurnController.php:19
 * @route '/threads/{thread}/continue'
 */
 continueMethod.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -131,7 +131,7 @@ continueMethod.post = (args: { thread: string | { public_id: string } } | [threa
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 export const newMethod = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -146,7 +146,7 @@ newMethod.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 newMethod.url = (options?: RouteQueryOptions) => {
@@ -155,7 +155,7 @@ newMethod.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 newMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -165,7 +165,7 @@ newMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
-* @see app/Http/Controllers/Threads/NewThreadController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
 */
 newMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -175,7 +175,7 @@ newMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
-* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/StoreThreadController.php:16
 * @route '/threads'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -190,7 +190,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
-* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/StoreThreadController.php:16
 * @route '/threads'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -199,7 +199,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
-* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/StoreThreadController.php:16
 * @route '/threads'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -209,7 +209,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:20
 * @route '/threads/{thread}'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -224,7 +224,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:20
 * @route '/threads/{thread}'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -257,7 +257,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:20
 * @route '/threads/{thread}'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -267,7 +267,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadController.php:20
 * @route '/threads/{thread}'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -277,7 +277,7 @@ show.head = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadListController::__invoke
-* @see app/Http/Controllers/Threads/ThreadListController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadListController.php:14
 * @route '/threads/list'
 */
 export const list = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -292,7 +292,7 @@ list.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadListController::__invoke
-* @see app/Http/Controllers/Threads/ThreadListController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadListController.php:14
 * @route '/threads/list'
 */
 list.url = (options?: RouteQueryOptions) => {
@@ -301,7 +301,7 @@ list.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadListController::__invoke
-* @see app/Http/Controllers/Threads/ThreadListController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadListController.php:14
 * @route '/threads/list'
 */
 list.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -311,7 +311,7 @@ list.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadListController::__invoke
-* @see app/Http/Controllers/Threads/ThreadListController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadListController.php:14
 * @route '/threads/list'
 */
 list.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -321,7 +321,7 @@ list.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadSeenController::__invoke
-* @see app/Http/Controllers/Threads/ThreadSeenController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadSeenController.php:14
 * @route '/threads/{thread}/seen'
 */
 export const seen = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -336,7 +336,7 @@ seen.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadSeenController::__invoke
-* @see app/Http/Controllers/Threads/ThreadSeenController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadSeenController.php:14
 * @route '/threads/{thread}/seen'
 */
 seen.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -369,7 +369,7 @@ seen.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadSeenController::__invoke
-* @see app/Http/Controllers/Threads/ThreadSeenController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadSeenController.php:14
 * @route '/threads/{thread}/seen'
 */
 seen.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -379,7 +379,7 @@ seen.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
-* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/LocalTurnsController.php:14
 * @route '/threads/{thread}/local-turns'
 */
 export const localTurns = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -394,7 +394,7 @@ localTurns.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
-* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/LocalTurnsController.php:14
 * @route '/threads/{thread}/local-turns'
 */
 localTurns.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -427,7 +427,7 @@ localTurns.url = (args: { thread: string | { public_id: string } } | [thread: st
 
 /**
 * @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
-* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/LocalTurnsController.php:14
 * @route '/threads/{thread}/local-turns'
 */
 localTurns.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -437,7 +437,7 @@ localTurns.get = (args: { thread: string | { public_id: string } } | [thread: st
 
 /**
 * @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
-* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/LocalTurnsController.php:14
 * @route '/threads/{thread}/local-turns'
 */
 localTurns.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -447,7 +447,7 @@ localTurns.head = (args: { thread: string | { public_id: string } } | [thread: s
 
 /**
 * @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
-* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositoryAccessController.php:15
 * @route '/threads/new/repository-access'
 */
 export const repositoryAccess = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -462,7 +462,7 @@ repositoryAccess.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
-* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositoryAccessController.php:15
 * @route '/threads/new/repository-access'
 */
 repositoryAccess.url = (options?: RouteQueryOptions) => {
@@ -471,7 +471,7 @@ repositoryAccess.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
-* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositoryAccessController.php:15
 * @route '/threads/new/repository-access'
 */
 repositoryAccess.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -481,7 +481,7 @@ repositoryAccess.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => 
 
 /**
 * @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
-* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositoryAccessController.php:15
 * @route '/threads/new/repository-access'
 */
 repositoryAccess.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -491,7 +491,7 @@ repositoryAccess.head = (options?: RouteQueryOptions): RouteDefinition<'head'> =
 
 /**
 * @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
-* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
 * @route '/threads/new/repository-setup'
 */
 export const repositorySetup = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -506,7 +506,7 @@ repositorySetup.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
-* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
 * @route '/threads/new/repository-setup'
 */
 repositorySetup.url = (options?: RouteQueryOptions) => {
@@ -515,7 +515,7 @@ repositorySetup.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
-* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
 * @route '/threads/new/repository-setup'
 */
 repositorySetup.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -525,7 +525,7 @@ repositorySetup.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => (
 
 /**
 * @see \App\Http\Controllers\Threads\RepositorySetupStatusController::__invoke
-* @see app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/RepositorySetupStatusController.php:16
 * @route '/threads/new/repository-setup'
 */
 repositorySetup.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

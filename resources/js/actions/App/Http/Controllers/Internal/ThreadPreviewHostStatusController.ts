@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewHostStatusController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
 * @route '/internal/threads/preview/status'
 */
 const ThreadPreviewHostStatusController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ ThreadPreviewHostStatusController.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewHostStatusController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
 * @route '/internal/threads/preview/status'
 */
 ThreadPreviewHostStatusController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ ThreadPreviewHostStatusController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewHostStatusController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
 * @route '/internal/threads/preview/status'
 */
 ThreadPreviewHostStatusController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ ThreadPreviewHostStatusController.get = (options?: RouteQueryOptions): RouteDefi
 
 /**
 * @see \App\Http\Controllers\Internal\ThreadPreviewHostStatusController::__invoke
-* @see app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/ThreadPreviewHostStatusController.php:14
 * @route '/internal/threads/preview/status'
 */
 ThreadPreviewHostStatusController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

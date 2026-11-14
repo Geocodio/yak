@@ -3,7 +3,7 @@ import hibernation from './hibernation'
 import share from './share'
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
 export const show = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -18,7 +18,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
 show.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -51,7 +51,7 @@ show.url = (args: { deployment: string | { public_id: string } } | [deployment: 
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
 show.get = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -61,7 +61,7 @@ show.get = (args: { deployment: string | { public_id: string } } | [deployment: 
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
 show.head = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -71,7 +71,7 @@ show.head = (args: { deployment: string | { public_id: string } } | [deployment:
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::rebuild
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:51
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:51
 * @route '/deployments/{deployment}/rebuild'
 */
 export const rebuild = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -86,7 +86,7 @@ rebuild.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::rebuild
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:51
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:51
 * @route '/deployments/{deployment}/rebuild'
 */
 rebuild.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -119,7 +119,7 @@ rebuild.url = (args: { deployment: string | { public_id: string } } | [deploymen
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::rebuild
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:51
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:51
 * @route '/deployments/{deployment}/rebuild'
 */
 rebuild.post = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -129,7 +129,7 @@ rebuild.post = (args: { deployment: string | { public_id: string } } | [deployme
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::destroy
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:58
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:58
 * @route '/deployments/{deployment}'
 */
 export const destroy = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -144,7 +144,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::destroy
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:58
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:58
 * @route '/deployments/{deployment}'
 */
 destroy.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -177,7 +177,7 @@ destroy.url = (args: { deployment: string | { public_id: string } } | [deploymen
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentActionController::destroy
-* @see app/Http/Controllers/Deployments/DeploymentActionController.php:58
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/DeploymentActionController.php:58
 * @route '/deployments/{deployment}'
 */
 destroy.delete = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -187,7 +187,7 @@ destroy.delete = (args: { deployment: string | { public_id: string } } | [deploy
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 export const wake = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -202,7 +202,7 @@ wake.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 wake.url = (options?: RouteQueryOptions) => {
@@ -211,7 +211,7 @@ wake.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 wake.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -221,7 +221,7 @@ wake.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 wake.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -231,7 +231,7 @@ wake.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
-* @see app/Http/Controllers/Internal/PreviewAuthController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/PreviewAuthController.php:17
 * @route '/internal/deployments/preview-auth'
 */
 export const previewAuth = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -246,7 +246,7 @@ previewAuth.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
-* @see app/Http/Controllers/Internal/PreviewAuthController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/PreviewAuthController.php:17
 * @route '/internal/deployments/preview-auth'
 */
 previewAuth.url = (options?: RouteQueryOptions) => {
@@ -255,7 +255,7 @@ previewAuth.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
-* @see app/Http/Controllers/Internal/PreviewAuthController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/PreviewAuthController.php:17
 * @route '/internal/deployments/preview-auth'
 */
 previewAuth.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -265,7 +265,7 @@ previewAuth.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
-* @see app/Http/Controllers/Internal/PreviewAuthController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/PreviewAuthController.php:17
 * @route '/internal/deployments/preview-auth'
 */
 previewAuth.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -275,7 +275,7 @@ previewAuth.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/AuthBounceController.php:26
 * @route '/deployments/auth-bounce'
 */
 export const authBounce = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -290,7 +290,7 @@ authBounce.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/AuthBounceController.php:26
 * @route '/deployments/auth-bounce'
 */
 authBounce.url = (options?: RouteQueryOptions) => {
@@ -299,7 +299,7 @@ authBounce.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/AuthBounceController.php:26
 * @route '/deployments/auth-bounce'
 */
 authBounce.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -309,7 +309,7 @@ authBounce.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:26
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Deployments/AuthBounceController.php:26
 * @route '/deployments/auth-bounce'
 */
 authBounce.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -319,7 +319,7 @@ authBounce.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentStatusController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentStatusController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentStatusController.php:12
 * @route '/internal/deployments/status'
 */
 export const status = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -334,7 +334,7 @@ status.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentStatusController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentStatusController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentStatusController.php:12
 * @route '/internal/deployments/status'
 */
 status.url = (options?: RouteQueryOptions) => {
@@ -343,7 +343,7 @@ status.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentStatusController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentStatusController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentStatusController.php:12
 * @route '/internal/deployments/status'
 */
 status.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -353,7 +353,7 @@ status.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentStatusController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentStatusController.php:12
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Internal/DeploymentStatusController.php:12
 * @route '/internal/deployments/status'
 */
 status.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

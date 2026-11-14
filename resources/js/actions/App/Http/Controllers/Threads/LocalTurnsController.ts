@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
-* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/LocalTurnsController.php:14
 * @route '/threads/{thread}/local-turns'
 */
 const LocalTurnsController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ LocalTurnsController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
-* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/LocalTurnsController.php:14
 * @route '/threads/{thread}/local-turns'
 */
 LocalTurnsController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ LocalTurnsController.url = (args: { thread: string | { public_id: string } } | [
 
 /**
 * @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
-* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/LocalTurnsController.php:14
 * @route '/threads/{thread}/local-turns'
 */
 LocalTurnsController.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ LocalTurnsController.get = (args: { thread: string | { public_id: string } } | [
 
 /**
 * @see \App\Http\Controllers\Threads\LocalTurnsController::__invoke
-* @see app/Http/Controllers/Threads/LocalTurnsController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/LocalTurnsController.php:14
 * @route '/threads/{thread}/local-turns'
 */
 LocalTurnsController.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::show
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:24
 * @route '/device'
 */
 export const show = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::show
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:24
 * @route '/device'
 */
 show.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ show.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::show
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:24
 * @route '/device'
 */
 show.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ show.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::show
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:24
 * @route '/device'
 */
 show.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ show.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::approve
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:62
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:62
 * @route '/device/approve'
 */
 export const approve = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -60,7 +60,7 @@ approve.definition = {
 
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::approve
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:62
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:62
 * @route '/device/approve'
 */
 approve.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ approve.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::approve
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:62
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:62
 * @route '/device/approve'
 */
 approve.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -79,7 +79,7 @@ approve.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::deny
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:80
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:80
 * @route '/device/deny'
 */
 export const deny = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ deny.definition = {
 
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::deny
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:80
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:80
 * @route '/device/deny'
 */
 deny.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ deny.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Devices\DeviceApprovalController::deny
-* @see app/Http/Controllers/Devices/DeviceApprovalController.php:80
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Devices/DeviceApprovalController.php:80
 * @route '/device/deny'
 */
 deny.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

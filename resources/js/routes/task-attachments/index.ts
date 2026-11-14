@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\TaskAttachmentController::__invoke
-* @see app/Http/Controllers/TaskAttachmentController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/TaskAttachmentController.php:20
 * @route '/task-attachments/{attachment}'
 */
 export const show = (args: { attachment: string | number | { id: string | number } } | [attachment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\TaskAttachmentController::__invoke
-* @see app/Http/Controllers/TaskAttachmentController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/TaskAttachmentController.php:20
 * @route '/task-attachments/{attachment}'
 */
 show.url = (args: { attachment: string | number | { id: string | number } } | [attachment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ show.url = (args: { attachment: string | number | { id: string | number } } | [a
 
 /**
 * @see \App\Http\Controllers\TaskAttachmentController::__invoke
-* @see app/Http/Controllers/TaskAttachmentController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/TaskAttachmentController.php:20
 * @route '/task-attachments/{attachment}'
 */
 show.get = (args: { attachment: string | number | { id: string | number } } | [attachment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ show.get = (args: { attachment: string | number | { id: string | number } } | [a
 
 /**
 * @see \App\Http\Controllers\TaskAttachmentController::__invoke
-* @see app/Http/Controllers/TaskAttachmentController.php:20
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/TaskAttachmentController.php:20
 * @route '/task-attachments/{attachment}'
 */
 show.head = (args: { attachment: string | number | { id: string | number } } | [attachment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

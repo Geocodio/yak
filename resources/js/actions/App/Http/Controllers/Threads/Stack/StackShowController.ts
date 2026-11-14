@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackShowController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
 const StackShowController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ StackShowController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackShowController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
 StackShowController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ StackShowController.url = (args: { thread: string | { public_id: string } } | [t
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackShowController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
 StackShowController.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ StackShowController.get = (args: { thread: string | { public_id: string } } | [t
 
 /**
 * @see \App\Http\Controllers\Threads\Stack\StackShowController::__invoke
-* @see app/Http/Controllers/Threads/Stack/StackShowController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/Stack/StackShowController.php:17
 * @route '/threads/{thread}/stack'
 */
 StackShowController.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

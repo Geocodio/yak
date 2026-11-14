@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadListController::__invoke
-* @see app/Http/Controllers/Threads/ThreadListController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadListController.php:14
 * @route '/threads/list'
 */
 const ThreadListController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ ThreadListController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadListController::__invoke
-* @see app/Http/Controllers/Threads/ThreadListController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadListController.php:14
 * @route '/threads/list'
 */
 ThreadListController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ ThreadListController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadListController::__invoke
-* @see app/Http/Controllers/Threads/ThreadListController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadListController.php:14
 * @route '/threads/list'
 */
 ThreadListController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ ThreadListController.get = (options?: RouteQueryOptions): RouteDefinition<'get'>
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadListController::__invoke
-* @see app/Http/Controllers/Threads/ThreadListController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadListController.php:14
 * @route '/threads/list'
 */
 ThreadListController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

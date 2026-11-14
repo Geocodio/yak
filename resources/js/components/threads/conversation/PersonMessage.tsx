@@ -4,6 +4,13 @@ import { Prose } from '@/components/Prose';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage } from '@/types/threads';
 
+const INTENT_CAPTIONS: Record<NonNullable<ThreadMessage['intent']>, string> = {
+    add_preview_manifest: 'Sent from the Preview panel: set up the preview',
+    fix_preview: 'Sent from the Preview panel: fix the preview',
+    record_walkthrough: 'Sent from the Open PR menu: record a walkthrough',
+    record_walkthrough_and_open_pr: 'Sent from the Open PR menu: record a walkthrough and open the PR',
+};
+
 export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabels = {} }: { origin?: 'local'; modelLabels?: Record<string, string>; message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
     const time = new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
@@ -37,7 +44,7 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
                 </MessageWithAttachments>
                 {message.intent !== null && (
                     <p className="mt-1 text-[12px] text-faint" data-testid="thread-message-intent">
-                        {message.intent === 'add_preview_manifest' ? 'Sent from the Preview panel: set up the preview' : 'Sent from the Preview panel: fix the preview'}
+                        {INTENT_CAPTIONS[message.intent]}
                     </p>
                 )}
             </div>

@@ -2,7 +2,10 @@
 
 namespace App\Services\Threads;
 
+use App\Jobs\CreatePullRequestJob;
+use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
 use App\Services\SandboxArtifactCollector;
@@ -26,8 +29,7 @@ class ThreadArtifacts
             return;
         }
 
-        $task = $thread->tasks()->whereNotNull('branch_name')->latest('id')->first()
-            ?? $thread->tasks()->latest('id')->first();
+        $task = $thread->pullRequestTask();
 
         if ($task === null) {
             return;
@@ -46,9 +48,37 @@ class ThreadArtifacts
         }
 
         $this->dropSupersededRecording($task, $collected);
-        ArtifactPersister::persist($task);
+        $artifacts = ArtifactPersister::persist($task);
 
         $shell->run($container, 'rm -rf ' . escapeshellarg("{$workspacePath}/.yak-artifacts"));
+
+        // A PR that is already open gets the new screenshots in its body; the render job updates the video itself.
+        if ($task->pr_url !== null && collect($artifacts)->contains('role', 'screenshot')) {
+            CreatePullRequestJob::dispatch($task, refreshOnly: true);
+        }
+    }
+
+    /**
+     * "Record walkthrough & open PR" opens the pull request once its turn has completed and the recording is collected.
+     */
+    public function openPullRequestIfRequested(Thread $thread, TaskRun $run): void
+    {
+        $isRequested = ThreadTurnMessage::query()
+            ->where('task_run_id', $run->id)
+            ->where('intent', 'record_walkthrough_and_open_pr')
+            ->exists();
+        $task = $thread->pullRequestTask();
+        $branch = $task?->branch_name ?? $thread->branch;
+
+        if (! $isRequested || $task === null || blank($branch) || $task->pr_url !== null) {
+            return;
+        }
+
+        if ($task->branch_name === null) {
+            $task->update(['branch_name' => $branch]);
+        }
+
+        CreatePullRequestJob::dispatch($task);
     }
 
     private function dropSupersededRecording(YakTask $task, string $collected): void

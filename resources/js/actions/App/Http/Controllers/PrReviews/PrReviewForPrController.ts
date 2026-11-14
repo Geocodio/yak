@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 export const show = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 show.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
@@ -42,7 +42,7 @@ show.url = (args: { repoSlug: string | number, prNumber: string | number } | [re
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 show.get = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -52,7 +52,7 @@ show.get = (args: { repoSlug: string | number, prNumber: string | number } | [re
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 show.head = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -62,7 +62,7 @@ show.head = (args: { repoSlug: string | number, prNumber: string | number } | [r
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:27
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/rerun'
 */
 export const rerun = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -77,7 +77,7 @@ rerun.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:27
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/rerun'
 */
 rerun.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ rerun.url = (args: { repoSlug: string | number, prNumber: string | number } | [r
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:27
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:27
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/rerun'
 */
 rerun.post = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::edit
-* @see app/Http/Controllers/Settings/NotificationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:16
 * @route '/settings/notifications'
 */
 export const edit = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ edit.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::edit
-* @see app/Http/Controllers/Settings/NotificationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:16
 * @route '/settings/notifications'
 */
 edit.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ edit.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::edit
-* @see app/Http/Controllers/Settings/NotificationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:16
 * @route '/settings/notifications'
 */
 edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::edit
-* @see app/Http/Controllers/Settings/NotificationController.php:16
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:16
 * @route '/settings/notifications'
 */
 edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::updatePreferences
-* @see app/Http/Controllers/Settings/NotificationController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:24
 * @route '/settings/notifications'
 */
 export const updatePreferences = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -60,7 +60,7 @@ updatePreferences.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::updatePreferences
-* @see app/Http/Controllers/Settings/NotificationController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:24
 * @route '/settings/notifications'
 */
 updatePreferences.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ updatePreferences.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\NotificationController::updatePreferences
-* @see app/Http/Controllers/Settings/NotificationController.php:24
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/NotificationController.php:24
 * @route '/settings/notifications'
 */
 updatePreferences.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({

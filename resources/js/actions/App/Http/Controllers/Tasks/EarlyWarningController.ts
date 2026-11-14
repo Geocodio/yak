@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::tag
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
 export const tag = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ tag.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::tag
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
 tag.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ tag.url = (args: { task: string | { public_id: string } } | [task: string | { pu
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::tag
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
 tag.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ tag.post = (args: { task: string | { public_id: string } } | [task: string | { p
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::decline
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
 export const decline = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -74,7 +74,7 @@ decline.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::decline
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
 decline.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ decline.url = (args: { task: string | { public_id: string } } | [task: string | 
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::decline
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
 decline.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

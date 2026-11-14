@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskMessageController.php:23
 * @route '/tasks/{task}/messages'
 */
 export const store = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskMessageController.php:23
 * @route '/tasks/{task}/messages'
 */
 store.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { task: string | { public_id: string } } | [task: string | { 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:23
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Tasks/TaskMessageController.php:23
 * @route '/tasks/{task}/messages'
 */
 store.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

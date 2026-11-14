@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Cli\MeController::__invoke
-* @see app/Http/Controllers/Cli/MeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/MeController.php:14
 * @route '/api/cli/v1/me'
 */
 const MeController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ MeController.definition = {
 
 /**
 * @see \App\Http\Controllers\Cli\MeController::__invoke
-* @see app/Http/Controllers/Cli/MeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/MeController.php:14
 * @route '/api/cli/v1/me'
 */
 MeController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ MeController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Cli\MeController::__invoke
-* @see app/Http/Controllers/Cli/MeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/MeController.php:14
 * @route '/api/cli/v1/me'
 */
 MeController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ MeController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Cli\MeController::__invoke
-* @see app/Http/Controllers/Cli/MeController.php:14
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Cli/MeController.php:14
 * @route '/api/cli/v1/me'
 */
 MeController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

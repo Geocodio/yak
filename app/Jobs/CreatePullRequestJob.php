@@ -45,6 +45,7 @@ class CreatePullRequestJob implements ShouldQueue
         public readonly YakTask $task,
         public readonly bool $isLargeChange = false,
         public readonly ?CoOwnerRequest $approvedRequest = null,
+        public readonly bool $refreshOnly = false,
     ) {
         $this->onQueue('default');
     }
@@ -67,6 +68,15 @@ class CreatePullRequestJob implements ShouldQueue
         // Detect it and post a summary comment instead of POSTing a new PR
         // (which GitHub rejects with 422).
         $existing = $gitHub->findOpenPullRequestForBranch($installationId, $repository->github_full_name, (string) $this->task->branch_name);
+
+        // A new recording on a thread whose PR is open only swaps the screenshots in its body; it opens nothing and posts no comment.
+        if ($this->refreshOnly) {
+            if ($existing !== null && isset($existing['number'])) {
+                $this->refreshOwnedSections($repository->github_full_name, (int) $existing['number'], includeDescription: false);
+            }
+
+            return;
+        }
 
         if ($existing !== null && $this->approvedRequest !== null) {
             // The approval opens no second PR; the existing one gets the label and reviewer.
@@ -479,11 +489,11 @@ class CreatePullRequestJob implements ShouldQueue
      * the changelog; the body is the current state. Runs on green CI only,
      * so a follow-up that failed CI never rewrites the description.
      */
-    private function refreshOwnedSections(string $repoFullName, int $prNumber): void
+    private function refreshOwnedSections(string $repoFullName, int $prNumber, bool $includeDescription = true): void
     {
         $sections = [];
 
-        if ($this->task->pr_body_update !== null && trim((string) $this->task->pr_body_update) !== '') {
+        if ($includeDescription && $this->task->pr_body_update !== null && trim((string) $this->task->pr_body_update) !== '') {
             $sections[PullRequestBodySections::DESCRIPTION] = PullRequestBodySections::wrap(
                 PullRequestBodySections::DESCRIPTION,
                 (string) $this->task->pr_body_update,

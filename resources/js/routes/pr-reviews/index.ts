@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 import forPr91cad2 from './for-pr'
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::forPr
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 export const forPr = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +17,7 @@ forPr.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::forPr
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 forPr.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ forPr.url = (args: { repoSlug: string | number, prNumber: string | number } | [r
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::forPr
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 forPr.get = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -53,7 +53,7 @@ forPr.get = (args: { repoSlug: string | number, prNumber: string | number } | [r
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::forPr
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 forPr.head = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::redirect
-* @see app/Http/Controllers/Settings/McpLoginController.php:28
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpLoginController.php:28
 * @route '/mcp/{name}/login/redirect'
 */
 export const redirect = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ redirect.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::redirect
-* @see app/Http/Controllers/Settings/McpLoginController.php:28
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpLoginController.php:28
 * @route '/mcp/{name}/login/redirect'
 */
 redirect.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ redirect.url = (args: { name: string | number } | [name: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::redirect
-* @see app/Http/Controllers/Settings/McpLoginController.php:28
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpLoginController.php:28
 * @route '/mcp/{name}/login/redirect'
 */
 redirect.post = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -53,7 +53,7 @@ redirect.post = (args: { name: string | number } | [name: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::start
-* @see app/Http/Controllers/Settings/McpLoginController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpLoginController.php:13
 * @route '/mcp/{name}/login'
 */
 export const start = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -68,7 +68,7 @@ start.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::start
-* @see app/Http/Controllers/Settings/McpLoginController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpLoginController.php:13
 * @route '/mcp/{name}/login'
 */
 start.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -95,7 +95,7 @@ start.url = (args: { name: string | number } | [name: string | number ] | string
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::start
-* @see app/Http/Controllers/Settings/McpLoginController.php:13
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpLoginController.php:13
 * @route '/mcp/{name}/login'
 */
 start.post = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -105,7 +105,7 @@ start.post = (args: { name: string | number } | [name: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::cancel
-* @see app/Http/Controllers/Settings/McpLoginController.php:53
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpLoginController.php:53
 * @route '/mcp/{name}/login'
 */
 export const cancel = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -120,7 +120,7 @@ cancel.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::cancel
-* @see app/Http/Controllers/Settings/McpLoginController.php:53
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpLoginController.php:53
 * @route '/mcp/{name}/login'
 */
 cancel.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -147,7 +147,7 @@ cancel.url = (args: { name: string | number } | [name: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::cancel
-* @see app/Http/Controllers/Settings/McpLoginController.php:53
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Settings/McpLoginController.php:53
 * @route '/mcp/{name}/login'
 */
 cancel.delete = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

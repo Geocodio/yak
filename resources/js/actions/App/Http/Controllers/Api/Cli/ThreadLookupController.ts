@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\Cli\ThreadLookupController::bySession
-* @see app/Http/Controllers/Api/Cli/ThreadLookupController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/ThreadLookupController.php:22
 * @route '/api/cli/v1/threads/by-session/{sessionId}'
 */
 export const bySession = (args: { sessionId: string | number } | [sessionId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ bySession.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\ThreadLookupController::bySession
-* @see app/Http/Controllers/Api/Cli/ThreadLookupController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/ThreadLookupController.php:22
 * @route '/api/cli/v1/threads/by-session/{sessionId}'
 */
 bySession.url = (args: { sessionId: string | number } | [sessionId: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ bySession.url = (args: { sessionId: string | number } | [sessionId: string | num
 
 /**
 * @see \App\Http\Controllers\Api\Cli\ThreadLookupController::bySession
-* @see app/Http/Controllers/Api/Cli/ThreadLookupController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/ThreadLookupController.php:22
 * @route '/api/cli/v1/threads/by-session/{sessionId}'
 */
 bySession.get = (args: { sessionId: string | number } | [sessionId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -53,7 +53,7 @@ bySession.get = (args: { sessionId: string | number } | [sessionId: string | num
 
 /**
 * @see \App\Http\Controllers\Api\Cli\ThreadLookupController::bySession
-* @see app/Http/Controllers/Api/Cli/ThreadLookupController.php:22
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/ThreadLookupController.php:22
 * @route '/api/cli/v1/threads/by-session/{sessionId}'
 */
 bySession.head = (args: { sessionId: string | number } | [sessionId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -63,7 +63,7 @@ bySession.head = (args: { sessionId: string | number } | [sessionId: string | nu
 
 /**
 * @see \App\Http\Controllers\Api\Cli\ThreadLookupController::show
-* @see app/Http/Controllers/Api/Cli/ThreadLookupController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/ThreadLookupController.php:17
 * @route '/api/cli/v1/threads/{thread}'
 */
 export const show = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -78,7 +78,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\ThreadLookupController::show
-* @see app/Http/Controllers/Api/Cli/ThreadLookupController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/ThreadLookupController.php:17
 * @route '/api/cli/v1/threads/{thread}'
 */
 show.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -105,7 +105,7 @@ show.url = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\ThreadLookupController::show
-* @see app/Http/Controllers/Api/Cli/ThreadLookupController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/ThreadLookupController.php:17
 * @route '/api/cli/v1/threads/{thread}'
 */
 show.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -115,7 +115,7 @@ show.get = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\ThreadLookupController::show
-* @see app/Http/Controllers/Api/Cli/ThreadLookupController.php:17
+* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Api/Cli/ThreadLookupController.php:17
 * @route '/api/cli/v1/threads/{thread}'
 */
 show.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
