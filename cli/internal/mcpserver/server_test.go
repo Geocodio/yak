@@ -64,7 +64,7 @@ func TestSpawnThreadRefusal(t *testing.T) {
 	r := run(t, `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"spawn_thread","arguments":{"title":"x","prompt":"y","kind":"research"}}}`+"\n")
 	res := r[0]["result"].(map[string]any)
 	text := res["content"].([]any)[0].(map[string]any)["text"]
-	if res["isError"] != true || text != "Teleport this session to Yak first. Sub-threads run on Yak. Run /yak teleport, then ask again." {
+	if res["isError"] != true || text != "Teleport this session to Yak first. Sub-threads run on Yak. Run /yak:yak teleport, then ask again." {
 		t.Fatal(res)
 	}
 }

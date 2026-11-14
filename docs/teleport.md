@@ -38,7 +38,7 @@ claude plugin install yak@yak
 yak login --url https://yak.example.com
 ```
 
-The marketplace is a GitHub repository. The operator can point Yak at another one with `YAK_TELEPORT_MARKETPLACE` (default `Geocodio/yak`); the install command on the dashboard always carries the right address. The plugin puts `yak` only on the PATH of Claude Code's own shell tool. For `yak` in your own terminal, use the install script, which writes the launcher at `~/.local/bin/yak`. The `/yak teleport` command inside a Claude Code session works either way.
+The marketplace is a GitHub repository. The operator can point Yak at another one with `YAK_TELEPORT_MARKETPLACE` (default `Geocodio/yak`); the install command on the dashboard always carries the right address. The plugin puts `yak` only on the PATH of Claude Code's own shell tool. For `yak` in your own terminal, use the install script, which writes the launcher at `~/.local/bin/yak`. The `/yak:yak teleport` command inside a Claude Code session works either way.
 
 Update the plugin later with `claude plugin update yak`. A Yak server can refuse an old plugin; the command then tells you to update.
 
@@ -62,7 +62,7 @@ Paired computers are listed in Settings, Devices ("Paired computers"). "Revoke" 
 The shortest way up and back:
 
 1. In a checkout of a repo that is on Yak, start Claude Code and work as usual. Commit what you want to keep.
-2. Run `/yak teleport` in the session. Yak takes the branch and the session, and the session becomes read-only. The output ends with a link to the thread.
+2. Run `/yak:yak teleport` in the session. Yak takes the branch and the session, and the session becomes read-only. The output ends with a link to the thread.
 3. Work with Claude in the thread page. When you want it back, open the thread, select "Teleport to computer" and run the command it shows (`yak teleport <thread>`) in your checkout of that repo.
 4. Claude Code opens the same session with `claude --resume`. Yak runs no turns on the thread until you teleport it up again.
 
@@ -71,8 +71,8 @@ The shortest way up and back:
 Run this from the Claude Code session you want to move, in a git checkout of a repo that is on Yak. Use the slash command, or run `yak teleport` in a terminal.
 
 ```
-/yak teleport
-/yak teleport "Fix the lint failure on the PR"
+/yak:yak teleport
+/yak:yak teleport "Fix the lint failure on the PR"
 ```
 
 Text that does not start with a flag or a thread number becomes the first message Yak sends Claude. Without it, Claude waits for your next message.
@@ -121,7 +121,7 @@ To include them anyway, pass `--include-secrets` and confirm "Include files that
 
 ### Teleporting again
 
-If the thread already exists and is on your computer, running `/yak teleport` in the same session sends it back up to the same thread. If your checkout is on a different branch than the thread, you see "This checkout is on X, but the thread is on Y. Switch branches and run yak teleport again."
+If the thread already exists and is on your computer, running `/yak:yak teleport` in the same session sends it back up to the same thread. If your checkout is on a different branch than the thread, you see "This checkout is on X, but the thread is on Y. Switch branches and run yak teleport again."
 
 ## Teleport to your computer
 
