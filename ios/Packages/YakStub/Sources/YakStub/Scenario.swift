@@ -89,6 +89,9 @@ enum Scenario: String, CaseIterable, Sendable {
     case notYak = "not-yak"
     /// A healthy instance that answers each request after 10 seconds.
     case slow
+    /// Like `slow`, but 14 seconds, so a screen that shows its "slow connection" hint after 8 seconds can be audited
+    /// before the answer arrives (the app gives up after 15).
+    case slower
     /// An instance that is down: every connection is closed without an answer.
     case down
     /// An instance that fails: every path answers 500.
@@ -109,6 +112,7 @@ enum Scenario: String, CaseIterable, Sendable {
 
     static let apiPrefix = "/api/app/v1/"
     static let slowDelay = Duration.seconds(10)
+    static let slowerDelay = Duration.seconds(14)
 
     func reply(to request: StubRequest, baseURL: String, fixtures: StubFixtures) -> StubReply {
         switch self {
@@ -127,6 +131,7 @@ enum Scenario: String, CaseIterable, Sendable {
         let route = "\(request.method) \(request.path.dropFirst(Self.apiPrefix.count))"
         var reply = StubReply(answer: answer(route: route, request: request, baseURL: baseURL, fixtures: fixtures))
         if self == .slow { reply.delay = Self.slowDelay }
+        if self == .slower { reply.delay = Self.slowerDelay }
         if self == .serverTooOld { reply.protocolHeader = 0 }
         return reply
     }

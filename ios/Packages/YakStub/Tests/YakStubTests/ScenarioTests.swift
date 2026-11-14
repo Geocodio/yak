@@ -74,6 +74,7 @@ private func json(_ reply: StubReply) throws -> [String: Any] {
 
     @Test func slowDelaysAndDownDrops() throws {
         #expect(try reply(.slow, "GET", "instance").delay == Scenario.slowDelay)
+        #expect(try reply(.slower, "GET", "instance").delay == Scenario.slowerDelay)
         #expect(try reply(.paired, "GET", "instance").delay == .zero)
         #expect(try reply(.down, "GET", "instance").answer == .drop)
     }
