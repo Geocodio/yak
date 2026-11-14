@@ -321,6 +321,12 @@ class PromptFixtures
                     'data' => [],
                 ],
             ],
+            'partials-visual-capture' => [
+                [
+                    'label' => 'Static content',
+                    'data' => [],
+                ],
+            ],
             'partials-wrong-repository' => [
                 [
                     'label' => 'Two other repositories',

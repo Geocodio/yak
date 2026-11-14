@@ -239,6 +239,14 @@ class PromptDefinitions
                 'type' => 'utility',
                 'variables' => [],
             ],
+            'partials-visual-capture' => [
+                'view' => 'prompts.partials.visual-capture',
+                'label' => 'Partial: Visual Capture',
+                'description' => 'Shared partial with the walkthrough and screenshot rules. The system prompt includes it as rule 6, and the Record walkthrough prompt repeats it so an on-demand capture carries its own instructions.',
+                'category' => 'advanced',
+                'type' => 'utility',
+                'variables' => [],
+            ],
             'partials-wrong-repository' => [
                 'view' => 'prompts.partials.wrong-repository',
                 'label' => 'Partial: Wrong Repository',

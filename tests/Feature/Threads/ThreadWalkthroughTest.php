@@ -30,6 +30,9 @@ it('sends the walkthrough prompt to Claude and the short request to the timeline
     $turns->shouldReceive('start')->once()->withArgs(fn ($task, string $prompt, $user, $model, $kind = null, $shownText = null, $sentIntent = null) => $shownText === 'Record a walkthrough'
         && $sentIntent === $intent
         && str_contains($prompt, 'VISUAL CAPTURE')
+        && str_contains($prompt, 'PHASE B')
+        && str_contains($prompt, '"version": 3')
+        && ! str_contains($prompt, 'in your system prompt')
         && str_contains($prompt, '.yak-artifacts'));
 
     $this->actingAs($this->user)

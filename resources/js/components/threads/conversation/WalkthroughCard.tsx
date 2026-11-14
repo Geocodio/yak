@@ -1,5 +1,6 @@
 import { usePoll } from '@inertiajs/react';
 import { Check, Clock } from 'lucide-react';
+import { useEffect } from 'react';
 import type { ThreadWalkthrough } from '@/types/threads';
 
 function clock(seconds: number): string {
@@ -12,7 +13,18 @@ function clock(seconds: number): string {
 export function WalkthroughCard({ walkthrough }: { walkthrough: ThreadWalkthrough }) {
     const { isRecording, isRendering, video, screenshots, isInPullRequest } = walkthrough;
 
-    usePoll(4000, { only: ['walkthrough'] }, { autoStart: isRecording || isRendering });
+    const isWorking = isRecording || isRendering;
+    const poll = usePoll(4000, { only: ['walkthrough'] }, { autoStart: false });
+
+    // Polls only while Claude records or the cut renders; a finished video is left alone so it can play.
+    useEffect(() => {
+        if (isWorking) {
+            poll.start();
+        } else {
+            poll.stop();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isWorking]);
 
     return (
         <div className="flex gap-3" data-testid="thread-walkthrough">
