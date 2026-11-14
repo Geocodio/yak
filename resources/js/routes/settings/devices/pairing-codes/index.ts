@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\DevicePairingCodeController::show
-* @see app/Http/Controllers/Settings/DevicePairingCodeController.php:34
+* @see app/Http/Controllers/Settings/DevicePairingCodeController.php:35
 * @route '/settings/devices/pairing-codes/{devicePairingCode}'
 */
 export const show = (args: { devicePairingCode: string | { id: string } } | [devicePairingCode: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -50,7 +50,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\DevicePairingCodeController::show
-* @see app/Http/Controllers/Settings/DevicePairingCodeController.php:34
+* @see app/Http/Controllers/Settings/DevicePairingCodeController.php:35
 * @route '/settings/devices/pairing-codes/{devicePairingCode}'
 */
 show.url = (args: { devicePairingCode: string | { id: string } } | [devicePairingCode: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions) => {
@@ -83,7 +83,7 @@ show.url = (args: { devicePairingCode: string | { id: string } } | [devicePairin
 
 /**
 * @see \App\Http\Controllers\Settings\DevicePairingCodeController::show
-* @see app/Http/Controllers/Settings/DevicePairingCodeController.php:34
+* @see app/Http/Controllers/Settings/DevicePairingCodeController.php:35
 * @route '/settings/devices/pairing-codes/{devicePairingCode}'
 */
 show.get = (args: { devicePairingCode: string | { id: string } } | [devicePairingCode: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -93,7 +93,7 @@ show.get = (args: { devicePairingCode: string | { id: string } } | [devicePairin
 
 /**
 * @see \App\Http\Controllers\Settings\DevicePairingCodeController::show
-* @see app/Http/Controllers/Settings/DevicePairingCodeController.php:34
+* @see app/Http/Controllers/Settings/DevicePairingCodeController.php:35
 * @route '/settings/devices/pairing-codes/{devicePairingCode}'
 */
 show.head = (args: { devicePairingCode: string | { id: string } } | [devicePairingCode: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
