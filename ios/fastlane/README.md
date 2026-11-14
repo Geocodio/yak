@@ -31,6 +31,14 @@ Generate the Xcode project from project.yml
 
 Format check and project rules
 
+### ios ui_smoke
+
+```sh
+[bundle exec] fastlane ios ui_smoke
+```
+
+UI tests in the simulator
+
 ### ios test
 
 ```sh

@@ -61,6 +61,7 @@ final class AppModel {
 
     func pair(link: PairingLink) async {
         linkPairing?.cancel()
+        wantsScanner = false
         linkToPair = link
         let pairingModel = makePairingModel()
         linkPairing = pairingModel
@@ -155,6 +156,7 @@ final class AppModel {
     func remove(_ instance: Instance) async {
         do { try await instances.remove(instance.id) } catch { logFailure("Removing an instance failed") }
         refreshState = .idle
+        wantsScanner = false
         await reloadRoute()
     }
 

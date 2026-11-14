@@ -198,6 +198,14 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
         }
     }
 
+    @Test(arguments: [0, -5, Int.max])
+    func aBadIntervalFromTheServerNeitherTrapsNorHangs(interval: Int) async {
+        let harness = Harness(["device/token": [refusal("authorization_pending")]])
+        await #expect(throws: PairingProblem.codeExpired) {
+            try await harness.pairing.waitForApproval(flow(interval: interval, expiresIn: 3))
+        }
+    }
+
     @Test func mapsEachPairingRefusal() async {
         let cases: [(String, [String: [FakeTransport.Result]], PairingProblem)] = [
             ("invalid", ["device/pair": [refusal("pairing_code_invalid")]], .codeInvalid),
@@ -216,6 +224,8 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
             ),
             ("offline", ["device/pair": [.failure(.notConnectedToInternet)]], .codeMayBeUsed),
             ("lost connection", ["device/pair": [.failure(.networkConnectionLost)]], .codeMayBeUsed),
+            ("server error", ["device/pair": [.json(500, "{}")]], .codeMayBeUsed),
+            ("proxy page", ["device/pair": [.json(502, "<html>Bad Gateway</html>")]], .codeMayBeUsed),
         ]
         for (name, routes, expected) in cases {
             let harness = Harness(["instance": [.json(200, instanceOK)]].merging(routes) { $1 })

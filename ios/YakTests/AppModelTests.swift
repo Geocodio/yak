@@ -148,3 +148,19 @@ func aLinkThatIsNotAPairingLinkChangesNothing(link: String) async {
     #expect(model.linkPairing == nil)
     #expect(model.wantsScanner)
 }
+
+@MainActor @Test func aScannerRequestDoesNotOutliveTheInstanceItWasMadeFor() async throws {
+    let tokens = InMemoryTokenStore()
+    let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
+    let instance = try await instances.add(
+        url: URL(string: "https://yak.example.com")!, name: "Acme", userName: "Ada", token: "secret")
+    try tokens.removeToken(for: instance.id)
+    let model = AppModel(instances: instances, tokens: tokens, makeClient: { _ in fatalError() })
+    await model.reloadRoute()
+    #expect(model.route == .pairAgain(instance))
+    model.scanAgain()
+    #expect(model.wantsScanner)
+    await model.remove(instance)
+    #expect(model.route == .connect)
+    #expect(!model.wantsScanner)
+}

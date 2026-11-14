@@ -38,6 +38,7 @@ public struct PendingDeviceFlow: Sendable {
 public actor Pairing {
     /// How much a `slow_down` answer adds to the polling interval.
     private static let slowDownStep = 5
+    private static let maximumInterval = 60
 
     private let makeClient: @Sendable (URL) -> APIClient
     private let instances: InstanceStore
@@ -81,8 +82,12 @@ public actor Pairing {
                 response = try await client.send(endpoint)
             }
         } catch {
-            if case .network(let code) = error, code != .cancelled { throw .codeMayBeUsed }
-            throw PairingProblem(error)
+            // Only a clear answer from the instance settles the code; anything else leaves it unknown.
+            let problem = PairingProblem(error)
+            switch problem {
+            case .codeInvalid, .codeExpired, .appTooOld, .serverTooOld, .cancelled: throw problem
+            default: throw .codeMayBeUsed
+            }
         }
         return try await store(response, url: link.instance, client: client)
     }
@@ -108,7 +113,8 @@ public actor Pairing {
     /// `.cancelled`. Waiting stops with `.codeExpired` once the code's lifetime has passed.
     public func waitForApproval(_ flow: PendingDeviceFlow) async throws(PairingProblem) -> Instance {
         let client = makeClient(flow.url)
-        var interval = flow.code.interval
+        // The server's numbers are untrusted: keep the interval in a sane range so arithmetic cannot overflow.
+        var interval = min(max(flow.code.interval, 1), Self.maximumInterval)
         var waited = 0
         while true {
             guard waited < flow.code.expiresIn else { throw .codeExpired }
@@ -123,7 +129,7 @@ public actor Pairing {
                 if case .network(let code) = failure, code != .cancelled { continue }
                 if case .server(let error) = failure, error.code == "authorization_pending" { continue }
                 if case .server(let error) = failure, error.code == "slow_down" {
-                    interval += Self.slowDownStep
+                    interval = min(interval + Self.slowDownStep, Self.maximumInterval)
                     continue
                 }
                 throw PairingProblem(failure)

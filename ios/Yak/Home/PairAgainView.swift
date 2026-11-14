@@ -7,6 +7,7 @@ struct PairAgainView: View {
     let instance: Instance
 
     @State private var showsPairing = false
+    @State private var showsScanner = false
     @State private var confirmsRemove = false
 
     var body: some View {
@@ -34,6 +35,21 @@ struct PairAgainView: View {
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
             .background(.bar)
+        }
+        .onChange(of: model.wantsScanner, initial: true) { _, wantsScanner in
+            // The scanner sheet's ConnectView takes the request and clears the flag.
+            if wantsScanner { showsScanner = true }
+        }
+        .sheet(isPresented: $showsScanner) {
+            NavigationStack {
+                ConnectView(model: model, onDone: { showsScanner = false })
+                    .linkPairingStatus(model)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("address.cancel") { showsScanner = false }
+                        }
+                    }
+            }
         }
         .sheet(isPresented: $showsPairing) {
             NavigationStack {
