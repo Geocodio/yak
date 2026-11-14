@@ -2,12 +2,13 @@ import { usePage } from "@inertiajs/react";
 import {
     Button,
     IconButton,
-    Kbd,
     Skeleton,
     Tooltip,
     cn,
 } from "@geocodio/console-ui";
 import { CircleHelp, PanelLeftClose, Plus, Search } from "lucide-react";
+import { keycapsFor } from "@/commandPalette/shortcuts";
+import { isMacPlatform } from "@/commandPalette/platform";
 import { ThreadGroup } from "@/components/shell/ThreadGroup";
 import { useThreadList } from "@/components/shell/useThreadList";
 import { openNewThread, openPalette } from "@/components/Sidebar";
@@ -31,12 +32,12 @@ export function ThreadListPanel({
     touch?: boolean;
 }) {
     const { props, url } = usePage<SharedProps>();
-    const { data, filter, setFilter, search, setSearch, isLoading } =
+    const { data, filter, setFilter, isLoading } =
         useThreadList(props.threadList);
     const activeThreadId =
         /^\/threads\/([^/?#]+)/.exec(url.split("?")[0])?.[1] ?? null;
     const hasNoThreadsAtAll =
-        data !== null && !data.hasAnyThreads && search === "";
+        data !== null && !data.hasAnyThreads;
     const isEmpty =
         data !== null &&
         data.needsYou.length === 0 &&
@@ -64,53 +65,42 @@ export function ThreadListPanel({
                 ) : null}
             </div>
             <div className="flex flex-col gap-2 px-3 pb-2">
-                <Button
-                    variant="primary"
-                    icon={<Plus size={14} />}
-                    onClick={() => openNewThread()}
-                    className={cn("w-full", touch && "h-10")}
-                    data-testid="new-thread"
-                >
-                    New thread
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="primary"
+                        icon={<Plus size={14} />}
+                        onClick={() => openNewThread()}
+                        className={cn("min-w-0 flex-1", touch && "h-10")}
+                        data-testid="new-thread"
+                    >
+                        New thread
+                    </Button>
+                    <Tooltip
+                        label={`Search ${keycapsFor("openPalette", isMacPlatform()).join(" ")}`}
+                    >
+                        <Button
+                            variant="secondary"
+                            icon={<Search size={14} />}
+                            onClick={openPalette}
+                            aria-label="Search"
+                            className={cn(
+                                "w-8 shrink-0 px-0",
+                                touch && "h-10 w-10",
+                            )}
+                            data-testid="thread-search-button"
+                        />
+                    </Tooltip>
+                </div>
                 {hasNoThreadsAtAll ? (
                     <p
                         className="px-1 pt-1 text-[12px] text-muted"
                         data-testid="thread-list-quiet-empty"
                     >
-                        Your threads show up here. Search and filters appear
-                        once you have a few.
+                        Your threads show up here. Filters appear once you have
+                        a few.
                     </p>
                 ) : (
                     <>
-                        <div
-                            className={cn(
-                                "flex items-center gap-2 rounded-control border border-hair bg-panel px-2 text-muted shadow-card focus-within:border-hair-strong",
-                                touch ? "h-10 text-[14px]" : "h-7 text-[12px]",
-                            )}
-                        >
-                            <Search size={13} />
-                            <input
-                                type="search"
-                                value={search}
-                                maxLength={100}
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
-                                }
-                                placeholder="Search threads"
-                                aria-label="Search threads"
-                                data-testid="thread-search"
-                                className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted"
-                            />
-                            <button
-                                type="button"
-                                onClick={openPalette}
-                                aria-label="Open command palette"
-                                className="flex"
-                            >
-                                <Kbd keys={["⌘", "K"]} />
-                            </button>
-                        </div>
                         <div
                             className="flex items-center gap-1.5"
                             data-testid="thread-filter"
@@ -165,12 +155,10 @@ export function ThreadListPanel({
                         data-testid="thread-list-empty"
                     >
                         <div className="text-[13px] font-medium">
-                            {search !== "" ? "No matches" : "No threads here"}
+                            No threads here
                         </div>
                         <p className="mt-1 text-[12px] text-muted">
-                            {search !== ""
-                                ? "Nothing matches that search."
-                                : "Try another filter to see more threads."}
+                            Try another filter to see more threads.
                         </p>
                     </div>
                 ) : (

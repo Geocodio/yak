@@ -108,3 +108,15 @@ test('on a phone the round button opens the new thread dialog from any page', fu
         ->assertVisible('[data-testid="start-thread-description"]')
         ->assertNoJavaScriptErrors();
 });
+
+test('clicking the search button opens the command palette', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/threads/new');
+
+    $page->assertMissing('[data-testid="thread-search"]')
+        ->assertVisible('[data-testid="thread-search-button"]')
+        ->click('[data-testid="thread-search-button"]')
+        ->assertVisible('[data-testid="app-palette"]')
+        ->assertNoJavaScriptErrors();
+});

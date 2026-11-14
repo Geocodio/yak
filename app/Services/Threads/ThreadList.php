@@ -37,7 +37,7 @@ class ThreadList
     /**
      * @return array{needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool}
      */
-    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null): array
+    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine): array
     {
         $roots = Thread::query()
             ->withoutVisibilityScope()
@@ -46,7 +46,6 @@ class ThreadList
             ->where('status', 'open')
             ->when($filter === ThreadListFilter::Mine, fn (Builder $query) => self::mine($query, $user))
             ->when($filter === ThreadListFilter::StartedByYak, fn (Builder $query) => $query->whereNull('created_by_user_id'))
-            ->when($search !== null && $search !== '', fn (Builder $query) => self::search($query, (string) $search))
             ->select('threads.*')
             ->addSelect(['latest_run_id' => self::latestRunId()])
             ->withExists('shares as is_shared')
@@ -105,7 +104,7 @@ class ThreadList
             'needsYou' => $needsYou,
             'threads' => $rest,
             'needsYouCount' => count($needsYou),
-            'hasAnyThreads' => $filter === ThreadListFilter::Everyone && ($search === null || $search === '')
+            'hasAnyThreads' => $filter === ThreadListFilter::Everyone
                 ? $roots->isNotEmpty()
                 : self::hasAnyThreads($user),
         ];
@@ -171,20 +170,6 @@ class ThreadList
         $escape = self::LIKE_ESCAPE;
 
         return '%' . preg_replace('/[' . preg_quote($escape, '/') . '%_]/', $escape . '$0', Str::lower($search)) . '%';
-    }
-
-    /**
-     * @param  Builder<Thread>  $query
-     */
-    private static function search(Builder $query, string $search): void
-    {
-        $escape = self::LIKE_ESCAPE;
-        $pattern = self::likePattern($search);
-
-        $query->where(function (Builder $query) use ($pattern, $escape): void {
-            $query->whereRaw("lower(threads.title) like ? escape '{$escape}'", [$pattern])
-                ->orWhereRaw("lower(threads.repo) like ? escape '{$escape}'", [$pattern]);
-        });
     }
 
     /**

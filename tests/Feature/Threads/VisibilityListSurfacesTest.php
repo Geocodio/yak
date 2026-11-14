@@ -51,14 +51,14 @@ function inertiaProps($test, string $uri, $user): array
     return $response->getStatusCode() === 200 ? AssertableInertia::fromTestResponse($response)->toArray()['props'] : ['status' => $response->getStatusCode()];
 }
 
-it('leaves the thread list, search and needs-you count free of a private thread', function (string $stranger, string $filter, ?string $search) {
-    $list = ThreadList::for($this->world->{$stranger}, ThreadListFilter::from($filter), $search);
+it('leaves the thread list and needs-you count free of a private thread', function (string $stranger, string $filter) {
+    $list = ThreadList::for($this->world->{$stranger}, ThreadListFilter::from($filter));
     $encoded = json_encode($list);
 
     expect($encoded)->not->toContain(VisibilityWorld::TITLE)
         ->and($encoded)->not->toContain(VisibilityWorld::REPO)
-        ->and($list['needsYouCount'])->toBe($filter === 'everyone' && $search === null ? 1 : 0);
-})->with(['other', 'admin'])->with(['mine', 'everyone'])->with([null, 'Quarterly', 'payroll', 'layoff']);
+        ->and($list['needsYouCount'])->toBe($filter === 'everyone' ? 1 : 0);
+})->with(['other', 'admin'])->with(['mine', 'everyone']);
 
 it('shows the owner the private thread with its child and counts it', function () {
     $list = ThreadList::for($this->world->owner, ThreadListFilter::Everyone);
@@ -66,8 +66,6 @@ it('shows the owner the private thread with its child and counts it', function (
     expect(collect([...$list['needsYou'], ...$list['threads']])->pluck('id')->all())->toContain($this->world->thread->public_id)
         ->and(collect($list['needsYou'])->firstWhere('id', $this->world->thread->public_id)['children'])->toHaveCount(1)
         ->and($list['needsYouCount'])->toBe(2);
-
-    expect(json_encode(ThreadList::for($this->world->owner, ThreadListFilter::Everyone, 'Quarterly')))->toContain(VisibilityWorld::TITLE);
 });
 
 it('renders every list surface for a stranger as if the private graph did not exist', function (string $name, string $stranger) {
