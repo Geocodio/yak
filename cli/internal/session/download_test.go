@@ -1,11 +1,15 @@
 package session
 
 import (
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/geocodio/yak/cli/internal/fakeyak"
 )
 
 var downloadNow = time.Date(2026, 11, 11, 9, 0, 0, 0, time.UTC)
@@ -242,4 +246,58 @@ func TestShortReadFails(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 	noTempFiles(t, dir)
+}
+
+func TestLargeFileIsFetchedInRanges(t *testing.T) {
+	f := newDownloadFixture(t)
+	dir := t.TempDir()
+	content := strings.Repeat("0123456789abcdef", 40000) + "\n" // about 640 KB, three ranges
+	entry := f.seed(testSID+".jsonl", content)
+	if _, err := f.download(t, dir, []ManifestFile{entry}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if readFileString(t, filepath.Join(dir, testSID+".jsonl")) != content {
+		t.Fatal("content differs")
+	}
+	var offsets []string
+	for _, r := range f.srv.Requests() {
+		if strings.HasSuffix(r.Path, "/read") {
+			q, _ := url.ParseQuery(r.Query)
+			if q.Get("limit") != "262144" {
+				t.Fatalf("limit %q", q.Get("limit"))
+			}
+			offsets = append(offsets, q.Get("offset"))
+		}
+	}
+	if strings.Join(offsets, ",") != ",262144,524288" {
+		t.Fatalf("offsets %v", offsets)
+	}
+}
+
+func TestDroppedRangeIsRetriedFromTheSameOffset(t *testing.T) {
+	f := newDownloadFixture(t)
+	dir := t.TempDir()
+	content := strings.Repeat("0123456789abcdef", 40000) + "\n"
+	entry := f.seed(testSID+".jsonl", content)
+	// Let the first range through, then drop the second twice.
+	var reads int
+	f.srv.OnRequest = func(r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/read") {
+			reads++
+			if reads == 2 {
+				f.srv.InjectFault(fakeyak.Fault{Match: "/read", Kind: fakeyak.FaultDrop, Times: 2})
+			}
+		}
+	}
+	if _, err := f.download(t, dir, []ManifestFile{entry}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if readFileString(t, filepath.Join(dir, testSID+".jsonl")) != content {
+		t.Fatal("content differs")
+	}
+	for _, r := range f.srv.Requests() {
+		if strings.HasSuffix(r.Path, "/read") && r.Query == "" {
+			t.Fatal("a range restarted at byte 0")
+		}
+	}
 }

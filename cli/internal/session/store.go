@@ -130,9 +130,15 @@ func (s Store) Files(ctx context.Context, threadID int, sessionID string) ([]Rem
 	return out.Files, err
 }
 
-// Read returns the stored bytes of a file from offset.
+// readRangeBytes is how much one read asks for, so a stalled link loses at most one range and the next read
+// continues from the bytes already on disk.
+const readRangeBytes = 256 << 10
+
+// Read returns up to readRangeBytes of the stored file from offset; an older server that ignores the limit
+// returns the whole remainder.
 func (s Store) Read(ctx context.Context, threadID int, sessionID, relPath string, offset int64) ([]byte, error) {
 	q := fileQuery(sessionID, relPath)
+	q.Set("limit", strconv.Itoa(readRangeBytes))
 	if offset > 0 {
 		q.Set("offset", strconv.FormatInt(offset, 10))
 	}

@@ -165,7 +165,7 @@ func (s *Server) sessionRoute(w http.ResponseWriter, r *http.Request, device *De
 	case r.Method == "GET" && call == "files":
 		s.listFiles(w, threadID, q.Get("session_id"))
 	case r.Method == "GET" && call == "read":
-		s.readFile(w, threadID, q.Get("session_id"), q.Get("rel_path"), q.Get("offset"))
+		s.readFile(w, threadID, q.Get("session_id"), q.Get("rel_path"), q.Get("offset"), q.Get("limit"))
 	case r.Method == "GET" && call == "tree":
 		s.tree(w, threadID, q.Get("session_id"))
 	case r.Method == "POST" && call == "append":
@@ -204,7 +204,7 @@ func (s *Server) listFiles(w http.ResponseWriter, threadID int, sessionID string
 	writeJSON(w, 200, map[string]any{"files": entries})
 }
 
-func (s *Server) readFile(w http.ResponseWriter, threadID int, sessionID, rel, offsetText string) {
+func (s *Server) readFile(w http.ResponseWriter, threadID int, sessionID, rel, offsetText, limitText string) {
 	if !s.checkPath(w, sessionID, rel) {
 		return
 	}
@@ -218,6 +218,9 @@ func (s *Server) readFile(w http.ResponseWriter, threadID int, sessionID, rel, o
 		offset = int64(len(data))
 	}
 	data = data[offset:]
+	if limit, _ := strconv.ParseInt(limitText, 10, 64); limit > 0 && int64(len(data)) > limit {
+		data = data[:limit]
+	}
 	if s.ReadLimit > 0 && len(data) > s.ReadLimit {
 		data = data[:s.ReadLimit]
 	}

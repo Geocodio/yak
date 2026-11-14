@@ -56,6 +56,7 @@ type Server struct {
 	SSHBody             map[string]any
 	SSHNoKeySettingsURL string
 
+	faults   []*Fault
 	codes    map[string]*pendingCode // by device_code
 	requests []RequestLog
 	nextID   int
@@ -103,10 +104,38 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	if s.OnRequest != nil {
 		s.OnRequest(r)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	body, _ := io.ReadAll(r.Body)
 	r.Body = io.NopCloser(bytes.NewReader(body))
+	fault, injected := s.takeFault(r, len(body))
+	switch {
+	case injected && fault.Kind == FaultDrop:
+		dropConnection(w)
+		return
+	case injected && fault.Kind == FaultStall:
+		<-r.Context().Done()
+		return
+	case injected && fault.Kind == FaultStatus:
+		writeErr(w, fault.Status, "server_error", "Injected failure.", nil)
+		return
+	case injected && fault.Kind == FaultDropAfter:
+		s.handle(httptest.NewRecorder(), r, body)
+		dropConnection(w)
+		return
+	}
+	s.handle(w, r, body)
+}
+
+func dropConnection(w http.ResponseWriter) {
+	if hj, ok := w.(http.Hijacker); ok {
+		if conn, _, err := hj.Hijack(); err == nil {
+			_ = conn.Close()
+		}
+	}
+}
+
+func (s *Server) handle(w http.ResponseWriter, r *http.Request, body []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.requests = append(s.requests, RequestLog{r.Method, r.URL.Path, r.URL.RawQuery, r.Header.Clone(), body})
 
 	w.Header().Set("X-Yak-Protocol", "1")
@@ -237,4 +266,47 @@ func writeErr(w http.ResponseWriter, status int, code, message string, details m
 		body["details"] = details
 	}
 	writeJSON(w, status, body)
+}
+
+// FaultKind is how an injected fault breaks a request.
+type FaultKind int
+
+const (
+	// FaultDrop closes the connection before the request is handled, so nothing is stored.
+	FaultDrop FaultKind = iota
+	// FaultDropAfter handles the request, then closes the connection without answering: a lost response.
+	FaultDropAfter
+	// FaultStall never answers, so the client's timeout ends the attempt; nothing is stored.
+	FaultStall
+	// FaultStatus answers with Status and a server_error envelope; nothing is stored.
+	FaultStatus
+)
+
+// Fault breaks the next Times requests whose "METHOD path" contains Match and whose body has at least
+// MinBodyBytes bytes. Faulted requests are not handled (except FaultDropAfter) and are not in the request log.
+type Fault struct {
+	Match        string
+	Kind         FaultKind
+	Status       int
+	Times        int
+	MinBodyBytes int
+}
+
+// InjectFault arms a fault; faults are checked in the order they were added.
+func (s *Server) InjectFault(f Fault) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.faults = append(s.faults, &f)
+}
+
+func (s *Server) takeFault(r *http.Request, bodyBytes int) (Fault, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, f := range s.faults {
+		if f.Times > 0 && strings.Contains(r.Method+" "+r.URL.Path, f.Match) && bodyBytes >= f.MinBodyBytes {
+			f.Times--
+			return *f, true
+		}
+	}
+	return Fault{}, false
 }

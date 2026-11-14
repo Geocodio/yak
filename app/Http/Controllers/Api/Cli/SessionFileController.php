@@ -123,7 +123,7 @@ class SessionFileController extends Controller
     public function read(Request $request, string $thread): Response|JsonResponse
     {
         $thread = $this->authorized($request, $thread, false);
-        $data = $this->validatedPath($request) + $request->validate(['offset' => ['nullable', 'integer', 'min:0']]);
+        $data = $this->validatedPath($request) + $request->validate(['offset' => ['nullable', 'integer', 'min:0'], 'limit' => ['nullable', 'integer', 'min:1']]);
 
         $exists = array_any(
             $this->store->files($thread, $data['session_id']),
@@ -134,7 +134,11 @@ class SessionFileController extends Controller
             return CliError::make('file_not_found', 'That session file does not exist.', 404);
         }
 
-        $body = substr($this->store->read($thread, $data['session_id'], $data['rel_path']), (int) ($data['offset'] ?? 0));
+        $body = substr(
+            $this->store->read($thread, $data['session_id'], $data['rel_path']),
+            (int) ($data['offset'] ?? 0),
+            isset($data['limit']) ? (int) $data['limit'] : null,
+        );
 
         return response($body, 200, [
             'Content-Type' => 'application/octet-stream',

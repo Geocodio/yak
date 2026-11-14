@@ -129,6 +129,15 @@ it('reads from an offset and lists files', function () {
         ->assertOk()->assertJsonStructure(['entries']);
 });
 
+it('caps a read at the limit and continues from the offset', function () {
+    $this->postJson("{$this->base}/append", teleportAppend($this->rel, 0, "ab\ncd\nef\n"), cliHeaders($this->token))->assertOk();
+
+    $this->get("{$this->base}/read" . teleportQuery($this->rel) . '&limit=4', cliHeaders($this->token))->assertOk()->assertContent("ab\nc");
+    $this->get("{$this->base}/read" . teleportQuery($this->rel) . '&offset=4&limit=4', cliHeaders($this->token))->assertOk()->assertContent("d\nef");
+    $this->get("{$this->base}/read" . teleportQuery($this->rel) . '&offset=7&limit=100', cliHeaders($this->token))->assertOk()->assertContent("f\n");
+    $this->get("{$this->base}/read" . teleportQuery($this->rel) . '&limit=0', cliHeaders($this->token))->assertStatus(422);
+});
+
 it('answers 404 for an unknown file', function () {
     $this->get("{$this->base}/read" . teleportQuery($this->rel), cliHeaders($this->token))->assertNotFound();
 });

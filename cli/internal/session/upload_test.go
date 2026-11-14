@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/geocodio/yak/cli/internal/fakeyak"
 )
 
 func writeFile(t *testing.T, path, content string) {
@@ -319,10 +321,114 @@ func TestLargeSessionMultiChunk(t *testing.T) {
 			appends++
 		}
 	}
-	if appends < 3 || appends > 6 {
+	if appends < 12 || appends > 14 {
 		t.Fatalf("appends %d", appends)
 	}
 	if !bytes.Equal(f.srv.SessionFile(threadID, testSID, testSID+".jsonl"), []byte(big)) {
 		t.Fatal("stored content differs")
+	}
+}
+
+func (f *fixture) appendBodySizes() []int {
+	var sizes []int
+	for _, r := range f.srv.Requests() {
+		if r.Method == "POST" && strings.HasSuffix(r.Path, "/append") {
+			sizes = append(sizes, len(r.Body))
+		}
+	}
+	return sizes
+}
+
+func TestLostAppendResponseIsRetriedByTheClient(t *testing.T) {
+	f := newFixture(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, testSID+".jsonl"), "a\nb\nc\n")
+	f.srv.InjectFault(fakeyak.Fault{Match: "/append", Kind: fakeyak.FaultDropAfter, Times: 2})
+	if _, err := f.upload(t, dir, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(f.srv.SessionFile(threadID, testSID, testSID+".jsonl")); got != "a\nb\nc\n" {
+		t.Fatalf("stored %q", got)
+	}
+}
+
+func TestAppendTimeoutHalvesTheChunkAndUploadFinishes(t *testing.T) {
+	f := newFixture(t)
+	f.store.Client.TimeoutFor = func(string, int) time.Duration { return 30 * time.Millisecond }
+	dir := t.TempDir()
+	line := strings.Repeat("x", 1022) + "\n"
+	big := strings.Repeat(line, 600)
+	writeFile(t, filepath.Join(dir, testSID+".jsonl"), big)
+	// Only a body above ~100 KB stalls, which a 256 KiB or 128 KiB chunk produces and a 64 KiB chunk does not.
+	f.srv.InjectFault(fakeyak.Fault{Match: "/append", Kind: fakeyak.FaultStall, Times: 1000, MinBodyBytes: 100_000})
+	if _, err := f.upload(t, dir, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(f.srv.SessionFile(threadID, testSID, testSID+".jsonl"), []byte(big)) {
+		t.Fatal("stored content differs")
+	}
+	sizes := f.appendBodySizes()
+	if len(sizes) == 0 || sizes[len(sizes)-1] > 100_000 {
+		t.Fatalf("chunk never shrank: %v", sizes)
+	}
+}
+
+func TestLengthLookupSurvivesAFailedCall(t *testing.T) {
+	f := newFixture(t)
+	f.store.Client.TimeoutFor = func(string, int) time.Duration { return 30 * time.Millisecond }
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, testSID+".jsonl"), "a\nb\n")
+	// Every attempt of the first Length call stalls; the upload asks again instead of aborting.
+	f.srv.InjectFault(fakeyak.Fault{Match: "/length", Kind: fakeyak.FaultStall, Times: 5})
+	if _, err := f.upload(t, dir, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(f.srv.SessionFile(threadID, testSID, testSID+".jsonl")); got != "a\nb\n" {
+		t.Fatalf("stored %q", got)
+	}
+}
+
+func TestAppendTimeoutFollowedByFailingLengthDoesNotAbort(t *testing.T) {
+	f := newFixture(t)
+	f.store.Client.TimeoutFor = func(string, int) time.Duration { return 30 * time.Millisecond }
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, testSID+".jsonl"), "a\nb\n")
+	f.srv.InjectFault(fakeyak.Fault{Match: "/append", Kind: fakeyak.FaultStall, Times: 5})
+	f.srv.InjectFault(fakeyak.Fault{Match: "/length", Kind: fakeyak.FaultStatus, Status: 503, Times: 5})
+	if _, err := f.upload(t, dir, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGatewayErrorsAcrossSeveralCallsDoNotEndAnUpload(t *testing.T) {
+	f := newFixture(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, testSID+".jsonl"), "a\nb\n")
+	f.srv.InjectFault(fakeyak.Fault{Match: "/append", Kind: fakeyak.FaultStatus, Status: 503, Times: 15})
+	if _, err := f.upload(t, dir, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(f.srv.SessionFile(threadID, testSID, testSID+".jsonl")); got != "a\nb\n" {
+		t.Fatalf("stored %q", got)
+	}
+}
+
+func TestLineLongerThanAChunkGrowsTheChunkUpToWhatYakAccepts(t *testing.T) {
+	f := newFixture(t)
+	dir := t.TempDir()
+	long := strings.Repeat("y", 700<<10) + "\n"
+	writeFile(t, filepath.Join(dir, testSID+".jsonl"), "a\n"+long+"b\n")
+	if _, err := f.upload(t, dir, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.srv.SessionFile(threadID, testSID, testSID+".jsonl"); string(got) != "a\n"+long+"b\n" {
+		t.Fatalf("stored %d bytes", len(got))
+	}
+
+	f2 := newFixture(t)
+	writeFile(t, filepath.Join(dir, testSID+".jsonl"), "a\n"+strings.Repeat("y", 2<<20)+"\nb\n")
+	_, err := f2.upload(t, dir, time.Now())
+	if err == nil || !strings.Contains(err.Error(), "line longer than 1048576 bytes") {
+		t.Fatalf("got %v", err)
 	}
 }

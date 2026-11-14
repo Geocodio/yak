@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,10 +20,14 @@ import (
 )
 
 const (
-	chunkSize      = 1 << 20
+	// startChunk is the first append size; a timeout halves it down to minChunk, and a line longer than the
+	// current chunk doubles it up to maxChunk, the largest chunk (and so the longest line) Yak accepts.
+	startChunk     = 256 << 10
+	minChunk       = 32 << 10
+	maxChunk       = 1 << 20
 	tailSize       = 256
 	memorySession  = "_memory"
-	maxRetries     = 3
+	maxStalls      = 6
 	maxGapResumes  = 5
 	subagentsDir   = "subagents"
 	toolResultsDir = "tool-results"
@@ -172,7 +177,7 @@ func uploadAppendOnly(ctx context.Context, s *Store, threadID int, apiSession, r
 	}
 	size := info.Size()
 
-	start, err := s.Length(ctx, threadID, apiSession, rel)
+	start, err := lengthRetrying(ctx, s, threadID, apiSession, rel)
 	if err != nil {
 		return 0, err
 	}
@@ -183,9 +188,10 @@ func uploadAppendOnly(ctx context.Context, s *Store, threadID int, apiSession, r
 	}
 
 	offset := start
-	lostResponses, gaps := 0, 0
+	chunkLimit, chunkFloor := int64(startChunk), int64(minChunk)
+	stalls, gaps := 0, 0
 	for offset < size {
-		n := int64(chunkSize)
+		n := chunkLimit
 		if size-offset < n {
 			n = size - offset
 		}
@@ -206,9 +212,15 @@ func uploadAppendOnly(ctx context.Context, s *Store, threadID int, apiSession, r
 		var gap ErrGap
 		switch {
 		case err == nil:
-			lostResponses = 0
+			stalls = 0
 			if length <= offset && offset+n < size {
-				return 0, fmt.Errorf("%s has a line longer than %d bytes, which Yak cannot store", rel, chunkSize)
+				// The chunk holds no complete line yet; send more of it, up to what Yak accepts.
+				if chunkLimit >= maxChunk {
+					return 0, fmt.Errorf("%s has a line longer than %d bytes, which Yak cannot store", rel, maxChunk)
+				}
+				chunkLimit = min(chunkLimit*2, maxChunk)
+				chunkFloor = chunkLimit
+				continue
 			}
 			if length <= offset {
 				// Only an unterminated final line is left; it is sent once the line is finished.
@@ -224,17 +236,29 @@ func uploadAppendOnly(ctx context.Context, s *Store, threadID int, apiSession, r
 				return 0, err
 			}
 			offset = gap.Length
+		case !isUploadTransient(err):
+			return 0, err
 		default:
-			if _, isAPI := api.AsError(err); isAPI {
+			// The attempt timed out or the response was lost; Yak may have stored the chunk, so ask where it
+			// stands. Only failures that move nothing forward count towards giving up.
+			if isTimeout(err) {
+				chunkLimit = max(chunkLimit/2, chunkFloor)
+			}
+			if stalls++; stalls > maxStalls {
 				return 0, err
 			}
-			// The response was lost; Yak may have stored the chunk, so ask where it stands.
-			if lostResponses++; lostResponses > maxRetries {
-				return 0, err
+			if berr := s.Client.Backoff(ctx, stalls); berr != nil {
+				return 0, berr
 			}
-			stored, lengthErr := s.Length(ctx, threadID, apiSession, rel)
+			stored, lengthErr := lengthRetrying(ctx, s, threadID, apiSession, rel)
 			if lengthErr != nil {
-				return 0, lengthErr
+				if !isUploadTransient(lengthErr) {
+					return 0, lengthErr
+				}
+				continue
+			}
+			if stored > offset {
+				stalls = 0
 			}
 			offset = stored
 		}
@@ -252,6 +276,35 @@ done:
 		return 0, ErrCheckpointMismatch
 	}
 	return offset - start, nil
+}
+
+// isUploadTransient is true for a transport failure or a gateway or throttle answer, which a later attempt can
+// get past. A plain 500 and every other API error end the upload.
+func isUploadTransient(err error) bool {
+	e, ok := api.AsError(err)
+	if !ok {
+		return api.IsTransient(err)
+	}
+	return e.Status == 429 || e.Status == 502 || e.Status == 503 || e.Status == 504
+}
+
+func isTimeout(err error) bool {
+	var ne net.Error
+	return errors.Is(err, context.DeadlineExceeded) || errors.As(err, &ne) && ne.Timeout()
+}
+
+// lengthRetrying asks for the stored length, repeating after a transient failure so one bad request does not
+// end an upload.
+func lengthRetrying(ctx context.Context, s *Store, threadID int, sessionID, relPath string) (int64, error) {
+	for attempt := 1; ; attempt++ {
+		length, err := s.Length(ctx, threadID, sessionID, relPath)
+		if err == nil || !isUploadTransient(err) || attempt >= maxStalls {
+			return length, err
+		}
+		if berr := s.Client.Backoff(ctx, attempt); berr != nil {
+			return 0, berr
+		}
+	}
 }
 
 func hashPrefix(f *os.File, n int64) (string, error) {
