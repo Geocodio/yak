@@ -411,6 +411,26 @@
         }
       }
     },
+    "problem.signInPage.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sign-in page did not open"
+          }
+        }
+      }
+    },
+    "problem.signInPage.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak could not open the page where you approve this phone. Try again."
+          }
+        }
+      }
+    },
     "signedIn.title": {
       "localizations": {
         "en": {
@@ -506,7 +526,17 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Something went wrong while asking your Yak. Showing what was saved on this device."
+            "value": "Your Yak answered with an error. Showing what was saved on this device."
+          }
+        }
+      }
+    },
+    "signedIn.tokenUnreadable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone could not read its saved sign-in. Unlock it and try again."
           }
         }
       }

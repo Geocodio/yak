@@ -28,6 +28,7 @@ extension PairingProblem {
         case .codeInvalid: "codeInvalid"
         case .codeExpired: "codeExpired"
         case .denied: "denied"
+        case .other("web_session_failed"): "signInPage"
         case .cancelled, .other: "other"
         }
     }
@@ -35,7 +36,7 @@ extension PairingProblem {
     /// Every key name a screen can ask for, so a test can check the catalog.
     static let allKeyNames = [
         "invalidAddress", "notYak", "unreachable", "serverTooOld", "appTooOld", "codeInvalid",
-        "codeExpired", "denied", "other",
+        "codeExpired", "denied", "other", "signInPage",
     ]
 }
 

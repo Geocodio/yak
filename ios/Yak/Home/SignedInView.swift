@@ -29,7 +29,7 @@ struct SignedInView: View {
                 } else if model.refreshState == .loading && showsRefreshing {
                     Section { SlowHintRow { Task { await model.refreshMe(for: instance) } } }
                 }
-                if let message = failureMessage {
+                if let message = failureMessage, model.network.isOnline {
                     Section {
                         Text(message)
                         Button("common.retry") { Task { await model.refreshMe(for: instance) } }
@@ -89,6 +89,7 @@ extension SignedInView {
         case .unreachable: "signedIn.unreachable \(instance.name)"
         case .appTooOld: "signedIn.appTooOld"
         case .serverTooOld: "signedIn.serverTooOld"
+        case .tokenUnreadable: "signedIn.tokenUnreadable"
         case .failed: "signedIn.failed"
         }
     }

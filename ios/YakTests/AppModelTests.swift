@@ -27,7 +27,7 @@ private final class LockableTokenStore: TokenStore, @unchecked Sendable {
     func removeToken(for instance: UUID) throws { try inner.removeToken(for: instance) }
 }
 
-@MainActor @Test func aTokenReadErrorKeepsTheTokenAndShowsFailure() async throws {
+@MainActor @Test func aTokenReadErrorKeepsTheTokenAndShowsUnreadable() async throws {
     let tokens = LockableTokenStore()
     let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
     let instance = try await instances.add(
@@ -40,7 +40,7 @@ private final class LockableTokenStore: TokenStore, @unchecked Sendable {
         })
     tokens.lockReads()
     await model.refreshMe(for: instance)
-    #expect(model.refreshState == .failed)
+    #expect(model.refreshState == .tokenUnreadable)
     #expect(await instances.all().count == 1)
     #expect(try tokens.inner.token(for: instance.id) == "secret")
 }

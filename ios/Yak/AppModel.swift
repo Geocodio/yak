@@ -17,7 +17,7 @@ final class AppModel {
 
     /// Why the last refresh of "who am I" did not work, each with its own message.
     enum RefreshState: Equatable {
-        case idle, loading, unreachable, appTooOld, serverTooOld, failed
+        case idle, loading, unreachable, appTooOld, serverTooOld, tokenUnreadable, failed
     }
 
     private(set) var route: Route = .connect
@@ -69,7 +69,7 @@ final class AppModel {
             token = stored
         } catch {
             logFailure("Reading the token failed: \(type(of: error))")
-            refreshState = .failed
+            refreshState = .tokenUnreadable
             return
         }
         do {
