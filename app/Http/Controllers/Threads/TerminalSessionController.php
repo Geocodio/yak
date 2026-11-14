@@ -64,7 +64,7 @@ class TerminalSessionController extends Controller
         $token = $tokens->issue($user, $thread, $origin);
 
         return response()->json([
-            'url' => $this->socketUrl() . '?token=' . $token,
+            'url' => self::socketUrl() . '?token=' . $token,
             'token' => $token,
             'expires_at' => now()->addSeconds((int) config('yak.ssh.terminal_token_ttl'))->toIso8601String(),
         ]);
@@ -83,7 +83,7 @@ class TerminalSessionController extends Controller
         return array_values(array_filter([...(array) config('yak.ssh.terminal_allowed_origins'), $appOrigin]));
     }
 
-    private function socketUrl(): string
+    public static function socketUrl(): string
     {
         $configured = config('yak.ssh.terminal_ws_url');
 

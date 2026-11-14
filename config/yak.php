@@ -25,6 +25,18 @@ return [
         'min_protocol' => 1,
     ],
 
+    // Shown to the app when it discovers this instance; falls back to the application name.
+    'instance_name' => env('YAK_INSTANCE_NAME'),
+
+    // Read by the app API to tell the phone whether push works; the sender reads the same values.
+    'apns' => [
+        'key' => env('YAK_APNS_KEY'),
+        'key_id' => env('YAK_APNS_KEY_ID'),
+        'team_id' => env('YAK_APNS_TEAM_ID'),
+        'bundle_id' => env('YAK_APNS_BUNDLE_ID'),
+        'environment' => env('YAK_APNS_ENVIRONMENT'),
+    ],
+
     'pairing' => [
         'code_ttl_seconds' => 120,
     ],

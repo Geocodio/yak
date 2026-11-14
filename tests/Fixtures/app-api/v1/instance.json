@@ -1,0 +1,12 @@
+{
+    "api": {
+        "current": "<volatile>",
+        "min": "<volatile>"
+    },
+    "name": "<volatile>",
+    "pairing": {
+        "address": true,
+        "qr": true
+    },
+    "yak": true
+}

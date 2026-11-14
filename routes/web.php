@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\App\DeviceCodeController as AppDeviceCodeController
 use App\Http\Controllers\Api\App\DeviceController as AppDeviceController;
 use App\Http\Controllers\Api\App\DevicePairController as AppDevicePairController;
 use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenController;
+use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
+use App\Http\Controllers\Api\App\MeController as AppMeController;
 use App\Http\Controllers\Api\Cli\SessionFileController;
 use App\Http\Controllers\Api\Cli\SshLookupController;
 use App\Http\Controllers\Api\Cli\StackMessageController;
@@ -454,6 +456,9 @@ Route::prefix('api/cli/v1')->middleware('client.protocol:cli')->withoutMiddlewar
     });
 });
 
+// App discovery: public and outside the protocol check, so an app that is too old can still read the supported range.
+Route::get('api/app/v1/instance', AppInstanceController::class)->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->name('app.instance');
+
 // App API: phones, authenticated by device tokens of kind phone.
 Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->group(function (): void {
     Route::post('device/code', AppDeviceCodeController::class)->middleware('throttle:app-device-code')->name('app.device.code');
@@ -461,6 +466,7 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
     Route::post('device/pair', AppDevicePairController::class)->middleware('throttle:app-device-code')->name('app.device.pair');
 
     Route::middleware('auth.device:phone')->group(function (): void {
+        Route::get('me', AppMeController::class)->name('app.me');
         Route::delete('device', [AppDeviceController::class, 'destroy'])->name('app.device.destroy');
     });
 });

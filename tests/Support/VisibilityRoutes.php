@@ -182,6 +182,9 @@ class VisibilityRoutes
             // New-thread form and creation: reads the viewer's own repositories and accounts only.
             'threads.new', 'threads.store', 'threads.repository-access', 'threads.repository-setup',
             // Device-token protocol for the CLI: no web session; each controller resolves the thread through the device owner's visibility.
+            // Device-token protocol for the app: phones, no web session; instance is public discovery, me reads the device owner only.
+            'app.instance', 'app.device.code', 'app.device.token', 'app.device.pair', 'app.me', 'app.device.destroy',
+            'settings.devices.pairing-codes.store', 'settings.devices.pairing-codes.show',
             'cli.device.code', 'cli.device.token', 'cli.me', 'cli.device.destroy', 'cli.repos.resolve',
             'GET api/cli/v1/threads/by-session/{sessionId}', 'GET api/cli/v1/threads/{thread}', 'POST api/cli/v1/teleports',
             'GET api/cli/v1/teleports/{teleport}', 'POST api/cli/v1/teleports/{teleport}/complete',
