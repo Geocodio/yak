@@ -1,6 +1,8 @@
 /// Why a pairing did not finish, each with its own screen state.
 public enum PairingProblem: Error, Equatable, Sendable {
     case invalidAddress, notYak, unreachable, serverTooOld, appTooOld, codeInvalid, codeExpired, denied
+    /// Redeeming the code failed without an answer, so the instance may have accepted it.
+    case codeMayBeUsed
     case cancelled
     /// Diagnostic only: the payload may be a raw server message or error code and must not be shown
     /// as is. Screens show a plain-words message with a retry.

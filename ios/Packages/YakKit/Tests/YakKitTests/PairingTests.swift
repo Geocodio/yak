@@ -12,6 +12,7 @@ private actor RoutedTransport: HTTPTransport {
     private var routes: [String: [FakeTransport.Result]]
     private(set) var paths: [String] = []
     private(set) var authorizations: [String: String?] = [:]
+    private(set) var bodies: [String: [Data]] = [:]
 
     init(_ routes: [String: [FakeTransport.Result]]) { self.routes = routes }
 
@@ -19,6 +20,7 @@ private actor RoutedTransport: HTTPTransport {
         let path = request.url!.path.replacingOccurrences(of: "/api/app/v1/", with: "")
         paths.append(path)
         authorizations[path] = request.value(forHTTPHeaderField: "Authorization")
+        if let body = request.httpBody { bodies[path, default: []].append(body) }
         guard var queue = routes[path], !queue.isEmpty else {
             return (Data(), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!)
         }
@@ -33,6 +35,11 @@ private actor RoutedTransport: HTTPTransport {
             )
         }
     }
+}
+
+private actor Gate {
+    private(set) var isOpen = false
+    func open() { isOpen = true }
 }
 
 private let address = URL(string: "https://yak.example.com")!
@@ -57,6 +64,7 @@ private struct Harness {
     let store: InstanceStore
     let tokens = InMemoryTokenStore()
     let sleeps: SleepRecorder
+    let clientSleeps: SleepRecorder
     let pairing: Pairing
 
     init(_ routes: [String: [FakeTransport.Result]]) {
@@ -65,9 +73,13 @@ private struct Harness {
         let sleeps = SleepRecorder()
         self.sleeps = sleeps
         let transport = transport
+        let clientSleeps = SleepRecorder()
+        self.clientSleeps = clientSleeps
         pairing = Pairing(
             makeClient: {
-                APIClient(baseURL: $0, token: nil, transport: transport, appVersion: "1.0", systemDescription: "test")
+                APIClient(
+                    baseURL: $0, token: nil, transport: transport, appVersion: "1.0", systemDescription: "test",
+                    sleep: { await clientSleeps.record($0) })
             },
             instances: store, sleep: { await sleeps.record($0) })
     }
@@ -96,7 +108,6 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
         #expect(await harness.store.state(of: instance.id) == .ready)
         let authorizations = await harness.transport.authorizations
         #expect(authorizations["me"] == "Bearer yakdev_secret")
-        #expect(authorizations["instance"] == .some(nil))
         #expect(authorizations["device/pair"] == .some(nil))
         #expect(try harness.tokens.token(for: instance.id) == "yakdev_secret")
     }
@@ -115,9 +126,76 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
 
     @Test func aWebSiteThatIsNotYakIsReported() async {
         let harness = Harness(["instance": [.json(200, "<html>Sign in to the Wi-Fi</html>")]])
-        await #expect(throws: PairingProblem.notYak) { try await harness.pairing.pair(link: link, device: device) }
-        #expect(await !harness.transport.paths.contains("device/pair"))
+        await #expect(throws: PairingProblem.notYak) { try await harness.pairing.check(address) }
         #expect(await harness.store.all().isEmpty)
+    }
+
+    @Test func redeemingSendsNoInstanceCheckFirst() async throws {
+        let harness = Harness(["device/pair": [.json(200, pairOK)], "me": [.json(200, meOK)]])
+        _ = try await harness.pairing.pair(link: link, device: device)
+        #expect(await harness.transport.paths == ["device/pair", "me"])
+    }
+
+    @Test func theRequestIDGoesInTheBodyOfEveryAttempt() async throws {
+        let harness = Harness([
+            "device/pair": [.failure(.timedOut), .json(200, pairOK)], "me": [.json(200, meOK)],
+        ])
+        _ = try await harness.pairing.pair(link: link, device: device, requestID: "req-1")
+        let bodies = await harness.transport.bodies["device/pair"] ?? []
+        #expect(bodies.count == 2)
+        for body in bodies {
+            let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: String])
+            #expect(json["request_id"] == "req-1")
+            #expect(json["code"] == "abc")
+        }
+        #expect(await harness.store.all().count == 1)
+    }
+
+    @Test func withoutARequestIDTheBodyHasNoRequestIDKey() async throws {
+        let harness = Harness(["device/pair": [.json(200, pairOK)], "me": [.json(200, meOK)]])
+        _ = try await harness.pairing.pair(link: link, device: device)
+        let body = try #require(await harness.transport.bodies["device/pair"]?.first)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: String])
+        #expect(json["request_id"] == nil)
+    }
+
+    @Test(arguments: [URLError.Code.timedOut, .networkConnectionLost])
+    func aRedeemThatKeepsFailingMeansTheCodeMayBeUsed(code: URLError.Code) async {
+        let harness = Harness(["device/pair": [.failure(code)]])
+        await #expect(throws: PairingProblem.codeMayBeUsed) {
+            try await harness.pairing.pair(link: link, device: device, requestID: "r")
+        }
+        #expect(await harness.transport.paths == ["device/pair", "device/pair"])
+        #expect(await harness.store.all().isEmpty)
+    }
+
+    @Test func aRefusedRedeemIsNotRepeated() async {
+        let harness = Harness(["device/pair": [refusal("pairing_code_invalid")]])
+        await #expect(throws: PairingProblem.codeInvalid) { try await harness.pairing.pair(link: link, device: device) }
+        #expect(await harness.transport.paths == ["device/pair"])
+    }
+
+    @Test func theSystemDescriptionHasNoPlatformPrefix() {
+        #expect(device.systemDescription == "27.0; iPhone")
+    }
+
+    @Test func pollingSurvivesADroppedRequest() async throws {
+        let harness = Harness([
+            "device/token": [
+                .failure(.networkConnectionLost), .failure(.timedOut), refusal("authorization_pending"),
+                .json(200, pairOK),
+            ],
+            "me": [.json(200, meOK)],
+        ])
+        _ = try await harness.pairing.waitForApproval(flow())
+        #expect(await harness.sleeps.delays == [.seconds(5), .seconds(5), .seconds(5), .seconds(5)])
+    }
+
+    @Test func pollingThroughNetworkFailuresStillEndsAtTheCodeExpiry() async {
+        let harness = Harness(["device/token": [.failure(.notConnectedToInternet)]])
+        await #expect(throws: PairingProblem.codeExpired) {
+            try await harness.pairing.waitForApproval(flow(interval: 5, expiresIn: 12))
+        }
     }
 
     @Test func mapsEachPairingRefusal() async {
@@ -136,7 +214,8 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
             (
                 "server too old", ["device/pair": [.json(200, pairOK, headers: ["X-Yak-Protocol": "0"])]], .serverTooOld
             ),
-            ("network", ["device/pair": [.failure(.notConnectedToInternet)]], .unreachable),
+            ("offline", ["device/pair": [.failure(.notConnectedToInternet)]], .codeMayBeUsed),
+            ("lost connection", ["device/pair": [.failure(.networkConnectionLost)]], .codeMayBeUsed),
         ]
         for (name, routes, expected) in cases {
             let harness = Harness(["instance": [.json(200, instanceOK)]].merging(routes) { $1 })
@@ -194,18 +273,25 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
 
     @Test func cancellingTheWaitThrowsCancelled() async {
         let transport = RoutedTransport(["device/token": [refusal("authorization_pending")]])
+        let started = Gate()
         let store = InstanceStore(defaults: MemoryDefaults(), tokens: InMemoryTokenStore(), now: { Date() })
         let pairing = Pairing(
             makeClient: {
-                APIClient(baseURL: $0, token: nil, transport: transport, appVersion: "1.0", systemDescription: "t")
+                APIClient(
+                    baseURL: $0, token: nil, transport: transport, appVersion: "1.0", systemDescription: "t",
+                    sleep: { _ in })
             },
-            instances: store, sleep: { try await Task.sleep(for: $0 * 1000) })
+            instances: store,
+            sleep: { _ in
+                await started.open()
+                try await Task.sleep(for: .seconds(3600))
+            })
         let pending = flow()
         let task = Task { () async -> PairingProblem? in
             do throws(PairingProblem) { _ = try await pairing.waitForApproval(pending) } catch { return error }
             return nil
         }
-        try? await Task.sleep(for: .milliseconds(50))
+        while !(await started.isOpen) { await Task.yield() }
         task.cancel()
         #expect(await task.value == .cancelled)
         #expect(await store.all().isEmpty)

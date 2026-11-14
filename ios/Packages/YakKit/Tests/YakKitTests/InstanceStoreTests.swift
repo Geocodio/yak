@@ -28,7 +28,23 @@ private func makeStore(
     InstanceStore(defaults: defaults, tokens: tokens, now: { clock.now() })
 }
 
+private struct LockedTokenStore: TokenStore {
+    struct Locked: Error {}
+    func token(for instance: UUID) throws -> String? { throw Locked() }
+    func setToken(_ token: String, for instance: UUID) throws { throw Locked() }
+    func removeToken(for instance: UUID) throws { throw Locked() }
+}
+
 @Suite struct InstanceStoreTests {
+    @Test func aKeychainReadErrorIsUnreadableNotNeedsPairing() async throws {
+        let defaults = InMemoryKeyValueStore()
+        let working = makeStore(defaults: defaults)
+        let instance = try await working.add(url: address, name: "A", userName: "U", token: "t")
+        let locked = makeStore(defaults: defaults, tokens: LockedTokenStore())
+        #expect(await locked.state(of: instance.id) == .tokenUnreadable)
+        #expect(await locked.all().count == 1)
+    }
+
     @Test func addingTheSameAddressTwiceReplacesTheEntry() async throws {
         let tokens = InMemoryTokenStore()
         let store = makeStore(tokens: tokens)

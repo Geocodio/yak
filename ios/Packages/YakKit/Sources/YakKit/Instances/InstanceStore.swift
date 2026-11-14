@@ -26,7 +26,11 @@ private func logFailure(_ message: String) {
     #endif
 }
 
-public enum InstanceState: Equatable, Sendable { case ready, needsPairing }
+public enum InstanceState: Equatable, Sendable {
+    case ready, needsPairing
+    /// The Keychain failed with something other than "no such item", for example while locked.
+    case tokenUnreadable
+}
 
 public enum InstanceStoreError: Error, Equatable, Sendable {
     case unknownInstance
@@ -73,9 +77,9 @@ public actor InstanceStore {
         instances.first { $0.id == activeID } ?? all().first
     }
 
-    /// `.needsPairing` when the token is missing or cannot be read. A read error (for example the
-    /// Keychain being locked before first unlock) is logged and shown as needing pairing, because
-    /// the signature has no third state; the entry and its token are left untouched.
+    /// `.needsPairing` when the token is missing, `.tokenUnreadable` when reading it failed (for
+    /// example the Keychain being locked before first unlock). The entry and its token are left
+    /// untouched either way.
     public func state(of instance: UUID) -> InstanceState {
         do {
             guard let token = try tokens.token(for: instance), !token.isEmpty else {
@@ -84,7 +88,7 @@ public actor InstanceStore {
             return .ready
         } catch {
             logFailure("Token read failed: \(type(of: error))")
-            return .needsPairing
+            return .tokenUnreadable
         }
     }
 

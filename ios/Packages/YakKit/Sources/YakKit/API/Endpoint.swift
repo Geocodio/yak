@@ -47,13 +47,18 @@ private struct DevicePayload: Encodable, Sendable {
 
 private struct PairBody: Encodable, Sendable {
     let code: String
+    let requestID: String?
     let description: DevicePayload
 
-    enum CodingKeys: String, CodingKey { case code }
+    enum CodingKeys: String, CodingKey {
+        case code
+        case requestID = "request_id"
+    }
 
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(code, forKey: .code)
+        try container.encodeIfPresent(requestID, forKey: .requestID)
         try description.encode(to: encoder)
     }
 }
@@ -84,13 +89,16 @@ extension Endpoint where Response == PairingResponse {
         Endpoint(method: .post, path: "device/token", body: PollBody(deviceCode: deviceCode))
     }
 
-    public static func pair(code: String, name: String, model: String, osVersion: String, appVersion: String)
-        -> Endpoint<PairingResponse>
-    {
+    /// `requestID` makes a repeat of the same redeem safe: a server that knows it answers the repeat with
+    /// the same token, and one that does not ignores it.
+    public static func pair(
+        code: String, requestID: String? = nil, name: String, model: String, osVersion: String,
+        appVersion: String
+    ) -> Endpoint<PairingResponse> {
         let description = DevicePayload(name: name, model: model, osVersion: osVersion, appVersion: appVersion)
         return Endpoint(
             method: .post, path: "device/pair",
-            body: PairBody(code: code, description: description))
+            body: PairBody(code: code, requestID: requestID, description: description))
     }
 }
 

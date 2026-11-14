@@ -17,6 +17,9 @@ public struct DeviceDescription: Sendable {
         self.osVersion = osVersion
         self.appVersion = appVersion
     }
+
+    /// The part of the User-Agent in parentheses: `<os version>; <model>`.
+    public var systemDescription: String { "\(osVersion); \(model)" }
 }
 
 public struct PendingDeviceFlow: Sendable {
@@ -59,17 +62,33 @@ public actor Pairing {
         return info
     }
 
-    public func pair(link: PairingLink, device: DeviceDescription) async throws(PairingProblem) -> Instance {
-        _ = try await check(link.instance)
+    /// Redeems the code of a link whose instance the caller already checked, so it sends no other
+    /// request first. A timeout or a lost connection is tried once more with the same `requestID`,
+    /// which a server that knows it answers with the same token. When that also fails the code may
+    /// have been redeemed already, so the problem is `.codeMayBeUsed`, not a plain network error.
+    public func pair(link: PairingLink, device: DeviceDescription, requestID: String? = nil)
+        async throws(PairingProblem) -> Instance
+    {
         let client = makeClient(link.instance)
+        let endpoint = Endpoint<PairingResponse>.pair(
+            code: link.code, requestID: requestID, name: device.name, model: device.model,
+            osVersion: device.osVersion, appVersion: device.appVersion)
         let response: PairingResponse
         do {
-            response = try await client.send(
-                .pair(
-                    code: link.code, name: device.name, model: device.model, osVersion: device.osVersion,
-                    appVersion: device.appVersion))
-        } catch { throw PairingProblem(error) }
+            do {
+                response = try await client.send(endpoint)
+            } catch .network(let code) where Self.isWorthRepeating(code) {
+                response = try await client.send(endpoint)
+            }
+        } catch {
+            if case .network(let code) = error, code != .cancelled { throw .codeMayBeUsed }
+            throw PairingProblem(error)
+        }
         return try await store(response, url: link.instance, client: client)
+    }
+
+    private static func isWorthRepeating(_ code: URLError.Code) -> Bool {
+        code == .timedOut || code == .networkConnectionLost
     }
 
     public func startDeviceFlow(address: URL, device: DeviceDescription) async throws(PairingProblem)
@@ -100,6 +119,8 @@ public actor Pairing {
                 let response = try await client.send(.pollDeviceToken(deviceCode: flow.code.deviceCode))
                 return try await store(response, url: flow.url, client: client)
             } catch let failure as APIFailure {
+                // A dropped request is no answer from the instance: keep polling until the code expires.
+                if case .network(let code) = failure, code != .cancelled { continue }
                 if case .server(let error) = failure, error.code == "authorization_pending" { continue }
                 if case .server(let error) = failure, error.code == "slow_down" {
                     interval += Self.slowDownStep
