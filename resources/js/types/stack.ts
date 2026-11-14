@@ -1,3 +1,5 @@
+import type { ModelFamily } from '@/types/claudeAccounts';
+
 /** Mirrors the array shape in `App\Http\Resources\StackData`. */
 
 export type StackChildState = 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
@@ -38,6 +40,8 @@ export type StackData = {
     children: StackChild[];
     limit: { current: number; max: number; awake: number; waiting: number };
     maxChildren: number;
+    models: ModelFamily[];
+    parentAccountName: string | null;
     usage: { turnCount: number; costUsd: number; activeHours: number; note: string };
     messages: StackMessageRow[];
     canDrive: boolean;

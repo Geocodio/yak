@@ -194,7 +194,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             </div>
 
             {isAddingSubThread && stack !== null && (
-                <AddChildDialog threadId={thread.id} parentTitle={thread.title} awake={stack.limit.awake} limit={stack.limit.current} childCount={stack.children.length} maxChildren={stack.maxChildren} onClose={() => setIsAddingSubThread(false)} onAdded={() => { reloadStack(); openOverview(); }} />
+                <AddChildDialog threadId={thread.id} parentTitle={thread.title} stack={{ models: stack.models, parentAccountName: stack.parentAccountName, maxChildren: stack.maxChildren, awake: stack.limit.awake, limit: stack.limit.current, childCount: stack.children.length }} onClose={() => setIsAddingSubThread(false)} onAdded={() => { reloadStack(); openOverview(); }} />
             )}
             {teleport.state === 'on_device' ? (
                 <TeleportToYakDialog thread={thread} teleport={teleport} open={isTeleportOpen} onClose={() => setIsTeleportOpen(false)} />
