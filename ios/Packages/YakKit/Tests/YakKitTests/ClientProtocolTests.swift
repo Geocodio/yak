@@ -1,4 +1,5 @@
 import Testing
+
 @testable import YakKit
 
 @Test func protocolNumberIsOne() {
