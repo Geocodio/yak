@@ -1,11 +1,13 @@
 import { Button, Select, Tooltip, cn } from '@geocodio/console-ui';
 import { usePage } from '@inertiajs/react';
-import { Check, Columns2, GitBranch, Globe, GitPullRequest, Keyboard, Rows2 } from 'lucide-react';
+import { Check, Columns2, GitBranch, Globe, GitPullRequest, Keyboard, LoaderCircle, Rows2, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadDiffFile } from '@/types/thread-changes';
 import type { ThreadPageData } from '@/types/threads';
+import { ChangesSkeleton } from './ChangesSkeleton';
+import { compareDiffs, type FileMark } from './compareDiffs';
 import { ContextRepoCallout } from './ContextRepoCallout';
 import { FileCard } from './FileCard';
 import { FileTree } from './FileTree';
@@ -15,10 +17,10 @@ import { RepositoryChangeCard } from './RepositoryChangeCard';
 import { RepositoryTabs } from './RepositoryTabs';
 import { ViewedProgress } from './ViewedProgress';
 import { buildFileTree, fileKey } from './buildFileTree';
-import { useThreadDiff } from './useThreadDiff';
+import { OPEN_BY_DEFAULT, useThreadDiff } from './useThreadDiff';
 
-/** Files past this many start collapsed so a large change does not fetch every diff at once. */
-const OPEN_BY_DEFAULT = 4;
+/** How long the header says the diff was just updated. */
+const UPDATED_NOTE_MILLISECONDS = 2500;
 
 function storageKey(threadId: string, headSha: string): string {
     return `thread-changes-viewed:${threadId}:${headSha}`;
@@ -46,7 +48,10 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
     const { publishWarning, pullRequest } = usePage<ThreadPageData & Record<string, unknown>>().props;
     const isNarrow = !useMediaQuery('(min-width: 1024px)');
     const [childId, setChildId] = useState<string | null>(null);
-    const { diff, isLoading, error, reload } = useThreadDiff(thread, childId);
+    const { diff, isLoading, isRefreshing, error, reload } = useThreadDiff(thread, childId);
+    const [marks, setMarks] = useState<Map<string, FileMark>>(new Map());
+    const [isJustUpdated, setIsJustUpdated] = useState(false);
+    const shownDiff = useRef<{ childId: string | null; diff: typeof diff }>({ childId, diff: null });
     const [filter, setFilter] = useState('');
     const [activeKey, setActiveKey] = useState<string | null>(null);
     const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
@@ -62,6 +67,33 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
     useEffect(() => {
         setViewed(readViewed(viewedStorageKey));
     }, [viewedStorageKey]);
+
+    // A fresh diff marks the files it added or changed since the one on screen; switching to another thread's diff starts over.
+    useEffect(() => {
+        if (diff === null) {
+            return;
+        }
+        const previous = shownDiff.current.childId === childId ? shownDiff.current.diff : null;
+        shownDiff.current = { childId, diff };
+        if (previous === null) {
+            setMarks(new Map());
+            return;
+        }
+        const fresh = compareDiffs(previous, diff, (file) => fileKey(file, diff.repositories[0]?.repo ?? ''));
+        if (fresh.size === 0) {
+            return;
+        }
+        setMarks((current) => new Map([...current, ...fresh]));
+        setIsJustUpdated(true);
+    }, [diff, childId]);
+
+    useEffect(() => {
+        if (!isJustUpdated) {
+            return;
+        }
+        const timer = setTimeout(() => setIsJustUpdated(false), UPDATED_NOTE_MILLISECONDS);
+        return () => clearTimeout(timer);
+    }, [isJustUpdated]);
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -118,6 +150,11 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
         const next = new Set(viewed);
         if (!next.delete(key)) {
             next.add(key);
+            setMarks((current) => {
+                const remaining = new Map(current);
+                remaining.delete(key);
+                return remaining;
+            });
         }
         setViewed(next);
         writeViewed(viewedStorageKey, next);
@@ -138,23 +175,49 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
         </div>
     );
 
+    if (diff === null && isLoading) {
+        return <ChangesSkeleton isNarrow={isNarrow} actions={diffSwitch || undefined} />;
+    }
+
     if (diff === null || (diff.filesCount === 0 && diff.throwawayFilesCount === 0)) {
+        const isWorking = thread.runnerState === 'busy' && childId === null;
+
         return (
             <div className="flex min-h-0 flex-1 flex-col gap-3 p-4" data-testid="changes-panel">
                 {modeSwitch !== undefined && <div className="w-[250px]">{modeSwitch}</div>}
                 {diffSwitch}
-                {diff === null && isLoading ? (
-                    <p className="text-[13px] text-muted">Loading changes</p>
-                ) : error !== null && diff === null ? (
-                    <p className="text-[13px] text-muted" data-testid="changes-error">
-                        {error}
-                    </p>
-                ) : (
-                    <div data-testid="changes-empty">
-                        <p className="text-[13px] font-medium text-body">No changes yet</p>
-                        <p className="mt-1 text-[12px] text-muted">Files Claude edits in the sandbox show up here after each turn.</p>
-                    </div>
-                )}
+                <div className="flex flex-1 items-center justify-center p-6">
+                    {diff === null && error !== null ? (
+                        <div className="flex max-w-[380px] flex-col items-center gap-1.5 text-center" data-testid="changes-error">
+                            <span className="mb-1 inline-flex size-8 items-center justify-center rounded-full bg-fail-soft text-fail">
+                                <TriangleAlert size={15} aria-hidden />
+                            </span>
+                            <p className="text-[14px] font-medium text-body">Could not load the changes</p>
+                            <p className="text-[12.5px] text-muted">The server did not answer ({error}). Your files are safe in the sandbox.</p>
+                            <Button variant="secondary" className="mt-2 h-7" onClick={reload} data-testid="changes-retry">
+                                Retry
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="flex w-full max-w-[380px] flex-col items-center gap-1.5 text-center" data-testid="changes-empty">
+                            {isWorking && (
+                                <span className="mb-2 inline-flex items-center gap-2 rounded-full bg-accent-soft px-3 py-1 text-[12px] font-medium text-accent-text" data-testid="changes-working">
+                                    <span className="activity-pulse size-2 rounded-full bg-accent" aria-hidden />
+                                    Claude is working
+                                </span>
+                            )}
+                            <p className="text-[14px] font-medium text-body">No changes yet</p>
+                            <p className="text-[12.5px] text-muted">{isWorking ? 'Files Claude edits in the sandbox show up here when this turn ends.' : 'Files Claude edits in the sandbox show up here after each turn.'}</p>
+                            {isWorking && (
+                                <div className="mt-3 flex w-full flex-col gap-1.5" aria-hidden>
+                                    {[1, 0.6, 0.3].map((opacity) => (
+                                        <div key={opacity} className="h-[34px] rounded-[10px] border border-dashed border-hair" style={{ opacity }} />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }
@@ -195,6 +258,25 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
                         <GitBranch size={12} className="shrink-0" aria-hidden />
                         <code className="truncate font-mono text-[12px]">{thread.branch}</code>
                     </span>
+                )}
+                {error !== null ? (
+                    <span className="inline-flex items-center gap-1.5 text-[12px] text-muted" data-testid="changes-sync-note">
+                        Could not refresh
+                        <button type="button" onClick={reload} className="cursor-pointer text-accent-text hover:underline">
+                            Retry
+                        </button>
+                    </span>
+                ) : isRefreshing ? (
+                    <span className="inline-flex items-center gap-1.5 text-[12px] text-muted" data-testid="changes-sync-note">
+                        <LoaderCircle size={11} className="activity-spin" aria-hidden />
+                        Checking
+                    </span>
+                ) : (
+                    isJustUpdated && (
+                        <span className="activity-rise text-[12px] text-muted" data-testid="changes-sync-note">
+                            Updated just now
+                        </span>
+                    )
                 )}
                 <span className="grow" />
                 {diffSwitch}
@@ -260,7 +342,7 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
                                 ))}
                             </div>
                         ) : (
-                            <FileTree nodes={tree} viewed={viewed} onOpen={reveal} />
+                            <FileTree nodes={tree} viewed={viewed} onOpen={reveal} marks={marks} />
                         )}
                     </nav>
                 )}
@@ -282,6 +364,7 @@ export function ChangesPanel({ thread, canDrive, stack = null, focusRequest = nu
                                     isCollapsed={isCollapsed(file, index)}
                                     isActive={activeKey === key}
                                     isViewed={viewed.has(key)}
+                                    mark={marks.get(key)}
                                     canExpand={childId === null && file.repo === thread.repo}
                                     isNarrow={isNarrow}
                                     onToggleCollapsed={() => setExpanded((current) => ({ ...current, [key]: isCollapsed(file, index) }))}
