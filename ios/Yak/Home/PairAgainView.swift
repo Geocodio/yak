@@ -17,7 +17,7 @@ struct PairAgainView: View {
     }
 
     var body: some View {
-        ActionPage(isHidden: model.linkPairing != nil) {
+        ActionPage {
             Image(systemName: "xmark.circle")
                 .font(.system(size: 44, weight: .light))
                 .foregroundStyle(Color.yakMuted)
@@ -38,7 +38,8 @@ struct PairAgainView: View {
         .sheet(isPresented: $showsScanner) {
             NavigationStack {
                 ConnectView(model: model, onDone: { showsScanner = false })
-                    .linkPairingStatus(model)
+                    .linkPairingStatus(model, inSheet: true)
+                    .countsAsOpenSheet(model)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("address.cancel") { showsScanner = false }
@@ -52,6 +53,9 @@ struct PairAgainView: View {
                     model: model, initialAddress: typedAddress,
                     onDone: { showsPairing = false }
                 )
+                .linkPairingStatus(model, inSheet: true)
+                .countsAsOpenSheet(model)
+                .linkPairingStatus(model)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("address.cancel") { showsPairing = false }

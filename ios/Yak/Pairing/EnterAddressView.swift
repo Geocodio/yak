@@ -184,6 +184,9 @@ struct EnterAddressView: View {
     private func handle(_ state: PairingModel.State, _ pairingModel: PairingModel) {
         switch state {
         case .waitingForApproval(let url):
+            #if DEBUG
+                if model.skipsWebSession { return }
+            #endif
             sessionTask?.cancel()
             sessionTask = Task {
                 do {

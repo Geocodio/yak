@@ -45,8 +45,6 @@ struct SecondaryButtonStyle: ButtonStyle {
 /// A screen with its actions pinned to the bottom. At accessibility text sizes the actions follow the content
 /// inside the scroll view instead, because pinned buttons of that size would cover half the screen.
 struct ActionPage<Content: View, Actions: View>: View {
-    /// Takes the page out of the accessibility tree, for a page that another screen covers.
-    var isHidden = false
     @ViewBuilder let content: Content
     @ViewBuilder let actions: Actions
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -61,7 +59,6 @@ struct ActionPage<Content: View, Actions: View>: View {
             .frame(maxWidth: .infinity)
             .padding(24)
         }
-        .accessibilityHidden(isHidden)
         .safeAreaInset(edge: .bottom) {
             if !dynamicTypeSize.isAccessibilitySize {
                 actionStack
@@ -70,7 +67,6 @@ struct ActionPage<Content: View, Actions: View>: View {
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity)
                     .background(.bar)
-                    .accessibilityHidden(isHidden)
             }
         }
     }

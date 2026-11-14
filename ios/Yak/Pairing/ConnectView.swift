@@ -11,7 +11,7 @@ struct ConnectView: View {
     @ScaledMetric(relativeTo: .subheadline) private var stepSize: CGFloat = 28
 
     var body: some View {
-        ActionPage(isHidden: model.linkPairing != nil) {
+        ActionPage {
             Image(systemName: "qrcode.viewfinder")
                 .font(.system(size: 44, weight: .light))
                 .foregroundStyle(Color.yakMuted)

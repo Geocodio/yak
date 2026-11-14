@@ -9,8 +9,9 @@ import XCTest
         stub = try StubControl()
     }
 
-    private func launch(paired: Bool = false) {
+    private func launch(paired: Bool = false, skipsWebSession: Bool = false) {
         app.launchArguments = ["-yakTestInstance", stub.url]
+        if skipsWebSession { app.launchArguments += ["-yakTestSkipWebSession", "YES"] }
         if paired { app.launchArguments += ["-yakTestToken", "stub-token"] }
         app.launch()
     }
@@ -65,6 +66,36 @@ import XCTest
         XCTAssertTrue(app.staticTexts["No Yak at this address"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.textFields.firstMatch.value as? String, stub.address)
         try audit()
+    }
+
+    /// Opens the link the way the system does, in the running app. `XCUIApplication.open` would relaunch the
+    /// app and lose what the test typed.
+    private func openLink() { XCUIDevice.shared.system.open(stub.pairingLink) }
+
+    func testACancelledPairingLinkLeavesTheTypedAddressAlone() throws {
+        try stub.play("paired")
+        launch()
+        try typeAddressOnConnectScreen()
+        openLink()
+        let cancel = app.buttons["Cancel pairing"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+        cancel.tap()
+        XCTAssertTrue(app.textFields.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textFields.firstMatch.value as? String, stub.address)
+    }
+
+    func testACancelledPairingLinkLeavesARunningSignInAlone() throws {
+        try stub.play("approval-pending")
+        launch(skipsWebSession: true)
+        try typeAddressOnConnectScreen()
+        app.textFields.firstMatch.typeText("\n")
+        XCTAssertTrue(label(containing: "Waiting for you to approve").waitForExistence(timeout: 10))
+        try stub.play("paired")
+        openLink()
+        let cancel = app.buttons["Cancel pairing"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+        cancel.tap()
+        XCTAssertTrue(label(containing: "Waiting for you to approve").waitForExistence(timeout: 5))
     }
 
     /// The accessibility audit; a failure names the element and what is wrong with it.

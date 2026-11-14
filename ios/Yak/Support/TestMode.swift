@@ -6,13 +6,14 @@
     ///
     /// Launch arguments: `-yakTestInstance <url>` turns it on, `-yakTestToken <token>` also starts the app
     /// paired with that instance, `-yakTestKeychainLocked YES` makes reading a token fail like a locked
-    /// Keychain. The network state comes from the stub's `/__stub/online`, so a test can take the app offline and
+    /// Keychain, `-yakTestSkipWebSession YES` keeps the system web sign-in sheet closed so the waiting screen can be seen. The network state comes from the stub's `/__stub/online`, so a test can take the app offline and
     /// bring it back. In test mode nothing is read from or written to the real Keychain or `UserDefaults`, and
     /// plain `http://127.0.0.1` addresses and pairing links are accepted, which Release never does.
     struct TestMode {
         let instance: URL
         let token: String?
         let isKeychainLocked: Bool
+        let skipsWebSession: Bool
 
         static func current(_ defaults: UserDefaults = .standard) -> TestMode? {
             guard let address = defaults.string(forKey: "yakTestInstance"), let instance = URL(string: address) else {
@@ -20,14 +21,15 @@
             }
             return TestMode(
                 instance: instance, token: defaults.string(forKey: "yakTestToken"),
-                isKeychainLocked: defaults.bool(forKey: "yakTestKeychainLocked"))
+                isKeychainLocked: defaults.bool(forKey: "yakTestKeychainLocked"),
+                skipsWebSession: defaults.bool(forKey: "yakTestSkipWebSession"))
         }
 
         @MainActor func makeModel(version: String, system: String) -> AppModel {
             let lockable = LockableTokenStore()
             let instances = InstanceStore(defaults: MemoryDefaults(), tokens: lockable, now: { Date() })
             let seed = self
-            return AppModel(
+            let model = AppModel(
                 instances: instances, tokens: lockable,
                 makeClient: { url in
                     APIClient(
@@ -48,6 +50,8 @@
                     if seed.isKeychainLocked { lockable.lockReads() }
                 },
                 network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }))
+            model.skipsWebSession = skipsWebSession
+            return model
         }
 
         /// Reads `GET /__stub/online`; a stub that cannot be reached counts as online, so a stopped stub is not "offline".

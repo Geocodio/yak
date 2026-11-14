@@ -40,6 +40,11 @@ final class AppModel {
     /// Runs once before the first route is chosen; UI tests seed their instance here.
     private var prepare: (@Sendable (InstanceStore) async -> Void)?
     let network: NetworkMonitor
+    /// How many sheets are open. The pairing link screen is presented by the topmost one, because a screen
+    /// cannot present over a sheet that its own parent presented.
+    var openSheetCount = 0
+    /// Debug test mode only: show the waiting screen without opening the system web sign-in sheet.
+    var skipsWebSession = false
 
     init(
         instances: InstanceStore, tokens: any TokenStore, makeClient: @escaping @Sendable (URL) -> APIClient,

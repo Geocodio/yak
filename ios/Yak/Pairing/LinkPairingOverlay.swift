@@ -2,19 +2,23 @@ import SwiftUI
 import YakKit
 
 extension View {
-    /// Covers the screen while a scanned or opened pairing link is being paired, and shows why it failed.
-    func linkPairingStatus(_ model: AppModel) -> some View {
-        // What the overlay covers cannot be tapped while a pairing shows. Screens hide their own content from
-        // VoiceOver with `hidesBehindLinkPairing`, because a navigation stack ignores a modifier set outside it.
-        allowsHitTesting(model.linkPairing == nil)
-            .overlay { LinkPairingOverlay(model: model) }
+    /// Covers the whole screen while a scanned or opened pairing link is being paired, and shows why it failed.
+    /// A full-screen cover keeps what is under it alive, so typed text and a running sign-in survive a
+    /// cancelled link, and the system takes the covered screen out of VoiceOver and the audit tree (hiding
+    /// it by modifier does not work on a wide screen). A sheet presents its own cover (`inSheet`), and the
+    /// cover of the screen under a sheet stands down while the sheet is open.
+    func linkPairingStatus(_ model: AppModel, inSheet: Bool = false) -> some View {
+        fullScreenCover(
+            isPresented: Binding(
+                get: { model.linkPairing != nil && (inSheet || model.openSheetCount == 0) }, set: { _ in })
+        ) {
+            LinkPairingOverlay(model: model)
+        }
     }
-}
 
-extension View {
-    /// Takes this screen out of the accessibility tree while the pairing overlay covers it.
-    func hidesBehindLinkPairing(_ model: AppModel) -> some View {
-        accessibilityHidden(model.linkPairing != nil)
+    /// Counts this view as an open sheet while it is on screen.
+    func countsAsOpenSheet(_ model: AppModel) -> some View {
+        onAppear { model.openSheetCount += 1 }.onDisappear { model.openSheetCount -= 1 }
     }
 }
 
@@ -27,6 +31,8 @@ private struct LinkPairingOverlay: View {
         ZStack {
             if let pairingModel = model.linkPairing { content(pairingModel.state) }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground).ignoresSafeArea())
         .task(id: model.linkPairing?.state) {
             showsChecking = false
             guard model.linkPairing?.state == .checking else { return }

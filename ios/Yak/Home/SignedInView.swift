@@ -57,7 +57,6 @@ struct SignedInView: View {
             .frame(maxWidth: 640)
             .frame(maxWidth: .infinity)
             .background(Color(.systemGroupedBackground))
-            .hidesBehindLinkPairing(model)
             .navigationTitle("signedIn.title")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -89,7 +88,8 @@ struct SignedInView: View {
         .sheet(isPresented: $showsAdd) {
             NavigationStack {
                 ConnectView(model: model, onDone: { showsAdd = false })
-                    .linkPairingStatus(model)
+                    .linkPairingStatus(model, inSheet: true)
+                    .countsAsOpenSheet(model)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("address.cancel") { showsAdd = false }

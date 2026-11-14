@@ -17,13 +17,14 @@ platform :ios do
     sh("#{File.join(IOS_ROOT, "scripts/check-rules.sh").shellescape}")
   end
 
-  desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\""
+  desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\" only:testName"
   lane :ui_smoke do |options|
     device = options[:device] || "iPhone 18 Pro"
     with_stub do |port, build_directory|
-      result_path = File.join(build_directory, "ui-smoke-#{device.gsub(/\W+/, "-")}.xcresult")
+      result_path = File.join(build_directory, "ui-smoke-#{device.gsub(/\W+/, "-").gsub(/\A-+|-+\z/, "")}.xcresult")
       FileUtils.rm_rf(result_path)
-      run_ui_tests(device, port, result_path, "-only-testing:YakUITests -skip-testing:YakUITests/WalkthroughTests", {})
+      selection = "-only-testing:YakUITests#{options[:only] ? "/PairingSmokeTests/#{options[:only]}" : ""} -skip-testing:YakUITests/WalkthroughTests"
+      run_ui_tests(device, port, result_path, selection, {})
     end
   end
 
@@ -32,7 +33,7 @@ platform :ios do
   lane :walkthrough do |options|
     device = options[:device] || "iPhone 18 Pro"
     appearance = options[:appearance] || "light"
-    device_folder = device.gsub(/\W+/, "-")
+    device_folder = device.gsub(/\W+/, "-").gsub(/\A-+|-+\z/, "")
     environment = {
       "YAK_SHOT_DIR" => File.join(IOS_ROOT, "build/screenshots", device_folder, appearance),
       "YAK_APPEARANCE" => appearance == "dark" ? "dark" : "light",

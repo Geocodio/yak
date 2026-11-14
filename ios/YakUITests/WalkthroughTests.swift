@@ -61,6 +61,16 @@ import XCTest
     }
 
     func testAddressWaitingForApproval() throws {
+        // Test mode keeps the system web sheet closed, so the waiting screen itself can be audited.
+        try start("approval-pending", skipsWebSession: true)
+        try openAddress()
+        try type(stub.address)
+        try submit()
+        XCTAssertTrue(label("Waiting for you to approve").waitForExistence(timeout: 10))
+        try shoot("sign-in-wait")
+    }
+
+    func testAddressWaitingWithSystemSheet() throws {
         try start("approval-pending")
         try openAddress()
         try type(stub.address)
@@ -71,14 +81,13 @@ import XCTest
         try continuePastSystemPrompt()
         // The web sign-in sheet is open over the waiting screen; the sheet is the system's, so it is not audited.
         try shoot("sign-in-wait-sheet", audits: false)
-        // Closing the sheet shows what the person sees next in the app.
         let sheet = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
         let close = sheet.buttons.matching(NSPredicate(format: "label IN {'Close', 'Done', 'Cancel'}")).firstMatch
         XCTAssertTrue(close.waitForExistence(timeout: 5), "no close button on the sign-in sheet")
         close.tap()
         // A closed sheet cancels the sign-in and leaves the address screen, ready to try again.
         XCTAssertTrue(app.buttons["Continue to sign in"].waitForExistence(timeout: 10))
-        try shoot("sign-in-wait")
+        try shoot("sign-in-cancelled")
     }
 
     func testAddressNoteForNotYak() throws {
@@ -118,14 +127,14 @@ import XCTest
 
     func testLinkChecking() throws {
         try start("slow")
-        app.open(stub.pairingLink)
+        openLink()
         XCTAssertTrue(label("Pairing with your Yak").waitForExistence(timeout: 5))
         try shoot("link-checking")
     }
 
     func testLinkCheckingSlowly() throws {
         try start("slower")
-        app.open(stub.pairingLink)
+        openLink()
         XCTAssertTrue(label("The connection is slow").waitForExistence(timeout: 12))
         try shoot("link-checking-slow")
     }
@@ -142,6 +151,38 @@ import XCTest
         try openLinkAndWaitForConfirmation()
         XCTAssertTrue(label("replaces the instance").exists)
         try shoot("link-confirmation-replaces")
+    }
+
+    func testLinkOverTheAddSheet() throws {
+        try start("paired", paired: true)
+        XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
+        app.buttons["Add an instance"].tap()
+        XCTAssertTrue(app.buttons["Scan a code"].waitForExistence(timeout: 5))
+        try openLinkAndWaitForConfirmation()
+        try shoot("link-over-add-sheet")
+    }
+
+    func testLinkOverSignedIn() throws {
+        try start("paired", paired: true)
+        XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
+        try openLinkAndWaitForConfirmation()
+        try shoot("link-over-signed-in")
+    }
+
+    func testLinkOverPairAgain() throws {
+        try start("revoked", paired: true)
+        XCTAssertTrue(app.buttons["Pair again"].waitForExistence(timeout: 10))
+        try openLinkAndWaitForConfirmation()
+        try shoot("link-over-pair-again")
+    }
+
+    func testLinkOverPairAgainAddressSheet() throws {
+        try start("revoked", paired: true)
+        XCTAssertTrue(app.buttons["Pair again"].waitForExistence(timeout: 10))
+        app.buttons["Pair again"].tap()
+        XCTAssertTrue(app.textFields.firstMatch.waitForExistence(timeout: 5))
+        try openLinkAndWaitForConfirmation()
+        try shoot("link-over-pair-again-address-sheet")
     }
 
     func testLinkRedeeming() throws {
@@ -262,9 +303,10 @@ import XCTest
 
     private func linkCheckProblem(_ scenario: String, _ title: String) throws {
         try start(scenario)
-        app.open(stub.pairingLink)
+        openLink()
         XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 12))
-        XCTAssertFalse(app.staticTexts["Connect to your Yak"].exists, "the screen behind the overlay is hidden")
+        // On a wide screen the covered screen can stay in the query results; a person cannot reach it.
+        XCTAssertFalse(app.staticTexts["Connect to your Yak"].isHittable, "the screen behind the overlay is reachable")
         try expectProblem(title, shot: "link-problem-\(scenario)")
     }
 
@@ -290,18 +332,25 @@ import XCTest
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Pair with'")).firstMatch
     }
 
+    /// Opens the link the way the system does, in the running app. `XCUIApplication.open` would relaunch the
+    /// app, which loses the screen the link is meant to arrive over.
+    private func openLink() { XCUIDevice.shared.system.open(stub.pairingLink) }
+
     private func openLinkAndWaitForConfirmation() throws {
-        app.open(stub.pairingLink)
+        openLink()
         XCTAssertTrue(pairButton.waitForExistence(timeout: 10))
     }
 
     // MARK: Helpers
 
-    private func start(_ scenario: String, paired: Bool = false, keychainLocked: Bool = false) throws {
+    private func start(
+        _ scenario: String, paired: Bool = false, keychainLocked: Bool = false, skipsWebSession: Bool = false
+    ) throws {
         try stub.play(scenario)
         var arguments = ["-yakTestInstance", stub.url]
         if paired { arguments += ["-yakTestToken", "stub-token"] }
         if keychainLocked { arguments += ["-yakTestKeychainLocked", "YES"] }
+        if skipsWebSession { arguments += ["-yakTestSkipWebSession", "YES"] }
         if environment["YAK_TEXT_SIZE"] == "largest" {
             arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
@@ -373,21 +422,19 @@ import XCTest
             {
                 return true
             }
-            // The screen under a pairing overlay is out of the accessibility tree and covered; a finding on an
-            // element that cannot be found or reached is not something a person sees.
-            if issue.auditType == .contrast, let element = issue.element,
-                !label(element.label).exists
+            // The audit cannot match some text under the dimming of a sheet to an element.
+            if issue.auditType == .elementDetection, issue.element == nil,
+                ["signed-in-add-sheet", "pair-again-address-sheet"].contains(name)
             {
                 return true
             }
-            // The audit cannot match some text under the dimming of a sheet to an element.
-            if issue.auditType == .elementDetection, issue.element == nil { return true }
             // Text below the screen on a scrolling page, or a finding without an element, cannot be judged by
             // the pixels shown.
             let screenBottom = app.windows.firstMatch.frame.maxY
-            // At the largest text size a page scrolls, and the line cut by the screen edge has no element of its own.
+            // At the largest text size the long replacement note runs past the screen edge, and the line cut by the
+            // edge has no element of its own.
             if issue.auditType == .contrast, issue.element == nil, environment["YAK_TEXT_SIZE"] == "largest",
-                app.scrollViews.firstMatch.exists
+                name == "link-confirmation-replaces"
             {
                 return true
             }

@@ -37,7 +37,7 @@ Format check and project rules
 [bundle exec] fastlane ios ui_smoke
 ```
 
-UI smoke tests against the stub server: fastlane ui_smoke device:"iPhone Duo"
+UI smoke tests against the stub server: fastlane ui_smoke device:"iPhone Duo" only:testName
 
 ### ios walkthrough
 
