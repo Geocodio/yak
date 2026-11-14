@@ -10,6 +10,9 @@ export type PanelProps = {
     notice?: ThreadNotice | null;
     composerState?: ThreadComposer['state'];
     capacity?: ThreadCapacity | null;
+    composer?: ThreadComposer;
+    /** Catalog label of each model id and family alias. */
+    modelLabels?: Record<string, string>;
     accountName?: string | null;
     environmentSwitch?: TeleportData['environmentSwitch'];
     /** The thread's stack, loaded once by the page; null until it arrives. */

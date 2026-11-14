@@ -8,6 +8,7 @@ use App\Models\ClaudeAccount;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadSession;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
@@ -16,13 +17,30 @@ it('is idle on an open thread without a running turn', function () {
     $account = ClaudeAccount::factory()->create(['name' => 'Work']);
     $thread = Thread::factory()->create(['model' => 'opus', 'claude_account_id' => $account->id]);
 
-    expect(ThreadComposerData::for($thread, User::factory()->create()))->toBe([
+    $composer = ThreadComposerData::for($thread, User::factory()->create());
+    unset($composer['contextWindows']);
+
+    expect($composer)->toBe([
         'state' => 'idle',
         'model' => 'opus',
         'models' => app(ClaudeModelCatalog::class)->families(),
         'accountName' => 'Work',
         'nextAttachmentNumber' => 1,
+        'context' => null,
     ]);
+});
+
+it('measures the active session against each model window', function () {
+    $thread = Thread::factory()->create();
+    ThreadSession::factory()->create(['thread_id' => $thread->id, 'context_usage' => ['input' => 10, 'cacheRead' => 150, 'cacheCreation' => 40]]);
+
+    $composer = ThreadComposerData::for($thread, User::factory()->create());
+
+    expect($composer['context'])->toBe(['tokens' => 200, 'input' => 10, 'cacheRead' => 150, 'cacheCreation' => 40])
+        ->and($composer['contextWindows']['claude-sonnet-5-5'])->toBe(1_000_000)
+        ->and($composer['contextWindows']['sonnet'])->toBe(1_000_000)
+        ->and($composer['contextWindows']['opus'])->toBe(200_000)
+        ->and($composer['contextWindows']['default'])->toBe(200_000);
 });
 
 it('is working while a turn runs', function () {

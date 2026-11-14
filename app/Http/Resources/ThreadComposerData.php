@@ -28,7 +28,7 @@ final class ThreadComposerData
     ];
 
     /**
-     * @return array{state: 'idle'|'working'|'disabled_closed'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>, accountName: ?string, nextAttachmentNumber: int}
+     * @return array{state: 'idle'|'working'|'disabled_closed'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>}
      */
     public static function for(Thread $thread, ?User $viewer): array
     {
@@ -53,6 +53,41 @@ final class ThreadComposerData
             'models' => app(ClaudeModelCatalog::class)->families(),
             'accountName' => $thread->claudeAccount?->name,
             'nextAttachmentNumber' => $attachments + 1,
+            'context' => self::context($thread),
+            'contextWindows' => self::contextWindows(),
         ];
+    }
+
+    /**
+     * What the thread's current session holds, as of its latest assistant message.
+     *
+     * @return array{tokens: int, input: int, cacheRead: int, cacheCreation: int}|null
+     */
+    private static function context(Thread $thread): ?array
+    {
+        $usage = $thread->activeSession()?->context_usage;
+
+        return $usage === null ? null : ['tokens' => array_sum($usage)] + $usage;
+    }
+
+    /**
+     * Window size by model id and family alias, plus `default` for a thread with no model. The page
+     * measures the session against the model the composer has selected, which can differ from the
+     * session's.
+     *
+     * @return array<string, int>
+     */
+    private static function contextWindows(): array
+    {
+        $catalog = app(ClaudeModelCatalog::class);
+        $default = (int) config('claude-accounts.default_context_window');
+        $configured = (array) config('claude-accounts.context_windows');
+        $windows = ['default' => $default];
+
+        foreach ([...ClaudeModelCatalog::FAMILIES, ...array_column($catalog->entries(), 'id')] as $model) {
+            $windows[$model] = (int) ($configured[$catalog->resolve($model)] ?? $default);
+        }
+
+        return $windows;
     }
 }

@@ -180,6 +180,10 @@ export type ThreadComposer = {
     models: ModelFamily[];
     accountName: string | null;
     nextAttachmentNumber: number;
+    /** What the current session holds as of its latest assistant message; null until measured. */
+    context: { tokens: number; input: number; cacheRead: number; cacheCreation: number } | null;
+    /** Window size by model id and family alias, plus `default`. */
+    contextWindows: Record<string, number> & { default: number };
 };
 
 export type ThreadNoticeKind =

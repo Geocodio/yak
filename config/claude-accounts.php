@@ -20,5 +20,17 @@ return [
         ['id' => 'claude-haiku-5-5', 'family' => 'haiku', 'label' => 'Haiku 5.5'],
     ],
 
+    /*
+     * Context window in tokens by exact model id. Sonnet 5.5 and Haiku 5.5 are the sizes the runner
+     * reports as `contextWindow` in recorded result events. Opus 5.5 and Fable 5.2 are not verified
+     * and use the default.
+     */
+    'context_windows' => [
+        'claude-sonnet-5-5' => 1_000_000,
+        'claude-haiku-5-5' => 1_000_000,
+    ],
+
+    'default_context_window' => 200_000,
+
     'expiry_warning_days' => 14,
 ];

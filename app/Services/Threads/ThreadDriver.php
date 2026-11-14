@@ -428,6 +428,10 @@ class ThreadDriver
             $run->setAttribute('assistant_turns', (int) $run->getAttribute('assistant_turns') + 1);
         }
 
+        if ($type === 'assistant') {
+            $this->recordContextUsage($thread, $run, $line);
+        }
+
         if ($type === 'result') {
             $run->setAttribute('last_result_event', $line);
         }
@@ -441,6 +445,33 @@ class ThreadDriver
         }
 
         $this->applyChange($thread, $run, $tracker, $tracker->apply($line, $at), $events);
+    }
+
+    /**
+     * The context a session holds is the input side of its latest assistant message. A sub-agent's
+     * messages run in a context of their own and are skipped. A result line sums a whole turn, so it
+     * is not used.
+     *
+     * @param  array<string, mixed>  $line
+     */
+    private function recordContextUsage(Thread $thread, TaskRun $run, array $line): void
+    {
+        $usage = $line['message']['usage'] ?? null;
+        $sessionId = (string) ($line['session_id'] ?? $run->getAttribute('session_id'));
+
+        if (! is_array($usage) || ($line['parent_tool_use_id'] ?? null) !== null || $sessionId === '') {
+            return;
+        }
+
+        $context = [
+            'input' => (int) ($usage['input_tokens'] ?? 0),
+            'cacheRead' => (int) ($usage['cache_read_input_tokens'] ?? 0),
+            'cacheCreation' => (int) ($usage['cache_creation_input_tokens'] ?? 0),
+        ];
+
+        if (array_sum($context) > 0) {
+            ThreadSession::query()->where('thread_id', $thread->id)->where('session_id', $sessionId)->update(['context_usage' => json_encode($context)]);
+        }
     }
 
     private function trackerFor(TaskRun $run): TurnTracker

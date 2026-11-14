@@ -109,6 +109,8 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         canDrive,
         notice,
         composerState: composer.state,
+        composer,
+        modelLabels,
         capacity,
         accountName: composer.accountName,
         environmentSwitch: teleport.environmentSwitch,
