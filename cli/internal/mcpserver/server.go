@@ -13,7 +13,7 @@ import (
 const MaxLineBytes = 1 << 20
 
 // RefusalText is what spawn_thread answers.
-const RefusalText = "Teleport this session to Yak first. Sub-threads run on Yak. Run /yak teleport, then ask again."
+const RefusalText = "Teleport this session to Yak first. Sub-threads run on Yak. Run /yak:yak teleport, then ask again."
 
 type request struct {
 	ID     json.RawMessage `json:"id"`

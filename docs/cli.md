@@ -157,7 +157,7 @@ Error messages:
 
 | Message | Fix |
 | --- | --- |
-| `Teleport it up first, preview, terminal and ssh are unavailable for a thread on your computer.` | Run `/yak teleport` in the session. |
+| `Teleport it up first, preview, terminal and ssh are unavailable for a thread on your computer.` | Run `/yak:yak teleport` in the session. |
 | `The sandbox was destroyed. Restore it from the thread page: <url>` | Open the thread and restore the sandbox. |
 | `This thread is closed, its branch and PR carry the result.` | Nothing to open. |
 | `You need driving rights on this thread to open a shell.` | Ask the thread owner. |
@@ -202,24 +202,24 @@ The plugin calls these. You do not run them yourself.
 | --- | --- |
 | `yak hook session-start`, `yak hook user-prompt-submit` | The plugin's hooks. |
 | `yak mcp` | The plugin's MCP server named `yak`. |
-| `yak slash-teleport` | The `/yak` slash command. |
+| `yak slash-teleport` | The `/yak:yak` slash command. |
 
-## The /yak slash command
+## The /yak:yak slash command
 
-Inside Claude Code the plugin adds `/yak teleport`, described as "Teleport this session to Yak". It runs `yak teleport` for the current session and shows the output.
+Inside Claude Code the plugin adds `/yak:yak teleport`, described as "Teleport this session to Yak". It runs `yak teleport` for the current session and shows the output.
 
 | Form | Meaning |
 | --- | --- |
-| `/yak teleport` | Move this session to Yak. |
-| `/yak teleport "Fix the lint failure on the PR"` | Move it and send this as the first message. Text that does not start with a flag or a thread number is the message. |
-| `/yak teleport <thread>` | Bring a thread down to this checkout. |
-| `/yak teleport --add-dir ../acme-api` | Any `yak teleport` flag works after the word `teleport`. |
+| `/yak:yak teleport` | Move this session to Yak. |
+| `/yak:yak teleport "Fix the lint failure on the PR"` | Move it and send this as the first message. Text that does not start with a flag or a thread number is the message. |
+| `/yak:yak teleport <thread>` | Bring a thread down to this checkout. |
+| `/yak:yak teleport --add-dir ../acme-api` | Any `yak teleport` flag works after the word `teleport`. |
 
-Any other word after `/yak` shows `Could not read that command: unknown subcommand ... Usage: /yak teleport [<thread>] ["message"] [options]`.
+Any other word after `/yak:yak` shows `Could not read that command: unknown subcommand ... Usage: /yak:yak teleport [<thread>] ["message"] [options]`.
 
 ## What the plugin hooks do
 
 - On resume of a session, the plugin shows the environment note for a thread you just teleported down, once. If the thread is on your computer, it also shows unseen messages from its sub-threads, as `Message from Yak, <title> (<kind>)`.
 - When you send a prompt in a session whose thread is on Yak, the plugin blocks it with `This session is on Yak. Run yak teleport <N> to bring it back, or run yak marker clear <id> to use it as a local session again (its work can be teleported up as a new thread).`
 - Sessions with no marker are untouched. The hooks make no network call without a marker, wait at most 3 seconds for Yak, and never fail a prompt.
-- The `yak` MCP server has one tool, `spawn_thread`. It always refuses with "Teleport this session to Yak first. Sub-threads run on Yak. Run /yak teleport, then ask again."
+- The `yak` MCP server has one tool, `spawn_thread`. It always refuses with "Teleport this session to Yak first. Sub-threads run on Yak. Run /yak:yak teleport, then ask again."

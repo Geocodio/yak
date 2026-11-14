@@ -119,7 +119,7 @@ Reasons shown after "Refused" or "Unavailable": "This thread is closed.", "This 
 | `Yak has no SSH key for you yet. Add one at <url>` | `yak ssh` | Add a key in Settings, SSH keys. |
 | `You need driving rights on this thread to open a shell.` | Both | Ask the owner for driving rights. |
 | `This thread is closed, its branch and PR carry the result.` | `yak ssh` | Nothing to open. |
-| `Teleport it up first, preview, terminal and ssh are unavailable for a thread on your computer.` | `yak ssh` | Run `/yak teleport` from the session. |
+| `Teleport it up first, preview, terminal and ssh are unavailable for a thread on your computer.` | `yak ssh` | Run `/yak:yak teleport` from the session. |
 | `The sandbox was destroyed. Restore it from the thread page: <url>` | `yak ssh` | Restore it, then retry. |
 | `SSH access is not set up on this Yak.` | `yak ssh` | Ask your operator. |
 | `Permission denied (publickey)` | `ssh`, `scp` | The key you offered is not one Yak knows. Use a key listed in Settings, SSH keys, or load it in your agent. |

@@ -23,13 +23,13 @@ export function TeleportToYakDialog({ thread, teleport, open, onClose }: { threa
             <div className="flex flex-col gap-4 p-5 text-[13px]">
                 <div className="flex flex-col gap-1.5">
                     <p className="font-medium">In the Claude Code session on {device}</p>
-                    <CommandBlock command="/yak teleport" testId="teleport-command" prefix="" />
+                    <CommandBlock command="/yak:yak teleport" testId="teleport-command" prefix="" />
                     <p className="text-[12px] text-muted">Claude waits on Yak for your next message.</p>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
                     <p className="font-medium">To start a turn right away</p>
-                    <CommandBlock command={'/yak teleport "Fix the lint failure on the PR"'} testId="teleport-command-with-message" prefix="" />
+                    <CommandBlock command={'/yak:yak teleport "Fix the lint failure on the PR"'} testId="teleport-command-with-message" prefix="" />
                 </div>
 
                 {hasHeld && (
