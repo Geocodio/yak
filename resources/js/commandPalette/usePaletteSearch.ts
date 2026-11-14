@@ -17,7 +17,8 @@ const NO_RESULTS: PaletteSearchResults = { threads: [], repositories: [], pullRe
 export function usePaletteSearch(query: string, isOpen: boolean): { threads: PaletteSearchThread[]; repositories: PaletteSearchRepository[]; pullRequests: PaletteSearchPullRequest[]; isLoading: boolean } {
     const [results, setResults] = useState<PaletteSearchResults>(NO_RESULTS);
     const [isLoading, setIsLoading] = useState(false);
-    const guard = useRef(latestOnly<PaletteSearchResults>());
+    const guard = useRef<ReturnType<typeof latestOnly<PaletteSearchResults>> | null>(null);
+    guard.current ??= latestOnly<PaletteSearchResults>();
     const trimmed = query.trim();
     const isSearching = isOpen && trimmed.length >= MINIMUM_CHARACTERS;
 
@@ -32,7 +33,7 @@ export function usePaletteSearch(query: string, isOpen: boolean): { threads: Pal
         const controller = new AbortController();
         setIsLoading(true);
         const timer = setTimeout(() => {
-            guard.current(fetchJsonWithRetry<PaletteSearchResults>(search.url({ query: { query: trimmed } }), { signal: controller.signal }))
+            (guard.current as NonNullable<typeof guard.current>)(fetchJsonWithRetry<PaletteSearchResults>(search.url({ query: { query: trimmed } }), { signal: controller.signal }))
                 .then((body) => {
                     if (body !== null && !controller.signal.aborted) {
                         setResults(body);
@@ -41,6 +42,7 @@ export function usePaletteSearch(query: string, isOpen: boolean): { threads: Pal
                 })
                 .catch(() => {
                     if (!controller.signal.aborted) {
+                        setResults(NO_RESULTS);
                         setIsLoading(false);
                     }
                 });
