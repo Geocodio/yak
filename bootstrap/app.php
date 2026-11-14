@@ -3,7 +3,7 @@
 use App\Channels\Drone\PollCommand;
 use App\Exceptions\TeleportError;
 use App\Http\Middleware\AuthenticateDevice;
-use App\Http\Middleware\CliProtocol;
+use App\Http\Middleware\ClientProtocol;
 use App\Http\Middleware\EnsureTaskDriveRights;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
@@ -39,11 +39,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'restrict-to-ingress' => RestrictToIngress::class,
             'session-store-token' => VerifySessionStoreToken::class,
             'ssh-internal-token' => VerifySshInternalToken::class,
-            'cli.protocol' => CliProtocol::class,
+            'client.protocol' => ClientProtocol::class,
             'auth.device' => AuthenticateDevice::class,
             'task.drive' => EnsureTaskDriveRights::class,
         ]);
-        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: CliProtocol::class);
+        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: ClientProtocol::class);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
         // The preview cookie is minted as a raw Set-Cookie header on the preview host, so it is never Laravel-encrypted.
         $middleware->encryptCookies(except: [PreviewAccess::COOKIE_NAME]);

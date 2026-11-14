@@ -108,7 +108,7 @@ use App\Http\Controllers\Threads\ThreadSharedFileController;
 use App\Http\Controllers\Threads\ThreadStarController;
 use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
-use App\Http\Middleware\CliProtocol;
+use App\Http\Middleware\ClientProtocol;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -439,7 +439,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Device flow and CLI API: no session, authenticated by signed codes or device tokens.
-Route::prefix('api/cli/v1')->middleware('cli.protocol')->withoutMiddleware(CliProtocol::WITHOUT_WEB_STATE)->group(function (): void {
+Route::prefix('api/cli/v1')->middleware('client.protocol:cli')->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->group(function (): void {
     Route::post('device/code', DeviceCodeController::class)->middleware('throttle:cli-device-code')->name('cli.device.code');
     Route::post('device/token', DeviceTokenController::class)->name('cli.device.token');
 
@@ -451,8 +451,8 @@ Route::prefix('api/cli/v1')->middleware('cli.protocol')->withoutMiddleware(CliPr
 });
 
 Route::prefix('api/cli/v1')
-    ->middleware(['cli.protocol', 'auth.device'])
-    ->withoutMiddleware(CliProtocol::WITHOUT_WEB_STATE)
+    ->middleware(['client.protocol:cli', 'auth.device'])
+    ->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)
     ->group(function (): void {
         Route::get('threads/by-session/{sessionId}', [ThreadLookupController::class, 'bySession']);
         Route::get('threads/{thread}', [ThreadLookupController::class, 'show']);

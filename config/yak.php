@@ -20,6 +20,11 @@ return [
         'min_protocol' => 1,
     ],
 
+    'app' => [
+        'protocol' => 1,
+        'min_protocol' => 1,
+    ],
+
     'teleport' => [
         'marketplace' => env('YAK_TELEPORT_MARKETPLACE', 'Geocodio/yak'),
         'expiry_minutes' => (int) env('YAK_TELEPORT_EXPIRY_MINUTES', 30),

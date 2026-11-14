@@ -1,14 +1,14 @@
 <?php
 
 use App\Http\Middleware\AuthenticateDevice;
-use App\Http\Middleware\CliProtocol;
+use App\Http\Middleware\ClientProtocol;
 use App\Models\Device;
 use App\Services\Devices\DeviceTokens;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 beforeEach(function () {
-    Route::middleware(['web', 'cli.protocol', 'auth.device'])->withoutMiddleware(CliProtocol::WITHOUT_WEB_STATE)->get('/api/cli/v1/test-device', fn (Request $request) => response()->json([
+    Route::middleware(['web', 'client.protocol:cli', 'auth.device'])->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->get('/api/cli/v1/test-device', fn (Request $request) => response()->json([
         'device_id' => AuthenticateDevice::device($request)->id,
         'user_id' => $request->user()->id,
         'guard_user_id' => auth()->guard('web')->id(),
