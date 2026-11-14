@@ -1,0 +1,21 @@
+{
+    "base_url": "<volatile>",
+    "device": {
+        "arch": "arm64",
+        "created_at": "<volatile>",
+        "id": "<volatile>",
+        "last_seen_at": "<volatile>",
+        "last_teleport_thread_id": null,
+        "name": "<volatile>",
+        "os": "darwin"
+    },
+    "protocol": {
+        "current": 1,
+        "min": 1
+    },
+    "user": {
+        "email": "<volatile>",
+        "id": "<volatile>",
+        "name": "<volatile>"
+    }
+}
