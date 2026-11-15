@@ -9,6 +9,7 @@ function classifiedRouteNames(): array
         ...VisibilityRoutes::global(),
         ...VisibilityRoutes::lists(),
         ...VisibilityRoutes::hosts(),
+        ...VisibilityRoutes::appThreads(),
     ];
 }
 

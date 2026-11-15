@@ -1,23 +1,6 @@
 <?php
 
-use App\Models\Device;
-use App\Models\User;
-use App\Services\Devices\DeviceTokens;
 use Tests\Support\ContractFixture;
-
-/**
- * @param  array<string, mixed>  $attributes
- * @return array{0: Device, 1: array<string, string>}
- */
-function phoneWithHeaders(array $attributes = [], bool $isPhone = true): array
-{
-    $token = app(DeviceTokens::class)->generate();
-    $attributes += ['user_id' => User::factory()->create(['name' => 'Test Person', 'email' => 'person@example.test'])->id, 'name' => 'Test phone'];
-    $factory = $isPhone ? Device::factory()->phone() : Device::factory();
-    $device = $factory->create(['token_hash' => app(DeviceTokens::class)->hash($token)] + $attributes);
-
-    return [$device, ['X-Yak-Protocol' => '1', 'Authorization' => "Bearer {$token}"]];
-}
 
 it('reports what the app needs at runtime', function () {
     config([

@@ -220,6 +220,16 @@ class VisibilityRoutes
     }
 
     /**
+     * Route names of the app API's thread endpoints; each task adds its own.
+     *
+     * @return list<string>
+     */
+    public static function appThreads(): array
+    {
+        return [];
+    }
+
+    /**
      * Routes with no id that list or aggregate across threads. Each is swept
      * for leaks in VisibilityListSurfacesTest.
      *

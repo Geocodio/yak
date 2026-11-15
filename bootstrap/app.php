@@ -2,9 +2,11 @@
 
 use App\Channels\Drone\PollCommand;
 use App\Exceptions\TeleportError;
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Middleware\AuthenticateDevice;
 use App\Http\Middleware\ClientProtocol;
 use App\Http\Middleware\EnsureTaskDriveRights;
+use App\Http\Middleware\EnsureThreadDriveRights;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
 use App\Http\Middleware\StampClientProtocol;
@@ -50,6 +52,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'client.protocol' => ClientProtocol::class,
             'auth.device' => AuthenticateDevice::class,
             'task.drive' => EnsureTaskDriveRights::class,
+            'thread.drive' => EnsureThreadDriveRights::class,
         ]);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: ClientProtocol::class);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
@@ -106,6 +109,17 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return CliError::make($e->errorCode, $e->getMessage(), $e->status, $e->details);
+        });
+        $exceptions->render(function (ThreadActionRefused $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json([
+                'error' => $e->errorCode,
+                'message' => $e->getMessage(),
+                ...($e->details === [] ? [] : ['details' => (object) $e->details]),
+            ], $e->status);
         });
         $exceptions->render(function (AuthorizationException|AccessDeniedHttpException $e, Request $request) {
             if (ClientApi::for($request) === null) {

@@ -1,0 +1,7 @@
+{
+    "details": {
+        "reason": "waiting_for_repository"
+    },
+    "error": "thread_blocked",
+    "message": "This thread has not started yet. It starts when its repository is set up."
+}

@@ -162,11 +162,13 @@ it('limits instance discovery to 60 a minute per address', function () {
     $this->getJson('/api/app/v1/instance')->assertStatus(429)->assertJsonPath('error', 'rate_limited')->assertHeader('X-Yak-Protocol');
 });
 
-it('binds a numeric thread id by primary key on the app API like on the CLI API', function (string $api) {
+it('binds a numeric thread id by primary key on the CLI API only', function (string $api) {
     $thread = Thread::factory()->create();
     Route::middleware(['web'])->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->get("/api/{$api}/v1/test-bind/{thread}", fn (Thread $thread) => response()->json(['id' => $thread->id]));
 
-    $this->getJson("/api/{$api}/v1/test-bind/{$thread->id}", ['X-Yak-Protocol' => '1'])->assertOk()->assertJsonPath('id', $thread->id);
+    $response = $this->getJson("/api/{$api}/v1/test-bind/{$thread->id}", ['X-Yak-Protocol' => '1']);
+
+    $api === 'cli' ? $response->assertOk()->assertJsonPath('id', $thread->id) : $response->assertNotFound();
 })->with(['cli', 'app']);
 
 it('stamps the protocol headers on a payload too large response', function () {
