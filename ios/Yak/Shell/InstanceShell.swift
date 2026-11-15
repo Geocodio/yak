@@ -10,8 +10,9 @@ struct InstanceShell: View {
 
     @State private var status: SessionStatus = .starting
     @State private var listState: ThreadListState?
-    @State private var feed: ThreadListFeed?
+    @State private var drawerModel: DrawerModel?
     @State private var showsAccount = false
+    @State private var showsSwitcher = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
 
@@ -31,13 +32,20 @@ struct InstanceShell: View {
         }
         .task { for await next in await session.statuses() { status = next } }
         .task(id: status == .active) { await followThreadList() }
-        .onChange(of: scene.state.filter) { Task { await syncFilter() } }
-        .onChange(of: isListVisible) { Task { await feed?.setVisible(isListVisible) } }
+        .task(id: drawerModel.map(ObjectIdentifier.init)) { await drawerModel?.run() }
+        .onChange(of: scene.state.filter) { Task { await drawerModel?.syncFilter() } }
+        .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
         .sheet(isPresented: $showsAccount) {
             SignedInView(model: model, instance: instance, onClose: { showsAccount = false })
                 .linkPairingStatus(model, sheetDepth: 1)
                 .countsAsOpenSheet(model)
+        }
+        .sheet(isPresented: $showsSwitcher) {
+            InstanceSwitcher(model: model, active: instance, onClose: { showsSwitcher = false })
+                .linkPairingStatus(model, sheetDepth: 1)
+                .countsAsOpenSheet(model)
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: isConnecting) {
             NavigationStack {
@@ -92,9 +100,10 @@ struct InstanceShell: View {
     }
 
     private var drawer: some View {
-        DrawerPlaceholder(
-            model: model, instance: instance, scene: scene, state: listState, isCompactWidth: isCompactWidth,
-            retry: { Task { await retryList() } }, openAccount: { showsAccount = true })
+        DrawerView(
+            model: model, instance: instance, scene: scene, drawer: drawerModel, isCompactWidth: isCompactWidth,
+            openAccount: { showsAccount = true }, openSwitcher: { showsSwitcher = true },
+            retry: { Task { await retryList() } })
     }
 
     private var threadScreen: some View {
@@ -119,11 +128,11 @@ struct InstanceShell: View {
         .background(Color(.systemBackground))
     }
 
-    /// Command N, Command K and Command backslash. Task 10 adds the drawer's search field that Command K focuses.
+    /// Command N, Command K (the drawer's search field) and Command backslash.
     private var shortcuts: some View {
         VStack {
             Button("shell.newThread") { scene.openNewThread(repo: nil, text: nil) }.keyboardShortcut("n")
-            Button("shell.threads") { scene.setDrawerOpen(true) }.keyboardShortcut("k")
+            Button("shell.threads") { scene.requestSearchFocus() }.keyboardShortcut("k")
             Button("shell.threads") { scene.setDrawerOpen(!scene.state.isDrawerOpen) }.keyboardShortcut("\\")
         }
         .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
@@ -142,16 +151,17 @@ struct InstanceShell: View {
     /// Shows the list while the session is active and applies the cold start on the first unsearched `mine` list.
     private func followThreadList() async {
         guard status == .active, let feed = await session.threadList() else { return }
-        self.feed = feed
-        await feed.setVisible(isListVisible)
+        let drawer = DrawerModel(feed: feed, outbox: await session.outbox(), scene: scene, clock: SystemClock())
+        drawerModel = drawer
+        await drawer.setVisible(isListVisible)
         for await state in await feed.states() {
             listState = state
-            await applyColdStartIfNeeded(state, feed: feed)
+            await applyColdStartIfNeeded(state)
         }
-        await feed.setVisible(false)
+        await drawer.setVisible(false)
     }
 
-    private func applyColdStartIfNeeded(_ state: ThreadListState, feed: ThreadListFeed) async {
+    private func applyColdStartIfNeeded(_ state: ThreadListState) async {
         if !scene.hasAppliedColdStart {
             guard state.filter == .mine, state.search == nil, let list = state.list else { return }
             let link = model.takeLaunchLink()
@@ -163,20 +173,15 @@ struct InstanceShell: View {
                 }
             scene.applyColdStart(
                 ColdStart.destination(mine: list, restoredThreadID: scene.state.threadID, link: own))
-            await syncFilter()
+            await drawerModel?.syncFilter()
             if let link { await model.handle(link: link) }
         }
     }
 
-    /// Points the feed at the filter the scene shows; the feed ignores a filter it already has.
-    private func syncFilter() async {
-        await feed?.setFilter(scene.state.filter, search: nil)
-    }
-
     /// Reloads the list, or starts the session again while it is still signing in.
     private func retryList() async {
-        if let feed {
-            await feed.refresh()
+        if let drawerModel {
+            await drawerModel.retry()
         } else {
             await session.stop()
             await session.start()

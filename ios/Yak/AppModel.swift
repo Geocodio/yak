@@ -224,7 +224,14 @@ final class AppModel {
     /// Asks the instance who this phone is. A revoked or unknown token sends the person to
     /// "Pair again"; any other failure keeps the saved copy and offers a retry.
     func refreshMe(for instance: Instance) async {
-        refreshState = .loading
+        // Refreshing an instance other than the signed-in one only updates its stored count; the screen
+        // keeps showing the signed-in instance.
+        let isBackground: Bool = {
+            if case .signedIn(let current) = route { return current.id != instance.id }
+            return false
+        }()
+        func show(_ next: RefreshState) { if !isBackground { refreshState = next } }
+        show(.loading)
         let token: String
         do {
             // Only a missing token means "pair again". A read error (Keychain locked before the
@@ -236,27 +243,27 @@ final class AppModel {
             token = stored
         } catch {
             logFailure("Reading the token failed: \(type(of: error))")
-            refreshState = .tokenUnreadable
+            show(.tokenUnreadable)
             return
         }
         do {
             let me = try await makeClient(instance.url).authenticated(token: token).send(.me())
             try await instances.update(instance.id, from: me)
-            refreshState = .idle
-            if let updated = await instances.all().first(where: { $0.id == instance.id }) {
+            show(.idle)
+            if !isBackground, let updated = await instances.all().first(where: { $0.id == instance.id }) {
                 route = .signedIn(updated)
             }
         } catch let failure as APIFailure {
             switch failure {
             case .unauthorized(let code) where code == "device_revoked" || code == "invalid_token":
                 await markRevoked(instance)
-            case .unauthorized, .server, .notYak, .encodingFailed: refreshState = .failed
-            case .network: refreshState = .unreachable
-            case .appTooOld: refreshState = .appTooOld
-            case .serverTooOld: refreshState = .serverTooOld
+            case .unauthorized, .server, .notYak, .encodingFailed: show(.failed)
+            case .network: show(.unreachable)
+            case .appTooOld: show(.appTooOld)
+            case .serverTooOld: show(.serverTooOld)
             }
         } catch {
-            refreshState = .failed
+            show(.failed)
         }
     }
 

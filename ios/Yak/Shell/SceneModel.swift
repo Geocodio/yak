@@ -28,6 +28,8 @@ final class SceneModel {
     /// Shows "Signed in as <name>" in the drawer once after a pairing.
     var justPairedUserName: String?
     var newThreadPrefill: (repo: String?, text: String?)?
+    /// Counts the requests to put the cursor in the drawer's search field (Command K).
+    private(set) var searchFocusRequest = 0
 
     init(state: SceneState) {
         self.state = state
@@ -81,6 +83,10 @@ final class SceneModel {
     }
 
     func setDrawerOpen(_ open: Bool) { state.isDrawerOpen = open }
+    func requestSearchFocus() {
+        state.isDrawerOpen = true
+        searchFocusRequest += 1
+    }
     func setFilter(_ filter: ThreadListFilter) { state.filter = filter }
 
     func handle(_ link: DeepLink, active: Instance, instances: [Instance], isCompactWidth: Bool) -> LinkOutcome {
