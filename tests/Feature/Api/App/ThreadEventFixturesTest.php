@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TurnMessageKind;
+use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Events\ThreadActivity;
 use App\Events\ThreadEventBroadcast;
@@ -104,11 +105,20 @@ function driverSentMessages(string $source): array
         return $found;
     }
 
+    $hasPromptLine = false;
+    $lifecycleSeen = false;
+
     foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $raw) {
         $line = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         $sent = $line['_driver_sent'] ?? null;
 
+        if (($line['type'] ?? null) === 'command_lifecycle' && ! $hasPromptLine && ! $lifecycleSeen) {
+            $found['prompt']['uuid'] = $line['command_uuid'];
+            $lifecycleSeen = true;
+        }
+
         if ($sent === 'prompt') {
+            $hasPromptLine = true;
             $found['prompt'] = ['uuid' => $line['uuid'], 'text' => $line['text']];
         } elseif ($sent !== null && $sent !== 'start' && isset($line['uuid'])) {
             $found['steer'] = ['uuid' => $line['uuid'], 'text' => $line['text']];
@@ -128,7 +138,7 @@ function driverSentMessages(string $source): array
 function replayLines($test, array $lines, string $source = 'synthetic'): void
 {
     $sent = driverSentMessages($source);
-    ThreadTurnMessage::factory()->create(['task_run_id' => $test->run->id, 'uuid' => $sent['prompt']['uuid'], 'kind' => TurnMessageKind::Prompt, 'text' => $sent['prompt']['text']]);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $test->run->id, 'uuid' => $sent['prompt']['uuid'], 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Started, 'text' => $sent['prompt']['text']]);
 
     event(new TurnStarted($test->run));
 
@@ -138,12 +148,21 @@ function replayLines($test, array $lines, string $source = 'synthetic'): void
             unset($line['_travelMs']);
         }
 
+        if (($line['type'] ?? null) === 'command_lifecycle') {
+            ThreadTurnMessage::query()->where('task_run_id', $test->run->id)->where('uuid', $line['command_uuid'])->update(['state' => TurnMessageState::from($line['state'])]);
+        }
+
         if ($sent['steer'] !== null && ($line['uuid'] ?? null) === $sent['steer']['uuid']) {
             ThreadTurnMessage::factory()->steer()->create(['task_run_id' => $test->run->id, 'uuid' => $sent['steer']['uuid'], 'text' => $sent['steer']['text']]);
         }
 
         event(new ThreadActivity($test->thread, 1, $index + 1, $line));
     }
+}
+
+function lastMessageState(array $broadcasts, string $uuid): ?string
+{
+    return collect($broadcasts)->where('type', 'message.state')->filter(fn (array $broadcast): bool => ($broadcast['data']['uuid'] ?? null) === $uuid)->last()['data']['state'] ?? null;
 }
 
 /**
@@ -198,7 +217,8 @@ it('records a simple turn with deltas, tool use and a completed turn', function 
     expect($types)->toContain('turn', 'delta', 'entry')
         ->and($entryBlocks)->toContain('tool_use')
         ->and(collect($recorded['broadcasts'])->where('type', 'entry')->pluck('data.role'))->toContain('tool_result')
-        ->and(collect($recorded['broadcasts'])->where('type', 'turn')->last())->toMatchArray(['data' => ['turnId' => $this->run->id, 'state' => 'completed']]);
+        ->and(collect($recorded['broadcasts'])->where('type', 'turn')->last())->toMatchArray(['data' => ['turnId' => $this->run->id, 'state' => 'completed']])
+        ->and(lastMessageState($recorded['broadcasts'], driverSentMessages('background-bash-task')['prompt']['uuid']))->toBe('completed');
 });
 
 it('records a steer between two assistant entries', function () {
@@ -211,6 +231,10 @@ it('records a steer between two assistant entries', function () {
     $recorded = writeScenario($this, 'steer', 'steer-during-final-text', dispatchedBroadcasts());
     $roles = collect($recorded['broadcasts'])->where('type', 'entry')->map(fn (array $broadcast): string => $broadcast['data']['role'] . ':' . ($broadcast['data']['kind'] ?? ''))->values();
     $steerIndex = $roles->search('user:steer');
+    $sentMessages = driverSentMessages('steer-during-final-text');
+
+    expect(lastMessageState($recorded['broadcasts'], $sentMessages['prompt']['uuid']))->toBe('completed')
+        ->and(lastMessageState($recorded['broadcasts'], $sentMessages['steer']['uuid']))->toBe('completed');
 
     expect($steerIndex)->not->toBeFalse()
         ->and($roles->slice(0, $steerIndex)->contains(fn (string $role): bool => str_starts_with($role, 'assistant')))->toBeTrue()
@@ -239,7 +263,8 @@ it('records a turn that failed', function () {
     $recorded = writeScenario($this, 'failed-turn', 'authentication-failed', dispatchedBroadcasts());
     $turns = collect($recorded['broadcasts'])->where('type', 'turn')->values();
 
-    expect($turns->last()['data']['state'])->toBe('failed');
+    expect($turns->last()['data']['state'])->toBe('failed')
+        ->and(lastMessageState($recorded['broadcasts'], driverSentMessages('authentication-failed')['prompt']['uuid']))->toBe('cancelled');
 });
 
 it('records a stream reset that is never stored', function () {

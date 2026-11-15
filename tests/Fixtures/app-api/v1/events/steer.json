@@ -12,7 +12,7 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
-                "state": "sent",
+                "state": "started",
                 "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
             },
             "sequence": 2,
@@ -167,7 +167,7 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
-                "state": "sent",
+                "state": "completed",
                 "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
             },
             "sequence": 14,
@@ -176,7 +176,7 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
-                "state": "sent",
+                "state": "completed",
                 "uuid": "da1213d2-e404-5255-85f1-5d09e68a921a"
             },
             "sequence": 15,
@@ -197,7 +197,7 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
-                    "state": "sent",
+                    "state": "started",
                     "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
                 },
                 "sequence": 2,
@@ -352,7 +352,7 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
-                    "state": "sent",
+                    "state": "completed",
                     "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
                 },
                 "sequence": 14,
@@ -361,7 +361,7 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
-                    "state": "sent",
+                    "state": "completed",
                     "uuid": "da1213d2-e404-5255-85f1-5d09e68a921a"
                 },
                 "sequence": 15,
