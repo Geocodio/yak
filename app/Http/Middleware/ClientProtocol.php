@@ -12,12 +12,12 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Enforces the CLI protocol version and stamps the server's protocol range on every response.
+ * Enforces the protocol version of the CLI or app API. StampClientProtocol adds the server's range to every response.
  */
-class CliProtocol
+class ClientProtocol
 {
     /**
-     * The web group middleware that hold state; CLI route groups exclude them.
+     * The web group middleware that hold state; client API route groups exclude them.
      *
      * @var list<class-string>
      */
@@ -30,30 +30,31 @@ class CliProtocol
         HandleInertiaRequests::class,
     ];
 
-    public function handle(Request $request, Closure $next): Response
+    /**
+     * @param  string  $api  The client API this route group serves: `cli` or `app`.
+     */
+    public function handle(Request $request, Closure $next, string $api): Response
     {
-        $current = (int) config('yak.cli.protocol');
-        $minimum = (int) config('yak.cli.min_protocol');
+        $current = (int) config("yak.{$api}.protocol");
+        $minimum = (int) config("yak.{$api}.min_protocol");
         $header = (string) $request->header('X-Yak-Protocol', '');
-        $client = ctype_digit($header) ? (int) $header : 0;
+        $client = ctype_digit($header) && strlen($header) <= 9 ? (int) $header : 0;
+        $request->attributes->set('client_protocol', $client);
 
         if ($client < $minimum) {
-            $response = response()->json([
+            return response()->json([
                 'error' => 'protocol_too_old',
-                'message' => 'This yak command is too old for Yak. Update the Yak plugin.',
+                'message' => $api === 'app'
+                    ? 'This build of the Yak app is too old for this Yak. Install the latest build.'
+                    : 'This yak command is too old for Yak. Update the Yak plugin.',
                 'details' => [
                     'min_protocol' => $minimum,
                     'current_protocol' => $current,
                     'client_protocol' => $client,
                 ],
             ], 426);
-        } else {
-            $response = $next($request);
         }
 
-        $response->headers->set('X-Yak-Protocol', (string) $current);
-        $response->headers->set('X-Yak-Min-Protocol', (string) $minimum);
-
-        return $response;
+        return $next($request);
     }
 }

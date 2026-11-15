@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\DeviceKind;
 use App\Models\User;
 use App\Services\Devices\DeviceFlow;
 
@@ -31,4 +32,13 @@ test('an unknown code shows the error', function () {
     visit('/device?code=ZZZZ-ZZZZ')
         ->assertNoJavaScriptErrors()
         ->assertSee('does not match a waiting computer');
+});
+
+test('the approval page for a phone shows its name, not the hardware identifier', function () {
+    ['authorization' => $authorization] = app(DeviceFlow::class)->start(['name' => 'Test phone 🌎', 'os' => '27.2.1', 'kind' => DeviceKind::Phone, 'model' => 'iPhone19,4', 'app_version' => '1.0'], null);
+
+    visit('/device?code=' . $authorization->user_code)
+        ->assertNoJavaScriptErrors()
+        ->assertSeeIn('[data-testid="device-state"]', 'Connect Test phone 🌎 to Yak?')
+        ->assertDontSeeIn('[data-testid="device-state"]', 'iPhone19,4');
 });

@@ -106,7 +106,7 @@ class DeviceApprovalController extends Controller
         RateLimiter::hit($key, 60);
     }
 
-    private function backToPage(string $code, ?string $result = null): RedirectResponse
+    private function backToPage(#[\SensitiveParameter] string $code, ?string $result = null): RedirectResponse
     {
         return redirect()->route('device.show', array_filter(['code' => $code, 'result' => $result]));
     }

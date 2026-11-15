@@ -7,6 +7,9 @@ use App\Jobs\Deployments\HibernateIdleDeploymentsJob;
 use App\Jobs\Deployments\SweepExpiredDeploymentsJob;
 use App\Jobs\Deployments\WatchdogStuckDeploymentsJob;
 use App\Models\DeviceAuthorization;
+use App\Models\DevicePairingCode;
+use App\Services\Devices\DeviceFlow;
+use App\Services\Devices\PairingCodes;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -45,7 +48,12 @@ Schedule::command('yak:check-stack-usage')->everyFiveMinutes()->withoutOverlappi
 Schedule::command('yak:thread-sandboxes')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:reap-account-slots')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:close-idle-threads')->hourly()->withoutOverlapping();
-Schedule::command('model:prune', ['--model' => [DeviceAuthorization::class]])->daily();
+Schedule::command('model:prune', ['--model' => [DeviceAuthorization::class, DevicePairingCode::class]])->daily();
+Schedule::call(function (): void {
+    app(DeviceFlow::class)->clearRepeatableTokens();
+    app(PairingCodes::class)->clearRepeatableTokens();
+})->everyMinute()->name('devices:clear-repeatable-tokens');
+Schedule::command('yak:revoke-idle-phones')->daily();
 Schedule::command('yak:expire-teleports')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:dataset-sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:ssh-sweep')->hourly()->withoutOverlapping();

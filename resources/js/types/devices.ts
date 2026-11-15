@@ -5,7 +5,10 @@ export type DeviceApproval = {
     state: DeviceApprovalState;
     code: string | null;
     name: string | null;
-    os: 'darwin' | 'linux' | null;
+    kind: 'computer' | 'phone';
+    model: string | null;
+    app_version: string | null;
+    os: string | null;
     arch: 'arm64' | 'x86_64' | null;
     cli_version: string | null;
     requested_at: string | null;
@@ -16,8 +19,11 @@ export type DeviceApproval = {
 export type Device = {
     id: number;
     name: string;
-    os: string;
-    arch: string;
+    kind: 'computer' | 'phone';
+    model: string | null;
+    app_version: string | null;
+    os: string | null;
+    arch: string | null;
     cli_version: string | null;
     paired_at: string;
     last_seen_at: string | null;
@@ -26,3 +32,9 @@ export type Device = {
     last_teleport: { thread_id: string; title: string; at: string } | null;
     owned_threads: { id: string; title: string }[];
 };
+
+/** Mirrors the JSON returned by DevicePairingCodeController::store. */
+export type PairingCode = { id: string; qrPayload: string; qrSvg: string; expiresAt: string; expiresInSeconds: number };
+
+/** Mirrors the JSON returned by DevicePairingCodeController::show. */
+export type PairingState = { state: 'waiting' | 'paired' | 'expired'; device: Device | null };

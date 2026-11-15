@@ -36,6 +36,16 @@ it('lists only my active devices, newest first', function () {
         ->assertJsonCount(2, 'props.devices')->assertJsonPath('props.devices.0.id', $new->id)->assertJsonPath('props.devices.1.id', $old->id);
 });
 
+it('shows the kind, model and app version of a phone', function () {
+    Device::factory()->forUser($this->user)->phone()->create(['model' => 'iPhone19,4', 'app_version' => '1.2.0']);
+
+    ($this->partial)()
+        ->assertJsonPath('props.devices.0.kind', 'phone')
+        ->assertJsonPath('props.devices.0.model', 'iPhone19,4')
+        ->assertJsonPath('props.devices.0.app_version', '1.2.0')
+        ->assertJsonPath('props.devices.0.arch', null);
+});
+
 it('flags a device stale at 90 days', function () {
     Device::factory()->forUser($this->user)->stale()->create();
     Device::factory()->forUser($this->user)->create(['last_seen_at' => now()]);

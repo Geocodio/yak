@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DeviceKind;
 use Carbon\CarbonImmutable;
 use Database\Factories\DeviceFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -11,13 +12,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A computer that signed in through the CLI device flow. Revoking keeps the row so the API can answer device_revoked.
+ * A computer or phone that signed in through a device flow. Revoking keeps the row so the API can answer device_revoked.
  *
  * @property int $id
  * @property int $user_id
  * @property string $name
- * @property string $os
- * @property string $arch
+ * @property DeviceKind $kind
+ * @property string|null $model
+ * @property string|null $app_version
+ * @property string|null $os
+ * @property string|null $arch
  * @property string|null $cli_version
  * @property string $token_hash
  * @property CarbonImmutable|null $last_seen_at
@@ -44,6 +48,7 @@ class Device extends Model
     protected function casts(): array
     {
         return [
+            'kind' => DeviceKind::class,
             'last_seen_at' => 'immutable_datetime',
             'last_teleport_at' => 'immutable_datetime',
             'revoked_at' => 'immutable_datetime',

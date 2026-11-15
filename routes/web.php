@@ -1,6 +1,12 @@
 <?php
 
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\Api\App\DeviceCodeController as AppDeviceCodeController;
+use App\Http\Controllers\Api\App\DeviceController as AppDeviceController;
+use App\Http\Controllers\Api\App\DevicePairController as AppDevicePairController;
+use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenController;
+use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
+use App\Http\Controllers\Api\App\MeController as AppMeController;
 use App\Http\Controllers\Api\Cli\SessionFileController;
 use App\Http\Controllers\Api\Cli\SshLookupController;
 use App\Http\Controllers\Api\Cli\StackMessageController;
@@ -108,7 +114,7 @@ use App\Http\Controllers\Threads\ThreadSharedFileController;
 use App\Http\Controllers\Threads\ThreadStarController;
 use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
-use App\Http\Middleware\CliProtocol;
+use App\Http\Middleware\ClientProtocol;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -439,7 +445,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Device flow and CLI API: no session, authenticated by signed codes or device tokens.
-Route::prefix('api/cli/v1')->middleware('cli.protocol')->withoutMiddleware(CliProtocol::WITHOUT_WEB_STATE)->group(function (): void {
+Route::prefix('api/cli/v1')->middleware('client.protocol:cli')->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->group(function (): void {
     Route::post('device/code', DeviceCodeController::class)->middleware('throttle:cli-device-code')->name('cli.device.code');
     Route::post('device/token', DeviceTokenController::class)->name('cli.device.token');
 
@@ -450,9 +456,24 @@ Route::prefix('api/cli/v1')->middleware('cli.protocol')->withoutMiddleware(CliPr
     });
 });
 
+// App discovery: public and outside the protocol check, so an app that is too old can still read the supported range.
+Route::get('api/app/v1/instance', AppInstanceController::class)->middleware('throttle:app-instance')->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->name('app.instance');
+
+// App API: phones, authenticated by device tokens of kind phone.
+Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)->group(function (): void {
+    Route::post('device/code', AppDeviceCodeController::class)->middleware('throttle:app-device-code')->name('app.device.code');
+    Route::post('device/token', AppDeviceTokenController::class)->name('app.device.token');
+    Route::post('device/pair', AppDevicePairController::class)->middleware('throttle:app-device-code')->name('app.device.pair');
+
+    Route::middleware('auth.device:phone')->group(function (): void {
+        Route::get('me', AppMeController::class)->name('app.me');
+        Route::delete('device', [AppDeviceController::class, 'destroy'])->name('app.device.destroy');
+    });
+});
+
 Route::prefix('api/cli/v1')
-    ->middleware(['cli.protocol', 'auth.device'])
-    ->withoutMiddleware(CliProtocol::WITHOUT_WEB_STATE)
+    ->middleware(['client.protocol:cli', 'auth.device'])
+    ->withoutMiddleware(ClientProtocol::WITHOUT_WEB_STATE)
     ->group(function (): void {
         Route::get('threads/by-session/{sessionId}', [ThreadLookupController::class, 'bySession']);
         Route::get('threads/{thread}', [ThreadLookupController::class, 'show']);

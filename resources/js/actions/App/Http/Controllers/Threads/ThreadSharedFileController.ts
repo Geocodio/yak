@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadSharedFileController::__invoke
-* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadSharedFileController.php:18
+* @see app/Http/Controllers/Threads/ThreadSharedFileController.php:18
 * @route '/threads/{thread}/files/{sharedFile}/team-share'
 */
 const ThreadSharedFileController = (args: { thread: string | { public_id: string }, sharedFile: string | number } | [thread: string | { public_id: string }, sharedFile: string | number ], options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -16,7 +16,7 @@ ThreadSharedFileController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadSharedFileController::__invoke
-* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadSharedFileController.php:18
+* @see app/Http/Controllers/Threads/ThreadSharedFileController.php:18
 * @route '/threads/{thread}/files/{sharedFile}/team-share'
 */
 ThreadSharedFileController.url = (args: { thread: string | { public_id: string }, sharedFile: string | number } | [thread: string | { public_id: string }, sharedFile: string | number ], options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ ThreadSharedFileController.url = (args: { thread: string | { public_id: string }
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadSharedFileController::__invoke
-* @see Users/codemonkey/projects/yak/.worktrees/next-gen/app/Http/Controllers/Threads/ThreadSharedFileController.php:18
+* @see app/Http/Controllers/Threads/ThreadSharedFileController.php:18
 * @route '/threads/{thread}/files/{sharedFile}/team-share'
 */
 ThreadSharedFileController.put = (args: { thread: string | { public_id: string }, sharedFile: string | number } | [thread: string | { public_id: string }, sharedFile: string | number ], options?: RouteQueryOptions): RouteDefinition<'put'> => ({

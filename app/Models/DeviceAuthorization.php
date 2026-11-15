@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DeviceKind;
 use Carbon\CarbonImmutable;
 use Database\Factories\DeviceAuthorizationFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,15 +18,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $device_code_hash
  * @property string $user_code
  * @property string $name
- * @property string $os
- * @property string $arch
+ * @property DeviceKind $kind
+ * @property string|null $model
+ * @property string|null $app_version
+ * @property string|null $os
+ * @property string|null $arch
  * @property string|null $cli_version
  * @property string|null $requested_from_ip
  * @property string $status
  * @property int|null $user_id
  * @property int|null $device_id
  * @property string|null $encrypted_token
+ * @property string|null $request_id_hash
  * @property CarbonImmutable|null $last_polled_at
+ * @property CarbonImmutable|null $redeemed_at
  * @property int $poll_interval
  * @property CarbonImmutable $expires_at
  */
@@ -37,7 +43,7 @@ class DeviceAuthorization extends Model
     protected $guarded = [];
 
     /** @var list<string> */
-    protected $hidden = ['encrypted_token'];
+    protected $hidden = ['encrypted_token', 'request_id_hash'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -51,7 +57,9 @@ class DeviceAuthorization extends Model
     protected function casts(): array
     {
         return [
+            'kind' => DeviceKind::class,
             'last_polled_at' => 'immutable_datetime',
+            'redeemed_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',
         ];
     }

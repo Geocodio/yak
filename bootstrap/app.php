@@ -3,24 +3,31 @@
 use App\Channels\Drone\PollCommand;
 use App\Exceptions\TeleportError;
 use App\Http\Middleware\AuthenticateDevice;
-use App\Http\Middleware\CliProtocol;
+use App\Http\Middleware\ClientProtocol;
 use App\Http\Middleware\EnsureTaskDriveRights;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
+use App\Http\Middleware\StampClientProtocol;
 use App\Http\Middleware\VerifySessionStoreToken;
 use App\Http\Middleware\VerifySshInternalToken;
 use App\Http\Responses\CliError;
 use App\Services\PreviewAccess;
+use App\Support\ClientApi;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -34,20 +41,21 @@ return Application::configure(basePath: dirname(__DIR__))
         PollCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(StampClientProtocol::class);
         $middleware->trustProxies(at: ['127.0.0.1', '172.16.0.0/12']);
         $middleware->alias([
             'restrict-to-ingress' => RestrictToIngress::class,
             'session-store-token' => VerifySessionStoreToken::class,
             'ssh-internal-token' => VerifySshInternalToken::class,
-            'cli.protocol' => CliProtocol::class,
+            'client.protocol' => ClientProtocol::class,
             'auth.device' => AuthenticateDevice::class,
             'task.drive' => EnsureTaskDriveRights::class,
         ]);
-        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: CliProtocol::class);
+        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: ClientProtocol::class);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
         // The preview cookie is minted as a raw Set-Cookie header on the preview host, so it is never Laravel-encrypted.
         $middleware->encryptCookies(except: [PreviewAccess::COOKIE_NAME]);
-        $middleware->validateCsrfTokens(except: ['api/cli/*', 'internal/*']);
+        $middleware->validateCsrfTokens(except: ['api/cli/*', 'api/app/*', 'internal/*']);
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
@@ -61,16 +69,18 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response('Unauthenticated.', 401);
             }
 
-            if ($request->is('api/cli/*')) {
-                return response()->json(['error' => 'unauthenticated', 'message' => 'Sign in with yak login.'], 401);
+            $api = ClientApi::for($request);
+
+            if ($api !== null) {
+                return response()->json(['error' => 'unauthenticated', 'message' => ClientApi::unauthenticatedMessage($api)], 401);
             }
 
             return null;
         });
 
-        // The CLI API answers every error as {"error", "message", "details"?}.
+        // The CLI and app APIs answer every error as {"error", "message", "details"?}.
         $exceptions->render(function (ValidationException $e, Request $request) {
-            if (! $request->is('api/cli/*')) {
+            if (ClientApi::for($request) === null) {
                 return null;
             }
 
@@ -81,7 +91,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 422);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
-            if (! $request->is('api/cli/*')) {
+            if (ClientApi::for($request) === null) {
                 return null;
             }
 
@@ -91,17 +101,48 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 429, $e->getHeaders());
         });
         $exceptions->render(function (TeleportError $e, Request $request) {
-            if (! $request->is('api/cli/*')) {
+            if (ClientApi::for($request) === null) {
                 return null;
             }
 
             return CliError::make($e->errorCode, $e->getMessage(), $e->status, $e->details);
         });
+        $exceptions->render(function (AuthorizationException|AccessDeniedHttpException $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json(['error' => 'forbidden', 'message' => 'You do not have access to this.'], 403);
+        });
+        $exceptions->render(function (QueryException $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json(['error' => 'unavailable', 'message' => 'Yak cannot answer right now. Try again in a moment.'], 503);
+        });
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-            if (! $request->is('api/cli/*')) {
+            if (ClientApi::for($request) === null) {
                 return null;
             }
 
             return response()->json(['error' => 'not_found', 'message' => 'Not found.'], 404);
+        });
+        $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            $status = $e->getStatusCode();
+
+            return response()->json(['error' => ClientApi::errorCodeForStatus($status), 'message' => $status === 405 ? 'This endpoint does not accept that method.' : 'Yak could not handle this request.'], $status, $e->getHeaders());
+        });
+        // Registered last: anything no renderer above claimed is a server error, and the client never sees HTML or the detail.
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if (ClientApi::for($request) === null || $e instanceof HttpResponseException) {
+                return null;
+            }
+
+            return response()->json(['error' => 'server_error', 'message' => 'Yak could not handle this request. Try again.'], 500);
         });
     })->create();

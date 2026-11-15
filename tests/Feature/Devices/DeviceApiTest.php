@@ -5,6 +5,7 @@ use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\Devices\DeviceTokens;
 use App\Services\Threads\ThreadAccess;
+use Tests\Support\ContractFixture;
 
 beforeEach(function () {
     $this->token = app(DeviceTokens::class)->generate();
@@ -13,13 +14,14 @@ beforeEach(function () {
 });
 
 it('me returns the contract fields and bumps last_seen_at', function () {
-    $this->getJson('/api/cli/v1/me', $this->headers)->assertOk()->assertJson([
+    $response = $this->getJson('/api/cli/v1/me', $this->headers)->assertOk()->assertJson([
         'device' => ['id' => $this->device->id, 'name' => $this->device->name, 'os' => 'darwin', 'arch' => 'arm64', 'last_teleport_thread_id' => null],
         'user' => ['id' => $this->device->user_id, 'email' => $this->device->user->email],
         'protocol' => ['current' => 1, 'min' => 1],
         'base_url' => config('app.url'),
     ])->assertJsonStructure(['device' => ['created_at', 'last_seen_at']]);
 
+    ContractFixture::assertMatches('cli', 'me', $response->json(), ['device.id', 'device.name', 'device.created_at', 'device.last_seen_at', 'user.id', 'user.name', 'user.email', 'base_url']);
     expect($this->device->fresh()->last_seen_at)->not->toBeNull();
 });
 

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\DeviceKind;
 use App\Models\DeviceAuthorization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -12,6 +13,18 @@ use Illuminate\Support\Str;
 class DeviceAuthorizationFactory extends Factory
 {
     protected $model = DeviceAuthorization::class;
+
+    public function phone(): static
+    {
+        return $this->state(fn () => [
+            'kind' => DeviceKind::Phone,
+            'model' => 'iPhone19,4',
+            'os' => '27.2.1',
+            'arch' => null,
+            'cli_version' => null,
+            'app_version' => '1.0.0',
+        ]);
+    }
 
     /**
      * @return array<string, mixed>
