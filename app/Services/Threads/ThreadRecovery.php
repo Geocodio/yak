@@ -25,6 +25,8 @@ class ThreadRecovery
     public function __construct(private readonly ThreadTurns $turns) {}
 
     /**
+     * A repeat while the continuation it started is still active answers with that run.
+     *
      * @throws ThreadActionRefused
      */
     public function continueTurn(Thread $thread, User $user): TaskRun
@@ -39,6 +41,10 @@ class ThreadRecovery
 
         $lastRun = TaskRun::query()->where('thread_id', $thread->id)->latest('id')->first();
         $head = $thread->headTask();
+
+        if ($lastRun?->prompt === 'Continue.' && $lastRun->getKey() === ThreadTurns::activeTurn($thread)?->getKey()) {
+            return $lastRun;
+        }
 
         if ($head === null || $lastRun?->getAttribute('turn_state') !== TurnState::StoppedByGuard) {
             throw ThreadActionRefused::because(ThreadActionRefused::NOTHING_TO_CONTINUE, 'There is nothing to continue.');

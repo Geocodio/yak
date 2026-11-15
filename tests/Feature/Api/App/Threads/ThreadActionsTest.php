@@ -76,6 +76,40 @@ it('refuses continue with its code', function (array $state, ?TurnState $lastRun
     'no runs' => [[], null, 'nothing_to_continue', 'There is nothing to continue.'],
 ]);
 
+it('answers a repeated continue with continued while the first continuation is active', function () {
+    [$thread, $user, $task] = actionThread();
+    guardStoppedRun($thread, $task);
+    fakeTurnCollaborators()['commands']->shouldReceive('startRunner', 'turn', 'setModel');
+    $thread->forceFill(['claude_account_id' => ClaudeAccount::factory()->create()->id, 'model' => 'sonnet'])->save();
+    $headers = phoneHeadersFor($user);
+
+    $this->postJson(appThreadPath($thread, '/continue'), [], $headers)->assertOk()->assertExactJson(['status' => 'continued']);
+    $this->postJson(appThreadPath($thread, '/continue'), [], $headers)->assertOk()->assertExactJson(['status' => 'continued']);
+
+    expect(TaskRun::query()->where('thread_id', $thread->id)->count())->toBe(2);
+});
+
+it('handles a thread with no tasks', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $thread = privateThreadOf($user, ['title' => 'Empty thread', 'repo' => 'example/api']);
+    $headers = phoneHeadersFor($user);
+
+    $this->postJson(appThreadPath($thread, '/stop'), [], $headers)->assertOk()->assertExactJson(['status' => 'stopping']);
+    $this->postJson(appThreadPath($thread, '/continue'), [], $headers)
+        ->assertStatus(409)->assertJsonPath('error', 'nothing_to_continue')->assertJsonPath('message', 'There is nothing to continue.');
+    $this->postJson(appThreadPath($thread, '/restore/retry'), [], $headers)
+        ->assertStatus(409)->assertJsonPath('error', 'nothing_to_restore');
+});
+
+it('answers 503 unavailable when the stop command cannot reach Redis', function () {
+    [$thread, $user] = actionThread();
+    $this->mock(ThreadTurns::class)->shouldReceive('stop')->once()->andThrow(new RedisException('Connection refused'));
+
+    $this->postJson(appThreadPath($thread, '/stop'), [], phoneHeadersFor($user))
+        ->assertStatus(503)->assertExactJson(['error' => 'unavailable', 'message' => 'Yak cannot answer right now. Try again in a moment.']);
+});
+
 it('refuses continue with turn_running while the thread is busy', function () {
     [$thread, $user, $task] = actionThread();
     guardStoppedRun($thread, $task);

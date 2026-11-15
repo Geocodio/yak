@@ -128,7 +128,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json(['error' => 'forbidden', 'message' => 'You do not have access to this.'], 403);
         });
-        $exceptions->render(function (QueryException $e, Request $request) {
+        $exceptions->render(function (QueryException|RedisException $e, Request $request) {
             if (ClientApi::for($request) === null) {
                 return null;
             }
