@@ -1,6 +1,7 @@
 {
     "brief": null,
     "canDrive": true,
+    "canOpenPullRequest": false,
     "capacity": null,
     "composer": {
         "accountName": null,

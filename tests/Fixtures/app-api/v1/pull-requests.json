@@ -1,0 +1,76 @@
+{
+    "banner": {
+        "body": "Fix it before merging in order. The other pull request does not depend on this check, but merging half of a change leaves the web and the api out of step.",
+        "title": "Blocked: CI is failing in example/web",
+        "tone": "danger"
+    },
+    "canDrive": true,
+    "expectations": [
+        "example/api opens first",
+        "example/web waits for it"
+    ],
+    "openCount": 2,
+    "pullRequests": [
+        {
+            "canAskToFix": false,
+            "ci": {
+                "checks": [
+                    {
+                        "durationSeconds": 182,
+                        "excerpt": null,
+                        "name": "tests",
+                        "state": "passing"
+                    }
+                ],
+                "passedChecks": 1,
+                "status": "passing",
+                "totalChecks": 1
+            },
+            "closedAt": null,
+            "mergeAfter": null,
+            "number": 41,
+            "repo": "example/api",
+            "repoInitials": "AP",
+            "role": "primary",
+            "rowId": "<volatile:int>",
+            "siblingBlock": "### Related pull requests\n\nThis change spans 2 repositories. Merge in this order:\n\n1. example/api#41 Retry failed uploads (this pull request)\n2. example/web#12 Retry failed uploads\n   Merge after example/api#41\n\nMerge order is a suggestion. Yak does not merge pull requests.",
+            "state": "open",
+            "title": "Retry failed uploads",
+            "url": "https://github.com/example/api/pull/41"
+        },
+        {
+            "canAskToFix": true,
+            "ci": {
+                "checks": [
+                    {
+                        "durationSeconds": 40,
+                        "excerpt": "src/uploads.ts:3 unused import",
+                        "name": "lint",
+                        "state": "failing"
+                    }
+                ],
+                "passedChecks": 0,
+                "status": "failing",
+                "totalChecks": 1
+            },
+            "closedAt": null,
+            "mergeAfter": {
+                "number": 41,
+                "reason": "It uses the new upload endpoint.",
+                "repo": "example/api"
+            },
+            "number": 12,
+            "repo": "example/web",
+            "repoInitials": "WE",
+            "role": "changes",
+            "rowId": "<volatile:int>",
+            "siblingBlock": "### Related pull requests\n\nThis change spans 2 repositories. Merge in this order:\n\n1. example/api#41 Retry failed uploads\n2. example/web#12 Retry failed uploads (this pull request)\n   Merge after example/api#41\n\nMerge order is a suggestion. Yak does not merge pull requests.",
+            "state": "open",
+            "title": "Retry failed uploads",
+            "url": "https://github.com/example/web/pull/12"
+        }
+    ],
+    "state": "blocked",
+    "totalCount": 2,
+    "withoutPullRequest": []
+}

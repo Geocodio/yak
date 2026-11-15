@@ -5,6 +5,9 @@ import share from './share'
 import restore from './restore'
 import queuedMessages from './queued-messages'
 import events from './events'
+import diff from './diff'
+import pullRequest from './pull-request'
+import pullRequests from './pull-requests'
 import stack from './stack'
 import environment from './environment'
 import repositories from './repositories'
@@ -434,6 +437,9 @@ const threads = {
     restore: Object.assign(restore, restore),
     queuedMessages: Object.assign(queuedMessages, queuedMessages),
     events: Object.assign(events, events),
+    diff: Object.assign(diff, diff),
+    pullRequest: Object.assign(pullRequest, pullRequest),
+    pullRequests: Object.assign(pullRequests, pullRequests),
     stack: Object.assign(stack, stack),
     environment: Object.assign(environment, environment),
     repositories: Object.assign(repositories, repositories),

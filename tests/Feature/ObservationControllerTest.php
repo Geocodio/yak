@@ -94,3 +94,11 @@ test('observations is served as a scroll/merge prop for infinite scroll', functi
         ])
         ->and($response['props']['observations']['data'])->toHaveCount(1);
 });
+
+test('an out of range page falls back to the first page instead of failing', function () {
+    Observation::factory()->create(['summary' => 'only one']);
+
+    $this->get('/observations?page=99999999999999999999')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('observations.data', 1));
+});

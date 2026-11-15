@@ -45,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
         'api/app/v1/threads/*/events/*',
         'api/app/v1/threads/*/files',
         'api/app/v1/threads/*/files/*',
+        'api/app/v1/threads/*/diff/files/*',
     ];
 
     /**

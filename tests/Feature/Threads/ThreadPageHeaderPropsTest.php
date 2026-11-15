@@ -2,6 +2,7 @@
 
 use App\Models\Thread;
 use App\Models\ThreadDiff;
+use App\Models\ThreadDiffRepository;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -14,9 +15,19 @@ it('gives the header its diff totals and pull request', function () {
     ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_url' => 'https://github.com/acme/app/pull/12', 'pull_request_number' => 12]);
 
     $this->actingAs(User::factory()->create())->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
-        ->where('diffTotals', ['additions' => 30, 'deletions' => 5])
+        ->where('diffTotals', ['additions' => 30, 'deletions' => 5, 'filesCount' => 2])
         ->where('pullRequest', ['number' => 12, 'url' => 'https://github.com/acme/app/pull/12'])
         ->where('brief', null));
+});
+
+it('counts the PR-bound repositories in the header totals', function () {
+    $thread = Thread::factory()->create();
+    $diff = ThreadDiff::factory()->create(['thread_id' => $thread->id, 'files_count' => 2, 'additions' => 30, 'deletions' => 5]);
+    ThreadDiffRepository::factory()->create(['thread_diff_id' => $diff->id, 'files_count' => 1, 'additions' => 4, 'deletions' => 2]);
+    ThreadDiffRepository::factory()->create(['thread_diff_id' => $diff->id, 'repo' => 'acme/scratch', 'is_throwaway' => true, 'files_count' => 3, 'additions' => 50, 'deletions' => 50]);
+
+    $this->actingAs(User::factory()->create())->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('diffTotals', ['additions' => 34, 'deletions' => 7, 'filesCount' => 6]));
 });
 
 it('gives a thread without a diff or pull request null header props', function () {

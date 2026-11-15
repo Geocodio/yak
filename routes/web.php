@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\App\DevicePairController as AppDevicePairController
 use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenController;
 use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
 use App\Http\Controllers\Api\App\MeController as AppMeController;
+use App\Http\Controllers\Api\App\SignedMediaController;
 use App\Http\Controllers\Api\App\Threads\ClarificationAnswerController as AppClarificationAnswerController;
 use App\Http\Controllers\Api\App\Threads\NewThreadController as AppNewThreadController;
 use App\Http\Controllers\Api\App\Threads\QueuedMessageController as AppQueuedMessageController;
@@ -616,3 +617,13 @@ Route::middleware(['restrict-to-ingress', 'auth'])
     ->name('deployments.status');
 
 require __DIR__ . '/settings.php';
+
+// Images and files in the app's task detail: signed links with no session and no phone token.
+Route::middleware('signed')->group(function (): void {
+    Route::get('app-media/task-attachments/{attachment}', [SignedMediaController::class, 'attachment'])
+        ->whereNumber('attachment')
+        ->name('app.media.task-attachments');
+    Route::get('app-media/tasks/{task}/pr-images/{asset}', [SignedMediaController::class, 'pullRequestImage'])
+        ->whereUuid('asset')
+        ->name('app.media.pr-images');
+});

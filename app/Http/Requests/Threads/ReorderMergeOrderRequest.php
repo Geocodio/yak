@@ -15,7 +15,7 @@ class ReorderMergeOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'order' => ['required', 'array', 'min:1'],
+            'order' => ['required', 'array', 'min:1', 'max:50'],
             'order.*' => ['integer'],
         ];
     }

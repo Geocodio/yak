@@ -4,12 +4,14 @@ use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Events\ThreadActivity;
+use App\Events\ThreadDiffUpdated;
 use App\Events\ThreadEventBroadcast;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Events\TurnStarted;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadDiff;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
@@ -20,7 +22,7 @@ use Illuminate\Support\Facades\Event;
 use Tests\Support\ContractFixture;
 use Tests\Support\InMemoryThreadEventWindow;
 
-const EVENT_FIXTURE_SCENARIOS = ['simple-turn', 'steer', 'question', 'failed-turn', 'stream-reset', 'pointer'];
+const EVENT_FIXTURE_SCENARIOS = ['simple-turn', 'steer', 'question', 'failed-turn', 'stream-reset', 'pointer', 'diff-updated'];
 
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
@@ -304,6 +306,24 @@ it('records an event too large to broadcast as a pointer', function () {
 
     expect($pointer)->toBe(['sequence' => $pointer['sequence'], 'pointer' => true])
         ->and($recorded['pointers'][0]['event']['data']['blocks'][0]['text'])->toBe($text);
+});
+
+it('records a diff update after a turn', function () {
+    replayLines($this, recordedLines('natural-turn-end'), 'natural-turn-end');
+    $this->run->update(['turn_state' => TurnState::Completed]);
+    event(new TurnCompleted($this->run));
+    $diff = ThreadDiff::factory()->create(['thread_id' => $this->thread->id]);
+    event(new ThreadDiffUpdated($this->thread, $diff));
+
+    $recorded = writeScenario($this, 'diff-updated', 'natural-turn-end', dispatchedBroadcasts());
+    $broadcasts = $recorded['broadcasts'];
+    $last = end($broadcasts);
+    $turn = collect($broadcasts)->where('type', 'turn')->last();
+
+    expect($last['type'])->toBe('diff.updated')
+        ->and(json_encode($last['data']))->toBe('{}')
+        ->and($turn['data']['state'])->toBe('completed')
+        ->and(end($recorded['catchUp']['events'])['type'])->toBe('diff.updated');
 });
 
 it('writes every scenario', function () {

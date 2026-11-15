@@ -81,6 +81,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonImmutable|null $start_requested_at
  * @property string|null $preview_hostname
  * @property CarbonImmutable|null $preview_last_request_at
+ * @property string|null $pull_request_opening_state
+ * @property string|null $pull_request_opening_error
+ * @property CarbonImmutable|null $pull_request_opening_at
  */
 #[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
@@ -138,6 +141,7 @@ class Thread extends Model
             'split_requested_at' => 'immutable_datetime',
             'start_requested_at' => 'immutable_datetime',
             'preview_last_request_at' => 'immutable_datetime',
+            'pull_request_opening_at' => 'immutable_datetime',
         ];
     }
 

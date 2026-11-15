@@ -5,7 +5,10 @@ namespace App\Http\Resources;
 use App\Enums\DiffFileStatus;
 use App\Enums\RepositoryRole;
 use App\Models\Thread;
+use App\Models\ThreadDiff;
+use App\Models\ThreadDiffFile;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
  * Body of `threads.diff.show`. The array shape below is the source of truth for
@@ -49,10 +52,7 @@ final class ThreadDiffData
             'branch' => $checkouts->get((string) $thread->repo)?->branch,
             'pullRequestUrl' => $checkouts->get((string) $thread->repo)?->pull_request_url,
         ]];
-        $filesCount = $diff->files_count;
-        $additions = $diff->additions;
-        $deletions = $diff->deletions;
-        $throwawayFilesCount = 0;
+        $totals = self::sum($diff);
         $repoById = [];
 
         foreach ($diff->repositories as $extra) {
@@ -69,15 +69,6 @@ final class ThreadDiffData
                 'branch' => $checkouts->get($extra->repo)?->branch,
                 'pullRequestUrl' => $checkouts->get($extra->repo)?->pull_request_url,
             ];
-
-            // Header totals count only repositories that get a pull request.
-            if ($extra->is_throwaway) {
-                $throwawayFilesCount += $extra->files_count;
-            } else {
-                $filesCount += $extra->files_count;
-                $additions += $extra->additions;
-                $deletions += $extra->deletions;
-            }
         }
 
         $files = [];
@@ -101,13 +92,84 @@ final class ThreadDiffData
             'headSha' => $diff->head_sha,
             'capturedAt' => $diff->captured_at->toIso8601String(),
             'isTruncated' => $diff->is_truncated,
-            'filesCount' => $filesCount,
-            'additions' => $additions,
-            'deletions' => $deletions,
-            'throwawayFilesCount' => $throwawayFilesCount,
+            'filesCount' => $totals['pullRequestFilesCount'],
+            'additions' => $totals['additions'],
+            'deletions' => $totals['deletions'],
+            'throwawayFilesCount' => $totals['filesCount'] - $totals['pullRequestFilesCount'],
             'isTurnRunning' => ThreadTurns::runningTurn($thread) !== null,
             'repositories' => $repositories,
             'files' => $files,
         ]];
+    }
+
+    /**
+     * Header totals of the stored diff, or null without one. Additions, deletions and
+     * `pullRequestFilesCount` count only repositories that get a pull request; `filesCount`
+     * adds the throwaway files.
+     *
+     * @return ?array{additions: int, deletions: int, filesCount: int, pullRequestFilesCount: int}
+     */
+    public static function totals(Thread $thread): ?array
+    {
+        $diff = $thread->diff()->with('repositories')->first();
+
+        if ($diff === null) {
+            return null;
+        }
+
+        return self::sum($diff);
+    }
+
+    /**
+     * One file of the thread's current diff with its patch. A file of another
+     * thread or of a replaced diff does not exist.
+     *
+     * @return array{path: string, oldPath: ?string, status: string, isBinary: bool, isTooLarge: bool, patch: ?string}
+     *
+     * @throws ModelNotFoundException
+     */
+    public static function file(Thread $thread, int $fileId): array
+    {
+        $diffFile = ThreadDiffFile::query()
+            ->whereKey($fileId)
+            ->whereHas('diff', fn ($query) => $query->where('thread_id', $thread->id))
+            ->firstOrFail();
+
+        return [
+            'path' => $diffFile->path,
+            'oldPath' => $diffFile->old_path,
+            'status' => $diffFile->status->value,
+            'isBinary' => $diffFile->is_binary,
+            'isTooLarge' => $diffFile->is_too_large,
+            'patch' => $diffFile->patch,
+        ];
+    }
+
+    /**
+     * @return array{additions: int, deletions: int, filesCount: int, pullRequestFilesCount: int}
+     */
+    private static function sum(ThreadDiff $diff): array
+    {
+        $pullRequestFilesCount = $diff->files_count;
+        $throwawayFilesCount = 0;
+        $additions = $diff->additions;
+        $deletions = $diff->deletions;
+
+        foreach ($diff->repositories as $extra) {
+            if ($extra->is_throwaway) {
+                $throwawayFilesCount += $extra->files_count;
+            } else {
+                $pullRequestFilesCount += $extra->files_count;
+                $additions += $extra->additions;
+                $deletions += $extra->deletions;
+            }
+        }
+
+        return [
+            'additions' => $additions,
+            'deletions' => $deletions,
+            'filesCount' => $pullRequestFilesCount + $throwawayFilesCount,
+            'pullRequestFilesCount' => $pullRequestFilesCount,
+        ];
     }
 }

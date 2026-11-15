@@ -3,6 +3,7 @@
 use App\Jobs\Threads\RefreshSiblingBlocksJob;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
+use App\Models\User;
 use App\Services\Threads\PullRequests\MergeOrder;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
@@ -49,4 +50,13 @@ it('rewrites positions and dispatches the refresh job', function () {
 
     expect($b->refresh()->merge_position)->toBe(1)->and($a->refresh()->merge_position)->toBe(2);
     Queue::assertPushed(RefreshSiblingBlocksJob::class, fn ($job) => $job->threadId === $thread->id);
+});
+
+it('refuses an order of more than 50 ids with a session error on order', function () {
+    [$thread] = orderedThread();
+    $owner = User::factory()->create();
+    $thread->update(['owner_user_id' => $owner->id]);
+
+    $this->actingAs($owner)->putJson("/threads/{$thread->public_id}/pull-requests/order", ['order' => range(1, 51)])
+        ->assertStatus(422)->assertJsonValidationErrors('order');
 });

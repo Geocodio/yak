@@ -46,7 +46,7 @@ use App\Services\Teleport\LocalTurns;
  *         pullRequestOpening: ?array{state: 'opening'|'held'|'failed', error: ?string, at: ?string},
  *     },
  *     canDrive: bool,
- *     diffTotals: ?array{additions: int, deletions: int},
+ *     diffTotals: ?array{additions: int, deletions: int, filesCount: int},
  *     pullRequest: ?array{number: int, url: string},
  *     brief: ?array{text: string, kind: string, model: ?string, startedAt: string, branch: ?string},
  *     publishWarning: bool,
