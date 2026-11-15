@@ -15,6 +15,8 @@ public struct ThreadShow: Codable, Equatable, Sendable {
     public let pullRequest: ThreadPullRequestLink?
     /// The thread is private or shared, so opening a pull request publishes its conversation.
     public let publishWarning: Bool
+    /// The broadcast channel for this thread's Live Activity; nil when the server has none.
+    public let liveActivityChannel: String?
 
     public init(
         thread: ThreadDetail,
@@ -30,7 +32,8 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         canOpenPullRequest: Bool = false,
         diffTotals: DiffTotals? = nil,
         pullRequest: ThreadPullRequestLink? = nil,
-        publishWarning: Bool = false
+        publishWarning: Bool = false,
+        liveActivityChannel: String? = nil
     ) {
         self.thread = thread
         self.canDrive = canDrive
@@ -46,12 +49,14 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         self.diffTotals = diffTotals
         self.pullRequest = pullRequest
         self.publishWarning = publishWarning
+        self.liveActivityChannel = liveActivityChannel
     }
 
     private enum CodingKeys: String, CodingKey {
         case thread, canDrive, messages, composer, notice, panes, question, latestSequence
         case stackParent, capacity
         case canOpenPullRequest, diffTotals, pullRequest, publishWarning
+        case liveActivityChannel
     }
 
     public init(from decoder: any Decoder) throws {
@@ -70,6 +75,7 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         diffTotals = try container.decodeIfPresent(DiffTotals.self, forKey: .diffTotals)
         pullRequest = try container.decodeIfPresent(ThreadPullRequestLink.self, forKey: .pullRequest)
         publishWarning = try container.decodeIfPresent(Bool.self, forKey: .publishWarning) ?? false
+        liveActivityChannel = try container.decodeIfPresent(String.self, forKey: .liveActivityChannel)
     }
 }
 

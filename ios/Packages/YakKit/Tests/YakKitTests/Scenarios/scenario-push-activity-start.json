@@ -1,0 +1,16 @@
+{
+  "aps": {
+    "timestamp": 1794830400,
+    "event": "start",
+    "content-state": { "state": "working", "step": "Starting", "turnStartedAt": "2026-11-16T12:00:00+00:00", "isPrivate": false },
+    "attributes-type": "ThreadActivityAttributes",
+    "attributes": {
+      "instance": "https://yak.example.com",
+      "threadId": "d0e515ef",
+      "title": "Retry failed rows when the import times out"
+    },
+    "input-push-channel": "dGVzdC1jaGFubmVs",
+    "stale-date": 1794832200,
+    "alert": { "title": "Retry failed rows when the import times out", "body": "Yak is working." }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "aps": {
+    "alert": { "title": "Retry failed rows when the import times out", "body": "Done. Failed rows now retry three times." },
+    "sound": "default",
+    "badge": 2,
+    "thread-id": "thread-d0e515ef",
+    "interruption-level": "active"
+  },
+  "yak": {
+    "instance": "https://yak.example.com",
+    "event": "turn_finished",
+    "kind": "thread",
+    "id": "d0e515ef",
+    "path": "/threads/d0e515ef",
+    "needsYouCount": 2
+  }
+}

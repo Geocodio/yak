@@ -1,0 +1,17 @@
+{
+  "aps": {
+    "alert": { "title": "Yak test", "body": "Notifications work on this device." },
+    "sound": "default",
+    "badge": 0,
+    "thread-id": "account",
+    "interruption-level": "active"
+  },
+  "yak": {
+    "instance": "https://yak.example.com",
+    "event": "test",
+    "kind": "account",
+    "id": null,
+    "path": "/settings/notifications",
+    "needsYouCount": 0
+  }
+}
