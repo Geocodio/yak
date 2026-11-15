@@ -28,6 +28,7 @@ public enum SaveProblem: Equatable, Sendable {
     case unavailable(WorkspaceAvailability)
     /// A 422 with `details.errors.path`, or without either key.
     case invalid(message: String)
+    /// An empty message means no server text: the view shows its own catalog copy.
     case server(message: String)
 }
 
@@ -95,7 +96,7 @@ public actor FileDocument {
     private var isClosed = false
     private var draftTimer: Task<Void, Never>?
     private var slowTimer: Task<Void, Never>?
-    private var requests: [Int: Task<Void, Never>] = [:]
+    private var requests: [Int: @Sendable () -> Void] = [:]
     private var nextRequestID = 0
 
     public init(
@@ -304,7 +305,12 @@ public actor FileDocument {
     public func updateText(_ newText: String) async {
         guard !isClosed else { return }
         switch edit {
-        case .notEditing, .saving: return
+        case .notEditing: return
+        case .saving:
+            // Text typed while a save is in flight is kept; the saved answer does not replace it.
+            text = newText
+            publish()
+            return
         case .saveFailed, .saved: edit = .editing
         case .editing, .conflict: break
         }
@@ -367,7 +373,7 @@ public actor FileDocument {
         draftTimer = nil
         slowTimer?.cancel()
         slowTimer = nil
-        for (_, task) in requests { task.cancel() }
+        for (_, cancel) in requests { cancel() }
         requests = [:]
         broadcast.finish()
     }
@@ -408,7 +414,7 @@ public actor FileDocument {
         }
         switch result {
         case .success(let saved):
-            await applySaved(saved.file, working: saved.working)
+            await applySaved(saved.file, working: saved.working, sent: sent)
         case .failure(let failure):
             await handleSaveFailure(failure, sent: sent)
         }
@@ -427,18 +433,23 @@ public actor FileDocument {
         }
     }
 
-    private func applySaved(_ file: FileBody, working: Bool) async {
+    private func applySaved(_ file: FileBody, working: Bool, sent: String) async {
         let content = FileContent(
             path: file.path, sha256: file.sha256, size: file.size, isBinary: file.isBinary,
             isTooLarge: file.isTooLarge, content: file.content, headContent: file.headContent,
             language: file.language, canEdit: true)
         apply(content)
         baseSHA256 = file.sha256
-        text = file.content ?? text
         restoredDraft = false
         changedOnServer = false
-        edit = .saved(working: working)
         await cache.removeFileEditDraft(thread: threadID, scope: scope, path: path)
+        if let typedSince = text, typedSince != sent {
+            edit = .editing
+            await writeDraft()
+        } else {
+            text = file.content ?? text
+            edit = .saved(working: working)
+        }
     }
 
     private func handleSaveFailure(_ failure: APIFailure, sent: String) async {
@@ -446,14 +457,14 @@ public actor FileDocument {
             if case .network = failure {
                 edit = .saveFailed(.offline)
             } else {
-                edit = .saveFailed(.server(message: "The file could not be saved."))
+                edit = .saveFailed(.server(message: ""))
             }
             return
         }
         if let conflict = FileConflict(error) {
             // A save whose answer was lost and is sent again meets its own text: it is saved.
             if let file = conflict.file, file.content == sent {
-                await applySaved(file, working: false)
+                await applySaved(file, working: false, sent: sent)
             } else {
                 edit = .conflict(theirs: conflict.file)
             }
@@ -514,7 +525,7 @@ public actor FileDocument {
         nextRequestID += 1
         let id = nextRequestID
         let task = Task { await operation(self) }
-        requests[id] = Task { _ = await task.value }
+        requests[id] = { task.cancel() }
         let value = await withTaskCancellationHandler {
             await task.value
         } onCancel: {

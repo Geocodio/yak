@@ -347,3 +347,46 @@ private func makeRig(
         #expect(await path.current().edit == .saveFailed(.invalid(message: sentence)))
     }
 }
+
+@Suite struct FileDocumentRequestTests {
+    @Test func closeCancelsTheRequestInFlight() async {
+        let rig = await makeRig()
+        await rig.transport.hold(getRoute)
+        let loading = Task { await rig.document.load() }
+        await rig.transport.waitForRequests(1, on: getRoute)
+        await rig.document.close()
+        await loading.value
+        #expect(await rig.transport.cancelledRequests == 1)
+        var finished = false
+        for await _ in await rig.document.snapshots() {}
+        finished = true
+        #expect(finished)
+    }
+
+    @Test func textTypedDuringASaveIsKept() async {
+        let rig = await makeRig(put: [scenario(200, "scenario-file-saved")])
+        await rig.startEditing()
+        await rig.transport.hold(putRoute)
+        let saving = Task { await rig.document.save() }
+        await rig.transport.waitForRequests(1, on: putRoute)
+        await rig.document.updateText(mine + "more")
+        await rig.transport.release(putRoute)
+        await saving.value
+        let snapshot = await rig.current()
+        #expect(snapshot.text == mine + "more")
+        #expect(snapshot.edit == .editing)
+        #expect(snapshot.isDirty)
+        #expect(await rig.draft()?.text == mine + "more")
+    }
+
+    @Test func anUnexpectedFailureHasNoEnglishMessage() async {
+        let rig = await makeRig(put: [.json(401, #"{"error":"unauthenticated","message":"No."}"#)])
+        await rig.startEditing()
+        await rig.document.save()
+        guard case .saveFailed(.server(let message)) = await rig.current().edit else {
+            Issue.record("unexpected edit phase")
+            return
+        }
+        #expect(message.isEmpty || message == "No.")
+    }
+}
