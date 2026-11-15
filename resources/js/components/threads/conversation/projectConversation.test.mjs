@@ -252,3 +252,18 @@ test('the group is running while its last call has no result', () => {
     assert.equal(items[0].running, true);
     assert.deepEqual(items[0].steps.map((step) => step.running), [false, true]);
 });
+
+test('a steer read at sequence 3 sits before the later tool group at 6 and after the group at 1', () => {
+    const { items } = project(feedOf(assistant(1, 'm1', [use('a', 'Read')]), toolResult(2, 'a', 'x'), assistant(4, 'm2', [{ type: 'text', text: 'between' }]), assistant(6, 'm3', [use('b', 'Read')]), toolResult(7, 'b', 'y')));
+    const steer = { id: 's1', uuid: 's1', state: 'read', readAfterSequence: 3, sentAt: at, text: 'steer' };
+    const merged = mergeConversation([steer], [], items);
+
+    assert.deepEqual(merged.map((entry) => (entry.type === 'person' ? 'steer' : entry.item.key)), ['tools:m1:0', 'steer', 'm2:0', 'tools:m3:0']);
+});
+
+test('a message anchored at an item sequence follows that item', () => {
+    const { items } = project(feedOf(assistant(3, 'm1', [{ type: 'text', text: 'a' }]), assistant(6, 'm2', [{ type: 'text', text: 'b' }])));
+    const steer = { id: 's1', uuid: 's1', state: 'read', readAfterSequence: 3, sentAt: at, text: 'steer' };
+
+    assert.deepEqual(mergeConversation([steer], [], items).map((entry) => (entry.type === 'person' ? 'steer' : entry.item.key)), ['m1:0', 'steer', 'm2:0']);
+});
