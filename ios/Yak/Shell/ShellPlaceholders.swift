@@ -12,6 +12,8 @@ struct DrawerPlaceholder: View {
     let openAccount: () -> Void
 
     @State private var showsSkeleton = false
+    /// Each retry starts a new attempt, so the slow line arms again from zero.
+    @State private var loadAttempt = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -128,16 +130,22 @@ struct DrawerPlaceholder: View {
     private var skeleton: some View {
         VStack(alignment: .leading, spacing: 14) {
             if showsSkeleton {
-                ForEach(0..<5, id: \.self) { _ in
-                    RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.08)).frame(height: 18)
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(0..<5, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.08)).frame(height: 18)
+                    }
                 }
-                SlowHint(retry: retry)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("drawer.loading")
+                SlowHint {
+                    loadAttempt += 1
+                    retry()
+                }
+                .id(loadAttempt)
             }
         }
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("drawer.loading")
         .task {
             do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
             showsSkeleton = true

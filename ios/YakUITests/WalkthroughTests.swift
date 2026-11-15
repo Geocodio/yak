@@ -252,6 +252,13 @@ import XCTest
         try shoot("signed-in-refreshing-slow")
     }
 
+    func testDrawerSlowLineOffersRetry() throws {
+        try start("slower", paired: true)
+        XCTAssertTrue(app.buttons["Retry"].waitForExistence(timeout: 14))
+        XCTAssertTrue(label("The connection is slow").exists)
+        try shoot("drawer-slow")
+    }
+
     func testSignedInOffline() throws {
         try start("paired", paired: true)
         openAccount()
