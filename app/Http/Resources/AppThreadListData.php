@@ -20,9 +20,8 @@ final class AppThreadListData
     public static function for(User $user, ThreadListFilter $filter, ?string $search): array
     {
         $list = ThreadList::for($user, $filter, $search);
-        $typed = fn (array $rows): array => array_map(fn (array $row): array => ['type' => 'thread'] + $row, $rows);
         $taskItems = $filter === ThreadListFilter::Closed ? [] : NeedsYouTasks::for($user, $search);
-        $needsYou = [...$typed($list['needsYou']), ...$taskItems];
+        $needsYou = [...self::typed($list['needsYou']), ...$taskItems];
 
         usort($needsYou, fn (array $a, array $b): int => match (true) {
             ($a['lastActivityAt'] ?? null) === ($b['lastActivityAt'] ?? null) => 0,
@@ -34,11 +33,20 @@ final class AppThreadListData
         $isUnfilteredMine = $filter === ThreadListFilter::Mine && $search === null;
 
         return [
-            'starred' => $typed($list['starred']),
+            'starred' => self::typed($list['starred']),
             'needsYou' => $needsYou,
-            'threads' => $typed($list['threads']),
+            'threads' => self::typed($list['threads']),
             'needsYouCount' => NeedsYouCount::for($user, $isUnfilteredMine ? $list['needsYouCount'] : null),
             'hasAnyThreads' => $list['hasAnyThreads'],
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private static function typed(array $rows): array
+    {
+        return array_map(fn (array $row): array => ['type' => 'thread'] + $row, $rows);
     }
 }

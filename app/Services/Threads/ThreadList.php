@@ -42,6 +42,7 @@ class ThreadList
     public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null): array
     {
         $status = $filter === ThreadListFilter::Closed ? 'closed' : 'open';
+        $searchText = trim($search ?? '');
         $roots = Thread::query()
             ->withoutVisibilityScope()
             ->visibleTo($user)
@@ -49,7 +50,7 @@ class ThreadList
             ->where('status', $status)
             ->when($filter === ThreadListFilter::Mine, fn (Builder $query) => self::mine($query, $user))
             ->when($filter === ThreadListFilter::StartedByYak, fn (Builder $query) => $query->whereNull('created_by_user_id'))
-            ->when($search !== null && trim($search) !== '', fn (Builder $query) => self::matching($query, $user, $status, trim($search)))
+            ->when($searchText !== '', fn (Builder $query) => self::matching($query, $user, $status, $searchText))
             ->select('threads.*')
             ->addSelect(['latest_run_id' => self::latestRunId()])
             ->withExists('shares as is_shared')
