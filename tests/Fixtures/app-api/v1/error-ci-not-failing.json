@@ -1,0 +1,4 @@
+{
+    "error": "ci_not_failing",
+    "message": "CI is not failing on this pull request."
+}
