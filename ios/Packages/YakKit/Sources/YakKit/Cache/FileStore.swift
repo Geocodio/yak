@@ -21,6 +21,8 @@ public enum FileStoreError: Error, Equatable, Sendable {
     case unreadable
     /// The path leaves the store: a `..` component or a leading `/`.
     case invalidPath
+    /// The file holds more than the bound a bounded read allows.
+    case tooLarge
 }
 
 /// Paths are relative to the store's root and use `/`.
@@ -33,6 +35,31 @@ public protocol FileStore: Sendable {
     func remove(_ path: String) throws(FileStoreError)
     /// Names, sorted; empty when the folder is missing.
     func list(_ folder: String) throws(FileStoreError) -> [String]
+    /// Nil when missing; `.tooLarge` when the file holds more than `maximumBytes`. Never loads more than the bound plus one byte.
+    func read(_ path: String, maximumBytes: Int) throws(FileStoreError) -> Data?
+    /// Adds to the end of the file, creating it with `protection` when missing.
+    func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError)
+    /// Replaces the destination; `.unreadable` when the source is missing.
+    func move(_ source: String, to destination: String) throws(FileStoreError)
+}
+
+extension FileStore {
+    public func read(_ path: String, maximumBytes: Int) throws(FileStoreError) -> Data? {
+        guard let data = try read(path) else { return nil }
+        if data.count > max(0, maximumBytes) { throw .tooLarge }
+        return data
+    }
+
+    public func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        let existing = try read(path) ?? Data()
+        try write(existing + data, to: path, protection: protection)
+    }
+
+    public func move(_ source: String, to destination: String) throws(FileStoreError) {
+        guard let data = try read(source) else { throw .unreadable }
+        try write(data, to: destination, protection: .untilFirstUnlock)
+        try remove(source)
+    }
 }
 
 private func validatedComponents(_ path: String) throws(FileStoreError) -> [String] {
@@ -45,9 +72,22 @@ private func validatedComponents(_ path: String) throws(FileStoreError) -> [Stri
 /// Files under `root`: the app group container in the app.
 public struct DiskFileStore: FileStore {
     private let root: URL
+    /// Runs between the size check and the read of a bounded read; tests grow the file here.
+    private let afterSizeCheck: (@Sendable () -> Void)?
 
     public init(root: URL) {
         self.root = root
+        self.afterSizeCheck = nil
+    }
+
+    init(root: URL, afterSizeCheck: @escaping @Sendable () -> Void) {
+        self.root = root
+        self.afterSizeCheck = afterSizeCheck
+    }
+
+    /// The location of a path inside the root; `.invalidPath` when it leaves the root.
+    public func fileURL(_ path: String) throws(FileStoreError) -> URL {
+        try url(path)
     }
 
     private func url(_ path: String) throws(FileStoreError) -> URL {
@@ -59,6 +99,58 @@ public struct DiskFileStore: FileStore {
         guard FileManager.default.fileExists(atPath: location.path) else { return nil }
         do {
             return try Data(contentsOf: location)
+        } catch {
+            throw .unreadable
+        }
+    }
+
+    public func read(_ path: String, maximumBytes: Int) throws(FileStoreError) -> Data? {
+        let location = try url(path)
+        guard FileManager.default.fileExists(atPath: location.path) else { return nil }
+        let bound = max(0, maximumBytes)
+        do {
+            let size = try FileManager.default.attributesOfItem(atPath: location.path)[.size] as? NSNumber
+            if maximumBytes < 0 || (size?.intValue ?? 0) > bound { throw FileStoreError.tooLarge }
+            afterSizeCheck?()
+            let handle = try FileHandle(forReadingFrom: location)
+            defer { try? handle.close() }
+            let data = try handle.read(upToCount: bound + 1) ?? Data()
+            if data.count > bound { throw FileStoreError.tooLarge }
+            return data
+        } catch let error as FileStoreError {
+            throw error
+        } catch {
+            throw .unreadable
+        }
+    }
+
+    public func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        let location = try url(path)
+        guard FileManager.default.fileExists(atPath: location.path) else {
+            try write(data, to: path, protection: protection)
+            return
+        }
+        do {
+            let handle = try FileHandle(forWritingTo: location)
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            try handle.write(contentsOf: data)
+        } catch {
+            throw .unreadable
+        }
+    }
+
+    public func move(_ source: String, to destination: String) throws(FileStoreError) {
+        let from = try url(source)
+        let to = try url(destination)
+        do {
+            try FileManager.default.createDirectory(
+                at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if FileManager.default.fileExists(atPath: to.path) {
+                _ = try FileManager.default.replaceItemAt(to, withItemAt: from)
+            } else {
+                try FileManager.default.moveItem(at: from, to: to)
+            }
         } catch {
             throw .unreadable
         }
@@ -136,6 +228,23 @@ public final class InMemoryFileStore: FileStore, @unchecked Sendable {
     public func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
         let key = try validatedComponents(path).joined(separator: "/")
         lock.withLock { files[key] = (data, protection) }
+    }
+
+    public func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        let key = try validatedComponents(path).joined(separator: "/")
+        lock.withLock { files[key] = ((files[key]?.data ?? Data()) + data, files[key]?.protection ?? protection) }
+    }
+
+    public func move(_ source: String, to destination: String) throws(FileStoreError) {
+        let from = try validatedComponents(source).joined(separator: "/")
+        let to = try validatedComponents(destination).joined(separator: "/")
+        let found = lock.withLock { () -> Bool in
+            guard let file = files[from] else { return false }
+            files[to] = file
+            if from != to { files[from] = nil }
+            return true
+        }
+        if !found { throw .unreadable }
     }
 
     public func remove(_ path: String) throws(FileStoreError) {

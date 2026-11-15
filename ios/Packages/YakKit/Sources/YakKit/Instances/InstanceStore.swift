@@ -36,9 +36,30 @@ public enum InstanceStoreError: Error, Equatable, Sendable {
     case unknownInstance
 }
 
+extension InstanceStore {
+    /// Moves the stored list and the active instance id from `old` to `new` once. True when something moved.
+    /// A list already in `new` wins and `old` is left as it is. A list in `old` that does not decode is left there.
+    /// The new store is written before the old one is cleared, so a crash in between leaves both readable.
+    public static func moveStoredList(from old: any KeyValueStore, to new: any KeyValueStore) -> Bool {
+        guard new.data(forKey: instancesKey) == nil, let list = old.data(forKey: instancesKey) else {
+            return false
+        }
+        guard (try? JSONDecoder().decode([Instance].self, from: list)) != nil else {
+            logFailure("Stored instance list does not decode, not moved")
+            return false
+        }
+        let active = old.data(forKey: activeKey)
+        new.set(list, forKey: instancesKey)
+        if let active { new.set(active, forKey: activeKey) }
+        old.set(nil, forKey: instancesKey)
+        old.set(nil, forKey: activeKey)
+        return true
+    }
+}
+
 public actor InstanceStore {
-    private static let instancesKey = "instances.v1"
-    private static let activeKey = "instances.active"
+    fileprivate static let instancesKey = "instances.v1"
+    fileprivate static let activeKey = "instances.active"
 
     private let defaults: KeyValueStore
     private let tokens: TokenStore

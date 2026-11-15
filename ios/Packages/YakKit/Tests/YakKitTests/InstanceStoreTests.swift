@@ -3,13 +3,6 @@ import Testing
 
 @testable import YakKit
 
-private final class InMemoryKeyValueStore: KeyValueStore, @unchecked Sendable {
-    private let lock = NSLock()
-    private var values: [String: Data] = [:]
-    func data(forKey key: String) -> Data? { lock.withLock { values[key] } }
-    func set(_ value: Data?, forKey key: String) { lock.withLock { values[key] = value } }
-}
-
 private final class Clock: @unchecked Sendable {
     private let lock = NSLock()
     private var current = Date(timeIntervalSince1970: 1_000)
