@@ -9,7 +9,7 @@ public enum BridgeMessage: Equatable, Sendable {
     public static func parse(_ text: String) -> BridgeMessage {
         guard let frame = try? JSONDecoder().decode(ExitFrame.self, from: Data(text.utf8)),
             frame.type == "exit",
-            abs(frame.code) <= 1_000_000
+            frame.code.magnitude <= 1_000_000
         else { return .unknown }
         return .exit(code: frame.code)
     }

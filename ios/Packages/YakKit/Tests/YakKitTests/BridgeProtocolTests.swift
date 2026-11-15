@@ -11,6 +11,8 @@ struct BridgeProtocolTests {
         #expect(BridgeMessage.parse(#"{"type":"exit","code":1e99}"#) == .unknown)
         #expect(BridgeMessage.parse(#"{"type":"exit","code":-1.5}"#) == .unknown)
         #expect(BridgeMessage.parse(#"{"type":"exit"}"#) == .unknown)
+        #expect(BridgeMessage.parse(#"{"type":"exit","code":-9223372036854775808}"#) == .unknown)
+        #expect(BridgeMessage.parse(#"{"type":"exit","code":9223372036854775807}"#) == .unknown)
         #expect(BridgeMessage.parse(#"{"type":"exit","code":true}"#) == .unknown)
     }
 

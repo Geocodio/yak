@@ -36,6 +36,7 @@
 
         var recordedOrigins: [String] { originRecorder.all }
         var receivedFrames: [ReceivedFrame] { receivedRecorder.all }
+        func waitForReceivedFrames(_ count: Int) async { await receivedRecorder.waitForFrames(count) }
 
         func start() async throws -> UInt16 {
             listener.newConnectionHandler = { [weak self] connection in
@@ -111,8 +112,31 @@
     private final class ReceivedRecorder: @unchecked Sendable {
         private let lock = NSLock()
         private var frames: [ReceivedFrame] = []
-        func record(_ frame: ReceivedFrame) { lock.withLock { frames.append(frame) } }
+        private var waiter: (count: Int, continuation: CheckedContinuation<Void, Never>)?
+
+        func record(_ frame: ReceivedFrame) {
+            let ready: CheckedContinuation<Void, Never>? = lock.withLock {
+                frames.append(frame)
+                guard let waiter, frames.count >= waiter.count else { return nil }
+                self.waiter = nil
+                return waiter.continuation
+            }
+            ready?.resume()
+        }
+
         var all: [ReceivedFrame] { lock.withLock { frames } }
+
+        /// Returns once `count` frames have arrived; the suite's time limit bounds the wait.
+        func waitForFrames(_ count: Int) async {
+            await withCheckedContinuation { continuation in
+                let alreadyThere: Bool = lock.withLock {
+                    if frames.count >= count { return true }
+                    waiter = (count, continuation)
+                    return false
+                }
+                if alreadyThere { continuation.resume() }
+            }
+        }
     }
 
     private final class OriginRecorder: @unchecked Sendable {
@@ -159,7 +183,7 @@
             #expect(try await socket.receive() == .control(#"{"type":"exit","code":0}"#))
             try await socket.send(bytes: Data([0x61]))
             try await socket.send(text: BridgeControl.resize(cols: 80, rows: 24))
-            for _ in 0..<100 where bridge.receivedFrames.count < 2 { try await Task.sleep(for: .milliseconds(50)) }
+            await bridge.waitForReceivedFrames(2)
             #expect(
                 bridge.receivedFrames == [
                     ReceivedFrame(isBinary: true, data: Data([0x61])),
