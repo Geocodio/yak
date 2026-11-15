@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenControll
 use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
 use App\Http\Controllers\Api\App\MeController as AppMeController;
 use App\Http\Controllers\Api\App\SignedMediaController;
+use App\Http\Controllers\Api\App\Push\LiveActivityChannelController as AppLiveActivityChannelController;
 use App\Http\Controllers\Api\App\Push\NotificationPreferenceController as AppNotificationPreferenceController;
 use App\Http\Controllers\Api\App\Push\PushTestController as AppPushTestController;
 use App\Http\Controllers\Api\App\Push\PushTokenController as AppPushTokenController;
@@ -500,6 +501,7 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::get('threads/{thread}/share', [AppThreadShareController::class, 'show'])->name('app.threads.share.show');
         Route::put('threads/{thread}/share', [AppThreadShareController::class, 'update'])->name('app.threads.share.update');
         Route::post('threads/{thread}/seen', AppThreadSeenController::class)->name('app.threads.seen');
+        Route::post('threads/{thread}/live-activity-channel', AppLiveActivityChannelController::class)->name('app.threads.live-activity-channel');
         Route::post('threads/{thread}/stop', [AppThreadActionController::class, 'stop'])->middleware('thread.drive')->name('app.threads.stop');
         Route::post('threads/{thread}/continue', [AppThreadActionController::class, 'continueTurn'])->middleware('thread.drive')->name('app.threads.continue');
         Route::post('threads/{thread}/restore/retry', [AppThreadActionController::class, 'retryRestore'])->middleware('thread.drive')->name('app.threads.restore.retry');

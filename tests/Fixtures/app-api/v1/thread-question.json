@@ -61,6 +61,7 @@
     },
     "diffTotals": null,
     "latestSequence": 4812,
+    "liveActivityChannel": null,
     "localTurns": null,
     "messages": [],
     "modelLabels": {

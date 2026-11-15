@@ -47,9 +47,10 @@ it('shows a thread with panes, the question and the latest sequence', function (
 });
 
 it('shows a thread after a finished turn', function () {
+    fakeApns();
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
     $user = User::factory()->create(['name' => 'Test person']);
-    $thread = Thread::factory()->create(['title' => 'Retry failed uploads', 'name' => 'retry-failed-uploads', 'repo' => 'example/api', 'created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'event_sequence' => 12, 'sandbox_state' => ThreadSandboxState::None]);
+    $thread = Thread::factory()->create(['title' => 'Retry failed uploads', 'name' => 'retry-failed-uploads', 'repo' => 'example/api', 'created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'event_sequence' => 12, 'sandbox_state' => ThreadSandboxState::None, 'live_activity_channel' => 'dGVzdC1jaGFubmVs']);
     $task = YakTask::factory()->create(['thread_id' => $thread->id, 'status' => TaskStatus::Success, 'started_by_user_id' => $user->id]);
     $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'driver_user_id' => $user->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour()]);
     ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed, 'text' => 'Retry failed uploads with backoff']);
@@ -61,6 +62,19 @@ it('shows a thread after a finished turn', function () {
         ->assertJsonPath('messages.0.state', 'read')
         ->assertJsonPath('messages.0.text', 'Retry failed uploads with backoff');
     ContractFixture::assertMatches('app', 'thread', $response->json(), SHOW_VOLATILE);
+});
+
+it('shows no channel without a key or for a closed thread', function () {
+    $user = User::factory()->create(['name' => 'Test person']);
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'live_activity_channel' => 'dGVzdC1jaGFubmVs']);
+
+    $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()->assertJsonPath('liveActivityChannel', null);
+
+    fakeApns();
+    $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()->assertJsonPath('liveActivityChannel', 'dGVzdC1jaGFubmVs');
+
+    $thread->forceFill(['closed_at' => now()])->save();
+    $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()->assertJsonPath('liveActivityChannel', null);
 });
 
 it('hides the preview pane when the repository has no preview manifest', function () {

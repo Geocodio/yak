@@ -242,7 +242,7 @@ class VisibilityRoutes
      */
     public static function appThreads(string $directory = self::GROUPS_DIRECTORY): array
     {
-        return ['app.threads.index', 'app.threads.show', 'app.threads.seen', 'app.threads.events.index', 'app.threads.events.show', 'app.threads.messages.store', 'app.threads.queued-messages.update', 'app.threads.queued-messages.destroy', 'app.threads.clarification-answers.store', 'app.threads.stop', 'app.threads.continue', 'app.threads.restore.retry', 'app.threads.new', 'app.threads.repository-access', 'app.threads.store', 'app.threads.share.show', 'app.threads.share.update', 'app.broadcasting.auth', ...self::groupNames('appThreads', $directory)];
+        return ['app.threads.index', 'app.threads.show', 'app.threads.seen', 'app.threads.live-activity-channel', 'app.threads.events.index', 'app.threads.events.show', 'app.threads.messages.store', 'app.threads.queued-messages.update', 'app.threads.queued-messages.destroy', 'app.threads.clarification-answers.store', 'app.threads.stop', 'app.threads.continue', 'app.threads.restore.retry', 'app.threads.new', 'app.threads.repository-access', 'app.threads.store', 'app.threads.share.show', 'app.threads.share.update', 'app.broadcasting.auth', ...self::groupNames('appThreads', $directory)];
     }
 
     /**
@@ -259,6 +259,7 @@ class VisibilityRoutes
         $core = [
             'app.threads.show' => $probe('GET', '/threads/{thread}', false),
             'app.threads.seen' => $probe('POST', '/threads/{thread}/seen', false),
+            'app.threads.live-activity-channel' => $probe('POST', '/threads/{thread}/live-activity-channel', false),
             'app.threads.events.index' => $probe('GET', '/threads/{thread}/events', false),
             'app.threads.events.show' => $probe('GET', '/threads/{thread}/events/1', false),
             'app.threads.share.show' => $probe('GET', '/threads/{thread}/share', false),

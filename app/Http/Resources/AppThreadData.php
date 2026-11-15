@@ -6,6 +6,7 @@ use App\Enums\ThreadSandboxState;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\Threads\PullRequests\OpenPullRequest;
+use App\Services\Push\LiveActivities\LiveActivityChannels;
 
 /**
  * Thread show for the app: the web page props plus the panes it offers, the open question and the latest event sequence.
@@ -37,6 +38,7 @@ final class AppThreadData
             'question' => ThreadQuestionData::for($thread),
             'latestSequence' => $latestSequence,
             'canOpenPullRequest' => app(OpenPullRequest::class)->canOpen($thread, $viewer),
+            'liveActivityChannel' => app(LiveActivityChannels::class)->visibleFor($thread),
         ];
     }
 }
