@@ -89,7 +89,8 @@ private func scenarioResult(_ status: Int, _ name: String) throws -> FakeTranspo
 @Test func waitsForASlotThenOpens() async throws {
     let rig = await makeRig()
     await rig.transport.on(
-        route, try scenarioResult(202, "scenario-terminal-waiting"), try scenarioResult(202, "scenario-terminal-waiting"),
+        route, try scenarioResult(202, "scenario-terminal-waiting"),
+        try scenarioResult(202, "scenario-terminal-waiting"),
         try scenarioResult(200, "scenario-terminal-session"))
     await rig.connector.enqueue(.socket(await shell()))
     await rig.connection.start(columns: 80, rows: 24)
@@ -185,8 +186,10 @@ private struct Refusal: Sendable, CustomTestStringConvertible {
 }
 
 private let refusals: [Refusal] = [
-    Refusal(status: 403, code: "origin_not_allowed", details: "{}", expected: .refused(.originNotAllowed(message: "Said."))),
-    Refusal(status: 409, code: "origin_not_allowed", details: "{}", expected: .refused(.originNotAllowed(message: "Said."))),
+    Refusal(
+        status: 403, code: "origin_not_allowed", details: "{}", expected: .refused(.originNotAllowed(message: "Said."))),
+    Refusal(
+        status: 409, code: "origin_not_allowed", details: "{}", expected: .refused(.originNotAllowed(message: "Said."))),
     Refusal(status: 403, code: "forbidden", details: "{}", expected: .refused(.forbidden)),
     Refusal(status: 409, code: "thread_closed", details: "{}", expected: .refused(.threadClosed)),
     Refusal(status: 409, code: "thread_owned_by_device", details: "{}", expected: .refused(.onComputer)),
@@ -198,11 +201,13 @@ private let refusals: [Refusal] = [
     Refusal(
         status: 409, code: "thread_blocked", details: #"{"reason":"usage_limit"}"#,
         expected: .refused(.blocked(reason: "usage_limit", message: "Said."))),
-    Refusal(status: 422, code: "something_else", details: "{}", expected: .refused(.other(code: "something_else", message: "Said."))),
+    Refusal(
+        status: 422, code: "something_else", details: "{}",
+        expected: .refused(.other(code: "something_else", message: "Said."))),
 ]
 
 @Test(arguments: refusals)
-fileprivate func everyRefusalHasItsPhase(refusal: Refusal) async throws {
+private func everyRefusalHasItsPhase(refusal: Refusal) async throws {
     let rig = await makeRig()
     await rig.transport.on(
         route,
@@ -243,7 +248,7 @@ private struct Ending: Sendable, CustomTestStringConvertible {
 }
 
 @Test(arguments: ["exit", "idle", "too-many", "denied", "protocol", "lifetime", "error"].map(Ending.init))
-fileprivate func everyEndingHasItsPhase(ending: Ending) async throws {
+private func everyEndingHasItsPhase(ending: Ending) async throws {
     struct Scenario: Decodable {
         struct Entry: Decodable {
             let name: String
@@ -252,7 +257,8 @@ fileprivate func everyEndingHasItsPhase(ending: Ending) async throws {
         }
         let endings: [Entry]
     }
-    let entry = try #require(try decoded(Scenario.self, "scenario-terminal-frames").endings.first { $0.name == ending.name })
+    let entry = try #require(
+        try decoded(Scenario.self, "scenario-terminal-frames").endings.first { $0.name == ending.name })
     let rig = await makeRig()
     await rig.transport.on(route, try scenarioResult(200, "scenario-terminal-session"))
     let socket = await shell()
@@ -316,7 +322,8 @@ fileprivate func everyEndingHasItsPhase(ending: Ending) async throws {
     let rig = await makeRig()
     let dropped = rig.clock.now()
     await rig.transport.on(route, try scenarioResult(200, "scenario-terminal-session"))
-    await rig.connector.enqueue(.socket(await shell(banner: Data("A".utf8))), .socket(await shell(banner: Data("B".utf8))))
+    await rig.connector.enqueue(
+        .socket(await shell(banner: Data("A".utf8))), .socket(await shell(banner: Data("B".utf8))))
     await rig.connection.start(columns: 80, rows: 24)
     try await rig.phase(where: isConnected)
     await rig.connection.networkChanged(isOnline: false)
@@ -405,6 +412,7 @@ fileprivate func everyEndingHasItsPhase(ending: Ending) async throws {
     await rig.connection.suspend()
     try await rig.phase { $0 == .offline }
     #expect(await first.isClosed)
+    #expect(await first.closeCode == 1000)
     await rig.connection.networkChanged(isOnline: true)
     #expect(await rig.transport.requests(on: route).count == 1)
     await rig.connection.resume()
@@ -437,5 +445,49 @@ fileprivate func everyEndingHasItsPhase(ending: Ending) async throws {
     try await rig.phase(where: isConnected)
     for _ in 0..<40 { await rig.clock.advance(by: .seconds(60)) }
     #expect(await socket.sentTexts.allSatisfy { !$0.contains("ping") })
+    await rig.connection.close()
+}
+
+@Test func aSilentShellCountsAsALostTry() async throws {
+    let rig = await makeRig()
+    await rig.transport.on(route, try scenarioResult(200, "scenario-terminal-session"))
+    let silent = await shell(banner: nil)
+    await rig.connector.enqueue(.socket(silent), .socket(await shell()))
+    await rig.connection.start(columns: 80, rows: 24)
+    try await rig.phase { if case .opening(.shell, _, _) = $0 { true } else { false } }
+    await rig.step(.seconds(15))
+    try await rig.phase { if case .lost(1, _) = $0 { true } else { false } }
+    #expect(await silent.isClosed)
+    await rig.step(.seconds(1))
+    try await rig.phase(where: isConnected)
+    await rig.connection.close()
+}
+
+@Test func aNewShellAfterAnEndingGetsADivider() async throws {
+    let rig = await makeRig()
+    let dropped = rig.clock.now()
+    await rig.transport.on(route, try scenarioResult(200, "scenario-terminal-session"))
+    let first = await shell(banner: Data("A".utf8))
+    await first.serverSends(.control(#"{"type":"exit","code":0}"#))
+    await first.closeWith(code: 1000)
+    await rig.connector.enqueue(.socket(first), .socket(await shell(banner: Data("B".utf8))))
+    await rig.connection.start(columns: 80, rows: 24)
+    try await rig.phase { $0 == .ended(exitCode: 0) }
+    await rig.connection.reconnectNow()
+    _ = try await rig.output.next { $0 == .bytes(Data("B".utf8)) }
+    #expect(await rig.output.values == [.bytes(Data("A".utf8)), .newShell(droppedAt: dropped), .bytes(Data("B".utf8))])
+    await rig.connection.close()
+}
+
+@Test func aSlowOpeningCanBeRetried() async throws {
+    let rig = await makeRig()
+    await rig.transport.on(route, try scenarioResult(200, "scenario-terminal-session"))
+    await rig.transport.hold(route)
+    await rig.connection.start(columns: 80, rows: 24)
+    await rig.clock.waitForSleeper(endingAt: .seconds(8))
+    await rig.clock.advance(by: .seconds(8))
+    try await rig.phase { if case .opening(.sandbox, _, true) = $0 { true } else { false } }
+    await rig.connection.reconnectNow()
+    await rig.transport.waitForRequests(2, on: route)
     await rig.connection.close()
 }

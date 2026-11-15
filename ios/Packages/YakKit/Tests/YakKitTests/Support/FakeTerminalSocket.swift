@@ -7,6 +7,8 @@ actor FakeTerminalSocket: TerminalSocket {
     private(set) var sentBytes: [Data] = []
     private(set) var sentTexts: [String] = []
     private(set) var isClosed = false
+    /// The code the connection ended with; a close from the app is 1000.
+    var closeCode: Int? { closure?.code }
     private var inbox: [TerminalFrame] = []
     private var closure: TerminalSocketClosed?
     private var receiver: CheckedContinuation<TerminalFrame, any Error>?

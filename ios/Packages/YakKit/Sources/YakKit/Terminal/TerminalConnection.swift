@@ -135,6 +135,7 @@ public actor TerminalConnection {
     private var socket: (any TerminalSocket)?
     private var socketSize: (columns: Int, rows: Int) = (0, 0)
     private var socketHadOutput = false
+    private var didFirstOutputTimeOut = false
     /// When the shell the person was looking at stopped, until the next shell announces itself.
     private var droppedAt: Date?
 
@@ -176,7 +177,10 @@ public actor TerminalConnection {
     public func start(columns: Int, rows: Int) async {
         guard !isStarted, !isClosed else { return }
         isStarted = true
-        update { $0.columns = columns; $0.rows = rows }
+        update {
+            $0.columns = columns
+            $0.rows = rows
+        }
         startDriver()
     }
 
@@ -198,15 +202,19 @@ public actor TerminalConnection {
     /// Remembered for the next connect; sent as a resize frame while connected, only when it changed.
     public func resize(columns: Int, rows: Int) async {
         guard !isClosed else { return }
-        update { $0.columns = columns; $0.rows = rows }
+        update {
+            $0.columns = columns
+            $0.rows = rows
+        }
         await sendResizeIfChanged()
     }
 
-    /// Retry, New shell or Reconnect: from any phase but `connected`, `opening`, `waitingForSlot` and
-    /// `restoring`, asks again.
+    /// Retry, New shell or Reconnect: from any phase but `connected`, a fresh `opening`, `waitingForSlot` and
+    /// `restoring`, asks again. A slow `opening` can be retried.
     public func reconnectNow() async {
         guard isStarted, !isClosed else { return }
         switch snapshot.phase {
+        case .opening(_, _, true): break
         case .connected, .opening, .waitingForSlot, .restoring: return
         default: break
         }
@@ -290,8 +298,11 @@ public actor TerminalConnection {
         driver = Task { await self.drive(owner: owner) }
     }
 
-    private func stopDriver() async {
+    /// Returns the generation this stop created; if it differs afterwards, another call replaced the attempt.
+    @discardableResult
+    private func stopDriver() async -> Int {
         generation += 1
+        let stopped = generation
         driver?.cancel()
         driver = nil
         slowTimer?.cancel()
@@ -299,6 +310,7 @@ public actor TerminalConnection {
         let open = socket
         socket = nil
         await open?.close()
+        return stopped
     }
 
     private func restartDriver() async {
@@ -318,9 +330,8 @@ public actor TerminalConnection {
             break
         }
         if socket != nil, socketHadOutput, droppedAt == nil { droppedAt = clock.now() }
-        await stopDriver()
-        guard !isClosed else { return }
-        update { $0.phase = .offline }
+        let stopped = await stopDriver()
+        setPhase(.offline, owner: stopped)
     }
 
     private func drive(owner: Int) async {
@@ -340,7 +351,8 @@ public actor TerminalConnection {
                     return
                 }
                 let delay = timings.backoff[min(tries - 1, timings.backoff.count - 1)]
-                setPhase(.lost(attempt: tries, retryAt: clock.now().addingTimeInterval(delay.timeInterval)), owner: owner)
+                setPhase(
+                    .lost(attempt: tries, retryAt: clock.now().addingTimeInterval(delay.timeInterval)), owner: owner)
                 do { try await clock.sleep(for: delay) } catch { return }
             }
         }
@@ -486,6 +498,13 @@ public actor TerminalConnection {
         return await read(opened, owner: owner)
     }
 
+    /// A shell that accepts the socket but prints nothing counts as a lost try.
+    private func firstOutputTimedOut(owner: Int) async {
+        guard owner == generation, !socketHadOutput, let open = socket else { return }
+        didFirstOutputTimeOut = true
+        await open.close()
+    }
+
     private func sendResizeIfChanged() async {
         guard let socket, snapshot.columns != socketSize.columns || snapshot.rows != socketSize.rows else { return }
         socketSize = (snapshot.columns, snapshot.rows)
@@ -499,6 +518,12 @@ public actor TerminalConnection {
     private func read(_ opened: any TerminalSocket, owner: Int) async -> AttemptResult {
         var exitCode: Int?
         var sawExit = false
+        didFirstOutputTimeOut = false
+        let firstOutputTimer = Task {
+            do { try await clock.sleep(for: timings.handshake) } catch { return }
+            await self.firstOutputTimedOut(owner: owner)
+        }
+        defer { firstOutputTimer.cancel() }
         while true {
             do {
                 let frame = try await opened.receive()
@@ -520,9 +545,13 @@ public actor TerminalConnection {
                 guard owner == generation else { return .finished(.idle) }
                 let code = (error as? TerminalSocketClosed)?.code
                 let hadOutput = socketHadOutput
+                let timedOut = didFirstOutputTimeOut
+                didFirstOutputTimeOut = false
                 socket = nil
                 await opened.close()
                 logTerminal("closed \(code.map(String.init) ?? "none")")
+                if timedOut { return .lost(hadOutput: false) }
+                if hadOutput, droppedAt == nil { droppedAt = clock.now() }
                 switch TerminalCloseKind.classify(code: code, sawExit: sawExit) {
                 case .ended: return .finished(.ended(exitCode: exitCode))
                 case .idle: return .finished(.idleClosed)
@@ -530,7 +559,6 @@ public actor TerminalConnection {
                 case .denied: return .finished(.denied)
                 case .broken: return .finished(.broken)
                 case .lost:
-                    if hadOutput, droppedAt == nil { droppedAt = clock.now() }
                     return .lost(hadOutput: hadOutput)
                 }
             }
