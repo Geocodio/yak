@@ -12,6 +12,11 @@ private actor OrderRecorder {
     func append(_ value: String) { values.append(value) }
 }
 
+private actor CompletionFlag {
+    private(set) var isDone = false
+    func finish() { isDone = true }
+}
+
 private let baseURL = URL(string: "https://yak.example.com")!
 
 private func makeClient(_ transport: any HTTPTransport) -> APIClient {
@@ -37,6 +42,15 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
     _ = try await (late.value, early.value)
     #expect(await order.values == ["early", "late"])
     #expect(clock.now() == Date(timeIntervalSince1970: 1_800_000_005))
+}
+
+@Test func manualClockKeepsSubSecondDeadlinesExact() async throws {
+    let clock = ManualClock()
+    let sleeper = Task { try await clock.sleep(for: .milliseconds(100)) }
+    await clock.waitForSleeper(endingAt: .milliseconds(100))
+    #expect(clock.sleeperDeadlines == [.milliseconds(100)])
+    await clock.advance(by: .milliseconds(100))
+    try await sleeper.value
 }
 
 @Test func advanceLeavesLaterSleepersAsleep() async throws {
@@ -88,6 +102,24 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
     broadcast.finish()
     for await value in stream { received.append(value) }
     #expect(received == ["a", "b"])
+    var late: [String] = []
+    for await value in broadcast.stream() { late.append(value) }
+    #expect(late == ["b"])
+}
+
+@Test func concurrentSendsLeaveEveryStreamOnTheLastValue() async {
+    let broadcast = Broadcast(0)
+    let streams = (0..<4).map { _ in broadcast.stream() }
+    await withTaskGroup(of: Void.self) { group in
+        for value in 1...200 { group.addTask { broadcast.send(value) } }
+    }
+    broadcast.finish()
+    let final = broadcast.value
+    for stream in streams {
+        var last = -1
+        for await value in stream { last = value }
+        #expect(last == final)
+    }
 }
 
 @Test func streamRecorderMatchesInOrder() async {
@@ -122,8 +154,14 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
         .json(200, #"{"yak":true,"name":"X","api":{"current":1,"min":1},"pairing":{"qr":true,"address":true}}"#))
     await transport.hold("GET instance")
     let client = makeClient(transport)
-    let pending = Task { try await client.send(.instance()) }
+    let completion = CompletionFlag()
+    let pending = Task {
+        defer { Task { await completion.finish() } }
+        return try await client.send(.instance())
+    }
     await transport.waitForRequests(1, on: "GET instance")
+    for _ in 0..<50 { await Task.yield() }
+    #expect(await !completion.isDone)
     await transport.release("GET instance")
     #expect(try await pending.value.name == "X")
 }

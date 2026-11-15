@@ -17,22 +17,23 @@ public final class Broadcast<Value: Sendable>: @unchecked Sendable {
     }
 
     public func send(_ value: Value) {
-        let receivers: [AsyncStream<Value>.Continuation] = lock.withLock {
-            guard !isFinished else { return [] }
+        // Yielding under the lock keeps every subscriber's last value equal to `current`. Yielding to
+        // an unbounded stream never blocks or calls `onTermination`, so the lock cannot deadlock.
+        lock.withLock {
+            guard !isFinished else { return }
             current = value
-            return Array(continuations.values)
+            for receiver in continuations.values { receiver.yield(value) }
         }
-        for receiver in receivers { receiver.yield(value) }
     }
 
-    /// A new stream per call. It starts with the current value and ends when `finish()` is called.
+    /// A new stream per call. It starts with the current value and ends when `finish()` is called. After `finish()` it yields the last value and ends.
     public func stream() -> AsyncStream<Value> {
         AsyncStream(bufferingPolicy: .unbounded) { continuation in
             let identifier: Int? = lock.withLock {
+                continuation.yield(current)
                 guard !isFinished else { return nil }
                 nextIdentifier += 1
                 continuations[nextIdentifier] = continuation
-                continuation.yield(current)
                 return nextIdentifier
             }
             guard let identifier else {

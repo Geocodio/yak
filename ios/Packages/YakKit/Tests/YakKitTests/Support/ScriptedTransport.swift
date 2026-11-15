@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 
 @testable import YakKit
 
@@ -15,7 +16,6 @@ actor ScriptedTransport: HTTPTransport {
     private var holders: [Int: (route: String, continuation: CheckedContinuation<Void, any Error>)] = [:]
     private var nextHolder = 0
     private(set) var requests: [URLRequest] = []
-    private var requestWaiters: [(route: String, count: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
     private static let notFound = FakeTransport.Result.json(404, #"{"error":"not_found","message":"Not found."}"#)
 
@@ -42,18 +42,19 @@ actor ScriptedTransport: HTTPTransport {
     }
 
     func waitForRequests(_ count: Int, on route: String) async {
-        if requests(on: route).count >= count { return }
-        await withCheckedContinuation { requestWaiters.append((route, count, $0)) }
+        let deadline = ContinuousClock.now + .seconds(10)
+        while requests(on: route).count < count {
+            if ContinuousClock.now > deadline {
+                Issue.record("Timed out waiting for \(count) requests on \(route)")
+                return
+            }
+            await Task.yield()
+        }
     }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let route = Self.route(of: request)
         requests.append(request)
-        let count = requests(on: route).count
-        for waiter in requestWaiters where waiter.route == route && count >= waiter.count {
-            waiter.continuation.resume()
-        }
-        requestWaiters.removeAll { $0.route == route && count >= $0.count }
 
         if heldRoutes.contains(route) { try await waitUntilReleased(route) }
 

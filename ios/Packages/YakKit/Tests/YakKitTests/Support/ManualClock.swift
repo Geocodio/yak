@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 
 @testable import YakKit
 
@@ -6,22 +7,21 @@ import Foundation
 final class ManualClock: YakClock, @unchecked Sendable {
     private struct Sleeper {
         let identifier: Int
-        let deadline: Date
+        let deadline: Duration
         let continuation: CheckedContinuation<Void, any Error>
     }
 
     private let lock = NSLock()
     private let start: Date
-    private var current: Date
+    private var elapsed: Duration = .zero
     private var sleepers: [Sleeper] = []
     private var nextIdentifier = 0
 
     init(start: Date = Date(timeIntervalSince1970: 1_800_000_000)) {
         self.start = start
-        current = start
     }
 
-    func now() -> Date { lock.withLock { current } }
+    func now() -> Date { lock.withLock { start.addingTimeInterval(elapsed.seconds) } }
 
     func sleep(for duration: Duration) async throws {
         let identifier = lock.withLock { () -> Int in
@@ -34,7 +34,7 @@ final class ManualClock: YakClock, @unchecked Sendable {
                     if Task.isCancelled { return true }
                     sleepers.append(
                         Sleeper(
-                            identifier: identifier, deadline: current.addingTimeInterval(duration.seconds),
+                            identifier: identifier, deadline: elapsed + duration,
                             continuation: continuation))
                     return false
                 }
@@ -52,16 +52,16 @@ final class ManualClock: YakClock, @unchecked Sendable {
     /// Moves time forward and wakes, one at a time and in deadline order, every sleeper now due. A
     /// sleeper registered after this returns waits for the next call.
     func advance(by duration: Duration) async {
-        let target = lock.withLock { current.addingTimeInterval(duration.seconds) }
+        let target = lock.withLock { elapsed + duration }
         while true {
             let due: Sleeper? = lock.withLock {
                 let candidates = sleepers.filter { $0.deadline <= target }
                 guard let next = candidates.min(by: { $0.deadline < $1.deadline }) else {
-                    current = target
+                    elapsed = target
                     return nil
                 }
                 sleepers.removeAll { $0.identifier == next.identifier }
-                current = max(current, next.deadline)
+                elapsed = max(elapsed, next.deadline)
                 return next
             }
             guard let due else { return }
@@ -71,19 +71,36 @@ final class ManualClock: YakClock, @unchecked Sendable {
         }
     }
 
+    /// Real-time bound for the polling waits, so a missing sleeper fails the test instead of hanging.
+    private static let waitLimit: Duration = .seconds(10)
+
     func waitForSleepers(_ count: Int) async {
-        while lock.withLock({ sleepers.count }) < count { await Task.yield() }
+        let deadline = ContinuousClock.now + Self.waitLimit
+        while lock.withLock({ sleepers.count }) < count {
+            if ContinuousClock.now > deadline {
+                Issue.record("Timed out waiting for \(count) sleepers")
+                return
+            }
+            await Task.yield()
+        }
     }
 
     /// `offset` is measured from `start`.
     func waitForSleeper(endingAt offset: Duration) async {
-        while !sleeperDeadlines.contains(offset) { await Task.yield() }
+        let deadline = ContinuousClock.now + Self.waitLimit
+        while !sleeperDeadlines.contains(offset) {
+            if ContinuousClock.now > deadline {
+                Issue.record("Timed out waiting for a sleeper ending at \(offset)")
+                return
+            }
+            await Task.yield()
+        }
     }
 
     /// Offsets from `start`, sorted.
     var sleeperDeadlines: [Duration] {
         lock.withLock {
-            sleepers.map { Duration.seconds($0.deadline.timeIntervalSince(start)) }.sorted()
+            sleepers.map(\.deadline).sorted()
         }
     }
 }
