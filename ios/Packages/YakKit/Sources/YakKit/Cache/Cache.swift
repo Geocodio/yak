@@ -153,6 +153,12 @@ public actor Cache {
         }
     }
 
+    /// Deletes the saved draft only when its round key passes `shouldRemove`, in one step.
+    public func removeQuestionDraft(thread id: String, where shouldRemove: @Sendable (String) -> Bool) {
+        guard let draft = questionDraft(thread: id), shouldRemove(draft.roundKey) else { return }
+        delete("\(folder(id))/question.json")
+    }
+
     // MARK: Widget snapshot
 
     public func widgetSnapshot() -> WidgetSnapshot? {

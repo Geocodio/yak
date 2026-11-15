@@ -52,7 +52,9 @@ extension ThreadEngine {
         else { return .questionClosed }
         return await perform(
             "answer", .answerQuestion(threadID, answers: draft.answers, note: draft.note),
-            onDone: { await $0.cache.saveQuestionDraft(nil, thread: $0.threadID) })
+            onDone: { [answeredRoundKey = draft.roundKey] in
+                await $0.cache.removeQuestionDraft(thread: $0.threadID) { $0 == answeredRoundKey }
+            })
     }
 
     public func questionDraft() async -> QuestionDraft? {
@@ -66,7 +68,7 @@ extension ThreadEngine {
     }
 
     public func setQueuedMessageMode(_ uuid: String, mode: MessageMode) async -> ThreadActionOutcome {
-        await perform("mode:\(uuid)", .updateQueuedMessage(threadID, uuid: uuid, mode: mode, text: nil))
+        await perform("mode:\(uuid):\(mode.rawValue)", .updateQueuedMessage(threadID, uuid: uuid, mode: mode, text: nil))
     }
 
     /// Trims the text and refuses an empty one without a request; the server limits the length.
@@ -75,7 +77,7 @@ extension ThreadEngine {
         guard !trimmed.isEmpty else {
             return .refused(code: "validation_failed", message: "", fieldErrors: ["text": []])
         }
-        return await perform("edit:\(uuid)", .updateQueuedMessage(threadID, uuid: uuid, mode: nil, text: trimmed))
+        return await perform("edit:\(uuid):\(trimmed)", .updateQueuedMessage(threadID, uuid: uuid, mode: nil, text: trimmed))
     }
 
     public func withdrawQueuedMessage(_ uuid: String) async -> ThreadActionOutcome {
@@ -83,11 +85,13 @@ extension ThreadEngine {
     }
 
     /// Runs one request and refreshes the page after it, unless the network was down. A second call with
-    /// the same key while one is in flight waits for it and returns its outcome.
+    /// the same key while one is in flight waits for it and returns its outcome. Keys of edits carry the
+    /// requested change, so a different change is sent as its own request.
     private func perform<Response: Decodable & Sendable>(
         _ key: String, _ endpoint: Endpoint<Response>,
         onDone: (@Sendable (ThreadEngine) async -> Void)? = nil
     ) async -> ThreadActionOutcome {
+        guard !isClosed else { return .failed(.offline) }
         if let running = actionTasks[key] { return await running.value }
         let task = Task { () -> ThreadActionOutcome in
             let outcome: ThreadActionOutcome
@@ -108,9 +112,7 @@ extension ThreadEngine {
 
     /// Removes a saved draft that belongs to another round, or to none, once the page is known.
     func dropStaleQuestionDraft() async {
-        guard let draft = await cache.questionDraft(thread: threadID),
-            draft.roundKey != show?.question?.roundKey
-        else { return }
-        await cache.saveQuestionDraft(nil, thread: threadID)
+        let currentRoundKey = show?.question?.roundKey
+        await cache.removeQuestionDraft(thread: threadID) { $0 != currentRoundKey }
     }
 }

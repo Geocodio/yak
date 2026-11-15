@@ -170,7 +170,7 @@ private func body(of request: URLRequest) throws -> String {
 @Test func withdrawAndModeUseTheMessageUUID() async throws {
     let rig = try await makeRig()
     let uuid = "00000000-0000-4000-8000-000000000009"
-    await rig.transport.on("DELETE threads/\(threadID)/queued-messages/\(uuid)", .json(200, "{}"))
+    await rig.transport.on("DELETE threads/\(threadID)/queued-messages/\(uuid)", .json(204, ""))
     await rig.transport.on("PATCH threads/\(threadID)/queued-messages/\(uuid)", ok)
     #expect(await rig.engine.withdrawQueuedMessage(uuid) == .done)
     #expect(await rig.engine.setQueuedMessageMode(uuid, mode: .queue) == .done)
@@ -178,4 +178,72 @@ private func body(of request: URLRequest) throws -> String {
         await rig.transport.requests(on: "PATCH threads/\(threadID)/queued-messages/\(uuid)").first)
     #expect(try body(of: request) == #"{"mode":"queue"}"#)
     #expect(await rig.transport.requests(on: "DELETE threads/\(threadID)/queued-messages/\(uuid)").count == 1)
+}
+
+@Test func aDifferentEditWhileOneIsInFlightIsSentToo() async throws {
+    let rig = try await makeRig()
+    let route = "PATCH threads/\(threadID)/queued-messages/abc"
+    await rig.transport.on(route, ok)
+    await rig.transport.hold(route)
+    async let first = rig.engine.editQueuedMessage("abc", text: "A")
+    await rig.transport.waitForRequests(1, on: route)
+    async let second = rig.engine.editQueuedMessage("abc", text: "B")
+    for _ in 0..<50 { await Task.yield() }
+    await rig.transport.release(route)
+    await rig.transport.waitForRequests(2, on: route)
+    await rig.transport.release(route)
+    #expect(await first == .done)
+    #expect(await second == .done)
+    let bodies = try await rig.transport.requests(on: route).map(body(of:))
+    #expect(Set(bodies) == [#"{"text":"A"}"#, #"{"text":"B"}"#])
+    #expect(bodies.count == 2)
+}
+
+@Test func closingCancelsAnActionAndRefusesNewOnes() async throws {
+    let rig = try await makeRig()
+    let route = "POST threads/\(threadID)/stop"
+    await rig.transport.on(route, ok)
+    await rig.transport.hold(route)
+    let shows = await rig.transport.requests(on: showRoute).count
+    async let running = rig.engine.stopTurn()
+    await rig.transport.waitForRequests(1, on: route)
+    await rig.engine.close()
+    _ = await running
+    #expect(await rig.engine.continueTurn() == .failed(.offline))
+    #expect(await rig.transport.requests(on: showRoute).count == shows)
+    #expect(await rig.transport.requests(on: "POST threads/\(threadID)/continue").isEmpty)
+}
+
+@Test func aRefreshWithoutAQuestionDropsTheDraft() async throws {
+    let rig = try await makeRig()
+    await rig.engine.updateQuestionDraft(QuestionDraft(roundKey: roundKey))
+    let data = try Scenarios.data("scenario-thread-show")
+    await rig.transport.on(showRoute, .json(200, String(decoding: data, as: UTF8.self)))
+    await rig.engine.refreshShow()
+    #expect(await rig.engine.questionDraft() == nil)
+}
+
+@Test func aDraftSavedOnTheCachedCopySurvivesUntilConfirmed() async throws {
+    let cache = Cache(instance: UUID(), files: InMemoryFileStore(), clock: ManualClock())
+    let rig = try await makeRig(cache: cache)
+    await rig.engine.updateQuestionDraft(QuestionDraft(roundKey: roundKey))
+    await rig.engine.close()
+    // A second engine whose show request is held stays on the cached copy.
+    let transport = ScriptedTransport()
+    await transport.on(showRoute, try .scenario(200, "scenario-thread-question"))
+    await transport.hold(showRoute)
+    await transport.on("POST threads/\(threadID)/seen", .json(200, "{}"))
+    await EventServer(threadID: threadID, events: []).install(on: transport)
+    let client = APIClient(
+        baseURL: URL(string: "https://example.test")!, token: "test-token", transport: transport,
+        appVersion: "1.0", systemDescription: "Test", sleep: { _ in })
+    let engine = ThreadEngine(
+        threadID: threadID, client: client, cache: cache, clock: ManualClock(), frameInterval: .zero)
+    await engine.open()
+    await transport.waitForRequests(1, on: showRoute)
+    #expect(await engine.questionDraft() != nil)
+    await transport.release(showRoute)
+    _ = await StreamRecorder(await engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
+    #expect(await engine.questionDraft() != nil)
+    await engine.close()
 }
