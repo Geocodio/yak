@@ -134,12 +134,19 @@ private final class Client: @unchecked Sendable {
             while true { _ = try await client.receive() }
         } catch { closeError = error }
         #expect(closeError != nil && (closeError as? URLError)?.code != .timedOut)
-        // Playback stays paused while offline, apart from a publish that was already in flight.
+        // A new connection is refused while offline, not merely left to time out.
+        let refused = Client(socketPort)
+        defer { refused.task.cancel(with: .normalClosure, reason: nil) }
+        var refusedError: (any Error)?
+        do { _ = try await refused.receive() } catch { refusedError = error }
+        #expect(refusedError != nil && (refusedError as? URLError)?.code != .timedOut)
+        // Playback stays paused while offline. The API drops while offline, so the sequence is read right
+        // after going online, which allows the one or two publishes that resume within milliseconds.
         try await Task.sleep(for: .milliseconds(300))
         try await post(port, "/__stub/online", "yes")
         let pausedAt = try await get(port, "/api/app/v1/threads/d0e515ef/events?after=0&limit=500", authorized: true)
         let paused = pausedAt["latestSequence"] as? Int ?? 0
-        #expect(paused >= last && paused <= last + 1)
+        #expect(paused >= last && paused <= last + 3)
 
         // Playback resumes where it paused and reaches the end.
         let again = Client(socketPort)
