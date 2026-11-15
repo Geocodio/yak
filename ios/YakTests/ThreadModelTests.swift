@@ -56,7 +56,8 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
         } else if path.hasSuffix("events") {
             body = #"{"events":[],"latestSequence":14,"source":"database"}"#
         } else {
-            throw URLError(.notConnectedToInternet)
+            // A cancelled request is not retried, so the failure reaches the engine at once as offline.
+            throw URLError(.cancelled)
         }
         let response = HTTPURLResponse(
             url: url, statusCode: 200, httpVersion: nil,

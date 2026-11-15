@@ -56,8 +56,9 @@ struct ThreadScreen: View {
         await next.start(initialTitle: initialTitle)
         await next.setVisible(isVisible)
         // Waits until the task is cancelled, which is how the screen leaves or changes thread.
-        do { try await Task.sleep(for: .seconds(60 * 60 * 24 * 365)) } catch {}
-        await next.stop()
+        while !Task.isCancelled { try? await Task.sleep(for: .seconds(3600)) }
+        // The stop runs in a task of its own, so the cancellation of this one cannot cut it short.
+        await Task { await next.stop() }.value
     }
 
     // MARK: Layout
@@ -67,6 +68,7 @@ struct ThreadScreen: View {
         return NavigationStack {
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
+                    if placement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
                     PaneHost(thread: thread, focused: focused.wrappedValue)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -133,7 +135,7 @@ struct ThreadScreen: View {
                     if needsYouCount > 0 {
                         Text(needsYouCount, format: .number).font(.caption2.weight(.bold)).foregroundStyle(.white)
                             .padding(.horizontal, 5).frame(minWidth: 16, minHeight: 16)
-                            .background(Color(red: 0.72, green: 0.09, blue: 0.09), in: .capsule).offset(x: -2, y: 4)
+                            .background(Color.red, in: .capsule).offset(x: -2, y: 4)
                             .accessibilityHidden(true)
                     }
                 }
@@ -197,5 +199,16 @@ private struct CopiedToast: View {
             do { try await Task.sleep(for: .seconds(1.6)) } catch { return }
             withAnimation { isShown = false }
         }
+    }
+}
+
+/// The connection line for the placement that hides the title row, which would otherwise carry it.
+private struct ConnectionBanner: View {
+    let line: ConnectionLine
+
+    var body: some View {
+        Text(line.text).font(.caption.weight(.medium)).foregroundStyle(line.color).lineLimit(1)
+            .frame(maxWidth: .infinity).padding(.vertical, 4)
+            .accessibilityIdentifier("thread.connection")
     }
 }

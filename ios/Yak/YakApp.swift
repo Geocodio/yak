@@ -35,6 +35,9 @@ struct YakApp: App {
         WindowGroup {
             RootView(model: model)
                 .onOpenURL { url in Task { await model.handle(url: url) } }
+                #if DEBUG
+                    .preferredColorScheme(TestMode.colorScheme())
+                #endif
         }
     }
 }

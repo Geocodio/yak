@@ -9,17 +9,21 @@ struct PaneMenuButton: View {
 
     var body: some View {
         Menu {
-            Picker(selection: $focused) {
-                ForEach(panes, id: \.self) { id in
-                    if let descriptor = PaneCatalog.descriptor(for: id) {
-                        Label(descriptor.name, systemImage: descriptor.symbol).tag(id)
+            Section {
+                Picker(selection: $focused) {
+                    ForEach(panes, id: \.self) { id in
+                        if let descriptor = PaneCatalog.descriptor(for: id) {
+                            Label(descriptor.name, systemImage: descriptor.symbol).tag(id)
+                                .accessibilityIdentifier("pane.menu.\(id.rawValue)")
+                        }
                     }
+                } label: {
+                    Text("pane.menu")
                 }
-            } label: {
+                .pickerStyle(.inline)
+            } header: {
                 Text("pane.menu")
             }
-            .pickerStyle(.inline)
-            .accessibilityIdentifier("pane.menu")
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: PaneCatalog.descriptor(for: focused)?.symbol ?? "bubble.left")
@@ -127,7 +131,7 @@ struct PaneStripToolbar: ToolbarContent {
                                 .overlay(alignment: .topTrailing) {
                                     if descriptor.hasBadge(thread) { QuestionBadge().offset(x: 6, y: -3) }
                                 }
-                            Text(descriptor.name).font(.caption).lineLimit(1).minimumScaleFactor(0.7)
+                            Text(descriptor.name).font(.caption).foregroundStyle(.primary).lineLimit(1)
                         }
                     }
                     .accessibilityLabel(Text(descriptor.name))

@@ -171,16 +171,17 @@ import XCTest
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
-            // At the largest text size the content scrolls under the bar's glass; the audit measures text there
-            // against the glass, though it reads on the page once scrolled clear of it.
-            let bar = app.descendants(matching: .any)["thread.bar"]
-            if issue.auditType == .contrast, let element = issue.element, bar.exists,
-                bar.frame.intersects(element.frame)
+            // At the largest text size the not-found message is taller than the area and scrolls; its action rests
+            // under the bar's glass until scrolled, and the audit finds that cut text without naming an element.
+            if issue.auditType == .contrast, issue.element == nil, name == "thread-missing",
+                ProcessInfo.processInfo.environment["YAK_TEXT_SIZE"] == "largest"
             {
                 return true
             }
             // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
-            if issue.auditType == .contrast, issue.element == nil { return true }
+            if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
+                return true
+            }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
             return true
         }

@@ -45,14 +45,6 @@ public enum ThreadLoadPresentation: Equatable, Sendable {
             }
         }
     }
-
-    /// Whether Retry is offered.
-    public var offersRetry: Bool {
-        switch self {
-        case .slow, .serverError: true
-        default: false
-        }
-    }
 }
 
 extension ConversationSnapshot {

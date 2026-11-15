@@ -1,6 +1,7 @@
 #if DEBUG
     import Foundation
     import os
+    import SwiftUI
     import YakKit
 
     /// How UI tests and walkthroughs run the app against the stub server. It exists in Debug builds only.
@@ -24,6 +25,15 @@
                 instance: instance, token: defaults.string(forKey: "yakTestToken"),
                 isKeychainLocked: defaults.bool(forKey: "yakTestKeychainLocked"),
                 skipsWebSession: defaults.bool(forKey: "yakTestSkipWebSession"))
+        }
+
+        /// `-yakTestAppearance dark|light` fixes the color scheme from the first frame; the device setting lags a run.
+        static func colorScheme(_ defaults: UserDefaults = .standard) -> ColorScheme? {
+            switch defaults.string(forKey: "yakTestAppearance") {
+            case "dark": .dark
+            case "light": .light
+            default: nil
+            }
         }
 
         @MainActor func makeModel(version: String, system: String) -> AppModel {

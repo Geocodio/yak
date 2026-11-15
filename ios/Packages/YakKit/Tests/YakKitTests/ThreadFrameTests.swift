@@ -40,10 +40,6 @@ import Testing
     for problem in [ThreadProblem.needsPairing, .appTooOld, .serverTooOld] {
         #expect(ThreadLoadPresentation.make(.failed(problem)) == .sessionOwns)
     }
-    #expect(ThreadLoadPresentation.slow.offersRetry)
-    #expect(ThreadLoadPresentation.serverError(message: "m").offersRetry)
-    #expect(!ThreadLoadPresentation.notFound.offersRetry)
-    #expect(!ThreadLoadPresentation.offlineWithoutCopy.offersRetry)
 }
 
 @Test func anOpenQuestionComesFromTheShow() throws {

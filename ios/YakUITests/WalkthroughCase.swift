@@ -30,7 +30,7 @@ import XCTest
         if keychainLocked { arguments += ["-yakTestKeychainLocked", "YES"] }
         if skipsWebSession { arguments += ["-yakTestSkipWebSession", "YES"] }
         // The device appearance alone is not honoured on every iPad run, so the app is also told directly.
-        if environment["YAK_APPEARANCE"] == "dark" { arguments += ["-AppleInterfaceStyle", "Dark"] }
+        arguments += ["-yakTestAppearance", environment["YAK_APPEARANCE"] == "dark" ? "dark" : "light"]
         if environment["YAK_TEXT_SIZE"] == "largest" {
             arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
