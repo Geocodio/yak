@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\E2e\E2eMode;
+use App\Services\E2e\E2eRunnerCommand;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -30,6 +31,8 @@ class E2eServiceProvider extends ServiceProvider
         if (! E2eMode::isActive()) {
             return;
         }
+
+        $this->commands([E2eRunnerCommand::class]);
     }
 
     /**
