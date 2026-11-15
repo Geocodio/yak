@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\App\Threads\ThreadEventController as AppThreadEvent
 use App\Http\Controllers\Api\App\Threads\ThreadListController as AppThreadListController;
 use App\Http\Controllers\Api\App\Threads\ThreadMessageController as AppThreadMessageController;
 use App\Http\Controllers\Api\App\Threads\ThreadSeenController as AppThreadSeenController;
+use App\Http\Controllers\Api\App\Threads\ThreadShareController as AppThreadShareController;
 use App\Http\Controllers\Api\Cli\SessionFileController;
 use App\Http\Controllers\Api\Cli\SshLookupController;
 use App\Http\Controllers\Api\Cli\StackMessageController;
@@ -485,6 +486,8 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::get('threads/{thread}', [AppThreadController::class, 'show'])->name('app.threads.show');
         Route::post('threads/{thread}/messages', [AppThreadMessageController::class, 'store'])->name('app.threads.messages.store');
         Route::post('threads/{thread}/clarification-answers', AppClarificationAnswerController::class)->name('app.threads.clarification-answers.store');
+        Route::get('threads/{thread}/share', [AppThreadShareController::class, 'show'])->name('app.threads.share.show');
+        Route::put('threads/{thread}/share', [AppThreadShareController::class, 'update'])->name('app.threads.share.update');
         Route::post('threads/{thread}/seen', AppThreadSeenController::class)->name('app.threads.seen');
         Route::post('threads/{thread}/stop', [AppThreadActionController::class, 'stop'])->middleware('thread.drive')->name('app.threads.stop');
         Route::post('threads/{thread}/continue', [AppThreadActionController::class, 'continueTurn'])->middleware('thread.drive')->name('app.threads.continue');

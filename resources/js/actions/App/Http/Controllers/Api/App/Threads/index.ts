@@ -3,6 +3,7 @@ import NewThreadController from './NewThreadController'
 import ThreadController from './ThreadController'
 import ThreadMessageController from './ThreadMessageController'
 import ClarificationAnswerController from './ClarificationAnswerController'
+import ThreadShareController from './ThreadShareController'
 import ThreadSeenController from './ThreadSeenController'
 import ThreadActionController from './ThreadActionController'
 import QueuedMessageController from './QueuedMessageController'
@@ -14,6 +15,7 @@ const Threads = {
     ThreadController: Object.assign(ThreadController, ThreadController),
     ThreadMessageController: Object.assign(ThreadMessageController, ThreadMessageController),
     ClarificationAnswerController: Object.assign(ClarificationAnswerController, ClarificationAnswerController),
+    ThreadShareController: Object.assign(ThreadShareController, ThreadShareController),
     ThreadSeenController: Object.assign(ThreadSeenController, ThreadSeenController),
     ThreadActionController: Object.assign(ThreadActionController, ThreadActionController),
     QueuedMessageController: Object.assign(QueuedMessageController, QueuedMessageController),
