@@ -12,6 +12,7 @@ return [
         'app.threads.files.search' => VisibilityRoutes::probe('GET', '/threads/{thread}/files/search?scope=repo&q=readme', false),
         'app.threads.files.update' => VisibilityRoutes::probe('PUT', '/threads/{thread}/files/content', true, ['scope' => 'repo', 'path' => 'README.md', 'content' => 'x', 'base_sha256' => '']),
     ],
+    'sweepTables' => ['thread_file_edits'],
     'sweepHeaders' => ['Origin' => 'https://yak.example.test'],
     // The thread has a running sandbox and the app URL is the allowed origin, so the owner's probe reaches a ready shell.
     'sweepWorld' => function (array $world): array {

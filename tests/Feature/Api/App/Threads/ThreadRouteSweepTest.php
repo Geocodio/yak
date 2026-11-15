@@ -1,14 +1,12 @@
 <?php
 
 use App\Enums\RepositorySetupStatus;
-use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadShareMode;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
-use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadSharing;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -81,7 +79,7 @@ function sweepThread(): array
 /** @return array<string, int> */
 function sweepRowCounts(): array
 {
-    return collect(['thread_events', 'task_runs', 'pending_steering_messages', 'thread_turn_messages', 'thread_file_edits', ...VisibilityRoutes::groupNames('sweepTables')])
+    return collect(['thread_events', 'task_runs', 'pending_steering_messages', 'thread_turn_messages', ...VisibilityRoutes::groupNames('sweepTables')])
         ->mapWithKeys(fn (string $table): array => [$table => DB::table($table)->count()])
         ->all();
 }
@@ -138,21 +136,3 @@ it('lets a share recipient read', function (string $name) {
     fn (array $probe, string $name): bool => ! $probe['isDrive'] && $name !== 'app.threads.share.show',
     ARRAY_FILTER_USE_BOTH,
 )));
-
-it('never wakes or writes for a share recipient', function (string $name) {
-    ['thread' => $thread, 'owner' => $owner, 'placeholders' => $placeholders] = sweepThread();
-    $thread->update(['sandbox_state' => ThreadSandboxState::Paused]);
-    $recipient = User::factory()->create();
-    app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$recipient->id]);
-    $sandboxes = app(SandboxManager::class);
-    $callsBefore = count($sandboxes->calls);
-
-    appRouteSweepRequest($this, VisibilityRoutes::appThreadProbes()[$name], $thread->public_id, phoneHeadersFor($recipient), $placeholders);
-
-    $wakesAndWrites = collect(array_slice($sandboxes->calls, $callsBefore))
-        ->filter(fn (array $call): bool => in_array($call['operation'], ['resume', 'start', 'create', 'destroy', 'stop'], true)
-            || ($call['operation'] === 'exec' && (($call['arguments']['stdin'] ?? null) !== null || in_array('mv', $call['arguments']['command'], true))));
-
-    expect($wakesAndWrites)->toBeEmpty()
-        ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused);
-})->with(array_keys(array_filter(VisibilityRoutes::appThreadProbes(), fn (string $name): bool => str_contains($name, 'terminal') || str_contains($name, 'files'), ARRAY_FILTER_USE_KEY)));

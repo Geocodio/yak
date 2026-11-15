@@ -22,6 +22,8 @@ class RetryThreadRestoreJob implements ShouldQueue
 
     public int $timeout = 900;
 
+    public bool $failOnTimeout = true;
+
     public int $tries = 21;
 
     public int $maxExceptions = 1;
@@ -61,6 +63,14 @@ class RetryThreadRestoreJob implements ShouldQueue
 
             throw $exception;
         }
+    }
+
+    /**
+     * The worker killed the job (timeout or crash), so the guard would otherwise stay set until it expires.
+     */
+    public function failed(Throwable $exception): void
+    {
+        $this->clearGuard();
     }
 
     private function clearGuard(): void

@@ -252,7 +252,22 @@ it('runs on the deployments queue with a long timeout', function () {
     expect($job->queue)->toBe('yak-deployments')
         ->and($job->timeout)->toBe(900)
         ->and($job->tries)->toBe(21)
-        ->and($job->maxExceptions)->toBe(1);
+        ->and($job->maxExceptions)->toBe(1)
+        ->and($job->failOnTimeout)->toBeTrue();
+});
+
+it('clears the guard when the worker kills the job', function () {
+    [$thread] = removedSandboxThread(['restore_requested_at' => now()]);
+
+    restoreJobFor($thread)->failed(new RuntimeException('timed out'));
+
+    expect($thread->fresh()->restore_requested_at)->toBeNull();
+});
+
+it('keeps the sandbox lock longer than the restore job timeout', function () {
+    $lockSeconds = (new ReflectionClassConstant(ThreadSandbox::class, 'LOCK_SECONDS'))->getValue();
+
+    expect($lockSeconds)->toBeGreaterThanOrEqual((new RetryThreadRestoreJob(removedSandboxThread()[0]))->timeout);
 });
 
 it('adds the restore guard column', function () {

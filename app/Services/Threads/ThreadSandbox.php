@@ -27,7 +27,7 @@ class ThreadSandbox
 {
     private const TOUCH_THROTTLE_SECONDS = 30;
 
-    private const LOCK_SECONDS = 600;
+    private const LOCK_SECONDS = 960;
 
     public function __construct(
         private SandboxManager $sandboxes,
