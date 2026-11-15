@@ -44,7 +44,15 @@ class E2eSeedCommand extends Command
         }
 
         $progress->writeln('yak:e2e-seed: building the world (one person, one repository, four threads, two phones)');
-        $world = (new E2eWorld($wire, new E2eRunnerScript(null, 0.0)))->create(is_string($this->option('url')) ? $this->option('url') : 'http://127.0.0.1:18000');
+
+        try {
+            $world = (new E2eWorld($wire, new E2eRunnerScript(null, 0.0)))->create(is_string($this->option('url')) ? $this->option('url') : 'http://127.0.0.1:18000');
+        } catch (Throwable $exception) {
+            $progress->writeln('<error>yak:e2e-seed: the world is incomplete: ' . $exception->getMessage() . '. Run php artisan migrate:fresh first.</error>');
+
+            return self::FAILURE;
+        }
+
         $progress->writeln('yak:e2e-seed: done, ' . count($world['threads']) . ' threads and ' . count($world['phones']) . ' phones');
 
         $this->output->writeln(json_encode($world, JSON_THROW_ON_ERROR), OutputInterface::OUTPUT_RAW);

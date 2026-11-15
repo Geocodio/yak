@@ -7,6 +7,7 @@ use App\Providers\E2eServiceProvider;
 use App\Services\E2e\E2eBrokerWire;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\RedisBrokerStreams;
+use App\Services\Threads\ThreadStarter;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Redis;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -99,6 +100,16 @@ it('refuses outside e2e mode', function (): void {
         ->and(Thread::withoutGlobalScopes()->count())->toBe(0);
 });
 
+it('names an incomplete world on stderr and keeps stdout empty', function (): void {
+    app()->bind(ThreadStarter::class, fn () => throw new RuntimeException('the starter broke'));
+
+    $result = runSeed();
+
+    expect($result['exit'])->toBe(1)
+        ->and($result['out'])->toBe('')
+        ->and($result['err'])->toContain('yak:e2e-seed: the world is incomplete: the starter broke. Run php artisan migrate:fresh first.');
+});
+
 it('refuses a database that already has data', function (): void {
     User::factory()->create();
 
@@ -137,7 +148,7 @@ it('makes the world the journeys read', function (): void {
     $threads = $world['threads'];
 
     foreach (['main', 'second'] as $phone) {
-        $this->getJson('/api/app/v1/me', $headers($phone))->assertOk();
+        expect($this->getJson('/api/app/v1/me', $headers($phone))->assertOk()->json('user.name'))->toBe('Test Person');
     }
 
     $listed = collect($this->getJson('/api/app/v1/threads', $headers('main'))->assertOk()->json())->flatten(1)->pluck('title');
@@ -151,10 +162,13 @@ it('makes the world the journeys read', function (): void {
     expect($diff->json('diff.files.*.path'))->toContain('src/upload.php', 'src/retry.php');
 
     $events = $this->getJson("/api/app/v1/threads/{$threads['finished']['id']}/events", $headers('main'))->assertOk();
-    expect(json_encode($events->json(), JSON_UNESCAPED_SLASHES))->toContain('scrubbed text 1');
+    $assistantTexts = collect($events->json('events'))
+        ->filter(fn (array $event): bool => $event['type'] === 'entry' && ($event['data']['role'] ?? null) === 'assistant')
+        ->flatMap(fn (array $event): array => array_column($event['data']['blocks'], 'text'));
+    expect($assistantTexts->all())->toContain('scrubbed text 1');
 
     $held = $this->getJson("/api/app/v1/threads/{$threads['held']['id']}", $headers('main'))->assertOk();
-    expect($held->json('composer.state'))->not->toBeNull();
+    expect($held->json('composer.state'))->toBe('idle');
 });
 
 it('leaves each seeded channel stream where its thread is', function (): void {
