@@ -112,13 +112,6 @@ import XCTest
     /// The accessibility audit; a failure names the element and what is wrong with it.
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
-            // A bare age ("5h") is a few points wide; on a wide screen the audit measures it against the sidebar's
-            // edge instead of its own background, though it is the primary label color on a plain surface.
-            if issue.auditType == .contrast, let label = issue.element?.label,
-                label.wholeMatch(of: /\d+[mhd]/) != nil
-            {
-                return true
-            }
             // The address field is one line by design: an address never wraps.
             if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
             let screenshot = XCTAttachment(screenshot: app.screenshot())

@@ -80,7 +80,7 @@ struct DrawerRowView: View {
         let layout =
             isInline ? AnyLayout(HStackLayout(spacing: 8)) : AnyLayout(VStackLayout(alignment: .trailing, spacing: 4))
         layout {
-            if let age { Text(age).font(.footnote).foregroundStyle(.primary) }
+            if let age { Text(age).font(.footnote.weight(.medium)).foregroundStyle(.primary) }
             if row.isPrivate {
                 Image(systemName: "lock.fill").font(.caption).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)

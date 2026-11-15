@@ -79,20 +79,13 @@ import XCTest
 
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
-            // A bare age ("5h") is a few points wide; on a wide screen the audit measures it against the sidebar's
-            // edge instead of its own background, though it is the primary label color on a plain surface.
-            if issue.auditType == .contrast, let label = issue.element?.label,
-                label.wholeMatch(of: /\d+[mhd]/) != nil
-            {
-                return true
-            }
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 // The system caps the size of text in its bars, and draws its glass under the threads badge.
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
-            // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
+            // On a wide screen the audit reports contrast on the thread screen without naming an element.
             if issue.auditType == .contrast, issue.element == nil { return true }
             // A search field is one line by design.
             if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
