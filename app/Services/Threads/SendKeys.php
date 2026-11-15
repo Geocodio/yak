@@ -13,7 +13,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  */
 class SendKeys
 {
-    // Longer than any action it guards: the thread-row waits are capped at 5 seconds and a send is one request.
+    // Runner commands have no time limit, so the lock can in principle expire mid-action; the sender checks the database for a recorded send key before it acts.
     private const LOCK_SECONDS = 180;
 
     private const RESULT_MINUTES = 10;

@@ -11,8 +11,14 @@ use App\Models\TaskRun;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Devices\ShortLockWait;
+use App\Services\Threads\SteeringDelivery;
 use App\Services\Threads\ThreadMessageSender;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 require_once __DIR__ . '/../../Support/ThreadTurnHelpers.php';
 require_once __DIR__ . '/../../Support/ThreadTurnsHelpers.php';
@@ -130,4 +136,62 @@ it('does not start a turn for a message queued on purpose after the turn complet
     app(ThreadTurns::class)->steer($thread, 'Then update the docs', null, null, null, 'thread', null, true);
 
     expect(TaskRun::query()->where('thread_id', $thread->id)->count())->toBe(1);
+});
+
+it('does not steer a message that a new prompt already drained', function () {
+    [$thread] = runningThreadForSteering();
+    $commands = fakeTurnCollaborators()['commands'];
+    $commands->shouldNotReceive('steer');
+    $message = PendingSteeringMessage::query()->create(['root_task_id' => $thread->tasks()->oldest()->first()->rootTask()->id, 'text' => 'Use the staging bucket', 'source' => 'thread', 'mode' => SteeringMode::Steer, 'uuid' => (string) Str::uuid()]);
+    $stale = PendingSteeringMessage::query()->findOrFail($message->id);
+    $message->delete();
+
+    expect(app(SteeringDelivery::class)->deliver($thread, $stale))->toBeTrue()
+        ->and(ThreadTurnMessage::query()->where('uuid', $stale->uuid)->exists())->toBeFalse();
+});
+
+it('answers sent when the fallback turn drained the message', function () {
+    $fakes = fakeTurnCollaborators();
+    $fakes['commands']->shouldReceive('startRunner', 'turn', 'setModel');
+    [$thread, $run] = runningThreadForSteering();
+    $run->forceFill(['turn_state' => TurnState::Completed, 'finished_at' => now()])->save();
+    $thread->forceFill(['lock_holder' => ThreadLockHolder::None, 'lock_turn_id' => null])->save();
+    $result = app(ThreadTurns::class)->steer($thread, 'Then update the docs', null, null, null, 'thread', SEND_KEY);
+
+    expect($result->mode)->toBe(SteeringMode::Steer);
+});
+
+it('replays a message that is already recorded for the send key without acting again', function () {
+    [$thread] = runningThreadForSteering();
+    fakeTurnCollaborators()['commands']->shouldReceive('steer')->once();
+    $input = new ThreadMessageInput('Use the staging bucket', null, null, SEND_KEY, MessageDelivery::Steer, null);
+    $user = User::factory()->create();
+
+    $first = app(ThreadMessageSender::class)->send($thread, $user, $input);
+    Cache::flush();
+    $second = app(ThreadMessageSender::class)->send($thread, $user, $input);
+
+    expect($second)->toEqual($first)
+        ->and(PendingSteeringMessage::query()->where('send_key', SEND_KEY)->count())->toBe(1);
+});
+
+it('answers 503 when a thread lock wait runs out', function () {
+    $timeout = new QueryException('sqlite', 'select 1', [], new PDOException('lock wait timeout'));
+    $timeout->errorInfo = [null, 1205, 'Lock wait timeout exceeded'];
+
+    expect(fn () => ShortLockWait::threadTransaction(fn () => throw $timeout))
+        ->toThrow(fn (HttpException $exception) => expect($exception->getStatusCode())->toBe(503)->and($exception->getMessage())->toContain('Try again'));
+});
+
+it('queues a message when the thread lock wait runs out', function () {
+    [$thread] = runningThreadForSteering();
+    fakeTurnCollaborators()['commands']->shouldNotReceive('steer');
+    $timeout = new QueryException('sqlite', 'select 1', [], new PDOException('lock wait timeout'));
+    $timeout->errorInfo = [null, 1205, 'Lock wait timeout exceeded'];
+    $this->mock(SteeringDelivery::class)->shouldReceive('deliver')->andReturnUsing(fn () => ShortLockWait::threadTransaction(fn () => throw $timeout));
+
+    $message = app(ThreadTurns::class)->steer($thread, 'Use the staging bucket', null, null, null, 'thread');
+
+    expect($message->mode)->toBe(SteeringMode::Queue)
+        ->and(PendingSteeringMessage::query()->count())->toBe(1);
 });

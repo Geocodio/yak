@@ -364,6 +364,10 @@ class ThreadTurns
      * carries text Yak already framed. `$storeAttachments` runs before delivery
      * so the files exist when the text is built. With `$isQueueOnly` the message
      * is never handed to the running turn; it waits for the next prompt.
+     *
+     * Delivery is at least once: when the command reached the runner but its
+     * answer was lost, or the bookkeeping after it failed, the message is queued
+     * and Claude reads it again in the next prompt.
      */
     public function steer(Thread $thread, string $text, ?User $sender, ?string $model, ?Closure $storeAttachments = null, string $source = 'system', ?string $sendKey = null, bool $isQueueOnly = false): PendingSteeringMessage
     {
@@ -407,6 +411,11 @@ class ThreadTurns
             $message->forceFill(['mode' => SteeringMode::Queue])->save();
 
             $this->startQueuedAfterCompletedTurn($thread);
+
+            // The turn that started drained this message into its prompt, so it was sent, not queued.
+            if (! PendingSteeringMessage::query()->whereKey($message->id)->exists()) {
+                $message->setAttribute('mode', SteeringMode::Steer);
+            }
         }
 
         return $message;

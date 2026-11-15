@@ -21,7 +21,7 @@ class SteeringDelivery
 
     /**
      * False when no turn is running on a ready runner or the message is already
-     * sent; the message then stays queued.
+     * sent; true when a new prompt drained it; the message then stays queued.
      */
     public function deliver(Thread $thread, PendingSteeringMessage $message): bool
     {
@@ -31,6 +31,11 @@ class SteeringDelivery
 
             if ($run === null || ! in_array($locked->runner_state, [RunnerState::Idle, RunnerState::Busy], true)) {
                 return false;
+            }
+
+            // A new prompt may have drained this message between the insert and the lock; it was already sent.
+            if (! PendingSteeringMessage::query()->whereKey($message->id)->lockForUpdate()->exists()) {
+                return true;
             }
 
             $uuid = (string) $message->uuid;
