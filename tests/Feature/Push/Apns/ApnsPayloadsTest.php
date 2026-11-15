@@ -83,10 +83,33 @@ it('keeps the title of a private thread out of the start push', function () {
 
     $payload = app(ApnsPayloads::class)->liveActivityStart($thread, contentState(true, ''), 'dGVzdC1jaGFubmVs', 1794830400);
 
-    expect($payload['aps']['attributes']['title'])->toBe('Private thread')
-        ->and($payload['aps']['alert']['title'])->toBe('Private thread')
-        ->and($payload['aps']['content-state']['step'])->toBe('')
+    expect($payload)->toBe(['aps' => [
+        'timestamp' => 1794830400,
+        'event' => 'start',
+        'content-state' => contentState(true, ''),
+        'attributes-type' => 'ThreadActivityAttributes',
+        'attributes' => ['instance' => 'https://yak.example.com', 'threadId' => 'd0e515ef', 'title' => 'Private thread'],
+        'input-push-channel' => 'dGVzdC1jaGFubmVs',
+        'stale-date' => 1794832200,
+        'alert' => ['title' => 'Private thread', 'body' => 'Yak is working.'],
+    ]])
         ->and(json_encode($payload))->not->toContain('Secret plan');
+});
+
+it('builds the update and end of a private thread with a private content state', function () {
+    $payloads = app(ApnsPayloads::class);
+
+    expect($payloads->liveActivityUpdate(contentState(true, ''), 1794830460))->toBe(['aps' => [
+        'timestamp' => 1794830460,
+        'event' => 'update',
+        'content-state' => contentState(true, ''),
+        'stale-date' => 1794832260,
+    ]])
+        ->and($payloads->liveActivityEnd(contentState(true, ''), 1794830500))->toBe(['aps' => [
+            'timestamp' => 1794830500,
+            'event' => 'end',
+            'content-state' => contentState(true, ''),
+        ]]);
 });
 
 it('builds an update with a stale date and an end without one', function () {

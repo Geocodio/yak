@@ -8,10 +8,11 @@ use App\Services\Push\Apns\ApnsTokenFailures;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-16 12:00:00', 'UTC'));
@@ -161,7 +162,10 @@ it('classifies Apple answers', function (int $status, ?string $reason, array $ex
 ]);
 
 it('never logs a device token', function (string $kind) {
-    Log::spy();
+    $logged = [];
+    Event::listen(MessageLogged::class, function (MessageLogged $event) use (&$logged) {
+        $logged[] = $event->message . json_encode($event->context);
+    });
     Exceptions::fake();
     $token = str_repeat('c3', 32);
     fakeApns(['api.push.apple.com/*' => match ($kind) {
@@ -175,12 +179,33 @@ it('never logs a device token', function (string $kind) {
     app(ApnsTokenFailures::class)->record($row, $response);
 
     expect($response)->toBeInstanceOf(ApnsResponse::class);
-    Log::shouldNotHaveReceived('error');
-    Log::shouldNotHaveReceived('warning');
+    expect(implode("\n", $logged))->not->toContain($token);
     Exceptions::assertNotReported(fn (Throwable $exception) => str_contains($exception->getMessage(), $token));
     $stored = DevicePushToken::query()->find($row->id)?->last_error ?? '';
     expect($stored)->not->toContain($token);
 })->with(['bad token', 'timeout', 'server error']);
+
+it('answers with a short class name when the payload cannot be encoded, without the token in any trace', function () {
+    Exceptions::fake();
+    $token = str_repeat('d4', 32);
+    fakeApns();
+
+    $response = app(ApnsClient::class)->sendAlert($token, ['aps' => ['alert' => "bad \xB1\x31 utf8"]], 'c');
+
+    expect($response->status)->toBe(0)
+        ->and($response->reason)->toBe('InvalidArgumentException')
+        ->and($response->isRetryable())->toBeTrue();
+    Exceptions::assertNotReported(fn (Throwable $exception) => str_contains($exception->getTraceAsString() . $exception->getMessage(), $token));
+});
+
+it('throws when push is not configured, so callers check isConfigured first', function () {
+    config(['yak.apns' => []]);
+    Http::fake();
+
+    expect(fn () => app(ApnsClient::class)->sendAlert(str_repeat('a1', 32), [], 'c'))
+        ->toThrow(RuntimeException::class, 'APNs is not configured.');
+    Http::assertNothingSent();
+});
 
 it('deletes a gone token row and stores a refusal on a kept one', function () {
     Exceptions::fake();

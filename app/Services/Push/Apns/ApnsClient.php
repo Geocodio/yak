@@ -2,14 +2,14 @@
 
 namespace App\Services\Push\Apns;
 
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Every call to Apple. Each call has hard timeouts and never throws: a failure becomes an {@see ApnsResponse}.
+ * Every call to Apple. Each call has hard timeouts and a failure to reach Apple, or to build the request, becomes an {@see ApnsResponse} instead of an exception.
+ *
+ * Push that is not configured is the one exception: the public methods throw a RuntimeException, so callers check {@see ApnsConfig::isConfigured()} first.
  *
  * Nothing here logs, reports or rethrows a transport exception, because its message holds the request URL and the device token with it.
  */
@@ -86,7 +86,7 @@ final class ApnsClient
      * @param  array<string, string>  $headers
      * @param  array<string, mixed>|null  $body
      */
-    private function call(string $method, string $url, array $headers, ?array $body, bool $repeatAfterRenewal = true): ApnsResponse
+    private function call(string $method, #[\SensitiveParameter] string $url, array $headers, ?array $body, bool $repeatAfterRenewal = true): ApnsResponse
     {
         $token = $this->providerToken->current();
         $response = $this->attempt($method, $url, $headers, $body, $token);
@@ -104,7 +104,7 @@ final class ApnsClient
      * @param  array<string, string>  $headers
      * @param  array<string, mixed>|null  $body
      */
-    private function attempt(string $method, string $url, array $headers, ?array $body, #[\SensitiveParameter] string $providerToken): ApnsResponse
+    private function attempt(string $method, #[\SensitiveParameter] string $url, array $headers, ?array $body, #[\SensitiveParameter] string $providerToken): ApnsResponse
     {
         try {
             $request = Http::withOptions(['version' => 2.0])
@@ -115,7 +115,7 @@ final class ApnsClient
                 ->asJson();
 
             return $this->answer($this->dispatch($request, $method, $url, $body));
-        } catch (ConnectionException|RequestException $exception) {
+        } catch (\Throwable $exception) {
             return ApnsResponse::timeout($exception::class);
         }
     }
@@ -123,7 +123,7 @@ final class ApnsClient
     /**
      * @param  array<string, mixed>|null  $body
      */
-    private function dispatch(PendingRequest $request, string $method, string $url, ?array $body): Response
+    private function dispatch(PendingRequest $request, string $method, #[\SensitiveParameter] string $url, ?array $body): Response
     {
         return $method === 'DELETE' ? $request->delete($url) : $request->post($url, $body ?? []);
     }
