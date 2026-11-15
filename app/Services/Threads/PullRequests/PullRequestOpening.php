@@ -6,8 +6,10 @@ use App\Enums\CoOwnerRequestStatus;
 use App\Models\CoOwnerRequest;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\Devices\ShortLockWait;
 use App\Services\Threads\ThreadEventPublisher;
-use Illuminate\Support\Facades\Cache;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -24,10 +26,35 @@ class PullRequestOpening
 
     private const GITHUB_PREFIX = 'GitHub PR creation failed: ';
 
-    public function start(Thread $thread): void
+    /**
+     * Takes the opening for this thread with one conditional update, so only one request wins. A claim older than
+     * the opening window counts as a job that died. The claim and its thread event commit together.
+     */
+    public function claim(Thread $thread): bool
     {
-        Cache::put($this->key($thread->id), ['state' => 'opening', 'error' => null, 'at' => now()->toIso8601String()], self::OPENING_SECONDS);
-        app(ThreadEventPublisher::class)->appendThreadState($thread->id);
+        $isClaimed = ShortLockWait::threadTransaction(function () use ($thread): bool {
+            $changed = Thread::withoutGlobalScopes()
+                ->whereKey($thread->id)
+                ->where(fn ($query) => $query
+                    ->whereNull('pull_request_opening_state')
+                    ->orWhere('pull_request_opening_state', 'failed')
+                    ->orWhere(fn ($stale) => $stale
+                        ->where('pull_request_opening_state', 'opening')
+                        ->where('pull_request_opening_at', '<', now()->subSeconds(self::OPENING_SECONDS))))
+                ->update(['pull_request_opening_state' => 'opening', 'pull_request_opening_error' => null, 'pull_request_opening_at' => now()]);
+
+            if ($changed === 1) {
+                app(ThreadEventPublisher::class)->recordThreadState($thread->id);
+            }
+
+            return $changed === 1;
+        });
+
+        if ($isClaimed) {
+            app(ThreadEventPublisher::class)->flush();
+        }
+
+        return $isClaimed;
     }
 
     /**
@@ -35,27 +62,39 @@ class PullRequestOpening
      */
     public function finish(YakTask $task, ?Throwable $failure = null): void
     {
-        if ($task->thread_id === null || ! Cache::has($this->key($task->thread_id))) {
+        if ($task->thread_id === null) {
             return;
         }
 
-        if ($failure === null) {
-            Cache::forget($this->key($task->thread_id));
-        } else {
-            Cache::put($this->key($task->thread_id), ['state' => 'failed', 'error' => $this->reason($failure), 'at' => now()->toIso8601String()], self::FAILED_SECONDS);
-        }
+        $threadId = $task->thread_id;
+        $hasFinished = DB::transaction(function () use ($threadId, $failure): bool {
+            $changed = Thread::withoutGlobalScopes()
+                ->whereKey($threadId)
+                ->where('pull_request_opening_state', 'opening')
+                ->update($failure === null
+                    ? ['pull_request_opening_state' => null, 'pull_request_opening_error' => null, 'pull_request_opening_at' => null]
+                    : ['pull_request_opening_state' => 'failed', 'pull_request_opening_error' => $this->reason($failure), 'pull_request_opening_at' => now()]);
 
-        app(ThreadEventPublisher::class)->appendThreadState($task->thread_id);
+            if ($changed === 1) {
+                app(ThreadEventPublisher::class)->recordThreadState($threadId);
+            }
+
+            return $changed === 1;
+        });
+
+        if ($hasFinished) {
+            app(ThreadEventPublisher::class)->flush();
+        }
     }
 
     /**
-     * The cached part only, for the thread state event: it changes at every step the person sees.
+     * The stored part only, for the thread state event: it changes at every step the person sees.
      *
      * @return 'opening'|'failed'|null
      */
     public function flag(int $threadId): ?string
     {
-        return Cache::get($this->key($threadId))['state'] ?? null;
+        return $this->stored($threadId)['state'] ?? null;
     }
 
     /**
@@ -63,11 +102,10 @@ class PullRequestOpening
      */
     public function stateFor(Thread $thread): ?array
     {
-        /** @var array{state: 'opening'|'failed', error: ?string, at: string}|null $cached */
-        $cached = Cache::get($this->key($thread->id));
+        $stored = $this->stored($thread->id);
 
-        if ($cached !== null) {
-            return $cached;
+        if ($stored !== null) {
+            return $stored;
         }
 
         $task = $thread->pullRequestTask();
@@ -79,6 +117,27 @@ class PullRequestOpening
         return $isHeld ? ['state' => 'held', 'error' => null, 'at' => null] : null;
     }
 
+    /**
+     * The opening kept on the thread row while it is still fresh enough to show.
+     *
+     * @return array{state: 'opening'|'failed', error: ?string, at: string}|null
+     */
+    private function stored(int $threadId): ?array
+    {
+        $row = DB::table('threads')->where('id', $threadId)->first(['pull_request_opening_state', 'pull_request_opening_error', 'pull_request_opening_at']);
+
+        if ($row === null || $row->pull_request_opening_at === null || ! in_array($row->pull_request_opening_state, ['opening', 'failed'], true)) {
+            return null;
+        }
+
+        $at = CarbonImmutable::parse($row->pull_request_opening_at, 'UTC');
+        $window = $row->pull_request_opening_state === 'opening' ? self::OPENING_SECONDS : self::FAILED_SECONDS;
+
+        return $at->addSeconds($window)->isPast()
+            ? null
+            : ['state' => $row->pull_request_opening_state, 'error' => $row->pull_request_opening_error, 'at' => $at->toIso8601String()];
+    }
+
     private function reason(Throwable $failure): string
     {
         $message = $failure->getMessage();
@@ -86,10 +145,5 @@ class PullRequestOpening
         return str_starts_with($message, self::GITHUB_PREFIX)
             ? 'GitHub said: ' . substr($message, strlen(self::GITHUB_PREFIX))
             : 'Yak could not reach GitHub. Try again in a moment.';
-    }
-
-    private function key(int $threadId): string
-    {
-        return "thread:{$threadId}:pull-request-opening";
     }
 }

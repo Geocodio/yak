@@ -7,7 +7,6 @@ use App\Models\Thread;
 use App\Models\ThreadDiffRepository;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Cache;
 use Tests\Support\ContractFixture;
 
 const CHANGES_SHOW_VOLATILE = [
@@ -55,10 +54,10 @@ it('decides canOpenPullRequest across every state', function (string $state, boo
             $thread->repositories()->where('repo', 'example/api')->update(['pull_request_number' => 41, 'pull_request_url' => 'https://github.com/example/api/pull/41']);
             break;
         case 'opening':
-            Cache::put("thread:{$thread->id}:pull-request-opening", ['state' => 'opening', 'error' => null, 'at' => now()->toIso8601String()], 600);
+            $thread->update(['pull_request_opening_state' => 'opening', 'pull_request_opening_at' => now()]);
             break;
         case 'failed':
-            Cache::put("thread:{$thread->id}:pull-request-opening", ['state' => 'failed', 'error' => 'Yak could not reach GitHub. Try again in a moment.', 'at' => now()->toIso8601String()], 600);
+            $thread->update(['pull_request_opening_state' => 'failed', 'pull_request_opening_error' => 'Yak could not reach GitHub. Try again in a moment.', 'pull_request_opening_at' => now()]);
             break;
         case 'held':
             CoOwnerRequest::factory()->create(['task_id' => $thread->pullRequestTask()->id, 'root_task_id' => $thread->pullRequestTask()->rootTask()->id]);
