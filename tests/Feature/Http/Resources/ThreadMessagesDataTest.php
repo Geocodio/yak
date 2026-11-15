@@ -93,9 +93,11 @@ it('lists a message typed while the thread waits as not read yet', function () {
 
     $messages = ThreadMessagesData::for($thread);
 
-    expect($messages)->toHaveCount(1)
-        ->and($messages[0]['state'])->toBe('pending')
-        ->and($messages[0]['text'])->toBe('Hello');
+    // The starting request is the first pending message; the saved one follows it.
+    expect($messages)->toHaveCount(2)
+        ->and($messages[0]['id'])->toBe('initial-message')
+        ->and($messages[1]['state'])->toBe('pending')
+        ->and($messages[1]['text'])->toBe('Hello');
 });
 
 it('carries the request attachments of the first message', function () {

@@ -4,9 +4,11 @@ namespace App\Services\Teleport;
 
 use App\Enums\RepositoryRole;
 use App\Exceptions\SandboxCommandFailed;
+use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Repos\ThreadGitHubCredentials;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Guarantees a branch exists on the remote before a teleport down records its head.
@@ -61,6 +63,15 @@ class EnsurePushedBranch
         $head = trim($this->sandboxes->exec($thread, ['git', '-C', $path, 'rev-parse', 'HEAD'])->output());
 
         if ($current !== $branch || $head === '') {
+            return false;
+        }
+
+        $repository = Repository::query()->where('slug', $thread->repo)->first();
+        $defaultBranches = filled($repository?->default_branch) ? [$repository->default_branch] : ['main', 'master'];
+
+        if (in_array($branch, $defaultBranches, true)) {
+            Log::channel('yak')->warning('Refused to push the default branch of a thread', ['thread_id' => $thread->id, 'branch' => $branch]);
+
             return false;
         }
 

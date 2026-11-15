@@ -24,7 +24,7 @@ it('shows a thread with panes, the question and the latest sequence', function (
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
     $user = User::factory()->create(['name' => 'Test person']);
     $thread = Thread::factory()->create(['title' => 'Retry failed uploads', 'name' => 'retry-failed-uploads', 'repo' => 'example/api', 'created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'event_sequence' => 4812, 'sandbox_state' => ThreadSandboxState::None]);
-    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'status' => TaskStatus::AwaitingClarification, 'started_by_user_id' => $user->id, 'clarification_expires_at' => now()->addDay()]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Fix the checkout bug', 'status' => TaskStatus::AwaitingClarification, 'started_by_user_id' => $user->id, 'clarification_expires_at' => now()->addDay()]);
     $task->recordClarificationRound([ClarificationQuestion::fromArray([
         'id' => 'on_failure',
         'header' => 'On failure',

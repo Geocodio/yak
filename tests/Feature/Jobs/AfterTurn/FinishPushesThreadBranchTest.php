@@ -91,3 +91,15 @@ it('pushes an unpushed thread branch before opening the pull request', function 
         ->and($this->git->git(['rev-parse', "refs/heads/{$this->git->branch}"]))->toBe($this->git->git(['rev-parse', 'HEAD'], $this->git->workspace));
     Queue::assertPushed(CreatePullRequestJob::class);
 });
+
+it('never pushes the default branch of the repository', function () {
+    [, , $thread] = endedTurn(repositoryAttributes: ['default_branch' => 'main']);
+    $this->git->git(['checkout', 'main'], $this->git->workspace);
+    $this->git->branch = 'main';
+    threadWithWorkspace($this, $thread);
+    commitInWorkspace($this, 'change.txt');
+    $remoteHead = $this->git->git(['rev-parse', 'refs/heads/main']);
+
+    expect(app(EnsurePushedBranch::class)->pushPrimaryIfBehind($thread))->toBeFalse()
+        ->and($this->git->git(['rev-parse', 'refs/heads/main']))->toBe($remoteHead);
+});

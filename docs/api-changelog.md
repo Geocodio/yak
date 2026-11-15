@@ -44,4 +44,6 @@ Queued messages go out when a turn completes, without the person sending anythin
 
 The web header's needs-you count is the same number as `needsYouCount` in `me` and in the list: Mine threads plus tasks outside an open thread.
 
+A thread that has not run a turn yet lists its starting request as a pending message in `messages` (`id` `initial-message`, `uuid` null), so a new thread shows its first message at once; this adds a row, not a field.
+
 Contract fixtures: `threads`, `thread`, `thread-question` (a thread with an open question), `thread-events`, `thread-event`, `thread-message-sent`, `thread-message-queued`, `thread-message-clear`, `queued-message-updated`, `clarification-answers`, `thread-stop`, `thread-continue`, `thread-restore-retry`, `thread-new`, `thread-store`, `thread-repository-access`, `thread-share`, `thread-share-updated`, `broadcasting-auth-private`, `broadcasting-auth-presence`, `error-thread-blocked`, and the recorded event lists `events/simple-turn`, `events/steer`, `events/question`, `events/failed-turn`, `events/stream-reset` and `events/pointer`.

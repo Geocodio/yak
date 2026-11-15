@@ -64,7 +64,26 @@
     "liveActivityChannel": null,
     "localTurnStints": [],
     "localTurns": null,
-    "messages": [],
+    "messages": [
+        {
+            "attachmentIds": [],
+            "attachments": [],
+            "authorInitials": "?",
+            "authorName": null,
+            "bodyHtml": "<p>Fix the checkout bug</p>\n",
+            "canEditText": false,
+            "id": "<volatile:string>",
+            "intent": null,
+            "mode": null,
+            "model": null,
+            "readAfterSequence": null,
+            "sendKey": null,
+            "sentAt": "2026-11-15T12:00:00+00:00",
+            "state": "pending",
+            "text": "Fix the checkout bug",
+            "uuid": "<volatile:null>"
+        }
+    ],
     "modelLabels": {
         "claude-fable-5-2": "Fable 5.2",
         "claude-haiku-5-5": "Haiku 5.5",
