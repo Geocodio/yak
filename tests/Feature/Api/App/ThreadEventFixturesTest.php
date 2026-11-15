@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TurnMessageKind;
 use App\Enums\TurnState;
 use App\Events\ThreadActivity;
 use App\Events\ThreadEventBroadcast;
@@ -89,13 +90,58 @@ function hasTextBlock(array $line): bool
 }
 
 /**
+ * The prompt and steer lines the driver sent, read from the runner fixture. A synthetic source
+ * has no such lines, so the prompt gets a fixed uuid and text.
+ *
+ * @return array{prompt: array{uuid: string, text: string}, steer: ?array{uuid: string, text: string}}
+ */
+function driverSentMessages(string $source): array
+{
+    $found = ['prompt' => ['uuid' => '00000000-0000-4000-8000-000000000001', 'text' => 'Check the uploads'], 'steer' => null];
+    $path = base_path("tests/Fixtures/runner-streams/{$source}.jsonl");
+
+    if (! is_file($path)) {
+        return $found;
+    }
+
+    foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $raw) {
+        $line = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        $sent = $line['_driver_sent'] ?? null;
+
+        if ($sent === 'prompt') {
+            $found['prompt'] = ['uuid' => $line['uuid'], 'text' => $line['text']];
+        } elseif ($sent !== null && $sent !== 'start' && isset($line['uuid'])) {
+            $found['steer'] = ['uuid' => $line['uuid'], 'text' => $line['text']];
+        }
+    }
+
+    return $found;
+}
+
+/**
+ * Replays a turn the way the server runs it: the prompt message exists before the turn starts,
+ * and a steer message is created when the driver delivers it. A line with `_travelMs` first moves
+ * the clock forward so the delta batcher closes its window.
+ *
  * @param  list<array<string, mixed>>  $lines
  */
-function replayLines($test, array $lines): void
+function replayLines($test, array $lines, string $source = 'synthetic'): void
 {
+    $sent = driverSentMessages($source);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $test->run->id, 'uuid' => $sent['prompt']['uuid'], 'kind' => TurnMessageKind::Prompt, 'text' => $sent['prompt']['text']]);
+
     event(new TurnStarted($test->run));
 
     foreach ($lines as $index => $line) {
+        if (isset($line['_travelMs'])) {
+            $test->travel($line['_travelMs'])->milliseconds();
+            unset($line['_travelMs']);
+        }
+
+        if ($sent['steer'] !== null && ($line['uuid'] ?? null) === $sent['steer']['uuid']) {
+            ThreadTurnMessage::factory()->steer()->create(['task_run_id' => $test->run->id, 'uuid' => $sent['steer']['uuid'], 'text' => $sent['steer']['text']]);
+        }
+
         event(new ThreadActivity($test->thread, 1, $index + 1, $line));
     }
 }
@@ -140,8 +186,8 @@ function writeScenario($test, string $scenario, string $source, array $broadcast
 }
 
 it('records a simple turn with deltas, tool use and a completed turn', function () {
-    $lines = insertBefore(recordedLines('background-bash-task'), hasTextBlock(...), [textDelta('Checking '), textDelta('the uploads')]);
-    replayLines($this, $lines);
+    $lines = insertBefore(recordedLines('background-bash-task'), hasTextBlock(...), [textDelta('Checking '), textDelta('the uploads') + ['_travelMs' => 60]]);
+    replayLines($this, $lines, 'background-bash-task');
     $this->run->update(['turn_state' => TurnState::Completed]);
     event(new TurnCompleted($this->run));
 
@@ -152,15 +198,13 @@ it('records a simple turn with deltas, tool use and a completed turn', function 
     expect($types)->toContain('turn', 'delta', 'entry')
         ->and($entryBlocks)->toContain('tool_use')
         ->and(collect($recorded['broadcasts'])->where('type', 'entry')->pluck('data.role'))->toContain('tool_result')
-        ->and(end($recorded['broadcasts']))->toMatchArray(['type' => 'turn', 'data' => ['turnId' => $this->run->id, 'state' => 'completed']]);
+        ->and(collect($recorded['broadcasts'])->where('type', 'turn')->last())->toMatchArray(['data' => ['turnId' => $this->run->id, 'state' => 'completed']]);
 });
 
 it('records a steer between two assistant entries', function () {
     $lines = recordedLines('steer-during-final-text');
-    $steerUuid = collect($lines)->filter(fn (array $line): bool => ($line['type'] ?? null) === 'user' && is_string($line['uuid'] ?? null))->last()['uuid'];
-    ThreadTurnMessage::factory()->steer()->create(['task_run_id' => $this->run->id, 'uuid' => $steerUuid]);
 
-    replayLines($this, $lines);
+    replayLines($this, $lines, 'steer-during-final-text');
     $this->run->update(['turn_state' => TurnState::Completed]);
     event(new TurnCompleted($this->run));
 
@@ -174,7 +218,7 @@ it('records a steer between two assistant entries', function () {
 });
 
 it('records the open and close of a question', function () {
-    replayLines($this, recordedLines('natural-turn-end'));
+    replayLines($this, recordedLines('natural-turn-end'), 'natural-turn-end');
     $this->run->update(['turn_state' => TurnState::Completed]);
     event(new TurnCompleted($this->run));
     app(ThreadQuestionEvents::class)->opened($this->task);
@@ -188,7 +232,7 @@ it('records the open and close of a question', function () {
 });
 
 it('records a turn that failed', function () {
-    replayLines($this, recordedLines('authentication-failed'));
+    replayLines($this, recordedLines('authentication-failed'), 'authentication-failed');
     $this->run->update(['turn_state' => TurnState::Failed]);
     event(new TurnFailed($this->run));
 
@@ -200,7 +244,7 @@ it('records a turn that failed', function () {
 
 it('records a stream reset that is never stored', function () {
     $lines = insertBefore(recordedLines('cutoff-synthetic-user-message'), fn (array $line): bool => ($line['isSynthetic'] ?? false) === true, [textDelta('Checking the upl')]);
-    replayLines($this, $lines);
+    replayLines($this, $lines, 'cutoff-synthetic-user-message');
     $this->run->update(['turn_state' => TurnState::Completed]);
     event(new TurnCompleted($this->run));
 

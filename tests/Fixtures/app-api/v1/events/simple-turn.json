@@ -12,12 +12,21 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
+                "state": "sent",
+                "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+            },
+            "sequence": 2,
+            "type": "message.state"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
                 "kind": "prompt",
                 "role": "user",
                 "text": "scrubbed text 1",
                 "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
             },
-            "sequence": 2,
+            "sequence": 3,
             "type": "entry"
         },
         {
@@ -28,7 +37,7 @@
                 "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
                 "subtype": "init"
             },
-            "sequence": 3,
+            "sequence": 4,
             "type": "entry"
         },
         {
@@ -49,7 +58,7 @@
                 "messageId": "id_0000",
                 "role": "assistant"
             },
-            "sequence": 4,
+            "sequence": 5,
             "type": "entry"
         },
         {
@@ -60,7 +69,7 @@
                 "text": "scrubbed content 6",
                 "toolUseId": "tool_use_id_0004"
             },
-            "sequence": 5,
+            "sequence": 6,
             "type": "entry"
         },
         {
@@ -79,7 +88,7 @@
                 "messageId": "id_0000",
                 "role": "assistant"
             },
-            "sequence": 6,
+            "sequence": 7,
             "type": "entry"
         },
         {
@@ -90,7 +99,7 @@
                 "text": "scrubbed content 8",
                 "toolUseId": "tool_use_id_0006"
             },
-            "sequence": 7,
+            "sequence": 8,
             "type": "entry"
         },
         {
@@ -109,7 +118,7 @@
                 "messageId": "id_0000",
                 "role": "assistant"
             },
-            "sequence": 8,
+            "sequence": 9,
             "type": "entry"
         },
         {
@@ -120,7 +129,7 @@
                 "text": "scrubbed content 11",
                 "toolUseId": "tool_use_id_0008"
             },
-            "sequence": 9,
+            "sequence": 10,
             "type": "entry"
         },
         {
@@ -139,7 +148,7 @@
                 "messageId": "id_0000",
                 "role": "assistant"
             },
-            "sequence": 10,
+            "sequence": 11,
             "type": "entry"
         },
         {
@@ -150,7 +159,7 @@
                 "text": "scrubbed content 14",
                 "toolUseId": "tool_use_id_0010"
             },
-            "sequence": 11,
+            "sequence": 12,
             "type": "entry"
         },
         {
@@ -169,7 +178,7 @@
                 "messageId": "id_0011",
                 "role": "assistant"
             },
-            "sequence": 12,
+            "sequence": 13,
             "type": "entry"
         },
         {
@@ -180,7 +189,7 @@
                 "text": "scrubbed content 17",
                 "toolUseId": "tool_use_id_0014"
             },
-            "sequence": 13,
+            "sequence": 14,
             "type": "entry"
         },
         {
@@ -195,7 +204,7 @@
                 "messageId": "id_0015",
                 "role": "assistant"
             },
-            "sequence": 14,
+            "sequence": 15,
             "type": "entry"
         },
         {
@@ -216,7 +225,7 @@
                 "messageId": "id_0015",
                 "role": "assistant"
             },
-            "sequence": 15,
+            "sequence": 16,
             "type": "entry"
         },
         {
@@ -227,7 +236,7 @@
                 "text": "scrubbed content 26",
                 "toolUseId": "tool_use_id_0019"
             },
-            "sequence": 16,
+            "sequence": 17,
             "type": "entry"
         },
         {
@@ -235,9 +244,19 @@
             "data": {
                 "blockKey": "m1:0",
                 "kind": "text",
-                "text": "Checking the uploads"
+                "text": "Checking "
             },
-            "sequence": 17,
+            "sequence": 18,
+            "type": "delta"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blockKey": "m1:0",
+                "kind": "text",
+                "text": "the uploads"
+            },
+            "sequence": 19,
             "type": "delta"
         },
         {
@@ -253,7 +272,7 @@
                 "messageId": "id_0023",
                 "role": "assistant"
             },
-            "sequence": 18,
+            "sequence": 20,
             "type": "entry"
         },
         {
@@ -268,7 +287,7 @@
                 "subtype": "success",
                 "text": "scrubbed result 29"
             },
-            "sequence": 19,
+            "sequence": 21,
             "type": "entry"
         },
         {
@@ -277,8 +296,17 @@
                 "state": "completed",
                 "turnId": "<volatile:int>"
             },
-            "sequence": 20,
+            "sequence": 22,
             "type": "turn"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "sent",
+                "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+            },
+            "sequence": 23,
+            "type": "message.state"
         }
     ],
     "catchUp": {
@@ -295,12 +323,21 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
+                    "state": "sent",
+                    "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+                },
+                "sequence": 2,
+                "type": "message.state"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
                     "kind": "prompt",
                     "role": "user",
                     "text": "scrubbed text 1",
                     "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
                 },
-                "sequence": 2,
+                "sequence": 3,
                 "type": "entry"
             },
             {
@@ -311,7 +348,7 @@
                     "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
                     "subtype": "init"
                 },
-                "sequence": 3,
+                "sequence": 4,
                 "type": "entry"
             },
             {
@@ -332,7 +369,7 @@
                     "messageId": "id_0000",
                     "role": "assistant"
                 },
-                "sequence": 4,
+                "sequence": 5,
                 "type": "entry"
             },
             {
@@ -343,7 +380,7 @@
                     "text": "scrubbed content 6",
                     "toolUseId": "tool_use_id_0004"
                 },
-                "sequence": 5,
+                "sequence": 6,
                 "type": "entry"
             },
             {
@@ -362,7 +399,7 @@
                     "messageId": "id_0000",
                     "role": "assistant"
                 },
-                "sequence": 6,
+                "sequence": 7,
                 "type": "entry"
             },
             {
@@ -373,7 +410,7 @@
                     "text": "scrubbed content 8",
                     "toolUseId": "tool_use_id_0006"
                 },
-                "sequence": 7,
+                "sequence": 8,
                 "type": "entry"
             },
             {
@@ -392,7 +429,7 @@
                     "messageId": "id_0000",
                     "role": "assistant"
                 },
-                "sequence": 8,
+                "sequence": 9,
                 "type": "entry"
             },
             {
@@ -403,7 +440,7 @@
                     "text": "scrubbed content 11",
                     "toolUseId": "tool_use_id_0008"
                 },
-                "sequence": 9,
+                "sequence": 10,
                 "type": "entry"
             },
             {
@@ -422,7 +459,7 @@
                     "messageId": "id_0000",
                     "role": "assistant"
                 },
-                "sequence": 10,
+                "sequence": 11,
                 "type": "entry"
             },
             {
@@ -433,7 +470,7 @@
                     "text": "scrubbed content 14",
                     "toolUseId": "tool_use_id_0010"
                 },
-                "sequence": 11,
+                "sequence": 12,
                 "type": "entry"
             },
             {
@@ -452,7 +489,7 @@
                     "messageId": "id_0011",
                     "role": "assistant"
                 },
-                "sequence": 12,
+                "sequence": 13,
                 "type": "entry"
             },
             {
@@ -463,7 +500,7 @@
                     "text": "scrubbed content 17",
                     "toolUseId": "tool_use_id_0014"
                 },
-                "sequence": 13,
+                "sequence": 14,
                 "type": "entry"
             },
             {
@@ -478,7 +515,7 @@
                     "messageId": "id_0015",
                     "role": "assistant"
                 },
-                "sequence": 14,
+                "sequence": 15,
                 "type": "entry"
             },
             {
@@ -499,7 +536,7 @@
                     "messageId": "id_0015",
                     "role": "assistant"
                 },
-                "sequence": 15,
+                "sequence": 16,
                 "type": "entry"
             },
             {
@@ -510,7 +547,7 @@
                     "text": "scrubbed content 26",
                     "toolUseId": "tool_use_id_0019"
                 },
-                "sequence": 16,
+                "sequence": 17,
                 "type": "entry"
             },
             {
@@ -518,9 +555,19 @@
                 "data": {
                     "blockKey": "m1:0",
                     "kind": "text",
-                    "text": "Checking the uploads"
+                    "text": "Checking "
                 },
-                "sequence": 17,
+                "sequence": 18,
+                "type": "delta"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blockKey": "m1:0",
+                    "kind": "text",
+                    "text": "the uploads"
+                },
+                "sequence": 19,
                 "type": "delta"
             },
             {
@@ -536,7 +583,7 @@
                     "messageId": "id_0023",
                     "role": "assistant"
                 },
-                "sequence": 18,
+                "sequence": 20,
                 "type": "entry"
             },
             {
@@ -551,7 +598,7 @@
                     "subtype": "success",
                     "text": "scrubbed result 29"
                 },
-                "sequence": 19,
+                "sequence": 21,
                 "type": "entry"
             },
             {
@@ -560,11 +607,20 @@
                     "state": "completed",
                     "turnId": "<volatile:int>"
                 },
-                "sequence": 20,
+                "sequence": 22,
                 "type": "turn"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "sent",
+                    "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+                },
+                "sequence": 23,
+                "type": "message.state"
             }
         ],
-        "latestSequence": 20,
+        "latestSequence": 23,
         "source": "window"
     },
     "pointers": [],

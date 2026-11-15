@@ -12,12 +12,21 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
+                "state": "sent",
+                "uuid": "00000000-0000-4000-8000-000000000001"
+            },
+            "sequence": 2,
+            "type": "message.state"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
                 "model": "claude-haiku-5-5",
                 "role": "system",
                 "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
                 "subtype": "init"
             },
-            "sequence": 2,
+            "sequence": 3,
             "type": "entry"
         },
         {
@@ -33,7 +42,7 @@
                 "messageId": "11c3eeb6-19d2-5b8b-9f5e-53cd1a608065",
                 "role": "assistant"
             },
-            "sequence": 3,
+            "sequence": 4,
             "type": "entry"
         },
         {
@@ -48,7 +57,7 @@
                 "subtype": "success",
                 "text": "scrubbed result 2"
             },
-            "sequence": 4,
+            "sequence": 5,
             "type": "entry"
         },
         {
@@ -57,8 +66,17 @@
                 "state": "failed",
                 "turnId": "<volatile:int>"
             },
-            "sequence": 5,
+            "sequence": 6,
             "type": "turn"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "sent",
+                "uuid": "00000000-0000-4000-8000-000000000001"
+            },
+            "sequence": 7,
+            "type": "message.state"
         }
     ],
     "catchUp": {
@@ -75,12 +93,21 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
+                    "state": "sent",
+                    "uuid": "00000000-0000-4000-8000-000000000001"
+                },
+                "sequence": 2,
+                "type": "message.state"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
                     "model": "claude-haiku-5-5",
                     "role": "system",
                     "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
                     "subtype": "init"
                 },
-                "sequence": 2,
+                "sequence": 3,
                 "type": "entry"
             },
             {
@@ -96,7 +123,7 @@
                     "messageId": "11c3eeb6-19d2-5b8b-9f5e-53cd1a608065",
                     "role": "assistant"
                 },
-                "sequence": 3,
+                "sequence": 4,
                 "type": "entry"
             },
             {
@@ -111,7 +138,7 @@
                     "subtype": "success",
                     "text": "scrubbed result 2"
                 },
-                "sequence": 4,
+                "sequence": 5,
                 "type": "entry"
             },
             {
@@ -120,11 +147,20 @@
                     "state": "failed",
                     "turnId": "<volatile:int>"
                 },
-                "sequence": 5,
+                "sequence": 6,
                 "type": "turn"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "sent",
+                    "uuid": "00000000-0000-4000-8000-000000000001"
+                },
+                "sequence": 7,
+                "type": "message.state"
             }
         ],
-        "latestSequence": 5,
+        "latestSequence": 7,
         "source": "window"
     },
     "pointers": [],

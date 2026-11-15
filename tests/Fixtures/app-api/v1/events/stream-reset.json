@@ -12,12 +12,21 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
+                "state": "sent",
+                "uuid": "00000000-0000-4000-8000-000000000001"
+            },
+            "sequence": 2,
+            "type": "message.state"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
                 "model": "claude-haiku-5-5",
                 "role": "system",
                 "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
                 "subtype": "init"
             },
-            "sequence": 2,
+            "sequence": 3,
             "type": "entry"
         },
         {
@@ -32,7 +41,7 @@
                 "messageId": "id_0000",
                 "role": "assistant"
             },
-            "sequence": 3,
+            "sequence": 4,
             "type": "entry"
         },
         {
@@ -42,13 +51,13 @@
                 "kind": "text",
                 "text": "Checking the upl"
             },
-            "sequence": 4,
+            "sequence": 5,
             "type": "delta"
         },
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": [],
-            "sequence": 5,
+            "sequence": 6,
             "type": "stream.reset"
         },
         {
@@ -63,7 +72,7 @@
                 "messageId": "id_0002",
                 "role": "assistant"
             },
-            "sequence": 6,
+            "sequence": 7,
             "type": "entry"
         },
         {
@@ -79,7 +88,7 @@
                 "messageId": "id_0002",
                 "role": "assistant"
             },
-            "sequence": 7,
+            "sequence": 8,
             "type": "entry"
         },
         {
@@ -94,7 +103,7 @@
                 "subtype": "success",
                 "text": "scrubbed result 4"
             },
-            "sequence": 8,
+            "sequence": 9,
             "type": "entry"
         },
         {
@@ -105,7 +114,7 @@
                 "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
                 "subtype": "init"
             },
-            "sequence": 9,
+            "sequence": 10,
             "type": "entry"
         },
         {
@@ -121,7 +130,7 @@
                 "messageId": "id_0004",
                 "role": "assistant"
             },
-            "sequence": 10,
+            "sequence": 11,
             "type": "entry"
         },
         {
@@ -136,7 +145,7 @@
                 "subtype": "success",
                 "text": "scrubbed result 6"
             },
-            "sequence": 11,
+            "sequence": 12,
             "type": "entry"
         },
         {
@@ -145,8 +154,17 @@
                 "state": "completed",
                 "turnId": "<volatile:int>"
             },
-            "sequence": 12,
+            "sequence": 13,
             "type": "turn"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "sent",
+                "uuid": "00000000-0000-4000-8000-000000000001"
+            },
+            "sequence": 14,
+            "type": "message.state"
         }
     ],
     "catchUp": {
@@ -163,12 +181,21 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
+                    "state": "sent",
+                    "uuid": "00000000-0000-4000-8000-000000000001"
+                },
+                "sequence": 2,
+                "type": "message.state"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
                     "model": "claude-haiku-5-5",
                     "role": "system",
                     "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
                     "subtype": "init"
                 },
-                "sequence": 2,
+                "sequence": 3,
                 "type": "entry"
             },
             {
@@ -183,7 +210,7 @@
                     "messageId": "id_0000",
                     "role": "assistant"
                 },
-                "sequence": 3,
+                "sequence": 4,
                 "type": "entry"
             },
             {
@@ -193,13 +220,13 @@
                     "kind": "text",
                     "text": "Checking the upl"
                 },
-                "sequence": 4,
+                "sequence": 5,
                 "type": "delta"
             },
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": [],
-                "sequence": 5,
+                "sequence": 6,
                 "type": "stream.reset"
             },
             {
@@ -214,7 +241,7 @@
                     "messageId": "id_0002",
                     "role": "assistant"
                 },
-                "sequence": 6,
+                "sequence": 7,
                 "type": "entry"
             },
             {
@@ -230,7 +257,7 @@
                     "messageId": "id_0002",
                     "role": "assistant"
                 },
-                "sequence": 7,
+                "sequence": 8,
                 "type": "entry"
             },
             {
@@ -245,7 +272,7 @@
                     "subtype": "success",
                     "text": "scrubbed result 4"
                 },
-                "sequence": 8,
+                "sequence": 9,
                 "type": "entry"
             },
             {
@@ -256,7 +283,7 @@
                     "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
                     "subtype": "init"
                 },
-                "sequence": 9,
+                "sequence": 10,
                 "type": "entry"
             },
             {
@@ -272,7 +299,7 @@
                     "messageId": "id_0004",
                     "role": "assistant"
                 },
-                "sequence": 10,
+                "sequence": 11,
                 "type": "entry"
             },
             {
@@ -287,7 +314,7 @@
                     "subtype": "success",
                     "text": "scrubbed result 6"
                 },
-                "sequence": 11,
+                "sequence": 12,
                 "type": "entry"
             },
             {
@@ -296,11 +323,20 @@
                     "state": "completed",
                     "turnId": "<volatile:int>"
                 },
-                "sequence": 12,
+                "sequence": 13,
                 "type": "turn"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "sent",
+                    "uuid": "00000000-0000-4000-8000-000000000001"
+                },
+                "sequence": 14,
+                "type": "message.state"
             }
         ],
-        "latestSequence": 12,
+        "latestSequence": 14,
         "source": "window"
     },
     "pointers": [],
