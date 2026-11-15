@@ -25,7 +25,7 @@ private func sentBody(_ request: URLRequest) -> String {
     async let first = actions.open(acknowledgedPrivatePublish: false)
     await transport.waitForRequests(1, on: openRoute)
     async let second = actions.open(acknowledgedPrivatePublish: false)
-    for _ in 0..<50 { await Task.yield() }
+    while await actions.joinedCallCount < 1 { await Task.yield() }
     await transport.release(openRoute)
     #expect(await first == .started(.opening))
     #expect(await second == .started(.opening))
@@ -61,7 +61,9 @@ private func sentBody(_ request: URLRequest) -> String {
     await transport.on(openRoute, .json(404, #"{"error":"not_found","message":"Gone."}"#))
     #expect(await actions.open(acknowledgedPrivatePublish: true) == .refused(code: "not_found", message: "Gone."))
     await transport.on(openRoute, .json(500, #"{"error":"server_error","message":"Broke."}"#))
-    #expect(await actions.open(acknowledgedPrivatePublish: true) == .failed(.server(code: "server_error", message: "Broke.")))
+    #expect(
+        await actions.open(acknowledgedPrivatePublish: true)
+            == .failed(.server(code: "server_error", message: "Broke.")))
 }
 
 @Test func theAcknowledgementIsSentOnlyWhenGiven() async throws {
@@ -86,7 +88,8 @@ private func sentBody(_ request: URLRequest) -> String {
 
 @Test func aFinishedRequestDoesNotBlockTheNext() async throws {
     let transport = ScriptedTransport()
-    await transport.on(openRoute, .failure(.notConnectedToInternet), try .scenario(202, "scenario-pull-request-opening"))
+    await transport.on(
+        openRoute, .failure(.notConnectedToInternet), try .scenario(202, "scenario-pull-request-opening"))
     let actions = makeActions(transport)
     #expect(await actions.open(acknowledgedPrivatePublish: false) == .failed(.offline))
     #expect(await actions.open(acknowledgedPrivatePublish: false) == .started(.opening))
@@ -121,9 +124,23 @@ private func sentBody(_ request: URLRequest) -> String {
     async let first = actions.askToFix(rowID: 78)
     await transport.waitForRequests(1, on: route)
     async let second = actions.askToFix(rowID: 78)
-    for _ in 0..<50 { await Task.yield() }
+    while await actions.joinedCallCount < 1 { await Task.yield() }
     await transport.release(route)
     #expect(await first == .done)
     #expect(await second == .done)
     #expect(await transport.requests(on: route).count == 1)
+}
+
+@Test func reorderRefusesAnEmptyOrOversizedListWithoutARequest() async throws {
+    let transport = ScriptedTransport()
+    let actions = makeActions(transport)
+    let route = "PUT threads/\(threadID)/pull-requests/order"
+    for order in [[], Array(1...51)] {
+        guard case .refused(let code, _, _) = await actions.reorder(order) else {
+            Issue.record("expected a refusal for \(order.count) ids")
+            continue
+        }
+        #expect(code == "validation_failed")
+    }
+    #expect(await transport.requests(on: route).isEmpty)
 }

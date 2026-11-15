@@ -19,6 +19,8 @@ public actor PullRequestActions {
     private let client: APIClient
     private var openTask: Task<PullRequestSendOutcome, Never>?
     private var actionTasks: [String: Task<ThreadActionOutcome, Never>] = [:]
+    /// Calls that joined a request already in flight; tests wait on it instead of yielding.
+    private(set) var joinedCallCount = 0
 
     public init(threadID: String, client: APIClient) {
         self.threadID = threadID
@@ -27,7 +29,10 @@ public actor PullRequestActions {
 
     /// One request at a time; a second call while one runs returns that call's outcome.
     public func open(acknowledgedPrivatePublish: Bool) async -> PullRequestSendOutcome {
-        if let running = openTask { return await running.value }
+        if let running = openTask {
+            joinedCallCount += 1
+            return await running.value
+        }
         let task = Task { [threadID, client] () -> PullRequestSendOutcome in
             do throws(APIFailure) {
                 let response = try await client.send(
@@ -42,7 +47,8 @@ public actor PullRequestActions {
                 case .failed(let problem):
                     return .failed(problem)
                 case .done, .alreadySent:
-                    return .failed(.server(code: "unexpected", message: ""))
+                    return .failed(
+                        .server(code: "unexpected", message: OpenPullRequestState.defaultFailureMessage))
                 }
             }
         }
@@ -56,12 +62,21 @@ public actor PullRequestActions {
         await perform("fix:\(rowID)", .askToFix(threadID, rowID: rowID))
     }
 
+    /// The server accepts 1 to 50 ids; anything else is refused here without a request.
     public func reorder(_ order: [Int]) async -> ThreadActionOutcome {
-        await perform("reorder:\(order)", .reorderPullRequests(threadID, order: order))
+        guard (1...50).contains(order.count) else {
+            return .refused(
+                code: "validation_failed", message: "A pull request order needs 1 to 50 entries.",
+                fieldErrors: [:])
+        }
+        return await perform("reorder:\(order)", .reorderPullRequests(threadID, order: order))
     }
 
     private func perform(_ key: String, _ endpoint: Endpoint<StatusResponse>) async -> ThreadActionOutcome {
-        if let running = actionTasks[key] { return await running.value }
+        if let running = actionTasks[key] {
+            joinedCallCount += 1
+            return await running.value
+        }
         let client = client
         let task = Task { () -> ThreadActionOutcome in
             do throws(APIFailure) {
