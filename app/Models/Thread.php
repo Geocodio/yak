@@ -78,6 +78,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property int $stack_alert_child_mark
  * @property CarbonImmutable|null $stack_stopped_at
  * @property CarbonImmutable|null $split_requested_at
+ * @property CarbonImmutable|null $start_requested_at
  * @property string|null $preview_hostname
  * @property CarbonImmutable|null $preview_last_request_at
  */
@@ -135,6 +136,7 @@ class Thread extends Model
             'restore_requested_at' => 'immutable_datetime',
             'stack_stopped_at' => 'immutable_datetime',
             'split_requested_at' => 'immutable_datetime',
+            'start_requested_at' => 'immutable_datetime',
             'preview_last_request_at' => 'immutable_datetime',
         ];
     }

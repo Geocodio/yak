@@ -89,36 +89,38 @@ it('turns an input refusal into a validation error, never a 500', function () {
     Log::shouldHaveReceived('warning')->once();
 });
 
-it('drops a repeat while the first start job is still pending', function () {
+it('drops a repeat while the first start is claimed, however long ago', function () {
     config(['queue.default' => 'database']);
     $root = teamRoot();
     $actor = User::factory()->create();
     $key = '3f6d2c1a-5b7e-4d89-a1c2-9e8f7a6b5c4d';
 
     $child = addChildOf($root, $actor, $key);
+
+    expect($child->fresh()->start_requested_at)->not->toBeNull();
+
+    Cache::flush();
+    $this->travel(3)->hours();
+    addChildOf($root, $actor, $key);
     addChildOf($root, $actor, $key);
 
     expect(DB::table('jobs')->count())->toBe(1);
-
-    Cache::lock('laravel_unique_job:' . StartChildThreadJob::class . ':' . $child->id)->forceRelease();
-    addChildOf($root, $actor, $key);
-
-    expect(DB::table('jobs')->count())->toBe(2);
 });
 
-it('restarts a repeat whose first dispatch was lost', function () {
+it('starts again once the first start finished without a run', function () {
     Queue::fake();
     $root = teamRoot();
     $actor = User::factory()->create();
     $key = '3f6d2c1a-5b7e-4d89-a1c2-9e8f7a6b5c4d';
     $child = addChildOf($root, $actor, $key);
-    Queue::fake();
 
+    app(ChildSpawner::class)->finishStartRequest($child->id);
     addChildOf($root, $actor, $key);
-    Queue::assertPushed(StartChildThreadJob::class, 1);
+    Queue::assertPushed(StartChildThreadJob::class, 2);
 
     $task = YakTask::query()->where('thread_id', $child->id)->firstOrFail();
     TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $child->id]);
+    app(ChildSpawner::class)->finishStartRequest($child->id);
     Queue::fake();
 
     addChildOf($root, $actor, $key);

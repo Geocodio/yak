@@ -7,18 +7,14 @@ use App\Enums\ThreadStatus;
 use App\Exceptions\StackRuleViolation;
 use App\Exceptions\ThreadActionRefused;
 use App\Jobs\DeliverStackNoteJob;
-use App\Jobs\StartChildThreadJob;
 use App\Jobs\StopStackJob;
 use App\Models\StackThreadMessage;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\Devices\ShortLockWait;
 use Closure;
-use Illuminate\Bus\UniqueLock;
-use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
-use Throwable;
 
 /**
  * The actions of a stack that a person starts, for the web and for the app. Each one takes
@@ -54,7 +50,7 @@ class StackActions
         }
 
         if ($child->wasRecentlyCreated || $this->needsStart($child)) {
-            $this->dispatchStart($child);
+            $this->spawner->requestStart($child);
         }
 
         return $child;
@@ -85,7 +81,9 @@ class StackActions
      */
     public function setLimit(Thread $thread, int $limit): void
     {
-        $this->withRootLock($thread, function (Thread $root) use ($limit): void {
+        $queued = [];
+
+        $this->withRootLock($thread, function (Thread $root) use ($limit, &$queued): void {
             $this->awakeLimit->set($root, $limit);
 
             if ($root->stack_stopped_at !== null || ! $this->awakeLimit->hasFreeSlot($root)) {
@@ -98,12 +96,14 @@ class StackActions
                 ->where('status', ThreadStatus::Open->value)
                 ->orderBy('queued_for_slot_at')
                 ->orderBy('id')
-                ->get();
-
-            foreach ($queued as $child) {
-                $this->dispatchStart($child);
-            }
+                ->get()
+                ->all();
         });
+
+        // Pushed after the lock is released, so a failed push cannot leave a claim behind a commit.
+        foreach ($queued as $child) {
+            $this->spawner->requestStart($child);
+        }
     }
 
     public function takeOver(Thread $child, User $actor): void
@@ -219,23 +219,6 @@ class StackActions
     {
         foreach ($this->undeliveredNotes($child) as $note) {
             DeliverStackNoteJob::dispatch($note->id)->afterCommit();
-        }
-    }
-
-    /**
-     * The pending dispatch takes the job's unique lock before it pushes. When the push throws,
-     * nothing else frees that lock, so it is released here and the client's retry can dispatch again.
-     */
-    private function dispatchStart(Thread $child): void
-    {
-        $job = new StartChildThreadJob($child->id);
-
-        try {
-            dispatch($job)->afterCommit();
-        } catch (Throwable $exception) {
-            (new UniqueLock(app(CacheRepository::class)))->release($job);
-
-            throw $exception;
         }
     }
 

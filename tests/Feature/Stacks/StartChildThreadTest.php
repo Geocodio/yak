@@ -121,3 +121,31 @@ it('leaves a child alone while another worker holds its start claim', function (
 
     expect(TaskRun::query()->where('thread_id', $child->id)->count())->toBe(1);
 });
+
+it('clears the start claim when the job finishes and keeps it while the job is released', function () {
+    $child = spawnedChild($this->parent, ThreadKind::Implement);
+    $child->forceFill(['start_requested_at' => now()])->save();
+
+    (new StartChildThreadJob($child->id))->handle(app(ChildSpawner::class));
+
+    expect($child->fresh()->start_requested_at)->toBeNull();
+
+    $queued = spawnedChild($this->parent, ThreadKind::Implement);
+    $queued->forceFill(['start_requested_at' => now(), 'queued_for_slot_at' => now()])->save();
+    $this->parent->update(['child_awake_limit' => 1]);
+    Thread::factory()->create(['parent_thread_id' => $this->parent->id, 'root_thread_id' => $this->parent->id, 'sandbox_state' => ThreadSandboxState::Running]);
+    $job = Mockery::mock(StartChildThreadJob::class, [$queued->id])->makePartial();
+    $job->shouldReceive('release')->once();
+    $job->handle(app(ChildSpawner::class));
+
+    expect($queued->fresh()->start_requested_at)->not->toBeNull();
+});
+
+it('clears the start claim when the job fails for good', function () {
+    $child = spawnedChild($this->parent, ThreadKind::Implement);
+    $child->forceFill(['start_requested_at' => now()])->save();
+
+    (new StartChildThreadJob($child->id))->failed(new RuntimeException('gone'));
+
+    expect($child->fresh()->start_requested_at)->toBeNull();
+});

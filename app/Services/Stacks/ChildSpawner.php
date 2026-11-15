@@ -6,6 +6,7 @@ use App\Enums\RepositoryRole;
 use App\Enums\TaskMode;
 use App\Enums\ThreadKind;
 use App\Exceptions\StackRuleViolation;
+use App\Jobs\StartChildThreadJob;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
@@ -17,6 +18,7 @@ use App\YakPromptBuilder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Creates the sub-thread rows for a spawn. Sandbox and first turn are
@@ -124,6 +126,46 @@ class ChildSpawner
         }
 
         return $child;
+    }
+
+    /**
+     * Queues the start of a child unless a start is already requested. The request is a
+     * timestamp on the child, taken under its row lock, so a repeat at any later time queues
+     * nothing while that job still lives. The job clears it when it finishes or fails for good.
+     */
+    public function requestStart(Thread $child): void
+    {
+        if (! $this->claimStart($child)) {
+            return;
+        }
+
+        try {
+            StartChildThreadJob::dispatch($child->id)->afterCommit();
+        } catch (Throwable $exception) {
+            $this->finishStartRequest($child->id);
+
+            throw $exception;
+        }
+    }
+
+    public function finishStartRequest(int $childId): void
+    {
+        Thread::query()->withoutGlobalScopes()->whereKey($childId)->update(['start_requested_at' => null]);
+    }
+
+    private function claimStart(Thread $child): bool
+    {
+        return ShortLockWait::threadTransaction(function () use ($child): bool {
+            $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->find($child->id);
+
+            if ($locked === null || ! $locked->isOpen() || $locked->start_requested_at !== null || $locked->runs()->exists()) {
+                return false;
+            }
+
+            $locked->forceFill(['start_requested_at' => now()])->save();
+
+            return true;
+        });
     }
 
     /**
