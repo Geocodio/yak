@@ -35,3 +35,19 @@ test('guests get null', function () {
     expect(value($shared['threadList']))->toBeNull()
         ->and(value($shared['nav'])['needsYouCount'])->toBe(0);
 });
+
+test('the header count is the shared needs-you count, threads plus tasks', function () {
+    $user = User::factory()->create(['has_seen_setup_card_at' => now()]);
+    needyTask($user, 'Retry failed uploads', Thread::factory()->create(['created_by_user_id' => $user->id]));
+    needyTask($user, 'Pick a retry policy');
+
+    $this->actingAs($user)->get(route('tasks'))
+        ->assertInertia(fn (Assert $page) => $page->where('nav.needsYouCount', 2));
+});
+
+test('a task inside an open thread is counted once in the header', function () {
+    ['user' => $user] = needsYouWorld();
+
+    $this->actingAs($user)->get(route('tasks'))
+        ->assertInertia(fn (Assert $page) => $page->where('nav.needsYouCount', 5));
+});

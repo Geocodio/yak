@@ -9,6 +9,7 @@ use App\Http\Resources\OperationsPanelData;
 use App\Http\Resources\SetupData;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\ThreadList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -79,7 +80,7 @@ class HandleInertiaRequests extends Middleware
             'newThread' => Inertia::optional(fn (): array => NewThreadData::for($user)),
             'nav' => fn () => [
                 'activeTaskCount' => $user === null ? 0 : YakTask::query()->whereIn('status', TaskStatus::activeValues())->count(),
-                'needsYouCount' => $threadList()['needsYouCount'] ?? 0,
+                'needsYouCount' => $user instanceof User ? NeedsYouCount::for($user, $threadList()['needsYouCount'] ?? null) : 0,
             ],
             'operationsPanel' => fn () => $user instanceof User && $request->is('repos', 'repos/*', 'deployments', 'deployments/*', 'pr-reviews', 'pr-reviews/*', 'observations', 'observations/*')
                 ? OperationsPanelData::for($user)
