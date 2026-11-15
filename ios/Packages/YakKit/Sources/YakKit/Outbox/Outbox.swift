@@ -1,5 +1,16 @@
 import Foundation
 
+#if canImport(os)
+    import os
+#endif
+
+/// Logs a failure type (never stored content). Linux has no `os.Logger`, so it is a no-op there.
+private func logFailure(_ message: String) {
+    #if canImport(os)
+        Logger(subsystem: "YakKit", category: "Outbox").error("\(message, privacy: .public)")
+    #endif
+}
+
 /// Unsent messages and new threads. Each queue sends only its head, repeats a lost send with the
 /// same `send_key`, and holds everything behind a refused head until the person acts on it.
 public actor Outbox {
@@ -55,9 +66,108 @@ public actor Outbox {
             id: makeID(), target: draft.target, text: draft.text, model: draft.model, delivery: draft.delivery,
             attachments: draft.attachments, createdAt: clock.now())
         stored.append(item)
-        publish()
+        do {
+            try persist()
+        } catch {
+            stored.removeAll { $0.id == item.id }
+            throw error
+        }
+        changeBroadcast.send(stored)
         pump()
         return item
+    }
+
+    // MARK: Persistence
+
+    /// Reads `items.json`, takes in what other processes left, and starts sending. An item that was
+    /// in flight when the app stopped is queued again and goes out with the same `send_key`.
+    public func load() {
+        do {
+            if let data = try files.read(OutboxInbox.itemsPath(instance)) {
+                let saved = try JSONDecoder().decode([OutboxItem].self, from: data)
+                let known = Set(stored.map(\.id))
+                stored += saved.filter { !known.contains($0.id) }
+            }
+        } catch {
+            logFailure("outbox list unreadable: \(type(of: error))")
+        }
+        for index in stored.indices {
+            switch stored[index].state {
+            case .sending, .slow, .waiting: stored[index].state = .queued
+            default: break
+            }
+        }
+        sortByCreation()
+        importIncoming()
+    }
+
+    /// Moves every inbox file into the list, in `createdAt` order, then removes the files.
+    public func importIncoming() {
+        let folder = OutboxInbox.folder(instance)
+        let names: [String]
+        do { names = try files.list(folder) } catch {
+            logFailure("outbox inbox unreadable: \(type(of: error))")
+            publish()
+            pump()
+            return
+        }
+        var taken: [String] = []
+        for name in names where name.hasSuffix(".json") {
+            let path = "\(folder)/\(name)"
+            do {
+                guard let data = try files.read(path) else { continue }
+                var item = try JSONDecoder().decode(OutboxItem.self, from: data)
+                item.state = .queued
+                if !stored.contains(where: { $0.id == item.id }) { stored.append(item) }
+                taken.append(path)
+            } catch is DecodingError {
+                logFailure("outbox inbox file dropped: not an item")
+                removeFile(path)
+            } catch {
+                logFailure("outbox inbox file unreadable: \(type(of: error))")
+            }
+        }
+        sortByCreation()
+        // The list is saved before the inbox files go, so a crash in between imports them once.
+        publish()
+        taken.forEach(removeFile)
+        pump()
+    }
+
+    /// Everything this instance keeps for sending: the list, the inbox and the attachment files.
+    public func eraseAll() {
+        for timer in slowTimers.values { timer.cancel() }
+        for timer in retryTimers.values { timer.cancel() }
+        slowTimers = [:]
+        retryTimers = [:]
+        stored = []
+        removeFile(InstanceFolders.outbox(instance))
+        changeBroadcast.send([])
+    }
+
+    private func sortByCreation() {
+        // Swift's sort is not stable, so the position breaks ties.
+        stored = stored.enumerated().sorted { ($0.element.createdAt, $0.offset) < ($1.element.createdAt, $1.offset) }
+            .map(\.element)
+    }
+
+    private func persist() throws(FileStoreError) {
+        let saved = stored.map { item -> OutboxItem in
+            var copy = item
+            if copy.state == .sending || copy.state == .slow { copy.state = .queued }
+            return copy
+        }
+        let data: Data
+        do { data = try JSONEncoder().encode(saved) } catch { throw .unreadable }
+        try files.write(data, to: OutboxInbox.itemsPath(instance), protection: .untilFirstUnlock)
+    }
+
+    private func removeFile(_ path: String) {
+        do { try files.remove(path) } catch { logFailure("outbox file not removed: \(type(of: error))") }
+    }
+
+    private func removeAttachments(of item: OutboxItem) {
+        if !item.attachments.isEmpty { removeFile(OutboxInbox.attachmentFolder(instance: instance, item: item.id)) }
     }
 
     public func edit(_ id: UUID, text: String) throws(OutboxEditProblem) {
@@ -80,6 +190,7 @@ public actor Outbox {
         let item = stored.remove(at: index)
         retryTimers.removeValue(forKey: id)?.cancel()
         publish()
+        removeAttachments(of: item)
         pump()
         return item
     }
@@ -158,8 +269,17 @@ public actor Outbox {
     private func perform(_ id: UUID, attempt: Int) async {
         guard let item = stored.first(where: { $0.id == id }) else { return }
         let outcome: Result<OutboxDelivery, APIFailure>
+        let (parts, problem) = readAttachments(of: item)
+        if let decision = problem {
+            slowTimers.removeValue(forKey: id)?.cancel()
+            guard let index = stored.firstIndex(where: { $0.id == id }), stored[index].attemptCount == attempt
+            else { return }
+            apply(decision, toItemAt: index, attempt: attempt)
+            pump()
+            return
+        }
         do throws(APIFailure) {
-            outcome = .success(try await deliver(item))
+            outcome = .success(try await deliver(item, attachments: parts))
         } catch {
             outcome = .failure(error)
         }
@@ -170,8 +290,9 @@ public actor Outbox {
         switch outcome {
         case .success(let delivery):
             for receiver in deliveryReceivers.values { receiver.yield(delivery) }
-            stored.remove(at: index)
+            let item = stored.remove(at: index)
             publish()
+            removeAttachments(of: item)
         case .failure(let failure):
             let decision = OutboxRetryPolicy.decision(for: failure, attempt: attempt)
             apply(decision, toItemAt: index, attempt: attempt)
@@ -212,13 +333,37 @@ public actor Outbox {
         pump()
     }
 
-    private func deliver(_ item: OutboxItem) async throws(APIFailure) -> OutboxDelivery {
+    /// A file that is missing refuses the item; one that cannot be read now (a locked device) is tried again.
+    private func readAttachments(of item: OutboxItem) -> (parts: [MultipartBody.Part], problem: OutboxDecision?) {
+        var parts: [MultipartBody.Part] = []
+        for attachment in item.attachments {
+            do {
+                guard let data = try files.read(attachment.path) else {
+                    let refusal = OutboxRefusal(
+                        code: "attachment_missing", message: "\(attachment.fileName) is no longer on this device.")
+                    return ([], .refuse(refusal))
+                }
+                parts.append(
+                    .file(
+                        name: "attachments[]", fileName: attachment.fileName, contentType: attachment.contentType,
+                        data: data))
+            } catch {
+                return ([], OutboxRetryPolicy.decision(for: .network(.cannotOpenFile), attempt: item.attemptCount))
+            }
+        }
+        return (parts, nil)
+    }
+
+    private func deliver(_ item: OutboxItem, attachments: [MultipartBody.Part]) async throws(APIFailure)
+        -> OutboxDelivery
+    {
+        let references = item.attachments.map(\.reference)
         switch item.target {
         case .thread(let threadID):
             let result = try await client.send(
                 .sendMessage(
                     threadID, text: item.text, model: item.model, delivery: item.delivery, sendKey: item.id,
-                    attachments: [], references: []))
+                    attachments: attachments, references: references))
             return OutboxDelivery(
                 sendKey: item.id, target: item.target, status: result.status, messageUUID: result.uuid,
                 threadID: result.threadId ?? threadID, text: item.text, sentAt: clock.now())
@@ -227,14 +372,20 @@ public actor Outbox {
                 repo: draft.repo, mode: draft.mode, repositories: draft.repositories,
                 claudeAccountId: draft.claudeAccountId, model: item.model ?? draft.model)
             let created = try await client.send(
-                .startThread(withModel, description: item.text, sendKey: item.id, attachments: [], references: []))
+                .startThread(
+                    withModel, description: item.text, sendKey: item.id, attachments: attachments,
+                    references: references))
             return OutboxDelivery(
                 sendKey: item.id, target: item.target, status: .sent, messageUUID: nil, threadID: created.id,
                 text: item.text, sentAt: clock.now())
         }
     }
 
-    private func publish() { changeBroadcast.send(stored) }
+    /// The list is saved before anyone hears of the change.
+    private func publish() {
+        do { try persist() } catch { logFailure("outbox list not saved: \(type(of: error))") }
+        changeBroadcast.send(stored)
+    }
 
     private func dropReceiver(_ identifier: Int) { deliveryReceivers[identifier] = nil }
 }
