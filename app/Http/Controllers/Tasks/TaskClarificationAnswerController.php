@@ -22,10 +22,10 @@ class TaskClarificationAnswerController extends Controller
                 'dashboard',
             );
         } catch (ThreadActionRefused $refused) {
-            return redirect()->route('tasks.show', $task)->with('error', $refused->getMessage());
+            return redirect()->back(fallback: route('tasks.show', $task))->with('error', $refused->getMessage());
         }
 
-        return redirect()->route('tasks.show', $task)->with(
+        return redirect()->back(fallback: route('tasks.show', $task))->with(
             $submitted ? 'success' : 'error',
             $submitted ? 'Sent to Yak.' : 'These questions were already answered.',
         );
