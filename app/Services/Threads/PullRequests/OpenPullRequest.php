@@ -8,8 +8,11 @@ use App\Http\Resources\ThreadPageData;
 use App\Jobs\CreatePullRequestJob;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Devices\ShortLockWait;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadPublishGuard;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Throwable;
 
 /**
  * Whether Open PR applies to a thread for a person, and opening it once.
@@ -62,11 +65,20 @@ final class OpenPullRequest
         }
 
         if ($task->branch_name === null) {
-            $task->update(['branch_name' => $branch]);
+            ShortLockWait::threadTransaction(fn () => $task->update(['branch_name' => $branch]));
         }
 
-        if ($this->opening->claim($thread)) {
-            CreatePullRequestJob::dispatch($task);
+        $claimedAt = now()->startOfSecond();
+
+        if ($this->opening->claim($thread, $claimedAt)) {
+            try {
+                CreatePullRequestJob::dispatch($task);
+            } catch (Throwable $exception) {
+                report($exception);
+                $this->opening->release($thread, $claimedAt);
+
+                throw new HttpException(503, 'Yak could not start the pull request. Try again in a moment.');
+            }
         }
 
         return 'opening';

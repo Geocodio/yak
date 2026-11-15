@@ -118,6 +118,31 @@ it('records the opening and its event together', function () {
     expect(app(PullRequestOpening::class)->stateFor($this->thread))->toBeNull()
         ->and(ThreadEvent::query()->where('thread_id', $this->thread->id)->where('type', 'thread')->exists())->toBeFalse();
     Queue::assertNothingPushed();
+
+    $this->app->singleton(ThreadEventPublisher::class);
+
+    $this->postJson(appThreadPath($this->thread, '/pull-request'), [], $this->headers)->assertStatus(202);
+    Queue::assertPushed(CreatePullRequestJob::class, 1);
+    expect(ThreadEvent::query()->where('thread_id', $this->thread->id)->where('type', 'thread')->count())->toBe(1);
+});
+
+it('releases the claim and answers 503 when the job cannot be queued', function () {
+    Queue::shouldReceive('push')->andThrow(new RuntimeException('redis down'));
+    Queue::shouldReceive('connection')->andReturnSelf();
+    $path = appThreadPath($this->thread, '/pull-request');
+
+    $this->postJson($path, [], $this->headers)->assertStatus(503)->assertExactJson([
+        'error' => 'unavailable',
+        'message' => 'Yak could not start the pull request. Try again in a moment.',
+    ]);
+
+    expect(app(PullRequestOpening::class)->stateFor($this->thread))->toBeNull()
+        ->and(app(PullRequestOpening::class)->flag($this->thread->id))->toBeNull();
+
+    Queue::clearResolvedInstances();
+    Queue::fake();
+    $this->postJson($path, [], $this->headers)->assertStatus(202);
+    Queue::assertPushed(CreatePullRequestJob::class, 1);
 });
 
 it('stores exactly one thread event for a claim', function () {

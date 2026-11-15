@@ -9,6 +9,7 @@ use App\Models\YakTask;
 use App\Services\Devices\ShortLockWait;
 use App\Services\Threads\ThreadEventPublisher;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -30,9 +31,10 @@ class PullRequestOpening
      * Takes the opening for this thread with one conditional update, so only one request wins. A claim older than
      * the opening window counts as a job that died. The claim and its thread event commit together.
      */
-    public function claim(Thread $thread): bool
+    public function claim(Thread $thread, ?CarbonInterface $claimedAt = null): bool
     {
-        $isClaimed = ShortLockWait::threadTransaction(function () use ($thread): bool {
+        $claimedAt ??= now();
+        $isClaimed = ShortLockWait::threadTransaction(function () use ($thread, $claimedAt): bool {
             $changed = Thread::withoutGlobalScopes()
                 ->whereKey($thread->id)
                 ->where(fn ($query) => $query
@@ -41,7 +43,7 @@ class PullRequestOpening
                     ->orWhere(fn ($stale) => $stale
                         ->where('pull_request_opening_state', 'opening')
                         ->where('pull_request_opening_at', '<', now()->subSeconds(self::OPENING_SECONDS))))
-                ->update(['pull_request_opening_state' => 'opening', 'pull_request_opening_error' => null, 'pull_request_opening_at' => now()]);
+                ->update(['pull_request_opening_state' => 'opening', 'pull_request_opening_error' => null, 'pull_request_opening_at' => $claimedAt]);
 
             if ($changed === 1) {
                 app(ThreadEventPublisher::class)->recordThreadState($thread->id);
@@ -55,6 +57,31 @@ class PullRequestOpening
         }
 
         return $isClaimed;
+    }
+
+    /**
+     * Gives back the claim made at $claimedAt when its job could not be queued, so a retry starts at once.
+     * A claim that someone else took since is left alone.
+     */
+    public function release(Thread $thread, CarbonInterface $claimedAt): void
+    {
+        $hasReleased = ShortLockWait::threadTransaction(function () use ($thread, $claimedAt): bool {
+            $changed = Thread::withoutGlobalScopes()
+                ->whereKey($thread->id)
+                ->where('pull_request_opening_state', 'opening')
+                ->where('pull_request_opening_at', $claimedAt)
+                ->update(['pull_request_opening_state' => null, 'pull_request_opening_error' => null, 'pull_request_opening_at' => null]);
+
+            if ($changed === 1) {
+                app(ThreadEventPublisher::class)->recordThreadState($thread->id);
+            }
+
+            return $changed === 1;
+        });
+
+        if ($hasReleased) {
+            app(ThreadEventPublisher::class)->flush();
+        }
     }
 
     /**
