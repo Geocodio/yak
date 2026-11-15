@@ -119,14 +119,15 @@ class ThreadTurns
      *
      * $intent names a request the dashboard made for the person, such as add_preview_manifest.
      * $shownText is what the timeline shows as the person's message when it differs from $prompt.
+     * $answersQuestion is set only for a message a person typed, which then answers a question the head task waits on.
      * $storeAttachments saves the message's files before the turn goes out, so dispatchTurn can stage them.
      *
      * @throws ThreadBusy when the thread already runs a turn
      * @throws ThreadNotOwnedByYak when a device owns the thread or a teleport is open
      */
-    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null, ?Closure $storeAttachments = null, ?string $sendKey = null): TaskRun
+    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null, ?Closure $storeAttachments = null, ?string $sendKey = null, bool $answersQuestion = false): TaskRun
     {
-        [$thread, $run, $account, $blocked] = ShortLockWait::threadTransaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments, $sendKey): array {
+        [$thread, $run, $account, $blocked] = ShortLockWait::threadTransaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments, $sendKey, $answersQuestion): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
 
@@ -147,7 +148,9 @@ class ThreadTurns
                 $thread->owner_user_id = $driver->id;
             }
 
-            $this->answerOpenQuestion($task, $shownText ?? $prompt, $driver);
+            if ($answersQuestion && $driver !== null) {
+                $this->answerOpenQuestion($task, $shownText ?? $prompt, $driver);
+            }
 
             $queued = PendingSteeringMessage::drainFor($task);
             $text = $queued === null ? $prompt : ($prompt === '' ? $queued : $queued . "\n\n" . $prompt);
@@ -196,7 +199,7 @@ class ThreadTurns
      * A message sent while the head task waits on a question is the answer: the task is no longer waiting
      * on the person, so the sidebar and the question card close. Running is a status no reaper re-dispatches.
      */
-    private function answerOpenQuestion(YakTask $task, string $reply, ?User $driver): void
+    private function answerOpenQuestion(YakTask $task, string $reply, User $driver): void
     {
         $locked = YakTask::query()->whereKey($task->id)->lockForUpdate()->first();
 
@@ -204,7 +207,7 @@ class ThreadTurns
             return;
         }
 
-        $locked->recordClarificationAnswers([], $reply, $driver->name ?? 'Unknown');
+        $locked->recordClarificationAnswers([], $reply, $driver->name);
         $locked->markClarificationAnswersConsumed();
         $locked->update([
             'status' => TaskStatus::Running,

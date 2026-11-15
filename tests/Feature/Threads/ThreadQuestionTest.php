@@ -3,6 +3,7 @@
 use App\DataTransferObjects\ClarificationQuestion;
 use App\DataTransferObjects\ThreadMessageInput;
 use App\Enums\MessageDelivery;
+use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadListFilter;
 use App\Events\ThreadEventBroadcast;
@@ -18,6 +19,7 @@ use App\Services\Threads\ThreadEventPublisher;
 use App\Services\Threads\ThreadEventWindow;
 use App\Services\Threads\ThreadList;
 use App\Services\Threads\ThreadMessageSender;
+use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -175,6 +177,17 @@ it('closes the question when the person answers in the composer', function () {
         ->and($needsYou)->toBeNull()
         ->and(ThreadQuestionData::for($thread))->toBeNull()
         ->and(questionEvents($thread)[0]['open'] ?? null)->toBeFalse();
+});
+
+it('keeps the question open when an automated turn starts', function () {
+    [$thread, $task] = threadAwaitingAnswer();
+    $thread->update(['claude_account_id' => ClaudeAccount::factory()->create()->id]);
+
+    app(ThreadTurns::class)->start($task, 'Continue.', User::factory()->create(), null, TaskRunKind::RepositoryEvent);
+
+    expect($task->refresh()->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and(questionEvents($thread))->toBe([])
+        ->and(ThreadQuestionData::for($thread))->not->toBeNull();
 });
 
 it('emits nothing for a task without a thread', function () {
