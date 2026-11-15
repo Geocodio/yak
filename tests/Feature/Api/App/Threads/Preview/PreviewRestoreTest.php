@@ -160,6 +160,19 @@ it('falls through to the refusal when the key check fails', function () {
     Queue::assertNothingPushed();
 });
 
+it('answers the refusal when the dev server state read fails', function () {
+    Exceptions::fake();
+    $thread = $this->thread;
+    $thread->update(['sandbox_state' => ThreadSandboxState::Running]);
+    Cache::partialMock()->shouldReceive('get')->andThrow(new RuntimeException('cache down'));
+
+    $this->postJson(previewRestorePath($thread), [], phoneHeadersFor($this->owner))
+        ->assertStatus(409)->assertJsonPath('error', 'nothing_to_restore');
+
+    Exceptions::assertReported(RuntimeException::class);
+    Queue::assertNothingPushed();
+});
+
 it('refuses a share recipient', function () {
     $thread = privateThreadOf($this->owner, ['sandbox_state' => ThreadSandboxState::Destroyed]);
     $recipient = User::factory()->create();

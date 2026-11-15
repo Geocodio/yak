@@ -14,7 +14,7 @@ use Throwable;
 /**
  * The one rule for restoring a preview, shared by the web route and the app route.
  */
-class ThreadPreviewRestore
+final class ThreadPreviewRestore
 {
     public const DISPATCH_KEY_SECONDS = 300;
 
@@ -67,7 +67,7 @@ class ThreadPreviewRestore
             report($exception);
         }
 
-        if ($thread->blocked_reason !== ThreadBlockReason::RestoreFailed && $this->status->state($thread) !== 'destroyed') {
+        if ($thread->blocked_reason !== ThreadBlockReason::RestoreFailed && $this->currentState($thread) !== 'destroyed') {
             throw ThreadActionRefused::because(ThreadActionRefused::NOTHING_TO_RESTORE, 'The sandbox is still there, so there is nothing to restore.');
         }
 
@@ -82,5 +82,17 @@ class ThreadPreviewRestore
         RestoreThreadPreviewJob::dispatch($thread);
 
         return true;
+    }
+
+    /** The preview state; a cache that is down reads as unknown, so a sandbox that may still exist is never rebuilt. */
+    private function currentState(Thread $thread): string
+    {
+        try {
+            return $this->status->state($thread);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return 'unknown';
+        }
     }
 }
