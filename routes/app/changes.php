@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\App\Tasks\TaskActionController;
 use App\Http\Controllers\Api\App\Tasks\TaskController;
 use App\Http\Controllers\Api\App\Tasks\TaskListController;
 use App\Http\Controllers\Api\App\Threads\PullRequestController;
@@ -15,3 +16,10 @@ Route::post('threads/{thread}/pull-requests/{repository}/fix', [PullRequestContr
 
 Route::get('tasks', TaskListController::class)->name('app.tasks.index');
 Route::get('tasks/{task}', [TaskController::class, 'show'])->name('app.tasks.show');
+Route::middleware('task.drive')->group(function (): void {
+    Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('app.tasks.retry');
+    Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('app.tasks.cancel');
+    Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('app.tasks.rerun-review');
+    Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('app.tasks.retry-render');
+    Route::post('tasks/{task}/reroute', [TaskActionController::class, 'reroute'])->name('app.tasks.reroute');
+});

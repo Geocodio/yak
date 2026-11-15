@@ -1229,11 +1229,12 @@ GRAPHQL;
     /**
      * @return array<string, mixed>
      */
-    public function getPullRequest(int $installationId, string $repoSlug, int $prNumber): array
+    public function getPullRequest(int $installationId, string $repoSlug, int $prNumber, bool $isTimeBounded = false): array
     {
-        $token = $this->getInstallationToken($installationId);
+        $token = $this->getInstallationToken($installationId, $isTimeBounded);
 
         $response = Http::withToken($token)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}");
 

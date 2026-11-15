@@ -473,3 +473,24 @@ test('cancel moves a Linear issue to the cancelled state once', function () {
     $issueUpdates = Http::recorded()->filter(fn (array $pair): bool => str_contains($pair[0]['query'] ?? '', 'issueUpdate'));
     expect($issueUpdates)->toHaveCount(1);
 });
+
+test('two retries push one job', function () {
+    Queue::fake();
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed]);
+
+    $this->post(route('tasks.retry', $task));
+    $this->post(route('tasks.retry', $task));
+
+    Queue::assertPushed(RunYakJob::class, 1);
+});
+
+test('two retry renders push one render', function () {
+    Queue::fake();
+    $task = YakTask::factory()->create();
+    Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video']);
+
+    $this->post(route('tasks.retry-render', $task));
+    $this->post(route('tasks.retry-render', $task));
+
+    Queue::assertPushed(RenderVideoJob::class, 1);
+});

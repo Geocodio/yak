@@ -52,6 +52,7 @@ class Artifact extends Model
         return [
             'created_at' => 'datetime',
             'shared_at' => 'datetime',
+            'render_requested_at' => 'datetime',
             'shared_with_team' => 'boolean',
         ];
     }

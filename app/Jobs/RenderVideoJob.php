@@ -33,6 +33,15 @@ class RenderVideoJob implements ShouldQueue
 
     public function handle(VideoRenderer $renderer): void
     {
+        try {
+            $this->render($renderer);
+        } finally {
+            $this->clearRenderRequest();
+        }
+    }
+
+    private function render(VideoRenderer $renderer): void
+    {
         $raw = Artifact::find($this->rawVideoArtifactId);
         if (! $raw || $raw->type !== 'video') {
             Log::info('RenderVideoJob: raw video artifact missing or wrong type', [
@@ -199,6 +208,8 @@ class RenderVideoJob implements ShouldQueue
             'error' => $e->getMessage(),
         ]);
 
+        $this->clearRenderRequest();
+
         $task = Artifact::find($this->rawVideoArtifactId)?->task;
         if ($task === null) {
             return;
@@ -230,5 +241,14 @@ class RenderVideoJob implements ShouldQueue
         } catch (Throwable $patchError) {
             Log::channel('yak')->warning('RenderVideoJob: failed to mark walkthrough unavailable on PR', ['task_id' => $task->id, 'error' => $patchError->getMessage()]);
         }
+    }
+
+    /**
+     * The request record lives only while a render is queued or running, so a
+     * repeated Retry render in that time starts nothing.
+     */
+    private function clearRenderRequest(): void
+    {
+        Artifact::query()->whereKey($this->rawVideoArtifactId)->update(['render_requested_at' => null]);
     }
 }

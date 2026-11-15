@@ -1,0 +1,275 @@
+<?php
+
+use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
+use App\Jobs\ProcessCIResultJob;
+use App\Jobs\RenderVideoJob;
+use App\Jobs\RetryYakJob;
+use App\Jobs\RunYakJob;
+use App\Jobs\RunYakReviewJob;
+use App\Jobs\SendNotificationJob;
+use App\Models\Artifact;
+use App\Models\Repository;
+use App\Models\TaskLog;
+use App\Models\User;
+use App\Models\YakTask;
+use App\Services\IncusSandboxManager;
+use App\Services\VideoRenderer;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
+use Tests\Support\ContractFixture;
+
+/**
+ * @param  array<string, mixed>  $attributes
+ */
+function actionTask(User $user, array $attributes = []): YakTask
+{
+    return YakTask::factory()->create($attributes + [
+        'public_id' => 'k3m9p2qa', 'repo' => 'example/api', 'mode' => TaskMode::Fix, 'status' => TaskStatus::Failed,
+        'description' => 'Upgrade the payments SDK', 'started_by_user_id' => $user->id, 'thread_id' => null, 'pr_url' => null,
+    ]);
+}
+
+function configureGitHubForReview(): void
+{
+    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($keyPair, $privateKey);
+    config()->set('yak.channels.github.app_id', '999');
+    config()->set('yak.channels.github.private_key', $privateKey);
+    config()->set('yak.channels.github.installation_id', 12345);
+}
+
+beforeEach(function () {
+    Queue::fake();
+    $this->user = User::factory()->create(['name' => 'Test person']);
+    $this->headers = phoneHeadersFor($this->user);
+});
+
+it('retries a failed task once for two requests', function () {
+    $task = actionTask($this->user);
+
+    $first = $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
+    Queue::assertPushed(RunYakJob::class, 1);
+
+    $task->refresh()->update(['status' => TaskStatus::Running]);
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
+    Queue::assertPushed(RunYakJob::class, 1);
+
+    ContractFixture::assertMatches('app', 'task-retry', $first->json());
+});
+
+it('refuses to retry a finished task', function () {
+    $task = actionTask($this->user, ['status' => TaskStatus::Success]);
+
+    $response = $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertStatus(409)->assertJsonPath('error', 'task_not_retryable');
+
+    Queue::assertNothingPushed();
+    ContractFixture::assertMatches('app', 'error-task-not-retryable', $response->json());
+});
+
+it('resumes on the pushed branch and keeps the work', function () {
+    $task = actionTask($this->user, ['branch_name' => 'yak/upgrade-payments-sdk', 'attempts' => 2]);
+    TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertJsonPath('status', 'queued');
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertJsonPath('status', 'queued');
+
+    Queue::assertPushed(RetryYakJob::class, 1);
+    Queue::assertNotPushed(RunYakJob::class);
+    expect($task->fresh()->status)->toBe(TaskStatus::Retrying)->and($task->fresh()->attempts)->toBe(3);
+});
+
+it('cancels once and answers the same for a repeat', function () {
+    $sandbox = Mockery::mock(IncusSandboxManager::class);
+    $sandbox->shouldReceive('destroy')->once();
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    $task = actionTask($this->user, ['status' => TaskStatus::Running]);
+
+    $first = $this->postJson(appTaskPath($task, '/cancel'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'cancelled']);
+    $this->postJson(appTaskPath($task, '/cancel'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'cancelled']);
+
+    Queue::assertPushed(SendNotificationJob::class, 1);
+    expect($task->fresh()->status)->toBe(TaskStatus::Cancelled);
+    ContractFixture::assertMatches('app', 'task-cancel', $first->json());
+});
+
+it('refuses to cancel a finished task', function () {
+    $task = actionTask($this->user, ['status' => TaskStatus::Success]);
+
+    $this->postJson(appTaskPath($task, '/cancel'), [], $this->headers)->assertStatus(409)->assertJsonPath('error', 'task_not_cancellable');
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Success);
+});
+
+describe('rerun review', function () {
+    function reviewTask(User $user, array $attributes = []): YakTask
+    {
+        return actionTask($user, $attributes + ['mode' => TaskMode::Review, 'status' => TaskStatus::Success, 'context' => json_encode(['pr_number' => 41])]);
+    }
+
+    it('queues the review again', function () {
+        configureGitHubForReview();
+        Http::fake([
+            'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'tok', 'expires_at' => now()->addHour()->toIso8601String()]),
+            '*' => Http::response([
+                'number' => 41, 'head' => ['sha' => 'abc123', 'ref' => 'feature/x'], 'base' => ['sha' => 'def456', 'ref' => 'main'],
+                'user' => ['login' => 'test-person'], 'title' => 'Upgrade the payments SDK', 'body' => 'Body',
+            ]),
+        ]);
+        $task = reviewTask($this->user);
+
+        $response = $this->postJson(appTaskPath($task, '/rerun-review'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
+
+        Queue::assertPushed(RunYakReviewJob::class, 1);
+        expect($task->fresh()->status)->toBe(TaskStatus::Pending);
+        ContractFixture::assertMatches('app', 'task-rerun-review', $response->json());
+    });
+
+    it('refuses a task that is not a review, a queued review and an unknown pull request', function () {
+        $this->postJson(appTaskPath(actionTask($this->user), '/rerun-review'), [], $this->headers)->assertStatus(409)->assertJsonPath('error', 'not_a_review');
+        $this->postJson(appTaskPath(reviewTask($this->user, ['public_id' => 'q2w3e4rt', 'status' => TaskStatus::Pending]), '/rerun-review'), [], $this->headers)
+            ->assertStatus(409)->assertJsonPath('error', 'review_already_queued');
+        $this->postJson(appTaskPath(reviewTask($this->user, ['public_id' => 'z8x7c6vb', 'context' => json_encode([])]), '/rerun-review'), [], $this->headers)
+            ->assertStatus(409)->assertJsonPath('error', 'pull_request_unknown');
+
+        Queue::assertNothingPushed();
+    });
+
+    it('answers 503 when GitHub does not answer and leaves the task alone', function () {
+        configureGitHubForReview();
+        Http::fake([
+            'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'tok', 'expires_at' => now()->addHour()->toIso8601String()]),
+            '*' => Http::response('boom', 500),
+        ]);
+        $task = reviewTask($this->user);
+
+        $this->postJson(appTaskPath($task, '/rerun-review'), [], $this->headers)->assertStatus(503)->assertJsonPath('error', 'github_unavailable');
+
+        Http::fake(['*' => fn () => throw new ConnectionException('timed out')]);
+        $this->postJson(appTaskPath($task, '/rerun-review'), [], $this->headers)->assertStatus(503)->assertJsonPath('error', 'github_unavailable');
+
+        Queue::assertNothingPushed();
+        expect($task->fresh()->status)->toBe(TaskStatus::Success);
+    });
+});
+
+it('queues one render for the same footage', function () {
+    $task = actionTask($this->user, ['status' => TaskStatus::Success]);
+    $raw = Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video']);
+
+    $first = $this->postJson(appTaskPath($task, '/retry-render'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'rendering']);
+    $this->postJson(appTaskPath($task, '/retry-render'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'rendering']);
+    Queue::assertPushed(RenderVideoJob::class, 1);
+
+    $this->mock(VideoRenderer::class)->shouldNotReceive('render');
+    (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
+    expect($raw->fresh()->render_requested_at)->toBeNull();
+
+    $this->postJson(appTaskPath($task, '/retry-render'), [], $this->headers)->assertOk();
+    Queue::assertPushed(RenderVideoJob::class, 2);
+
+    ContractFixture::assertMatches('app', 'task-retry-render', $first->json());
+});
+
+it('counts a render request older than thirty minutes as gone', function () {
+    $task = actionTask($this->user, ['status' => TaskStatus::Success]);
+    Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video', 'render_requested_at' => now()->subMinutes(31)]);
+
+    $this->postJson(appTaskPath($task, '/retry-render'), [], $this->headers)->assertOk();
+
+    Queue::assertPushed(RenderVideoJob::class, 1);
+});
+
+it('refuses a render without footage', function () {
+    $task = actionTask($this->user, ['status' => TaskStatus::Success]);
+
+    $this->postJson(appTaskPath($task, '/retry-render'), [], $this->headers)->assertStatus(409)->assertJsonPath('error', 'nothing_to_render');
+
+    Queue::assertNothingPushed();
+});
+
+it('moves a task to another repository', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
+    Repository::factory()->create(['slug' => 'example/web', 'is_active' => true]);
+    Repository::factory()->create(['slug' => 'example/old', 'is_active' => false]);
+    $task = actionTask($this->user, ['status' => TaskStatus::Running]);
+    $sandbox = Mockery::mock(IncusSandboxManager::class);
+    $sandbox->shouldReceive('destroy')->once();
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+
+    $response = $this->postJson(appTaskPath($task, '/reroute'), ['repo' => 'example/web'], $this->headers)->assertOk()->assertExactJson(['status' => 'moved']);
+    $this->postJson(appTaskPath($task, '/reroute'), ['repo' => 'example/web'], $this->headers)->assertOk()->assertExactJson(['status' => 'moved']);
+
+    Queue::assertPushed(RunYakJob::class, 1);
+    expect($task->fresh()->repo)->toBe('example/web')->and($task->fresh()->status)->toBe(TaskStatus::Pending);
+    ContractFixture::assertMatches('app', 'task-reroute', $response->json());
+
+    $this->postJson(appTaskPath($task, '/reroute'), ['repo' => 'example/old'], $this->headers)->assertStatus(422)->assertJsonPath('error', 'validation_failed')->assertJsonStructure(['details' => ['errors' => ['repo']]]);
+    $this->postJson(appTaskPath($task, '/reroute'), ['repo' => str_repeat('a', 256)], $this->headers)->assertStatus(422)->assertJsonPath('error', 'validation_failed')->assertJsonStructure(['details' => ['errors' => ['repo']]]);
+    $this->postJson(appTaskPath($task, '/reroute'), [], $this->headers)->assertStatus(422)->assertJsonPath('error', 'validation_failed')->assertJsonStructure(['details' => ['errors' => ['repo']]]);
+});
+
+it('refuses to move a task that has a pull request', function () {
+    Repository::factory()->create(['slug' => 'example/web', 'is_active' => true]);
+    $task = actionTask($this->user, ['pr_url' => 'https://github.com/example/api/pull/41']);
+
+    $this->postJson(appTaskPath($task, '/reroute'), ['repo' => 'example/web'], $this->headers)->assertStatus(409)->assertJsonPath('error', 'task_not_reroutable');
+});
+
+it('waits at most five seconds for the task lock', function () {
+    $task = actionTask($this->user, ['status' => TaskStatus::Running]);
+    YakTask::updating(fn () => throw tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']));
+
+    $this->postJson(appTaskPath($task, '/cancel'), [], $this->headers)->assertStatus(503)
+        ->assertJsonPath('message', 'Yak is still handling another request for this task. Try again in a moment.');
+});
+
+describe('who may act', function () {
+    beforeEach(function () {
+        Repository::factory()->create(['slug' => 'example/web', 'is_active' => true]);
+        $this->thread = privateThreadOf($this->user, ['public_id' => 'd0e515ef']);
+        $this->task = actionTask($this->user, ['thread_id' => $this->thread->id]);
+        $this->routes = ['retry' => [], 'cancel' => [], 'rerun-review' => [], 'retry-render' => [], 'reroute' => ['repo' => 'example/web']];
+    });
+
+    it('refuses a share recipient on every action', function () {
+        $recipient = shareThreadWith($this->thread, $this->user);
+
+        foreach ($this->routes as $route => $body) {
+            $this->postJson(appTaskPath($this->task, "/{$route}"), $body, phoneHeadersFor($recipient))->assertForbidden()->assertJsonPath('error', 'forbidden');
+        }
+
+        Queue::assertNothingPushed();
+        expect($this->task->fresh()->status)->toBe(TaskStatus::Failed);
+    });
+
+    it('answers a hidden task exactly like a missing one', function () {
+        $stranger = phoneHeadersFor(User::factory()->create());
+        $missing = (clone $this->task)->forceFill(['public_id' => 'nope0000']);
+
+        foreach ($this->routes as $route => $body) {
+            $hidden = $this->postJson(appTaskPath($this->task, "/{$route}"), $body, $stranger)->assertNotFound();
+            $unknown = $this->postJson(appTaskPath($missing, "/{$route}"), $body, $stranger)->assertNotFound();
+            expect($hidden->json())->toBe($unknown->json());
+        }
+
+        Queue::assertNothingPushed();
+    });
+
+    it('refuses without a token, with a revoked phone and with a computer token', function () {
+        foreach ($this->routes as $route => $body) {
+            $this->postJson(appTaskPath($this->task, "/{$route}"), $body, ['X-Yak-Protocol' => '1'])->assertUnauthorized()->assertJsonPath('error', 'unauthenticated');
+        }
+
+        [$device, $headers] = phoneWithHeaders(['user_id' => $this->user->id]);
+        $device->update(['revoked_at' => now()]);
+        $this->postJson(appTaskPath($this->task, '/retry'), [], $headers)->assertUnauthorized()->assertJsonPath('error', 'device_revoked');
+
+        [, $computerHeaders] = phoneWithHeaders(['user_id' => $this->user->id], isPhone: false);
+        $this->postJson(appTaskPath($this->task, '/retry'), [], $computerHeaders)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
+    });
+});
