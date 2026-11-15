@@ -19,6 +19,7 @@ beforeEach(function () {
         Route::post('/api/app/v1/test-post', fn () => response()->json(['ok' => true]));
         Route::get('/api/app/v1/test-forbidden', fn () => throw new AuthorizationException);
         Route::get('/api/app/v1/test-denied', fn () => throw new AccessDeniedHttpException);
+        Route::get('/api/app/v1/test-abort-403', fn () => abort(403));
         Route::get('/api/app/v1/test-auth', fn () => throw new AuthenticationException);
         Route::post('/api/app/v1/test-validate', fn (Request $request) => $request->validate(['name' => 'required']));
         Route::get('/api/app/v1/test-boom', fn () => throw new RuntimeException('secret detail'));
@@ -39,6 +40,7 @@ it('renders each failure in the client error shape', function () {
     $this->postJson('/api/app/v1/test-validate', [], $headers)->assertStatus(422)->assertJsonPath('error', 'validation_failed')->assertJsonStructure(['details' => ['errors' => ['name']]]);
     $this->getJson('/api/app/v1/test-forbidden', $headers)->assertForbidden()->assertJsonPath('error', 'forbidden');
     $this->getJson('/api/app/v1/test-denied', $headers)->assertForbidden()->assertJsonPath('error', 'forbidden');
+    $this->getJson('/api/app/v1/test-abort-403', $headers)->assertForbidden()->assertJsonPath('error', 'forbidden')->assertJsonPath('message', 'You do not have access to this.');
     $this->getJson('/api/app/v1/test-auth', $headers)->assertUnauthorized()->assertExactJson(['error' => 'unauthenticated', 'message' => 'Pair this device with Yak again.']);
 });
 

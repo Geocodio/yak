@@ -150,6 +150,7 @@ return Application::configure(basePath: dirname(__DIR__))
             $status = $e->getStatusCode();
             // A 503 raised on purpose (a repeat that arrives while the first send runs) carries a sentence that says what to do.
             $message = match (true) {
+                $status === 403 => 'You do not have access to this.',
                 $status === 405 => 'This endpoint does not accept that method.',
                 $status === 503 && $e->getMessage() !== '' => $e->getMessage(),
                 default => 'Yak could not handle this request.',
