@@ -81,7 +81,8 @@ class ThreadApiPayload
             'teleport_id' => $up->id,
             'at' => $up->completed_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'branch' => $thread->branch,
-            'head_sha' => $thread->branch === null ? null : ($up->branch_heads[$thread->branch] ?? null),
+            // A teleport records its heads by repository; the thread's own repository is the one the branch lives in.
+            'head_sha' => $thread->branch === null ? null : ($up->branch_heads[$thread->repo] ?? null),
             'device_id' => $up->device_id,
         ];
     }

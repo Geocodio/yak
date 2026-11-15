@@ -79,6 +79,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonImmutable|null $stack_stopped_at
  * @property CarbonImmutable|null $split_requested_at
  * @property CarbonImmutable|null $start_requested_at
+ * @property CarbonImmutable|null $standing_instructions_delivered_at
  * @property string|null $preview_hostname
  * @property CarbonImmutable|null $preview_last_request_at
  * @property string|null $pull_request_opening_state
@@ -141,6 +142,7 @@ class Thread extends Model
             'stack_stopped_at' => 'immutable_datetime',
             'split_requested_at' => 'immutable_datetime',
             'start_requested_at' => 'immutable_datetime',
+            'standing_instructions_delivered_at' => 'immutable_datetime',
             'preview_last_request_at' => 'immutable_datetime',
             'pull_request_opening_at' => 'immutable_datetime',
         ];

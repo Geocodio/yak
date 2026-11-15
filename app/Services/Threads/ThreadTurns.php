@@ -156,6 +156,12 @@ class ThreadTurns
             $text = $queued === null ? $prompt : ($prompt === '' ? $queued : $queued . "\n\n" . $prompt);
             $uuid = (string) Str::uuid();
 
+            if ($this->needsStandingInstructions($thread)) {
+                $shownText ??= $text;
+                $text = $this->standingInstructionsBlock($thread) . $text;
+                $thread->standing_instructions_delivered_at = now();
+            }
+
             $run = TaskRun::query()->create([
                 'yak_task_id' => $task->id,
                 'kind' => $kind ?? ($thread->runs()->exists() ? TaskRunKind::FollowUp : TaskRunKind::Initial),
@@ -215,6 +221,23 @@ class ThreadTurns
             'clarification_reminder_at' => null,
         ]);
         $task->refresh();
+    }
+
+    /**
+     * A resumed session never sees the system prompt Yak appends, so a thread whose session started on a
+     * person's computer carries the standing instructions in its first Yak prompt, once.
+     */
+    private function needsStandingInstructions(Thread $thread): bool
+    {
+        return $thread->standing_instructions_delivered_at === null
+            && YakTask::query()->where('thread_id', $thread->id)->oldest('id')->value('source') === YakTask::SOURCE_TELEPORT;
+    }
+
+    private function standingInstructionsBlock(Thread $thread): string
+    {
+        return "<yak-standing-instructions>\nThese are Yak's standing instructions for this thread. They take precedence over earlier instructions from the computer session.\n\n"
+            . YakPromptBuilder::refreshThreadSystemPrompt($thread)
+            . "\n</yak-standing-instructions>\n\n";
     }
 
     /**
