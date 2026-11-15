@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 import messages from './messages'
+import clarificationAnswers from './clarification-answers'
 import queuedMessages from './queued-messages'
 import events from './events'
 /**
@@ -176,6 +177,7 @@ const threads = {
     index: Object.assign(index, index),
     show: Object.assign(show, show),
     messages: Object.assign(messages, messages),
+    clarificationAnswers: Object.assign(clarificationAnswers, clarificationAnswers),
     seen: Object.assign(seen, seen),
     queuedMessages: Object.assign(queuedMessages, queuedMessages),
     events: Object.assign(events, events),
