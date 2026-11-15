@@ -6,6 +6,7 @@ use App\Enums\PushTokenKind;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\AuthenticateDevice;
 use App\Http\Requests\Api\App\Push\StorePushTokenRequest;
+use App\Models\Device;
 use App\Models\DevicePushToken;
 use App\Services\Devices\ShortLockWait;
 use App\Services\Push\Apns\ApnsConfig;
@@ -31,6 +32,9 @@ class PushTokenController extends Controller
         }
 
         ShortLockWait::transaction(function () use ($device, $kind, $token, $environment): void {
+            // The device row serializes concurrent requests from one phone, so the unique (device_id, kind) key never races.
+            Device::query()->whereKey($device->id)->lockForUpdate()->first();
+
             DevicePushToken::query()
                 ->where('kind', $kind->value)
                 ->where('token', $token)

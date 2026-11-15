@@ -4,6 +4,7 @@ use App\Enums\PushTokenKind;
 use App\Models\DevicePushToken;
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\ContractFixture;
 
 function pushTokenPath(string $kind = 'alert'): string
@@ -128,7 +129,7 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
     expect(DevicePushToken::query()->count())->toBe(0);
 });
 
-it('answers 503 when the device row lock is held', function () {
+it('answers 503 when the database lock wait runs out', function () {
     [, $headers] = phoneWithHeaders();
     DevicePushToken::creating(fn () => throw tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']));
 
@@ -136,4 +137,18 @@ it('answers 503 when the device row lock is held', function () {
         ->assertStatus(503)
         ->assertJsonPath('error', 'unavailable')
         ->assertJsonPath('message', 'Yak is busy with another request for this device. Try again in a few seconds.');
+});
+
+it('locks the device row before it writes the token, so a concurrent repeat cannot hit the unique key', function () {
+    [, $headers] = phoneWithHeaders();
+    $queries = [];
+    DB::listen(function ($query) use (&$queries) {
+        $queries[] = $query->sql;
+    });
+
+    $this->putJson(pushTokenPath(), ['token' => str_repeat('ab', 32), 'environment' => 'production'], $headers)->assertNoContent();
+
+    $lockIndex = collect($queries)->search(fn ($sql) => str_starts_with($sql, 'select') && str_contains($sql, 'from "devices" where "devices"."id" = ') && ! str_contains($sql, 'token_hash'));
+    $insertIndex = collect($queries)->search(fn ($sql) => str_starts_with($sql, 'insert into "device_push_tokens"'));
+    expect($lockIndex)->not->toBeFalse()->and($insertIndex)->not->toBeFalse()->and($lockIndex)->toBeLessThan($insertIndex);
 });
