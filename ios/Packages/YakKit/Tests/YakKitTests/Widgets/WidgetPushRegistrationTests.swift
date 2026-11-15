@@ -92,38 +92,70 @@ private struct CountingTransport: HTTPTransport {
     }
 }
 
+/// Answers per host: host0 loses its first request to the network, host2 refuses until it is told to accept.
+private final class PerHostBehaviour: @unchecked Sendable {
+    private let lock = NSLock()
+    private var hasFailedFirstHost = false
+    private var thirdHostAccepts = false
+
+    func acceptsThirdHost() { lock.withLock { thirdHostAccepts = true } }
+
+    func answer(host: String) -> FakeTransport.Result {
+        lock.withLock {
+            if host == "host0.example.com", !hasFailedFirstHost {
+                hasFailedFirstHost = true
+                return .failure(.notConnectedToInternet)
+            }
+            if host == "host2.example.com", !thirdHostAccepts {
+                return .json(
+                    409,
+                    #"{"error":"push_environment_mismatch","message":"No.","details":{"expected":"sandbox","given":"production"}}"#
+                )
+            }
+            return noContent
+        }
+    }
+}
+
 @Suite struct WidgetPushRegistrationTests {
     @Test func aRegistrationSurvivesARelaunchAndStopsAtARefusal() async throws {
         let (rig, transport) = try await makeRig(bundles: ["com.example.yak", "com.example.other", "com.example.yak"])
         let (first, other, third) = (rig.instances[0], rig.instances[1], rig.instances[2])
-        await transport.on(
-            "PUT push-tokens/widget", .failure(.notConnectedToInternet), noContent)
+        let behaviour = PerHostBehaviour()
+        await transport.on(prefix: route) { request in behaviour.answer(host: request.url?.host ?? "") }
         let registration = rig.registration()
         var statuses = await registration.tokenChanged(token, budget: .seconds(8))
         guard case .retrying(let retryAt) = statuses[first.id] else {
             Issue.record("expected retrying, got \(String(describing: statuses[first.id]))")
             return
         }
+        #expect(
+            statuses[third.id] == .refused(.environmentMismatch(expected: "sandbox", given: "production")))
         #expect(statuses[other.id] == .notEligible(.otherBuild))
         #expect(await sent(transport, host: "host1.example.com").isEmpty)
         let stored = try #require(try rig.files.read(InstanceFolders.widgetPushRecord(first.id)))
         #expect(String(decoding: stored, as: UTF8.self).contains(#""isRegistered":false"#))
 
-        await transport.on(
-            route,
-            .json(204, ""))
         await rig.clock.advance(by: .seconds(2))
         #expect(rig.clock.now() >= retryAt)
         let relaunched = rig.registration()
         statuses = await relaunched.registerPending(budget: .seconds(8))
         #expect(statuses[first.id] == .registered)
-        let bodies = await sent(transport, host: "host0.example.com").map {
-            String(decoding: $0.httpBody ?? Data(), as: UTF8.self)
+        #expect(
+            statuses[third.id] == .refused(.environmentMismatch(expected: "sandbox", given: "production")))
+        #expect(await sent(transport, host: "host2.example.com").count == 1)
+        let bodies = try await sent(transport, host: "host0.example.com").map {
+            try JSONDecoder().decode([String: String].self, from: $0.httpBody ?? Data())
         }
         #expect(bodies.count == 2)
-        #expect(Set(bodies).count == 1)
-        #expect(bodies[0].contains(#""environment":"production""#) && bodies[0].contains(token))
+        #expect(bodies[0] == bodies[1])
+        #expect(bodies[0] == ["token": token, "environment": "production"])
+
+        behaviour.acceptsThirdHost()
+        statuses = await relaunched.tokenChanged(newerToken, budget: .seconds(8))
+        #expect(statuses[first.id] == .registered)
         #expect(statuses[third.id] == .registered)
+        #expect(await sent(transport, host: "host2.example.com").count == 2)
     }
 
     @Test func aRefusalIsKeptUntilTheTokenChanges() async throws {
