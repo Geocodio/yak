@@ -21,7 +21,7 @@ use Illuminate\Support\Str;
 final class ThreadMessagesData
 {
     /**
-     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', intent: ?string, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
+     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
      */
     public static function for(Thread $thread): array
     {
@@ -82,6 +82,8 @@ final class ThreadMessagesData
                     TurnMessageState::Cancelled => 'cancelled',
                 },
                 'intent' => $row->intent,
+                'sendKey' => $row->send_key,
+                'mode' => null,
                 // A steer row is made when Yak hands the message over; the person sent it when its pending row was made.
                 'sentAt' => ($steer->created_at ?? $row->created_at)?->toIso8601String() ?? '',
                 'readAfterSequence' => $readAt['messages'][$row->uuid] ?? $readAt['turns'][$run->id] ?? null,
@@ -114,6 +116,8 @@ final class ThreadMessagesData
                 'model' => $queued->model,
                 'state' => 'pending',
                 'intent' => null,
+                'sendKey' => $queued->send_key,
+                'mode' => $queued->mode->value,
                 'sentAt' => $queued->created_at?->toIso8601String() ?? '',
                 'readAfterSequence' => null,
                 'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($queued->text), array_values(array_filter(array_column($attachments, 'reference')))),

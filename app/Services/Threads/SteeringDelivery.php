@@ -52,6 +52,7 @@ class SteeringDelivery
                 'kind' => TurnMessageKind::Steer,
                 'state' => TurnMessageState::Sent,
                 'pending_steering_message_id' => $message->id,
+                'send_key' => $message->send_key,
             ]);
             ThreadTurns::trackUuid($run, $uuid);
 

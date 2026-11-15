@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property TurnMessageKind $kind
  * @property TurnMessageState $state
  * @property int|null $pending_steering_message_id
+ * @property string|null $send_key
  * @property string|null $intent
  * @property string|null $text What the person typed, when it differs from the prompt sent to the runner.
  */

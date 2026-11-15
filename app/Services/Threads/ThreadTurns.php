@@ -122,9 +122,9 @@ class ThreadTurns
      * @throws ThreadBusy when the thread already runs a turn
      * @throws ThreadNotOwnedByYak when a device owns the thread or a teleport is open
      */
-    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null, ?Closure $storeAttachments = null): TaskRun
+    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null, ?Closure $storeAttachments = null, ?string $sendKey = null): TaskRun
     {
-        [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments): array {
+        [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments, $sendKey): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
 
@@ -146,7 +146,7 @@ class ThreadTurns
             }
 
             $queued = PendingSteeringMessage::drainFor($task);
-            $text = $queued === null ? $prompt : $queued . "\n\n" . $prompt;
+            $text = $queued === null ? $prompt : ($prompt === '' ? $queued : $queued . "\n\n" . $prompt);
             $uuid = (string) Str::uuid();
 
             $run = TaskRun::query()->create([
@@ -164,7 +164,7 @@ class ThreadTurns
                 'turn_state' => TurnState::Pending,
                 'started_at' => now(),
             ]);
-            $message = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText, 'intent' => $intent]);
+            $message = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText, 'intent' => $intent, 'send_key' => $sendKey]);
 
             if ($storeAttachments !== null) {
                 $storeAttachments($message);
@@ -361,9 +361,10 @@ class ThreadTurns
      * Otherwise it stays queued for the next prompt. `$source` is `thread` for
      * a person's message, which reaches the runner wrapped; any other source
      * carries text Yak already framed. `$storeAttachments` runs before delivery
-     * so the files exist when the text is built.
+     * so the files exist when the text is built. With `$isQueueOnly` the message
+     * is never handed to the running turn; it waits for the next prompt.
      */
-    public function steer(Thread $thread, string $text, ?User $sender, ?string $model, ?Closure $storeAttachments = null, string $source = 'system'): PendingSteeringMessage
+    public function steer(Thread $thread, string $text, ?User $sender, ?string $model, ?Closure $storeAttachments = null, string $source = 'system', ?string $sendKey = null, bool $isQueueOnly = false): PendingSteeringMessage
     {
         app(ThreadOwnership::class)->assertYakMayRunTurns($thread->fresh() ?? $thread);
 
@@ -373,10 +374,11 @@ class ThreadTurns
             'root_task_id' => $root->rootTask()->id,
             'text' => $text,
             'source' => $source,
-            'mode' => SteeringMode::Steer,
+            'mode' => $isQueueOnly ? SteeringMode::Queue : SteeringMode::Steer,
             'author_name' => $sender?->name,
             'uuid' => (string) Str::uuid(),
             'model' => $model,
+            'send_key' => $sendKey,
         ]);
 
         if ($storeAttachments !== null) {
@@ -387,7 +389,7 @@ class ThreadTurns
             Thread::query()->whereKey($thread->id)->whereNull('owner_user_id')->update(['owner_user_id' => $sender->id]);
         }
 
-        if (! app(SteeringDelivery::class)->deliver($thread, $message)) {
+        if (! $isQueueOnly && ! app(SteeringDelivery::class)->deliver($thread, $message)) {
             $message->forceFill(['mode' => SteeringMode::Queue])->save();
         }
 

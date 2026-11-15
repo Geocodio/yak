@@ -14,10 +14,11 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * @property SteeringMode $mode
+ * @property string|null $send_key
  */
 class PendingSteeringMessage extends Model
 {
-    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'uuid', 'model', 'delivered_at', 'absorbed_at'];
+    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'uuid', 'model', 'delivered_at', 'absorbed_at', 'send_key'];
 
     /**
      * @return array<string, string>
@@ -167,14 +168,18 @@ class PendingSteeringMessage extends Model
     }
 
     /**
-     * Take every reply queued on the task's conversation and render it as
+     * Take every undelivered reply queued on the task's conversation and render it as
      * markdown, deleting the rows. Their files move onto `$task`, whose run
      * now carries the replies, so the agent still gets them. Returns null
-     * when nothing is queued.
+     * when nothing is queued. A message already handed to a turn (a
+     * `ThreadTurnMessage` references it) stays as history and is not drained.
      */
     public static function drainFor(YakTask $task): ?string
     {
-        $messages = self::where('root_task_id', $task->rootTask()->id)->orderBy('id')->get();
+        $messages = self::where('root_task_id', $task->rootTask()->id)
+            ->whereNotIn('id', ThreadTurnMessage::query()->whereNotNull('pending_steering_message_id')->select('pending_steering_message_id'))
+            ->orderBy('id')
+            ->get();
 
         if ($messages->isEmpty()) {
             return null;

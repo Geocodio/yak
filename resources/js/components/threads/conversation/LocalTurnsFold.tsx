@@ -27,6 +27,8 @@ function personMessageOf(turn: LocalTurn, author: Pick<LocalTurnsData, 'authorNa
         model: null,
         state: 'read',
         intent: null,
+        sendKey: null,
+        mode: null,
         sentAt: turn.at,
         readAfterSequence: null,
         attachmentIds: [],
