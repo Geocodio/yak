@@ -20,6 +20,7 @@ struct InstanceSwitcher: View {
     @State private var instances: [Instance] = []
     @State private var showsAdd = false
     @State private var switcher: InstanceSwitchModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
@@ -86,11 +87,15 @@ struct InstanceSwitcher: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Text(String(instance.name.prefix(1)).uppercased()).font(.headline).foregroundStyle(.primary)
-                    .frame(width: 40, height: 40).background(Color.primary.opacity(0.1), in: .rect(cornerRadius: 10))
-                    .accessibilityHidden(true)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Text(String(instance.name.prefix(1)).uppercased()).font(.headline).foregroundStyle(Color.primary)
+                        .frame(width: 40, height: 40)
+                        .background(Color.primary.opacity(0.1), in: .rect(cornerRadius: 10))
+                        .accessibilityHidden(true)
+                }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(instance.name).font(.body).foregroundStyle(.primary)
+                    Text(instance.name).font(.body).foregroundStyle(Color.primary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(instance.url.host() ?? instance.url.absoluteString).font(.footnote)
                         .foregroundStyle(Color.yakMuted)
                     Text(statusLine(instance)).font(.footnote).foregroundStyle(Color.yakMuted)
@@ -99,12 +104,13 @@ struct InstanceSwitcher: View {
                 if switcher.switchingID == instance.id {
                     ProgressView().accessibilityHidden(true)
                 } else if instance.id == active.id {
-                    Image(systemName: "checkmark").foregroundStyle(.primary).accessibilityHidden(true)
+                    Image(systemName: "checkmark").foregroundStyle(Color.primary).accessibilityHidden(true)
                 }
             }
             .frame(minHeight: 44)
             .contentShape(.rect)
         }
+        .buttonStyle(.plain)
         .disabled(switcher.isSwitching)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel(instance))

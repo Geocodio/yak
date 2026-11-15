@@ -21,7 +21,11 @@ struct DrawerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !(isSearchFocused && (verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize)) { header }
+            if !(isSearchFocused && (verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize)),
+                !headerScrollsWithList
+            {
+                header
+            }
             if let name = scene.justPairedUserName { banner(name) }
             content.frame(maxHeight: .infinity, alignment: .top)
         }
@@ -37,42 +41,81 @@ struct DrawerView: View {
 
     // MARK: Header
 
-    private var header: some View {
-        HStack(spacing: 8) {
-            Button(action: openSwitcher) {
-                HStack(spacing: 6) {
-                    Text(instance.name).font(dynamicTypeSize.isAccessibilitySize ? .title3.bold() : .title2.bold())
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(2).minimumScaleFactor(0.6)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Image(systemName: "chevron.up.chevron.down").font(.footnote.weight(.semibold))
-                        .foregroundStyle(Color.yakMuted)
-                }
-                .frame(minHeight: 44).contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("drawer.switcher \(instance.name)")
-            .layoutPriority(1)
-            .accessibilityIdentifier("drawer.switcher")
+    /// At accessibility sizes the header scrolls with the list or the message, so they get the height.
+    private var headerScrollsWithList: Bool {
+        guard dynamicTypeSize.isAccessibilitySize, !isSearchFocused else { return false }
+        if drawer?.state?.list != nil, drawer?.content != nil { return true }
+        if case .failed? = drawer?.state?.load { return true }
+        return false
+    }
+
+    /// The name, then the account. When the name and the account do not fit side by side at an accessibility size,
+    /// the account moves below the name, which then gets the full width.
+    @ViewBuilder private var header: some View {
+        let row = HStack(spacing: 8) {
+            switcherButton
             Spacer(minLength: 0)
-            Button(action: openAccount) {
-                Text(initials).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-                    .lineLimit(1).fixedSize().dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                    .padding(8).frame(minWidth: 36, minHeight: 36)
-                    .background(Color.primary.opacity(0.1), in: .capsule)
-                    .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+            accountButton
+        }
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                ViewThatFits(in: .horizontal) {
+                    row
+                    VStack(alignment: .leading, spacing: 0) {
+                        switcherButton
+                        accountButton
+                    }
+                }
+            } else {
+                row
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("drawer.accountLabel \(instance.userName)")
-            .accessibilityIdentifier("drawer.account")
         }
         .padding(.horizontal, 20)
         .padding(.top, 4)
+        .cappedAtAccessibility2(when: dynamicTypeSize.isAccessibilitySize)
+    }
+
+    private var switcherButton: some View {
+        Button(action: openSwitcher) {
+            HStack(spacing: 6) {
+                instanceName
+                Image(systemName: "chevron.up.chevron.down").font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.yakMuted)
+            }
+            .frame(minHeight: 44).contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("drawer.switcher \(instance.name)")
+        .layoutPriority(1)
+        .accessibilityIdentifier("drawer.switcher")
+    }
+
+    private var accountButton: some View {
+        Button(action: openAccount) {
+            Text(initials).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                .lineLimit(1).fixedSize().dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                .padding(8).frame(minWidth: 36, minHeight: 36)
+                .background(Color.primary.opacity(0.1), in: .capsule)
+                .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("drawer.accountLabel \(instance.userName)")
+        .accessibilityIdentifier("drawer.account")
     }
 
     private var initials: String {
         let letters = instance.userName.split(separator: " ").prefix(2).compactMap(\.first)
         return letters.isEmpty ? "?" : String(letters).uppercased()
+    }
+
+    /// Scaling the name down is skipped at accessibility sizes, where it wraps between words at the full width.
+    @ViewBuilder private var instanceName: some View {
+        let name = Text(instance.name).multilineTextAlignment(.leading)
+        if dynamicTypeSize.isAccessibilitySize {
+            name.font(.title3.bold()).fixedSize(horizontal: false, vertical: true)
+        } else {
+            name.font(.title2.bold()).lineLimit(2).minimumScaleFactor(0.6).fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func banner(_ name: String) -> some View {
@@ -114,6 +157,12 @@ struct DrawerView: View {
         // The ages are worked out from the clock, which ticks every minute.
         return TimelineView(.everyMinute) { context in
             List {
+                if headerScrollsWithList {
+                    Section {
+                    } header: {
+                        header.textCase(nil).foregroundStyle(Color.primary).listRowInsets(.init())
+                    }
+                }
                 ForEach(sections) { section in
                     Section {
                         ForEach(section.rows) { row in
@@ -256,30 +305,49 @@ struct DrawerView: View {
     private func stateMessage<Actions: View>(
         title: Text, detail: Text?, systemImage: String, @ViewBuilder actions: () -> Actions
     ) -> some View {
-        let showsIcon = verticalSizeClass != .compact && !dynamicTypeSize.isAccessibilitySize
+        let isCompact = verticalSizeClass == .compact
+        let showsIcon = !isCompact && !dynamicTypeSize.isAccessibilitySize
         let message = VStack(spacing: 8) {
             if showsIcon {
                 Image(systemName: systemImage).font(.largeTitle).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true).padding(.bottom, 4)
             }
-            title.font(.headline).multilineTextAlignment(.center)
+            title.font(isCompact ? .subheadline.weight(.semibold) : .headline).multilineTextAlignment(.center)
             if let detail {
-                detail.font(.subheadline).foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
+                detail.font(isCompact ? .footnote : .subheadline).foregroundStyle(Color.yakMuted)
+                    .multilineTextAlignment(.center)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
+        .cappedAtAccessibility2(when: dynamicTypeSize.isAccessibilitySize)
         let actionButtons = VStack(spacing: 10) { actions() }.fixedSize(horizontal: false, vertical: true)
+            .cappedAtAccessibility2(when: dynamicTypeSize.isAccessibilitySize)
             .padding(.horizontal, 24)
-        // Message and actions scroll together, so no line of the message is ever hidden behind the actions.
-        return ScrollView {
-            VStack(spacing: 16) {
-                message
-                actionButtons
+        // With room, message and actions scroll together at the top. Where the room is short (landscape, large text),
+        // the actions are pinned below a message that scrolls, so an action is never under the bottom bar.
+        let isShort = verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize
+        return Group {
+            if isShort {
+                VStack(spacing: isCompact ? 4 : 12) {
+                    ScrollView {
+                        if headerScrollsWithList { header.frame(maxWidth: .infinity, alignment: .leading) }
+                        message.padding(.top, isCompact ? 4 : 8)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                    actionButtons.padding(.bottom, isCompact ? 4 : 8)
+                }
+            } else {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        message
+                        actionButtons
+                    }
+                    .padding(.top, 40).padding(.bottom, 24)
+                }
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .padding(.top, showsIcon ? 40 : 16).padding(.bottom, showsIcon ? 24 : 12)
         }
-        .scrollBounceBehavior(.basedOnSize)
         .frame(maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("drawer.message")
@@ -289,7 +357,7 @@ struct DrawerView: View {
 
     private var bottomBar: some View {
         // With the keyboard up at a large text size the filter shows as an icon, so the bar stays short.
-        let isOneRow = isSearchFocused && dynamicTypeSize.isAccessibilitySize
+        let isOneRow = dynamicTypeSize.isAccessibilitySize
         let layout =
             dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
@@ -465,6 +533,18 @@ private struct DrawerLoading: View {
                     .frame(maxWidth: index % 2 == 0 ? .infinity : 220, alignment: .leading)
                 RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.07)).frame(width: 120, height: 11)
             }
+        }
+    }
+}
+
+extension View {
+    /// Stops the text from growing past accessibility2 where `applies`, so the list or message keeps room. Without
+    /// it the view is untouched, so an ordinary size keeps the full range.
+    @ViewBuilder fileprivate func cappedAtAccessibility2(when applies: Bool) -> some View {
+        if applies {
+            dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        } else {
+            self
         }
     }
 }

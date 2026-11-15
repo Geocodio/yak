@@ -18,6 +18,7 @@ struct InstanceShell: View {
     @State private var showsSwitcher = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var instance: Instance { storedInstance ?? routedInstance }
     private var isCompactWidth: Bool { sizeClass != .regular }
@@ -51,7 +52,7 @@ struct InstanceShell: View {
             InstanceSwitcher(model: model, active: instance, onClose: { showsSwitcher = false })
                 .linkPairingStatus(model, sheetDepth: 1)
                 .countsAsOpenSheet(model)
-                .presentationDetents([.medium, .large])
+                .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
         }
         .sheet(isPresented: isConnecting) {
             NavigationStack {

@@ -16,11 +16,11 @@ import XCTest
         try start("paired", paired: true)
         try waitForDrawer()
         let toggle = app.buttons["drawer.toggle.thread:a1b2c3d4"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 10) || scrollToFind(toggle))
+        XCTAssertTrue(scrollToFind(toggle, in: "drawer.list"))
         toggle.tap()
         let child = app.descendants(matching: .any)["drawer.row.thread:e5f6g7h8"]
         // At the largest text size the new rows are below the fold.
-        XCTAssertTrue(child.waitForExistence(timeout: 5) || scrollToFind(child))
+        XCTAssertTrue(scrollToFind(child, in: "drawer.list"))
         try shoot("drawer-sub-threads")
     }
 
@@ -82,6 +82,7 @@ import XCTest
         try waitForDrawer()
         app.buttons["drawer.switcher"].tap()
         XCTAssertTrue(app.buttons["switcher.add"].waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollToFind(app.buttons["switcher.add"], in: "switcher"))
         // The sheet is the system's translucent surface; the audit cannot judge text on it.
         try shoot("drawer-switcher", audits: false)
     }
@@ -95,12 +96,20 @@ import XCTest
 
     // MARK: Helpers
 
-    /// At the largest text size the needs-you rows fill the screen; the list scrolls to the row.
-    private func scrollToFind(_ element: XCUIElement) -> Bool {
-        for _ in 0..<6 where !element.exists {
-            app.descendants(matching: .any)["drawer.list"].swipeUp()
+    /// At the largest text size rows and buttons sit below the fold; the container scrolls down and then back up
+    /// until the middle of the element is on screen above the bottom bar, where a tap lands on it.
+    private func scrollToFind(_ element: XCUIElement, in container: String) -> Bool {
+        let scroller = app.descendants(matching: .any)[container]
+        let bottomEdge =
+            container == "drawer.list" ? app.textFields["drawer.search"].frame.minY : app.windows.firstMatch.frame.maxY
+        func isReachable() -> Bool { element.isHittable && element.frame.midY < bottomEdge }
+        for _ in 0..<8 where !isReachable() {
+            scroller.swipeUp()
         }
-        return element.exists
+        for _ in 0..<16 where !isReachable() {
+            scroller.swipeDown()
+        }
+        return isReachable()
     }
 
     /// The cold start of these scenarios lands on the drawer; a compact thread screen opens it with the threads button.

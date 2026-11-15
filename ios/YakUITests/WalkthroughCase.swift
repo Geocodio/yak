@@ -125,13 +125,12 @@ import XCTest
             {
                 return true
             }
-            // At the largest text size a message or list scrolls under the bottom bar, and the audit finds the text
-            // that the bar covers, sometimes without naming its element. Only these screens, which scroll by design, are excused.
+            // At the largest text size a list scrolls under the bottom bar, and the audit finds the text that the
+            // bar covers. Only these screens are excused, and only a finding without an element or one whose element
+            // meets the bar.
             if issue.auditType == .contrast, environment["YAK_TEXT_SIZE"] == "largest",
-                [
-                    "drawer", "drawer-empty", "drawer-empty-others", "drawer-no-results", "drawer-offline",
-                    "drawer-sub-threads",
-                ].contains(name)
+                ["drawer", "drawer-offline", "drawer-sub-threads"].contains(name),
+                issue.element.map({ $0.frame.maxY > app.textFields["drawer.search"].frame.minY - 8 }) ?? true
             {
                 return true
             }
