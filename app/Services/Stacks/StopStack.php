@@ -7,10 +7,11 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * The Stop stack control: interrupts every running turn in a stack, kills the
- * runners of research children that had a turn going, drops children that were waiting for a slot,
+ * research children's runners, drops children that were waiting for a slot,
  * and blocks further spawns. Nothing is destroyed, so work stays recoverable.
  */
 class StopStack
@@ -41,14 +42,14 @@ class StopStack
             if (ThreadTurns::activeTurn($thread) !== null) {
                 $this->turns->stop($thread);
                 $touched = true;
-
-                if ($thread->isResearchChild() && $thread->isOpen()) {
-                    $this->commands->kill($thread);
-                }
             }
 
             if ($thread->queued_for_slot_at !== null) {
                 $thread->forceFill(['queued_for_slot_at' => null])->save();
+                $touched = true;
+            }
+
+            if ($thread->isResearchChild() && $thread->isOpen() && $this->killOnce($thread, $root)) {
                 $touched = true;
             }
 
@@ -60,6 +61,23 @@ class StopStack
         }
 
         return $stopped;
+    }
+
+    /**
+     * Sends the kill once per stop stamp, so a repeated run sends nothing again.
+     */
+    private function killOnce(Thread $thread, Thread $root): bool
+    {
+        $key = "stack-stop-kill:{$thread->id}:{$root->stack_stopped_at?->timestamp}";
+
+        if (Cache::has($key)) {
+            return false;
+        }
+
+        $this->commands->kill($thread);
+        Cache::put($key, true, now()->addDay());
+
+        return true;
     }
 
     /**
