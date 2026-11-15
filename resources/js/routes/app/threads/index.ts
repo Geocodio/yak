@@ -1,4 +1,5 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
+import messages from './messages'
 import events from './events'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadListController::__invoke
@@ -173,6 +174,7 @@ seen.post = (args: { thread: string | { public_id: string } } | [thread: string 
 const threads = {
     index: Object.assign(index, index),
     show: Object.assign(show, show),
+    messages: Object.assign(messages, messages),
     seen: Object.assign(seen, seen),
     events: Object.assign(events, events),
 }

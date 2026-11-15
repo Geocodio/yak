@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\App\MeController as AppMeController;
 use App\Http\Controllers\Api\App\Threads\ThreadController as AppThreadController;
 use App\Http\Controllers\Api\App\Threads\ThreadEventController as AppThreadEventController;
 use App\Http\Controllers\Api\App\Threads\ThreadListController as AppThreadListController;
+use App\Http\Controllers\Api\App\Threads\ThreadMessageController as AppThreadMessageController;
 use App\Http\Controllers\Api\App\Threads\ThreadSeenController as AppThreadSeenController;
 use App\Http\Controllers\Api\Cli\SessionFileController;
 use App\Http\Controllers\Api\Cli\SshLookupController;
@@ -474,6 +475,7 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::delete('device', [AppDeviceController::class, 'destroy'])->name('app.device.destroy');
         Route::get('threads', AppThreadListController::class)->name('app.threads.index');
         Route::get('threads/{thread}', [AppThreadController::class, 'show'])->name('app.threads.show');
+        Route::post('threads/{thread}/messages', [AppThreadMessageController::class, 'store'])->name('app.threads.messages.store');
         Route::post('threads/{thread}/seen', AppThreadSeenController::class)->name('app.threads.seen');
         Route::get('threads/{thread}/events', [AppThreadEventController::class, 'index'])->middleware('throttle:app-events')->name('app.threads.events.index');
         Route::get('threads/{thread}/events/{sequence}', [AppThreadEventController::class, 'show'])->middleware('throttle:app-events')->where('sequence', '[0-9]{1,10}')->name('app.threads.events.show');
