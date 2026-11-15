@@ -819,3 +819,23 @@ func TestDownManifestWithoutMemoryBaselineDecodesToEmpty(t *testing.T) {
 		t.Fatalf("%v %v", err, m.MemoryBaseline)
 	}
 }
+
+func TestDownCleanCheckoutAppliesWhateverHeadTheLastUpRecorded(t *testing.T) {
+	cases := map[string]func(*downSetup) string{
+		"no recorded head": func(*downSetup) string { return "" },
+		"recorded head":    func(s *downSetup) string { return s.lastUp },
+	}
+	for name, headFor := range cases {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t)
+			setup := h.setupDown(true)
+			h.srv.Threads[42].LastTeleportUp = &api.LastTeleportUp{TeleportID: "up-1", Branch: "yak/fix", HeadSHA: headFor(setup)}
+			if _, err := h.down(DownOptions{}); err != nil {
+				t.Fatalf("a clean checkout was refused: %v\n%s", err, h.out.String())
+			}
+			if h.local.Git("rev-parse", "HEAD") != setup.tip {
+				t.Fatal("the thread was not applied")
+			}
+		})
+	}
+}

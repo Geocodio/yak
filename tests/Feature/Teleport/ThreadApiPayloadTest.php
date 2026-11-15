@@ -31,7 +31,7 @@ it('flags whether the owner device is this one', function () {
 
 it('fills last_teleport_up from the latest completed up teleport', function () {
     [$device] = makeDevice();
-    $thread = Thread::factory()->create(['branch' => 'yak/x']);
+    $thread = Thread::factory()->create(['branch' => 'yak/x', 'repo' => 'acme/web']);
     expect(payloadFor($thread, $device)['last_teleport_up'])->toBeNull();
 
     Teleport::factory()->up()->inState(TeleportState::Failed)->create(['thread_id' => $thread->id]);
@@ -40,7 +40,7 @@ it('fills last_teleport_up from the latest completed up teleport', function () {
         'thread_id' => $thread->id,
         'device_id' => $device->id,
         'completed_at' => now(),
-        'branch_heads' => ['yak/x' => 'abc123'],
+        'branch_heads' => ['acme/web' => 'abc123', 'acme/api' => 'def456'],
     ]);
 
     expect(payloadFor($thread, $device)['last_teleport_up'])->toMatchArray([

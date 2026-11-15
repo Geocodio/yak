@@ -438,7 +438,8 @@ func chooseApplyMode(d Deps, repo gitx.Repo, top string, opts DownOptions, lastU
 	}
 	var base *detect.Baseline
 	tip := ""
-	if lastUp != nil {
+	// Without a recorded head there is nothing to compare against, so the checkout is judged on its own.
+	if lastUp != nil && lastUp.HeadSHA != "" {
 		base = &detect.Baseline{Branch: lastUp.Branch, Head: lastUp.HeadSHA}
 		tip = lastUp.HeadSHA
 	}
