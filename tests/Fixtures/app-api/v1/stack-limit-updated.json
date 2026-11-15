@@ -1,0 +1,9 @@
+{
+    "limit": {
+        "awake": 1,
+        "current": 3,
+        "max": 4,
+        "waiting": 0
+    },
+    "status": "updated"
+}

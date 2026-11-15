@@ -5,6 +5,9 @@ import share from './share'
 import restore from './restore'
 import queuedMessages from './queued-messages'
 import events from './events'
+import stack from './stack'
+import environment from './environment'
+import repositories from './repositories'
 import preview from './preview'
 import terminalSessions from './terminal-sessions'
 import files from './files'
@@ -431,6 +434,9 @@ const threads = {
     restore: Object.assign(restore, restore),
     queuedMessages: Object.assign(queuedMessages, queuedMessages),
     events: Object.assign(events, events),
+    stack: Object.assign(stack, stack),
+    environment: Object.assign(environment, environment),
+    repositories: Object.assign(repositories, repositories),
     preview: Object.assign(preview, preview),
     terminalSessions: Object.assign(terminalSessions, terminalSessions),
     files: Object.assign(files, files),

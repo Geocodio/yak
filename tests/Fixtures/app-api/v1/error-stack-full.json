@@ -1,0 +1,8 @@
+{
+    "details": {
+        "count": 12,
+        "max": 12
+    },
+    "error": "stack_full",
+    "message": "This thread has started 12 of 12 sub-threads, the most one thread can have."
+}

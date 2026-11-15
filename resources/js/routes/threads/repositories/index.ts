@@ -69,7 +69,7 @@ progress.head = (args: { thread: string | { public_id: string } } | [thread: str
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::update
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:24
+* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:23
 * @route '/threads/{thread}/repositories/{repository}'
 */
 export const update = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -84,7 +84,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::update
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:24
+* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:23
 * @route '/threads/{thread}/repositories/{repository}'
 */
 update.url = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
@@ -114,7 +114,7 @@ update.url = (args: { thread: string | { public_id: string }, repository: string
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::update
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:24
+* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:23
 * @route '/threads/{thread}/repositories/{repository}'
 */
 update.patch = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -124,7 +124,7 @@ update.patch = (args: { thread: string | { public_id: string }, repository: stri
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::retry
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:37
+* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:36
 * @route '/threads/{thread}/repositories/{repository}/retry'
 */
 export const retry = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -139,7 +139,7 @@ retry.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::retry
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:37
+* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:36
 * @route '/threads/{thread}/repositories/{repository}/retry'
 */
 retry.url = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
@@ -169,7 +169,7 @@ retry.url = (args: { thread: string | { public_id: string }, repository: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryController::retry
-* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:37
+* @see app/Http/Controllers/Threads/ThreadRepositoryController.php:36
 * @route '/threads/{thread}/repositories/{repository}/retry'
 */
 retry.post = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({

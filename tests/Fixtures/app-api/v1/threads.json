@@ -25,6 +25,7 @@
             "ownerInitials": null,
             "repo": "example/api",
             "status": "stopped",
+            "step": null,
             "title": "Retry failed uploads",
             "type": "thread"
         }

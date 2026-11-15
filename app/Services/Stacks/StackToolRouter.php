@@ -7,10 +7,10 @@ use App\DataTransferObjects\YakToolResult;
 use App\Enums\StackThreadMessageKind;
 use App\Enums\ThreadKind;
 use App\Exceptions\StackRuleViolation;
-use App\Jobs\StartChildThreadJob;
 use App\Models\Thread;
 use App\Services\Teleport\HeldEvents;
 use App\Services\Threads\YakToolRouter;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Serves the stack tools and passes every other tool to the router it wraps.
@@ -36,6 +36,12 @@ class StackToolRouter implements YakToolRouter
             };
         } catch (StackRuleViolation $violation) {
             return new YakToolResult(true, $violation->getMessage());
+        } catch (HttpException $busy) {
+            if ($busy->getStatusCode() !== 503) {
+                throw $busy;
+            }
+
+            return new YakToolResult(true, 'Yak is busy with another change to this stack. Try again in a moment.');
         }
     }
 
@@ -53,7 +59,7 @@ class StackToolRouter implements YakToolRouter
 
         $model = isset($input['model']) && is_string($input['model']) && $input['model'] !== '' ? $input['model'] : null;
         $child = $this->spawner->spawn($thread, $name, (string) ($input['brief'] ?? ''), $kind, $model, null, isset($input['repo']) && is_string($input['repo']) ? $input['repo'] : null);
-        StartChildThreadJob::dispatch($child->id);
+        $this->spawner->requestStart($child);
 
         return new YakToolResult(false, "Started sub-thread {$child->name} ({$kind->value}).");
     }

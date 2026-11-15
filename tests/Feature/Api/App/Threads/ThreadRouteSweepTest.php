@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadSharing;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 use Tests\Support\VisibilityRoutes;
 use Tests\TestCase;
@@ -136,3 +137,63 @@ it('lets a share recipient read', function (string $name) {
     fn (array $probe, string $name): bool => ! $probe['isDrive'] && $name !== 'app.threads.share.show',
     ARRAY_FILTER_USE_BOTH,
 )));
+
+/** @return array<string, array{method: string, path: string, isDrive: bool, body: array<string, mixed>}> */
+function overviewSweepProbes(): array
+{
+    return VisibilityRoutes::groupsIn()['overview']['appThreadProbes'];
+}
+
+it('hides every overview route from a stranger', function (string $name) {
+    ['thread' => $thread, 'placeholders' => $placeholders] = sweepThread();
+    $probe = overviewSweepProbes()[$name];
+    $headers = phoneHeadersFor(User::factory()->create());
+    $child = Thread::query()->where('parent_thread_id', $thread->id)->sole();
+    $isChildRoute = str_contains($probe['path'], '{child}');
+    unset($placeholders['{child}']);
+
+    $request = fn (Thread|string $key): TestResponse => appRouteSweepRequest(
+        $this,
+        $probe,
+        $isChildRoute ? $thread->public_id : ($key instanceof Thread ? $key->public_id : $key),
+        $headers,
+        $isChildRoute ? [...$placeholders, '{child}' => $key instanceof Thread ? $key->public_id : $key] : $placeholders,
+    );
+
+    $missing = $request('zzzzzzzz')->assertNotFound();
+    $request($isChildRoute ? $child : $thread)->assertNotFound()->assertExactJson($missing->json());
+    $numeric = $isChildRoute ? (string) $child->id : (string) $thread->id;
+    $request($numeric)->assertNotFound()->assertExactJson($missing->json());
+})->with(array_keys(overviewSweepProbes()));
+
+it('changes nothing for a share recipient on an overview action', function (string $name) {
+    Queue::fake();
+    ['thread' => $thread, 'owner' => $owner, 'repository' => $repository, 'placeholders' => $placeholders] = sweepThread();
+    $recipient = User::factory()->create();
+    app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$recipient->id]);
+    $child = Thread::query()->where('parent_thread_id', $thread->id)->sole();
+    $probe = overviewSweepProbes()[$name];
+    $counts = sweepRowCounts();
+    $columns = fn (): array => [
+        $thread->fresh()->only(['stack_stopped_at', 'child_awake_limit']),
+        $child->fresh()->only(['taken_over_at', 'split_requested_at', 'status']),
+        $repository->fresh()->setup_status,
+    ];
+    $stored = $columns();
+
+    $response = appRouteSweepRequest($this, $probe, $thread->public_id, phoneHeadersFor($recipient), $placeholders);
+
+    if ($probe['isDrive']) {
+        $response->assertForbidden()->assertJsonPath('error', 'forbidden')->assertJsonPath('message', 'You do not have access to this.');
+    } else {
+        $response->assertSuccessful();
+    }
+
+    expect(sweepRowCounts())->toBe($counts)->and($columns())->toEqual($stored);
+    Queue::assertNothingPushed();
+})->with(array_keys(overviewSweepProbes()));
+
+it('probes the overview routes', function () {
+    expect(array_keys(overviewSweepProbes()))->toHaveCount(9)
+        ->and(array_diff(array_keys(overviewSweepProbes()), VisibilityRoutes::appThreads()))->toBe([]);
+});

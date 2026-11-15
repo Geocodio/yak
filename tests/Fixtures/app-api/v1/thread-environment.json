@@ -1,0 +1,53 @@
+{
+    "account": {
+        "isYours": false,
+        "kind": "setup_token",
+        "name": "Team account"
+    },
+    "branch": "yak/move-search",
+    "deployment": null,
+    "model": "opus",
+    "notUploadedDirectories": [],
+    "pullRequest": {
+        "number": 2301,
+        "state": "open",
+        "url": "https://github.com/example/api/pull/2301"
+    },
+    "repositories": [
+        {
+            "addedAt": "2026-11-15T12:00:00+00:00",
+            "addedBy": null,
+            "canMakeContextOnly": false,
+            "id": "<volatile:int>",
+            "isDatasetAttached": true,
+            "path": "/workspace",
+            "repo": "example/api",
+            "role": "primary",
+            "setupError": null,
+            "setupOutput": null,
+            "setupStatus": "ready"
+        },
+        {
+            "addedAt": "2026-11-15T12:00:00+00:00",
+            "addedBy": "Test person",
+            "canMakeContextOnly": true,
+            "id": "<volatile:int>",
+            "isDatasetAttached": false,
+            "path": "/workspace/example-web",
+            "repo": "example/web",
+            "role": "changes",
+            "setupError": "npm install exited with 1.",
+            "setupOutput": "npm ERR! missing script: build",
+            "setupStatus": "failed"
+        }
+    ],
+    "sandbox": {
+        "state": "running",
+        "stateChangedAt": "2026-11-15T11:00:00+00:00"
+    },
+    "startedBy": {
+        "at": "2026-11-15T12:00:00+00:00",
+        "name": "Test person"
+    },
+    "stoppedAfterMinutes": 30
+}

@@ -5,8 +5,11 @@ namespace App\Services\Stacks;
 use App\Enums\ThreadKind;
 use App\Enums\ThreadOwnerSide;
 use App\Exceptions\StackRuleViolation;
+use App\Exceptions\ThreadActionRefused;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Models\User;
+use App\Services\Threads\ThreadAccess;
 
 /**
  * Who may spawn and who may talk to whom inside a stack. Every refusal is a
@@ -16,27 +19,74 @@ class StackRules
 {
     public function assertMaySpawn(Thread $parent): void
     {
+        $violation = $this->spawnViolation($parent);
+
+        if ($violation !== null) {
+            throw $violation;
+        }
+    }
+
+    /**
+     * The refusal a person sees for adding a sub-thread to `$parent`, or null
+     * when it is allowed. Shares its rule list with `assertMaySpawn()`.
+     */
+    public function refusalForSpawn(Thread $parent, ?User $actor): ?ThreadActionRefused
+    {
+        if (! app(ThreadAccess::class)->canDrive($actor, $parent->rootThread())) {
+            return new ThreadActionRefused('forbidden', 'You do not have access to this.', [], 403);
+        }
+
+        return $this->spawnViolation($parent)?->toRefusal();
+    }
+
+    private function spawnViolation(Thread $parent): ?StackRuleViolation
+    {
         if ($parent->isChild()) {
-            throw new StackRuleViolation('Sub-threads cannot spawn their own sub-threads.');
+            return new StackRuleViolation(
+                'Sub-threads cannot spawn their own sub-threads.',
+                ThreadActionRefused::SUB_THREAD_CANNOT_SPAWN,
+                'A sub-thread cannot start sub-threads of its own. Add it to the parent thread instead.',
+                ['parentId' => $parent->rootThread()->public_id],
+            );
         }
 
         if (! $parent->isOpen()) {
-            throw new StackRuleViolation('This thread is closed, so it cannot spawn sub-threads.');
+            return new StackRuleViolation(
+                'This thread is closed, so it cannot spawn sub-threads.',
+                ThreadActionRefused::THREAD_CLOSED,
+                'This thread is closed, so it cannot start sub-threads.',
+            );
         }
 
         if ($parent->owner_side === ThreadOwnerSide::Device) {
-            throw new StackRuleViolation('Teleport this session to Yak first.');
+            return new StackRuleViolation(
+                'Teleport this session to Yak first.',
+                ThreadActionRefused::THREAD_OWNED_BY_DEVICE,
+                'Your computer is working on this thread. Hand it back to Yak before adding a sub-thread.',
+            );
         }
 
         if ($parent->stack_stopped_at !== null) {
-            throw new StackRuleViolation('This stack was stopped, so it cannot spawn sub-threads.');
+            return new StackRuleViolation(
+                'This stack was stopped, so it cannot spawn sub-threads.',
+                ThreadActionRefused::STACK_STOPPED,
+                'This stack was stopped, so it cannot start sub-threads.',
+            );
         }
 
         $maxChildren = (int) config('yak.threads.max_children');
+        $count = Thread::query()->withoutGlobalScopes()->where('parent_thread_id', $parent->id)->count();
 
-        if (Thread::query()->withoutGlobalScopes()->where('parent_thread_id', $parent->id)->count() >= $maxChildren) {
-            throw new StackRuleViolation("A thread can have at most {$maxChildren} sub-threads.");
+        if ($count >= $maxChildren) {
+            return new StackRuleViolation(
+                "A thread can have at most {$maxChildren} sub-threads.",
+                ThreadActionRefused::STACK_FULL,
+                "This thread has started {$count} of {$maxChildren} sub-threads, the most one thread can have.",
+                ['count' => $count, 'max' => $maxChildren],
+            );
         }
+
+        return null;
     }
 
     /**
@@ -52,17 +102,17 @@ class StackRules
         }
 
         if ($kind === ThreadKind::Research) {
-            throw new StackRuleViolation('Research sub-threads see every repo of the parent; leave repo out.');
+            throw new StackRuleViolation('Research sub-threads see every repo of the parent; leave repo out.', personMessage: 'Leave the repository out for a research sub-thread.', field: 'repo');
         }
 
         if ($kind !== ThreadKind::Implement) {
-            throw new StackRuleViolation('Only implement sub-threads take a repo.');
+            throw new StackRuleViolation('Only implement sub-threads take a repo.', personMessage: 'Only an implement sub-thread works in a repository of its own.', field: 'repo');
         }
 
         $slug = Repository::query()->where('slug', $repo)->orWhere('github_full_name', $repo)->value('slug');
 
         if (! is_string($slug)) {
-            throw new StackRuleViolation("Yak cannot reach {$repo}. Add the repository to the Yak GitHub app first.");
+            throw new StackRuleViolation("Yak cannot reach {$repo}. Add the repository to the Yak GitHub app first.", personMessage: "Yak cannot reach {$repo}. Ask an admin to add the repository to Yak's GitHub app.", field: 'repo');
         }
 
         return $slug === $parent->repo ? null : $slug;

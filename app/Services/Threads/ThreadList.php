@@ -221,6 +221,7 @@ class ThreadList
             'id' => $thread->public_id,
             'title' => Str::limit($thread->title, 120),
             'repo' => $thread->repo,
+            'step' => $thread->current_step,
             'status' => self::status($thread, $run)->value,
             'needsYouReason' => $reason?->value,
             'needsYouLabel' => $label,

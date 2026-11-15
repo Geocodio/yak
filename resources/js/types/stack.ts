@@ -46,4 +46,6 @@ export type StackData = {
     messages: StackMessageRow[];
     canDrive: boolean;
     canStop: boolean;
+    stoppedAt: string | null;
+    addChild: { allowed: boolean; error: string | null; message: string | null };
 };

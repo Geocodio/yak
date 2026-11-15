@@ -86,7 +86,7 @@ it('adds a child from the thread page', function () {
         'model' => 'haiku',
     ])->assertCreated();
 
-    $child = Thread::query()->findOrFail($response->json('id'));
+    $child = Thread::query()->where('public_id', $response->json('id'))->firstOrFail();
     expect($child->parent_thread_id)->toBe($this->root->id)
         ->and($child->name)->toBe('docs-scout')
         ->and($child->model)->toBe('haiku');
@@ -107,7 +107,7 @@ it('adds a child pinned to a specific model version', function () {
         'model' => 'claude-opus-5',
     ])->assertCreated();
 
-    expect(Thread::query()->findOrFail($response->json('id'))->model)->toBe('claude-opus-5');
+    expect(Thread::query()->where('public_id', $response->json('id'))->firstOrFail()->model)->toBe('claude-opus-5');
 });
 
 it('refuses a child from a child, a device-owned parent and an invalid kind', function () {
@@ -151,7 +151,7 @@ it('records the requesting user as the child creator and driver', function () {
     $id = $this->actingAs($this->user)->postJson(route('threads.stack.children.store', $team), ['name' => 'a', 'brief' => 'b', 'kind' => 'general', 'model' => 'sonnet'])
         ->assertCreated()->json('id');
 
-    $child = Thread::query()->findOrFail($id);
+    $child = Thread::query()->where('public_id', $id)->firstOrFail();
     expect($child->created_by_user_id)->toBe($this->user->id)
         ->and($child->tasks()->sole()->started_by_user_id)->toBe($this->user->id);
 });

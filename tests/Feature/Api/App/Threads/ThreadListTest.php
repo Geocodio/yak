@@ -5,6 +5,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\ContractFixture;
 
 it('lists threads with task items and the shared count', function () {
@@ -88,4 +89,27 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
     $this->getJson('/api/app/v1/threads', $revoked)->assertUnauthorized()->assertJsonPath('error', 'device_revoked');
     [, $computer] = phoneWithHeaders(['user_id' => $user->id], isPhone: false);
     $this->getJson('/api/app/v1/threads', $computer)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
+});
+
+it('shows each sub-thread\'s step', function () {
+    $user = User::factory()->create();
+    $root = Thread::factory()->create(['title' => 'Move search', 'created_by_user_id' => $user->id]);
+    Thread::factory()->child($root)->create(['title' => 'Backfill', 'current_step' => 'Writing the migration', 'created_by_user_id' => $user->id]);
+    Thread::factory()->child($root)->create(['title' => 'Read settings', 'current_step' => null, 'created_by_user_id' => $user->id]);
+    $headers = phoneHeadersFor($user);
+
+    $this->getJson('/api/app/v1/threads', $headers)->assertOk();
+    DB::enableQueryLog();
+    $this->getJson('/api/app/v1/threads', $headers)->assertOk();
+    $withTwoChildren = count(DB::getQueryLog());
+
+    Thread::factory()->child($root)->count(3)->create(['current_step' => 'Running tests', 'created_by_user_id' => $user->id]);
+    DB::flushQueryLog();
+    $response = $this->getJson('/api/app/v1/threads', $headers)->assertOk();
+
+    $row = collect($response->json('threads'))->firstWhere('title', 'Move search');
+    expect($row['step'])->toBeNull()
+        ->and($row['children'][0]['step'])->toBe('Writing the migration')
+        ->and($row['children'][1]['step'])->toBeNull()
+        ->and(count(DB::getQueryLog()))->toBe($withTwoChildren);
 });

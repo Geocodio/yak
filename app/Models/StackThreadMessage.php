@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $root_thread_id
  * @property int $from_thread_id
  * @property int $to_thread_id
+ * @property ?int $from_user_id
  * @property StackThreadMessageKind $kind
  * @property string $text
  * @property string|null $branch
@@ -65,5 +66,13 @@ class StackThreadMessage extends Model
     public function to(): BelongsTo
     {
         return $this->belongsTo(Thread::class, 'to_thread_id')->withoutGlobalScopes();
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function fromUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'from_user_id');
     }
 }
