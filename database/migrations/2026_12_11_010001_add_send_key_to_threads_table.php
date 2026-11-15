@@ -17,6 +17,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('threads', function (Blueprint $table) {
+            // MariaDB drops the foreign key's own index when the unique index is added, so restore one first.
+            $table->index('created_by_user_id');
             $table->dropUnique(['created_by_user_id', 'send_key']);
             $table->dropColumn('send_key');
         });

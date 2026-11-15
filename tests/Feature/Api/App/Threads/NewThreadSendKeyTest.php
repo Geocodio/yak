@@ -4,12 +4,14 @@ use App\DataTransferObjects\ResolvedAccount;
 use App\Enums\TaskMode;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
+use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\AgentJobDispatcher;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use App\Services\Threads\Repos\RepositoryAccess;
 use App\Services\Threads\ThreadStarter;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
@@ -69,10 +71,12 @@ it('starts one thread for two requests at once', function () {
         }
     });
 
-    $response = $this->postJson('/api/app/v1/threads', sendKeyPayload(), $this->headers)->assertCreated();
+    $response = $this->post('/api/app/v1/threads', sendKeyPayload() + ['attachments' => [UploadedFile::fake()->image('shot.png')]], $this->headers)->assertCreated();
 
     expect($response->json('id'))->toBe($winner->public_id)
-        ->and(Thread::query()->withoutGlobalScopes()->where('send_key', SEND_KEY_TEST_KEY)->count())->toBe(1);
+        ->and(Thread::query()->withoutGlobalScopes()->where('send_key', SEND_KEY_TEST_KEY)->count())->toBe(1)
+        ->and(TaskAttachment::query()->count())->toBe(0)
+        ->and(Storage::disk('artifacts')->allFiles())->toBe([]);
 });
 
 it('lets another person use the same key', function () {

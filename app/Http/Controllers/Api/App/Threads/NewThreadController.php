@@ -84,7 +84,7 @@ class NewThreadController extends Controller
      */
     private function threadFor(User $user, string $sendKey): ?array
     {
-        $publicId = Thread::query()->withoutGlobalScopes()
+        $publicId = Thread::query()->withoutVisibilityScope()
             ->where('created_by_user_id', $user->id)
             ->where('send_key', $sendKey)
             ->value('public_id');
