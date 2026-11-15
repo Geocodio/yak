@@ -238,9 +238,9 @@ class VisibilityRoutes
      *
      * @return list<string>
      */
-    public static function appThreads(): array
+    public static function appThreads(string $directory = self::GROUPS_DIRECTORY): array
     {
-        return ['app.threads.index', 'app.threads.show', 'app.threads.seen', 'app.threads.events.index', 'app.threads.events.show', 'app.threads.messages.store', 'app.threads.queued-messages.update', 'app.threads.queued-messages.destroy', 'app.threads.clarification-answers.store', 'app.threads.stop', 'app.threads.continue', 'app.threads.restore.retry', 'app.threads.new', 'app.threads.repository-access', 'app.threads.store', 'app.threads.share.show', 'app.threads.share.update', 'app.broadcasting.auth', ...self::groupNames('appThreads')];
+        return ['app.threads.index', 'app.threads.show', 'app.threads.seen', 'app.threads.events.index', 'app.threads.events.show', 'app.threads.messages.store', 'app.threads.queued-messages.update', 'app.threads.queued-messages.destroy', 'app.threads.clarification-answers.store', 'app.threads.stop', 'app.threads.continue', 'app.threads.restore.retry', 'app.threads.new', 'app.threads.repository-access', 'app.threads.store', 'app.threads.share.show', 'app.threads.share.update', 'app.broadcasting.auth', ...self::groupNames('appThreads', $directory)];
     }
 
     /**
@@ -250,7 +250,7 @@ class VisibilityRoutes
      *
      * @return array<string, array{method: string, path: string, isDrive: bool, body: array<string, mixed>}>
      */
-    public static function appThreadProbes(): array
+    public static function appThreadProbes(string $directory = self::GROUPS_DIRECTORY): array
     {
         $probe = self::probe(...);
 
@@ -270,11 +270,15 @@ class VisibilityRoutes
             'app.threads.restore.retry' => $probe('POST', '/threads/{thread}/restore/retry', true),
         ];
 
-        $duplicates = array_keys(array_intersect_key($core, $groupProbes = self::groupProbes()));
+        foreach (self::groupsIn($directory) as $name => $group) {
+            $duplicates = array_keys(array_intersect_key($core, $group['appThreadProbes'] ?? []));
 
-        if ($duplicates !== []) {
-            throw new InvalidArgumentException('A route group probes a core route again: ' . implode(', ', $duplicates) . '.');
+            if ($duplicates !== []) {
+                throw new InvalidArgumentException("Route group {$name}.php probes a core route again: " . implode(', ', $duplicates) . '.');
+            }
         }
+
+        $groupProbes = self::groupProbes($directory);
 
         return [...$core, ...$groupProbes];
     }
@@ -288,6 +292,15 @@ class VisibilityRoutes
     public static function probe(string $method, string $path, bool $isDrive, array $body = []): array
     {
         return ['method' => $method, 'path' => $path, 'isDrive' => $isDrive, 'body' => $body];
+    }
+
+    private static function isProbeShaped(mixed $probe): bool
+    {
+        return is_array($probe)
+            && is_string($probe['method'] ?? null)
+            && is_string($probe['path'] ?? null)
+            && is_bool($probe['isDrive'] ?? null)
+            && is_array($probe['body'] ?? null);
     }
 
     /**
@@ -304,6 +317,7 @@ class VisibilityRoutes
 
         $groups = [];
         $claimedBy = [];
+        $entryClaimedBy = [];
 
         foreach ($files as $file) {
             $name = basename($file);
@@ -320,12 +334,23 @@ class VisibilityRoutes
 
                 $isValid = match ($key) {
                     'sweepWorld' => $value instanceof Closure,
-                    'appThreadProbes', 'sweepHeaders' => is_array($value),
-                    default => is_array($value) && array_is_list($value),
+                    'appThreadProbes' => is_array($value) && array_all($value, fn (mixed $probe, mixed $probeName): bool => is_string($probeName) && self::isProbeShaped($probe)),
+                    'sweepHeaders' => is_array($value) && array_all($value, fn (mixed $headerValue, mixed $headerName): bool => is_string($headerName) && is_string($headerValue)),
+                    default => is_array($value) && array_is_list($value) && array_all($value, fn (mixed $element): bool => is_string($element)),
                 };
 
                 if (! $isValid) {
                     throw new InvalidArgumentException("Route group {$name} has the wrong shape under '{$key}'.");
+                }
+            }
+
+            foreach (['appThreadProbes' => 'Probe', 'sweepHeaders' => 'Header'] as $key => $label) {
+                foreach (array_keys($group[$key] ?? []) as $entryName) {
+                    if (isset($entryClaimedBy[$key][$entryName])) {
+                        throw new InvalidArgumentException("{$label} '{$entryName}' is defined by two groups: {$entryClaimedBy[$key][$entryName]} and {$name}.");
+                    }
+
+                    $entryClaimedBy[$key][$entryName] = $name;
                 }
             }
 

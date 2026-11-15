@@ -85,6 +85,50 @@ it('collects world closures', function () {
     });
 });
 
-it('keeps the shipped group folder free of duplicate names', function () {
-    expect(fn () => VisibilityRoutes::groupsIn())->not->toThrow(InvalidArgumentException::class);
+it('names the group file that probes a core route again', function () {
+    withGroupFolder([
+        'alpha.php' => "['appThreadProbes' => ['app.threads.show' => Tests\\Support\\VisibilityRoutes::probe('GET', '/threads/{thread}', false)]]",
+    ], function (string $directory): void {
+        expect(fn () => VisibilityRoutes::appThreadProbes($directory))
+            ->toThrow(InvalidArgumentException::class, 'Route group alpha.php probes a core route again: app.threads.show.');
+    });
+});
+
+it('refuses a probe or header defined by two groups', function () {
+    $probe = "Tests\\Support\\VisibilityRoutes::probe('GET', '/threads/{thread}/x', false)";
+
+    withGroupFolder([
+        'alpha.php' => "['appThreadProbes' => ['app.threads.x' => {$probe}], 'sweepHeaders' => ['Origin' => 'a']]",
+        'beta.php' => "['appThreadProbes' => ['app.threads.x' => {$probe}]]",
+    ], function (string $directory): void {
+        expect(fn () => VisibilityRoutes::groupsIn($directory))
+            ->toThrow(InvalidArgumentException::class, "Probe 'app.threads.x' is defined by two groups: alpha.php and beta.php.");
+    });
+
+    withGroupFolder([
+        'alpha.php' => "['sweepHeaders' => ['Origin' => 'a']]",
+        'beta.php' => "['sweepHeaders' => ['Origin' => 'b']]",
+    ], function (string $directory): void {
+        expect(fn () => VisibilityRoutes::groupsIn($directory))
+            ->toThrow(InvalidArgumentException::class, "Header 'Origin' is defined by two groups: alpha.php and beta.php.");
+    });
+});
+
+it('refuses values of the wrong shape', function (string $source) {
+    withGroupFolder(['alpha.php' => "[{$source}]"], function (string $directory): void {
+        expect(fn () => VisibilityRoutes::groupsIn($directory))
+            ->toThrow(InvalidArgumentException::class, 'Route group alpha.php has the wrong shape under');
+    });
+})->with([
+    'list-shaped probes' => ["'appThreadProbes' => [Tests\\Support\\VisibilityRoutes::probe('GET', '/x', false)]"],
+    'probe without a path' => ["'appThreadProbes' => ['app.threads.x' => ['method' => 'GET', 'isDrive' => false, 'body' => []]]"],
+    'non-string header' => ["'sweepHeaders' => ['Origin' => 1]"],
+    'non-string list element' => ["'classified' => [1]"],
+]);
+
+it('keeps the shipped group folder free of collisions', function () {
+    expect(fn () => VisibilityRoutes::groupsIn())->not->toThrow(InvalidArgumentException::class)
+        ->and(fn () => VisibilityRoutes::appThreads())->not->toThrow(InvalidArgumentException::class)
+        ->and(fn () => VisibilityRoutes::appThreadProbes())->not->toThrow(InvalidArgumentException::class)
+        ->and(fn () => VisibilityRoutes::global())->not->toThrow(InvalidArgumentException::class);
 });
