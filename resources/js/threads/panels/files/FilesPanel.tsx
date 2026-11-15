@@ -36,6 +36,7 @@ export default function FilesPanel({ thread, canDrive, diff = null, focusRequest
     const docsUrl = usePage<SharedProps>().props.docs.baseUrl;
     const [isNoticeDismissed, setIsNoticeDismissed] = useState(false);
     const [savedNote, setSavedNote] = useState<string | null>(null);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const save = async (path: string, overwrite = false) => {
         const file = files.openFiles.find((entry) => entry.path === path);
@@ -44,6 +45,7 @@ export default function FilesPanel({ thread, canDrive, diff = null, focusRequest
         }
         const content = drafts[path] ?? file.content ?? '';
         setSavingPath(path);
+        setSaveError(null);
         try {
             const response = await fetch(`/threads/${thread.id}/files/content`, {
                 method: 'PUT',
@@ -51,7 +53,7 @@ export default function FilesPanel({ thread, canDrive, diff = null, focusRequest
                 headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
                 body: JSON.stringify({ scope, path, content, base_sha256: file.baseSha256, overwrite }),
             });
-            const body = (await response.json().catch(() => ({}))) as { state?: string; file?: FileContentData };
+            const body = (await response.json().catch(() => ({}))) as { state?: string; file?: FileContentData; message?: string };
             if (response.status === 200 && body.file) {
                 files.rebase(path, { ...body.file, content });
                 setSavedNote(working ? `You edited ${path}. Claude reads the change at its next step.` : null);
@@ -59,7 +61,13 @@ export default function FilesPanel({ thread, canDrive, diff = null, focusRequest
                 setComparing((current) => ({ ...current, [path]: false }));
             } else if (response.status === 409 && body.state === 'conflict' && body.file) {
                 setConflicts((current) => ({ ...current, [path]: body.file as FileContentData }));
+            } else if (response.status === 409 && body.state === 'conflict') {
+                setSaveError('This file no longer exists in the sandbox, so there is nothing to compare. Copy your changes elsewhere if you need them.');
+            } else {
+                setSaveError(body.message ?? 'The file was not saved. Try again.');
             }
+        } catch {
+            setSaveError('The file was not saved. Try again.');
         } finally {
             setSavingPath(null);
         }
@@ -187,6 +195,11 @@ export default function FilesPanel({ thread, canDrive, diff = null, focusRequest
                                     ))}
                                 </div>
                                 {!isNoticeDismissed && <EditorNotices working={working} hasConflict={conflicts[active.path] !== undefined} onDismiss={() => setIsNoticeDismissed(true)} />}
+                                {saveError !== null && (
+                                    <p className="border-b border-hair bg-warn-soft px-4 py-2 text-[12px] text-body" role="alert" data-testid="editor-save-error">
+                                        {saveError}
+                                    </p>
+                                )}
                                 {savedNote !== null && (
                                     <p className="border-b border-hair bg-sidebar px-4 py-2 text-[12px] text-muted" data-testid="editor-saved-note">
                                         {savedNote}

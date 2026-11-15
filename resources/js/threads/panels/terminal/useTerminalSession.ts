@@ -15,6 +15,7 @@ export type TerminalSession = {
     state: TerminalSessionState;
     phase: TerminalPhase;
     limit: TerminalLimit | null;
+    restoring: boolean;
     reason: string | null;
     connect: () => void;
     send: (data: string) => void;
@@ -24,6 +25,8 @@ export type TerminalSession = {
 
 const WAIT_POLL_MS = 2000;
 export const WAIT_LIMIT_MS = 120_000;
+/** A restore rebuilds the whole sandbox, so the wait may run as long as the restore job. */
+export const RESTORE_WAIT_LIMIT_MS = 900_000;
 
 /** Tests may set `window.__yakTerminalBackoff` to stretch or shrink the reconnect delays. */
 function reconnectDelay(attempt: number): number {
@@ -38,6 +41,7 @@ export function useTerminalSession(threadId: string): TerminalSession {
     const [reason, setReason] = useState<string | null>(null);
     const [phase, setPhase] = useState<TerminalPhase>('sandbox');
     const [limit, setLimit] = useState<TerminalLimit | null>(null);
+    const [restoring, setRestoring] = useState(false);
     const socket = useRef<WebSocket | null>(null);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const attempt = useRef(0);
@@ -92,16 +96,18 @@ export function useTerminalSession(threadId: string): TerminalSession {
 
             if (response.status === 202) {
                 const startedAt = waitStartedAt ?? Date.now();
-                if (Date.now() - startedAt > WAIT_LIMIT_MS) {
-                    setState('unavailable');
-                    setReason('No sandbox slot became free. Try again in a moment.');
-
-                    return;
-                }
-                const queued = (await response.json().catch(() => ({}))) as { limit?: TerminalLimit | null };
+                const queued = (await response.json().catch(() => ({}))) as { limit?: TerminalLimit | null; restoring?: boolean };
                 if (stale()) {
                     return;
                 }
+                const isRestoring = queued.restoring === true;
+                if (Date.now() - startedAt > (isRestoring ? RESTORE_WAIT_LIMIT_MS : WAIT_LIMIT_MS)) {
+                    setState('unavailable');
+                    setReason(isRestoring ? 'The restore is taking longer than expected. Try again in a moment.' : 'No sandbox slot became free. Try again in a moment.');
+
+                    return;
+                }
+                setRestoring(isRestoring);
                 setLimit(queued.limit ?? null);
                 setState('waiting');
                 timer.current = setTimeout(() => void start(startedAt), WAIT_POLL_MS);
@@ -125,6 +131,7 @@ export function useTerminalSession(threadId: string): TerminalSession {
                 return;
             }
             setLimit(null);
+            setRestoring(false);
             setPhase('link');
 
             const ws = new WebSocket(url);
@@ -218,5 +225,5 @@ export function useTerminalSession(threadId: string): TerminalSession {
         };
     }, []);
 
-    return { state, phase, limit, reason, connect, send, resize, onData };
+    return { state, phase, limit, restoring, reason, connect, send, resize, onData };
 }

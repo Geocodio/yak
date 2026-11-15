@@ -2,6 +2,7 @@
 
 use App\Enums\FileScope;
 use App\Enums\ThreadSandboxState;
+use App\Enums\ThreadStatus;
 use App\Models\PendingSteeringMessage;
 use App\Models\Thread;
 use App\Models\ThreadFileEdit;
@@ -179,4 +180,28 @@ it('accepts empty content and an empty base for a new empty file', function () {
 
     $this->actingAs($owner)->putJson(route('threads.files.update', $thread), savePayload(['content' => '', 'base_sha256' => '']))
         ->assertOk()->assertJsonPath('state', 'saved');
+});
+
+it('refuses a web save into a closed thread', function () {
+    [$thread, $owner] = saveThread();
+    $thread->update(['status' => ThreadStatus::Closed, 'closed_at' => now()]);
+
+    $this->actingAs($owner)->putJson(route('threads.files.update', $thread), savePayload())
+        ->assertStatus(409)
+        ->assertExactJson(['state' => 'closed', 'message' => 'This thread is closed.']);
+
+    expect($this->sandboxes->calls)->toBeEmpty();
+});
+
+it('writes the content byte for byte, keeping a trailing newline and leading spaces', function () {
+    [$thread, $owner] = saveThread();
+    $content = "  indented\nlast line\n";
+    queueRead($this, 'old');
+    $this->sandboxes->queueExecResult(Process::result());
+    queueRead($this, $content);
+
+    $this->actingAs($owner)->putJson(route('threads.files.update', $thread), savePayload(['content' => $content]))
+        ->assertOk()->assertJsonPath('file.sha256', hash('sha256', $content));
+
+    expect($this->sandboxes->calls[1]['arguments']['stdin'])->toBe(base64_encode($content));
 });

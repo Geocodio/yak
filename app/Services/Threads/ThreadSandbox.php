@@ -27,7 +27,7 @@ class ThreadSandbox
 {
     private const TOUCH_THROTTLE_SECONDS = 30;
 
-    private const LOCK_SECONDS = 600;
+    private const LOCK_SECONDS = 960;
 
     public function __construct(
         private SandboxManager $sandboxes,
@@ -245,6 +245,30 @@ class ThreadSandbox
             $thread->refresh();
 
             return $this->restoreAwake($thread)->ready;
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Restores only while a restore is still needed, checked under the sandbox lock: a removed sandbox or a
+     * failed restore. Null when the lock is held by a removal or another wake.
+     */
+    public function restoreIfNeeded(Thread $thread): ?SandboxWake
+    {
+        $lock = Cache::lock($this->lockName($thread), self::LOCK_SECONDS);
+
+        if (! $lock->get()) {
+            return null;
+        }
+
+        try {
+            $thread->refresh();
+
+            $needed = $thread->blocked_reason === ThreadBlockReason::RestoreFailed
+                || in_array($thread->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed], true);
+
+            return $needed ? $this->restoreAwake($thread) : SandboxWake::ready();
         } finally {
             $lock->release();
         }

@@ -1,7 +1,9 @@
 <?php
 
+use App\DataTransferObjects\SandboxWake;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
+use App\Enums\ThreadSandboxState;
 use App\Jobs\RetryThreadRestoreJob;
 use App\Models\Thread;
 use App\Models\User;
@@ -72,7 +74,7 @@ it('refuses on a closed thread', function () {
 
 it('runs the restore from the job', function () {
     $thread = failedRestoreThread();
-    $this->mock(ThreadSandbox::class)->shouldReceive('restore')->once()->withArgs(fn ($t) => $t->is($thread))->andReturn(true);
+    $this->mock(ThreadSandbox::class)->shouldReceive('restoreIfNeeded')->once()->withArgs(fn ($t) => $t->is($thread))->andReturn(SandboxWake::ready());
 
     (new RetryThreadRestoreJob($thread))->handle(app(ThreadSandbox::class));
 });
@@ -84,4 +86,14 @@ it('says the restore is running while the sandbox is busy', function () {
     $this->actingAs(User::factory()->create())->post(route('threads.restore.retry', $thread))->assertSessionHas('error', 'The restore is already running.');
 
     Queue::assertNothingPushed();
+});
+
+it('restores a removed sandbox from the web Files pane', function () {
+    Queue::fake();
+    $thread = Thread::factory()->destroyed()->create();
+
+    $this->actingAs(User::factory()->create())->post(route('threads.restore.retry', $thread))->assertSessionHas('success', 'Retrying the restore.');
+
+    Queue::assertPushed(RetryThreadRestoreJob::class, 1);
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed)->and($thread->fresh()->restore_requested_at)->not->toBeNull();
 });

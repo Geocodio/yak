@@ -78,7 +78,7 @@ class LocalGitSandboxManager extends FakeSandboxManager
         return trim($this->run($path ?? $this->bare, ['git', ...$arguments])->output());
     }
 
-    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
+    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult
     {
         parent::exec($thread, $command, $stdin, $env);
 

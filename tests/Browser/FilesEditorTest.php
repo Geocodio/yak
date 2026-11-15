@@ -4,6 +4,7 @@
 
 use App\Enums\RunnerState;
 use App\Enums\ThreadSandboxState;
+use App\Enums\ThreadStatus;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\User;
@@ -113,6 +114,22 @@ it('notes the edit under the editor after a save while Claude works', function (
         ->keys('[data-testid="file-editor"] .cm-content', 'x')
         ->keys('[data-testid="file-editor"] .cm-content', 'ControlOrMeta+s')
         ->assertSeeIn('[data-testid="editor-saved-note"]', 'Claude reads the change at its next step');
+});
+
+it('keeps the edit and says so when the thread closed meanwhile', function () {
+    $thread = filesEditorThread();
+    queueTree($this);
+    queueFileRead($this, 'old');
+
+    $page = openFilesPanel($this, $thread);
+
+    $thread->update(['status' => ThreadStatus::Closed, 'closed_at' => now()]);
+
+    $page->click('[data-testid="file-editor"] .cm-content')
+        ->keys('[data-testid="file-editor"] .cm-content', 'x')
+        ->keys('[data-testid="file-editor"] .cm-content', 'ControlOrMeta+s')
+        ->assertSeeIn('[data-testid="editor-save-error"]', 'This thread is closed.')
+        ->assertSeeIn('[data-testid="file-save-state"]', 'Unsaved');
 });
 
 it('tags the repository folder in the sandbox scope', function () {

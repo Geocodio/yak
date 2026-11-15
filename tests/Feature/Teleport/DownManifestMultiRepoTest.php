@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Process;
  */
 class ManifestRefreshSandbox extends FakeSandboxManager
 {
-    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
+    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult
     {
         parent::exec($thread, $command, $stdin, $env);
 

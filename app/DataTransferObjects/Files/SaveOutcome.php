@@ -8,6 +8,7 @@ final readonly class SaveOutcome
         public bool $saved,
         public ?FileContent $current,
         public ?FileContent $written,
+        public bool $unchanged = false,
     ) {}
 
     /**

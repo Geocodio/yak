@@ -6,6 +6,8 @@ import restore from './restore'
 import queuedMessages from './queued-messages'
 import events from './events'
 import preview from './preview'
+import terminalSessions from './terminal-sessions'
+import files from './files'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadListController::__invoke
 * @see app/Http/Controllers/Api/App/Threads/ThreadListController.php:12
@@ -430,6 +432,8 @@ const threads = {
     queuedMessages: Object.assign(queuedMessages, queuedMessages),
     events: Object.assign(events, events),
     preview: Object.assign(preview, preview),
+    terminalSessions: Object.assign(terminalSessions, terminalSessions),
+    files: Object.assign(files, files),
 }
 
 export default threads

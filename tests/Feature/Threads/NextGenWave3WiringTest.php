@@ -46,7 +46,7 @@ it('walks a spawned child from tool call to batched result, stack panel, preview
 
     app()->singleton(SandboxManager::class, fn () => new class extends FakeSandboxManager
     {
-        public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
+        public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult
         {
             $result = parent::exec($thread, $command, $stdin, $env);
 

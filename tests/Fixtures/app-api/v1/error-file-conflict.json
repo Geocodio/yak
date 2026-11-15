@@ -1,0 +1,17 @@
+{
+    "details": {
+        "file": {
+            "content": "<?php\n\nclass Importer { /* changed */ }\n",
+            "headContent": null,
+            "isBinary": false,
+            "isTooLarge": false,
+            "language": "php",
+            "path": "src/Importer.php",
+            "sha256": "50899f750f338697253fe884767b7614ae6d7d7e84bce5a8fb4455149d7f26cf",
+            "size": 40
+        },
+        "state": "conflict"
+    },
+    "error": "file_conflict",
+    "message": "The file changed since you opened it."
+}

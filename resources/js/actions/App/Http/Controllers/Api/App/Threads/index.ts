@@ -9,6 +9,8 @@ import ThreadActionController from './ThreadActionController'
 import QueuedMessageController from './QueuedMessageController'
 import ThreadEventController from './ThreadEventController'
 import Preview from './Preview'
+import TerminalSessionController from './TerminalSessionController'
+import ThreadFileController from './ThreadFileController'
 
 const Threads = {
     ThreadListController: Object.assign(ThreadListController, ThreadListController),
@@ -22,6 +24,8 @@ const Threads = {
     QueuedMessageController: Object.assign(QueuedMessageController, QueuedMessageController),
     ThreadEventController: Object.assign(ThreadEventController, ThreadEventController),
     Preview: Object.assign(Preview, Preview),
+    TerminalSessionController: Object.assign(TerminalSessionController, TerminalSessionController),
+    ThreadFileController: Object.assign(ThreadFileController, ThreadFileController),
 }
 
 export default Threads
