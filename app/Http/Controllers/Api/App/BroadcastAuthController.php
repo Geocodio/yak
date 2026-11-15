@@ -16,7 +16,13 @@ class BroadcastAuthController extends Controller
 {
     public function __invoke(BroadcastAuthRequest $request): JsonResponse
     {
-        if (! in_array(config('broadcasting.default'), ['reverb', 'pusher'], true)) {
+        $connection = config('broadcasting.default');
+
+        $isConfigured = in_array($connection, ['reverb', 'pusher'], true)
+            && filled(config("broadcasting.connections.{$connection}.key"))
+            && filled(config("broadcasting.connections.{$connection}.secret"));
+
+        if (! $isConfigured) {
             throw new ThreadActionRefused('unavailable', 'Live updates are off on this Yak. The app refreshes by polling.', [], 503);
         }
 

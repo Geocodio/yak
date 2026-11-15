@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ThreadShare;
 use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 use Tests\Support\ContractFixture;
@@ -65,6 +66,25 @@ it('answers unavailable without Reverb', function () {
     $this->postJson(BROADCAST_AUTH_PATH, ['socket_id' => '1234.5678', 'channel_name' => 'private-thread.abcd1234'], phoneHeadersFor(User::factory()->create()))
         ->assertStatus(503)
         ->assertExactJson(['error' => 'unavailable', 'message' => 'Live updates are off on this Yak. The app refreshes by polling.']);
+});
+
+it('answers unavailable when the connection has no key', function () {
+    config(['broadcasting.connections.reverb.key' => null]);
+
+    $this->postJson(BROADCAST_AUTH_PATH, ['socket_id' => '1234.5678', 'channel_name' => 'private-thread.abcd1234'], phoneHeadersFor(User::factory()->create()))
+        ->assertStatus(503)->assertJsonPath('error', 'unavailable');
+});
+
+it('signs private and presence channels for a share recipient', function () {
+    $thread = privateThreadOf(User::factory()->create());
+    $recipient = User::factory()->create();
+    ThreadShare::factory()->create(['thread_id' => $thread->id, 'user_id' => $recipient->id]);
+    $headers = phoneHeadersFor($recipient);
+
+    foreach (['private-thread.', 'presence-thread-presence.'] as $prefix) {
+        $this->postJson(BROADCAST_AUTH_PATH, ['socket_id' => '1234.5678', 'channel_name' => $prefix . $thread->public_id], $headers)
+            ->assertOk()->assertJsonStructure(['auth']);
+    }
 });
 
 it('refuses without a token, with a revoked phone and with a computer token', function () {
