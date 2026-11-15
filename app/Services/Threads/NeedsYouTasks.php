@@ -55,7 +55,7 @@ class NeedsYouTasks
                 'title' => Str::limit(TaskRowData::plainPreview((string) $task->description), 120),
                 'needsYouReason' => $isQuestion ? 'question' : 'co_owner',
                 'needsYouLabel' => $isQuestion ? 'Asked you a question' : 'Waiting for your co-owner decision',
-                'lastActivityAt' => $task->updated_at->toIso8601String(),
+                'lastActivityAt' => $task->updated_at?->toIso8601String() ?? '',
             ];
         }
 
