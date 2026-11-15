@@ -26,6 +26,9 @@ final class EarlyWarningData
 {
     private const int CANDIDATE_SCAN_LIMIT = 25;
 
+    /** One check is a user lookup and a permission lookup, each bounded to 3 seconds. */
+    private const int CHECK_WORST_CASE_SECONDS = 6;
+
     /**
      * Present while the conversation has an early warning and no co-owner request yet.
      *
@@ -85,7 +88,7 @@ final class EarlyWarningData
     }
 
     /**
-     * The candidates of `candidates()` with every GitHub check time bounded. No new check starts once the budget has run out; the people found so far are returned with `isComplete: false`, and so are they when a check failed (GitHub down).
+     * The candidates of `candidates()` with every GitHub check time bounded. A check can take two 3 second calls, so no new check starts unless that much of the budget is left, which keeps the answer inside ten seconds; the people found so far are returned with `isComplete: false`, and so are they when a check failed (GitHub down).
      *
      * @return array{candidates: list<array{id: int, name: string}>, isComplete: bool}
      */
@@ -105,7 +108,7 @@ final class EarlyWarningData
         $users = User::whereNotNull('github_id')->whereKeyNot($viewer->id)->orderBy('name')->limit(self::CANDIDATE_SCAN_LIMIT)->get();
 
         foreach ($users as $user) {
-            if (now()->greaterThan($deadline)) {
+            if (now()->addSeconds(self::CHECK_WORST_CASE_SECONDS)->greaterThan($deadline)) {
                 $isComplete = false;
                 break;
             }

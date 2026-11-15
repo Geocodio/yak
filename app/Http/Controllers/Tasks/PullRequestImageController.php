@@ -48,16 +48,22 @@ class PullRequestImageController extends Controller
 
     private function streamImage(YakTask $task, string $asset, string $body, string $repoFullName, AppService $github, bool $isTimeBounded): Response
     {
-        $bodyHtml = Cache::remember(
-            "pr-body-html:{$task->id}",
-            now()->addMinutes(3),
-            fn (): string => (string) $github->renderMarkdown(
+        $cacheKey = "pr-body-html:{$task->id}";
+        $bodyHtml = Cache::get($cacheKey);
+
+        if (! is_string($bodyHtml)) {
+            $bodyHtml = (string) $github->renderMarkdown(
                 (int) config('yak.channels.github.installation_id'),
                 $repoFullName,
                 $body,
                 $isTimeBounded,
-            ),
-        );
+            );
+
+            // A failed render is empty; caching it would 404 every image of the task for minutes.
+            if ($bodyHtml !== '') {
+                Cache::put($cacheKey, $bodyHtml, now()->addMinutes(3));
+            }
+        }
 
         $pattern = '#src="(https://private-user-images\.githubusercontent\.com/[^"]*' . preg_quote($asset, '#') . '[^"]*)"#';
         abort_unless(preg_match($pattern, $bodyHtml, $match) === 1, 404);

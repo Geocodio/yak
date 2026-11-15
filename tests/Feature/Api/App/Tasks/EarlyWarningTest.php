@@ -58,7 +58,7 @@ it('lists the people who can co-own', function () {
     ContractFixture::assertMatches('app', 'task-co-owner-candidates', $response->json(), ['candidates.*.id']);
 });
 
-it('stops checking after eight seconds', function () {
+it('starts no check that could run past the budget', function () {
     foreach (range(1, 5) as $number) {
         User::factory()->withGitHub(900 + $number, "person-{$number}")->create(['name' => "Person {$number}"]);
     }
@@ -77,9 +77,9 @@ it('stops checking after eight seconds', function () {
     });
 
     $this->getJson(earlyWarningPath($this->task, 'candidates'), $this->headers)->assertOk()
-        ->assertJsonPath('isComplete', false)->assertJsonCount(3, 'candidates');
+        ->assertJsonPath('isComplete', false)->assertJsonCount(1, 'candidates');
 
-    expect($checks)->toBe(3);
+    expect($checks)->toBe(1);
 });
 
 it('passes the time bound to GitHub', function () {

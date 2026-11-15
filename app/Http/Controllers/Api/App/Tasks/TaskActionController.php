@@ -15,7 +15,7 @@ class TaskActionController extends Controller
 {
     public function retry(YakTask $task, TaskActions $actions): JsonResponse
     {
-        return $this->status($actions->retry($task));
+        return $this->status($actions->retry($task, isTimeBounded: true));
     }
 
     public function cancel(Request $request, YakTask $task, TaskActions $actions): JsonResponse

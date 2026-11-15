@@ -579,12 +579,13 @@ class AppService
      * GitHub cannot be reached or refuses the request, so the caller can
      * tell "no runs" apart from "could not find out".
      *
+     * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total), for callers that answer a waiting user
      * @return list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>
      */
-    public function latestCommitWorkflowRunsForBranch(int $installationId, string $repoSlug, string $branch): array
+    public function latestCommitWorkflowRunsForBranch(int $installationId, string $repoSlug, string $branch, bool $isTimeBounded = false): array
     {
         /** @var array<int, array{id?: int, head_sha?: string, status?: string|null, conclusion?: string|null}> $runs */
-        $runs = $this->installationClient($installationId)
+        $runs = $this->installationClient($installationId, $isTimeBounded)
             ->get("https://api.github.com/repos/{$repoSlug}/actions/runs", [
                 'branch' => $branch,
                 'per_page' => 30,
@@ -828,10 +829,12 @@ class AppService
 
     /**
      * Re-run only the failed jobs of a workflow run, as a new attempt of the same run.
+     *
+     * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total), for callers that answer a waiting user
      */
-    public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId): bool
+    public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId, bool $isTimeBounded = false): bool
     {
-        return $this->installationClient($installationId)
+        return $this->installationClient($installationId, $isTimeBounded)
             ->post("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}/rerun-failed-jobs")
             ->successful();
     }

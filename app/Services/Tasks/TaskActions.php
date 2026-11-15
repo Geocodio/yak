@@ -33,9 +33,11 @@ use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use App\Services\Threads\ThreadRetryReset;
 use Closure;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
@@ -61,12 +63,16 @@ class TaskActions
 
     public function __construct(private readonly AgentJobDispatcher $dispatcher) {}
 
-    public function retry(YakTask $task): TaskActionOutcome
+    /**
+     * @param  bool  $isTimeBounded  fail fast on every GitHub call (2 s connect, 3 s total), for the app that waits on the answer
+     */
+    public function retry(YakTask $task, bool $isTimeBounded = false): TaskActionOutcome
     {
-        $ciResume = in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true) ? $this->resumeCiAfterTimeout($task) : null;
+        // Only reads GitHub. The rerun of failed jobs happens after the claim, so one request does it.
+        $ciResume = in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true) ? $this->readCiAfterTimeout($task, $isTimeBounded) : null;
 
         /** @var array{outcome: TaskActionOutcome, after: ?Closure} $result */
-        $result = $this->locked($task, function (YakTask $locked) use ($ciResume): array {
+        $result = $this->locked($task, function (YakTask $locked) use ($ciResume, $isTimeBounded): array {
             if (in_array($locked->status, [TaskStatus::Pending, TaskStatus::Running, TaskStatus::Retrying, TaskStatus::AwaitingCi], true)) {
                 return ['outcome' => new TaskActionOutcome('queued', 'Task is already queued.'), 'after' => null];
             }
@@ -75,12 +81,14 @@ class TaskActions
                 throw ThreadActionRefused::because(ThreadActionRefused::TASK_NOT_RETRYABLE, 'This task cannot be retried right now.');
             }
 
+            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry']);
+
             if ($ciResume !== null) {
-                return $this->claimCiResume($locked, $ciResume);
+                return $this->claimCiResume($locked, $ciResume, $original, $isTimeBounded);
             }
 
             if ($this->hasPushedBranch($locked)) {
-                return $this->claimRetryOnBranch($locked);
+                return $this->claimRetryOnBranch($locked, $original);
             }
 
             return $this->claimFreshRetry($locked);
@@ -238,9 +246,10 @@ class TaskActions
             try {
                 RenderVideoJob::dispatch($rawFootageId);
             } catch (Throwable $e) {
+                report($e);
                 Artifact::query()->whereKey($rawFootageId)->update(['render_requested_at' => null]);
 
-                throw $e;
+                throw new HttpException(503, 'Yak could not start the render. Try again in a moment.');
             }
         }
 
@@ -397,9 +406,10 @@ class TaskActions
      * The same pass Yak takes after a red build: the agent gets the previous
      * summary and the CI failure, and pushes on top of the earlier commits.
      *
+     * @param  array<string, mixed>  $original  the raw task columns the claim changes, put back when the job cannot be queued
      * @return array{outcome: TaskActionOutcome, after: ?Closure}
      */
-    private function claimRetryOnBranch(YakTask $task): array
+    private function claimRetryOnBranch(YakTask $task, array $original): array
     {
         $failureOutput = $task->error_log;
 
@@ -417,19 +427,20 @@ class TaskActions
 
         return [
             'outcome' => new TaskActionOutcome('queued', "Retrying on {$task->branch_name}."),
-            'after' => function () use ($task, $failureOutput): void {
+            'after' => function () use ($task, $failureOutput, $original): void {
                 Telemetry::feature('dashboard.retry', ['mode' => TaskMode::Fix->value, 'resumed_branch' => true], task: $task);
 
-                RetryYakJob::dispatch($task, $failureOutput);
+                $this->runOrReleaseClaim($task, $original, fn () => RetryYakJob::dispatch($task, $failureOutput));
             },
         ];
     }
 
     /**
-     * @param  array{runs: list<array<string, mixed>>, pending: int, failed: int}  $ciResume
+     * @param  array{runs: list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>, pending: int, failed: int}  $ciResume
+     * @param  array<string, mixed>  $original  the raw task columns the claim changes, put back when GitHub or the queue refuses the next step
      * @return array{outcome: TaskActionOutcome, after: ?Closure}
      */
-    private function claimCiResume(YakTask $task, array $ciResume): array
+    private function claimCiResume(YakTask $task, array $ciResume, array $original, bool $isTimeBounded): array
     {
         $task->update(['status' => TaskStatus::Retrying]);
         $task->update(['status' => TaskStatus::AwaitingCi, 'error_log' => null, 'completed_at' => null]);
@@ -442,14 +453,60 @@ class TaskActions
 
         return [
             'outcome' => new TaskActionOutcome('queued', "Checking CI on {$task->branch_name} again."),
-            'after' => function () use ($task, $ciResume): void {
+            'after' => function () use ($task, $ciResume, $original, $isTimeBounded): void {
                 Telemetry::feature('dashboard.retry', ['mode' => TaskMode::Fix->value, 'resumed_ci' => true], task: $task);
 
-                if ($ciResume['pending'] === 0 && $ciResume['failed'] === 0) {
-                    ProcessCIResultJob::dispatch($task, true, null, $ciResume['runs'][0]['head_sha']);
-                }
+                $this->runOrReleaseClaim($task, $original, function () use ($task, $ciResume, $isTimeBounded): void {
+                    if ($ciResume['pending'] === 0 && $ciResume['failed'] === 0) {
+                        ProcessCIResultJob::dispatch($task, true, null, $ciResume['runs'][0]['head_sha']);
+
+                        return;
+                    }
+
+                    if ($ciResume['pending'] === 0) {
+                        $this->rerunFailedRuns($task, $ciResume['runs'], $isTimeBounded);
+                    }
+                });
             },
         ];
+    }
+
+    /**
+     * Runs the step that follows a claim. When it fails, the task goes back to
+     * the state it was claimed from, so a repeat can try again, and the caller
+     * gets a 503 with a sentence instead of a task stuck waiting for a job
+     * that was never queued.
+     *
+     * @param  array<string, mixed>  $original
+     */
+    private function runOrReleaseClaim(YakTask $task, array $original, Closure $step): void
+    {
+        try {
+            $step();
+        } catch (Throwable $e) {
+            report($e);
+            DB::table('tasks')->where('id', $task->id)->update($original + ['updated_at' => now()]);
+
+            throw new HttpException(503, 'Yak could not restart this task. Try again in a moment.');
+        }
+    }
+
+    /**
+     * @param  list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>  $runs
+     */
+    private function rerunFailedRuns(YakTask $task, array $runs, bool $isTimeBounded): void
+    {
+        $repository = Repository::where('slug', $task->repo)->firstOrFail();
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $gitHub = app(GitHubAppService::class);
+
+        foreach ($runs as $run) {
+            $isFailed = ! GitHubAppService::isUnfinishedWorkflowRun($run) && ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true);
+
+            if ($isFailed && ! $gitHub->rerunFailedJobs($installationId, $repository->github_full_name, $run['id'], $isTimeBounded)) {
+                throw new RuntimeException('GitHub refused to rerun the failed jobs of run ' . $run['id']);
+            }
+        }
     }
 
     /**
@@ -494,11 +551,12 @@ class TaskActions
      * branch's latest CI result on GitHub is used when it is in: green opens
      * the PR, red re-runs the failed jobs so the result arrives through the
      * webhook as usual. A run that is still going is simply waited for.
+     * This only reads; the claim reruns the failed jobs once it has won.
      * Returns null, leaving the task untouched, when GitHub cannot say.
      *
-     * @return array{runs: list<array<string, mixed>>, pending: int, failed: int}|null
+     * @return array{runs: list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>, pending: int, failed: int}|null
      */
-    private function resumeCiAfterTimeout(YakTask $task): ?array
+    private function readCiAfterTimeout(YakTask $task, bool $isTimeBounded): ?array
     {
         $installationId = (int) config('yak.channels.github.installation_id');
         $repository = Repository::where('slug', $task->repo)->first();
@@ -517,7 +575,7 @@ class TaskActions
         $gitHub = app(GitHubAppService::class);
 
         try {
-            $runs = $gitHub->latestCommitWorkflowRunsForBranch($installationId, $repository->github_full_name, $task->branch_name);
+            $runs = $gitHub->latestCommitWorkflowRunsForBranch($installationId, $repository->github_full_name, $task->branch_name, $isTimeBounded);
         } catch (Throwable $e) {
             Log::channel('yak')->warning('Could not read CI runs for a dashboard retry', ['task_id' => $task->id, 'error' => $e->getMessage()]);
 
@@ -531,14 +589,6 @@ class TaskActions
         $pending = array_filter($runs, fn (array $run): bool => GitHubAppService::isUnfinishedWorkflowRun($run));
         $failed = array_filter($runs, fn (array $run): bool => ! GitHubAppService::isUnfinishedWorkflowRun($run)
             && ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true));
-
-        if ($pending === [] && $failed !== []) {
-            foreach ($failed as $run) {
-                if (! $gitHub->rerunFailedJobs($installationId, $repository->github_full_name, $run['id'])) {
-                    return null;
-                }
-            }
-        }
 
         return ['runs' => $runs, 'pending' => count($pending), 'failed' => count($failed)];
     }

@@ -22,6 +22,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\ContractFixture;
 
 /**
@@ -314,4 +315,117 @@ describe('who may act', function () {
         [, $computerHeaders] = phoneWithHeaders(['user_id' => $this->user->id], isPhone: false);
         $this->postJson(appTaskPath($this->task, '/retry'), [], $computerHeaders)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
     });
+});
+
+function timeoutCiTask(User $user): YakTask
+{
+    config()->set('yak.channels.github.installation_id', 99999);
+    GitHubInstallationToken::factory()->create(['installation_id' => 99999, 'token' => 'ghs_test_token', 'expires_at' => now()->addHour()]);
+    Repository::factory()->create(['slug' => 'example/api', 'github_full_name' => 'example/api', 'ci_system' => 'github_actions']);
+
+    return actionTask($user, ['branch_name' => 'yak/upgrade-payments-sdk', 'attempts' => 1, 'error_log' => TimeoutAwaitingCiCommand::TIMEOUT_ERROR_PREFIX . ' 30 minutes']);
+}
+
+it('reruns the failed CI jobs once even when a second retry starts while the first reads the runs', function () {
+    $task = timeoutCiTask($this->user);
+    $isNested = false;
+    $reruns = 0;
+    Http::fake([
+        'api.github.com/repos/example/api/actions/runs/*/rerun-failed-jobs' => function () use (&$reruns) {
+            $reruns++;
+
+            return Http::response([], 201);
+        },
+        'api.github.com/repos/example/api/actions/runs*' => function () use (&$isNested, $task) {
+            if (! $isNested) {
+                $isNested = true;
+                $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
+            }
+
+            return Http::response(['workflow_runs' => [['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure']]]);
+        },
+    ]);
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
+
+    expect($reruns)->toBe(1)->and($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertNotPushed(RetryYakJob::class);
+});
+
+it('puts the task back when GitHub refuses the rerun of the failed jobs', function () {
+    $task = timeoutCiTask($this->user);
+    Http::fake([
+        'api.github.com/repos/example/api/actions/runs/*/rerun-failed-jobs' => Http::response(['message' => 'busy'], 403),
+        'api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure']]]),
+    ]);
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertStatus(503)->assertJsonPath('error', 'unavailable');
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed)->and($task->fresh()->error_log)->toStartWith(TimeoutAwaitingCiCommand::TIMEOUT_ERROR_PREFIX);
+    Queue::assertNothingPushed();
+});
+
+it('bounds every GitHub call of an app retry to two and three seconds', function () {
+    $task = timeoutCiTask($this->user);
+    $recorded = [];
+    Http::fake([
+        'api.github.com/repos/example/api/actions/runs/*/rerun-failed-jobs' => function ($request, array $options) use (&$recorded) {
+            $recorded[] = $options + ['u' => $request->url()];
+
+            return Http::response([], 201);
+        },
+        'api.github.com/repos/example/api/actions/runs*' => function ($request, array $options) use (&$recorded) {
+            $recorded[] = $options + ['u' => $request->url()];
+
+            return Http::response(['workflow_runs' => [['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure']]]);
+        },
+    ]);
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk();
+
+    expect(collect($recorded)->pluck('u')->unique()->count())->toBe(2);
+    foreach ($recorded as $options) {
+        expect($options['connect_timeout'])->toBe(2)->and($options['timeout'])->toBe(3);
+    }
+});
+
+it('answers 503 and puts the task back when the resume job cannot be queued', function () {
+    $task = actionTask($this->user, ['branch_name' => 'yak/upgrade-payments-sdk', 'attempts' => 2, 'error_log' => 'CI failed']);
+    TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
+    Queue::shouldReceive('push')->andThrow(new RuntimeException('redis down'));
+    Queue::shouldReceive('connection')->andReturnSelf();
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertStatus(503)->assertJsonPath('error', 'unavailable');
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Failed)->and($task->attempts)->toBe(2)->and($task->error_log)->toBe('CI failed');
+});
+
+it('answers 503 and releases the render claim when the render cannot be queued', function () {
+    $task = actionTask($this->user, ['status' => TaskStatus::Success]);
+    $raw = Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video']);
+    Queue::shouldReceive('push')->andThrow(new RuntimeException('redis down'));
+    Queue::shouldReceive('connection')->andReturnSelf();
+
+    $this->postJson(appTaskPath($task, '/retry-render'), [], $this->headers)->assertStatus(503)->assertJsonPath('error', 'unavailable');
+
+    expect($raw->fresh()->render_requested_at)->toBeNull();
+});
+
+it('keeps the render request while a failed attempt waits for its second try', function () {
+    Storage::fake('artifacts');
+    $task = actionTask($this->user, ['status' => TaskStatus::Success]);
+    $raw = Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
+    Storage::disk('artifacts')->put("{$task->id}/walkthrough.webm", 'webm-bytes');
+    Storage::disk('artifacts')->put("{$task->id}/storyboard.json", json_encode(['version' => 1, 'plan' => (object) [], 'events' => []]));
+    $this->mock(VideoRenderer::class)->shouldReceive('render')->andThrow(new RuntimeException('renderer crashed'));
+
+    $this->postJson(appTaskPath($task, '/retry-render'), [], $this->headers)->assertOk();
+    Queue::assertPushed(RenderVideoJob::class, 1);
+
+    expect(fn () => (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class)))->toThrow(RuntimeException::class);
+
+    $this->postJson(appTaskPath($task, '/retry-render'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'rendering']);
+    Queue::assertPushed(RenderVideoJob::class, 1);
 });

@@ -33,11 +33,11 @@ class RenderVideoJob implements ShouldQueue
 
     public function handle(VideoRenderer $renderer): void
     {
-        try {
-            $this->render($renderer);
-        } finally {
-            $this->clearRenderRequest();
-        }
+        // A throwing attempt keeps the request: the job is released for its
+        // second try, and a repeat in between must not queue another render.
+        // failed() clears it once the retries are used up.
+        $this->render($renderer);
+        $this->clearRenderRequest();
     }
 
     private function render(VideoRenderer $renderer): void

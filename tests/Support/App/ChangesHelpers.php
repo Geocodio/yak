@@ -12,6 +12,7 @@ use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadSharing;
+use Illuminate\Database\QueryException;
 
 function appTaskPath(YakTask $task, string $suffix = ''): string
 {
@@ -57,4 +58,9 @@ function threadWithChanges(User $owner, array $threadAttributes = []): Thread
     ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id, 'thread_diff_repository_id' => $extra->id, 'path' => 'src/client.ts', 'additions' => 2, 'deletions' => 0]);
 
     return $thread;
+}
+
+function lockWaitTimeout(): QueryException
+{
+    return tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']);
 }
