@@ -102,6 +102,7 @@ public actor PreviewSession {
     private var recordedTurn: TurnChange?
     private var connection: ConnectionState = .live
     private var blockedReasonAtRestoreStart: String?
+    private var automaticTicketTimes: [Date] = []
 
     init(threadID: String, client: APIClient, clock: any YakClock, allowsLoopbackHTTP: Bool) {
         self.threadID = threadID
@@ -428,5 +429,83 @@ public actor PreviewSession {
             if code == "thread_closed" || code == "thread_owned_by_device" { await fetchStatus() }
         }
         return outcome
+    }
+}
+
+public enum PreviewTicketReason: Equatable, Sendable {
+    /// The first ready load of this pane session.
+    case firstLoad
+    /// A bounce or a 401 on /_yak/auth.
+    case signInAgain
+    /// "Try again" on the sign-in card: clears the bound first.
+    case personRetry
+    /// Open in Safari: never counted.
+    case openInBrowser
+}
+
+public enum PreviewTicketOutcome: Equatable, Sendable {
+    case url(URL)
+    /// More than two automatic mints inside 60 seconds.
+    case tooManyAttempts
+    /// 409 thread_closed, thread_owned_by_device, 422 validation_failed, 503 unavailable.
+    case refused(code: String, message: String)
+    /// The answer's URL failed `isAcceptedTicket`.
+    case unexpectedHost
+    case failed(ThreadProblem)
+}
+
+extension PreviewSession {
+    public static let ticketWindow: Duration = .seconds(60)
+    public static let automaticTicketsPerWindow = 2
+
+    /// Mints a single-use ticket for `path` on the preview host. Each call mints a new one and nothing is stored.
+    public func ticket(path: String, reason: PreviewTicketReason) async -> PreviewTicketOutcome {
+        guard !isClosed else { return .failed(.offline) }
+        if state.hasEnded { return .failed(.needsPairing) }
+        guard let text = state.lastPreviewURL, let previewURL = URL(string: text) else {
+            return .failed(.server(code: "not_ready", message: ""))
+        }
+        if reason != .openInBrowser {
+            let now = clock.now()
+            if reason == .personRetry { automaticTicketTimes = [] }
+            let window = Double(Self.ticketWindow.components.seconds)
+            automaticTicketTimes.removeAll { now.timeIntervalSince($0) >= window }
+            if automaticTicketTimes.count >= Self.automaticTicketsPerWindow { return .tooManyAttempts }
+            automaticTicketTimes.append(now)
+        }
+        let host = PreviewNavigation.authority(of: previewURL)
+        let normalized = PreviewAddress.normalize(path, previewHost: host)
+        let ticket: PreviewTicket
+        do throws(APIFailure) {
+            ticket = try await client.send(.previewTicket(threadID, path: normalized))
+        } catch {
+            return await settleRefusedTicket(error)
+        }
+        guard let url = URL(string: ticket.url),
+            PreviewNavigation.isAcceptedTicket(url, previewURL: previewURL, allowsLoopbackHTTP: allowsLoopbackHTTP)
+        else {
+            logFailure("ticket refused: unexpected host")
+            return .unexpectedHost
+        }
+        return .url(url)
+    }
+
+    private func settleRefusedTicket(_ failure: APIFailure) async -> PreviewTicketOutcome {
+        if Self.endsSession(failure) {
+            end()
+            return .failed(ThreadProblem(failure))
+        }
+        if case .server(let error) = failure {
+            if error.status == 503, error.code == "unavailable" {
+                return .refused(code: error.code, message: error.message)
+            }
+            if error.status == 409 || error.status == 422 {
+                await fetchStatus()
+                return .refused(code: error.code, message: error.message)
+            }
+        }
+        let problem = ThreadProblem(failure)
+        logFailure("ticket failed: \(problem.logName)")
+        return .failed(problem)
     }
 }
