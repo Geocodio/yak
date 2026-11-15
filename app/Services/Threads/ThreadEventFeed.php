@@ -30,15 +30,14 @@ class ThreadEventFeed
 
         if ($events === null) {
             $source = 'database';
-            $events = ThreadEvent::query()
+            $events = array_values(ThreadEvent::query()
                 ->where('thread_id', $thread->id)
                 ->where('sequence', '>', $after)
                 ->orderBy('sequence')
                 ->limit($limit)
                 ->get()
                 ->map(fn (ThreadEvent $event): array => $this->shape($event))
-                ->values()
-                ->all();
+                ->all());
         }
 
         return [
