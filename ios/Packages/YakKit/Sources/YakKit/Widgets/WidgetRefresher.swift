@@ -114,16 +114,15 @@ public struct WidgetRefresher: Sendable {
         } else {
             target = first
         }
-        switch await instances.state(of: target.id) {
-        case .needsPairing:
+        let state = await instances.state(of: target.id)
+        if case .needsPairing = state {
             return .done(
-                WidgetRefresh(instance: target, snapshot: nil, state: .needsPairing(host: host(target)), isFresh: false))
-        case .ready, .tokenUnreadable:
-            break
+                WidgetRefresh(instance: target, snapshot: nil, state: .needsPairing(host: host(target)), isFresh: false)
+            )
         }
         let saved = await Cache(instance: target.id, files: environment.files, clock: environment.clock)
             .widgetSnapshot()
-        if await instances.state(of: target.id) == .tokenUnreadable {
+        if state == .tokenUnreadable {
             return .done(
                 WidgetRefresh(instance: target, snapshot: saved, state: unreadableState(target, saved), isFresh: false))
         }

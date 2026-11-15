@@ -62,7 +62,12 @@ private func makeRig(needsPairing: Bool = false) async throws -> Rig {
 private final class Ticks: @unchecked Sendable {
     private let lock = NSLock()
     private var value = 1_000.0
-    func next() -> Date { lock.withLock { value += 1; return Date(timeIntervalSince1970: value) } }
+    func next() -> Date {
+        lock.withLock {
+            value += 1
+            return Date(timeIntervalSince1970: value)
+        }
+    }
 }
 
 struct WidgetRefresherTests {
@@ -142,7 +147,7 @@ struct WidgetRefresherTests {
         await rig.transport.on(listRoute, .json(503, #"{"error":"unavailable","message":"Try later."}"#))
         let refresher = rig.refresher
         let id = rig.first.id
-        let result = await rig.advancing { await refresher.refresh(instance: id, budget: .seconds(60)) }
+        let result = await rig.advancing { await refresher.refresh(instance: id, budget: .seconds(8)) }
         #expect(result.snapshot == fresh.snapshot)
         #expect(result.state == .content)
         #expect(!result.isFresh)
@@ -153,7 +158,7 @@ struct WidgetRefresherTests {
         await rig.transport.on(listRoute, .failure(.notConnectedToInternet))
         let refresher = rig.refresher
         let id = rig.first.id
-        let result = await rig.advancing { await refresher.refresh(instance: id, budget: .seconds(60)) }
+        let result = await rig.advancing { await refresher.refresh(instance: id, budget: .seconds(8)) }
         #expect(result.state == .notLoaded(host: "yak.example.com"))
         #expect(result.snapshot == nil)
         #expect(!result.isFresh)
@@ -228,7 +233,7 @@ struct WidgetRefresherTests {
         await rig.transport.on(listRoute, .failure(.timedOut))
         let refresher = rig.refresher
         let second = rig.second.id
-        _ = await rig.advancing { await refresher.refresh(instance: second, budget: .seconds(60)) }
+        _ = await rig.advancing { await refresher.refresh(instance: second, budget: .seconds(8)) }
         _ = await rig.refresher.refresh(instance: UUID(), budget: .seconds(8))
         _ = await rig.refresher.saved(instance: nil)
         #expect(rig.defaults.writeCount == writesBefore)
