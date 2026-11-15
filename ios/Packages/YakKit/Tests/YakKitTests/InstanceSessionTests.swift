@@ -105,7 +105,7 @@ private func confirmBoth(_ connection: FakeConnection) async {
 private func nextSnapshot(
     _ recorder: StreamRecorder<ConversationSnapshot>, clock: ManualClock,
     where predicate: @escaping @Sendable (ConversationSnapshot) -> Bool
-) async -> ConversationSnapshot {
+) async throws -> ConversationSnapshot {
     let pump = Task {
         while !Task.isCancelled {
             let frame: Duration = .milliseconds(16)
@@ -117,7 +117,7 @@ private func nextSnapshot(
         }
     }
     defer { pump.cancel() }
-    return await recorder.next(where: predicate)
+    return try await recorder.next(where: predicate)
 }
 
 @Suite struct InstanceSessionTests {
@@ -127,7 +127,7 @@ private func nextSnapshot(
         await cache.saveThreadList(try decoded(ThreadList.self, "scenario-thread-list"), filter: .mine)
         let statuses = StreamRecorder(await rig.session.statuses())
         _ = await rig.session.openThread(threadID)
-        _ = await statuses.next { $0 == .needsPairing }
+        _ = try await statuses.next { $0 == .needsPairing }
         #expect(try rig.files.list(InstanceFolders.cache(rig.instance.id)).isEmpty)
         #expect(await rig.instances.state(of: rig.instance.id) == .needsPairing)
         #expect(await rig.session.outbox()?.pauseReason() == .unauthorized(code: "device_revoked"))
@@ -140,7 +140,7 @@ private func nextSnapshot(
         let rig = try await makeRig(keepsToken: false)
         await rig.session.start()
         let statuses = StreamRecorder(await rig.session.statuses())
-        _ = await statuses.next { $0 == .needsPairing }
+        _ = try await statuses.next { $0 == .needsPairing }
         #expect(await rig.transport.requests.isEmpty)
         #expect(await rig.session.openThread(threadID) == nil)
     }
@@ -149,7 +149,7 @@ private func nextSnapshot(
         let rig = try await makeRig(sessionTokens: UnreadableTokenStore())
         await rig.session.start()
         let statuses = StreamRecorder(await rig.session.statuses())
-        _ = await statuses.next { $0 == .tokenUnreadable }
+        _ = try await statuses.next { $0 == .tokenUnreadable }
         #expect(try rig.tokens.token(for: rig.instance.id) == "test-token")
         #expect(await rig.transport.requests.isEmpty)
         #expect(await rig.server.acceptedCount == 0)
@@ -158,7 +158,7 @@ private func nextSnapshot(
     @Test func startStoresWhatMeSays() async throws {
         let rig = try await startedRig()
         let statuses = StreamRecorder(await rig.session.statuses())
-        _ = await statuses.next { $0 == .active }
+        _ = try await statuses.next { $0 == .active }
         let stored = try #require(await rig.instances.all().first)
         #expect(stored.name == "Example Yak" && stored.userName == "Test Person" && stored.needsYouCount == 2)
         #expect(await rig.session.me()?.user.name == "Test Person")
@@ -188,13 +188,13 @@ private func nextSnapshot(
         await rig.transport.hold("GET threads")
         await rig.session.start()
         let statuses = StreamRecorder(await rig.session.statuses())
-        _ = await statuses.next { $0 == .active }
+        _ = try await statuses.next { $0 == .active }
         #expect(await rig.session.me() == nil)
         #expect(await rig.server.acceptedCount == 0)
         let feed = try #require(await rig.session.threadList())
         let states = StreamRecorder(await feed.states())
         await feed.setVisible(true)
-        let shown = await states.next { $0.isShowingCachedCopy }
+        let shown = try await states.next { $0.isShowingCachedCopy }
         #expect(shown.list == cached)
         await rig.clock.waitForSleeper(endingAt: .seconds(1))
         await rig.clock.advance(by: .seconds(1))
@@ -233,7 +233,7 @@ private func nextSnapshot(
         }
         let engine = try #require(await rig.session.openThread(threadID))
         let snapshots = StreamRecorder(await engine.snapshots())
-        _ = await nextSnapshot(snapshots, clock: rig.clock) {
+        _ = try await nextSnapshot(snapshots, clock: rig.clock) {
             $0.load == .ready && $0.lastSequence == 5 && !$0.isShowingCachedCopy
         }
         let connection = await rig.server.waitForConnection(0)
@@ -246,7 +246,7 @@ private func nextSnapshot(
         let six = try #require(broadcasts.first { ($0["sequence"] as? Int) == 6 })
         let data = String(decoding: try JSONSerialization.data(withJSONObject: six), as: UTF8.self)
         await connection.serverSends(Frames.threadEvent(channel: "private-thread.\(threadID)", data: data))
-        _ = await nextSnapshot(snapshots, clock: rig.clock) { $0.lastSequence == 6 }
+        _ = try await nextSnapshot(snapshots, clock: rig.clock) { $0.lastSequence == 6 }
         await rig.session.stop()
     }
 
@@ -256,7 +256,7 @@ private func nextSnapshot(
         let engine = try #require(await rig.session.openThread(threadID))
         let snapshots = StreamRecorder(await engine.snapshots())
         let item = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Please add a test"))
-        let snapshot = await nextSnapshot(snapshots, clock: rig.clock) {
+        let snapshot = try await nextSnapshot(snapshots, clock: rig.clock) {
             if case .unsent(let unsent)? = $0.entries.last { unsent.id == item.id } else { false }
         }
         #expect(snapshot.entries.last?.id == "outbox:\(item.id.uuidString.lowercased())")
@@ -270,7 +270,7 @@ private func nextSnapshot(
         }
         await rig.session.start()
         let statuses = StreamRecorder(await rig.session.statuses())
-        _ = await statuses.next { $0 == .serverTooOld }
+        _ = try await statuses.next { $0 == .serverTooOld }
         #expect(await rig.server.acceptedCount == 0)
         #expect(await rig.session.threadList() == nil)
         #expect(await rig.session.openThread(threadID) == nil)
@@ -288,7 +288,7 @@ private func nextSnapshot(
         }
         let engine = try #require(await rig.session.openThread(threadID))
         let snapshots = StreamRecorder(await engine.snapshots())
-        _ = await nextSnapshot(snapshots, clock: rig.clock) {
+        _ = try await nextSnapshot(snapshots, clock: rig.clock) {
             $0.load == .ready && $0.lastSequence == 5 && !$0.isShowingCachedCopy
         }
         let first = await rig.server.waitForConnection(0)
@@ -322,7 +322,7 @@ private func nextSnapshot(
         let deliveries = StreamRecorder(await outbox.deliveries())
         await rig.transport.waitForRequests(2, on: messages)
         await rig.transport.release(messages)
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         for _ in 0..<100 { await Task.yield() }
         let posts = await rig.transport.requests(on: messages)
         #expect(posts.count == 2)
@@ -339,10 +339,10 @@ private func nextSnapshot(
         let rig = try await startedRig { await $0.on(showRoute, revokedAnswer) }
         let statuses = StreamRecorder(await rig.session.statuses())
         _ = await rig.session.openThread(threadID)
-        _ = await statuses.next { $0 == .needsPairing }
+        _ = try await statuses.next { $0 == .needsPairing }
         try rig.tokens.setToken("new-test-token", for: rig.instance.id)
         await rig.session.start()
-        _ = await statuses.next { $0 == .active }
+        _ = try await statuses.next { $0 == .active }
         await rig.session.stop()
     }
 
@@ -375,7 +375,7 @@ private func nextSnapshot(
         }
         let statuses = StreamRecorder(await rig.session.statuses())
         let item = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Held for pairing"))
-        _ = await statuses.next { $0 == .needsPairing }
+        _ = try await statuses.next { $0 == .needsPairing }
         let paused = try #require(await rig.session.outbox())
         #expect(await paused.pauseReason() == .unauthorized(code: "device_revoked"))
         #expect(await paused.items().map(\.id) == [item.id])
@@ -388,7 +388,7 @@ private func nextSnapshot(
         let fresh = try #require(await rig.session.outbox())
         #expect(fresh !== paused)
         let deliveries = StreamRecorder(await fresh.deliveries())
-        let delivery = await deliveries.next { _ in true }
+        let delivery = try await deliveries.next { _ in true }
         #expect(delivery.sendKey == item.id)
         #expect(await fresh.items().isEmpty && fresh !== paused)
         await rig.session.stop()
@@ -400,7 +400,7 @@ private func nextSnapshot(
         await rig.transport.on("DELETE device", .json(200, "{}"))
         let statuses = StreamRecorder(await rig.session.statuses())
         _ = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Private words"))
-        _ = await statuses.next { $0 == .needsPairing }
+        _ = try await statuses.next { $0 == .needsPairing }
         await rig.session.unpair()
         #expect(try rig.files.list(InstanceFolders.outbox(rig.instance.id)).isEmpty)
         #expect(try rig.files.list("instances/\(rig.instance.id.uuidString)").isEmpty)
@@ -415,7 +415,7 @@ private func nextSnapshot(
         await rig.transport.on(meRoute, revokedAnswer)
         let statuses = StreamRecorder(await rig.session.statuses())
         await rig.session.start()
-        _ = await statuses.next { $0 == .needsPairing }
+        _ = try await statuses.next { $0 == .needsPairing }
         let paused = try #require(await rig.session.outbox())
         #expect(await paused.pauseReason() == .unauthorized(code: "device_revoked"))
         #expect(await paused.items().map(\.id) == [item.id])
@@ -434,9 +434,9 @@ private func nextSnapshot(
         let snapshots = StreamRecorder(await engine.snapshots())
         let item = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Please add a test"))
         let outboxID = "outbox:\(item.id.uuidString.lowercased())"
-        _ = await nextSnapshot(snapshots, clock: rig.clock) { $0.entries.contains { $0.id == outboxID } }
+        _ = try await nextSnapshot(snapshots, clock: rig.clock) { $0.entries.contains { $0.id == outboxID } }
         await rig.transport.release(messages)
-        _ = await nextSnapshot(snapshots, clock: rig.clock) {
+        _ = try await nextSnapshot(snapshots, clock: rig.clock) {
             $0.entries.contains { if case .delivered = $0 { true } else { false } }
         }
         let shown = await snapshots.values

@@ -17,6 +17,7 @@ public enum JSONValue: Codable, Sendable, Equatable {
         let container = try decoder.singleValueContainer()
         if container.decodeNil() {
             self = .null
+        // Decode probes: JSONValue tries each shape in turn.
         } else if let value = try? container.decode(Bool.self) {
             self = .bool(value)
         } else if let value = try? container.decode(Double.self) {
@@ -84,6 +85,7 @@ public struct APIError: Error, Equatable, Sendable {
             let message: String?
             let details: [String: JSONValue]?
         }
+        // Decode probe: a body that is not the error envelope gives nil, and the caller falls back to the status.
         guard let decoded = try? JSONDecoder().decode(Body.self, from: body) else { return nil }
         return APIError(
             status: status, code: decoded.error, message: decoded.message ?? "",

@@ -86,6 +86,7 @@ private struct LossyBlock: Decodable {
     let block: AssistantBlock
 
     init(from decoder: any Decoder) throws {
+        // Decode probe: an unknown or malformed block becomes .unknown instead of failing the whole entry.
         if let block = try? AssistantBlock(from: decoder) {
             self.block = block
         } else {

@@ -72,10 +72,10 @@ struct ThreadListFeedTests {
         await rig.transport.on("GET threads", .json(200, emptyList))
         let recorder = StreamRecorder(await rig.feed.states())
         await rig.feed.setVisible(true)
-        let first = await recorder.next { $0.isShowingCachedCopy }
+        let first = try await recorder.next { $0.isShowingCachedCopy }
         #expect(first.list == cached && first.load == .ready)
         await rig.transport.release("GET threads")
-        let second = await recorder.next { !$0.isShowingCachedCopy && $0.list?.needsYouCount == 0 }
+        let second = try await recorder.next { !$0.isShowingCachedCopy && $0.list?.needsYouCount == 0 }
         #expect(second.isEmpty)
         await rig.feed.setVisible(false)
     }
@@ -127,7 +127,7 @@ struct ThreadListFeedTests {
         await search.value
         let requests = await rig.transport.requests(on: "GET threads")
         #expect(requests.last?.url?.query?.contains("search=import") == true)
-        let state = await recorder.next { $0.search == "import" && $0.load == .ready }
+        let state = try await recorder.next { $0.search == "import" && $0.load == .ready }
         #expect(state.list != nil)
         await rig.feed.setVisible(false)
     }
@@ -137,7 +137,7 @@ struct ThreadListFeedTests {
         await rig.transport.on("GET threads", .json(200, emptyList))
         let recorder = StreamRecorder(await rig.feed.states())
         await rig.feed.refresh()
-        let state = await recorder.next { $0.load == .ready }
+        let state = try await recorder.next { $0.load == .ready }
         #expect(state.isEmpty)
     }
 
@@ -147,14 +147,14 @@ struct ThreadListFeedTests {
         await rig.transport.on("GET threads", .json(200, body))
         let recorder = StreamRecorder(await rig.feed.states())
         await rig.feed.refresh()
-        _ = await recorder.next { $0.load == .ready && !$0.isOffline }
+        _ = try await recorder.next { $0.load == .ready && !$0.isOffline }
         await rig.transport.on("GET threads", .failure(.notConnectedToInternet))
         await rig.feed.refresh()
-        let offline = await recorder.next { $0.isOffline }
+        let offline = try await recorder.next { $0.isOffline }
         #expect(offline.list != nil && offline.load == .ready)
         await rig.transport.on("GET threads", .json(200, body))
         await rig.feed.refresh()
-        let back = await recorder.next { !$0.isOffline && $0.list != nil }
+        let back = try await recorder.next { !$0.isOffline && $0.list != nil }
         #expect(!back.isOffline)
     }
 
@@ -163,15 +163,15 @@ struct ThreadListFeedTests {
         await rig.transport.on("GET threads", .json(401, #"{"error":"unauthenticated","message":"No."}"#))
         await rig.feed.refresh()
         let recorder = StreamRecorder(await rig.feed.states())
-        let state = await recorder.next { _ in true }
+        let state = try await recorder.next { _ in true }
         #expect(state.load == .failed(.needsPairing) && state.list == nil)
         await rig.transport.on("GET threads", .json(200, emptyList))
         await rig.transport.hold("GET threads")
         let retry = Task { await rig.feed.refresh() }
-        _ = await recorder.next { $0.load == .loading }
+        _ = try await recorder.next { $0.load == .loading }
         await rig.transport.release("GET threads")
         await retry.value
-        _ = await recorder.next { $0.load == .ready }
+        _ = try await recorder.next { $0.load == .ready }
     }
 
     @Test func aFirstLoadStillWaitingAfterEightSecondsIsSlow() async throws {
@@ -182,9 +182,9 @@ struct ThreadListFeedTests {
         await rig.feed.setVisible(true)
         await rig.clock.waitForSleeper(endingAt: .seconds(8))
         await rig.clock.advance(by: .seconds(8))
-        _ = await recorder.next { $0.load == .slow }
+        _ = try await recorder.next { $0.load == .slow }
         await rig.transport.release("GET threads")
-        _ = await recorder.next { $0.load == .ready }
+        _ = try await recorder.next { $0.load == .ready }
         await rig.feed.setVisible(false)
     }
 }

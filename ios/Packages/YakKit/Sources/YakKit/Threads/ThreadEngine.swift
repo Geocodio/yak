@@ -59,7 +59,8 @@ public actor ThreadEngine {
     private var frameTask: Task<Void, Never>?
     private var cacheTask: Task<Void, Never>?
     private var isCacheDirty = false
-    private var sideTasks: [UUID: Task<Void, Never>] = [:]
+    private var sideTasks: [Int: Task<Void, Never>] = [:]
+    private var nextSideTaskID = 0
     private var pointersInFlight: Set<Int> = []
     private var isVisible = false
     private var isSubscribed = false
@@ -370,7 +371,8 @@ public actor ThreadEngine {
             return
         }
         guard pointersInFlight.insert(sequence).inserted else { return }
-        let identifier = UUID()
+        nextSideTaskID += 1
+        let identifier = nextSideTaskID
         sideTasks[identifier] = Task {
             await self.fetchPointer(sequence)
             self.sideTasks[identifier] = nil
@@ -475,7 +477,8 @@ public actor ThreadEngine {
     }
 
     private func sendMarkSeen() {
-        let identifier = UUID()
+        nextSideTaskID += 1
+        let identifier = nextSideTaskID
         sideTasks[identifier] = Task {
             do {
                 _ = try await self.client.send(.markSeen(self.threadID))

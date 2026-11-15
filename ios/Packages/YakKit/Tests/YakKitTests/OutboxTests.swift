@@ -60,7 +60,7 @@ private struct Harness {
         await transport.waitForRequests(3, on: threadRoute)
         let keys = await transport.requests(on: threadRoute).map(sendKey)
         #expect(keys == [first.id, first.id, second.id])
-        _ = await deliveries.next { $0.sendKey == second.id }
+        _ = try await deliveries.next { $0.sendKey == second.id }
         #expect(await deliveries.values.map(\.sendKey) == [first.id, second.id])
         #expect(await outbox.items().isEmpty)
     }
@@ -73,12 +73,12 @@ private struct Harness {
         let changes = StreamRecorder(await outbox.changes())
         let deliveries = StreamRecorder(await outbox.deliveries())
         _ = try await outbox.enqueue(draft("Hello"))
-        _ = await changes.next { $0.first?.state == .sending }
+        _ = try await changes.next { $0.first?.state == .sending }
         await clock.waitForSleeper(endingAt: .seconds(5))
         await clock.advance(by: .seconds(5))
-        _ = await changes.next { $0.first?.state == .slow }
+        _ = try await changes.next { $0.first?.state == .slow }
         await transport.release(threadRoute)
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         #expect(await outbox.items().isEmpty)
     }
 
@@ -107,7 +107,7 @@ private struct Harness {
         _ = try await outbox.enqueue(draft("Hello"))
         await clock.waitForSleeper(endingAt: .seconds(12))
         await clock.advance(by: .seconds(12))
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         #expect(await transport.requests(on: threadRoute).count == 2)
     }
 
@@ -122,7 +122,7 @@ private struct Harness {
         let changes = StreamRecorder(await outbox.changes())
         _ = try await outbox.enqueue(draft("First"))
         _ = try await outbox.enqueue(draft("Second"))
-        _ = await changes.next { $0.first?.state == .refused(OutboxRefusal(code: code, message: "m")) }
+        _ = try await changes.next { $0.first?.state == .refused(OutboxRefusal(code: code, message: "m")) }
         await settle()
         let items = await outbox.items()
         #expect(items.map(\.text) == ["First", "Second"])
@@ -137,7 +137,7 @@ private struct Harness {
             .json(426, #"{"error":"protocol_too_old","message":"m","details":{"min_protocol":99}}"#))
         let changes = StreamRecorder(await harness.outbox.changes())
         _ = try await harness.outbox.enqueue(draft("Hello"))
-        _ = await changes.next {
+        _ = try await changes.next {
             $0.first?.state == .refused(OutboxRefusal(code: "protocol_too_old", message: ""))
         }
     }
@@ -149,14 +149,14 @@ private struct Harness {
         let changes = StreamRecorder(await outbox.changes())
         let deliveries = StreamRecorder(await outbox.deliveries())
         _ = try await outbox.enqueue(draft("Hello"))
-        _ = await changes.next { $0.first?.state == .sending }
-        _ = await changes.next { $0.first?.state == .queued }
+        _ = try await changes.next { $0.first?.state == .sending }
+        _ = try await changes.next { $0.first?.state == .queued }
         #expect(await outbox.pauseReason() == .unauthorized(code: "device_revoked"))
         await settle()
         #expect(await transport.requests(on: threadRoute).count == 1)
         #expect(await outbox.items().count == 1)
         await outbox.resume()
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         #expect(await outbox.pauseReason() == nil)
         #expect(await outbox.items().isEmpty)
     }
@@ -177,7 +177,7 @@ private struct Harness {
         }
         await clock.waitForSleeper(endingAt: .seconds(30))
         await outbox.networkReturned()
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         #expect(await transport.requests(on: threadRoute).count == 6)
     }
 
@@ -194,7 +194,7 @@ private struct Harness {
         let item = try #require(await outbox.items().first)
         await #expect(throws: OutboxEditProblem.mayAlreadyBeSent) { try await outbox.edit(item.id, text: "Changed") }
         await outbox.networkReturned()
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         #expect(await transport.requests(on: threadRoute).count == 2)
     }
 
@@ -207,8 +207,8 @@ private struct Harness {
         let item = try await outbox.enqueue(draft("Ordered"))
         await transport.waitForRequests(1, on: threadRoute)
         await transport.release(threadRoute)
-        _ = await updates.next { if case .delivery = $0 { true } else { false } }
-        _ = await updates.next { if case .items(let items) = $0 { items.isEmpty } else { false } }
+        _ = try await updates.next { if case .delivery = $0 { true } else { false } }
+        _ = try await updates.next { if case .items(let items) = $0 { items.isEmpty } else { false } }
         let shown = await updates.values
         let deliveryIndex = try #require(shown.firstIndex { if case .delivery = $0 { true } else { false } })
         let firstWithItem = try #require(
@@ -260,13 +260,13 @@ private struct Harness {
         let changes = StreamRecorder(await refused.outbox.changes())
         let deliveries = StreamRecorder(await refused.outbox.deliveries())
         let refusedItem = try await refused.outbox.enqueue(draft("Bad"))
-        _ = await changes.next {
+        _ = try await changes.next {
             if case .refused? = $0.first?.state { return true }
             return false
         }
         try await refused.outbox.edit(refusedItem.id, text: "Better")
         await refused.outbox.retry(refusedItem.id)
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         let requests = await refused.transport.requests(on: threadRoute)
         #expect(requests.map(sendKey) == [refusedItem.id, refusedItem.id])
         #expect(body(requests[1])["message"] as? String == "Better")
@@ -280,7 +280,7 @@ private struct Harness {
         let deliveries = StreamRecorder(await outbox.deliveries())
         _ = try await outbox.enqueue(draft("Blocked", thread: "aaaa1111"))
         let other = try await outbox.enqueue(draft("Free"))
-        _ = await deliveries.next { $0.sendKey == other.id }
+        _ = try await deliveries.next { $0.sendKey == other.id }
         #expect(await outbox.items().map(\.text) == ["Blocked"])
     }
 
@@ -289,7 +289,7 @@ private struct Harness {
         await harness.transport.on(threadRoute, try .scenario(200, "scenario-message-clear"))
         let deliveries = StreamRecorder(await harness.outbox.deliveries())
         _ = try await harness.outbox.enqueue(draft("/clear"))
-        let delivery = await deliveries.next { _ in true }
+        let delivery = try await deliveries.next { _ in true }
         #expect(delivery.threadID == "n3w7hr3d")
         #expect(delivery.messageUUID == nil)
         #expect(delivery.status == .sent)
@@ -302,7 +302,7 @@ private struct Harness {
         let deliveries = StreamRecorder(await harness.outbox.deliveries())
         let item = try await harness.outbox.enqueue(
             OutboxDraft(target: .newThread(NewThreadDraft(repo: "example/api", mode: "task")), text: "Do it"))
-        let delivery = await deliveries.next { _ in true }
+        let delivery = try await deliveries.next { _ in true }
         #expect(delivery.threadID == "k7m2q9rt")
         #expect(delivery.status == .sent)
         #expect(delivery.sendKey == item.id)
@@ -317,7 +317,7 @@ private struct Harness {
         await harness.transport.on(threadRoute, try .scenario(200, "scenario-message-queued"))
         let deliveries = StreamRecorder(await harness.outbox.deliveries())
         _ = try await harness.outbox.enqueue(draft("Later"))
-        let delivery = await deliveries.next { _ in true }
+        let delivery = try await deliveries.next { _ in true }
         #expect(delivery.status == .queued)
         #expect(delivery.messageUUID == "00000000-0000-4000-8000-0000000000a2")
         #expect(await harness.outbox.items().isEmpty)

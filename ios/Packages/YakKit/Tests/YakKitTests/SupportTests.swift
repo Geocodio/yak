@@ -64,7 +64,7 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
     #expect(clock.sleeperDeadlines == [])
 }
 
-@Test func cancellingASleeperRemovesIt() async {
+@Test func cancellingASleeperRemovesIt() async throws {
     let clock = ManualClock()
     let sleeper = Task { try await clock.sleep(for: .seconds(3)) }
     await clock.waitForSleepers(1)
@@ -73,7 +73,7 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
     #expect(clock.sleeperDeadlines == [])
 }
 
-@Test func sleepingInACancelledTaskThrowsAtOnce() async {
+@Test func sleepingInACancelledTaskThrowsAtOnce() async throws {
     let clock = ManualClock()
     let sleeper = Task {
         withUnsafeCurrentTask { $0?.cancel() }
@@ -83,18 +83,18 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
     #expect(clock.sleeperDeadlines == [])
 }
 
-@Test func broadcastGivesTheCurrentValueFirst() async {
+@Test func broadcastGivesTheCurrentValueFirst() async throws {
     let broadcast = Broadcast(1)
     broadcast.send(2)
     let recorder = StreamRecorder(broadcast.stream())
-    #expect(await recorder.next(where: { _ in true }) == 2)
+    #expect(try await recorder.next(where: { _ in true }) == 2)
     broadcast.send(3)
-    #expect(await recorder.next(where: { _ in true }) == 3)
+    #expect(try await recorder.next(where: { _ in true }) == 3)
     #expect(broadcast.value == 3)
     broadcast.finish()
 }
 
-@Test func broadcastStreamEndsOnFinish() async {
+@Test func broadcastStreamEndsOnFinish() async throws {
     let broadcast = Broadcast("a")
     var received: [String] = []
     let stream = broadcast.stream()
@@ -107,7 +107,7 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
     #expect(late == ["b"])
 }
 
-@Test func concurrentSendsLeaveEveryStreamOnTheLastValue() async {
+@Test func concurrentSendsLeaveEveryStreamOnTheLastValue() async throws {
     let broadcast = Broadcast(0)
     let streams = (0..<4).map { _ in broadcast.stream() }
     await withTaskGroup(of: Void.self) { group in
@@ -122,13 +122,24 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
     }
 }
 
-@Test func streamRecorderMatchesInOrder() async {
+@Test func streamRecorderMatchesInOrder() async throws {
     let broadcast = Broadcast(0)
     let recorder = StreamRecorder(broadcast.stream())
     for value in 1...4 { broadcast.send(value) }
-    #expect(await recorder.next(where: { $0 == 2 }) == 2)
-    #expect(await recorder.next(where: { $0.isMultiple(of: 2) }) == 4)
+    #expect(try await recorder.next(where: { $0 == 2 }) == 2)
+    #expect(try await recorder.next(where: { $0.isMultiple(of: 2) }) == 4)
     #expect(await recorder.values == [0, 1, 2, 3, 4])
+    broadcast.finish()
+}
+
+@Test func streamRecorderTimeoutThrowsInsteadOfCrashing() async {
+    let broadcast = Broadcast(0)
+    let recorder = StreamRecorder(broadcast.stream())
+    await withKnownIssue {
+        await #expect(throws: StreamRecorderTimeout.self) {
+            try await recorder.next(timeout: .milliseconds(100), where: { $0 == 99 })
+        }
+    }
     broadcast.finish()
 }
 
@@ -188,7 +199,7 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
     #expect(String(decoding: viaPrefix, as: UTF8.self).contains("prefix"))
 }
 
-@Test func unknownRoutesAnswerNotFound() async {
+@Test func unknownRoutesAnswerNotFound() async throws {
     let transport = ScriptedTransport()
     do {
         _ = try await makeClient(transport).send(.me())

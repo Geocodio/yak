@@ -51,7 +51,7 @@ private func makeRig(
     if openNow {
         await engine.open()
         let recorder = StreamRecorder(await engine.snapshots())
-        _ = await recorder.next { $0.load == .ready && !$0.isShowingCachedCopy }
+        _ = try await recorder.next { $0.load == .ready && !$0.isShowingCachedCopy }
     }
     return Rig(engine: engine, transport: transport, clock: clock, server: server)
 }
@@ -125,7 +125,7 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     await rig.clock.advance(by: .milliseconds(100))
     await rig.engine.receive(.event(thread))
     await rig.clock.advance(by: .milliseconds(200))
-    let snapshot = await recorder.next { $0.show?.question != nil }
+    let snapshot = try await recorder.next { $0.show?.question != nil }
     #expect(snapshot.lastSequence == 2)
     #expect(snapshot.show?.composer.model == "answer-model")
     for _ in 0..<50 { await Task.yield() }
@@ -143,11 +143,11 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     await rig.clock.advance(by: .milliseconds(300))
     // The client itself tries a 503 four times before it gives up.
     await rig.transport.waitForRequests(5, on: showRoute)
-    _ = await recorder.next { $0.isOffline }
+    _ = try await recorder.next { $0.isOffline }
     await rig.clock.waitForSleeper(endingAt: .milliseconds(3300))
     await rig.clock.advance(by: .seconds(3))
     await rig.transport.waitForRequests(6, on: showRoute)
-    let snapshot = await recorder.next { $0.show?.latestSequence == 5 }
+    let snapshot = try await recorder.next { $0.show?.latestSequence == 5 }
     #expect(snapshot.problem == nil && !snapshot.isOffline)
     await rig.clock.advance(by: .seconds(10))
     for _ in 0..<50 { await Task.yield() }
@@ -161,7 +161,7 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     await rig.engine.receive(.event(turnEvent(1)))
     await rig.clock.waitForSleeper(endingAt: .milliseconds(300))
     await rig.clock.advance(by: .milliseconds(300))
-    _ = await recorder.next { $0.problem == .notFound }
+    _ = try await recorder.next { $0.problem == .notFound }
     await rig.clock.advance(by: .seconds(30))
     for _ in 0..<50 { await Task.yield() }
     #expect(await rig.transport.requests(on: showRoute).count == 2)
@@ -177,7 +177,7 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     let data = try Scenarios.data("scenario-thread-question", setting: ["latestSequence"], toJSON: "8")
     let rig = try await makeRig(
         server: server, show: .json(200, String(decoding: data, as: UTF8.self)))
-    let snapshot = await StreamRecorder(rig.engine.snapshots()).next { $0.lastSequence == 8 }
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.lastSequence == 8 }
     #expect(snapshot.show?.question != nil)
 }
 
@@ -190,12 +190,12 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     for event in list.events where event.sequence <= 6 { await rig.engine.receive(.event(event)) }
     await rig.clock.waitForSleeper(endingAt: .milliseconds(300))
     await rig.clock.advance(by: .milliseconds(300))
-    let loaded = await recorder.next { $0.show?.question != nil }
+    let loaded = try await recorder.next { $0.show?.question != nil }
     #expect(loaded.show?.question?.roundKey == "k3m9p2qa:on_failure,notify")
     let before = await rig.transport.requests(on: showRoute).count
     let closed = ThreadEvent(sequence: 7, type: "question", createdAt: "", data: .object(["open": .bool(false)]))
     await rig.engine.receive(.event(closed))
-    let cleared = await recorder.next { $0.lastSequence == 7 }
+    let cleared = try await recorder.next { $0.lastSequence == 7 }
     #expect(cleared.show?.question == nil)
     #expect(await rig.transport.requests(on: showRoute).count == before)
 }
@@ -205,12 +205,12 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     await rig.transport.hold(showRoute)
     await rig.engine.open()
     let recorder = StreamRecorder(await rig.engine.snapshots())
-    _ = await recorder.next { $0.load == .loading }
+    _ = try await recorder.next { $0.load == .loading }
     await rig.clock.waitForSleeper(endingAt: .seconds(8))
     await rig.clock.advance(by: .seconds(8))
-    _ = await recorder.next { $0.load == .slow }
+    _ = try await recorder.next { $0.load == .slow }
     await rig.transport.release(showRoute)
-    _ = await recorder.next { $0.load == .ready }
+    _ = try await recorder.next { $0.load == .ready }
     #expect(!rig.clock.sleeperDeadlines.contains(.seconds(8)))
 }
 
@@ -236,12 +236,12 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     await transport.hold(eventsRoute)
     await engine.open()
     let recorder = StreamRecorder(await engine.snapshots())
-    _ = await recorder.next { $0.load == .loading }
+    _ = try await recorder.next { $0.load == .loading }
     await clock.waitForSleeper(endingAt: .seconds(8))
     await clock.advance(by: .seconds(8))
-    _ = await recorder.next { $0.load == .slow }
+    _ = try await recorder.next { $0.load == .slow }
     await transport.release(eventsRoute)
-    _ = await recorder.next { $0.load == .ready }
+    _ = try await recorder.next { $0.load == .ready }
 }
 
 @Test func aFailedLoadWithoutARetryStopsPolling() async throws {
@@ -249,7 +249,7 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
         server: emptyServer(), show: .json(404, #"{"error":"not_found","message":"Gone."}"#), openNow: false)
     await rig.engine.open()
     let recorder = StreamRecorder(await rig.engine.snapshots())
-    _ = await recorder.next { $0.load == .failed(.notFound) }
+    _ = try await recorder.next { $0.load == .failed(.notFound) }
     await rig.engine.setVisible(true)
     for _ in 0..<50 { await Task.yield() }
     #expect(!rig.clock.sleeperDeadlines.contains(.seconds(3)))
@@ -276,16 +276,16 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     await transport.hold(showRoute)
     await engine.open()
     let recorder = StreamRecorder(await engine.snapshots())
-    _ = await recorder.next { $0.load == .ready && $0.isShowingCachedCopy }
+    _ = try await recorder.next { $0.load == .ready && $0.isShowingCachedCopy }
     await transport.hold(eventsRoute)
     let older = Task { await engine.loadOlder() }
     await transport.waitForRequests(1, on: eventsRoute)
     await transport.release(showRoute)
-    _ = await recorder.next { $0.load == .loading }
+    _ = try await recorder.next { $0.load == .loading }
     await transport.waitForRequests(2, on: eventsRoute)
     await transport.release(eventsRoute)
     await older.value
-    _ = await recorder.next { $0.lastSequence == 3500 }
+    _ = try await recorder.next { $0.lastSequence == 3500 }
     for _ in 0..<50 { await Task.yield() }
     let last = try #require(await recorder.values.last)
     #expect(eventEntries(last).count == 500 && !last.isLoadingOlder)
@@ -296,7 +296,7 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     await server.publish(through: 1800)
     let rig = try await makeRig(server: server, latestSequence: 1800)
     let recorder = StreamRecorder(await rig.engine.snapshots())
-    let current = await recorder.next { $0.lastSequence == 1800 }
+    let current = try await recorder.next { $0.lastSequence == 1800 }
     #expect(current.hasOlderHistory && !current.isLoadingOlder)
     let before = await rig.transport.requests(on: eventsRoute).count
     await rig.transport.hold(eventsRoute)
@@ -306,7 +306,7 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     #expect(await rig.transport.requests(on: eventsRoute).count == before + 1)
     await rig.transport.release(eventsRoute)
     await first.value
-    let loaded = await recorder.next { !$0.isLoadingOlder && eventEntries($0).count == 1000 }
+    let loaded = try await recorder.next { !$0.isLoadingOlder && eventEntries($0).count == 1000 }
     #expect(await server.requestedAfters.last == 800)
     #expect(loaded.lastSequence == 1800 && loaded.hasOlderHistory)
     let sequences = eventEntries(loaded).compactMap { entry -> Int? in
@@ -325,10 +325,10 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     await server.publish(through: 1800)
     let rig = try await makeRig(server: server, latestSequence: 1800)
     let recorder = StreamRecorder(await rig.engine.snapshots())
-    _ = await recorder.next { $0.lastSequence == 1800 }
+    _ = try await recorder.next { $0.lastSequence == 1800 }
     await rig.transport.on(eventsRoute, .failure(.notConnectedToInternet))
     await rig.engine.loadOlder()
-    let failed = await recorder.next { $0.isOffline && !$0.isLoadingOlder }
+    let failed = try await recorder.next { $0.isOffline && !$0.isLoadingOlder }
     #expect(eventEntries(failed).count == 500 && failed.hasOlderHistory)
 }
 
@@ -337,7 +337,7 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     let before = await rig.transport.requests(on: eventsRoute).count
     await rig.engine.loadOlder()
     #expect(await rig.transport.requests(on: eventsRoute).count == before)
-    let snapshot = await StreamRecorder(rig.engine.snapshots()).next { $0.load == .ready }
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.load == .ready }
     #expect(!snapshot.hasOlderHistory)
 }
 

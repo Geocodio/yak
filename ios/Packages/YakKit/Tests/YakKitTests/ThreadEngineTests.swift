@@ -52,7 +52,7 @@ private func openedEngine(server: EventServer, show: Data) async throws -> Rig {
     let rig = try await makeRig(
         server: server, show: .json(200, String(decoding: show, as: UTF8.self)))
     let recorder = StreamRecorder(await rig.engine.snapshots())
-    _ = await recorder.next { $0.load == .ready && !$0.isShowingCachedCopy }
+    _ = try await recorder.next { $0.load == .ready && !$0.isShowingCachedCopy }
     return rig
 }
 
@@ -60,9 +60,9 @@ private func eventEntries(_ snapshot: ConversationSnapshot) -> [ConversationEntr
     snapshot.entries.filter { if case .event = $0 { true } else { false } }
 }
 
-private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> ConversationSnapshot {
+private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async throws -> ConversationSnapshot {
     let recorder = StreamRecorder(await engine.snapshots())
-    return await recorder.next { $0.lastSequence == sequence && $0.load == .ready }
+    return try await recorder.next { $0.lastSequence == sequence && $0.load == .ready }
 }
 
 @Test func aBrokenStreamEndsInTheSameConversation() async throws {
@@ -73,7 +73,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
         let rig = try await openedEngine(server: server, show: showData(latestSequence: 5))
         await server.publish(through: 14)
         for event in socket { await rig.engine.receive(.event(event)) }
-        return await settled(rig.engine)
+        return try await settled(rig.engine)
     }
     let clean = try await run(list.events.filter { $0.sequence > 5 })
     var broken = list.events.filter { $0.sequence > 5 && $0.sequence != 6 && $0.sequence != 7 }
@@ -91,7 +91,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     let rig = try await openedEngine(server: server, show: showData(latestSequence: 100))
     await server.publish(through: 1301)
     await rig.engine.receive(.event(assistantText(1301)))
-    let snapshot = await settled(rig.engine, at: 1301)
+    let snapshot = try await settled(rig.engine, at: 1301)
     #expect(await server.requestedAfters.suffix(3) == [100, 600, 1100])
     #expect(eventEntries(snapshot).count == 1301)
     #expect(Set(eventEntries(snapshot).map(\.id)).count == 1301)
@@ -110,7 +110,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     #expect(await rig.transport.requests(on: route).count == before + 1)
     await rig.transport.release(route)
     await rig.transport.waitForRequests(before + 2, on: route)
-    _ = await settled(rig.engine, at: 10)
+    _ = try await settled(rig.engine, at: 10)
     for _ in 0..<50 { await Task.yield() }
     #expect(await rig.transport.requests(on: route).count == before + 2)
 }
@@ -128,7 +128,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
         case .pointer(let sequence): await rig.engine.receive(.pointer(sequence: sequence))
         }
     }
-    let snapshot = await settled(rig.engine, at: last)
+    let snapshot = try await settled(rig.engine, at: last)
     let outputs = snapshot.entries.compactMap { entry -> Int? in
         guard case .event(let item) = entry else { return nil }
         return item.steps.compactMap(\.output).map(\.count).max()
@@ -143,7 +143,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     await server.publish(through: 3)
     await rig.transport.on("GET threads/\(threadID)/events/3", .json(500, "{}"))
     await rig.engine.receive(.pointer(sequence: 3))
-    _ = await settled(rig.engine, at: 3)
+    _ = try await settled(rig.engine, at: 3)
     #expect(await server.requestedAfters == [0, 2])
 }
 
@@ -162,10 +162,10 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     await rig.transport.hold(route)
     await rig.engine.open()
     let recorder = StreamRecorder(await rig.engine.snapshots())
-    let first = await recorder.next { $0.load == .ready }
+    let first = try await recorder.next { $0.load == .ready }
     #expect(first.isShowingCachedCopy && first.entries.count == 4)
     await rig.transport.release(route)
-    let confirmed = await recorder.next { !$0.isShowingCachedCopy }
+    let confirmed = try await recorder.next { !$0.isShowingCachedCopy }
     #expect(confirmed.entries.count == 4)
     #expect(await server.requestedAfters == [14])
 }
@@ -175,7 +175,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     await server.publish(through: 1800)
     let rig = try await openedEngine(server: server, show: showData(latestSequence: 1800))
     #expect(await server.requestedAfters.first == 1300)
-    let snapshot = await settled(rig.engine, at: 1800)
+    let snapshot = try await settled(rig.engine, at: 1800)
     #expect(snapshot.hasOlderHistory)
     let request = try #require(await rig.transport.requests(on: "GET threads/\(threadID)/events").first)
     #expect(request.url?.query?.contains("limit=500") == true)
@@ -191,7 +191,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     let server = EventServer(threadID: threadID, events: (1...2500).map(assistantText))
     await server.publish(through: 2500)
     let rig = try await makeRig(server: server, show: try showResult(latestSequence: 2500), cache: cache, clock: clock)
-    let snapshot = await settled(rig.engine, at: 2500)
+    let snapshot = try await settled(rig.engine, at: 2500)
     #expect(await server.requestedAfters.first == 2000)
     #expect(eventEntries(snapshot).count == 500)
 }
@@ -221,7 +221,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     #expect(await recorder.values.count == settledCount)
     await clock.waitForSleepers(existingSleepers + 1)
     await clock.advance(by: .milliseconds(16))
-    let snapshot = await recorder.next { $0.lastSequence == 50 }
+    let snapshot = try await recorder.next { $0.lastSequence == 50 }
     #expect(await recorder.values.count == settledCount + 1)
     let streamed = snapshot.entries.compactMap { entry -> String? in
         guard case .event(let item) = entry, item.isStreaming else { return nil }
@@ -233,10 +233,10 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
 @Test func aFailedOpenWithoutCacheIsAnError() async throws {
     let server = EventServer(threadID: threadID, events: [])
     let missing = try await makeRig(server: server, show: .json(404, #"{"error":"not_found","message":"Gone."}"#))
-    let notFound = await StreamRecorder(missing.engine.snapshots()).next { $0.load != .loading }
+    let notFound = try await StreamRecorder(missing.engine.snapshots()).next { $0.load != .loading }
     #expect(notFound.load == .failed(.notFound))
     let offline = try await makeRig(server: server, show: .failure(.notConnectedToInternet))
-    let snapshot = await StreamRecorder(offline.engine.snapshots()).next { $0.load != .loading }
+    let snapshot = try await StreamRecorder(offline.engine.snapshots()).next { $0.load != .loading }
     #expect(snapshot.load == .failed(.offline) && snapshot.isOffline)
 }
 
@@ -249,7 +249,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
         threadID, CachedThread(show: show, events: list.stored, lastSequence: 14, firstLoadedAfter: 0))
     let server = EventServer(threadID: threadID, events: list.stored)
     let rig = try await makeRig(server: server, show: .failure(.notConnectedToInternet), cache: cache, clock: clock)
-    let snapshot = await StreamRecorder(rig.engine.snapshots()).next { $0.isOffline }
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.isOffline }
     #expect(snapshot.load == .ready && snapshot.isShowingCachedCopy && snapshot.entries.count == 4)
 }
 
@@ -270,7 +270,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
         sendKey: UUID(), target: .thread(threadID), status: .sent, messageUUID: nil, threadID: "n3w7hr3d",
         text: "/clear", sentAt: rig.clock.now())
     await rig.engine.delivered(delivery)
-    let snapshot = await StreamRecorder(rig.engine.snapshots()).next { $0.replacementThreadID != nil }
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.replacementThreadID != nil }
     #expect(snapshot.replacementThreadID == "n3w7hr3d")
 }
 
@@ -280,7 +280,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     let before = await rig.transport.requests(on: "GET threads/\(threadID)/events").count
     let mystery = ThreadEvent(sequence: 1, type: "mystery", createdAt: "", data: .object([:]))
     await rig.engine.receive(.event(mystery))
-    let snapshot = await settled(rig.engine, at: 1)
+    let snapshot = try await settled(rig.engine, at: 1)
     #expect(eventEntries(snapshot).isEmpty)
     #expect(await rig.transport.requests(on: "GET threads/\(threadID)/events").count == before)
 }
@@ -292,7 +292,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     await server.sendMalformed([300])
     await server.publish(through: 1301)
     await rig.engine.receive(.event(assistantText(1301)))
-    let snapshot = await settled(rig.engine, at: 1301)
+    let snapshot = try await settled(rig.engine, at: 1301)
     #expect(await server.requestedAfters.suffix(3) == [100, 600, 1100])
     #expect(eventEntries(snapshot).count == 1300)
 }
@@ -306,7 +306,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     await rig.transport.on(route, .json(500, #"{"error":"server_error","message":"Secret detail."}"#))
     await rig.engine.receive(.subscribed)
     await rig.transport.waitForRequests(before + 1, on: route)
-    let failed = await StreamRecorder(rig.engine.snapshots()).next { $0.problem != nil }
+    let failed = try await StreamRecorder(rig.engine.snapshots()).next { $0.problem != nil }
     #expect(failed.load == .ready && failed.lastSequence == 2 && !failed.entries.isEmpty)
     #expect(failed.problem == .server(code: "server_error", message: "Secret detail."))
     #expect(!failed.isOffline)
@@ -323,7 +323,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     let rig = try await makeRig(
         server: server, show: .json(500, #"{"error":"server_error","message":"Down."}"#), cache: cache,
         clock: clock)
-    let snapshot = await StreamRecorder(rig.engine.snapshots()).next { $0.problem != nil }
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.problem != nil }
     #expect(snapshot.load == .ready && snapshot.isShowingCachedCopy && snapshot.entries.count == 4)
 }
 
@@ -379,7 +379,7 @@ private final class GatedFileStore: FileStore, @unchecked Sendable {
     await rig.engine.requestCatchUp()
     files.proceed.signal()
     await opening.value
-    let snapshot = await StreamRecorder(rig.engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
     #expect(snapshot.entries.count == 4 && !snapshot.isShowingCachedCopy)
     #expect(await server.requestedAfters == [14])
     #expect(await rig.transport.requests(on: "GET threads/\(threadID)").count == 1)

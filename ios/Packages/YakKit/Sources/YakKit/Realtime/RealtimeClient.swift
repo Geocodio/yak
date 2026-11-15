@@ -422,6 +422,7 @@ public actor RealtimeClient {
 
     private static func parseEstablished(_ data: String?) -> (socketID: String, activityTimeout: Double)? {
         guard let bytes = data?.data(using: .utf8),
+            // Decode probe: a malformed connection_established frame gives nil and the caller treats it as a protocol error.
             let object = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any],
             let socketID = object["socket_id"] as? String, !socketID.isEmpty
         else { return nil }
@@ -431,6 +432,7 @@ public actor RealtimeClient {
 
     private static func outcome(forErrorData data: String?) -> Outcome {
         guard let bytes = data?.data(using: .utf8),
+            // Decode probe: a pusher:error frame without a usable code is treated as a plain drop.
             let object = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any],
             let code = (object["code"] as? NSNumber)?.doubleValue
         else { return .dropped }

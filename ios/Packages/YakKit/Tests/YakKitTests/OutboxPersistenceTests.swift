@@ -71,7 +71,7 @@ private struct Setup {
         let onDisk = try JSONDecoder().decode(
             [OutboxItem].self, from: try #require(try first.files.read(second.itemsPath)))
         #expect(onDisk.map(\.state) == [.queued])
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         let request = try #require(await second.transport.requests(on: threadRoute).first)
         let body = try #require(
             request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any])
@@ -149,7 +149,7 @@ private struct Setup {
         await setup.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
         let deliveries = StreamRecorder(await setup.outbox.deliveries())
         _ = try await setup.outbox.enqueue(draft("With files", attachments: attachments))
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         let request = try #require(await setup.transport.requests(on: threadRoute).first)
         let text = String(decoding: try #require(request.httpBody), as: UTF8.self)
         let first = try #require(text.range(of: "filename=\"a.png\""))
@@ -169,7 +169,7 @@ private struct Setup {
             path: OutboxInbox.attachmentPath(instance: setup.instance, item: UUID(), fileName: "gone.png"))
         let changes = StreamRecorder(await setup.outbox.changes())
         _ = try await setup.outbox.enqueue(draft("Lost file", attachments: [missing]))
-        let refused = await changes.next {
+        let refused = try await changes.next {
             if case .refused(let refusal)? = $0.first?.state { return refusal.code == "attachment_missing" }
             return false
         }
@@ -190,7 +190,7 @@ private struct Setup {
         await setup.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
         let deliveries = StreamRecorder(await setup.outbox.deliveries())
         await setup.outbox.load()
-        _ = await deliveries.next { _ in true }
+        _ = try await deliveries.next { _ in true }
         await settle()
         #expect(try setup.files.list("\(InstanceFolders.outbox(setup.instance))/files/\(id.uuidString)") == [])
     }

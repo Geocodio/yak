@@ -1,5 +1,15 @@
 import Foundation
 
+#if canImport(os)
+    import os
+#endif
+
+private func logFailure(_ message: String) {
+    #if canImport(os)
+        Logger(subsystem: "YakKit", category: "FileStore").error("\(message, privacy: .public)")
+    #endif
+}
+
 /// How a file is protected while the device is locked. Only iOS acts on it.
 public enum FileProtection: String, Codable, Sendable {
     case untilFirstUnlock
@@ -107,7 +117,11 @@ public final class InMemoryFileStore: FileStore, @unchecked Sendable {
     }
 
     public func protection(of path: String) -> FileProtection? {
-        guard let key = try? validatedComponents(path).joined(separator: "/") else { return nil }
+        let key: String
+        do { key = try validatedComponents(path).joined(separator: "/") } catch {
+            logFailure("protection lookup for an invalid path: \(type(of: error))")
+            return nil
+        }
         return lock.withLock { files[key]?.protection }
     }
 

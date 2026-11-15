@@ -23,6 +23,7 @@ public struct AccountPicker: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         accounts = try container.decode([ClaudeAccount].self, forKey: .accounts)
+        // Decode probe: PHP encodes an empty map as [], so only a list that decodes empty means "no defaults".
         if let list = try? container.decode([RepositoryDefaults].self, forKey: .defaultsByRepo), list.isEmpty {
             defaultsByRepo = [:]
         } else {

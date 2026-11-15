@@ -32,7 +32,7 @@ private func makeRig(question: Bool = true, cache sharedCache: Cache? = nil) asy
     let cache = sharedCache ?? Cache(instance: UUID(), files: InMemoryFileStore(), clock: clock)
     let engine = ThreadEngine(threadID: threadID, client: client, cache: cache, clock: clock, frameInterval: .zero)
     await engine.open()
-    _ = await StreamRecorder(await engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
+    _ = try await StreamRecorder(await engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
     return Rig(engine: engine, transport: transport, cache: cache)
 }
 
@@ -243,7 +243,7 @@ private func body(of request: URLRequest) throws -> String {
     await transport.waitForRequests(1, on: showRoute)
     #expect(await engine.questionDraft() != nil)
     await transport.release(showRoute)
-    _ = await StreamRecorder(await engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
+    _ = try await StreamRecorder(await engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
     #expect(await engine.questionDraft() != nil)
     await engine.close()
 }

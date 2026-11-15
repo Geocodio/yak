@@ -114,6 +114,7 @@ public actor APIClient {
             request.httpBody = multipart.encoded()
             request.setValue(multipart.contentType, forHTTPHeaderField: "Content-Type")
         } else if let body = endpoint.body {
+            // The caller gets .encodingFailed; the underlying error type adds nothing.
             guard let encoded = try? JSONEncoder().encode(body) else { throw .encodingFailed }
             request.httpBody = encoded
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -132,6 +133,7 @@ public actor APIClient {
         let status = response.statusCode
         if (200..<300).contains(status) {
             if data.isEmpty, let empty = EmptyResponse() as? Response { return empty }
+            // The caller gets .notYak; the underlying error type adds nothing.
             guard let decoded = try? JSONDecoder().decode(Response.self, from: data) else { throw .notYak }
             return decoded
         }

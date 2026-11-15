@@ -66,14 +66,14 @@ public actor Cache {
             guard let found = try files.read(path) else { return nil }
             data = found
         } catch {
-            logFailure("cache read failed: \(error)")
+            logFailure("cache read failed: \(Swift.type(of: error))")
             return nil
         }
         do {
             return try decoder.decode(type, from: data)
         } catch {
             logFailure("cache file not decodable: \(type)")
-            do { try files.remove(path) } catch { logFailure("cache remove failed: \(error)") }
+            do { try files.remove(path) } catch { logFailure("cache remove failed: \(Swift.type(of: error))") }
             return nil
         }
     }
@@ -82,12 +82,12 @@ public actor Cache {
         do {
             try files.write(try encoder.encode(value), to: path, protection: protection)
         } catch {
-            logFailure("cache write failed: \(error)")
+            logFailure("cache write failed: \(Swift.type(of: error))")
         }
     }
 
     private func delete(_ path: String) {
-        do { try files.remove(path) } catch { logFailure("cache remove failed: \(error)") }
+        do { try files.remove(path) } catch { logFailure("cache remove failed: \(Swift.type(of: error))") }
     }
 
     // MARK: Thread list

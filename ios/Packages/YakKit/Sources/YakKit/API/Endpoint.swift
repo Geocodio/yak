@@ -13,8 +13,8 @@ public struct Endpoint<Response>: Sendable {
     public let method: Method
     /// Relative to `/api/app/v1/`, without a leading slash.
     public let path: String
-    /// Encoded as JSON by `APIClient.send`, where an encoding failure is thrown.
     public let query: [URLQueryItem]
+    /// Encoded as JSON by `APIClient.send`, where an encoding failure is thrown.
     public let body: (any Encodable & Sendable)?
     /// Sent instead of `body` when there is one.
     public let multipart: MultipartBody?

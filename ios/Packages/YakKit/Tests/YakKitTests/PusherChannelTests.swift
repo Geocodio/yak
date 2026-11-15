@@ -58,7 +58,7 @@ private func eventJSON(sequence: Int) throws -> String {
         await first.serverSends(Frames.established(socketID: "1.1", activityTimeout: 30))
         await first.waitForSent(2)
         await confirmBoth(first)
-        _ = await messages.next { $0 == .subscribed }
+        _ = try await messages.next { $0 == .subscribed }
         await first.drop()
         await clock.waitForSleeper(endingAt: .seconds(1))
         await clock.advance(by: .seconds(1))
@@ -74,7 +74,7 @@ private func eventJSON(sequence: Int) throws -> String {
             ])
         #expect(await second.sent.allSatisfy { !$0.contains("reverb-key:1.1") })
         await confirmBoth(second)
-        _ = await messages.next { $0 == .subscribed }
+        _ = try await messages.next { $0 == .subscribed }
         #expect(await messages.values.filter { $0 == .subscribed }.count == 2)
         await realtime.stop()
     }
@@ -118,12 +118,12 @@ private func eventJSON(sequence: Int) throws -> String {
             Frames.threadEvent(channel: "private-thread.\(threadID)", data: try eventJSON(sequence: 8)))
         await connection.serverSends(
             Frames.threadEvent(channel: "private-thread.\(threadID)", data: #"{"sequence":9,"pointer":true}"#))
-        let event = await messages.next {
+        let event = try await messages.next {
             if case .event = $0 { return true } else { return false }
         }
         guard case .event(let delivered) = event else { return }
         #expect(delivered.sequence == 8)
-        _ = await messages.next { $0 == .pointer(sequence: 9) }
+        _ = try await messages.next { $0 == .pointer(sequence: 9) }
         #expect(await messages.values.filter { if case .event = $0 { true } else { false } }.count == 1)
         await realtime.stop()
     }
@@ -143,15 +143,15 @@ private func eventJSON(sequence: Int) throws -> String {
         await realtime.start()
         let connection = await server.waitForConnection(0)
         await connection.serverSends(Frames.established(socketID: "1.1", activityTimeout: 30))
-        _ = await refused.next { $0 == .subscriptionFailed(forbidden) }
+        _ = try await refused.next { $0 == .subscriptionFailed(forbidden) }
         await connection.waitForSent(2)
         await confirmBoth(connection)
-        _ = await allowed.next { $0 == .subscribed }
+        _ = try await allowed.next { $0 == .subscribed }
         #expect(await refused.values.contains(.subscribed) == false)
         await realtime.stop()
     }
 
-    @Test func unauthorizedIsPassedOn() async {
+    @Test func unauthorizedIsPassedOn() async throws {
         let server = FakeWebSocketServer()
         let revoked = APIFailure.unauthorized(code: "device_revoked")
         let realtime = makeRealtime(
@@ -160,11 +160,11 @@ private func eventJSON(sequence: Int) throws -> String {
         await realtime.start()
         let connection = await server.waitForConnection(0)
         await connection.serverSends(Frames.established(socketID: "1.1", activityTimeout: 30))
-        _ = await messages.next { $0 == .subscriptionFailed(revoked) }
+        _ = try await messages.next { $0 == .subscriptionFailed(revoked) }
         await realtime.stop()
     }
 
-    @Test func aServerSubscriptionErrorGivesNil() async {
+    @Test func aServerSubscriptionErrorGivesNil() async throws {
         let server = FakeWebSocketServer()
         let realtime = makeRealtime(
             server: server, clock: ManualClock(), authorizer: recordingAuthorizer(AuthCallRecorder()))
@@ -174,11 +174,11 @@ private func eventJSON(sequence: Int) throws -> String {
         await connection.serverSends(Frames.established(socketID: "1.1", activityTimeout: 30))
         await connection.serverSends(
             #"{"event":"pusher:subscription_error","channel":"private-thread.\#(threadID)","data":"{}"}"#)
-        _ = await messages.next { $0 == .subscriptionFailed(nil) }
+        _ = try await messages.next { $0 == .subscriptionFailed(nil) }
         await realtime.stop()
     }
 
-    @Test func unsubscribeLeavesBothChannelsAndEndsTheStream() async {
+    @Test func unsubscribeLeavesBothChannelsAndEndsTheStream() async throws {
         let server = FakeWebSocketServer()
         let realtime = makeRealtime(
             server: server, clock: ManualClock(), authorizer: recordingAuthorizer(AuthCallRecorder()))
@@ -199,7 +199,7 @@ private func eventJSON(sequence: Int) throws -> String {
         await realtime.stop()
     }
 
-    @Test func aSecondSubscribeEndsTheFirstStream() async {
+    @Test func aSecondSubscribeEndsTheFirstStream() async throws {
         let realtime = makeRealtime(
             server: FakeWebSocketServer(), clock: ManualClock(), authorizer: recordingAuthorizer(AuthCallRecorder()))
         let first = await realtime.subscribe(thread: threadID)
@@ -208,7 +208,7 @@ private func eventJSON(sequence: Int) throws -> String {
         await realtime.stop()
     }
 
-    @Test func suspendAndResume() async {
+    @Test func suspendAndResume() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeRealtime(server: server, clock: clock, authorizer: recordingAuthorizer(AuthCallRecorder()))
@@ -218,20 +218,20 @@ private func eventJSON(sequence: Int) throws -> String {
         await first.serverSends(Frames.established(socketID: "1.1", activityTimeout: 30))
         await first.waitForSent(2)
         await confirmBoth(first)
-        _ = await messages.next { $0 == .subscribed }
+        _ = try await messages.next { $0 == .subscribed }
         await realtime.suspend()
         #expect(await first.isClosed)
         #expect(clock.sleeperDeadlines.isEmpty)
         let sent = await first.sent
         #expect(sent.suffix(2).allSatisfy { $0.contains("pusher:unsubscribe") })
-        _ = await messages.next { $0 == .connection(.offline) }
+        _ = try await messages.next { $0 == .connection(.offline) }
         #expect(await server.acceptedCount == 1)
         await realtime.resume()
         let second = await server.waitForConnection(1)
         await second.serverSends(Frames.established(socketID: "2.2", activityTimeout: 30))
         await second.waitForSent(2)
         await confirmBoth(second)
-        _ = await messages.next { $0 == .subscribed }
+        _ = try await messages.next { $0 == .subscribed }
         await realtime.stop()
     }
 
@@ -250,11 +250,11 @@ private func eventJSON(sequence: Int) throws -> String {
         await realtime.stop()
     }
 
-    @Test func streamsStartWithTheConnectionState() async {
+    @Test func streamsStartWithTheConnectionState() async throws {
         let realtime = makeRealtime(
             server: FakeWebSocketServer(), clock: ManualClock(), authorizer: recordingAuthorizer(AuthCallRecorder()))
         let messages = StreamRecorder(await realtime.subscribe(thread: threadID))
-        #expect(await messages.next { _ in true } == .connection(.offline))
+        #expect(try await messages.next { _ in true } == .connection(.offline))
         await realtime.stop()
     }
 }

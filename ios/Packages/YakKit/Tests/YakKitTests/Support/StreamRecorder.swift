@@ -2,6 +2,8 @@ import Foundation
 import Testing
 
 /// Collects what a stream yields, so a test can wait for a value instead of sleeping.
+struct StreamRecorderTimeout: Error {}
+
 actor StreamRecorder<Value: Sendable> {
     private(set) var values: [Value] = []
     private var cursor = 0
@@ -30,9 +32,9 @@ actor StreamRecorder<Value: Sendable> {
     }
 
     /// The first value after the last one `next` returned that matches. A value that does not arrive
-    /// within ten real seconds fails the test and stops the run, instead of hanging it.
-    func next(where predicate: @Sendable (Value) -> Bool) async -> Value {
-        let deadline = ContinuousClock.now + .seconds(10)
+    /// within ten real seconds fails the test that waits, with a throw, instead of hanging or crashing the run.
+    func next(timeout: Duration = .seconds(10), where predicate: @Sendable (Value) -> Bool) async throws -> Value {
+        let deadline = ContinuousClock.now + timeout
         while true {
             if let index = values[cursor...].firstIndex(where: predicate) {
                 cursor = index + 1
@@ -40,7 +42,7 @@ actor StreamRecorder<Value: Sendable> {
             }
             if ContinuousClock.now > deadline {
                 Issue.record("Timed out waiting for a matching value; received \(values)")
-                fatalError("StreamRecorder.next timed out")
+                throw StreamRecorderTimeout()
             }
             let timeout = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(1))

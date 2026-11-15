@@ -27,12 +27,12 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
             await server.connectedURLs[0].absoluteString
                 == "wss://ws.example.test:443/app/reverb-key?protocol=7&client=yak-app&version=1.0.0&flash=false")
         await connection.serverSends(Frames.established(socketID: "123.456", activityTimeout: 30))
-        _ = await states.next { $0 == .live }
+        _ = try await states.next { $0 == .live }
         #expect(await realtime.socketID() == "123.456")
         await realtime.stop()
     }
 
-    @Test func backsOffOneTwoFourEightFifteenThenFifteen() async {
+    @Test func backsOffOneTwoFourEightFifteenThenFifteen() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -49,11 +49,11 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         let connection = await server.waitForConnection(0)
         #expect(await server.connectedURLs.count == 8)
         await connection.serverSends(Frames.established(socketID: "1.2", activityTimeout: 30))
-        _ = await states.next { $0 == .live }
+        _ = try await states.next { $0 == .live }
         await realtime.stop()
     }
 
-    @Test func answersThePingAndPingsWhenQuiet() async {
+    @Test func answersThePingAndPingsWhenQuiet() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -61,7 +61,7 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.start()
         let connection = await server.waitForConnection(0)
         await connection.serverSends(Frames.established(socketID: "1.2", activityTimeout: 120))
-        _ = await states.next { $0 == .live }
+        _ = try await states.next { $0 == .live }
         await connection.serverSends(Frames.ping)
         await connection.waitForSent(1)
         #expect(await connection.sent.last == #"{"event":"pusher:pong","data":{}}"#)
@@ -73,14 +73,14 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await clock.waitForSleeper(endingAt: .seconds(40))
         await clock.advance(by: .seconds(10))
         await connection.waitUntilClosed()
-        _ = await states.next { $0 == .reconnecting }
+        _ = try await states.next { $0 == .reconnecting }
         await clock.waitForSleeper(endingAt: .seconds(41))
         await clock.advance(by: .seconds(1))
         _ = await server.waitForConnection(1)
         await realtime.stop()
     }
 
-    @Test func aMissingHandshakeCountsAsAFailure() async {
+    @Test func aMissingHandshakeCountsAsAFailure() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -90,14 +90,14 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await clock.waitForSleeper(endingAt: .seconds(15))
         await clock.advance(by: .seconds(15))
         await connection.waitUntilClosed()
-        _ = await states.next { $0 == .reconnecting }
+        _ = try await states.next { $0 == .reconnecting }
         await clock.waitForSleeper(endingAt: .seconds(16))
         await clock.advance(by: .seconds(1))
         _ = await server.waitForConnection(1)
         await realtime.stop()
     }
 
-    @Test func aPermanentErrorStopsReconnecting() async {
+    @Test func aPermanentErrorStopsReconnecting() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -105,8 +105,8 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.start()
         let connection = await server.waitForConnection(0)
         await connection.serverSends(Frames.error(code: 4001))
-        _ = await states.next { $0 == .reconnecting }
-        _ = await states.next { $0 == .offline }
+        _ = try await states.next { $0 == .reconnecting }
+        _ = try await states.next { $0 == .offline }
         await connection.waitUntilClosed()
         await clock.advance(by: .seconds(60))
         #expect(clock.sleeperDeadlines.isEmpty)
@@ -117,7 +117,7 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.stop()
     }
 
-    @Test func errorFrom4200ReconnectsAtOnce() async {
+    @Test func errorFrom4200ReconnectsAtOnce() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -128,7 +128,7 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.stop()
     }
 
-    @Test func networkReturnSkipsTheWait() async {
+    @Test func networkReturnSkipsTheWait() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -147,7 +147,7 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.stop()
     }
 
-    @Test func noNetworkMeansOffline() async {
+    @Test func noNetworkMeansOffline() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -156,7 +156,7 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.start()
         await clock.waitForSleeper(endingAt: .seconds(1))
         await realtime.networkPathChanged(isSatisfied: false)
-        _ = await states.next { $0 == .offline }
+        _ = try await states.next { $0 == .offline }
         await clock.advance(by: .seconds(60))
         #expect(await server.connectedURLs.count == 1)
         await realtime.networkPathChanged(isSatisfied: true)
@@ -164,7 +164,7 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.stop()
     }
 
-    @Test func aNetworkChangeWhileStoppedIsRemembered() async {
+    @Test func aNetworkChangeWhileStoppedIsRemembered() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -178,7 +178,7 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.stop()
     }
 
-    @Test func aStartDuringAStopKeepsItsOwnHandshakeTimer() async {
+    @Test func aStartDuringAStopKeepsItsOwnHandshakeTimer() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -197,7 +197,7 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.stop()
     }
 
-    @Test func networkReturningMidAttemptShowsReconnecting() async {
+    @Test func networkReturningMidAttemptShowsReconnecting() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -205,13 +205,13 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.start()
         _ = await server.waitForConnection(0)
         await realtime.networkPathChanged(isSatisfied: false)
-        _ = await states.next { $0 == .offline }
+        _ = try await states.next { $0 == .offline }
         await realtime.networkPathChanged(isSatisfied: true)
-        _ = await states.next { $0 == .reconnecting }
+        _ = try await states.next { $0 == .reconnecting }
         await realtime.stop()
     }
 
-    @Test func sameStateIsNeverBroadcastTwiceInARow() async {
+    @Test func sameStateIsNeverBroadcastTwiceInARow() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -219,29 +219,29 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.start()
         let connection = await server.waitForConnection(0)
         await connection.serverSends(Frames.established(socketID: "1.2", activityTimeout: 30))
-        _ = await states.next { $0 == .live }
+        _ = try await states.next { $0 == .live }
         await realtime.networkPathChanged(isSatisfied: true)
         await connection.drop()
-        _ = await states.next { $0 == .reconnecting }
+        _ = try await states.next { $0 == .reconnecting }
         await realtime.stop()
-        _ = await states.next { $0 == .offline }
+        _ = try await states.next { $0 == .offline }
         let recorded = await states.values
         #expect(recorded == [.offline, .reconnecting, .live, .reconnecting, .offline])
     }
 
-    @Test func noConfigurationNeverConnects() async {
+    @Test func noConfigurationNeverConnects() async throws {
         let server = FakeWebSocketServer()
         let realtime = RealtimeClient(
             configuration: RealtimeConfiguration(nil, appVersion: "1.0.0"), connector: server,
             authorizer: refusingAuthorizer, clock: ManualClock())
         let states = StreamRecorder(await realtime.states())
         await realtime.start()
-        _ = await states.next { $0 == .offline }
+        _ = try await states.next { $0 == .offline }
         #expect(await server.connectedURLs.isEmpty)
         await realtime.stop()
     }
 
-    @Test func stopClosesTheSocketAndDoesNotReconnect() async {
+    @Test func stopClosesTheSocketAndDoesNotReconnect() async throws {
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
@@ -249,13 +249,13 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.start()
         let connection = await server.waitForConnection(0)
         await connection.serverSends(Frames.established(socketID: "1.2", activityTimeout: 30))
-        _ = await states.next { $0 == .live }
+        _ = try await states.next { $0 == .live }
         await realtime.stop()
         #expect(await connection.isClosed)
         #expect(await realtime.socketID() == nil)
         await clock.advance(by: .seconds(60))
         #expect(await server.connectedURLs.count == 1)
-        _ = await states.next { $0 == .offline }
+        _ = try await states.next { $0 == .offline }
     }
 
     @Test func refusesAPlainSocketUnlessAllowed() {

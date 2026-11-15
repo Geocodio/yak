@@ -62,9 +62,16 @@ public enum ThreadEventPayload: Equatable, Sendable {
     case unknown
 
     static func decode(type: String, data: JSONValue) -> ThreadEventPayload {
-        guard let bytes = try? JSONEncoder().encode(data) else { return .unknown }
+        let bytes: Data
+        do { bytes = try JSONEncoder().encode(data) } catch {
+            logEventFailure("event data not encodable: \(Swift.type(of: error))")
+            return .unknown
+        }
         func make<Value: Decodable>(_ valueType: Value.Type) -> Value? {
-            try? JSONDecoder().decode(valueType, from: bytes)
+            do { return try JSONDecoder().decode(valueType, from: bytes) } catch {
+                logEventFailure("event data not decodable as \(valueType): \(Swift.type(of: error))")
+                return nil
+            }
         }
         switch type {
         case "entry": return make(TranscriptEntry.self).map { .entry($0) } ?? .unknown
@@ -114,7 +121,12 @@ public struct EventsPage: Decodable, Equatable, Sendable {
 
 private struct LossyEvent: Decodable {
     let event: ThreadEvent?
-    init(from decoder: any Decoder) throws { event = try? ThreadEvent(from: decoder) }
+    init(from decoder: any Decoder) throws {
+        do { event = try ThreadEvent(from: decoder) } catch {
+            logEventFailure("event dropped: \(Swift.type(of: error))")
+            event = nil
+        }
+    }
 }
 
 /// What the socket delivers on a thread channel: a whole event, or a pointer to fetch one that is too large.
@@ -124,19 +136,29 @@ public enum SocketEvent: Equatable, Sendable {
 
     /// Nil when the payload is neither shape.
     public static func decode(_ data: Data) -> SocketEvent? {
-        guard let value = try? JSONDecoder().decode(JSONValue.self, from: data) else { return nil }
+        let value: JSONValue
+        do { value = try JSONDecoder().decode(JSONValue.self, from: data) } catch {
+            logEventFailure("socket payload not JSON: \(Swift.type(of: error))")
+            return nil
+        }
         if case .bool(true)? = value["pointer"], case .number(let number)? = value["sequence"],
             let sequence = Int(exactly: number)
         {
             return .pointer(sequence: sequence)
         }
-        return (try? JSONDecoder().decode(ThreadEvent.self, from: data)).map { .event($0) }
+        do { return .event(try JSONDecoder().decode(ThreadEvent.self, from: data)) } catch {
+            logEventFailure("socket payload not an event: \(Swift.type(of: error))")
+            return nil
+        }
     }
 }
 
 /// Logs how many events a page dropped, never their content. Linux has no `os.Logger`, so it is a no-op there.
-private func logDroppedEvents(_ count: Int) {
+private func logDroppedEvents(_ count: Int) { logEventFailure("dropped \(count) malformed events") }
+
+/// Logs a failure type, never event content. Linux has no `os.Logger`, so it is a no-op there.
+private func logEventFailure(_ message: String) {
     #if canImport(os)
-        Logger(subsystem: "YakKit", category: "ThreadEvent").error("dropped \(count) malformed events")
+        Logger(subsystem: "YakKit", category: "ThreadEvent").error("\(message, privacy: .public)")
     #endif
 }
