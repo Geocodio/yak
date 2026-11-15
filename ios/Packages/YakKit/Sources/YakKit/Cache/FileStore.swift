@@ -35,11 +35,11 @@ public protocol FileStore: Sendable {
     func remove(_ path: String) throws(FileStoreError)
     /// Names, sorted; empty when the folder is missing.
     func list(_ folder: String) throws(FileStoreError) -> [String]
-    /// Nil when missing; `.tooLarge` when the file holds more than `maximumBytes`. Never loads more than the bound plus one byte.
+    /// Nil when missing; `.tooLarge` when the file holds more than `maximumBytes`. `DiskFileStore` never loads more than the bound plus one byte. The default implementation reads the whole file first, so a conformer that holds large files must override it.
     func read(_ path: String, maximumBytes: Int) throws(FileStoreError) -> Data?
     /// Adds to the end of the file, creating it with `protection` when missing.
     func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError)
-    /// Replaces the destination; `.unreadable` when the source is missing.
+    /// Replaces the destination; `.unreadable` when the source is missing. The default rewrites the destination with `.untilFirstUnlock`, so a conformer that stores `.complete` files must override it to keep their protection.
     func move(_ source: String, to destination: String) throws(FileStoreError)
 }
 
@@ -114,7 +114,7 @@ public struct DiskFileStore: FileStore {
             afterSizeCheck?()
             let handle = try FileHandle(forReadingFrom: location)
             defer { try? handle.close() }
-            let data = try handle.read(upToCount: bound + 1) ?? Data()
+            let data = try handle.read(upToCount: bound == Int.max ? bound : bound + 1) ?? Data()
             if data.count > bound { throw FileStoreError.tooLarge }
             return data
         } catch let error as FileStoreError {
@@ -146,14 +146,11 @@ public struct DiskFileStore: FileStore {
         do {
             try FileManager.default.createDirectory(
                 at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
-            if FileManager.default.fileExists(atPath: to.path) {
-                _ = try FileManager.default.replaceItemAt(to, withItemAt: from)
-            } else {
-                try FileManager.default.moveItem(at: from, to: to)
-            }
         } catch {
             throw .unreadable
         }
+        // rename(2) replaces an existing destination in one atomic step on every platform.
+        if rename(from.path, to.path) != 0 { throw .unreadable }
     }
 
     public func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {

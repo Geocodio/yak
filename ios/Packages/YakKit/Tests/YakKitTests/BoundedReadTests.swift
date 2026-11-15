@@ -14,6 +14,12 @@ private func temporaryRoot() -> URL {
         #expect(try store.read("a", maximumBytes: 10)?.count == 10)
     }
 
+    @Test func noLimitAtIntMaxReadsTheFile() throws {
+        let store = DiskFileStore(root: temporaryRoot())
+        try store.write(Data(repeating: 1, count: 10), to: "a", protection: .untilFirstUnlock)
+        #expect(try store.read("a", maximumBytes: Int.max)?.count == 10)
+    }
+
     @Test func aFileOneByteOverIsRefused() throws {
         let store = DiskFileStore(root: temporaryRoot())
         try store.write(Data(repeating: 1, count: 11), to: "a", protection: .untilFirstUnlock)
