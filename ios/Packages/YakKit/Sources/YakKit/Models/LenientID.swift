@@ -1,5 +1,5 @@
 /// An identifier the server sends as a number or as a string. Stored as a string.
-public struct LenientID: Decodable, Sendable, Equatable, Hashable {
+public struct LenientID: Codable, Sendable, Equatable, Hashable {
     public let value: String
 
     public init(_ value: String) { self.value = value }
@@ -11,5 +11,10 @@ public struct LenientID: Decodable, Sendable, Equatable, Hashable {
         } else {
             value = String(try container.decode(Int.self))
         }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(value)
     }
 }

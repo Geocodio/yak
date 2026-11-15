@@ -72,6 +72,29 @@ func decodesEveryFixture(name: String) throws {
     }
 }
 
+@Test(arguments: [
+    "threads", "thread", "thread-question", "thread-new", "thread-store",
+    "thread-message-sent", "thread-message-queued", "thread-message-clear",
+])
+func decodesEveryThreadFixture(name: String) throws {
+    guard Fixtures.exists(name) else { return }  // Runs once the server's fixture exists.
+    let data = try Fixtures.data(name)
+    switch name {
+    case "threads": _ = try JSONDecoder().decode(ThreadList.self, from: data)
+    case "thread": #expect(try JSONDecoder().decode(ThreadShow.self, from: data).question == nil)
+    case "thread-question":
+        #expect(try JSONDecoder().decode(ThreadShow.self, from: data).question?.questions.isEmpty == false)
+    case "thread-new": _ = try JSONDecoder().decode(NewThreadOptions.self, from: data)
+    case "thread-store": _ = try JSONDecoder().decode(ThreadCreated.self, from: data)
+    case "thread-message-sent": #expect(try JSONDecoder().decode(MessageSendResult.self, from: data).status == .sent)
+    case "thread-message-queued":
+        #expect(try JSONDecoder().decode(MessageSendResult.self, from: data).status == .queued)
+    default:
+        let clear = try JSONDecoder().decode(MessageSendResult.self, from: data)
+        #expect(clear.status == .sent && clear.uuid == nil && clear.threadId != nil)
+    }
+}
+
 /// A wrongly typed field must fail the decode; this is what keeps the fixtures honest.
 @Test(arguments: [
     ("me", ["needsYouCount"], #""0""#),
