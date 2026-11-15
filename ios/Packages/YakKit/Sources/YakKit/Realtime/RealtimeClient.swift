@@ -50,12 +50,12 @@ public actor RealtimeClient {
     private var currentSocketID: String?
     private var sessionOutcome: Outcome?
     private var subscriptions: [String: ThreadSubscription] = [:]
-    private var subscriptionTasks: [Task<Void, Never>] = []
+    private var pendingThreads: [String] = []
+    private var threadInFlight: String?
+    private var subscribeTask: Task<Void, Never>?
     private var isSuspended = false
-    private var nextToken = 0
 
     private struct ThreadSubscription {
-        let token: Int
         let continuation: AsyncStream<ThreadChannelMessage>.Continuation
         var confirmedChannels: Set<String> = []
         var hasAnnounced = false
@@ -82,6 +82,7 @@ public actor RealtimeClient {
 
     /// Closes the socket, sets `offline`, stops reconnecting and ends every thread stream.
     public func stop() async {
+        isSuspended = false
         let finished = subscriptions.values
         subscriptions = [:]
         for subscription in finished { subscription.continuation.finish() }
@@ -89,8 +90,10 @@ public actor RealtimeClient {
     }
 
     private func closeConnection() async {
-        for task in subscriptionTasks { task.cancel() }
-        subscriptionTasks = []
+        subscribeTask?.cancel()
+        subscribeTask = nil
+        pendingThreads = []
+        threadInFlight = nil
         let task = runTask
         runTask = nil
         generation += 1
@@ -157,12 +160,9 @@ public actor RealtimeClient {
     public func subscribe(thread id: String) -> AsyncStream<ThreadChannelMessage> {
         let (stream, continuation) = AsyncStream<ThreadChannelMessage>.makeStream(bufferingPolicy: .unbounded)
         subscriptions[id]?.continuation.finish()
-        nextToken += 1
-        subscriptions[id] = ThreadSubscription(token: nextToken, continuation: continuation)
+        subscriptions[id] = ThreadSubscription(continuation: continuation)
         continuation.yield(.connection(stateBroadcast.value))
-        if let socketID = currentSocketID {
-            subscriptionTasks.append(Task { await self.subscribeChannels(of: [id], socketID: socketID) })
-        }
+        if let socketID = currentSocketID { enqueue([id], socketID: socketID) }
         return stream
     }
 
@@ -190,44 +190,69 @@ public actor RealtimeClient {
         guard currentSocketID != nil, let connection else { return }
         for thread in threads {
             for name in Self.channelNames(for: thread) {
-                let frame = PusherFrame(
-                    event: "pusher:unsubscribe", data: Self.json(["channel": name])
-                ).encoded()
+                guard let data = json(["channel": name]) else { continue }
+                let frame = PusherFrame(event: "pusher:unsubscribe", data: data).encoded()
                 do { try await connection.send(frame) } catch { log("unsubscribe send failed: \(type(of: error))") }
             }
         }
     }
 
-    private static func json(_ object: [String: String]) -> String {
+    private func json(_ object: [String: String]) -> String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        guard let bytes = try? encoder.encode(object) else { return "{}" }
-        return String(decoding: bytes, as: UTF8.self)
+        do {
+            return String(decoding: try encoder.encode(object), as: UTF8.self)
+        } catch {
+            log("frame encoding failed: \(type(of: error))")
+            return nil
+        }
+    }
+
+    /// Queues threads for this socket. One task drains the queue, so only one authorization is in
+    /// flight; a thread already queued or in flight is not queued twice.
+    private func enqueue(_ threads: [String], socketID: String) {
+        for thread in threads where thread != threadInFlight && !pendingThreads.contains(thread) {
+            pendingThreads.append(thread)
+        }
+        guard subscribeTask == nil, !pendingThreads.isEmpty else { return }
+        subscribeTask = Task { await self.drainQueue(socketID: socketID) }
     }
 
     /// Authorizes with this socket's id and subscribes, one channel at a time. Stops at once when the
     /// socket is gone, so the next socket starts over with its own id.
-    private func subscribeChannels(of threads: [String], socketID: String) async {
-        for thread in threads {
-            for name in Self.channelNames(for: thread) {
-                guard currentSocketID == socketID, subscriptions[thread] != nil, let connection else { return }
-                let authorization: ChannelAuthorization
-                do throws(APIFailure) {
-                    authorization = try await authorizer(socketID, name)
-                } catch {
-                    guard currentSocketID == socketID else { return }
-                    subscriptions[thread]?.continuation.yield(.subscriptionFailed(error))
-                    break
-                }
-                guard currentSocketID == socketID, subscriptions[thread] != nil else { return }
-                var data = ["auth": authorization.auth, "channel": name]
-                if let channelData = authorization.channelData { data["channel_data"] = channelData }
-                do {
-                    try await connection.send(PusherFrame(event: "pusher:subscribe", data: Self.json(data)).encoded())
-                } catch {
-                    log("subscribe send failed: \(type(of: error))")
-                    return
-                }
+    private func drainQueue(socketID: String) async {
+        while currentSocketID == socketID, !Task.isCancelled, !pendingThreads.isEmpty {
+            let thread = pendingThreads.removeFirst()
+            threadInFlight = thread
+            await subscribeChannels(of: thread, socketID: socketID)
+            if threadInFlight == thread { threadInFlight = nil }
+        }
+        if currentSocketID == socketID, !Task.isCancelled { subscribeTask = nil }
+    }
+
+    private func subscribeChannels(of thread: String, socketID: String) async {
+        for name in Self.channelNames(for: thread) {
+            guard currentSocketID == socketID, subscriptions[thread] != nil, let connection else { return }
+            let authorization: ChannelAuthorization
+            do throws(APIFailure) {
+                authorization = try await authorizer(socketID, name)
+            } catch {
+                guard currentSocketID == socketID else { return }
+                subscriptions[thread]?.continuation.yield(.subscriptionFailed(error))
+                return
+            }
+            guard currentSocketID == socketID, subscriptions[thread] != nil else { return }
+            var data = ["auth": authorization.auth, "channel": name]
+            if let channelData = authorization.channelData { data["channel_data"] = channelData }
+            guard let payload = json(data) else {
+                subscriptions[thread]?.continuation.yield(.subscriptionFailed(nil))
+                return
+            }
+            do {
+                try await connection.send(PusherFrame(event: "pusher:subscribe", data: payload).encoded())
+            } catch {
+                log("subscribe send failed: \(type(of: error))")
+                return
             }
         }
     }
@@ -369,10 +394,11 @@ public actor RealtimeClient {
                 subscriptions[key]?.hasAnnounced = false
             }
             let socketID = established.socketID
-            let threads = subscriptions.keys.sorted()
-            for task in subscriptionTasks { task.cancel() }
-            subscriptionTasks = []
-            subscriptionTasks.append(Task { await self.subscribeChannels(of: threads, socketID: socketID) })
+            subscribeTask?.cancel()
+            subscribeTask = nil
+            pendingThreads = []
+            threadInFlight = nil
+            enqueue(subscriptions.keys.sorted(), socketID: socketID)
             activityTimeout = .seconds(min(established.activityTimeout, 30))
             attempt = 0
             if hasNetwork { publish(.live) }

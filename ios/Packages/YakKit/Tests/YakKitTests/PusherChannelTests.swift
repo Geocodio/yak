@@ -221,6 +221,9 @@ private func eventJSON(sequence: Int) throws -> String {
         _ = await messages.next { $0 == .subscribed }
         await realtime.suspend()
         #expect(await first.isClosed)
+        #expect(clock.sleeperDeadlines.isEmpty)
+        let sent = await first.sent
+        #expect(sent.suffix(2).allSatisfy { $0.contains("pusher:unsubscribe") })
         _ = await messages.next { $0 == .connection(.offline) }
         #expect(await server.acceptedCount == 1)
         await realtime.resume()
@@ -229,6 +232,21 @@ private func eventJSON(sequence: Int) throws -> String {
         await second.waitForSent(2)
         await confirmBoth(second)
         _ = await messages.next { $0 == .subscribed }
+        await realtime.stop()
+    }
+
+    @Test func startAfterSuspendAndStopConnects() async {
+        let server = FakeWebSocketServer()
+        let clock = ManualClock()
+        let realtime = makeRealtime(server: server, clock: clock, authorizer: recordingAuthorizer(AuthCallRecorder()))
+        _ = await realtime.subscribe(thread: threadID)
+        await realtime.start()
+        let first = await server.waitForConnection(0)
+        await first.serverSends(Frames.established(socketID: "1.1", activityTimeout: 30))
+        await realtime.suspend()
+        await realtime.stop()
+        await realtime.start()
+        _ = await server.waitForConnection(1)
         await realtime.stop()
     }
 
