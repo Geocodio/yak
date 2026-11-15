@@ -82,8 +82,11 @@ class ThreadFactory
             $thread = $this->create($locked->repo, $locked, $seedsFromRoot ? $locked->branch_name : null, null);
 
             if ($seedsFromRoot && $locked->session_id !== null) {
-                $thread->sessions()->create(['session_id' => $locked->session_id, 'kind' => ThreadSessionKind::Main]);
-                $this->sessionSync->seedFromLegacyTranscript($thread, $locked->session_id);
+                // A missing transcript means the session is gone (a review's sandbox is destroyed),
+                // so the main session is only recorded when it can be resumed; otherwise the thread starts fresh.
+                if ($this->sessionSync->seedFromLegacyTranscript($thread, $locked->session_id)) {
+                    $thread->sessions()->create(['session_id' => $locked->session_id, 'kind' => ThreadSessionKind::Main]);
+                }
             }
 
             $locked->forceFill(['thread_id' => $thread->id])->save();

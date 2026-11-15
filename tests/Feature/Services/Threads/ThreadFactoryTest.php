@@ -64,12 +64,22 @@ it('creates one thread for repeated calls on the same root', function () {
 });
 
 it('seeds the main session from a legacy root', function () {
+    $this->mock(SessionSync::class)->shouldReceive('seedFromLegacyTranscript')->andReturn(true);
     $root = YakTask::factory()->create(['thread_id' => null, 'session_id' => 'sess_legacy', 'branch_name' => 'yak/fix']);
 
     $thread = app(ThreadFactory::class)->forTask($root);
 
     expect($thread->activeSession()?->session_id)->toBe('sess_legacy')
         ->and($thread->activeSession()?->kind)->toBe(ThreadSessionKind::Main)
+        ->and($thread->branch)->toBe('yak/fix');
+});
+
+it('starts a fresh session when the legacy transcript is missing', function () {
+    $root = YakTask::factory()->create(['thread_id' => null, 'session_id' => 'sess_gone', 'branch_name' => 'yak/fix']);
+
+    $thread = app(ThreadFactory::class)->forTask($root);
+
+    expect($thread->sessions()->count())->toBe(0)
         ->and($thread->branch)->toBe('yak/fix');
 });
 
