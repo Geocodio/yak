@@ -52,7 +52,7 @@
             "access": "write",
             "isLinked": true,
             "isRequester": true,
-            "login": "mhansen"
+            "login": "test-person"
         }
     },
     "composer": {

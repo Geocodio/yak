@@ -71,36 +71,20 @@
     },
     "questions": [
         {
-            "header": "Scope",
-            "id": "scope",
+            "header": "On failure",
+            "id": "on_failure",
             "multiSelect": false,
             "options": [
                 {
                     "description": "",
-                    "label": "Small"
+                    "label": "Mark the row as failed"
                 },
                 {
                     "description": "",
-                    "label": "Large"
+                    "label": "Fail the whole batch"
                 }
             ],
-            "question": "Which scope?"
-        },
-        {
-            "header": "Data",
-            "id": "data",
-            "multiSelect": false,
-            "options": [
-                {
-                    "description": "",
-                    "label": "Live"
-                },
-                {
-                    "description": "",
-                    "label": "Sample"
-                }
-            ],
-            "question": "Which data?"
+            "question": "When all retries fail, what should happen to the row?"
         }
     ],
     "task": {

@@ -45,7 +45,7 @@ function taskShowTask(array $attributes = []): YakTask
 
 it('shows a held task inside a thread to a person who can decide', function () {
     taskShowSetup();
-    $user = User::factory()->withGitHub()->create(['name' => 'Test person']);
+    $user = User::factory()->withGitHub(login: 'test-person')->create(['name' => 'Test person']);
     $thread = Thread::factory()->create(['public_id' => 'd0e515ef', 'created_by_user_id' => $user->id, 'title' => 'Retry failed uploads']);
     $task = taskShowTask(['status' => TaskStatus::AwaitingCoOwner, 'thread_id' => $thread->id, 'started_by_user_id' => $user->id]);
     CoOwnerRequest::factory()->create(['task_id' => $task->id, 'root_task_id' => $task->id, 'repository_id' => Repository::where('slug', 'example/api')->value('id'), 'asked_user_ids' => [$user->id]]);
@@ -65,7 +65,10 @@ it('shows a held task inside a thread to a person who can decide', function () {
 it('shows a task outside any thread with open questions', function () {
     taskShowSetup();
     $user = User::factory()->create(['name' => 'Test person']);
-    $task = YakTask::factory()->withClarificationQuestions()->create([
+    $task = YakTask::factory()->withClarificationQuestions([[
+        'id' => 'on_failure', 'header' => 'On failure', 'question' => 'When all retries fail, what should happen to the row?',
+        'options' => [['label' => 'Mark the row as failed', 'description' => ''], ['label' => 'Fail the whole batch', 'description' => '']], 'multi_select' => false,
+    ]])->create([
         'public_id' => 'k3m9p2qa', 'repo' => 'example/api', 'mode' => TaskMode::Fix, 'description' => 'Upgrade the payments SDK',
         'source' => 'linear', 'external_id' => 'ENG-12', 'external_url' => 'https://linear.example.com/issue/ENG-12',
         'author_name' => 'Test person', 'cost_usd' => 0, 'branch_name' => null, 'pr_url' => null, 'pr_number' => null,
@@ -167,6 +170,30 @@ it('answers within the time bound when GitHub is slow', function () {
     foreach ($recorded as $options) {
         expect($options['timeout'] ?? null)->not->toBe(3);
     }
+});
+
+it('bounds the collaborator permission call when only that call is slow', function () {
+    taskShowSetup();
+    configureFakeGitHubApp();
+    $user = User::factory()->withGitHub(login: 'test-person')->create(['name' => 'Test person']);
+    $task = taskShowTask(['status' => TaskStatus::AwaitingCoOwner, 'started_by_user_id' => $user->id]);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'root_task_id' => $task->id, 'repository_id' => Repository::where('slug', 'example/api')->value('id'), 'asked_user_ids' => [$user->id]]);
+    Cache::flush();
+
+    $permissionOptions = null;
+    Http::swap(new Factory);
+    Http::fake([
+        'api.github.com/user/*' => Http::response(['login' => 'test-person']),
+        'api.github.com/repos/*/collaborators/*/permission' => function (Request $request, array $options) use (&$permissionOptions) {
+            $permissionOptions = $options;
+            throw new ConnectionException('Operation timed out');
+        },
+    ] + gitHubTokenFake());
+
+    $this->getJson(appTaskPath($task), phoneHeadersFor($user))->assertOk()->assertJsonPath('coOwner.viewer.access', 'error');
+
+    expect($permissionOptions)->not->toBeNull()
+        ->and($permissionOptions['timeout'])->toBe(3)->and($permissionOptions['connect_timeout'])->toBe(2);
 });
 
 it('refuses without a token, with a revoked phone and with a computer token', function () {

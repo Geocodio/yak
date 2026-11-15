@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
  *
  * @phpstan-type AppTask array{
  *     task: array<string, mixed>,
- *     thread: array<int, array<string, mixed>>|array<string, mixed>|null,
+ *     thread: list<array<string, mixed>>,
  *     progress: array{steps: array<int, array<string, mixed>>},
  *     coOwner: array<string, mixed>|null,
  *     earlyWarning: array<string, mixed>|null,
@@ -33,7 +33,7 @@ final class AppTaskData
     /**
      * A follow-up task answers with its root's detail.
      *
-     * @return array<string, mixed>
+     * @return AppTask
      */
     public static function for(YakTask $task, Request $request): array
     {
@@ -46,6 +46,7 @@ final class AppTaskData
 
         $thread = $root->thread;
 
+        /** @var AppTask */
         return [
             ...$detail,
             'threadId' => $thread?->public_id,
