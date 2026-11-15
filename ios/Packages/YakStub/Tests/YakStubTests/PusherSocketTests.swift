@@ -49,6 +49,7 @@ private final class Client: @unchecked Sendable {
             }
             group.addTask {
                 try await Task.sleep(for: .seconds(5))
+                self.task.cancel(with: .goingAway, reason: nil)
                 throw URLError(.timedOut)
             }
             defer { group.cancelAll() }
@@ -62,7 +63,8 @@ private final class Client: @unchecked Sendable {
 
 @Suite struct PusherSocketTests {
     @Test func handshakeSubscribeAndPong() async throws {
-        let (_, _, socketPort) = try await startedServer(.paired)
+        let (server, _, socketPort) = try await startedServer(.paired)
+        defer { server.stop() }
         let first = Client(socketPort)
         let established = try await first.receive()
         #expect(established["event"] as? String == "pusher:connection_established")
@@ -86,7 +88,8 @@ private final class Client: @unchecked Sendable {
     }
 
     @Test func playsTheEventListInOrder() async throws {
-        let (_, port, socketPort) = try await startedServer(.oneThreadWorking)
+        let (server, port, socketPort) = try await startedServer(.oneThreadWorking)
+        defer { server.stop() }
         let client = Client(socketPort)
         _ = try await client.receive()
         try await client.send(#"{"event":"pusher:subscribe","channel":"private-thread.d0e515ef"}"#)
@@ -110,8 +113,10 @@ private final class Client: @unchecked Sendable {
     }
 
     @Test func offlineClosesSocketsAndPausesPlayback() async throws {
-        let (_, port, socketPort) = try await startedServer(.oneThreadWorking)
+        let (server, port, socketPort) = try await startedServer(.oneThreadWorking)
+        defer { server.stop() }
         let client = Client(socketPort)
+        defer { client.task.cancel(with: .normalClosure, reason: nil) }
         _ = try await client.receive()
         try await client.send(#"{"event":"pusher:subscribe","channel":"private-thread.d0e515ef"}"#)
         _ = try await client.receive()
@@ -123,20 +128,38 @@ private final class Client: @unchecked Sendable {
             last = item?["sequence"] as? Int ?? last
         }
         try await post(port, "/__stub/online", "no")
-        let refused = Client(socketPort)
-        await #expect(throws: (any Error).self) { _ = try await refused.receive() }
-        try await post(port, "/__stub/online", "yes")
+        // The open socket closes; frames already in flight may arrive first.
+        var closeError: (any Error)?
+        do {
+            while true { _ = try await client.receive() }
+        } catch { closeError = error }
+        #expect(closeError != nil && (closeError as? URLError)?.code != .timedOut)
+        // Playback stays paused while offline, apart from a publish that was already in flight.
         try await Task.sleep(for: .milliseconds(300))
-        let published = try await get(port, "/api/app/v1/threads/d0e515ef/events?after=0&limit=500", authorized: true)
-        #expect((published["latestSequence"] as? Int ?? 0) >= 3)
+        try await post(port, "/__stub/online", "yes")
+        let pausedAt = try await get(port, "/api/app/v1/threads/d0e515ef/events?after=0&limit=500", authorized: true)
+        let paused = pausedAt["latestSequence"] as? Int ?? 0
+        #expect(paused >= last && paused <= last + 1)
+
+        // Playback resumes where it paused and reaches the end.
         let again = Client(socketPort)
+        defer { again.task.cancel(with: .normalClosure, reason: nil) }
         _ = try await again.receive()
         try await again.send(#"{"event":"pusher:subscribe","channel":"private-thread.d0e515ef"}"#)
         #expect(try await again.receive()["event"] as? String == "pusher_internal:subscription_succeeded")
+        var sequences: [Int] = []
+        while sequences.last != 14 {
+            let frame = try await again.receive()
+            let item =
+                try JSONSerialization.jsonObject(with: Data((frame["data"] as? String ?? "").utf8)) as? [String: Any]
+            if let sequence = item?["sequence"] as? Int { sequences.append(sequence) }
+        }
+        #expect((sequences.first ?? 0) > paused)
     }
 
     @Test func meNamesTheSocket() async throws {
-        let (_, port, socketPort) = try await startedServer(.paired)
+        let (server, port, socketPort) = try await startedServer(.paired)
+        defer { server.stop() }
         let me = try await get(port, "/api/app/v1/me", authorized: true)
         let realtime = me["realtime"] as? [String: Any]
         #expect(realtime?["host"] as? String == "127.0.0.1")

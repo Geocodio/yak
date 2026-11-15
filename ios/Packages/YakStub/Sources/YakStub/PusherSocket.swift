@@ -70,6 +70,12 @@ final class PusherSocket: Sendable {
         for connection in open { connection.cancel() }
     }
 
+    /// Stops listening, cancels every playback and closes every socket.
+    func stop() {
+        listener.cancel()
+        reset()
+    }
+
     /// Cancels every playback and forgets which threads played; called for a new scenario.
     func reset() {
         let tasks = state.mutate { state -> [Task<Void, Never>] in
@@ -144,24 +150,25 @@ final class PusherSocket: Sendable {
     private func startPlayback(_ id: String) {
         let current = scenario()
         guard current.playsLive else { return }
-        let first = state.mutate { $0.playing.insert(id).inserted }
-        guard first else { return }
         let items = current.broadcasts(id, fixtures, "http://127.0.0.1")
-        let task = Task { [self] in
-            for item in items {
-                while !isOnline() {
-                    if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
-                }
-                if (try? await Task.sleep(for: playbackInterval)) == nil { return }
-                while !isOnline() {
-                    if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
-                }
-                if threads.isStopped(id) { return }
-                threads.publish(id, through: item.sequence)
-                publish(item.json, thread: id)
-            }
+        state.mutate { state in
+            guard state.playing.insert(id).inserted else { return }
+            state.playbacks.append(
+                Task { [self] in
+                    for item in items {
+                        while !isOnline() {
+                            if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
+                        }
+                        if (try? await Task.sleep(for: playbackInterval)) == nil { return }
+                        while !isOnline() {
+                            if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
+                        }
+                        if Task.isCancelled || threads.isStopped(id) { return }
+                        threads.publish(id, through: item.sequence)
+                        publish(item.json, thread: id)
+                    }
+                })
         }
-        state.mutate { $0.playbacks.append(task) }
     }
 
     private func publish(_ json: String, thread id: String) {

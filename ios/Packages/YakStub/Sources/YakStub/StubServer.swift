@@ -65,6 +65,12 @@ final class StubServer: Sendable {
         }
     }
 
+    /// Stops both listeners and closes every WebSocket.
+    func stop() {
+        listener.cancel()
+        socket.stop()
+    }
+
     private func handle(_ connection: NWConnection) {
         connection.start(queue: .global())
         Task {
