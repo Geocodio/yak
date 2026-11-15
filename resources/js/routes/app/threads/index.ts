@@ -5,6 +5,7 @@ import share from './share'
 import restore from './restore'
 import queuedMessages from './queued-messages'
 import events from './events'
+import preview from './preview'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadListController::__invoke
 * @see app/Http/Controllers/Api/App/Threads/ThreadListController.php:12
@@ -428,6 +429,7 @@ const threads = {
     restore: Object.assign(restore, restore),
     queuedMessages: Object.assign(queuedMessages, queuedMessages),
     events: Object.assign(events, events),
+    preview: Object.assign(preview, preview),
 }
 
 export default threads

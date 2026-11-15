@@ -36,6 +36,28 @@ class PreviewAccess
     }
 
     /**
+     * Only same-host paths: a single leading slash, never //host or /\host.
+     * Control characters and whitespace are rejected because browsers strip
+     * tabs and newlines from URLs, which would turn "/\t/host" into "//host".
+     */
+    public function isSameHostPath(string $path): bool
+    {
+        return ! preg_match('/[\x00-\x20\x7f]/', $path) && (bool) preg_match('#^/(?![/\\\\])#', $path);
+    }
+
+    /**
+     * The preview host's handshake URL: it trades a fresh single-use ticket
+     * for the host-only cookie and then redirects to the path.
+     */
+    public function ticketUrl(string $host, User $user, string $path): string
+    {
+        return 'https://' . strtolower($host) . '/_yak/auth?' . http_build_query([
+            'ticket' => $this->mintTicket($host, $user),
+            'to' => $path,
+        ]);
+    }
+
+    /**
      * Returns the user id the ticket was minted for, or null when the ticket
      * is tampered, expired, for another host, or already used.
      */

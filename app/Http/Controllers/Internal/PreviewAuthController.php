@@ -26,11 +26,8 @@ class PreviewAuthController
             return response('This preview link has expired. Reload the page to sign in again.', 401);
         }
 
-        // Only same-host paths: a single leading slash, never //host or /\host.
-        // Control characters and whitespace are rejected because browsers strip
-        // tabs and newlines from URLs, which would turn "/\t/host" into "//host".
         $to = (string) $request->query('to', '/');
-        if (preg_match('/[\x00-\x20\x7f]/', $to) || ! preg_match('#^/(?![/\\\\])#', $to)) {
+        if (! $this->previewAccess->isSameHostPath($to)) {
             $to = '/';
         }
 
