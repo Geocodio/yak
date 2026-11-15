@@ -50,8 +50,10 @@ func (in DownInput) threadRef() string {
 type DownResult struct {
 	ThreadID  int
 	SessionID string
-	ResumeDir string
-	Applied   []AppliedRepo
+	// TeleportID is the epoch the resumed claude must carry in YAK_TELEPORT_EPOCH.
+	TeleportID string
+	ResumeDir  string
+	Applied    []AppliedRepo
 }
 
 // serverStopped marks a failure after which Yak already ended the teleport, so there is nothing to cancel.
@@ -80,6 +82,7 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 		return result, friendly(err)
 	}
 	thread := found.Thread
+	ref := threadRef(thread)
 	item, onYak, err := resolveCheckout(ctx, d, repo)
 	if err != nil {
 		return result, err
@@ -89,10 +92,10 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 		if known := d.Config.Checkouts[thread.Repo]; known != "" {
 			hint = fmt.Sprintf(" Last time you used %s.", known)
 		}
-		return result, &Refusal{Kind: "wrong_repo", Detail: fmt.Sprintf("Thread %d is in %s, but this checkout is not. Run yak teleport %d from a checkout of %s.%s", thread.ID, thread.Repo, thread.ID, thread.Repo, hint)}
+		return result, &Refusal{Kind: "wrong_repo", Detail: fmt.Sprintf("Thread %s is in %s, but this checkout is not. Run yak teleport %s from a checkout of %s.%s", ref, thread.Repo, ref, thread.Repo, hint)}
 	}
 	if in.Options.FromLink {
-		d.say("Teleport thread %d \"%s\" (%s) to this computer?", thread.ID, thread.Title, thread.Repo)
+		d.say("Teleport thread %s \"%s\" (%s) to this computer?", ref, thread.Title, thread.Repo)
 		yes, err := d.Prompter.Confirm("Continue?", false)
 		if err != nil {
 			return result, err
@@ -100,6 +103,12 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 		if !yes {
 			return result, &Refusal{Kind: "declined", Detail: "Cancelled. Nothing changed."}
 		}
+	}
+
+	// The local checkout is judged before Yak is asked to commit, push or sync anything.
+	mode, err := chooseApplyMode(d, repo, top, in.Options, thread.LastTeleportUp, thread.Branch, ref)
+	if err != nil {
+		return result, err
 	}
 
 	started, err := beginDown(ctx, d, thread, in.Options, top, *item.Repo)
@@ -162,19 +171,21 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 		return result, err
 	}
 	if !report.Empty() {
-		printClash(d, report, thread.ID)
+		printClash(d, report, ref)
 		return result, &Refusal{Kind: "clash", Detail: "this computer cannot hold some of the thread's files", Paths: clashPaths(report)}
 	}
 
-	mode, err := chooseApplyMode(d, repo, top, in.Options, manifest, branch, tip, thread.ID)
-	if err != nil {
-		return result, err
+	if mode == "stash" {
+		if ok, err := apply.StashAllowed(repo, branch, tip); err != nil || !ok {
+			return result, &Refusal{Kind: "dirty_tree", Detail: "stash cannot be used here, the local branch has commits the thread does not have"}
+		}
 	}
+	folderName := folderNameFor(thread, manifest)
 	resumeDir := top
 	if mode == "worktree" {
-		_, resumeDir = downFolders(top, manifest.Thread.Slug)
+		_, resumeDir = downFolders(top, folderName)
 	}
-	printDownPlan(d, manifest, mode, top)
+	printDownPlan(d, manifest, mode, top, folderName)
 
 	projectDir := filepath.Join(session.ClaudeConfigDir(d.Env, d.Home), "projects", session.ProjectFolderName(resumeDir))
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
@@ -188,7 +199,7 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 		d.say("Your copy of this session had changed since the last teleport. It is saved as %s.", backup)
 	}
 
-	applied, resumeDir, err := applyRepos(ctx, d, repo, top, mode, manifest, primary, resumeDir)
+	applied, resumeDir, err := applyRepos(ctx, d, repo, top, mode, manifest, primary, resumeDir, folderName)
 	if err != nil {
 		return result, err
 	}
@@ -211,7 +222,7 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 
 	sid := manifest.Session.SessionID
 	marker := config.Marker{
-		ThreadID: thread.ID, TeleportID: started.TeleportID, Owner: "device", ThreadURL: thread.URL,
+		ThreadID: thread.ID, ThreadPublicID: thread.PublicID, TeleportID: started.TeleportID, ResumeEpoch: started.TeleportID, Owner: "device", ThreadURL: thread.URL,
 		StackMessagesURL: completed.Marker.StackMessagesURL, BaseURL: d.Config.BaseURL, WrittenAt: d.Now(),
 	}
 	if err := config.WriteMarker(d.ConfigDir, sid, marker); err != nil {
@@ -220,9 +231,13 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	writeNote(d, manifest, applied, resumeDir, projectDir, tip)
 	remember(d, thread.Repo, top)
 
-	d.say("Thread %d is now on this computer. Yak will not run turns on it until you teleport it back up.", thread.ID)
-	d.say("Turns you run here use your local Claude login, not the %s account.", manifest.Thread.ClaudeAccount.Name)
-	return DownResult{ThreadID: thread.ID, SessionID: sid, ResumeDir: resumeDir, Applied: applied}, nil
+	d.say("Thread %s is now on this computer. Yak will not run turns on it until you teleport it back up.", ref)
+	if name := manifest.Thread.ClaudeAccount.Name; name != "" {
+		d.say("Turns you run here use your local Claude login, not the %s account.", name)
+	} else {
+		d.say("Turns you run here use your local Claude login.")
+	}
+	return DownResult{ThreadID: thread.ID, SessionID: sid, TeleportID: started.TeleportID, ResumeDir: resumeDir, Applied: applied}, nil
 }
 
 func beginDown(ctx context.Context, d Deps, thread api.Thread, opts DownOptions, top, slug string) (api.BeginDownResponse, error) {
@@ -374,7 +389,7 @@ func clashPaths(r clash.Report) []string {
 	return paths
 }
 
-func printClash(d Deps, r clash.Report, threadID int) {
+func printClash(d Deps, r clash.Report, ref string) {
 	ui.Fail(d.Out, "This computer cannot hold some of the thread's files.")
 	for _, v := range r.Violations {
 		title := clashTitles[v.Kind]
@@ -390,18 +405,35 @@ func printClash(d Deps, r clash.Report, threadID int) {
 		}
 	}
 	d.say("\n  Nothing was changed here. Yak still has the thread.")
-	d.say("\nTo fix it, ask Claude on Yak to rename or remove those paths, then run yak teleport %d again.", threadID)
+	d.say("\nTo fix it, ask Claude on Yak to rename or remove those paths, then run yak teleport %s again.", ref)
 }
 
-// chooseApplyMode returns ff, stash or worktree after the change detection pass and the prompt.
-func chooseApplyMode(d Deps, repo gitx.Repo, top string, opts DownOptions, m api.DownManifest, branch, tip string, threadID int) (string, error) {
+// threadRef is the public id people type and see; threads without one fall back to the numeric id.
+func threadRef(t api.Thread) string {
+	if t.PublicID != "" {
+		return t.PublicID
+	}
+	return strconv.Itoa(t.ID)
+}
+
+// folderNameFor names the worktree and extras folders: the short public id, never the long thread slug.
+func folderNameFor(t api.Thread, m api.DownManifest) string {
+	return firstNonEmpty(t.PublicID, m.Thread.Slug, strconv.Itoa(t.ID))
+}
+
+// chooseApplyMode returns ff, stash or worktree after the change detection pass and the prompt. It only needs
+// what the checkout and the thread record already say, so it runs before Yak prepares anything. The tip is not
+// known yet, so the thread's last teleport-up commit stands in for it when judging whether a stash can apply.
+func chooseApplyMode(d Deps, repo gitx.Repo, top string, opts DownOptions, lastUp *api.LastTeleportUp, branch, ref string) (string, error) {
 	st, err := detect.Read(repo)
 	if err != nil {
 		return "", err
 	}
 	var base *detect.Baseline
-	if m.LastUp != nil {
-		base = &detect.Baseline{Branch: m.LastUp.Branch, Head: m.LastUp.HeadSHA}
+	tip := ""
+	if lastUp != nil {
+		base = &detect.Baseline{Branch: lastUp.Branch, Head: lastUp.HeadSHA}
+		tip = lastUp.HeadSHA
 	}
 	diffs := detect.Differences(st, base)
 	for _, diff := range diffs {
@@ -420,17 +452,18 @@ func chooseApplyMode(d Deps, repo gitx.Repo, top string, opts DownOptions, m api
 		}
 		d.say("%s (%s)", line, diff.Detail)
 	}
-	stashOK, err := apply.StashAllowed(repo, branch, tip)
-	if err != nil {
-		return "", err
+	stashOK := !st.Detached
+	if stashOK && tip != "" {
+		if stashOK, err = apply.StashAllowed(repo, branch, tip); err != nil {
+			stashOK = false
+		}
 	}
-	stashOK = stashOK && !st.Detached
 	switch opts.Resolution {
 	case "worktree":
 		return "worktree", nil
 	case "stash":
 		if !stashOK {
-			return "", &Refusal{Kind: "dirty_tree", Detail: "stash cannot be used here, the local branch has commits the thread does not have"}
+			return "", &Refusal{Kind: "dirty_tree", Detail: "stash cannot be used here, " + noStashReason(st)}
 		}
 		return "stash", nil
 	}
@@ -440,7 +473,7 @@ func chooseApplyMode(d Deps, repo gitx.Repo, top string, opts DownOptions, m api
 		options = append(options, ui.Option{Label: "Stash them, then apply the thread", Hint: "git stash keeps your changes safe"})
 		modes = append(modes, "stash")
 	}
-	_, worktreeDir := downFolders(top, m.Thread.Slug)
+	_, worktreeDir := downFolders(top, ref)
 	options = append(options, ui.Option{Label: "Apply into a new worktree", Hint: worktreeDir + ", this checkout stays as it is"})
 	modes = append(modes, "worktree")
 	options = append(options, ui.Option{Label: "Cancel", Hint: "default"})
@@ -450,10 +483,31 @@ func chooseApplyMode(d Deps, repo gitx.Repo, top string, opts DownOptions, m api
 		return "", err
 	}
 	if modes[choice] == "cancel" {
-		d.say("Cancelled. Nothing changed here. Yak still has thread %d.", threadID)
-		return "", &Refusal{Kind: "dirty_tree", Detail: "this checkout has changes the thread does not know about"}
+		d.say("Cancelled. Nothing changed here. Yak still has thread %s.", ref)
+		return "", &Refusal{Kind: "dirty_tree", Detail: notReadyReason(diffs)}
 	}
 	return modes[choice], nil
+}
+
+func noStashReason(st detect.Status) string {
+	if st.Detached {
+		return "HEAD is detached"
+	}
+	return "the local branch has commits the thread does not have"
+}
+
+// notReadyReason names why the checkout cannot take the thread: the state itself when there are no file
+// changes, otherwise the changes.
+func notReadyReason(diffs []detect.Difference) string {
+	for _, diff := range diffs {
+		if diff.Path != "" || diff.Kind == "staged" || diff.Kind == "unstaged" || diff.Kind == "untracked" {
+			return "this checkout has changes the thread does not know about"
+		}
+	}
+	if len(diffs) > 0 {
+		return diffs[0].Detail + ", so the thread was not applied"
+	}
+	return "this checkout is not ready for the thread"
 }
 
 func downloadSession(ctx context.Context, d Deps, threadID int, m api.DownManifest, projectDir string) ([]api.DownloadedFile, string, error) {
@@ -491,14 +545,14 @@ func downloadSession(ctx context.Context, d Deps, threadID int, m api.DownManife
 	return written, backup, nil
 }
 
-func applyRepos(ctx context.Context, d Deps, repo gitx.Repo, top, mode string, m api.DownManifest, primary api.ManifestRepo, resumeDir string) ([]AppliedRepo, string, error) {
+func applyRepos(ctx context.Context, d Deps, repo gitx.Repo, top, mode string, m api.DownManifest, primary api.ManifestRepo, resumeDir, folderName string) ([]AppliedRepo, string, error) {
 	var res apply.Result
 	var err error
 	switch mode {
 	case "stash":
 		res, err = apply.StashAndApply(repo, primary.Branch, primary.HeadSHA)
 	case "worktree":
-		res, err = apply.Worktree(repo, top, m.Thread.Slug, primary.Branch, primary.HeadSHA)
+		res, err = apply.Worktree(repo, top, folderName, primary.Branch, primary.HeadSHA)
 	default:
 		res, err = apply.FastForward(repo, primary.Branch, primary.HeadSHA, true)
 	}
@@ -510,7 +564,7 @@ func applyRepos(ctx context.Context, d Deps, repo gitx.Repo, top, mode string, m
 	}
 	d.say("Applied %s at %s (%s)", primary.Branch, shortSHA(primary.HeadSHA), strings.ReplaceAll(res.Mode, "_", "-"))
 	applied := []AppliedRepo{{Repo: primary.Repo, Status: "applied", Mode: res.Mode, HeadSHA: primary.HeadSHA, Branch: res.Branch, Path: res.Path}}
-	extrasRoot, _ := downFolders(top, m.Thread.Slug)
+	extrasRoot, _ := downFolders(top, folderName)
 	_, rootExisted := os.Lstat(extrasRoot)
 	for _, extra := range m.Repos {
 		switch {
@@ -539,8 +593,8 @@ func downFolders(top, slug string) (extrasRoot, worktreeDir string) {
 }
 
 // printDownPlan says where each repo of the thread will land before anything is written on this computer.
-func printDownPlan(d Deps, m api.DownManifest, mode, top string) {
-	extrasRoot, worktreeDir := downFolders(top, m.Thread.Slug)
+func printDownPlan(d Deps, m api.DownManifest, mode, top, folderName string) {
+	extrasRoot, worktreeDir := downFolders(top, folderName)
 	d.say("On this computer:")
 	if primary, ok := primaryOf(m); ok {
 		where := top

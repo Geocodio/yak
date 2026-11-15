@@ -415,6 +415,10 @@ func (s *Server) beginUp(w http.ResponseWriter, device *Device, req api.BeginUpR
 		CreatedByUserID: s.User.ID, OwnerSide: "device", OwnerDevice: &api.OwnerDevice{ID: device.ID, Name: device.Name, IsThisDevice: true},
 		ClaudeAccount: api.ClaudeAccount{Name: "Yak Team"}, ActiveSessionID: req.SessionID,
 	}
+	if s.NoClaudeAccount {
+		created.ClaudeAccount = api.ClaudeAccount{}
+	}
+	created.PublicID = fmt.Sprintf("k%07d", created.ID)
 	created.URL = fmt.Sprintf("%s/threads/%d", s.srv.URL, created.ID)
 	if thread != nil {
 		created.ContinuedFromThreadID = &thread.ID
@@ -478,7 +482,7 @@ func (s *Server) upResponse(w http.ResponseWriter, row *teleportRow, thread *Thr
 	resp := api.BeginUpResponse{
 		TeleportID: row.id, Resumed: resumed,
 		Thread: api.BeginUpThread{
-			ID: thread.ID, IsNew: isNew, ContinuedFromThreadID: thread.ContinuedFromThreadID, Slug: slugify(thread.Title),
+			ID: thread.ID, PublicID: thread.PublicID, IsNew: isNew, ContinuedFromThreadID: thread.ContinuedFromThreadID, Slug: slugify(thread.Title),
 			Visibility: thread.Visibility, FirstTeleportedAt: firstAt, ClaudeAccount: thread.ClaudeAccount, URL: thread.URL,
 		},
 		Repos: repos, ExpiresAt: row.updated.Add(teleportIdleLimit).UTC().Format(time.RFC3339),

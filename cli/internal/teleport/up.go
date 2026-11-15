@@ -43,6 +43,9 @@ type upRepo struct {
 	role     string
 	remote   string
 	prepared Prepared
+	// localBranch is the branch checked out here when it is the thread's -yak worktree branch; it is pushed to
+	// the thread's branch under that name. Empty means the thread's own branch.
+	localBranch string
 }
 
 const maxPolls = 900
@@ -118,7 +121,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 				}
 				return UpResult{}, friendly(&api.Error{Status: 409, Code: "thread_owned_by_yak", Details: map[string]any{"thread_id": existing.ID}})
 			}
-			if branch, detached, _ := primaryRepo.CurrentBranch(); !detached && existing.Branch != "" && branch != existing.Branch {
+			if branch, detached, _ := primaryRepo.CurrentBranch(); !detached && existing.Branch != "" && branch != existing.Branch && branch != existing.Branch+worktreeBranchSuffix {
 				return UpResult{}, friendly(&api.Error{Status: 409, Code: "branch_mismatch", Details: map[string]any{"thread_branch": existing.Branch, "current_branch": branch}})
 			}
 		}
@@ -138,8 +141,12 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 			discardAllDetached(repos)
 			return UpResult{}, err
 		}
+		if r.role == "primary" && existing != nil && existing.Status != "closed" && existing.Branch != "" && r.prepared.Branch == existing.Branch+worktreeBranchSuffix {
+			// A -yak worktree branch stands in for the thread branch: Yak is told the thread branch, and the push maps onto it.
+			r.localBranch, r.prepared.Branch = r.prepared.Branch, existing.Branch
+		}
 		if r.prepared.WIPCommit != "" {
-			d.say("Committed %d files", committedCount(r.repo, r.prepared.WIPCommit))
+			sayCommitted(d, r.repo, r.prepared.WIPCommit)
 		}
 	}
 
@@ -201,7 +208,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		completeRepos = append(completeRepos, api.CompleteUpRepo{Repo: planned.Repo, Branch: planned.Branch, HeadSHA: head})
 	}
 	push := func(r *upRepo) error {
-		return d.gitNetwork(ctx, r.repo, "push", r.remote, "refs/heads/"+r.prepared.Branch+":refs/heads/"+r.prepared.Branch)
+		return d.gitNetwork(ctx, r.repo, "push", r.remote, "refs/heads/"+firstNonEmpty(r.localBranch, r.prepared.Branch)+":refs/heads/"+r.prepared.Branch)
 	}
 	for _, r := range repos {
 		if pushes[r.slug+"/"+r.role] == nil {
@@ -261,7 +268,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	}
 
 	marker := config.Marker{
-		ThreadID: started.Thread.ID, TeleportID: started.TeleportID, Owner: "yak", ThreadURL: started.Thread.URL,
+		ThreadID: started.Thread.ID, ThreadPublicID: started.Thread.PublicID, TeleportID: started.TeleportID, Owner: "yak", ThreadURL: started.Thread.URL,
 		BaseURL: d.Config.BaseURL, WrittenAt: d.Now(),
 	}
 	if err := config.WriteMarker(d.ConfigDir, sid, marker); err != nil {
@@ -277,7 +284,11 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	}
 	d.say("Yak has the thread. This session is now read-only.")
 	reportUpRepos(d, repos, done.Sandbox.Repos, missing)
-	d.say("Yak runs it under the %s Claude account; turns you run here use your local Claude login.", started.Thread.ClaudeAccount.Name)
+	if name := started.Thread.ClaudeAccount.Name; name != "" {
+		d.say("Yak runs it under the %s Claude account; turns you run here use your local Claude login.", name)
+	} else {
+		d.say("Turns you run here use your local Claude login.")
+	}
 	d.say("Continue at %s", started.Thread.URL)
 	return UpResult{ThreadID: started.Thread.ID, ThreadURL: started.Thread.URL, TeleportID: started.TeleportID, Branch: completeRepos[0].Branch}, nil
 }
@@ -314,7 +325,7 @@ func alreadyOnYak(ctx context.Context, d Deps, sid string, thread *api.Thread) (
 		return UpResult{}, false
 	}
 	marker := config.Marker{
-		ThreadID: thread.ID, TeleportID: earlier.TeleportID, Owner: "yak", ThreadURL: thread.URL, BaseURL: d.Config.BaseURL, WrittenAt: d.Now(),
+		ThreadID: thread.ID, ThreadPublicID: thread.PublicID, TeleportID: earlier.TeleportID, Owner: "yak", ThreadURL: thread.URL, BaseURL: d.Config.BaseURL, WrittenAt: d.Now(),
 	}
 	if err := config.WriteMarker(d.ConfigDir, sid, marker); err != nil {
 		d.say("! Could not record that Yak has the thread: %v", err)
@@ -406,25 +417,52 @@ func humanBytes(n int64) string {
 	return fmt.Sprintf("%d KB", (n+1023)/1024)
 }
 
-func committedCount(repo gitx.Repo, sha string) int {
+// committedFiles lists the paths a snapshot commit touched.
+func committedFiles(repo gitx.Repo, sha string) []string {
 	out, err := repo.Run("show", "--name-only", "--pretty=format:", sha)
 	if err != nil {
-		return 0
+		return nil
 	}
-	n := 0
+	var files []string
 	for _, line := range strings.Split(out, "\n") {
-		if strings.TrimSpace(line) != "" {
-			n++
+		if line = strings.TrimSpace(line); line != "" {
+			files = append(files, line)
 		}
 	}
-	return n
+	return files
 }
+
+const maxListedCommits = 20
+
+// sayCommitted tells the person which uncommitted files the teleport committed for them.
+func sayCommitted(d Deps, repo gitx.Repo, sha string) {
+	files := committedFiles(repo, sha)
+	d.say("Committed %d uncommitted %s:", len(files), plural(len(files), "file", "files"))
+	for i, f := range files {
+		if i == maxListedCommits {
+			d.say("  and %d more", len(files)-maxListedCommits)
+			break
+		}
+		d.say("  %s", f)
+	}
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// worktreeBranchSuffix marks the local branch of a thread's worktree, which cannot share the thread's branch with
+// the checkout it was made from.
+const worktreeBranchSuffix = "-yak"
 
 // prepareBranch puts the checkout on the branch Yak assigned: created at the prepared head when Yak says so,
 // otherwise it must already be the current branch. It never pushes and never touches the default branch.
 func prepareBranch(r *upRepo, planned api.BeginUpRepo) error {
 	current, _, _ := r.repo.CurrentBranch()
-	if current == planned.Branch {
+	if current == planned.Branch || (!planned.CreateBranch && current == planned.Branch+worktreeBranchSuffix) {
 		return nil
 	}
 	if !planned.CreateBranch {

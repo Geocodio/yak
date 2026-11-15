@@ -314,8 +314,8 @@ func TestDownDirtyTreeOffersThreeChoicesDefaultCancel(t *testing.T) {
 	if h.snapshot() != before {
 		t.Fatal("tree changed")
 	}
-	if reason, _ := h.srv.CancelInfo(h.srv.LastTeleportID()); reason != "dirty_tree" {
-		t.Fatalf("cancel reason %q", reason)
+	if got := h.requests("POST /teleports"); len(got) != 0 {
+		t.Fatalf("Yak was asked to prepare before the local checkout was judged: %+v", got)
 	}
 	for _, want := range []string{"README.md", "scratch.sql"} {
 		if !strings.Contains(h.out.String(), want) {

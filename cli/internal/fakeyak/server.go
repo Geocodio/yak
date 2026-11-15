@@ -48,7 +48,9 @@ type Server struct {
 	User         api.User
 	MinProtocol  int
 	SlowDownNext int
-	OnRequest    func(*http.Request)
+	// NoClaudeAccount leaves new threads without an assigned Claude account, as on a first teleport up.
+	NoClaudeAccount bool
+	OnRequest       func(*http.Request)
 	// ReadLimit caps the bytes one session read returns, so clients must resume with an offset (0 means no cap).
 	ReadLimit int
 	// SSHBody, when set, is the 200 body of GET /threads/{id}/ssh; SSHNoKeySettingsURL makes it answer 409 no_ssh_key.

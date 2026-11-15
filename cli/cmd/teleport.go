@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/geocodio/yak/cli/internal/api"
+	"github.com/geocodio/yak/cli/internal/hook"
 	"github.com/geocodio/yak/cli/internal/link"
 	"github.com/geocodio/yak/cli/internal/slash"
 	"github.com/geocodio/yak/cli/internal/teleport"
@@ -204,16 +205,26 @@ func teleportDown(bg context.Context, ctx *Context, deps teleport.Deps, f telepo
 		return reportTeleportError(ctx, err)
 	}
 	argv := []string{"claude", "--resume", res.SessionID}
-	if ctx.Exec != nil {
+	// Claude Code clears the screen when it starts, so a person at a terminal reads the summary first.
+	startNow := ctx.Exec != nil
+	if startNow && ctx.Interactive && !f.yes {
+		startNow, err = ctx.Prompter.Confirm("Start claude --resume now?", true)
+		if err != nil {
+			return reportTeleportError(ctx, err)
+		}
+	}
+	if startNow {
+		// Only the claude started here carries the epoch, so a terminal that still has the old session open is recognised as stale.
+		_ = os.Setenv(hook.EpochEnv, res.TeleportID)
 		fmt.Fprintf(ctx.Stdout, "Starting claude --resume %s in %s\n", res.SessionID, res.ResumeDir)
 		if err := ctx.Exec(res.ResumeDir, argv); err != nil {
 			ui.Fail(ctx.Stderr, "Could not start claude: %v", err)
-			fmt.Fprintf(ctx.Stderr, "  Run it yourself: cd %s && claude --resume %s\n", res.ResumeDir, res.SessionID)
+			fmt.Fprintf(ctx.Stderr, "  Run it yourself: cd %s && %s=%s claude --resume %s\n", res.ResumeDir, hook.EpochEnv, res.TeleportID, res.SessionID)
 			return exitFailure
 		}
 		return exitOK
 	}
-	fmt.Fprintf(ctx.Stdout, "Continue with: cd %s && claude --resume %s\n", res.ResumeDir, res.SessionID)
+	fmt.Fprintf(ctx.Stdout, "Continue with: cd %s && %s=%s claude --resume %s\n", res.ResumeDir, hook.EpochEnv, res.TeleportID, res.SessionID)
 	return exitOK
 }
 
