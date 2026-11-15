@@ -202,3 +202,54 @@ it('shows the first message attachment, rendered markdown, the summary once and 
         ->assertSeeIn('[data-testid="thread-model-chip"]', 'Sonnet 5.5')
         ->assertNoJavaScriptErrors();
 });
+
+it('opens a long thread with tall late-loading media at the newest entry', function () {
+    Storage::fake('artifacts');
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Look at the long page']);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => 'completed']);
+    $image = imagecreatetruecolor(600, 1400);
+    ob_start();
+    imagepng($image);
+    $png = (string) ob_get_clean();
+
+    foreach (range(1, 40) as $number) {
+        $message = ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed, 'text' => "Message {$number}\n\n" . str_repeat("A line of text.\n\n", 3)]);
+        $attachment = TaskAttachment::factory()->create(['yak_task_id' => $task->id, 'thread_turn_message_id' => $message->id, 'original_name' => "shot-{$number}.png"]);
+        Storage::disk('artifacts')->put($attachment->disk_path, $png);
+    }
+
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->public_id}")->wait(2)
+        ->assertScript("(() => { const box = document.querySelector('[data-testid=\"thread-conversation-scroller\"]'); return box.scrollHeight - box.scrollTop - box.clientHeight < 80; })()", true)
+        ->assertMissing('[data-testid="thread-jump-to-newest"]')
+        ->assertNoJavaScriptErrors();
+});
+
+it('keeps following when content keeps growing between frames', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Short request']);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => 'completed']);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed, 'text' => 'Hello']);
+    $this->actingAs($user);
+
+    // Late media grows the page in a task after the follow already pinned the bottom, as an image load does.
+    $grow = <<<'JS'
+    (() => {
+        const inner = document.querySelector('[data-testid="thread-conversation-scroller"]').firstElementChild;
+        const append = () => { const block = document.createElement('div'); block.style.height = '600px'; inner.appendChild(block); };
+        let rounds = 0;
+        new ResizeObserver(() => { if (rounds++ < 4) { setTimeout(append, 0); } }).observe(inner);
+        append();
+    })()
+    JS;
+
+    $page = visit("/threads/{$thread->public_id}")->wait(1);
+    $page->script($grow);
+    $page->wait(1)
+        ->assertScript("(() => { const box = document.querySelector('[data-testid=\"thread-conversation-scroller\"]'); return box.scrollHeight - box.scrollTop - box.clientHeight < 80; })()", true)
+        ->assertMissing('[data-testid="thread-jump-to-newest"]');
+});

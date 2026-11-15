@@ -35,11 +35,20 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
 
         let height = inner.offsetHeight;
         let holdUntil = 0;
+        // The scroll height the follow last pinned or measured. A scroll event that sees another height ran after the
+        // content grew, so its distance from the bottom is the growth and not the reader leaving; the resize observer
+        // follows that growth instead.
+        let pinnedHeight = box.scrollHeight;
         const toBottom = (): void => {
-            box.scrollTop = box.scrollHeight;
+            pinnedHeight = box.scrollHeight;
+            box.scrollTop = pinnedHeight;
         };
 
         const onScroll = (): void => {
+            if (box.scrollHeight !== pinnedHeight) {
+                return;
+            }
+
             isAtBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight < NEAR_BOTTOM_PIXELS;
 
             if (isAtBottom.current) {
@@ -49,6 +58,7 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         const observer = new ResizeObserver(() => {
             const hasGrown = inner.offsetHeight > height;
             height = inner.offsetHeight;
+            pinnedHeight = box.scrollHeight;
 
             if (!hasGrown) {
                 return;
