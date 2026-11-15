@@ -61,7 +61,18 @@ class EarlyWarningController extends Controller
 
         try {
             $answer($actor);
+        } catch (ThreadActionRefused $refused) {
+            // Losing the race to an identical answer is a success for this caller.
+            if ($refused->errorCode !== CoOwnerTaggingException::ALREADY_DECIDED || ! $this->isAnswered($root, $status, $coOwnerId)) {
+                throw $refused;
+            }
+
+            return response()->json(['status' => $status]);
         } catch (CoOwnerTaggingException $exception) {
+            if ($exception->reason === CoOwnerTaggingException::ALREADY_DECIDED && $this->isAnswered($root, $status, $coOwnerId)) {
+                return response()->json(['status' => $status]);
+            }
+
             throw new ThreadActionRefused($exception->reason, $exception->getMessage(), [], match ($exception->reason) {
                 CoOwnerTaggingException::NOT_REQUESTER => 403,
                 CoOwnerTaggingException::ACCESS_CHECK_FAILED => 503,
@@ -81,7 +92,7 @@ class EarlyWarningController extends Controller
         $warning = $root->early_warning;
 
         if ($warning === null) {
-            throw new ThreadActionRefused('not_found', 'This task has no early warning to answer.', [], 404);
+            throw new ThreadActionRefused('not_found', 'Not found.', [], 404);
         }
 
         if (in_array($warning['state'] ?? 'shown', ['tagged', 'declined'], true)) {

@@ -171,6 +171,27 @@ it('refuses an answer that lost the race under the lock', function () {
     expect($this->task->fresh()->tagged_co_owner_user_id)->toBeNull();
 });
 
+it('answers the same status when an identical tag won the race under the lock', function () {
+    $task = $this->task;
+    $secondId = $this->second->id;
+    $this->app->instance(GitHubWriteAccess::class, new class($task, $secondId) extends GitHubWriteAccess
+    {
+        public function __construct(private YakTask $task, private int $coOwnerId) {}
+
+        public function check(Repository $repository, User $user, bool $isTimeBounded = false): string
+        {
+            $this->task->update(['early_warning' => ['areas' => [], 'state' => 'tagged'], 'tagged_co_owner_user_id' => $this->coOwnerId]);
+
+            return 'write';
+        }
+    });
+
+    $this->postJson(earlyWarningPath($this->task, 'tag'), ['user_id' => $this->second->id], $this->headers)
+        ->assertOk()->assertExactJson(['status' => 'tagged']);
+
+    Http::assertNotSent(fn (HttpRequest $request) => str_contains($request->url(), 'slack.com'));
+});
+
 it('answers an empty list when the viewer may not pick', function () {
     $this->getJson(earlyWarningPath($this->task, 'candidates'), phoneHeadersFor($this->second))->assertOk()
         ->assertExactJson(['candidates' => [], 'isComplete' => true]);
