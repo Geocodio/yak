@@ -125,6 +125,21 @@ it('restarts a repeat whose first dispatch was lost', function () {
     Queue::assertNothingPushed();
 });
 
+it('lets a repeat dispatch the start again when the first push threw', function () {
+    $root = teamRoot();
+    $actor = User::factory()->create();
+    $key = '3f6d2c1a-5b7e-4d89-a1c2-9e8f7a6b5c4d';
+    config()->set('queue.connections.broken', ['driver' => 'database', 'table' => 'missing_jobs_table', 'queue' => 'default', 'retry_after' => 90]);
+    config()->set('queue.default', 'broken');
+
+    expect(fn () => addChildOf($root, $actor, $key))->toThrow(QueryException::class);
+
+    Queue::fake();
+    addChildOf($root, $actor, $key);
+
+    Queue::assertPushed(StartChildThreadJob::class, 1);
+});
+
 it('refuses a key used by another person', function () {
     Queue::fake();
     $root = teamRoot();

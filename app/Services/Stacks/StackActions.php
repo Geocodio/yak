@@ -7,7 +7,10 @@ use App\Exceptions\StackRuleViolation;
 use App\Jobs\StartChildThreadJob;
 use App\Models\Thread;
 use App\Models\User;
+use Illuminate\Bus\UniqueLock;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * The actions of a stack that a person starts, for the web and for the app. Each one takes
@@ -38,10 +41,27 @@ class StackActions
         }
 
         if ($child->wasRecentlyCreated || $this->needsStart($child)) {
-            StartChildThreadJob::dispatch($child->id)->afterCommit();
+            $this->dispatchStart($child);
         }
 
         return $child;
+    }
+
+    /**
+     * The pending dispatch takes the job's unique lock before it pushes. When the push throws,
+     * nothing else frees that lock, so it is released here and the client's retry can dispatch again.
+     */
+    private function dispatchStart(Thread $child): void
+    {
+        $job = new StartChildThreadJob($child->id);
+
+        try {
+            dispatch($job)->afterCommit();
+        } catch (Throwable $exception) {
+            (new UniqueLock(app(CacheRepository::class)))->release($job);
+
+            throw $exception;
+        }
     }
 
     private function needsStart(Thread $child): bool

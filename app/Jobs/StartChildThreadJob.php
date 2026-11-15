@@ -16,6 +16,13 @@ use Throwable;
  * call that spawned it. A child that must wait for a sandbox or a busy thread
  * is released for 30 seconds and tried again. Only one job per child is
  * pending at a time, so a repeated add cannot start the same sandbox twice.
+ *
+ * The unique lock is held for as long as the job is pending, which includes
+ * every 30 second wait for a slot. A dispatch for a child that is still
+ * waiting is dropped until the lock frees or expires after uniqueFor() seconds,
+ * so a caller that must start a queued child right away (a raised limit, a
+ * freed slot) cannot rely on dispatching this job. The lock expires so that a
+ * lost pending row never blocks a retry for long.
  */
 class StartChildThreadJob implements ShouldBeUnique, ShouldQueue
 {
@@ -24,6 +31,11 @@ class StartChildThreadJob implements ShouldBeUnique, ShouldQueue
     public int $tries = 60;
 
     public function __construct(public readonly int $childThreadId) {}
+
+    public function uniqueFor(): int
+    {
+        return 300;
+    }
 
     public function uniqueId(): string
     {
