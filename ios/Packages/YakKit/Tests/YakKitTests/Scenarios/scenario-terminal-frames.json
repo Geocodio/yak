@@ -1,0 +1,17 @@
+{
+  "banner": "Example sandbox\r\n",
+  "prompt": "stub$ ",
+  "responses": {
+    "git status -s": " M src/Importer.php\r\nA  tests/ImporterTest.php\r\n",
+    "echo hello": "hello\r\n"
+  },
+  "endings": [
+    {"name": "exit", "exitCode": 0, "close": 1000},
+    {"name": "lifetime", "close": 1001},
+    {"name": "error", "close": 1011},
+    {"name": "denied", "close": 4403},
+    {"name": "idle", "close": 4408},
+    {"name": "too-many", "close": 4429},
+    {"name": "protocol", "close": 1002}
+  ]
+}
