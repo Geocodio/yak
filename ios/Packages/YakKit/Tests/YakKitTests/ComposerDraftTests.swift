@@ -139,6 +139,34 @@ struct ComposerDraftTests {
         #expect(await session.composerDraft(.newThread)?.text == "Offline words")
     }
 
+    @Test func twoAttachmentsWithOneNameKeepTheirOwnFiles() async throws {
+        let files = InMemoryFileStore()
+        let clock = ManualClock()
+        let tokens = InMemoryTokenStore()
+        let instances = InstanceStore(defaults: DraftDefaults(), tokens: tokens, now: { clock.now() })
+        let instance = try await instances.add(
+            url: URL(string: "https://example.test")!, name: "Example Yak", userName: "Test person", token: "test-token"
+        )
+        let ids = IDSequence()
+        let session = InstanceSession(
+            instance: instance, instances: instances, tokens: tokens,
+            environment: SessionEnvironment(
+                http: ScriptedTransport(), webSockets: FakeWebSocketServer(), files: files, clock: clock,
+                makeID: { ids.next() }, appVersion: "1.0.0", systemDescription: "Test", allowsInsecureRealtime: false))
+        let key = UUID()
+        let first = try await session.storeAttachment(
+            Data("one".utf8), fileName: "photo.jpg", contentType: "image/jpeg", reference: "Image #1", sendKey: key)
+        let second = try await session.storeAttachment(
+            Data("two".utf8), fileName: "photo.jpg", contentType: "image/jpeg", reference: "Image #2", sendKey: key)
+        #expect(first.path != second.path)
+        #expect(second.path.hasSuffix("/photo-2.jpg") && second.fileName == "photo.jpg")
+        #expect(try files.read(first.path) == Data("one".utf8))
+        #expect(try files.read(second.path) == Data("two".utf8))
+        await session.discardAttachment(first)
+        #expect(try files.read(first.path) == nil)
+        #expect(try files.read(second.path) == Data("two".utf8))
+    }
+
     @Test func buildsTheRepositoryAccessRequest() async throws {
         let transport = ScriptedTransport()
         await transport.on("GET threads/new/repository-access", try .scenario(200, "scenario-thread-repository-access"))

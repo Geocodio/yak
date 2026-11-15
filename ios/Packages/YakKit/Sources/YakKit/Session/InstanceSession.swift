@@ -539,8 +539,18 @@ public actor InstanceSession {
     public func storeAttachment(
         _ data: Data, fileName: String, contentType: String, reference: String, sendKey: UUID
     ) async throws(FileStoreError) -> OutboxAttachment {
-        let path = OutboxInbox.attachmentPath(
-            instance: instance.id, item: sendKey, fileName: ComposerAttachments.safeFileName(fileName))
+        let safeName = ComposerAttachments.safeFileName(fileName)
+        var path = OutboxInbox.attachmentPath(instance: instance.id, item: sendKey, fileName: safeName)
+        // A name already taken in this draft's folder gets "-2", "-3" and so on before the extension.
+        var counter = 2
+        while try environment.files.read(path) != nil {
+            let dot = safeName.lastIndex(of: ".").flatMap { $0 == safeName.startIndex ? nil : $0 }
+            let stem = dot.map { String(safeName[..<$0]) } ?? safeName
+            let ending = dot.map { String(safeName[$0...]) } ?? ""
+            path = OutboxInbox.attachmentPath(
+                instance: instance.id, item: sendKey, fileName: "\(stem)-\(counter)\(ending)")
+            counter += 1
+        }
         try environment.files.write(data, to: path, protection: .untilFirstUnlock)
         return OutboxAttachment(reference: reference, fileName: fileName, contentType: contentType, path: path)
     }

@@ -58,10 +58,20 @@ struct NewThreadFormTests {
             repos: base.repos, picker: AccountPicker(accounts: [unusable], defaultsByRepo: [:]),
             defaultRepo: "example/api", models: base.models)
         let form = NewThreadForm(options: changed, saved: nil, lastUsedRepo: nil, linkRepo: nil)
-        #expect(form.accountID == nil || form.accountID?.value == "3")
+        #expect(form.accountID?.value == "3")
+        #expect(form.problem(text: "Fix it", options: changed, access: [:]) == .accountUnusable(name: "Test account"))
         var picked = form
         picked.selectAccount(LenientID("3"))
         #expect(picked.problem(text: "Fix it", options: changed, access: [:]) == .accountUnusable(name: "Test account"))
+    }
+
+    @Test func aSavedAccountThatIsGoneFallsBackToTheDefault() throws {
+        let base = try options()
+        let saved = NewThreadDraft(repo: "example/api", mode: "fix", claudeAccountId: 99, model: nil)
+        let form = NewThreadForm(options: base, saved: saved, lastUsedRepo: nil, linkRepo: nil)
+        let expected = base.picker.accounts.first(where: \.isDefault)?.id
+        #expect(form.accountID == expected)
+        #expect(form.accountID?.value != "99")
     }
 
     @Test func offlineWithASavedDraftCanStillSend() throws {

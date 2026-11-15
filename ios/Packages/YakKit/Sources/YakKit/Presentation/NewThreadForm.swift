@@ -40,7 +40,11 @@ public struct NewThreadForm: Equatable, Sendable {
             hasPickedAccount = false
             hasPickedModel = false
         }
-        if saved == nil, let repo, let options { applyDefaults(for: repo, options: options) }
+        if let options, let id = accountID, !options.picker.accounts.contains(where: { $0.id == id }) {
+            accountID = nil
+            hasPickedAccount = false
+        }
+        if let repo, let options, saved == nil || !hasPickedAccount { applyDefaults(for: repo, options: options) }
     }
 
     /// The account and model the repository starts with, for the choices the person did not make.
@@ -75,7 +79,7 @@ public struct NewThreadForm: Equatable, Sendable {
         hasPickedAccount = true
     }
 
-    /// `role` is "changes" or "context". Adding a repository that is already listed changes its role.
+    /// `role` is "changes" or "context". Adding a repository that is already listed adds it again, and `problem` reports `.extraRepositoryRepeated`.
     public mutating func addExtraRepository(_ slug: String, role: String) {
         extraRepositories.append(NewThreadDraft.ExtraRepository(repo: slug, role: role))
     }
