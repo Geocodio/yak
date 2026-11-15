@@ -8,6 +8,11 @@ platform :ios do
     config = File.join(IOS_ROOT, "Config.xcconfig")
     example = File.join(IOS_ROOT, "Config.example.xcconfig")
     FileUtils.cp(example, config) unless File.exist?(config)
+    version_path = File.join(IOS_ROOT, "VERSION")
+    version = File.exist?(version_path) ? File.read(version_path) : ""
+    UI.user_error!("ios/VERSION must hold a version like 1.2.0.") unless version.match?(/\A\d+\.\d+\.\d+\n?\z/)
+    ENV["YAK_MARKETING_VERSION"] = version.strip
+    UI.message("Generating the project for version #{version.strip}")
     sh("cd #{IOS_ROOT.shellescape} && xcodegen generate")
   end
 
