@@ -6,7 +6,9 @@ use App\Enums\DiffFileStatus;
 use App\Enums\RepositoryRole;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
+use App\Models\ThreadDiffFile;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
  * Body of `threads.diff.show`. The array shape below is the source of truth for
@@ -116,6 +118,31 @@ final class ThreadDiffData
         }
 
         return self::sum($diff);
+    }
+
+    /**
+     * One file of the thread's current diff with its patch. A file of another
+     * thread or of a replaced diff does not exist.
+     *
+     * @return array{path: string, oldPath: ?string, status: string, isBinary: bool, isTooLarge: bool, patch: ?string}
+     *
+     * @throws ModelNotFoundException
+     */
+    public static function file(Thread $thread, int $fileId): array
+    {
+        $diffFile = ThreadDiffFile::query()
+            ->whereKey($fileId)
+            ->whereHas('diff', fn ($query) => $query->where('thread_id', $thread->id))
+            ->firstOrFail();
+
+        return [
+            'path' => $diffFile->path,
+            'oldPath' => $diffFile->old_path,
+            'status' => $diffFile->status->value,
+            'isBinary' => $diffFile->is_binary,
+            'isTooLarge' => $diffFile->is_too_large,
+            'patch' => $diffFile->patch,
+        ];
     }
 
     /**
