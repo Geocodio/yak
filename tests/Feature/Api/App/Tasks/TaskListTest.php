@@ -4,11 +4,13 @@ use App\DataTransferObjects\TaskListFilters;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\CoOwnerRequest;
+use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Tasks\TaskListQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Tests\Support\ContractFixture;
 
 /**
@@ -18,6 +20,10 @@ use Tests\Support\ContractFixture;
 function taskListWorld(): User
 {
     test()->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
+    config(['app.url' => 'https://yak.example.com']);
+    URL::forceRootUrl('https://yak.example.com');
+    URL::forceScheme('https');
+    Repository::factory()->create(['slug' => 'example/api']);
     $user = User::factory()->create(['name' => 'Test person']);
     $base = [
         'repo' => 'example/api',
@@ -36,14 +42,14 @@ function taskListWorld(): User
     ];
 
     $sdk = YakTask::factory()->create(array_merge($base, [
-        'public_id' => 'a1b2c3d4', 'description' => 'Upgrade the payments SDK', 'source' => 'linear', 'external_id' => 'ENG-12',
+        'public_id' => 'k3m9p2qa', 'description' => 'Upgrade the payments SDK', 'source' => 'linear', 'external_id' => 'ENG-12',
         'external_url' => 'https://linear.example.com/issue/ENG-12', 'status' => TaskStatus::AwaitingCoOwner,
         'pr_url' => 'https://github.com/example/api/pull/41', 'pr_number' => 41, 'created_at' => now()->subHour(),
     ]));
     CoOwnerRequest::factory()->create(['task_id' => $sdk->id, 'root_task_id' => $sdk->id, 'asked_user_ids' => [$user->id]]);
 
     $retry = YakTask::factory()->create(array_merge($base, [
-        'public_id' => 'k3m9p2qa', 'description' => 'Retry failed uploads', 'source' => 'dashboard', 'external_id' => 'dashboard-1',
+        'public_id' => 'a1b2c3d4', 'description' => 'Retry failed uploads', 'source' => 'dashboard', 'external_id' => 'dashboard-1',
         'status' => TaskStatus::Success, 'branch_name' => 'yak/retry-failed-uploads', 'created_at' => now()->subHours(2),
     ]));
     YakTask::factory()->create(array_merge($base, [
@@ -70,9 +76,9 @@ it('lists the first page with counts and options', function () {
 
     $response = $this->getJson('/api/app/v1/tasks', phoneHeadersFor($user))->assertOk()
         ->assertJsonPath('nextPage', 2)
-        ->assertJsonPath('tasks.0.id', 'a1b2c3d4')
+        ->assertJsonPath('tasks.0.id', 'k3m9p2qa')
         ->assertJsonPath('tasks.0.askedFirstName', 'Test')
-        ->assertJsonPath('tasks.1.id', 'k3m9p2qa')
+        ->assertJsonPath('tasks.1.id', 'a1b2c3d4')
         ->assertJsonPath('tasks.2.id', 'r3n4m3ep')
         ->assertJsonPath('counts.needsCoOwner', 1);
 
@@ -129,8 +135,8 @@ it('finds tasks by description and external id', function () {
     $user = taskListWorld();
     $headers = phoneHeadersFor($user);
 
-    $this->getJson('/api/app/v1/tasks?search=payments', $headers)->assertOk()->assertJsonCount(1, 'tasks')->assertJsonPath('tasks.0.id', 'a1b2c3d4');
-    $this->getJson('/api/app/v1/tasks?search=ENG-12', $headers)->assertOk()->assertJsonCount(1, 'tasks')->assertJsonPath('tasks.0.id', 'a1b2c3d4');
+    $this->getJson('/api/app/v1/tasks?search=payments', $headers)->assertOk()->assertJsonCount(1, 'tasks')->assertJsonPath('tasks.0.id', 'k3m9p2qa');
+    $this->getJson('/api/app/v1/tasks?search=ENG-12', $headers)->assertOk()->assertJsonCount(1, 'tasks')->assertJsonPath('tasks.0.id', 'k3m9p2qa');
     $this->getJson('/api/app/v1/tasks?search=100%25_', $headers)->assertOk()->assertJsonPath('tasks', []);
     $this->getJson('/api/app/v1/tasks?search=%20%20', $headers)->assertOk()->assertJsonCount(4, 'tasks');
 });

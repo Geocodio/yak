@@ -30,7 +30,7 @@
             "externalId": "ENG-12",
             "externalUrl": "https://linear.example.com/issue/ENG-12",
             "followUps": [],
-            "id": "a1b2c3d4",
+            "id": "k3m9p2qa",
             "pr": {
                 "number": 41,
                 "state": "open",
@@ -64,12 +64,12 @@
                     "status": "success"
                 }
             ],
-            "id": "k3m9p2qa",
+            "id": "a1b2c3d4",
             "pr": null,
             "previewGif": null,
             "previewUrl": null,
             "repo": "example/api",
-            "repoUrl": null,
+            "repoUrl": "https://yak.example.com/repos/example/api/edit",
             "source": "dashboard",
             "sourceLabel": "Dashboard",
             "status": "success"
@@ -91,7 +91,7 @@
             "previewGif": null,
             "previewUrl": null,
             "repo": "example/api",
-            "repoUrl": null,
+            "repoUrl": "https://yak.example.com/repos/example/api/edit",
             "source": "slack",
             "sourceLabel": "Slack",
             "status": "failed"
