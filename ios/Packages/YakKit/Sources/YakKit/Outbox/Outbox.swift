@@ -25,6 +25,8 @@ public actor Outbox {
     private var pauseState: OutboxPause?
     private var slowTimers: [UUID: Task<Void, Never>] = [:]
     private var retryTimers: [UUID: Task<Void, Never>] = [:]
+    private var sendTasks: [UUID: Task<Void, Never>] = [:]
+    private var isShutDown = false
     private let changeBroadcast = Broadcast<[OutboxItem]>([])
     private var deliveryReceivers: [Int: AsyncStream<OutboxDelivery>.Continuation] = [:]
     private var nextReceiver = 0
@@ -238,6 +240,18 @@ public actor Outbox {
         pump()
     }
 
+    /// Cancels every timer and in-flight send and ignores later triggers. Items stay on disk and go out
+    /// again, with the same `send_key`, from the next `Outbox` that loads them.
+    func shutDown() {
+        isShutDown = true
+        for timer in slowTimers.values { timer.cancel() }
+        for timer in retryTimers.values { timer.cancel() }
+        for task in sendTasks.values { task.cancel() }
+        slowTimers = [:]
+        retryTimers = [:]
+        sendTasks = [:]
+    }
+
     public func pause(_ reason: OutboxPause) {
         pauseState = reason
         for timer in retryTimers.values { timer.cancel() }
@@ -262,7 +276,7 @@ public actor Outbox {
 
     /// Starts the head of every queue that is ready.
     private func pump() {
-        guard pauseState == nil else { return }
+        guard pauseState == nil, !isShutDown else { return }
         var seen: Set<String> = []
         for item in stored where seen.insert(item.queueKey).inserted && item.state == .queued {
             start(item.id)
@@ -279,7 +293,7 @@ public actor Outbox {
             do { try await clock.sleep(for: OutboxRetryPolicy.slowAfter) } catch { return }
             markSlow(id, attempt: attempt)
         }
-        Task { await perform(id, attempt: attempt) }
+        sendTasks[id] = Task { await perform(id, attempt: attempt) }
     }
 
     private func markSlow(_ id: UUID, attempt: Int) {
@@ -307,7 +321,9 @@ public actor Outbox {
         } catch {
             outcome = .failure(error)
         }
+        guard !isShutDown else { return }
         slowTimers.removeValue(forKey: id)?.cancel()
+        sendTasks[id] = nil
         guard let index = stored.firstIndex(where: { $0.id == id }), stored[index].attemptCount == attempt else {
             return
         }

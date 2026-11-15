@@ -97,6 +97,9 @@ final class ManualClock: YakClock, @unchecked Sendable {
         }
     }
 
+    /// How far the clock has been moved from `start`.
+    var offset: Duration { lock.withLock { elapsed } }
+
     /// Offsets from `start`, sorted.
     var sleeperDeadlines: [Duration] {
         lock.withLock {

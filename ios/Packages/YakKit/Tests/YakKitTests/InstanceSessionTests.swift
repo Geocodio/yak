@@ -100,16 +100,20 @@ private func confirmBoth(_ connection: FakeConnection) async {
 }
 
 /// The engine publishes a snapshot once per frame on the injected clock, so the clock is stepped a
-/// frame at a time (at most 100 frames, well short of every other timer) while the test waits.
+/// frame at a time for as long as the test waits, and only while a sleeper is due within that frame, so the
+/// pump never runs ahead of the engine.
 private func nextSnapshot(
     _ recorder: StreamRecorder<ConversationSnapshot>, clock: ManualClock,
     where predicate: @escaping @Sendable (ConversationSnapshot) -> Bool
 ) async -> ConversationSnapshot {
     let pump = Task {
-        for _ in 0..<100 {
-            if Task.isCancelled { return }
-            await clock.advance(by: .milliseconds(16))
-            await Task.yield()
+        while !Task.isCancelled {
+            let frame: Duration = .milliseconds(16)
+            guard let next = clock.sleeperDeadlines.first, next <= clock.offset + frame else {
+                await Task.yield()
+                continue
+            }
+            await clock.advance(by: frame)
         }
     }
     defer { pump.cancel() }
@@ -122,11 +126,12 @@ private func nextSnapshot(
         let cache = Cache(instance: rig.instance.id, files: rig.files, clock: rig.clock)
         await cache.saveThreadList(try decoded(ThreadList.self, "scenario-thread-list"), filter: .mine)
         let statuses = StreamRecorder(await rig.session.statuses())
+        let outbox = await rig.session.outbox()
         _ = await rig.session.openThread(threadID)
         _ = await statuses.next { $0 == .needsPairing }
         #expect(try rig.files.list(InstanceFolders.cache(rig.instance.id)).isEmpty)
         #expect(await rig.instances.state(of: rig.instance.id) == .needsPairing)
-        #expect(await rig.session.outbox()?.pauseReason() == .unauthorized(code: "device_revoked"))
+        #expect(await outbox?.pauseReason() == .unauthorized(code: "device_revoked"))
         #expect(await rig.session.openThread(threadID) == nil)
         await rig.session.stop()
     }
@@ -301,6 +306,45 @@ private func nextSnapshot(
         #expect(await rig.transport.requests(on: eventsRoute).count == before + 1)
         #expect(await rig.server.acceptedCount == 2)
         await rig.session.stop()
+    }
+
+    @Test func aStopThenStartLeavesOneOutboxSending() async throws {
+        let messages = "POST threads/\(threadID)/messages"
+        let rig = try await startedRig { transport in
+            await transport.on(messages, try .scenario(200, "scenario-message-sent"))
+        }
+        await rig.transport.hold(messages)
+        let item = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Please add a test"))
+        await rig.transport.waitForRequests(1, on: messages)
+        await rig.session.stop()
+        await rig.session.start()
+        let outbox = try #require(await rig.session.outbox())
+        let deliveries = StreamRecorder(await outbox.deliveries())
+        await rig.transport.waitForRequests(2, on: messages)
+        await rig.transport.release(messages)
+        _ = await deliveries.next { _ in true }
+        for _ in 0..<100 { await Task.yield() }
+        #expect(await rig.transport.requests(on: messages).count == 2)
+        #expect(await outbox.items().isEmpty)
+        #expect(item.id == item.id)
+        await rig.session.stop()
+    }
+
+    @Test func aSessionStartsAgainAfterARevokedDevice() async throws {
+        let rig = try await startedRig { await $0.on(showRoute, revokedAnswer) }
+        let statuses = StreamRecorder(await rig.session.statuses())
+        _ = await rig.session.openThread(threadID)
+        _ = await statuses.next { $0 == .needsPairing }
+        try rig.tokens.setToken("new-test-token", for: rig.instance.id)
+        await rig.session.start()
+        _ = await statuses.next { $0 == .active }
+        await rig.session.stop()
+    }
+
+    @Test func unpairingASessionThatNeverStartedStillTellsTheServer() async throws {
+        let rig = try await makeRig { await $0.on("DELETE device", .json(200, "{}")) }
+        await rig.session.unpair()
+        #expect(await rig.transport.requests(on: "DELETE device").count == 1)
     }
 
     @Test func unpairErasesEverything() async throws {

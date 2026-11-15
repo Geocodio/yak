@@ -4,6 +4,17 @@ import Foundation
     import os
 #endif
 
+/// The case and code of a failure, never the server's message or details.
+private func describe(_ failure: any Error) -> String {
+    switch failure as? APIFailure {
+    case .server(let error)?: "server \(error.code)"
+    case .network(let code)?: "network \(code.rawValue)"
+    case .notYak?: "notYak"
+    case .some: "api failure"
+    case nil: "\(type(of: failure))"
+    }
+}
+
 private func logFailure(_ message: String) {
     #if canImport(os)
         Logger(subsystem: "YakKit", category: "InstanceSession").error("\(message, privacy: .public)")
@@ -112,6 +123,7 @@ public actor InstanceSession {
         guard !isStarted else { return }
         isStarted = true
         hasEnded = false
+        isUnpairing = false
         runID += 1
         let current = runID
         let token: String?
@@ -148,7 +160,7 @@ public actor InstanceSession {
                 await handle(signal)
                 return
             }
-            logFailure("me failed at start: \(error)")
+            logFailure("me failed at start: \(describe(error))")
             buildLocalParts()
             statusBroadcast.send(.active)
             retryMe(run: current)
@@ -240,7 +252,7 @@ public actor InstanceSession {
                         await self.handle(signal)
                         return
                     }
-                    logFailure("me retry failed: \(error)")
+                    logFailure("me retry failed: \(describe(error))")
                 }
             }
         }
@@ -250,6 +262,12 @@ public actor InstanceSession {
         runID += 1
         isStarted = false
         await tearDown(closingThreads: true)
+        await releaseParts()
+    }
+
+    /// Stops the outbox's work and drops everything the session built; the outbox items stay on disk.
+    private func releaseParts() async {
+        await currentOutbox?.shutDown()
         cache = nil
         currentOutbox = nil
         feed = nil
@@ -291,19 +309,21 @@ public actor InstanceSession {
             await currentOutbox?.pause(.unauthorized(code: code))
             await tearDown(closingThreads: true)
             await eraseCache()
+            await releaseParts()
+            isStarted = false
             statusBroadcast.send(.needsPairing)
         case .appTooOld(let minimum):
-            await stopCalling()
+            await stopCalling(.appTooOld(minimum: minimum))
             statusBroadcast.send(.appTooOld(minimum: minimum))
         case .serverTooOld:
-            await stopCalling()
+            await stopCalling(.serverTooOld)
             statusBroadcast.send(.serverTooOld)
         }
     }
 
     /// Realtime, the list's polling and every thread's polling stop; the outbox keeps its items.
-    private func stopCalling() async {
-        await currentOutbox?.pause(.serverTooOld)
+    private func stopCalling(_ reason: OutboxPause) async {
+        await currentOutbox?.pause(reason)
         await tearDown(closingThreads: false)
         for entry in threads.values { await entry.engine.setVisible(false) }
     }
@@ -413,13 +433,24 @@ public actor InstanceSession {
 
     // MARK: Unpairing
 
+    /// A client for a session that is not started, so `DELETE device` still goes out first.
+    private func oneOffClient() -> APIClient? {
+        do {
+            guard let token = try tokens.token(for: instance.id), !token.isEmpty else { return nil }
+            return makeClient(token: token, transport: environment.http) { _ in throw CancellationError() }
+        } catch {
+            logFailure("token read failed: \(type(of: error))")
+            return nil
+        }
+    }
+
     /// Tells the server, then erases every copy this phone holds of the instance and forgets it.
     public func unpair() async {
         guard !isUnpairing else { return }
         isUnpairing = true
-        if let client {
-            do { _ = try await client.send(.unpair()) } catch {
-                logFailure("device not removed on the server: \(error)")
+        if let deviceClient = client ?? oneOffClient() {
+            do { _ = try await deviceClient.send(.unpair()) } catch {
+                logFailure("device not removed on the server: \(describe(error))")
             }
         }
         hasEnded = true
@@ -436,6 +467,7 @@ public actor InstanceSession {
         do { try await instances.remove(instance.id) } catch {
             logFailure("instance not removed: \(type(of: error))")
         }
+        await releaseParts()
         isStarted = false
         statusBroadcast.send(.needsPairing)
     }

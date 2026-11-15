@@ -137,6 +137,7 @@ public struct OutboxDelivery: Equatable, Sendable {
 public enum OutboxPause: Equatable, Sendable {
     case unauthorized(code: String)
     case serverTooOld
+    case appTooOld(minimum: Int)
 }
 
 public enum OutboxEditProblem: Error, Equatable, Sendable {
