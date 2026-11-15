@@ -8,4 +8,6 @@ Approve opens the pull request before it answers and can take up to 60 seconds. 
 
 Early warning: `POST tasks/{task}/co-owner/tag` (`user_id`, required) answers `{"status": "tagged"}` and `POST tasks/{task}/co-owner/decline` answers `{"status": "declined"}`; a repeat of the answer already given answers the same. `GET tasks/{task}/co-owner/candidates` answers `{"candidates": [{"id", "name"}], "isComplete"}`; the server checks GitHub for at most 8 seconds and answers `isComplete: false` with the people found so far. The list is empty for anyone but the requester.
 
-Refusals: 403 `not_requester`, 409 `not_linked`, `no_write_access` and `already_decided`, 503 `access_check_failed`, 503 `unavailable` after a five second lock wait.
+The candidates list answers `isComplete: false` when a GitHub check failed, so an empty list is only final with `isComplete: true`.
+
+Refusals: 404 `not_found` (the task has no early warning), 403 `not_requester`, 409 `not_linked`, `no_write_access` and `already_decided`, 503 `access_check_failed`, 503 `unavailable` after a five second lock wait.

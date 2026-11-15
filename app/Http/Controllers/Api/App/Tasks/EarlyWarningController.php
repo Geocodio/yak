@@ -32,12 +32,12 @@ class EarlyWarningController extends Controller
     {
         $coOwner = User::findOrFail($request->integer('user_id'));
 
-        return $this->answer($request, $task, 'tagged', $coOwner->id, fn (User $actor) => $this->tagging->tag($task->rootTask(), $coOwner, $actor, isTimeBounded: true));
+        return $this->answer($request, $task, 'tagged', $coOwner->id, fn (User $actor) => $this->tagging->tag($task->rootTask(), $coOwner, $actor, isTimeBounded: true, guard: $this->requireUndecided(...)));
     }
 
     public function decline(Request $request, YakTask $task): JsonResponse
     {
-        return $this->answer($request, $task, 'declined', null, fn (User $actor) => $this->tagging->decline($task->rootTask(), $actor, isTimeBounded: true));
+        return $this->answer($request, $task, 'declined', null, fn (User $actor) => $this->tagging->decline($task->rootTask(), $actor, isTimeBounded: true, guard: $this->requireUndecided(...)));
     }
 
     /**
@@ -56,9 +56,7 @@ class EarlyWarningController extends Controller
                 return response()->json(['status' => $status]);
             }
 
-            if (in_array($root->fresh()?->early_warning['state'] ?? 'shown', ['tagged', 'declined'], true)) {
-                throw new ThreadActionRefused(CoOwnerTaggingException::ALREADY_DECIDED, CoOwnerTaggingException::alreadyDecided()->getMessage(), [], 409);
-            }
+            $this->requireUndecided($root->fresh() ?? $root);
         }
 
         try {
@@ -75,6 +73,20 @@ class EarlyWarningController extends Controller
         defer(fn () => $this->messenger->updateEarlyWarning($fresh));
 
         return response()->json(['status' => $status]);
+    }
+
+    /** Refuses a task with no early warning (404) and one already answered (409). Also runs under the row lock, so two answers at once cannot both succeed. */
+    private function requireUndecided(YakTask $root): void
+    {
+        $warning = $root->early_warning;
+
+        if ($warning === null) {
+            throw new ThreadActionRefused('not_found', 'This task has no early warning to answer.', [], 404);
+        }
+
+        if (in_array($warning['state'] ?? 'shown', ['tagged', 'declined'], true)) {
+            throw new ThreadActionRefused(CoOwnerTaggingException::ALREADY_DECIDED, CoOwnerTaggingException::alreadyDecided()->getMessage(), [], 409);
+        }
     }
 
     private function isAnswered(YakTask $root, string $status, ?int $coOwnerId): bool

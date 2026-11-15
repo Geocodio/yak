@@ -117,7 +117,59 @@ it('waits at most five seconds for the task lock', function (string $action) {
         ->assertJsonPath('message', 'Yak is still handling another request for this task. Try again in a moment.');
 
     expect($this->task->fresh()->early_warning['state'])->toBe('shown');
+    Http::assertNotSent(fn (HttpRequest $request) => str_contains($request->url(), 'slack.com'));
 })->with(['tag', 'decline']);
+
+it('answers 404 and stores nothing when the task has no early warning', function (string $action) {
+    $this->task->update(['early_warning' => null]);
+
+    $this->postJson(earlyWarningPath($this->task, $action), $action === 'tag' ? ['user_id' => $this->second->id] : [], $this->headers)
+        ->assertNotFound()->assertJsonPath('error', 'not_found');
+
+    expect($this->task->fresh()->early_warning)->toBeNull()->and($this->task->fresh()->tagged_co_owner_user_id)->toBeNull();
+})->with(['tag', 'decline']);
+
+it('answers an empty complete list when the task has no early warning', function () {
+    $this->task->update(['early_warning' => null]);
+
+    $this->getJson(earlyWarningPath($this->task, 'candidates'), $this->headers)->assertOk()
+        ->assertExactJson(['candidates' => [], 'isComplete' => true]);
+});
+
+it('answers an empty complete list when nobody else is linked', function () {
+    $this->second->delete();
+
+    $this->getJson(earlyWarningPath($this->task, 'candidates'), $this->headers)->assertOk()
+        ->assertExactJson(['candidates' => [], 'isComplete' => true]);
+});
+
+it('marks the list incomplete when GitHub fails', function () {
+    earlyWarningGitHubFakes(['api.github.com/user/777' => fn () => throw new ConnectionException('Operation timed out')]);
+    Cache::flush();
+
+    $this->getJson(earlyWarningPath($this->task, 'candidates'), $this->headers)->assertOk()
+        ->assertExactJson(['candidates' => [], 'isComplete' => false]);
+});
+
+it('refuses an answer that lost the race under the lock', function () {
+    $task = $this->task;
+    $this->app->instance(GitHubWriteAccess::class, new class($task) extends GitHubWriteAccess
+    {
+        public function __construct(private YakTask $task) {}
+
+        public function check(Repository $repository, User $user, bool $isTimeBounded = false): string
+        {
+            $this->task->update(['early_warning' => ['areas' => [], 'state' => 'declined']]);
+
+            return 'write';
+        }
+    });
+
+    $this->postJson(earlyWarningPath($this->task, 'tag'), ['user_id' => $this->second->id], $this->headers)
+        ->assertStatus(409)->assertJsonPath('error', 'already_decided');
+
+    expect($this->task->fresh()->tagged_co_owner_user_id)->toBeNull();
+});
 
 it('answers an empty list when the viewer may not pick', function () {
     $this->getJson(earlyWarningPath($this->task, 'candidates'), phoneHeadersFor($this->second))->assertOk()

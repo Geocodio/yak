@@ -28,10 +28,11 @@ class CoOwnerTagging
 
     /**
      * @param  User|string  $actor  the acting Yak user, or their Slack user id when no Yak user maps to it
+     * @param  Closure(YakTask): void|null  $guard  runs under the row lock and throws to refuse
      *
      * @throws CoOwnerTaggingException
      */
-    public function tag(YakTask $root, User $coOwner, User|string $actor, bool $isTimeBounded = false): void
+    public function tag(YakTask $root, User $coOwner, User|string $actor, bool $isTimeBounded = false, ?Closure $guard = null): void
     {
         $this->check($root, $actor);
 
@@ -45,20 +46,25 @@ class CoOwnerTagging
             default => throw CoOwnerTaggingException::accessCheckFailed($coOwner->name),
         };
 
-        $this->locked(function () use ($root, $coOwner, $actor): void {
-            $this->state->tagged($this->check($root, $actor, lock: true), $coOwner);
+        $this->locked(function () use ($root, $coOwner, $actor, $guard): void {
+            $locked = $this->check($root, $actor, lock: true);
+            $guard?->__invoke($locked);
+            $this->state->tagged($locked, $coOwner);
         }, $isTimeBounded);
     }
 
     /**
      * @param  User|string  $actor  the acting Yak user, or their Slack user id when no Yak user maps to it
+     * @param  Closure(YakTask): void|null  $guard  runs under the row lock and throws to refuse
      *
      * @throws CoOwnerTaggingException
      */
-    public function decline(YakTask $root, User|string $actor, bool $isTimeBounded = false): void
+    public function decline(YakTask $root, User|string $actor, bool $isTimeBounded = false, ?Closure $guard = null): void
     {
-        $this->locked(function () use ($root, $actor): void {
-            $this->state->declined($this->check($root, $actor, lock: true));
+        $this->locked(function () use ($root, $actor, $guard): void {
+            $locked = $this->check($root, $actor, lock: true);
+            $guard?->__invoke($locked);
+            $this->state->declined($locked);
         }, $isTimeBounded);
     }
 

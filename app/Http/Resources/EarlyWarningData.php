@@ -85,7 +85,7 @@ final class EarlyWarningData
     }
 
     /**
-     * The candidates of `candidates()` with every GitHub check time bounded. No new check starts once the budget has run out; the people found so far are returned with `isComplete: false`.
+     * The candidates of `candidates()` with every GitHub check time bounded. No new check starts once the budget has run out; the people found so far are returned with `isComplete: false`, and so are they when a check failed (GitHub down).
      *
      * @return array{candidates: list<array{id: int, name: string}>, isComplete: bool}
      */
@@ -110,8 +110,12 @@ final class EarlyWarningData
                 break;
             }
 
-            if ($writeAccess->check($repository, $user, isTimeBounded: true) === 'write') {
+            $access = $writeAccess->check($repository, $user, isTimeBounded: true);
+
+            if ($access === 'write') {
                 $candidates[] = ['id' => $user->id, 'name' => $user->name];
+            } elseif ($access === 'error') {
+                $isComplete = false;
             }
         }
 
