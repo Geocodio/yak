@@ -90,7 +90,7 @@ import XCTest
         try typeAddressOnConnectScreen()
         app.textFields.firstMatch.typeText("\n")
         XCTAssertTrue(label(containing: "Waiting for you to approve").waitForExistence(timeout: 10))
-        try stub.play("paired")
+        // The stub keeps answering "approval pending", so the sign-in cannot finish while the link is open.
         openLink()
         let cancel = app.buttons["Cancel pairing"]
         XCTAssertTrue(cancel.waitForExistence(timeout: 10))
