@@ -395,7 +395,14 @@ class ThreadTurns
             Thread::query()->whereKey($thread->id)->whereNull('owner_user_id')->update(['owner_user_id' => $sender->id]);
         }
 
+        // Only a person's thread message starts a turn on its own; every other source keeps waiting for the next prompt.
+        $isPersonMessage = $source === 'thread' && $sender !== null;
+
         if ($isQueueOnly) {
+            if ($isPersonMessage) {
+                $this->startQueuedAfterCompletedTurn($thread);
+            }
+
             return $message;
         }
 
@@ -410,11 +417,13 @@ class ThreadTurns
         if (! $isDelivered) {
             $message->forceFill(['mode' => SteeringMode::Queue])->save();
 
-            $this->startQueuedAfterCompletedTurn($thread);
+            if ($isPersonMessage) {
+                $this->startQueuedAfterCompletedTurn($thread);
 
-            // The turn that started drained this message into its prompt, so it was sent, not queued.
-            if (! PendingSteeringMessage::query()->whereKey($message->id)->exists()) {
-                $message->setAttribute('mode', SteeringMode::Steer);
+                // The turn that started drained this message into its prompt, so it was sent, not queued.
+                if (! PendingSteeringMessage::query()->whereKey($message->id)->exists()) {
+                    $message->setAttribute('mode', SteeringMode::Steer);
+                }
             }
         }
 

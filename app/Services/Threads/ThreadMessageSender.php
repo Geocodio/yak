@@ -75,7 +75,7 @@ class ThreadMessageSender
         $task = $thread->headTask() ?? throw ThreadActionRefused::because(ThreadActionRefused::THREAD_BLOCKED, self::NOT_STARTED_SENTENCE, ['reason' => 'no_task']);
         $isRunning = ThreadTurns::activeTurn($thread) !== null;
 
-        if ($input->sendKey !== null && ($replayed = $this->alreadyRecorded($thread, $input->sendKey)) !== null) {
+        if ($input->sendKey !== null && ($replayed = $this->alreadyRecorded($thread, $user, $input->sendKey)) !== null) {
             return $replayed;
         }
 
@@ -133,13 +133,14 @@ class ThreadMessageSender
     }
 
     /**
-     * The result of a message this send key already recorded, so a repeat after the key's cache entry or lock is gone does not act twice.
+     * The result of a message this person's send key already recorded, so a repeat after the key's cache entry or lock is gone does not act twice.
      */
-    private function alreadyRecorded(Thread $thread, string $sendKey): ?ThreadMessageResult
+    private function alreadyRecorded(Thread $thread, User $user, string $sendKey): ?ThreadMessageResult
     {
         $queued = PendingSteeringMessage::query()
             ->where('root_task_id', $thread->messagesRootTask()->id)
             ->where('send_key', $sendKey)
+            ->where('author_user_id', $user->id)
             ->first();
 
         if ($queued !== null) {
@@ -149,7 +150,7 @@ class ThreadMessageSender
         $prompt = ThreadTurnMessage::query()
             ->where('send_key', $sendKey)
             ->where('kind', TurnMessageKind::Prompt)
-            ->whereIn('task_run_id', TaskRun::query()->where('thread_id', $thread->id)->select('id'))
+            ->whereIn('task_run_id', TaskRun::query()->where('thread_id', $thread->id)->where('driver_user_id', $user->id)->select('id'))
             ->first();
 
         return $prompt === null ? null : new ThreadMessageResult('sent', $prompt->uuid, null);

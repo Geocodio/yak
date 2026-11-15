@@ -14,6 +14,7 @@ use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Jobs\AfterTurn\FinishThreadTurnJob;
+use App\Jobs\AfterTurn\RetryQueuedMessageStartJob;
 use App\Listeners\DispatchAfterTurnWork;
 use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
@@ -27,6 +28,7 @@ use App\Services\Threads\QueuedMessageRunner;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 require_once __DIR__ . '/../../Support/ThreadTurnHelpers.php';
 require_once __DIR__ . '/../../Support/ThreadTurnsHelpers.php';
@@ -141,6 +143,7 @@ it('starts nothing while another turn runs', function () {
 });
 
 it('starts nothing when the lock is held', function () {
+    Queue::fake();
     [$thread, $run, , $message] = completedTurnWithQueuedMessage();
     $lock = Cache::lock("thread-queued-start:{$thread->id}", 30);
     $lock->get();
@@ -154,6 +157,43 @@ it('starts nothing when the lock is held', function () {
     expect($started)->toBeNull()
         ->and(newRunsOf($thread, $run))->toBe(0)
         ->and(PendingSteeringMessage::query()->whereKey($message->id)->exists())->toBeTrue();
+});
+
+it('retries later when the lock stays held', function () {
+    Queue::fake();
+    [$thread, $run] = completedTurnWithQueuedMessage();
+    $lock = Cache::lock("thread-queued-start:{$thread->id}", 30);
+    $lock->get();
+
+    try {
+        app(QueuedMessageRunner::class)->afterTurn($run);
+    } finally {
+        $lock->release();
+    }
+
+    Queue::assertPushed(RetryQueuedMessageStartJob::class, fn ($job) => $job->taskRunId === $run->id && $job->attempt === 2 && $job->delay !== null);
+});
+
+it('retries later when the start meets a thread lock timeout and gives up after the last attempt', function () {
+    Queue::fake();
+    [, $run] = completedTurnWithQueuedMessage();
+    $turns = Mockery::mock(ThreadTurns::class);
+    $turns->shouldReceive('start')->andThrow(new HttpException(503, 'busy'));
+    $runner = new QueuedMessageRunner($turns);
+
+    $runner->afterTurn($run);
+    Queue::assertPushed(RetryQueuedMessageStartJob::class, 1);
+
+    $runner->afterTurn($run, 6);
+    Queue::assertPushed(RetryQueuedMessageStartJob::class, 1);
+});
+
+it('starts the queued turn from the retry job', function () {
+    [$thread, $run] = completedTurnWithQueuedMessage();
+
+    (new RetryQueuedMessageStartJob($run->id, 2))->handle(app(QueuedMessageRunner::class));
+
+    expect(newRunsOf($thread, $run))->toBe(1);
 });
 
 it('starts the queued turn from the after-turn job', function () {

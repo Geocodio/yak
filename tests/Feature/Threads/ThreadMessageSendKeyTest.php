@@ -8,6 +8,7 @@ use App\Enums\TurnState;
 use App\Http\Resources\ThreadMessagesData;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
+use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
@@ -119,7 +120,7 @@ it('sends a message that fell back to the queue after the turn completed', funct
     $run->forceFill(['turn_state' => TurnState::Completed, 'finished_at' => now()])->save();
     $thread->forceFill(['lock_holder' => ThreadLockHolder::None, 'lock_turn_id' => null])->save();
 
-    $message = app(ThreadTurns::class)->steer($thread, 'Then update the docs', null, null, null, 'thread');
+    $message = app(ThreadTurns::class)->steer($thread, 'Then update the docs', User::factory()->create(), null, null, 'thread');
 
     $started = TaskRun::query()->where('thread_id', $thread->id)->latest('id')->first();
     expect($started->id)->not->toBe($run->id)
@@ -127,16 +128,73 @@ it('sends a message that fell back to the queue after the turn completed', funct
         ->and(PendingSteeringMessage::query()->whereKey($message->id)->exists())->toBeFalse();
 });
 
-it('does not start a turn for a message queued on purpose after the turn completed', function () {
-    fakeTurnCollaborators();
+it('starts a turn for a message queued on purpose after the turn completed', function () {
+    fakeTurnCollaborators()['commands']->shouldReceive('startRunner', 'turn', 'setModel');
     [$thread, $run] = runningThreadForSteering();
     $run->forceFill(['turn_state' => TurnState::Completed, 'finished_at' => now()])->save();
     $thread->forceFill(['lock_holder' => ThreadLockHolder::None, 'lock_turn_id' => null])->save();
 
-    app(ThreadTurns::class)->steer($thread, 'Then update the docs', null, null, null, 'thread', null, true);
+    $message = app(ThreadTurns::class)->steer($thread, 'Then update the docs', User::factory()->create(), null, null, 'thread', null, true);
 
-    expect(TaskRun::query()->where('thread_id', $thread->id)->count())->toBe(1);
+    expect(TaskRun::query()->where('thread_id', $thread->id)->latest('id')->first()->prompt)->toContain('Then update the docs')
+        ->and(PendingSteeringMessage::query()->whereKey($message->id)->exists())->toBeFalse();
 });
+
+it('keeps a message queued on purpose waiting while the turn still runs', function () {
+    fakeTurnCollaborators();
+    [$thread] = runningThreadForSteering();
+
+    $message = app(ThreadTurns::class)->steer($thread, 'Then update the docs', User::factory()->create(), null, null, 'thread', null, true);
+
+    expect(TaskRun::query()->where('thread_id', $thread->id)->count())->toBe(1)
+        ->and(PendingSteeringMessage::query()->whereKey($message->id)->exists())->toBeTrue();
+});
+
+it('never starts a turn from a steer that is not a person\'s thread message', function (string $source, bool $hasSender, bool $isQueueOnly) {
+    fakeTurnCollaborators()['commands']->shouldReceive('steer')->andThrow(new RuntimeException('runner gone'));
+    [$thread, $run] = runningThreadForSteering();
+    $run->forceFill(['turn_state' => TurnState::Completed, 'finished_at' => now()])->save();
+    $thread->forceFill(['lock_holder' => ThreadLockHolder::None, 'lock_turn_id' => null])->save();
+
+    $message = app(ThreadTurns::class)->steer($thread, 'Framed note', $hasSender ? User::factory()->create() : null, null, null, $source, null, $isQueueOnly);
+
+    expect(TaskRun::query()->where('thread_id', $thread->id)->count())->toBe(1)
+        ->and($message->mode)->toBe(SteeringMode::Queue)
+        ->and(PendingSteeringMessage::query()->whereKey($message->id)->exists())->toBeTrue();
+})->with([
+    'system without a sender' => ['system', false, false],
+    'system with a sender' => ['system', true, false],
+    'thread without a sender' => ['thread', false, false],
+    'thread without a sender queued on purpose' => ['thread', false, true],
+]);
+
+it('does not answer a second person with the first person\'s message for the same send key', function () {
+    [$thread] = runningThreadForSteering();
+    fakeTurnCollaborators()['commands']->shouldReceive('steer')->twice();
+    $input = new ThreadMessageInput('Use the staging bucket', null, null, SEND_KEY, MessageDelivery::Steer, null);
+    [$first, $second] = User::factory()->count(2)->create();
+
+    $firstResult = app(ThreadMessageSender::class)->send($thread, $first, $input);
+    Cache::flush();
+    $secondResult = app(ThreadMessageSender::class)->send($thread, $second, $input);
+
+    expect($secondResult->uuid)->not->toBe($firstResult->uuid)
+        ->and(PendingSteeringMessage::query()->where('send_key', SEND_KEY)->count())->toBe(2);
+});
+
+it('answers 503 when start or stop meets a thread lock that does not free up', function (string $method) {
+    $fakes = fakeTurnCollaborators();
+    [$thread, $task] = threadWithTask();
+    $timeout = new QueryException('sqlite', 'select 1', [], new PDOException('lock wait timeout'));
+    $timeout->errorInfo = [null, 1205, 'Lock wait timeout exceeded'];
+    Thread::retrieved(fn () => throw $timeout);
+
+    $call = $method === 'start'
+        ? fn () => app(ThreadTurns::class)->start($task, 'Do it', User::factory()->create(), null)
+        : fn () => app(ThreadTurns::class)->stop($thread);
+
+    expect($call)->toThrow(fn (HttpException $exception) => expect($exception->getStatusCode())->toBe(503));
+})->with(['start', 'stop']);
 
 it('does not steer a message that a new prompt already drained', function () {
     [$thread] = runningThreadForSteering();
@@ -156,7 +214,7 @@ it('answers sent when the fallback turn drained the message', function () {
     [$thread, $run] = runningThreadForSteering();
     $run->forceFill(['turn_state' => TurnState::Completed, 'finished_at' => now()])->save();
     $thread->forceFill(['lock_holder' => ThreadLockHolder::None, 'lock_turn_id' => null])->save();
-    $result = app(ThreadTurns::class)->steer($thread, 'Then update the docs', null, null, null, 'thread', SEND_KEY);
+    $result = app(ThreadTurns::class)->steer($thread, 'Then update the docs', User::factory()->create(), null, null, 'thread', SEND_KEY);
 
     expect($result->mode)->toBe(SteeringMode::Steer);
 });
