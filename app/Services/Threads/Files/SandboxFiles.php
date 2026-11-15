@@ -102,7 +102,7 @@ class SandboxFiles
 
     /**
      * Tracked and untracked, not ignored repository files whose path contains the query, case-insensitively.
-     * Grep finding nothing (exit 1) and head closing the pipe early (exit 141) are normal ends.
+     * Git must exit 0 (or 141 when a later stage closes the pipe), grep 0, 1 (no match) or 141; any other status exits 2.
      *
      * @return array{matches: list<array{name: string, path: string}>, truncated: bool}
      */
@@ -111,7 +111,7 @@ class SandboxFiles
         $root = SandboxPath::root($thread, FileScope::Repository);
 
         $result = $this->exec($thread, sprintf(
-            'set -o pipefail; %s git -C %s ls-files -z --cached --others --exclude-standard | grep -z -i -F -e %s | head -z -n %d',
+            '%s git -C %s ls-files -z --cached --others --exclude-standard | grep -z -i -F -e %s | head -z -n %d; codes=("${PIPESTATUS[@]}"); case ${codes[0]} in 0|141) ;; *) exit 2;; esac; case ${codes[1]} in 0|1|141) ;; *) exit 2;; esac',
             $this->guard($thread, FileScope::Repository, $root),
             escapeshellarg($root),
             escapeshellarg($query),
@@ -120,7 +120,7 @@ class SandboxFiles
 
         $this->failOnGuard($result->exitCode());
 
-        if (! in_array($result->exitCode(), [0, 1, 141], true)) {
+        if ($result->exitCode() !== 0) {
             throw new SandboxCommandFailed('A sandbox file command failed.');
         }
 

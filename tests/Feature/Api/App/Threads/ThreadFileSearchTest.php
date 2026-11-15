@@ -68,19 +68,21 @@ it('passes the query as one escaped fixed string', function () {
 
     $command = collect($this->sandboxes->calls)->last()['arguments']['command'][2];
     expect($command)->toContain('grep -z -i -F -e ' . escapeshellarg("a'\$(x)"))
-        ->and($command)->toContain('head -z -n 101');
+        ->and($command)->toContain('head -z -n 101')
+        ->and($command)->toContain('${PIPESTATUS[@]}')
+        ->and($command)->toContain('case ${codes[0]} in 0|141) ;; *) exit 2;; esac');
 });
 
 it('finds nothing without an error', function () {
     [$thread, $user] = appSearchThread();
-    $this->sandboxes->queueExecResult(Process::result('', '', 1));
+    $this->sandboxes->queueExecResult(Process::result('', '', 0));
 
     searchAppFiles($thread, $user)->assertOk()->assertExactJson(['state' => 'ready', 'matches' => [], 'truncated' => false]);
 });
 
 it('treats a closed pipe as a normal end', function () {
     [$thread, $user] = appSearchThread();
-    $this->sandboxes->queueExecResult(Process::result("a.php\0", '', 141));
+    $this->sandboxes->queueExecResult(Process::result("a.php\0", '', 0));
 
     searchAppFiles($thread, $user)->assertOk()->assertJsonPath('matches.0.path', 'a.php');
 });
@@ -112,17 +114,40 @@ it('lets a share recipient search', function () {
     searchAppFiles($thread, $user, 'scope=repo&q=readme', phoneHeadersFor($recipient))->assertOk()->assertJsonPath('matches.0.name', 'README.md');
 });
 
-it('answers each sandbox state without running a command', function () {
+it('answers each sandbox state without running a command', function (ThreadSandboxState $state, ?string $container, string $reported) {
     [$thread, $user] = appSearchThread();
-    $thread->update(['sandbox_state' => ThreadSandboxState::Destroyed, 'sandbox_container' => null]);
+    $thread->update(['sandbox_state' => $state, 'sandbox_container' => $container]);
 
-    searchAppFiles($thread, $user)->assertStatus(409)->assertJsonPath('error', 'sandbox_unavailable')->assertJsonPath('details.state', 'destroyed');
+    searchAppFiles($thread, $user)->assertStatus(409)->assertJsonPath('error', 'sandbox_unavailable')->assertJsonPath('details.state', $reported);
+    expect($this->sandboxes->calls)->toBe([]);
+})->with([
+    'none' => [ThreadSandboxState::None, null, 'destroyed'],
+    'destroyed' => [ThreadSandboxState::Destroyed, null, 'destroyed'],
+]);
+
+it('refuses a share recipient on an asleep sandbox without waking it', function () {
+    [$thread, $user] = appSearchThread();
+    $recipient = User::factory()->create();
+    app(ThreadSharing::class)->apply($thread, $user, ThreadShareMode::People, [$recipient->id]);
+    $thread->update(['sandbox_state' => ThreadSandboxState::Paused]);
+
+    searchAppFiles($thread, $user, 'scope=repo&q=a', phoneHeadersFor($recipient))->assertStatus(409)->assertJsonPath('details.state', 'asleep');
     expect($this->sandboxes->calls)->toBe([]);
 });
 
+it('answers the repository guard refusals', function (int $exitCode, int $status) {
+    [$thread, $user] = appSearchThread();
+    $this->sandboxes->queueExecResult(Process::result('', '', $exitCode));
+
+    searchAppFiles($thread, $user)->assertStatus($status);
+})->with([
+    'outside the repository' => [3, 422],
+    'no repository root' => [4, 404],
+]);
+
 it('answers unavailable when the search fails or the sandbox does not answer', function () {
     [$thread, $user] = appSearchThread();
-    $this->sandboxes->queueExecResult(Process::result('', 'fatal', 128));
+    $this->sandboxes->queueExecResult(Process::result('', 'fatal', 2));
     searchAppFiles($thread, $user)->assertStatus(503)->assertJsonPath('error', 'unavailable');
 
     $this->sandboxes->queueExecResult(new SandboxCommandFailed('timed out'));
