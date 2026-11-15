@@ -7,7 +7,7 @@ let package = Package(
     products: [.library(name: "YakKit", targets: ["YakKit"])],
     targets: [
         .target(name: "YakKit"),
-        .testTarget(name: "YakKitTests", dependencies: ["YakKit"]),
+        .testTarget(name: "YakKitTests", dependencies: ["YakKit"], exclude: ["Scenarios"]),
     ],
     swiftLanguageModes: [.v6]
 )

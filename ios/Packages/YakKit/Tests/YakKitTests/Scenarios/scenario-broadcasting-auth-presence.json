@@ -1,0 +1,4 @@
+{
+  "auth": "reverb-key:1a2b3c4d5e6f",
+  "channel_data": "{\"user_id\":7,\"user_info\":{\"id\":7,\"name\":\"Test Person\"}}"
+}

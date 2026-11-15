@@ -1,0 +1,115 @@
+{
+  "scenario": "stream-reset",
+  "source": "synthetic",
+  "broadcasts": [
+    {
+      "sequence": 1,
+      "type": "turn",
+      "data": {
+        "turnId": 45,
+        "state": "running"
+      },
+      "createdAt": "2026-11-15T09:00:01Z"
+    },
+    {
+      "sequence": 2,
+      "type": "delta",
+      "data": {
+        "blockKey": "msg_8:0",
+        "kind": "text",
+        "text": "First try"
+      },
+      "createdAt": "2026-11-15T09:00:02Z"
+    },
+    {
+      "sequence": 3,
+      "type": "stream.reset",
+      "data": {},
+      "createdAt": "2026-11-15T09:00:03Z"
+    },
+    {
+      "sequence": 4,
+      "type": "delta",
+      "data": {
+        "blockKey": "msg_8:0",
+        "kind": "text",
+        "text": "Second"
+      },
+      "createdAt": "2026-11-15T09:00:04Z"
+    },
+    {
+      "sequence": 5,
+      "type": "delta",
+      "data": {
+        "blockKey": "msg_8:0",
+        "kind": "text",
+        "text": " try"
+      },
+      "createdAt": "2026-11-15T09:00:05Z"
+    },
+    {
+      "sequence": 6,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_8",
+        "blocks": [
+          {
+            "type": "text",
+            "text": "Second try"
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:06Z"
+    },
+    {
+      "sequence": 7,
+      "type": "turn",
+      "data": {
+        "turnId": 45,
+        "state": "completed"
+      },
+      "createdAt": "2026-11-15T09:00:07Z"
+    }
+  ],
+  "catchUp": {
+    "events": [
+      {
+        "sequence": 1,
+        "type": "turn",
+        "data": {
+          "turnId": 45,
+          "state": "running"
+        },
+        "createdAt": "2026-11-15T09:00:01Z"
+      },
+      {
+        "sequence": 6,
+        "type": "entry",
+        "data": {
+          "role": "assistant",
+          "messageId": "msg_8",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Second try"
+            }
+          ]
+        },
+        "createdAt": "2026-11-15T09:00:06Z"
+      },
+      {
+        "sequence": 7,
+        "type": "turn",
+        "data": {
+          "turnId": 45,
+          "state": "completed"
+        },
+        "createdAt": "2026-11-15T09:00:07Z"
+      }
+    ],
+    "latestSequence": 7,
+    "source": "database"
+  },
+  "pointers": []
+}

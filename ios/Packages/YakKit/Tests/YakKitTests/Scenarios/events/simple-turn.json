@@ -1,0 +1,331 @@
+{
+  "scenario": "simple-turn",
+  "source": "synthetic",
+  "broadcasts": [
+    {
+      "sequence": 1,
+      "type": "thread",
+      "data": {
+        "status": "open",
+        "sandboxState": "running",
+        "runnerState": "busy",
+        "blockedReason": null
+      },
+      "createdAt": "2026-11-15T09:00:01Z"
+    },
+    {
+      "sequence": 2,
+      "type": "entry",
+      "data": {
+        "role": "user",
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "text": "Retry failed rows when the import times out",
+        "kind": "prompt"
+      },
+      "createdAt": "2026-11-15T09:00:02Z"
+    },
+    {
+      "sequence": 3,
+      "type": "turn",
+      "data": {
+        "turnId": 41,
+        "state": "running"
+      },
+      "createdAt": "2026-11-15T09:00:03Z"
+    },
+    {
+      "sequence": 4,
+      "type": "message.state",
+      "data": {
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "state": "started"
+      },
+      "createdAt": "2026-11-15T09:00:04Z"
+    },
+    {
+      "sequence": 5,
+      "type": "entry",
+      "data": {
+        "role": "system",
+        "subtype": "init",
+        "model": "claude-sonnet-5-5",
+        "sessionId": "session-1"
+      },
+      "createdAt": "2026-11-15T09:00:05Z"
+    },
+    {
+      "sequence": 6,
+      "type": "delta",
+      "data": {
+        "blockKey": "msg_1:0",
+        "kind": "text",
+        "text": "Looking at "
+      },
+      "createdAt": "2026-11-15T09:00:06Z"
+    },
+    {
+      "sequence": 7,
+      "type": "delta",
+      "data": {
+        "blockKey": "msg_1:0",
+        "kind": "text",
+        "text": "the importer."
+      },
+      "createdAt": "2026-11-15T09:00:07Z"
+    },
+    {
+      "sequence": 8,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_1",
+        "blocks": [
+          {
+            "type": "text",
+            "text": "Looking at the importer.",
+            "html": "<p>Looking at the importer.</p>"
+          },
+          {
+            "type": "tool_use",
+            "id": "toolu_1",
+            "name": "Read",
+            "input": {
+              "file_path": "app/Importer.php"
+            }
+          },
+          {
+            "type": "tool_use",
+            "id": "toolu_2",
+            "name": "Bash",
+            "input": {
+              "command": "php artisan test --filter=Import"
+            }
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:08Z"
+    },
+    {
+      "sequence": 9,
+      "type": "entry",
+      "data": {
+        "role": "tool_result",
+        "toolUseId": "toolu_1",
+        "isError": false,
+        "text": "<?php"
+      },
+      "createdAt": "2026-11-15T09:00:09Z"
+    },
+    {
+      "sequence": 10,
+      "type": "entry",
+      "data": {
+        "role": "tool_result",
+        "toolUseId": "toolu_2",
+        "isError": false,
+        "text": "Tests: 4 passed"
+      },
+      "createdAt": "2026-11-15T09:00:10Z"
+    },
+    {
+      "sequence": 11,
+      "type": "delta",
+      "data": {
+        "blockKey": "msg_2:0",
+        "kind": "text",
+        "text": "Done."
+      },
+      "createdAt": "2026-11-15T09:00:11Z"
+    },
+    {
+      "sequence": 12,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_2",
+        "blocks": [
+          {
+            "type": "text",
+            "text": "Done. Failed rows now retry three times.",
+            "html": "<p>Done. Failed rows now retry three times.</p>"
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:12Z"
+    },
+    {
+      "sequence": 13,
+      "type": "entry",
+      "data": {
+        "role": "result",
+        "subtype": "success",
+        "isError": false,
+        "text": "Done. Failed rows now retry three times.",
+        "costUsd": 0.12,
+        "durationMs": 4200,
+        "numTurns": 2
+      },
+      "createdAt": "2026-11-15T09:00:13Z"
+    },
+    {
+      "sequence": 14,
+      "type": "turn",
+      "data": {
+        "turnId": 41,
+        "state": "completed"
+      },
+      "createdAt": "2026-11-15T09:00:14Z"
+    }
+  ],
+  "catchUp": {
+    "events": [
+      {
+        "sequence": 1,
+        "type": "thread",
+        "data": {
+          "status": "open",
+          "sandboxState": "running",
+          "runnerState": "busy",
+          "blockedReason": null
+        },
+        "createdAt": "2026-11-15T09:00:01Z"
+      },
+      {
+        "sequence": 2,
+        "type": "entry",
+        "data": {
+          "role": "user",
+          "uuid": "00000000-0000-4000-8000-000000000001",
+          "text": "Retry failed rows when the import times out",
+          "kind": "prompt"
+        },
+        "createdAt": "2026-11-15T09:00:02Z"
+      },
+      {
+        "sequence": 3,
+        "type": "turn",
+        "data": {
+          "turnId": 41,
+          "state": "running"
+        },
+        "createdAt": "2026-11-15T09:00:03Z"
+      },
+      {
+        "sequence": 4,
+        "type": "message.state",
+        "data": {
+          "uuid": "00000000-0000-4000-8000-000000000001",
+          "state": "started"
+        },
+        "createdAt": "2026-11-15T09:00:04Z"
+      },
+      {
+        "sequence": 5,
+        "type": "entry",
+        "data": {
+          "role": "system",
+          "subtype": "init",
+          "model": "claude-sonnet-5-5",
+          "sessionId": "session-1"
+        },
+        "createdAt": "2026-11-15T09:00:05Z"
+      },
+      {
+        "sequence": 8,
+        "type": "entry",
+        "data": {
+          "role": "assistant",
+          "messageId": "msg_1",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Looking at the importer.",
+              "html": "<p>Looking at the importer.</p>"
+            },
+            {
+              "type": "tool_use",
+              "id": "toolu_1",
+              "name": "Read",
+              "input": {
+                "file_path": "app/Importer.php"
+              }
+            },
+            {
+              "type": "tool_use",
+              "id": "toolu_2",
+              "name": "Bash",
+              "input": {
+                "command": "php artisan test --filter=Import"
+              }
+            }
+          ]
+        },
+        "createdAt": "2026-11-15T09:00:08Z"
+      },
+      {
+        "sequence": 9,
+        "type": "entry",
+        "data": {
+          "role": "tool_result",
+          "toolUseId": "toolu_1",
+          "isError": false,
+          "text": "<?php"
+        },
+        "createdAt": "2026-11-15T09:00:09Z"
+      },
+      {
+        "sequence": 10,
+        "type": "entry",
+        "data": {
+          "role": "tool_result",
+          "toolUseId": "toolu_2",
+          "isError": false,
+          "text": "Tests: 4 passed"
+        },
+        "createdAt": "2026-11-15T09:00:10Z"
+      },
+      {
+        "sequence": 12,
+        "type": "entry",
+        "data": {
+          "role": "assistant",
+          "messageId": "msg_2",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Done. Failed rows now retry three times.",
+              "html": "<p>Done. Failed rows now retry three times.</p>"
+            }
+          ]
+        },
+        "createdAt": "2026-11-15T09:00:12Z"
+      },
+      {
+        "sequence": 13,
+        "type": "entry",
+        "data": {
+          "role": "result",
+          "subtype": "success",
+          "isError": false,
+          "text": "Done. Failed rows now retry three times.",
+          "costUsd": 0.12,
+          "durationMs": 4200,
+          "numTurns": 2
+        },
+        "createdAt": "2026-11-15T09:00:13Z"
+      },
+      {
+        "sequence": 14,
+        "type": "turn",
+        "data": {
+          "turnId": 41,
+          "state": "completed"
+        },
+        "createdAt": "2026-11-15T09:00:14Z"
+      }
+    ],
+    "latestSequence": 14,
+    "source": "database"
+  },
+  "pointers": []
+}

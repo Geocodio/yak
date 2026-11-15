@@ -1,0 +1,239 @@
+{
+  "scenario": "steer",
+  "source": "synthetic",
+  "broadcasts": [
+    {
+      "sequence": 1,
+      "type": "turn",
+      "data": {
+        "turnId": 42,
+        "state": "running"
+      },
+      "createdAt": "2026-11-15T09:00:01Z"
+    },
+    {
+      "sequence": 2,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_3",
+        "blocks": [
+          {
+            "type": "tool_use",
+            "id": "toolu_3",
+            "name": "Bash",
+            "input": {
+              "command": "composer test"
+            }
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:02Z"
+    },
+    {
+      "sequence": 3,
+      "type": "entry",
+      "data": {
+        "role": "user",
+        "uuid": "00000000-0000-4000-8000-000000000002",
+        "text": "Also cover the empty file case",
+        "kind": "steer"
+      },
+      "createdAt": "2026-11-15T09:00:03Z"
+    },
+    {
+      "sequence": 4,
+      "type": "message.state",
+      "data": {
+        "uuid": "00000000-0000-4000-8000-000000000002",
+        "state": "started"
+      },
+      "createdAt": "2026-11-15T09:00:04Z"
+    },
+    {
+      "sequence": 5,
+      "type": "entry",
+      "data": {
+        "role": "tool_result",
+        "toolUseId": "toolu_3",
+        "isError": false,
+        "text": "OK"
+      },
+      "createdAt": "2026-11-15T09:00:05Z"
+    },
+    {
+      "sequence": 6,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_4",
+        "blocks": [
+          {
+            "type": "tool_use",
+            "id": "toolu_4",
+            "name": "Bash",
+            "input": {
+              "command": "composer test -- --filter=Empty"
+            }
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:06Z"
+    },
+    {
+      "sequence": 7,
+      "type": "entry",
+      "data": {
+        "role": "tool_result",
+        "toolUseId": "toolu_4",
+        "isError": false,
+        "text": "OK"
+      },
+      "createdAt": "2026-11-15T09:00:07Z"
+    },
+    {
+      "sequence": 8,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_5",
+        "blocks": [
+          {
+            "type": "text",
+            "text": "Covered the empty file case too."
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:08Z"
+    },
+    {
+      "sequence": 9,
+      "type": "turn",
+      "data": {
+        "turnId": 42,
+        "state": "completed"
+      },
+      "createdAt": "2026-11-15T09:00:09Z"
+    }
+  ],
+  "catchUp": {
+    "events": [
+      {
+        "sequence": 1,
+        "type": "turn",
+        "data": {
+          "turnId": 42,
+          "state": "running"
+        },
+        "createdAt": "2026-11-15T09:00:01Z"
+      },
+      {
+        "sequence": 2,
+        "type": "entry",
+        "data": {
+          "role": "assistant",
+          "messageId": "msg_3",
+          "blocks": [
+            {
+              "type": "tool_use",
+              "id": "toolu_3",
+              "name": "Bash",
+              "input": {
+                "command": "composer test"
+              }
+            }
+          ]
+        },
+        "createdAt": "2026-11-15T09:00:02Z"
+      },
+      {
+        "sequence": 3,
+        "type": "entry",
+        "data": {
+          "role": "user",
+          "uuid": "00000000-0000-4000-8000-000000000002",
+          "text": "Also cover the empty file case",
+          "kind": "steer"
+        },
+        "createdAt": "2026-11-15T09:00:03Z"
+      },
+      {
+        "sequence": 4,
+        "type": "message.state",
+        "data": {
+          "uuid": "00000000-0000-4000-8000-000000000002",
+          "state": "started"
+        },
+        "createdAt": "2026-11-15T09:00:04Z"
+      },
+      {
+        "sequence": 5,
+        "type": "entry",
+        "data": {
+          "role": "tool_result",
+          "toolUseId": "toolu_3",
+          "isError": false,
+          "text": "OK"
+        },
+        "createdAt": "2026-11-15T09:00:05Z"
+      },
+      {
+        "sequence": 6,
+        "type": "entry",
+        "data": {
+          "role": "assistant",
+          "messageId": "msg_4",
+          "blocks": [
+            {
+              "type": "tool_use",
+              "id": "toolu_4",
+              "name": "Bash",
+              "input": {
+                "command": "composer test -- --filter=Empty"
+              }
+            }
+          ]
+        },
+        "createdAt": "2026-11-15T09:00:06Z"
+      },
+      {
+        "sequence": 7,
+        "type": "entry",
+        "data": {
+          "role": "tool_result",
+          "toolUseId": "toolu_4",
+          "isError": false,
+          "text": "OK"
+        },
+        "createdAt": "2026-11-15T09:00:07Z"
+      },
+      {
+        "sequence": 8,
+        "type": "entry",
+        "data": {
+          "role": "assistant",
+          "messageId": "msg_5",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Covered the empty file case too."
+            }
+          ]
+        },
+        "createdAt": "2026-11-15T09:00:08Z"
+      },
+      {
+        "sequence": 9,
+        "type": "turn",
+        "data": {
+          "turnId": 42,
+          "state": "completed"
+        },
+        "createdAt": "2026-11-15T09:00:09Z"
+      }
+    ],
+    "latestSequence": 9,
+    "source": "database"
+  },
+  "pointers": []
+}

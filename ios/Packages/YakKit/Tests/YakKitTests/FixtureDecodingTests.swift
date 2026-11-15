@@ -12,6 +12,16 @@ enum Fixtures {
     }
 
     static func object(_ name: String) throws -> Any {
+        try JSONSerialization.jsonObject(with: Data(contentsOf: url(name)))
+    }
+
+    /// True when `ios/fixtures/<name>.json` is there.
+    static func exists(_ name: String) -> Bool {
+        guard let url = try? url(name) else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    private static func url(_ name: String) throws -> URL {
         // The fixtures are read from disk through `#filePath`, not bundled as a SwiftPM resource:
         // `ios/fixtures` is a symlink to the shared fixtures, and SwiftPM copies a symlinked resource
         // as a dangling link, so a bundled copy would be empty. Walk up from this file to the `ios`
@@ -22,8 +32,7 @@ enum Fixtures {
             try #require(parent != directory, "FixtureDecodingTests.swift must live under the ios directory")
             directory = parent
         }
-        let url = directory.appendingPathComponent("fixtures/\(name).json")
-        return try JSONSerialization.jsonObject(with: Data(contentsOf: url))
+        return directory.appendingPathComponent("fixtures/\(name).json")
     }
 
     static func replacingMarkers(_ value: Any) -> Any {
