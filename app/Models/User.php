@@ -202,14 +202,15 @@ class User extends Authenticatable
     {
         $known = array_flip(array_map(fn (PushEvent $event): string => $event->value, PushEvent::cases()));
 
-        ShortLockWait::transaction(function () use ($preferences, $known): void {
-            $current = self::query()->whereKey($this->getKey())->lockForUpdate()->value('push_event_preferences');
-            $current = is_string($current) ? (json_decode($current, true) ?: []) : ($current ?? []);
+        $merged = ShortLockWait::transaction(function () use ($preferences, $known): array {
+            $locked = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
+            $merged = array_map('boolval', array_merge($locked->push_event_preferences ?? [], array_intersect_key($preferences, $known)));
+            $locked->forceFill(['push_event_preferences' => $merged])->save();
 
-            $this->forceFill([
-                'push_event_preferences' => array_map('boolval', array_merge($current, array_intersect_key($preferences, $known))),
-            ])->save();
+            return $merged;
         }, fn (): Throwable => new HttpException(503, 'Yak is still saving another change to your notifications. Try again in a moment.'));
+
+        $this->forceFill(['push_event_preferences' => $merged])->syncOriginalAttribute('push_event_preferences');
     }
 
     /**

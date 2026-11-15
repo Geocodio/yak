@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Support\ContractFixture;
 
 const NOTIFICATIONS_PATH = '/api/app/v1/notifications';
@@ -95,4 +96,16 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
     [, $computerHeaders] = phoneWithHeaders(['user_id' => $device->user_id], isPhone: false);
     $this->getJson(NOTIFICATIONS_PATH, $computerHeaders)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
     $this->putJson(NOTIFICATIONS_PATH, ['events' => ['needs_you' => false]], $computerHeaders)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
+});
+
+it('leaves the model untouched when the lock wait runs out and clean when it saves', function () {
+    $user = User::factory()->create();
+    $user->setPushPreferences(['needs_you' => false]);
+    expect($user->isDirty())->toBeFalse()->and($user->push_event_preferences['needs_you'])->toBeFalse();
+
+    User::saving(fn () => throw tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']));
+
+    expect(fn () => $user->setPushPreferences(['pull_request' => false]))->toThrow(HttpException::class)
+        ->and($user->isDirty())->toBeFalse()
+        ->and($user->push_event_preferences)->not->toHaveKey('pull_request');
 });
