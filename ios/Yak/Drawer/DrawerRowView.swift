@@ -18,21 +18,29 @@ struct DrawerRowView: View {
             if row.depth > 0 { nesting }
             Button(action: open) {
                 HStack(alignment: .top, spacing: 12) {
-                    DrawerIndicator(indicator: row.indicator)
-                        .frame(width: indicatorSize, height: indicatorSize)
-                        .padding(.top, 1)
+                    if !isLarge {
+                        DrawerIndicator(indicator: row.indicator)
+                            .frame(width: indicatorSize, height: indicatorSize)
+                            .padding(.top, 1)
+                    }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(row.title).font(.body).foregroundStyle(.primary)
                             .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
                         Text(subtitle).font(.footnote).foregroundStyle(Color.yakMuted)
                             .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
-                        if isLarge { trailing(isInline: true) }
+                        if isLarge {
+                            // The indicator moves in front of the age so the title keeps the whole width.
+                            HStack(spacing: 8) {
+                                DrawerIndicator(indicator: row.indicator).frame(width: 22, height: 22)
+                                trailing(isInline: true)
+                            }
+                        }
                     }
                     Spacer(minLength: 4)
                     if !isLarge { trailing(isInline: false) }
                 }
-                .padding(.leading, row.depth == 0 ? 20 : 8)
-                .padding(.trailing, row.childCount > 0 ? 0 : 20)
+                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? 20 : 8))
+                .padding(.trailing, row.childCount > 0 ? 0 : (isLarge ? 12 : 20))
                 .padding(.vertical, 8)
                 .frame(minHeight: 44)
                 .contentShape(.rect)
@@ -60,7 +68,7 @@ struct DrawerRowView: View {
     /// A neutral hairline that shows the nesting.
     private var nesting: some View {
         HStack(spacing: 0) {
-            Color.clear.frame(width: 20 + indentation * CGFloat(row.depth - 1))
+            Color.clear.frame(width: (isLarge ? 12 : 20) + (isLarge ? 14 : indentation) * CGFloat(row.depth - 1))
             Rectangle().fill(Color.primary.opacity(0.15)).frame(width: 1)
         }
     }

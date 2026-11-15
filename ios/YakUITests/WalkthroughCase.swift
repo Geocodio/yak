@@ -13,7 +13,8 @@ import XCTest
         stub = try StubControl()
         // Both appearances are set explicitly, because a simulator can be left in dark mode.
         XCUIDevice.shared.appearance = environment["YAK_APPEARANCE"] == "dark" ? .dark : .light
-        if environment["YAK_ORIENTATION"] == "landscape" { XCUIDevice.shared.orientation = .landscapeLeft }
+        // The orientation is set both ways, because a landscape run leaves the simulator turned.
+        XCUIDevice.shared.orientation = environment["YAK_ORIENTATION"] == "landscape" ? .landscapeLeft : .portrait
     }
 
     func start(
@@ -99,11 +100,6 @@ import XCTest
             {
                 return true
             }
-            // At the largest text size the drawer's text scrolls under the bottom bar or the keyboard, and the
-            // audit measures the pixels it can see there.
-            if issue.auditType == .contrast, environment["YAK_TEXT_SIZE"] == "largest", name.hasPrefix("drawer") {
-                return true
-            }
             if issue.auditType == .contrast, let element = issue.element, element.frame.maxY > screenBottom {
                 return true
             }
@@ -112,6 +108,27 @@ import XCTest
             if let element = issue.element, ["Cancel", "Close"].contains(element.label),
                 [.contrast, .dynamicType].contains(issue.auditType),
                 app.navigationBars.allElementsBoundByIndex.contains(where: { $0.frame.contains(element.frame) })
+            {
+                return true
+            }
+            // In landscape on a phone the split view's detail column runs past the screen edge while the sidebar is
+            // open, so the placeholder's centered text sits against the edge; the real thread screen replaces it.
+            if issue.auditType == .textClipped, environment["YAK_ORIENTATION"] == "landscape",
+                ["Pick a thread from the list.", "New thread"].contains(issue.element?.label ?? "")
+            {
+                return true
+            }
+            // In landscape the list is short, so a row is cut by the bottom bar; the audit finds that cut text but
+            // cannot name its element. Only these two list screens are excused.
+            if issue.auditType == .contrast, issue.element == nil, environment["YAK_ORIENTATION"] == "landscape",
+                ["drawer-offline", "drawer-sub-threads"].contains(name)
+            {
+                return true
+            }
+            // At the largest text size the drawer's message or list runs under the bottom bar or the keyboard; the
+            // audit finds that cut text but cannot name its element. Only the drawer screens are excused.
+            if issue.auditType == .contrast, issue.element == nil, environment["YAK_TEXT_SIZE"] == "largest",
+                name.hasPrefix("drawer")
             {
                 return true
             }

@@ -4,18 +4,22 @@ import YakKit
 /// The signed-in app for one instance: the drawer and the thread screen, the session's status and the cold start.
 struct InstanceShell: View {
     let model: AppModel
-    let instance: Instance
+    /// The instance the route chose at launch; its name and account may be older than the stored copy.
+    let routedInstance: Instance
     let session: InstanceSession
     let scene: SceneModel
 
     @State private var status: SessionStatus = .starting
     @State private var listState: ThreadListState?
     @State private var drawerModel: DrawerModel?
+    /// The stored copy of the instance, refreshed once `me` has landed.
+    @State private var storedInstance: Instance?
     @State private var showsAccount = false
     @State private var showsSwitcher = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
 
+    private var instance: Instance { storedInstance ?? routedInstance }
     private var isCompactWidth: Bool { sizeClass != .regular }
     /// The list loads and polls only while the drawer is on screen and the app is in front.
     private var isListVisible: Bool { drawerBinding.wrappedValue && scenePhase == .active }
@@ -32,6 +36,8 @@ struct InstanceShell: View {
         }
         .task { for await next in await session.statuses() { status = next } }
         .task(id: status == .active) { await followThreadList() }
+        .task(id: status) { await refreshStoredInstance() }
+        .onChange(of: showsAccount) { Task { await refreshStoredInstance() } }
         .task(id: drawerModel.map(ObjectIdentifier.init)) { await drawerModel?.run() }
         .onChange(of: scene.state.filter) { Task { await drawerModel?.syncFilter() } }
         .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
@@ -126,6 +132,12 @@ struct InstanceShell: View {
             .frame(maxWidth: 560).frame(maxWidth: .infinity).padding(24)
         }
         .background(Color(.systemBackground))
+    }
+
+    private func refreshStoredInstance() async {
+        if let latest = await model.instances.all().first(where: { $0.id == routedInstance.id }) {
+            storedInstance = latest
+        }
     }
 
     /// Command N, Command K (the drawer's search field) and Command backslash.

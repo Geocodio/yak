@@ -17,10 +17,11 @@ struct DrawerView: View {
 
     @FocusState private var isSearchFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            if !(isSearchFocused && verticalSizeClass == .compact) { header }
             if let name = scene.justPairedUserName { banner(name) }
             content
         }
@@ -34,10 +35,7 @@ struct DrawerView: View {
     // MARK: Header
 
     private var header: some View {
-        let layout =
-            dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout(spacing: 8))
-        return layout {
+        HStack(spacing: 8) {
             Button(action: openSwitcher) {
                 HStack(spacing: 6) {
                     Text(instance.name).font(.title2.bold()).multilineTextAlignment(.leading)
@@ -49,8 +47,9 @@ struct DrawerView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("drawer.switcher \(instance.name)")
+            .layoutPriority(1)
             .accessibilityIdentifier("drawer.switcher")
-            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+            Spacer(minLength: 0)
             Button(action: openAccount) {
                 Text(initials).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                     .padding(8).frame(minWidth: 36, minHeight: 36)
@@ -106,34 +105,39 @@ struct DrawerView: View {
     }
 
     private func list(_ sections: [DrawerSection], drawer: DrawerModel) -> some View {
-        let now = Date()
-        return List {
-            ForEach(sections) { section in
-                Section {
-                    ForEach(section.rows) { row in
-                        DrawerRowView(
-                            row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) }
-                        )
-                        .listRowInsets(.init())
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .transition(.opacity)
+        // The ages are worked out from the clock, which ticks every minute.
+        return TimelineView(.everyMinute) { context in
+            List {
+                ForEach(sections) { section in
+                    Section {
+                        ForEach(section.rows) { row in
+                            DrawerRowView(
+                                row: row, now: context.date, open: { open(row) }, toggle: { drawer.toggle(row.id) }
+                            )
+                            .listRowInsets(.init())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .transition(.opacity)
+                        }
+                    } header: {
+                        Text(title(of: section.kind)).font(.subheadline.weight(.semibold))
+                            .foregroundStyle(section.kind == .needsYou ? Color.yakAction : Color.yakMuted)
+                            .textCase(nil)
+                            .padding(.leading, dynamicTypeSize.isAccessibilitySize ? 12 : 20)
+                            .padding(.top, 6)
+                            .listRowInsets(.init())
+                            .accessibilityAddTraits(.isHeader)
                     }
-                } header: {
-                    Text(title(of: section.kind)).font(.subheadline.weight(.semibold))
-                        .foregroundStyle(section.kind == .needsYou ? Color.yakAction : Color.yakMuted)
-                        .textCase(nil)
-                        .padding(.leading, 20)
-                        .accessibilityAddTraits(.isHeader)
+                    .listSectionSeparator(.hidden)
                 }
-                .listSectionSeparator(.hidden)
             }
+            .environment(\.defaultMinListHeaderHeight, 0)
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .animation(.spring(duration: 0.35), value: drawer.content)
+            .accessibilityIdentifier("drawer.list")
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollDismissesKeyboard(.interactively)
-        .animation(.spring(duration: 0.35), value: drawer.content)
-        .accessibilityIdentifier("drawer.list")
     }
 
     private func title(of kind: DrawerSection.Kind) -> LocalizedStringKey {
@@ -242,22 +246,44 @@ struct DrawerView: View {
         }
     }
 
+    /// On a tall screen at a normal text size the message and its actions sit at the top. When height or width is
+    /// short, the message scrolls and the actions stay pinned just above the bottom bar, so they are always in view.
     private func stateMessage<Actions: View>(
         title: Text, detail: Text?, systemImage: String, @ViewBuilder actions: () -> Actions
     ) -> some View {
-        ScrollView {
-            VStack(spacing: 12) {
+        let showsIcon = verticalSizeClass != .compact && !dynamicTypeSize.isAccessibilitySize
+        let message = VStack(spacing: 8) {
+            if showsIcon {
                 Image(systemName: systemImage).font(.largeTitle).foregroundStyle(Color.yakMuted)
-                    .accessibilityHidden(true)
-                title.font(.headline).multilineTextAlignment(.center)
-                if let detail {
-                    detail.font(.subheadline).foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
-                }
-                VStack(spacing: 10) { actions() }.padding(.top, 8)
+                    .accessibilityHidden(true).padding(.bottom, 4)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 24).padding(.top, 40).padding(.bottom, 24)
+            title.font(.headline).multilineTextAlignment(.center)
+            if let detail {
+                detail.font(.subheadline).foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
+            }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+        let actionButtons = VStack(spacing: 10) { actions() }.fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 24)
+        return Group {
+            if showsIcon {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        message
+                        actionButtons
+                    }
+                    .padding(.top, 40).padding(.bottom, 24)
+                }
+            } else {
+                VStack(spacing: 12) {
+                    ScrollView { message.padding(.top, 16) }.scrollBounceBehavior(.basedOnSize)
+                    actionButtons.padding(.bottom, 12)
+                }
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("drawer.message")
     }
 
@@ -269,7 +295,7 @@ struct DrawerView: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
         return layout {
             HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").font(.system(size: 17)).foregroundStyle(Color.yakMuted)
+                Image(systemName: "magnifyingglass").font(.body).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
                 TextField(
                     "drawer.search", text: searchBinding, prompt: Text("drawer.search").foregroundStyle(Color.yakMuted)
@@ -278,13 +304,14 @@ struct DrawerView: View {
                 .submitLabel(.search)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .disabled(drawer == nil)
                 .accessibilityIdentifier("drawer.search")
                 if !(drawer?.search ?? "").isEmpty {
                     Button {
                         drawer?.search = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(Color.yakMuted)
-                            .frame(width: 44, height: 44).contentShape(.rect)
+                            .frame(minWidth: 40, minHeight: 44).contentShape(.rect)
                     }
                     .accessibilityLabel("drawer.clearSearch")
                     .accessibilityIdentifier("drawer.clearSearch")
@@ -298,9 +325,9 @@ struct DrawerView: View {
                 Button {
                     scene.openNewThread(repo: nil, text: nil)
                 } label: {
-                    Image(systemName: "square.and.pencil").font(.system(size: 17, weight: .semibold))
+                    Image(systemName: "square.and.pencil").font(.body.weight(.semibold))
                         .foregroundStyle(Color.yakOnRust)
-                        .frame(width: 44, height: 44).background(Color.yakRust, in: .rect(cornerRadius: 12))
+                        .frame(minWidth: 44, minHeight: 44).background(Color.yakRust, in: .rect(cornerRadius: 12))
                         .contentShape(.rect)
                 }
                 .accessibilityLabel("shell.startThread")
@@ -325,9 +352,14 @@ struct DrawerView: View {
                 Label("drawer.filter.everyone", systemImage: "person.2").tag(ThreadListFilter.everyone)
             }
         } label: {
-            Image(systemName: icon(of: filter)).font(.system(size: 17, weight: .semibold)).foregroundStyle(.primary)
-                .frame(width: 44, height: 44).background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 12))
-                .contentShape(.rect)
+            HStack(spacing: 4) {
+                Text(name(of: filter)).font(.subheadline.weight(.semibold))
+                Image(systemName: "chevron.down").font(.caption2.weight(.bold)).accessibilityHidden(true)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 12).frame(minHeight: 44)
+            .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 12))
+            .contentShape(.rect)
         }
         .tint(.primary)
         .accessibilityLabel(label(of: filter))
@@ -346,11 +378,11 @@ struct DrawerView: View {
             })
     }
 
-    private func icon(of filter: ThreadListFilter) -> String {
+    private func name(of filter: ThreadListFilter) -> LocalizedStringKey {
         switch filter {
-        case .mine: "person"
-        case .yak: "sparkles"
-        case .everyone: "person.2"
+        case .mine: "drawer.filter.mine"
+        case .yak: "drawer.filter.yak"
+        case .everyone: "drawer.filter.everyone"
         }
     }
 

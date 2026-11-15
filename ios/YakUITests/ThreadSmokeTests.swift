@@ -9,6 +9,8 @@ import XCTest
     override func setUp() async throws {
         continueAfterFailure = false
         stub = try StubControl()
+        // A landscape walkthrough can leave the simulator turned.
+        XCUIDevice.shared.orientation = .portrait
     }
 
     private func launch(scenario: String) throws {
@@ -35,6 +37,10 @@ import XCTest
         openDrawerIfNeeded()
         XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:d0e515ef"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:a1b2c3d4"].exists)
+        // The header shows the stored instance, which `me` renamed after the launch.
+        let switcher = app.buttons["drawer.switcher"]
+        let renamed = NSPredicate(format: "label == %@", "Switch instance. Now: Example Yak")
+        wait(for: [XCTNSPredicateExpectation(predicate: renamed, object: switcher)], timeout: 10)
         XCTAssertFalse(app.descendants(matching: .any)["drawer.row.thread:e5f6g7h8"].exists)
         app.buttons["drawer.toggle.thread:a1b2c3d4"].tap()
         let child = app.descendants(matching: .any)["drawer.row.thread:e5f6g7h8"]
@@ -54,8 +60,6 @@ import XCTest
             {
                 return true
             }
-            // A contrast finding without an element comes from text the audit cannot match to one.
-            if issue.auditType == .contrast, issue.element == nil { return true }
             // A search field is one line by design.
             if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
             let screenshot = XCTAttachment(screenshot: app.screenshot())

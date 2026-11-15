@@ -18,7 +18,9 @@ import XCTest
         let toggle = app.buttons["drawer.toggle.thread:a1b2c3d4"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 10) || scrollToFind(toggle))
         toggle.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:e5f6g7h8"].waitForExistence(timeout: 5))
+        let child = app.descendants(matching: .any)["drawer.row.thread:e5f6g7h8"]
+        // At the largest text size the new rows are below the fold.
+        XCTAssertTrue(child.waitForExistence(timeout: 5) || scrollToFind(child))
         try shoot("drawer-sub-threads")
     }
 

@@ -1402,6 +1402,26 @@
         }
       }
     },
+    "switcher.switchFailed %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not switch to %@. Check the connection, then tap it to try again."
+          }
+        }
+      }
+    },
+    "switcher.switching": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching"
+          }
+        }
+      }
+    },
     "switcher.title": {
       "localizations": {
         "en": {

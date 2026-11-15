@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 import YakKit
 
@@ -11,12 +12,21 @@ struct InstanceSwitcher: View {
     @State private var instances: [Instance] = []
     @State private var showsAdd = false
     @State private var isSwitching = false
+    /// The row whose switch is under way, which shows a spinner.
+    @State private var switchingID: UUID?
+    /// The name of the instance the last switch failed for; the sheet says so until the next try.
+    @State private var failedName: String?
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     ForEach(instances) { instance in row(instance) }
+                } footer: {
+                    if let failedName {
+                        Text("switcher.switchFailed \(failedName)").foregroundStyle(.primary)
+                            .accessibilityIdentifier("switcher.failed")
+                    }
                 }
                 Section {
                     Button {
@@ -68,8 +78,19 @@ struct InstanceSwitcher: View {
                 return
             }
             isSwitching = true
+            switchingID = instance.id
+            failedName = nil
             Task {
-                do { try await model.instances.setActive(instance.id) } catch {}
+                do {
+                    try await model.instances.setActive(instance.id)
+                } catch {
+                    Logger(subsystem: "Yak", category: "InstanceSwitcher")
+                        .error("Switching instance failed: \(String(describing: type(of: error)), privacy: .public)")
+                    failedName = instance.name
+                    switchingID = nil
+                    isSwitching = false
+                    return
+                }
                 await model.reloadRoute()
                 onClose()
             }
@@ -85,13 +106,16 @@ struct InstanceSwitcher: View {
                     Text(statusLine(instance)).font(.footnote).foregroundStyle(Color.yakMuted)
                 }
                 Spacer(minLength: 8)
-                if instance.id == active.id {
+                if switchingID == instance.id {
+                    ProgressView().accessibilityHidden(true)
+                } else if instance.id == active.id {
                     Image(systemName: "checkmark").foregroundStyle(.primary).accessibilityHidden(true)
                 }
             }
             .frame(minHeight: 44)
             .contentShape(.rect)
         }
+        .disabled(isSwitching)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel(instance))
         .accessibilityAddTraits(instance.id == active.id ? .isSelected : [])
@@ -105,6 +129,8 @@ struct InstanceSwitcher: View {
     }
 
     private func accessibilityLabel(_ instance: Instance) -> String {
-        [instance.name, instance.url.host() ?? "", statusLine(instance)].filter { !$0.isEmpty }.joined(separator: ". ")
+        var parts = [instance.name, instance.url.host() ?? "", statusLine(instance)]
+        if switchingID == instance.id { parts.append(String(localized: "switcher.switching")) }
+        return parts.filter { !$0.isEmpty }.joined(separator: ". ")
     }
 }

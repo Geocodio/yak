@@ -229,3 +229,47 @@ func aLinkThatIsNotAPairingLinkChangesNothing(link: String) async {
     #expect(model.addressToConnect == address)
     #expect(model.takeLaunchLink() == nil)
 }
+
+/// Answers `me` with a count of four, or fails the way a cancelled request does.
+private struct CountingTransport: HTTPTransport {
+    let isCancelled: Bool
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        if isCancelled { throw URLError(.cancelled) }
+        let body =
+            #"{"user":{"id":1,"name":"Sam","email":"s@example.com","initials":"S","isAdmin":false},"device":{"id":"d1","name":"Phone","kind":"phone"},"instance":{"name":"Renamed","url":"https://x.example.com","version":"1"},"needsYouCount":4,"realtime":null,"terminal":{"wsUrl":"wss://x.example.com/ws"},"attachments":{"maxFiles":4,"maxFileBytes":100},"push":{"apns":true,"bundleId":null,"environment":null},"features":{}}"#
+        return (
+            Data(body.utf8),
+            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
+    }
+}
+
+@MainActor @Test(arguments: [false, true])
+func refreshingAnInstanceThatIsNotActiveOnlyUpdatesItsStoredCount(isCancelled: Bool) async throws {
+    let tokens = InMemoryTokenStore()
+    let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
+    let model = AppModel(
+        instances: instances, tokens: tokens,
+        makeClient: {
+            APIClient(
+                baseURL: $0, token: nil, transport: CountingTransport(isCancelled: isCancelled), appVersion: "1",
+                systemDescription: "test", sleep: { _ in })
+        })
+    let other = try await instances.add(
+        url: URL(string: "https://other.example.com")!, name: "Other", userName: "Sam", token: "t1")
+    let active = try await instances.add(
+        url: URL(string: "https://active.example.com")!, name: "Active", userName: "Sam", token: "t2")
+    try await instances.setActive(active.id)
+    await model.reloadRoute()
+    let routeBefore = model.route
+    guard case .signedIn(let shown) = routeBefore else {
+        Issue.record("not signed in")
+        return
+    }
+    #expect(shown.id == active.id)
+    await model.refreshMe(for: other)
+    #expect(model.route == routeBefore)
+    #expect(model.refreshState == .idle)
+    let stored = try #require(await instances.all().first { $0.id == other.id })
+    #expect(stored.needsYouCount == (isCancelled ? 0 : 4))
+}

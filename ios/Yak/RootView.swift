@@ -17,7 +17,7 @@ struct RootView: View {
                     NavigationStack { ConnectView(model: model) }.linkPairingStatus(model)
                 case .signedIn(let instance):
                     if let scene, let session = model.activeSession {
-                        InstanceShell(model: model, instance: instance, session: session, scene: scene)
+                        InstanceShell(model: model, routedInstance: instance, session: session, scene: scene)
                             .id(instance.id)
                             .linkPairingStatus(model)
                     }

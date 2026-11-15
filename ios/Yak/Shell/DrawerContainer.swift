@@ -10,12 +10,15 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
     /// How far the finger has moved the drawer from where it rests, while a drag runs.
     @State private var dragOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let edgeWidth: CGFloat = 20
     private let flickDistance: CGFloat = 150
 
     var body: some View {
         GeometryReader { geometry in
-            let width = min(330, geometry.size.width - 60)
+            // Large text needs the width, so the thread keeps only a narrow strip beside the drawer.
+            let width =
+                dynamicTypeSize.isAccessibilitySize ? geometry.size.width - 44 : min(330, geometry.size.width - 60)
             let progress = reduceMotion ? (isOpen ? 1 : 0) : openProgress(width: width)
             ZStack(alignment: .leading) {
                 Color(.secondarySystemBackground).ignoresSafeArea()
