@@ -20,7 +20,7 @@ class ThreadActionController extends Controller
 
     public function continueTurn(Request $request, Thread $thread, ThreadRecovery $recovery): JsonResponse
     {
-        $recovery->continueTurn($thread, $request->user());
+        $recovery->continueTurn($thread, $request->user() ?? abort(401));
 
         return response()->json(['status' => 'continued']);
     }

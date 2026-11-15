@@ -22,7 +22,7 @@ class ContinueTurnController extends Controller
         }
 
         try {
-            $recovery->continueTurn($thread, $request->user());
+            $recovery->continueTurn($thread, $request->user() ?? abort(401));
         } catch (ThreadActionRefused $refused) {
             return back()->with('error', $refused->getMessage());
         }
