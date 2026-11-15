@@ -3,8 +3,14 @@
 use App\Enums\StackThreadMessageKind;
 use App\Models\StackThreadMessage;
 use App\Models\Thread;
+use Tests\Support\VisibilityRoutes;
 
 return [
+    'appThreads' => ['app.threads.stack.show', 'app.threads.environment.show'],
+    'appThreadProbes' => [
+        'app.threads.stack.show' => VisibilityRoutes::probe('GET', '/threads/{thread}/stack', false),
+        'app.threads.environment.show' => VisibilityRoutes::probe('GET', '/threads/{thread}/environment', false),
+    ],
     'sweepWorld' => function (array $world): array {
         $child = Thread::factory()->child($world['thread'])->create(['name' => 'backfill-job']);
 

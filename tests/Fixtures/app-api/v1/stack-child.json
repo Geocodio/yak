@@ -1,0 +1,146 @@
+{
+    "addChild": {
+        "allowed": false,
+        "error": "sub_thread_cannot_spawn",
+        "message": "A sub-thread cannot start sub-threads of its own. Add it to the parent thread instead."
+    },
+    "canDrive": true,
+    "canStop": true,
+    "children": [
+        {
+            "branch": "yak/move-search/backfill-job",
+            "canOverride": false,
+            "ciStatus": null,
+            "filesChanged": 3,
+            "id": "<volatile:string>",
+            "kind": "implement",
+            "messagesPaused": false,
+            "model": "sonnet",
+            "name": "backfill-job",
+            "pullRequestUrl": null,
+            "queued": false,
+            "repo": null,
+            "resultSummary": null,
+            "state": "working",
+            "step": "Writing the migration",
+            "takenOver": false,
+            "title": "Backfill the new index"
+        },
+        {
+            "branch": null,
+            "canOverride": true,
+            "ciStatus": null,
+            "filesChanged": null,
+            "id": "<volatile:string>",
+            "kind": "implement",
+            "messagesPaused": false,
+            "model": "sonnet",
+            "name": "query-adapter",
+            "pullRequestUrl": null,
+            "queued": false,
+            "repo": null,
+            "resultSummary": null,
+            "state": "failed",
+            "step": null,
+            "takenOver": false,
+            "title": "Swap the query adapter"
+        },
+        {
+            "branch": null,
+            "canOverride": false,
+            "ciStatus": null,
+            "filesChanged": null,
+            "id": "<volatile:string>",
+            "kind": "research",
+            "messagesPaused": false,
+            "model": "haiku",
+            "name": "index-settings",
+            "pullRequestUrl": null,
+            "queued": false,
+            "repo": null,
+            "resultSummary": "The analyzer needs the ascii folding filter.",
+            "state": "done",
+            "step": null,
+            "takenOver": false,
+            "title": "Read the index settings"
+        }
+    ],
+    "isRoot": false,
+    "limit": {
+        "awake": 1,
+        "current": 2,
+        "max": 4,
+        "waiting": 0
+    },
+    "maxChildren": 12,
+    "messages": [
+        {
+            "createdAt": "2026-11-15T11:20:00+00:00",
+            "fromName": "query-adapter",
+            "id": "<volatile:int>",
+            "kind": "failure",
+            "text": "The adapter tests fail on the new client.",
+            "toName": "move-search"
+        },
+        {
+            "createdAt": "2026-11-15T11:40:00+00:00",
+            "fromName": "index-settings",
+            "id": "<volatile:int>",
+            "kind": "result",
+            "text": "The analyzer needs the ascii folding filter.",
+            "toName": "move-search"
+        }
+    ],
+    "models": [
+        {
+            "family": "opus",
+            "latest": {
+                "description": "For complex work and everyday tasks",
+                "label": "Opus 5.5",
+                "value": "opus"
+            },
+            "older": []
+        },
+        {
+            "family": "fable",
+            "latest": {
+                "description": "For your toughest challenges",
+                "label": "Fable 5.2",
+                "value": "fable"
+            },
+            "older": []
+        },
+        {
+            "family": "sonnet",
+            "latest": {
+                "description": "Most efficient for simpler tasks",
+                "label": "Sonnet 5.5",
+                "value": "sonnet"
+            },
+            "older": []
+        },
+        {
+            "family": "haiku",
+            "latest": {
+                "description": "Fastest for quick answers",
+                "label": "Haiku 5.5",
+                "value": "haiku"
+            },
+            "older": []
+        }
+    ],
+    "parent": {
+        "id": "<volatile:string>",
+        "name": "move-search",
+        "title": "Move search to the new index"
+    },
+    "parentAccountName": "Team account",
+    "rootId": "<volatile:string>",
+    "stoppedAt": null,
+    "usage": {
+        "activeHours": 1.5,
+        "costUsd": 1.25,
+        "note": "API-equivalent estimate. Subscription accounts are not billed per token.",
+        "turnCount": 7
+    }
+}
