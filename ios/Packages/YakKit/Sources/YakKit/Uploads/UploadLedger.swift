@@ -147,6 +147,16 @@ public actor UploadLedger {
         return record
     }
 
+    /// Writes a fresh body and a `.prepared` record for an item whose answer asked for another attempt. The attempt
+    /// count carries over, so the next task has the next description.
+    public func renew(_ item: OutboxItem) throws(MultipartFileProblem) -> UploadRecord {
+        let attempts = load(item.id)?.attempts ?? 0
+        var record = try prepare(item, origin: .app)
+        record.attempts = attempts
+        persist(record)
+        return record
+    }
+
     /// Starts (or starts again) the upload of a record with a request from `client`.
     public func start(_ item: UUID, session: any UploadSession, client: APIClient) async -> UploadRecord? {
         guard var record = load(item) else { return nil }

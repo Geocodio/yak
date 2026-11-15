@@ -32,11 +32,13 @@ public struct SessionEnvironment: Sendable {
     public let systemDescription: String
     /// True only in the app's Debug test mode: the realtime socket and the terminal socket may then use `ws`.
     public let allowsInsecureRealtime: Bool
+    /// The background upload link of an instance; nil sends files with foreground requests.
+    public let uploads: (@Sendable (UUID) -> UploadLink?)?
 
     public init(
         http: any HTTPTransport, webSockets: any WebSocketConnector, files: any FileStore, clock: any YakClock,
         makeID: @escaping @Sendable () -> UUID, appVersion: String, systemDescription: String,
-        allowsInsecureRealtime: Bool
+        allowsInsecureRealtime: Bool, uploads: (@Sendable (UUID) -> UploadLink?)? = nil
     ) {
         self.http = http
         self.webSockets = webSockets
@@ -46,6 +48,7 @@ public struct SessionEnvironment: Sendable {
         self.appVersion = appVersion
         self.systemDescription = systemDescription
         self.allowsInsecureRealtime = allowsInsecureRealtime
+        self.uploads = uploads
     }
 }
 
@@ -209,7 +212,7 @@ public actor InstanceSession {
             client: client, cache: newCache, clock: environment.clock, makeID: environment.makeID)
         let newOutbox = Outbox(
             instance: instance.id, client: client, files: environment.files, clock: environment.clock,
-            makeID: environment.makeID)
+            makeID: environment.makeID, uploads: environment.uploads?(instance.id))
         currentOutbox = newOutbox
         feed = ThreadListFeed(
             instance: instance, client: client, cache: newCache, instances: instances, clock: environment.clock)
@@ -372,7 +375,7 @@ public actor InstanceSession {
         } else if let client {
             let held = Outbox(
                 instance: instance.id, client: client, files: environment.files, clock: environment.clock,
-                makeID: environment.makeID)
+                makeID: environment.makeID, uploads: environment.uploads?(instance.id))
             await held.pause(reason)
             await held.load()
             currentOutbox = held
