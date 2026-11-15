@@ -37,7 +37,10 @@
                         baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
                         systemDescription: system)
                 },
-                normalizeAddress: Self.normalize, parseLink: Self.parse,
+                normalizeAddress: Self.normalize, parseLink: Self.parse, normalizeLinkAddress: Self.normalize,
+                makeEnvironment: {
+                    .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
+                },
                 prepare: { instances in
                     if let token = seed.token {
                         do {

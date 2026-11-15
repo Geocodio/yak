@@ -62,7 +62,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: ['iPhone 18 Pro', 'iPhone Duo', 'iPad Pro 13-inch (M5)']
+        include:
+          - device: 'iPhone 18 Pro'
+            core_only: false
+          - device: 'iPhone Duo'
+            core_only: true
+          - device: 'iPad Pro 13-inch (M5)'
+            core_only: true
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode
@@ -72,7 +78,7 @@ jobs:
       - name: Install gems
         run: bundle install
       - name: UI smoke tests
-        run: bundle exec fastlane ui_smoke device:"${{ matrix.device }}"
+        run: bundle exec fastlane ui_smoke device:"${{ matrix.device }}" core_only:${{ matrix.core_only }}
       - name: Keep the stub log and the test results
         if: always()
         uses: actions/upload-artifact@v4

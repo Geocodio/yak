@@ -50,6 +50,7 @@ targets:
           - CFBundleURLName: $(YAK_BUNDLE_ID)
             CFBundleURLSchemes: [yak]
         UILaunchScreen: {}
+        YakAppGroup: $(YAK_APP_GROUP)
   YakTests:
     type: bundle.unit-test
     platform: iOS

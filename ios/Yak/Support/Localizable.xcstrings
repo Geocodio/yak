@@ -831,6 +831,156 @@
           }
         }
       }
+    },
+    "shell.threads": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Threads"
+          }
+        }
+      }
+    },
+    "shell.thread": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thread"
+          }
+        }
+      }
+    },
+    "shell.noThread": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a thread from the list."
+          }
+        }
+      }
+    },
+    "shell.startThread": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a thread"
+          }
+        }
+      }
+    },
+    "shell.newThreadTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New thread"
+          }
+        }
+      }
+    },
+    "shell.newThread": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New thread"
+          }
+        }
+      }
+    },
+    "shell.closeDrawer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close the thread list"
+          }
+        }
+      }
+    },
+    "drawer.account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account"
+          }
+        }
+      }
+    },
+    "drawer.dismissBanner": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        }
+      }
+    },
+    "drawer.loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading threads"
+          }
+        }
+      }
+    },
+    "drawer.empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No threads yet. Start one and Yak opens a PR for you to review."
+          }
+        }
+      }
+    },
+    "drawer.loadFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The threads did not load. Check your connection and try again."
+          }
+        }
+      }
+    },
+    "drawer.needsYou": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs you"
+          }
+        }
+      }
+    },
+    "drawer.starred": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starred"
+          }
+        }
+      }
+    },
+    "drawer.threads": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Threads"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

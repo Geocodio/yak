@@ -33,5 +33,7 @@
 	<false/>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>YakAppGroup</key>
+	<string>$(YAK_APP_GROUP)</string>
 </dict>
 </plist>

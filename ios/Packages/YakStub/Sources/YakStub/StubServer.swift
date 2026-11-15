@@ -228,7 +228,9 @@ final class Locked<Value: Sendable>: @unchecked Sendable {
     init(_ value: Value) { self.value = value }
     func get() -> Value { lock.withLock { value } }
     func set(_ new: Value) { lock.withLock { value = new } }
-    func mutate<Result>(_ change: (inout Value) -> Result) -> Result { lock.withLock { change(&value) } }
+    @discardableResult func mutate<Result>(_ change: (inout Value) -> Result) -> Result {
+        lock.withLock { change(&value) }
+    }
 }
 
 /// Lets only the first of several callbacks through.

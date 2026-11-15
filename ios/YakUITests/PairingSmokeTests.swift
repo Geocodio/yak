@@ -16,6 +16,16 @@ import XCTest
         app.launch()
     }
 
+    /// Opens the account sheet from the drawer, opening the drawer first when the thread screen shows.
+    private func openAccount() {
+        let account = app.buttons["drawer.account"]
+        if !account.waitForExistence(timeout: 10) {
+            app.buttons["threads.button"].tap()
+        }
+        XCTAssertTrue(account.waitForExistence(timeout: 10))
+        account.tap()
+    }
+
     private func label(containing text: String) -> XCUIElement {
         app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
@@ -35,6 +45,7 @@ import XCTest
         try stub.play("paired")
         launch(paired: true)
         let offline = label(containing: "You are offline")
+        openAccount()
         XCTAssertTrue(label(containing: "Signed in as Test Person").waitForExistence(timeout: 10))
         XCTAssertFalse(offline.exists)
         try stub.setOnline(false)

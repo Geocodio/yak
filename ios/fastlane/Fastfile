@@ -41,7 +41,17 @@ platform :ios do
     with_stub do |port, build_directory|
       result_path = File.join(build_directory, "ui-smoke-#{device.gsub(/\W+/, "-").gsub(/\A-+|-+\z/, "")}.xcresult")
       FileUtils.rm_rf(result_path)
-      selection = "-only-testing:YakUITests#{options[:only] ? "/PairingSmokeTests/#{options[:only]}" : ""} -skip-testing:YakUITests/WalkthroughTests"
+      selection = "-only-testing:YakUITests -skip-testing:YakUITests/WalkthroughTests"
+      if options[:only]
+        # A bare test name searches the smoke test classes; `Class/test` names one.
+        names = options[:only].include?("/") ? [options[:only]] : %w[PairingSmokeTests ThreadSmokeTests].map { |klass| "#{klass}/#{options[:only]}" }
+        selection = names.map { |name| "-only-testing:YakUITests/#{name}" }.join(" ") + " -skip-testing:YakUITests/WalkthroughTests"
+      end
+      if options[:core_only]
+        # The iPad and the Duo run the core tests; the long-running scenarios run on the iPhone only.
+        selection += " -skip-testing:YakUITests/ThreadSmokeTests/testSendWhileATurnRunsSteersAndLongPressQueues" \
+                     " -skip-testing:YakUITests/ThreadSmokeTests/testADroppedConnectionShowsOfflineAndRecovers"
+      end
       run_ui_tests(device, port, result_path, selection, {})
     end
   end
