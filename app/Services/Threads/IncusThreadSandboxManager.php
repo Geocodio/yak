@@ -148,7 +148,7 @@ class IncusThreadSandboxManager implements SandboxManager
         }
         $result = $process->run($argv);
 
-        if ($result->failed() && preg_match('/^Error: .*(not found|not running|connection|websocket)/mi', $result->errorOutput())) {
+        if ($result->failed() && preg_match('/^Error: .*(not found|not running|frozen|connection|websocket)/mi', $result->errorOutput())) {
             throw SandboxCommandFailed::for('exec', $result);
         }
 

@@ -8,6 +8,8 @@ use App\Jobs\AfterTurn\FinishThreadTurnJob;
 use App\Models\Repository;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\IncusThreadSandboxManager;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Services\Threads\ThreadSandbox;
 
 require_once __DIR__ . '/../../../Support/FinishTurnHelpers.php';
@@ -111,4 +113,35 @@ it('fails the task when its repository is gone', function () {
     runFinisher($run, RecordingFinishJob::class);
 
     expect(RecordingFinishJob::$events[0])->toStartWith('reportFailure:Repository');
+});
+
+it('wakes the sandbox and refreshes the git token again when the first attempt hits a frozen instance', function () {
+    fakeAfterTurnCollaborators();
+    $credentials = Mockery::mock(ThreadGitHubCredentials::class);
+    $credentials->shouldReceive('refresh')->twice()->andReturnUsing(function () {
+        static $attempts = 0;
+        if (++$attempts === 1) {
+            throw new RuntimeException('Could not write a GitHub token into the sandbox');
+        }
+    });
+    app()->instance(ThreadGitHubCredentials::class, $credentials);
+    [$task, $run] = endedTurn();
+
+    (new RecordingFinishJob($run->id))->handle(app(ThreadSandbox::class), Mockery::mock(IncusThreadSandboxManager::class));
+
+    expect(RecordingFinishJob::$events)->toBe(['finishTurn:yak-thread-test', 'afterTurn'])
+        ->and($task->refresh()->status)->toBe(TaskStatus::Running);
+});
+
+it('does not fail the task when the git token cannot be refreshed even after waking', function () {
+    fakeAfterTurnCollaborators();
+    $credentials = Mockery::mock(ThreadGitHubCredentials::class);
+    $credentials->shouldReceive('refresh')->twice()->andThrow(new RuntimeException('Could not write a GitHub token into the sandbox'));
+    app()->instance(ThreadGitHubCredentials::class, $credentials);
+    [$task, $run] = endedTurn();
+
+    (new RecordingFinishJob($run->id))->handle(app(ThreadSandbox::class), Mockery::mock(IncusThreadSandboxManager::class));
+
+    expect(RecordingFinishJob::$events)->toBe(['finishTurn:yak-thread-test', 'afterTurn'])
+        ->and($task->refresh()->status)->toBe(TaskStatus::Running);
 });
