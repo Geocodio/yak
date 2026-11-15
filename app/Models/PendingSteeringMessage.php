@@ -187,7 +187,7 @@ class PendingSteeringMessage extends Model
     public static function drainFor(YakTask $task): ?string
     {
         $messages = self::where('root_task_id', $task->rootTask()->id)
-            ->whereNotIn('id', ThreadTurnMessage::query()->whereNotNull('pending_steering_message_id')->select('pending_steering_message_id'))
+            ->whereNotExists(fn ($delivered) => $delivered->from('thread_turn_messages')->whereColumn('thread_turn_messages.pending_steering_message_id', 'pending_steering_messages.id'))
             ->orderBy('id')
             ->get();
 
