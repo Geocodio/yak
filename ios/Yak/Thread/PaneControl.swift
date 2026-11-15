@@ -27,9 +27,12 @@ struct PaneMenuButton: View {
             }
             .font(.body)
             .foregroundStyle(.primary)
+            .padding(.horizontal, 6)
             .frame(minWidth: 44, minHeight: 44)
-            .contentShape(.rect)
+            .background(Color.primary.opacity(0.08), in: .capsule)
+            .contentShape(.capsule)
         }
+        .tint(.primary)
         .menuOrder(.fixed)
         .accessibilityLabel(Text(label))
         .accessibilityIdentifier("pane.button")
@@ -45,7 +48,7 @@ struct PaneMenuButton: View {
 struct PaneRow: View {
     let panes: [PaneID]
     @Binding var focused: PaneID
-    let hasOpenQuestion: Bool
+    let thread: ThreadModel
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -60,7 +63,7 @@ struct PaneRow: View {
                 if let descriptor = PaneCatalog.descriptor(for: id) {
                     PaneRowButton(
                         descriptor: descriptor, isSelected: id == focused,
-                        hasBadge: id == .chat && hasOpenQuestion
+                        hasBadge: descriptor.hasBadge(thread)
                     ) { focused = id }
                 }
             }
@@ -110,7 +113,7 @@ struct QuestionBadge: View {
 struct PaneStripToolbar: ToolbarContent {
     let panes: [PaneID]
     @Binding var focused: PaneID
-    let hasOpenQuestion: Bool
+    let thread: ThreadModel
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .bottomBar) {
@@ -122,13 +125,13 @@ struct PaneStripToolbar: ToolbarContent {
                         VStack(spacing: 2) {
                             Image(systemName: descriptor.symbol)
                                 .overlay(alignment: .topTrailing) {
-                                    if id == .chat && hasOpenQuestion { QuestionBadge().offset(x: 6, y: -3) }
+                                    if descriptor.hasBadge(thread) { QuestionBadge().offset(x: 6, y: -3) }
                                 }
                             Text(descriptor.name).font(.caption).lineLimit(1).minimumScaleFactor(0.7)
                         }
                     }
                     .accessibilityLabel(Text(descriptor.name))
-                    .accessibilityValue(id == .chat && hasOpenQuestion ? Text("pane.badge.question") : Text(""))
+                    .accessibilityValue(descriptor.hasBadge(thread) ? Text("pane.badge.question") : Text(""))
                     .accessibilityAddTraits(id == focused ? .isSelected : [])
                     .accessibilityIdentifier("pane.strip.\(id.rawValue)")
                 }

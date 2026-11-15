@@ -1678,6 +1678,16 @@
         }
       }
     },
+    "load.openFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This thread could not be opened. Try again."
+          }
+        }
+      }
+    },
     "load.loading": {
       "localizations": {
         "en": {

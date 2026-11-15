@@ -8,6 +8,8 @@ final class ThreadModel {
     let threadID: String
     private(set) var snapshot: ConversationSnapshot?
     private(set) var engine: ThreadEngine?
+    /// The session had no engine to give, so there is nothing to wait for.
+    private(set) var couldNotOpen = false
 
     private let session: InstanceSession
     /// The drawer row's title, shown until the thread's own arrives.
@@ -27,7 +29,10 @@ final class ThreadModel {
     var panes: [PaneID] { Panes.available(server: snapshot?.show?.panes) }
     var connectionLine: ConnectionLine? { snapshot.flatMap(ConnectionLine.make) }
     var statusDot: ThreadStatusDot { ThreadStatusDot.make(snapshot) }
-    var loadPresentation: ThreadLoadPresentation { ThreadLoadPresentation.make(snapshot?.load ?? .loading) }
+    var loadPresentation: ThreadLoadPresentation {
+        if couldNotOpen, snapshot == nil { return .serverError(message: String(localized: "load.openFailed")) }
+        return ThreadLoadPresentation.make(snapshot?.load ?? .loading)
+    }
     var hasOpenQuestion: Bool { snapshot?.hasOpenQuestion ?? false }
 
     /// Opens the engine and reads its snapshots until `stop()`. A second call changes nothing.
@@ -52,14 +57,21 @@ final class ThreadModel {
     /// Closes the engine and opens a new one, which asks the server again.
     func retry() async {
         guard isStarted else { return }
+        let previous = engine
         await close()
         await open()
+        // Another window may hold the same engine; closing and opening then asks the server for nothing, so it is asked.
+        if let engine, engine === previous { await engine.requestCatchUp() }
     }
 
     private func open() async {
         generation += 1
         let mine = generation
-        guard let opened = await session.openThread(threadID) else { return }
+        couldNotOpen = false
+        guard let opened = await session.openThread(threadID) else {
+            if generation == mine { couldNotOpen = true }
+            return
+        }
         guard generation == mine, isStarted else {
             await session.closeThread(threadID)
             return

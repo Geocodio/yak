@@ -108,14 +108,26 @@ import XCTest
         try start("slow-thread", paired: true)
         try openThread("d0e515ef")
         XCTAssertTrue(app.descendants(matching: .any)["thread.loading"].waitForExistence(timeout: 10))
+        // The loading line is on screen, and the slow explanation is not yet.
+        XCTAssertTrue(label("Loading the conversation").exists)
+        XCTAssertFalse(app.descendants(matching: .any)["thread.slow"].exists)
         try shootThread("thread-loading")
         XCTAssertTrue(app.descendants(matching: .any)["thread.slow"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.descendants(matching: .any)["thread.loading"].exists)
         try shootThread("thread-slow")
     }
 
     func testThreadMissing() throws {
         try start("thread-missing", paired: true)
-        try openThread("d0e515ef")
+        // A link to a thread that is gone lands on the same screen as its drawer row would.
+        try waitForDrawer()
+        var components = URLComponents()
+        components.scheme = "yak"
+        components.host = "thread"
+        components.queryItems = [
+            URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: "d0e515ef"),
+        ]
+        app.open(try XCTUnwrap(components.url))
         XCTAssertTrue(label("This thread is not here anymore").waitForExistence(timeout: 15))
         try shootThread("thread-missing")
     }
@@ -158,6 +170,14 @@ import XCTest
                 // The system caps the size of text in its bars, and draws its glass under the threads badge.
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            // At the largest text size the content scrolls under the bar's glass; the audit measures text there
+            // against the glass, though it reads on the page once scrolled clear of it.
+            let bar = app.descendants(matching: .any)["thread.bar"]
+            if issue.auditType == .contrast, let element = issue.element, bar.exists,
+                bar.frame.intersects(element.frame)
+            {
+                return true
             }
             // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
             if issue.auditType == .contrast, issue.element == nil { return true }

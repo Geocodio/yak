@@ -88,7 +88,7 @@ struct ThreadScreen: View {
                     ToolbarItem(placement: .topBarTrailing) { threadMenu }
                 }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {
-                    PaneStripToolbar(panes: thread.panes, focused: focused, hasOpenQuestion: thread.hasOpenQuestion)
+                    PaneStripToolbar(panes: thread.panes, focused: focused, thread: thread)
                 }
             }
             .overlay(alignment: .top) { copiedToast }
@@ -107,15 +107,16 @@ struct ThreadScreen: View {
     /// The app's own strip on the trailing edge: the threads button, the pane button and the menu, top to bottom.
     private func trailingStrip(_ thread: ThreadModel, focused: Binding<PaneID>) -> some View {
         VStack(spacing: 8) {
-            if isCompactWidth { threadsButton }
+            if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
             PaneMenuButton(panes: thread.panes, focused: focused)
             Spacer(minLength: 0)
-            threadMenu
+            threadMenu.background(Color.primary.opacity(0.08), in: .circle)
         }
         .tint(.primary)
-        .padding(.vertical, 8).padding(.horizontal, 4)
+        .padding(.vertical, 8).padding(.horizontal, 6)
         .frame(maxHeight: .infinity)
-        .background(alignment: .leading) { Rectangle().fill(Color.primary.opacity(0.12)).frame(width: 0.5) }
+        .background { BarSurface() }
+        .padding(.vertical, 8).padding(.trailing, 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("thread.strip")
     }

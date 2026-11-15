@@ -11,6 +11,8 @@ struct PaneDescriptor {
     let content: @MainActor (ThreadModel) -> AnyView
     /// What the bottom bar shows beside the pane control while this pane is focused.
     let barRow: @MainActor (ThreadModel) -> AnyView
+    /// Whether the pane's button carries the dot that asks for attention.
+    var hasBadge: @MainActor (ThreadModel) -> Bool = { _ in false }
 }
 
 /// The one list of the panes this build draws. A new pane is one view file of its own, a `PaneDescriptor` in it,

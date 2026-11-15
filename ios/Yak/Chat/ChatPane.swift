@@ -7,18 +7,23 @@ extension PaneDescriptor {
     static let chat = PaneDescriptor(
         id: .chat, name: "pane.chat", symbol: "bubble.left",
         content: { thread in AnyView(ChatPane(thread: thread)) },
-        barRow: { _ in AnyView(ComposerPlaceholder()) })
+        barRow: { _ in AnyView(ComposerPlaceholder()) }, hasBadge: { $0.hasOpenQuestion })
 }
 
 private struct ChatPane: View {
     let thread: ThreadModel
     @Environment(SceneModel.self) private var scene
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         ZStack {
             ThreadLoadView(
                 presentation: thread.loadPresentation, retry: { Task { await thread.retry() } },
-                openThreads: { scene.setDrawerOpen(true) })
+                openThreads: {
+                    // A wide window already lists the threads, so the open thread is left to show the list's choice.
+                    if horizontalSizeClass != .compact { scene.closeThread() }
+                    scene.setDrawerOpen(true)
+                })
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))

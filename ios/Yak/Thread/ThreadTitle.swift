@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import YakKit
 
 /// The principal toolbar item: a status dot and the title on one line, and the connection line under it when there
@@ -17,7 +18,7 @@ struct ThreadTitle: View {
                     .accessibilityValue(statusText)
             }
             if let connectionLine {
-                Text(connectionLine.text).font(.caption).foregroundStyle(Color.yakMuted).lineLimit(1)
+                Text(connectionLine.text).font(.caption).foregroundStyle(connectionLine.color).lineLimit(1)
                     .accessibilityIdentifier("thread.connection")
             }
         }
@@ -50,5 +51,16 @@ extension ConnectionLine {
         case .offline: "connection.offline"
         case .reconnecting: "connection.reconnecting"
         }
+    }
+}
+
+extension ConnectionLine {
+    /// A warning orange for every connection problem, dark enough on light surfaces to read as text.
+    var color: Color {
+        Color(
+            UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? .systemOrange : UIColor(red: 0.62, green: 0.33, blue: 0.0, alpha: 1)
+            })
     }
 }

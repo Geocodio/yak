@@ -83,6 +83,8 @@ final class SceneModel {
     }
 
     func setDrawerOpen(_ open: Bool) { state.isDrawerOpen = open }
+    /// Leaves the open thread, so a wide window shows its empty detail next to the always visible list.
+    func closeThread() { state.threadID = nil }
     func focus(pane: PaneID) { state.focusedPane = pane }
     func requestSearchFocus() {
         state.isDrawerOpen = true
