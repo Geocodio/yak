@@ -12,7 +12,8 @@ use Illuminate\Contracts\Process\ProcessResult;
  * The in-memory sandbox state machine of FakeSandboxManager, shared across processes through the thread row:
  * every call reads the row afresh, delegates to a FakeSandboxManager seeded from it and writes the new
  * state back to the row, so no state is cached between calls and a queue worker, a driver and a web worker
- * never disagree. A caller that saves the state itself writes the same value.
+ * never disagree. A caller that saves the state itself writes the same value. Only the thread's own row is
+ * written: a research child that shares its parent's container is out of scope for the journeys.
  */
 final class E2eSandboxManager implements SandboxManager
 {
@@ -62,7 +63,6 @@ final class E2eSandboxManager implements SandboxManager
     public function copyFrom(Thread $source, Thread $target): void
     {
         $fake = $this->fake($source);
-        $fake->state($target);
         $this->seed($fake, $target);
         $fake->copyFrom($source, $target);
         $this->record($target, $fake);
@@ -115,7 +115,7 @@ final class E2eSandboxManager implements SandboxManager
      */
     private function seed(FakeSandboxManager $fake, Thread $thread): void
     {
-        $stored = Thread::query()->whereKey($thread->getKey())->value('sandbox_state');
+        $stored = Thread::withoutGlobalScopes()->whereKey($thread->getKey())->value('sandbox_state');
         $state = is_string($stored) ? ThreadSandboxState::tryFrom($stored) : ($stored instanceof ThreadSandboxState ? $stored : null);
 
         if ($state === null) {

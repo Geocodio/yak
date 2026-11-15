@@ -5,6 +5,7 @@ use App\DataTransferObjects\ClarificationQuestion;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
+use App\Events\TurnCompleted;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\TaskRun;
@@ -25,8 +26,11 @@ use App\Services\Threads\FakeBrokerStreams;
 use App\Services\Threads\ThreadDriver;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\StrayRequestException;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 
 beforeEach(function (): void {
@@ -104,12 +108,37 @@ function expectOnlyFakedGitHubRequests(): void
     expect(Http::recorded()->map(fn (array $pair): string => (string) $pair[0]->url())->every(fn (string $url): bool => str_starts_with($url, 'https://api.github.com/')))->toBeTrue();
 }
 
+/**
+ * Records every warning or worse the after-turn work logs. FinishThreadTurnJob catches its own exceptions,
+ * so a missing fake shows up only as a log line and a failed task, never as a thrown error.
+ *
+ * @return object{messages: list<string>}
+ */
+function recordProblemLogs(): object
+{
+    $recorded = (object) ['messages' => []];
+    Log::listen(function (MessageLogged $logged) use ($recorded): void {
+        if (in_array($logged->level, ['warning', 'error', 'critical', 'alert', 'emergency'], true)) {
+            $recorded->messages[] = $logged->level . ': ' . $logged->message . ' ' . ($logged->context['error'] ?? '');
+        }
+    });
+
+    return $recorded;
+}
+
+function expectAfterTurnWorkSucceeded(Thread $thread, object $problemLogs): void
+{
+    expect($problemLogs->messages)->toBe([])
+        ->and(YakTask::query()->where('thread_id', $thread->id)->where('status', TaskStatus::Failed)->exists())->toBeFalse();
+}
+
 function latestRunOf(Thread $thread): TaskRun
 {
     return TaskRun::query()->where('thread_id', $thread->id)->latest('id')->firstOrFail();
 }
 
 it('starts a thread from the phone and finishes its first turn', function (): void {
+    $problemLogs = recordProblemLogs();
     $response = $this->postJson('/api/app/v1/threads', [
         'repo' => 'example/api',
         'mode' => 'fix',
@@ -126,10 +155,12 @@ it('starts a thread from the phone and finishes its first turn', function (): vo
     answerBrokerCommands($thread);
 
     expect(latestRunOf($thread)->turn_state)->toBe(TurnState::Completed);
+    expectAfterTurnWorkSucceeded($thread, $problemLogs);
     expectOnlyFakedGitHubRequests();
 });
 
 it('answers a question and finishes the clarification turn', function (): void {
+    $problemLogs = recordProblemLogs();
     $thread = Thread::factory()->create(['title' => 'Retry failed uploads', 'repo' => 'example/api', 'created_by_user_id' => $this->user->id, 'owner_user_id' => $this->user->id]);
     $task = YakTask::factory()->create(['thread_id' => $thread->id, 'repo' => 'example/api', 'status' => TaskStatus::AwaitingClarification, 'started_by_user_id' => $this->user->id, 'clarification_expires_at' => now()->addDay()]);
     $task->recordClarificationRound([
@@ -149,6 +180,7 @@ it('answers a question and finishes the clarification turn', function (): void {
     answerBrokerCommands($thread);
 
     expect(latestRunOf($thread)->turn_state)->toBe(TurnState::Completed);
+    expectAfterTurnWorkSucceeded($thread, $problemLogs);
     $this->getJson(appThreadPath($thread), $this->headers)->assertOk()->assertJsonPath('question', null);
 });
 
@@ -169,10 +201,12 @@ it('steers and stops a held turn', function (): void {
     expect(array_column(app(BrokerStreams::class)->commands('threads:' . $thread->id), 'type'))->toContain('steer')
         ->and(latestRunOf($thread)->turn_state)->toBe(TurnState::Running);
 
+    Event::fake([TurnCompleted::class]);
     $this->postJson(appThreadPath($thread, '/stop'), [], $this->headers)->assertSuccessful();
     answerBrokerCommands($thread);
 
     expect(latestRunOf($thread)->turn_state)->toBe(TurnState::Interrupted);
+    Event::assertNotDispatched(TurnCompleted::class);
 });
 
 it('opens a pull request against the faked GitHub', function (): void {
@@ -193,19 +227,25 @@ it('refuses an outbound request it does not fake', function (): void {
 
 it('agrees across processes', function (): void {
     $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Running]);
+    $storedState = fn (): ThreadSandboxState => Thread::withoutGlobalScopes()->findOrFail($thread->id)->sandbox_state;
     $first = new E2eSandboxManager;
     $second = new E2eSandboxManager;
 
     $first->pause($thread);
-    $thread->forceFill(['sandbox_state' => ThreadSandboxState::Paused])->save();
+    expect($storedState())->toBe(ThreadSandboxState::Paused);
 
-    $second->resume($thread);
-    $thread->forceFill(['sandbox_state' => ThreadSandboxState::Running])->save();
+    // The second manager and a model that still says Running: only the row says Paused.
+    $second->resume(Thread::withoutGlobalScopes()->findOrFail($thread->id));
+    expect($storedState())->toBe(ThreadSandboxState::Running);
 
-    expect($second->state($thread))->toBe(ThreadSandboxState::Running);
+    // A manager that cached Paused would reject this pause from Paused.
+    $staleModel = (clone $thread)->forceFill(['sandbox_state' => ThreadSandboxState::Paused]);
+    $first->pause($staleModel);
+    expect($storedState())->toBe(ThreadSandboxState::Paused)
+        ->and($second->state($thread))->toBe(ThreadSandboxState::Paused);
 
-    $stale = Thread::query()->findOrFail($thread->id);
-    $first->stop($stale, 10);
+    $first->stop($thread, 10);
+    expect($storedState())->toBe(ThreadSandboxState::Stopped);
 });
 
 it('binds what the server needs and nothing from the feature suite', function (): void {

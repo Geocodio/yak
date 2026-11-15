@@ -21,6 +21,7 @@ final class E2eGitHub
             Log::info('e2e github', ['method' => $request->method(), 'path' => parse_url($request->url(), PHP_URL_PATH)]);
         };
 
+        // ponytail: Http::fake records every request for the life of the process; the run lasts at most 25 minutes, so the memory is bounded. Clear recorded requests periodically if long-lived workers grow.
         Http::fake([
             'api.github.com/repos/example/api/pulls*' => function (Request $request) use ($log, $number) {
                 $log($request);
