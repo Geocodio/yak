@@ -331,4 +331,77 @@ private final class UploadWorld: @unchecked Sendable {
         let request = try #require(await world.transport.requests(on: threadRoute).first)
         #expect(request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("multipart/form-data") == true)
     }
+
+    @Test func aLongRetryAfterIsNotCutShortByARetryTrigger() async throws {
+        let world = UploadWorld()
+        await world.outbox.load()
+        let item = try await world.outbox.enqueue(world.draft("Slow down", files: ["a.jpg"]))
+        await waitUntil { world.session.started.count == 1 }
+        await world.answer(
+            item.id, status: 429, body: #"{"error":"rate_limited","message":"Slow down"}"#,
+            headers: ["Retry-After": "300"])
+        await waitUntil { await world.outbox.items().first?.state == .waiting }
+        await world.clock.advance(by: .seconds(150))
+        await world.outbox.retryFailedUploads()
+        await world.settle()
+        #expect(world.session.started.count == 1)
+        #expect(await world.outbox.items().first?.state == .waiting)
+
+        await world.clock.advance(by: .seconds(150))
+        await waitUntil { world.session.started.count == 2 }
+        #expect(world.session.started.last?.description.attempt == 2)
+    }
+
+    @Test func aFreshShareAnswerWaitsForItsItem() async throws {
+        let world = UploadWorld()
+        let id = UUID()
+        let attachment = try world.storedAttachment("share.jpg", id: id)
+        let draft = OutboxDraft(target: .thread("d0e515ef"), text: "From share", attachments: [attachment])
+        let item = OutboxInbox.item(for: draft, id: id, now: world.clock.now())
+        let shareSession = FakeUploadSession(
+            identifier: UploadSessionID.share(invocation: UUID()).identifier(appBundleID: bundleID))
+        _ = try await world.ledger.prepare(item, origin: .share)
+        _ = await world.ledger.start(id, session: shareSession, client: makeClient(world.transport))
+        let description = UploadTaskDescription(item: id, attempt: 1)
+        await world.ledger.received(description, data: Data(#"{"status":"sent","uuid":"m-1"}"#.utf8))
+        await world.ledger.completed(
+            description, session: shareSession.identifier, task: 1, status: 200, headers: [:], failed: false)
+
+        // The app sees the answer before the extension's item reaches the inbox.
+        await world.outbox.load()
+        await world.settle()
+        #expect(await world.ledger.records().count == 1)
+
+        let deliveries = StreamRecorder(await world.outbox.deliveries())
+        try OutboxInbox.add(draft, instance: world.instance, files: world.files, id: id, now: world.clock.now())
+        await world.outbox.importIncoming()
+        let delivery = try await deliveries.next { _ in true }
+        #expect(delivery.messageUUID == "m-1" && delivery.sendKey == id)
+        #expect(world.session.started.isEmpty)
+        #expect(await world.transport.requests(on: threadRoute).isEmpty)
+        #expect(await world.outbox.items().isEmpty)
+    }
+
+    @Test func anImportedShareItemWithARunningUploadRefusesEdits() async throws {
+        let world = UploadWorld()
+        await world.outbox.load()
+        let held = try await world.outbox.enqueue(world.draft("With file", files: ["a.jpg"]))
+        await waitUntil { world.session.started.count == 1 }
+        await world.answer(held.id, failed: true)
+        await waitUntil { await world.outbox.items().first?.state == .waiting }
+
+        let id = UUID()
+        let attachment = try world.storedAttachment("share.jpg", id: id)
+        let draft = OutboxDraft(target: .thread("d0e515ef"), text: "From share", attachments: [attachment])
+        let shareSession = FakeUploadSession(
+            identifier: UploadSessionID.share(invocation: UUID()).identifier(appBundleID: bundleID))
+        _ = try await world.ledger.prepare(OutboxInbox.item(for: draft, id: id, now: world.clock.now()), origin: .share)
+        _ = await world.ledger.start(id, session: shareSession, client: makeClient(world.transport))
+        try OutboxInbox.add(draft, instance: world.instance, files: world.files, id: id, now: world.clock.now())
+        await world.outbox.importIncoming()
+
+        let imported = try #require(await world.outbox.items().first { $0.id == id })
+        #expect(imported.state == .queued && imported.mayHaveReachedServer)
+        await #expect(throws: OutboxEditProblem.mayAlreadyBeSent) { try await world.outbox.edit(id, text: "Changed") }
+    }
 }

@@ -46,6 +46,8 @@ public actor Outbox {
     private var waitingOnUpload: Set<UUID> = []
     /// Items whose failed upload may start at the next attempt: set at launch and by an explicit retry.
     private var startFailedUploads: Set<UUID> = []
+    /// Items whose answer is being applied right now.
+    private var handlingOutcomes: Set<UUID> = []
     private var updateReceivers: [Int: AsyncStream<OutboxUpdate>.Continuation] = [:]
 
     public init(
@@ -118,10 +120,11 @@ public actor Outbox {
 
     /// Reads `items.json`, takes in what other processes left, and starts sending. An item that was
     /// in flight when the app stopped is queued again and goes out with the same `send_key`.
-    public func load() {
+    public func load() async {
         guard !isShutDown else { return }
         loadSavedList()
-        importInbox(startingFailedUploads: true)
+        await importInbox(startingFailedUploads: true)
+        await settleAnsweredUploads()
     }
 
     /// Merges the saved list into memory once. Nothing is written until this has succeeded, so a change
@@ -157,11 +160,11 @@ public actor Outbox {
     }
 
     /// Moves every inbox file into the list, in `createdAt` order, then removes the files.
-    public func importIncoming() {
-        importInbox(startingFailedUploads: false)
+    public func importIncoming() async {
+        await importInbox(startingFailedUploads: false)
     }
 
-    private func importInbox(startingFailedUploads: Bool) {
+    private func importInbox(startingFailedUploads: Bool) async {
         guard !isShutDown else { return }
         subscribeToCompletions()
         let folder = OutboxInbox.folder(instance)
@@ -173,16 +176,20 @@ public actor Outbox {
             return
         }
         var taken: [String] = []
+        var incoming: [OutboxItem] = []
         for name in names where name.hasSuffix(".json") {
             let path = "\(folder)/\(name)"
             do {
                 guard let data = try files.read(path) else { continue }
                 var item = try JSONDecoder().decode(OutboxItem.self, from: data)
                 item.state = .queued
-                if !stored.contains(where: { $0.id == item.id }) {
-                    stored.append(item)
-                    if startingFailedUploads { startFailedUploads.insert(item.id) }
+                // A share extension starts its upload before it adds the item, so an upload that is running or
+                // answered means the server may already have the message and its text can no longer change.
+                switch await uploads?.ledger.record(for: item.id)?.phase {
+                case .uploading?, .answered?: item.mayHaveReachedServer = true
+                default: break
                 }
+                incoming.append(item)
                 taken.append(path)
             } catch is DecodingError {
                 logFailure("outbox inbox file dropped: not an item")
@@ -190,6 +197,11 @@ public actor Outbox {
             } catch {
                 logFailure("outbox inbox file unreadable: \(type(of: error))")
             }
+        }
+        guard !isShutDown else { return }
+        for item in incoming where !stored.contains(where: { $0.id == item.id }) {
+            stored.append(item)
+            if startingFailedUploads { startFailedUploads.insert(item.id) }
         }
         sortByCreation()
         // The list is saved before the inbox files go, so a crash in between imports them once.
@@ -521,7 +533,7 @@ public actor Outbox {
         for index in stored.indices where ids.contains(stored[index].id) {
             let id = stored[index].id
             switch stored[index].state {
-            case .waiting: break
+            case .waiting: if retryTimers[id] != nil { continue }
             case .queued: break
             case .sending, .slow: if !waitingOnUpload.contains(id) { continue }
             case .refused: continue
@@ -557,7 +569,11 @@ public actor Outbox {
     private func uploadCompleted(_ id: UUID) async {
         guard !isShutDown, let ledger = uploads?.ledger else { return }
         guard let index = stored.firstIndex(where: { $0.id == id }) else {
-            if case .answered? = await ledger.record(for: id)?.phase { await ledger.remove(id) }
+            guard let record = await ledger.record(for: id), case .answered = record.phase else { return }
+            // A share extension adds its item after it starts the upload, so a fresh share answer waits for the item.
+            let age = Duration.seconds(clock.now().timeIntervalSince(record.updatedAt))
+            if record.origin == .share, age < UploadLedger.shareLostAfter { return }
+            await ledger.remove(id)
             return
         }
         switch stored[index].state {
@@ -666,7 +682,12 @@ public actor Outbox {
     }
 
     private func applyUploadOutcome(_ outcome: UploadOutcome, id: UUID, ledger: UploadLedger) async {
-        guard !isShutDown, let index = stored.firstIndex(where: { $0.id == id }) else { return }
+        guard !isShutDown, handlingOutcomes.insert(id).inserted else { return }
+        defer { handlingOutcomes.remove(id) }
+        // Two callers can read the same answer; only the one that still finds it answered acts on it.
+        guard case .answered? = await ledger.record(for: id)?.phase,
+            let index = stored.firstIndex(where: { $0.id == id })
+        else { return }
         let item = stored[index]
         var decision: OutboxDecision
         switch outcome {
