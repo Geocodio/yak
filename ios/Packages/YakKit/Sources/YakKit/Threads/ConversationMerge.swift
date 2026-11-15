@@ -36,6 +36,11 @@ public struct ReadTracker: Equatable, Sendable {
 public struct WaitingRow: Equatable, Sendable {
     public let isQueued: Bool
     public let since: String?
+
+    public init(isQueued: Bool, since: String? = nil) {
+        self.isQueued = isQueued
+        self.since = since
+    }
 }
 
 /// A port of the web client's `mergeConversation.ts`, plus the unsent and delivered items.

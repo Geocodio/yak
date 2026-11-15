@@ -17,7 +17,7 @@ public enum JSONValue: Codable, Sendable, Equatable {
         let container = try decoder.singleValueContainer()
         if container.decodeNil() {
             self = .null
-        // Decode probes: JSONValue tries each shape in turn.
+            // Decode probes: JSONValue tries each shape in turn.
         } else if let value = try? container.decode(Bool.self) {
             self = .bool(value)
         } else if let value = try? container.decode(Double.self) {

@@ -379,7 +379,9 @@ private final class GatedFileStore: FileStore, @unchecked Sendable {
     await rig.engine.requestCatchUp()
     files.proceed.signal()
     await opening.value
-    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next {
+        $0.load == .ready && !$0.isShowingCachedCopy
+    }
     #expect(snapshot.entries.count == 4 && !snapshot.isShowingCachedCopy)
     #expect(await server.requestedAfters == [14])
     #expect(await rig.transport.requests(on: "GET threads/\(threadID)").count == 1)

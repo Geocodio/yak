@@ -8,6 +8,7 @@ let package = Package(
     targets: [
         .target(name: "YakKit"),
         .testTarget(name: "YakKitTests", dependencies: ["YakKit"], exclude: ["Scenarios"]),
+        .testTarget(name: "YakKitPublicAPITests", dependencies: ["YakKit"]),
     ],
     swiftLanguageModes: [.v6]
 )

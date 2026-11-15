@@ -14,6 +14,24 @@ public struct ToolStep: Equatable, Sendable {
     /// True while the call has no result.
     public let isRunning: Bool
     public let output: String?
+
+    public init(
+        key: String,
+        category: Category,
+        tool: String,
+        label: String,
+        isFailed: Bool,
+        isRunning: Bool,
+        output: String? = nil
+    ) {
+        self.key = key
+        self.category = category
+        self.tool = tool
+        self.label = label
+        self.isFailed = isFailed
+        self.isRunning = isRunning
+        self.output = output
+    }
 }
 
 /// One thing the conversation draws, produced by `ConversationProjection`.
