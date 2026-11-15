@@ -307,64 +307,6 @@ seen.post = (args: { thread: string | { public_id: string } } | [thread: string 
 })
 
 /**
-* @see \App\Http\Controllers\Api\App\Push\LiveActivityChannelController::__invoke
-* @see app/Http/Controllers/Api/App/Push/LiveActivityChannelController.php:20
-* @route '/api/app/v1/threads/{thread}/live-activity-channel'
-*/
-export const liveActivityChannel = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: liveActivityChannel.url(args, options),
-    method: 'post',
-})
-
-liveActivityChannel.definition = {
-    methods: ["post"],
-    url: '/api/app/v1/threads/{thread}/live-activity-channel',
-} satisfies RouteDefinition<["post"]>
-
-/**
-* @see \App\Http\Controllers\Api\App\Push\LiveActivityChannelController::__invoke
-* @see app/Http/Controllers/Api/App/Push/LiveActivityChannelController.php:20
-* @route '/api/app/v1/threads/{thread}/live-activity-channel'
-*/
-liveActivityChannel.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
-    if (typeof args === 'string' || typeof args === 'number') {
-        args = { thread: args }
-    }
-
-    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
-        args = { thread: args.public_id }
-    }
-
-    if (Array.isArray(args)) {
-        args = {
-            thread: args[0],
-        }
-    }
-
-    args = applyUrlDefaults(args)
-
-    const parsedArgs = {
-        thread: typeof args.thread === 'object'
-        ? args.thread.public_id
-        : args.thread,
-    }
-
-    return liveActivityChannel.definition.url
-            .replace('{thread}', parsedArgs.thread.toString())
-            .replace(/\/+$/, '') + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Api\App\Push\LiveActivityChannelController::__invoke
-* @see app/Http/Controllers/Api/App/Push/LiveActivityChannelController.php:20
-* @route '/api/app/v1/threads/{thread}/live-activity-channel'
-*/
-liveActivityChannel.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: liveActivityChannel.url(args, options),
-    method: 'post',
-})
-
-/**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadActionController::stop
 * @see app/Http/Controllers/Api/App/Threads/ThreadActionController.php:14
 * @route '/api/app/v1/threads/{thread}/stop'
@@ -480,6 +422,64 @@ continueMethod.post = (args: { thread: string | { public_id: string } } | [threa
     method: 'post',
 })
 
+/**
+* @see \App\Http\Controllers\Api\App\Push\LiveActivityChannelController::__invoke
+* @see app/Http/Controllers/Api/App/Push/LiveActivityChannelController.php:20
+* @route '/api/app/v1/threads/{thread}/live-activity-channel'
+*/
+export const liveActivityChannel = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: liveActivityChannel.url(args, options),
+    method: 'post',
+})
+
+liveActivityChannel.definition = {
+    methods: ["post"],
+    url: '/api/app/v1/threads/{thread}/live-activity-channel',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\App\Push\LiveActivityChannelController::__invoke
+* @see app/Http/Controllers/Api/App/Push/LiveActivityChannelController.php:20
+* @route '/api/app/v1/threads/{thread}/live-activity-channel'
+*/
+liveActivityChannel.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return liveActivityChannel.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\App\Push\LiveActivityChannelController::__invoke
+* @see app/Http/Controllers/Api/App/Push/LiveActivityChannelController.php:20
+* @route '/api/app/v1/threads/{thread}/live-activity-channel'
+*/
+liveActivityChannel.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: liveActivityChannel.url(args, options),
+    method: 'post',
+})
+
 const threads = {
     index: Object.assign(index, index),
     new: Object.assign(newMethod, newMethod),
@@ -490,7 +490,6 @@ const threads = {
     clarificationAnswers: Object.assign(clarificationAnswers, clarificationAnswers),
     share: Object.assign(share, share),
     seen: Object.assign(seen, seen),
-    liveActivityChannel: Object.assign(liveActivityChannel, liveActivityChannel),
     stop: Object.assign(stop, stop),
     continue: Object.assign(continueMethod, continueMethod),
     restore: Object.assign(restore, restore),
@@ -503,6 +502,7 @@ const threads = {
     environment: Object.assign(environment, environment),
     repositories: Object.assign(repositories, repositories),
     preview: Object.assign(preview, preview),
+    liveActivityChannel: Object.assign(liveActivityChannel, liveActivityChannel),
     terminalSessions: Object.assign(terminalSessions, terminalSessions),
     files: Object.assign(files, files),
 }

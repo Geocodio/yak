@@ -1,12 +1,12 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
 import device from './device'
-import pushTokens from './push-tokens'
-import notifications from './notifications'
-import liveActivities from './live-activities'
 import threads from './threads'
 import broadcasting from './broadcasting'
 import observations from './observations'
 import tasks from './tasks'
+import pushTokens from './push-tokens'
+import notifications from './notifications'
+import liveActivities from './live-activities'
 import media from './media'
 /**
 * @see \App\Http\Controllers\Api\App\InstanceController::__invoke
@@ -100,13 +100,13 @@ const app = {
     instance: Object.assign(instance, instance),
     device: Object.assign(device, device),
     me: Object.assign(me, me),
-    pushTokens: Object.assign(pushTokens, pushTokens),
-    notifications: Object.assign(notifications, notifications),
-    liveActivities: Object.assign(liveActivities, liveActivities),
     threads: Object.assign(threads, threads),
     broadcasting: Object.assign(broadcasting, broadcasting),
     observations: Object.assign(observations, observations),
     tasks: Object.assign(tasks, tasks),
+    pushTokens: Object.assign(pushTokens, pushTokens),
+    notifications: Object.assign(notifications, notifications),
+    liveActivities: Object.assign(liveActivities, liveActivities),
     media: Object.assign(media, media),
 }
 

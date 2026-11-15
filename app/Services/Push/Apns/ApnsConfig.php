@@ -17,7 +17,7 @@ final class ApnsConfig
     private const PROBLEM_REPORT_SECONDS = 3600;
 
     /**
-     * Parsed keys by path and modification time, so no instance reads and parses an unchanged file again.
+     * Parsed keys by the hash of the file contents, so an unchanged key is parsed once and a replaced file is always noticed.
      *
      * @var array<string, OpenSSLAsymmetricKey>
      */
