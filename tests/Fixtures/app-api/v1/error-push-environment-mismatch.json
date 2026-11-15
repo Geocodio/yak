@@ -1,0 +1,8 @@
+{
+    "details": {
+        "expected": "production",
+        "given": "sandbox"
+    },
+    "error": "push_environment_mismatch",
+    "message": "This Yak sends notifications to production builds only. Install the build from TestFlight to get notifications."
+}

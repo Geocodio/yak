@@ -54,6 +54,7 @@ Schedule::call(function (): void {
     app(PairingCodes::class)->clearRepeatableTokens();
 })->everyMinute()->name('devices:clear-repeatable-tokens');
 Schedule::command('yak:revoke-idle-phones')->daily();
+Schedule::command('yak:live-activities:prune-channels')->daily()->withoutOverlapping();
 Schedule::command('yak:expire-teleports')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:dataset-sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:ssh-sweep')->hourly()->withoutOverlapping();

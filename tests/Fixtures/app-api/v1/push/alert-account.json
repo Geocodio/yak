@@ -1,0 +1,21 @@
+{
+    "aps": {
+        "alert": {
+            "body": "Team account hit its usage limit.",
+            "title": "Team account"
+        },
+        "badge": 0,
+        "filter-criteria": "yak.example.com",
+        "interruption-level": "active",
+        "sound": "default",
+        "thread-id": "account"
+    },
+    "yak": {
+        "event": "account",
+        "id": null,
+        "instance": "https://yak.example.com",
+        "kind": "account",
+        "needsYouCount": 0,
+        "path": "/settings/claude-accounts"
+    }
+}

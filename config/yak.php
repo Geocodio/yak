@@ -29,12 +29,13 @@ return [
     'instance_name' => env('YAK_INSTANCE_NAME'),
 
     // Read by the app API to tell the phone whether push works; the sender reads the same values.
+    // The .p8 key is multi-line, so it lives in a file and only its path is configuration.
     'apns' => [
-        'key' => env('YAK_APNS_KEY'),
+        'key_path' => env('YAK_APNS_KEY_PATH'),
         'key_id' => env('YAK_APNS_KEY_ID'),
         'team_id' => env('YAK_APNS_TEAM_ID'),
         'bundle_id' => env('YAK_APNS_BUNDLE_ID'),
-        'environment' => env('YAK_APNS_ENVIRONMENT'),
+        'environment' => env('YAK_APNS_ENVIRONMENT', 'production'),
     ],
 
     'pairing' => [

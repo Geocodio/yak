@@ -8,6 +8,7 @@ import Threads from './Threads'
 import BroadcastAuthController from './BroadcastAuthController'
 import ObservationController from './ObservationController'
 import Tasks from './Tasks'
+import Push from './Push'
 import SignedMediaController from './SignedMediaController'
 
 const App = {
@@ -21,6 +22,7 @@ const App = {
     BroadcastAuthController: Object.assign(BroadcastAuthController, BroadcastAuthController),
     ObservationController: Object.assign(ObservationController, ObservationController),
     Tasks: Object.assign(Tasks, Tasks),
+    Push: Object.assign(Push, Push),
     SignedMediaController: Object.assign(SignedMediaController, SignedMediaController),
 }
 

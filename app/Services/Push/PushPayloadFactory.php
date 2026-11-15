@@ -15,7 +15,7 @@ class PushPayloadFactory
     public function __construct(private readonly ThreadNotificationGuard $guard) {}
 
     /**
-     * @return array{title: string, body: string, url: string, tag: string}
+     * @return array{title: string, body: string, url: string, tag: string, event: string, kind: 'thread'|'account', id: ?string}
      */
     public function forThread(PushEvent $event, Thread $thread, string $body, ?string $tag = null): array
     {
@@ -26,13 +26,16 @@ class PushPayloadFactory
             'body' => $payload['body'],
             'url' => route('threads.show', $thread, false),
             'tag' => $tag ?? "thread-{$thread->id}-{$event->value}",
+            'event' => $event->value,
+            'kind' => 'thread',
+            'id' => $thread->public_id,
         ];
     }
 
     /**
      * An account notice carries the account name and the problem, never a thread.
      *
-     * @return array{title: string, body: string, url: string, tag: string}
+     * @return array{title: string, body: string, url: string, tag: string, event: string, kind: 'thread'|'account', id: ?string}
      */
     public function forAccount(ClaudeAccount $account, string $problem): array
     {
@@ -41,6 +44,9 @@ class PushPayloadFactory
             'body' => $problem,
             'url' => '/settings/claude-accounts',
             'tag' => "account-{$account->id}",
+            'event' => 'account',
+            'kind' => 'account',
+            'id' => null,
         ];
     }
 }

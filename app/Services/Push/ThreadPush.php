@@ -32,7 +32,7 @@ class ThreadPush
             if (! $this->guard->mayNotify($user, $thread)
                 || ! $user->wantsPush($event)
                 || $this->presence->isViewing($user, $thread)
-                || $user->routeNotificationForWebPush()->isEmpty()) {
+                || ($user->routeNotificationForWebPush()->isEmpty() && $user->routeNotificationForApns()->isEmpty())) {
                 continue;
             }
 

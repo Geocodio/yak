@@ -65,6 +65,7 @@
         "filesCount": 3
     },
     "latestSequence": 12,
+    "liveActivityChannel": null,
     "localTurns": null,
     "messages": [],
     "modelLabels": {

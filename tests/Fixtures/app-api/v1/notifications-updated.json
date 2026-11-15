@@ -1,0 +1,8 @@
+{
+    "events": {
+        "needs_you": true,
+        "pull_request": true,
+        "stack_usage": true,
+        "turn_finished": false
+    }
+}
