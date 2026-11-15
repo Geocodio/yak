@@ -3,6 +3,7 @@
 namespace App\Jobs\Push;
 
 use App\Enums\LiveActivityState;
+use App\Exceptions\ThreadActionRefused;
 use App\Models\DeviceLiveActivity;
 use App\Models\DevicePushToken;
 use App\Models\Thread;
@@ -62,7 +63,16 @@ class StartLiveActivityJob implements ShouldQueueAfterCommit
             return;
         }
 
-        $channelId = $channels->ensureFor($thread);
+        try {
+            $channelId = $channels->ensureFor($thread);
+        } catch (ThreadActionRefused $refusal) {
+            // Apple's refusal will not change on a retry, so the row goes and the job ends here.
+            $activity->delete();
+            report($refusal);
+
+            return;
+        }
+
         $content = LiveActivityContent::for($thread, LiveActivityState::Working, LiveActivitySteps::STARTING);
 
         $response = $client->sendLiveActivityStart(

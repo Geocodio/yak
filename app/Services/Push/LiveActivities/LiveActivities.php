@@ -101,15 +101,26 @@ class LiveActivities
      */
     public function turnSettled(TaskRun $run): void
     {
-        if ($run->refresh()->turn_state !== TurnState::Completed || $run->thread_id === null) {
+        $run = $run->fresh();
+
+        if ($run === null || $run->turn_state !== TurnState::Completed || $run->thread_id === null) {
             return;
         }
 
         $thread = Thread::withoutGlobalScopes()->find($run->thread_id);
 
-        if ($thread !== null) {
-            $this->end($thread, $this->settledState($thread));
+        if ($thread === null) {
+            return;
         }
+
+        $state = $this->settledState($thread);
+
+        // A parked question already sent this turn's needs-you end.
+        if ($state === LiveActivityState::NeedsYou && $this->pullQuestionEnd($thread, $run)) {
+            return;
+        }
+
+        $this->end($thread, $state);
     }
 
     public function turnFailed(TaskRun $run): void
@@ -269,6 +280,29 @@ class LiveActivities
     public function questionOpened(Thread $thread): void
     {
         $this->end($thread, LiveActivityState::NeedsYou);
+
+        try {
+            $runId = $thread->runs()->latest('id')->value('id');
+            Cache::put(self::questionEndKey($thread, $runId), true, 3600);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    private function pullQuestionEnd(Thread $thread, TaskRun $run): bool
+    {
+        try {
+            return Cache::pull(self::questionEndKey($thread, $run->id)) === true;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
+    }
+
+    private static function questionEndKey(Thread $thread, int|string|null $runId): string
+    {
+        return 'live-activity:question-end:' . $thread->id . ':' . $runId;
     }
 
     public static function stepKey(Thread|int $thread): string

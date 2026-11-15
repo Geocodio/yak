@@ -43,6 +43,7 @@ use App\Services\Threads\ThreadCloser;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadSandbox;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Queue\Job;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Event;
@@ -483,4 +484,62 @@ it('does nothing without a key', function () {
     Queue::assertNotPushed(StartLiveActivityJob::class);
     Queue::assertNotPushed(BroadcastLiveActivityJob::class);
     expect(DeviceLiveActivity::query()->count())->toBe(0);
+});
+
+it('sends one end when a question is parked and the turn then settles', function () {
+    $this->thread->update(['live_activity_channel' => 'dGVzdC1jaGFubmVs']);
+    $this->run->update(['turn_state' => TurnState::Completed]);
+    $this->task->update(['status' => TaskStatus::AwaitingClarification]);
+
+    app(LiveActivities::class)->questionOpened($this->thread);
+    app(LiveActivities::class)->turnSettled($this->run);
+
+    expect(channelBroadcasts())->toHaveCount(1);
+});
+
+it('leaves the run it settles untouched', function () {
+    $this->run->turn_state = TurnState::Completed;
+    $this->run->saveQuietly();
+    $stale = TaskRun::query()->findOrFail($this->run->id);
+    TaskRun::query()->whereKey($this->run->id)->update(['turn_state' => TurnState::Failed]);
+
+    app(LiveActivities::class)->turnSettled($stale);
+
+    expect($stale->turn_state)->toBe(TurnState::Completed)->and(channelBroadcasts())->toBeEmpty();
+});
+
+it('gives up on a start whose channel Apple refuses for good', function () {
+    Http::swap(new Factory);
+    fakeApns(['api-manage-broadcast.push.apple.com:2196/*' => Http::response(['reason' => 'BroadcastFeatureNotEnabled'], 400)]);
+    Exceptions::fake();
+    $row = startedAgo($this->phone->device_id, $this->thread, 0, 'server');
+
+    (new StartLiveActivityJob($row->id, $this->phone->id, $this->run->id))->handle(...startJobDependencies());
+
+    expect(DeviceLiveActivity::query()->count())->toBe(0)
+        ->and(startPushes())->toBeEmpty()
+        ->and(apnsRequests('/channels'))->toHaveCount(1);
+});
+
+it('reports a channel delete that is still unavailable on the last attempt and keeps the column', function () {
+    Http::swap(new Factory);
+    fakeApns(['api-manage-broadcast.push.apple.com:2196/*' => Http::response(['reason' => 'ServiceUnavailable'], 503)]);
+    Exceptions::fake();
+    $this->thread->update(['live_activity_channel' => 'dGVzdC1jaGFubmVs']);
+    $queueJob = Mockery::mock(Job::class);
+    $queueJob->shouldReceive('attempts')->andReturn(3);
+    $queueJob->shouldNotReceive('release');
+    $job = new DeleteLiveActivityChannelJob($this->thread->id, 'dGVzdC1jaGFubmVs');
+    $job->setJob($queueJob);
+
+    $job->handle(app(ApnsClient::class), app(ApnsConfig::class));
+
+    Exceptions::assertReportedCount(1);
+    expect($this->thread->fresh()->live_activity_channel)->toBe('dGVzdC1jaGFubmVs');
+});
+
+it('parses an unchanged key file once across instances', function () {
+    $first = (new ApnsConfig)->privateKey();
+
+    expect((new ApnsConfig)->privateKey())->toBe($first);
 });

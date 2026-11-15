@@ -2,6 +2,7 @@
 
 namespace App\Services\Push\LiveActivities;
 
+use App\Exceptions\ThreadActionRefused;
 use App\Jobs\Push\DeleteLiveActivityChannelJob;
 use App\Models\Thread;
 use App\Services\Devices\ShortLockWait;
@@ -37,6 +38,7 @@ class LiveActivityChannels
      * The lock lives 30 seconds: the worst case is two 5-second Apple calls plus a provider token renewal wait, and the lock must outlive it so a second caller never sees an empty column while the first still creates.
      *
      * @throws HttpException 503 when the lock wait runs out, Apple is slow or the channel limit is reached
+     * @throws ThreadActionRefused when Apple refuses the channel for a reason a retry will not change
      */
     public function ensureFor(Thread $thread, bool $repeatAfterRenewal = true): string
     {

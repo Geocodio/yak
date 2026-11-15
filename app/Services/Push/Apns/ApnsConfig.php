@@ -16,6 +16,13 @@ final class ApnsConfig
 {
     private const PROBLEM_REPORT_SECONDS = 3600;
 
+    /**
+     * Parsed keys by path and modification time, so no instance reads and parses an unchanged file again.
+     *
+     * @var array<string, OpenSSLAsymmetricKey>
+     */
+    private static array $parsedKeys = [];
+
     private bool $hasResolved = false;
 
     private ?OpenSSLAsymmetricKey $key = null;
@@ -95,6 +102,14 @@ final class ApnsConfig
             return 'unknown environment';
         }
 
+        $cacheKey = $path . '|' . (is_file($path) ? (int) filemtime($path) : 0);
+
+        if (isset(self::$parsedKeys[$cacheKey])) {
+            $this->key = self::$parsedKeys[$cacheKey];
+
+            return null;
+        }
+
         $contents = is_file($path) && is_readable($path) ? @file_get_contents($path) : false;
 
         if (! is_string($contents) || trim($contents) === '') {
@@ -114,6 +129,7 @@ final class ApnsConfig
         }
 
         $this->key = $key;
+        self::$parsedKeys[$cacheKey] = $key;
 
         return null;
     }

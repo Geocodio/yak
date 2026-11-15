@@ -14,8 +14,6 @@ use Illuminate\Testing\TestResponse;
 use Tests\Support\VisibilityRoutes;
 use Tests\TestCase;
 
-beforeEach(fn () => fakeApns(preventStrayRequests: false));
-
 /**
  * Adds placeholders to a set, refusing a key that is already set so a group cannot
  * silently replace a core value or another group's value.

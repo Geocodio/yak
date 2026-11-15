@@ -39,12 +39,13 @@ class DeleteLiveActivityChannelJob implements ShouldQueueAfterCommit
             $response = $client->deleteChannel($this->channelId);
 
             if (! $response->isSuccess()) {
-                if ($response->isRetryable() || $response->isProviderTokenProblem()) {
+                if (($response->isRetryable() || $response->isProviderTokenProblem()) && $this->attempts() < $this->tries) {
                     $this->release($this->backoff()[$this->attempts() - 1] ?? 30);
 
                     return;
                 }
 
+                // The column stays, so the daily prune retries this delete.
                 report(new RuntimeException("APNs refused to delete a live activity channel: status {$response->status}, reason " . ($response->reason ?? 'none') . '.'));
 
                 return;
