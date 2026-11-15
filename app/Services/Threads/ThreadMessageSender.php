@@ -60,7 +60,7 @@ class ThreadMessageSender
 
         // Recording and then opening the PR publishes a private conversation, so it needs the same acknowledgement as Open PR.
         if ($input->intent === 'record_walkthrough_and_open_pr') {
-            ThreadPublishGuard::assertAcknowledged($thread, request()->boolean(ThreadPublishGuard::ACKNOWLEDGEMENT_KEY));
+            ThreadPublishGuard::assertAcknowledged($thread, $input->acknowledgedPrivatePublish);
         }
 
         return $this->deliver($thread, $user, $input);

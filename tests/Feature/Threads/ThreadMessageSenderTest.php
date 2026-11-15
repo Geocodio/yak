@@ -7,6 +7,7 @@ use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadStatus;
 use App\Exceptions\ThreadActionRefused;
+use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -168,3 +169,13 @@ it('refuses each state with its code', function (Closure $arrange, string $code,
         test()->mock(ThreadTurns::class)->shouldReceive('steer')->andThrow(new ThreadNotOwnedByYak);
     }, 'thread_owned_by_device', 'Your computer is working on this thread. Hand it back to Yak before sending a message.', []],
 ]);
+
+it('reads the publish acknowledgement from the input, not the request', function () {
+    fakeTurnCollaborators()['commands']->shouldReceive('startRunner', 'turn', 'setModel');
+    $thread = Thread::factory()->private(User::factory()->create())->create(['claude_account_id' => ClaudeAccount::factory()->create()->id, 'model' => 'sonnet']);
+    YakTask::factory()->create(['thread_id' => $thread->id]);
+    $user = User::factory()->create();
+    $input = new ThreadMessageInput('x', null, 'record_walkthrough_and_open_pr', null, MessageDelivery::Steer, null, true);
+
+    expect(app(ThreadMessageSender::class)->send($thread, $user, $input)->status)->toBe('sent');
+});

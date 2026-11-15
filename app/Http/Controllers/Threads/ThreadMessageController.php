@@ -42,6 +42,7 @@ class ThreadMessageController extends Controller
             fn (ThreadTurnMessage|PendingSteeringMessage $message) => $message instanceof ThreadTurnMessage
                 ? TaskAttachment::storeFromRequest($request, ['yak_task_id' => $taskId, 'thread_turn_message_id' => $message->id])
                 : TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]),
+            $request->acknowledgedPrivatePublish(),
         );
 
         try {
