@@ -84,6 +84,16 @@ class ThreadPreviewDevServer
         return ['port' => $hint['port'] ?? null, 'coldStart' => ($hint['coldStart'] ?? '') !== '' ? $hint['coldStart'] : null];
     }
 
+    /**
+     * Drops the remembered state and error so the next read is `starting` and the
+     * panel re-reads the manifest, for example after a turn that may have added it.
+     */
+    public function forgetState(Thread $thread): void
+    {
+        Cache::forget($this->key('state', $thread));
+        Cache::forget($this->key('error', $thread));
+    }
+
     public function state(Thread $thread): string
     {
         return Cache::get($this->key('state', $thread), 'starting');

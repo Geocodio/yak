@@ -15,6 +15,7 @@ use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\IncusThreadSandboxManager;
+use App\Services\Threads\Preview\ThreadPreviewDevServer;
 use App\Services\Threads\QueuedMessageRunner;
 use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Services\Threads\ThreadDiffCapture;
@@ -120,6 +121,9 @@ abstract class FinishThreadTurnJob implements ShouldQueue
         } finally {
             // The sandbox is awake and its tree final here; once paused, the listener's capture would be skipped.
             $this->captureDiff($thread->refresh());
+
+            // The turn may have added or changed .yak/preview.yml, so the cached dev server state is stale.
+            app(ThreadPreviewDevServer::class)->forgetState($thread);
 
             try {
                 $threadSandbox->pauseIfIdle($thread->refresh());
