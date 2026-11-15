@@ -20,4 +20,19 @@ extension Cache {
         store(draft, at: path, protection: .complete)
         return load(SubThreadDraft.self, at: path) == draft
     }
+
+    /// Reads, checks and writes in one step, so no other call lands between them. Writes the text, kind and model
+    /// and keeps the saved key and mark. Does nothing while the saved draft is in flight. Nil or an empty draft
+    /// removes the saved one.
+    func mergeSubThreadDraft(_ draft: SubThreadDraft?, parentID: String) {
+        let saved = subThreadDraft(parentID: parentID)
+        if saved?.sendKeyIsInFlight == true { return }
+        guard var draft, !draft.isEmpty else {
+            saveSubThreadDraft(nil, parentID: parentID)
+            return
+        }
+        draft.sendKey = saved?.sendKey
+        draft.sendKeyIsInFlight = false
+        saveSubThreadDraft(draft, parentID: parentID)
+    }
 }

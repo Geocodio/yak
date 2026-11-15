@@ -101,7 +101,7 @@ public actor OverviewActions {
             let generation = stackGeneration
             lookup = Task {
                 let result = await self.send(.stack(threadID))
-                self.stackLookups[threadID] = nil
+                if generation == self.stackGeneration { self.stackLookups[threadID] = nil }
                 switch result {
                 case .success(let stack):
                     let answer = (stack: stack, fetchedAt: self.clock.now())
@@ -143,6 +143,8 @@ public actor OverviewActions {
             }
         }
         for id in dropped { stacks[id] = nil }
+        // A running lookup may list the child, and its parent is not known yet, so a child drops every lookup.
+        if isChild { stackLookups.removeAll() } else { stackLookups[threadID] = nil }
         stackOrder.removeAll { dropped.contains($0) }
     }
 
@@ -315,15 +317,8 @@ public actor OverviewActions {
     /// Writes the text, kind and model and keeps the saved key and mark. While the saved draft is in flight it
     /// writes nothing. Nil or an empty draft removes it.
     public func saveSubThreadDraft(_ draft: SubThreadDraft?, parentID: String) async {
-        let saved = await cache.subThreadDraft(parentID: parentID)
-        if saved?.sendKeyIsInFlight == true { return }
-        guard var draft, !draft.isEmpty else {
-            await cache.saveSubThreadDraft(nil, parentID: parentID)
-            return
-        }
-        draft.sendKey = saved?.sendKey
-        draft.sendKeyIsInFlight = false
-        await cache.saveSubThreadDraft(draft, parentID: parentID)
+        if addTasks[parentID] != nil { return }
+        await cache.mergeSubThreadDraft(draft, parentID: parentID)
     }
 
     // MARK: Add

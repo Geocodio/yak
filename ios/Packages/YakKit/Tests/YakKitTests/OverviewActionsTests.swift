@@ -14,7 +14,7 @@ private let busySentence = "Yak is still handling another request for this threa
 private let fullSentence = "This thread has 12 of 12 sub-threads. Close one to add another."
 private let sendKeyMessage = "This key was already used for another request. Try again with a new one."
 private let created = SubThreadCreated(id: "n3wch11d", name: "check-the-cache")
-private let createdAnswer = FakeTransport.Result.json(201, #"{"id":"n3wch11d","name":"check-the-cache"}"#)
+private let createdAnswer = try! FakeTransport.Result.scenario(201, "scenario-overview-sub-thread-created")
 private let firstID = UUID(uuidString: "00000000-0000-4000-8000-000000000001")!
 private let secondID = UUID(uuidString: "00000000-0000-4000-8000-000000000002")!
 
@@ -393,4 +393,34 @@ private final class SessionDefaults: KeyValueStore, @unchecked Sendable {
     #expect(await session.overviewActions() != nil)
     await session.stop()
     #expect(await session.overviewActions() == nil)
+}
+
+@Test func anAutosaveNeverWipesTheKeyOfAnAddInFlight() async throws {
+    let rig = OverviewRig()
+    await rig.transport.hold(addRoute)
+    async let added = rig.actions.addSubThread(parentID: root, draft: draft)
+    async let autosave: Void = rig.actions.saveSubThreadDraft(
+        SubThreadDraft(name: "other", brief: "Other text."), parentID: root)
+    await rig.transport.waitForRequests(1, on: addRoute)
+    await autosave
+    let saved = try #require(await rig.actions.subThreadDraft(parentID: root))
+    #expect(saved.name == "check-the-cache" && saved.sendKey == firstID && saved.sendKeyIsInFlight)
+    await rig.transport.answer(held: addRoute, with: createdAnswer)
+    #expect(await added == .added(created))
+    #expect(await rig.actions.subThreadDraft(parentID: root) == nil)
+}
+
+@Test func aDropLandingDuringAStackLookupNeverServesTheOldStack() async throws {
+    let rig = OverviewRig()
+    await rig.transport.on(stackRoute, try .scenario(200, "scenario-overview-busy-stack"))
+    await rig.transport.hold(stackRoute)
+    async let old = rig.actions.stack(root)
+    await rig.transport.waitForRequests(1, on: stackRoute)
+    await rig.transport.on("POST threads/q7adapt0/stack/drop", .json(200, #"{"status":"dropped"}"#))
+    #expect(await rig.actions.drop("q7adapt0") == .done)
+    async let fresh = rig.actions.stack(root)
+    await rig.transport.waitForRequests(2, on: stackRoute)
+    await rig.transport.release(stackRoute)
+    _ = try await (old, fresh)
+    #expect(await rig.transport.requests(on: stackRoute).count == 2)
 }
