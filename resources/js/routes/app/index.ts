@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
 import device from './device'
+import pushTokens from './push-tokens'
 import threads from './threads'
 import broadcasting from './broadcasting'
 import observations from './observations'
@@ -97,6 +98,7 @@ const app = {
     instance: Object.assign(instance, instance),
     device: Object.assign(device, device),
     me: Object.assign(me, me),
+    pushTokens: Object.assign(pushTokens, pushTokens),
     threads: Object.assign(threads, threads),
     broadcasting: Object.assign(broadcasting, broadcasting),
     observations: Object.assign(observations, observations),

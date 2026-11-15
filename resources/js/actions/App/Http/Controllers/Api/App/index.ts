@@ -4,6 +4,7 @@ import DeviceTokenController from './DeviceTokenController'
 import DevicePairController from './DevicePairController'
 import MeController from './MeController'
 import DeviceController from './DeviceController'
+import Push from './Push'
 import Threads from './Threads'
 import BroadcastAuthController from './BroadcastAuthController'
 import ObservationController from './ObservationController'
@@ -17,6 +18,7 @@ const App = {
     DevicePairController: Object.assign(DevicePairController, DevicePairController),
     MeController: Object.assign(MeController, MeController),
     DeviceController: Object.assign(DeviceController, DeviceController),
+    Push: Object.assign(Push, Push),
     Threads: Object.assign(Threads, Threads),
     BroadcastAuthController: Object.assign(BroadcastAuthController, BroadcastAuthController),
     ObservationController: Object.assign(ObservationController, ObservationController),
