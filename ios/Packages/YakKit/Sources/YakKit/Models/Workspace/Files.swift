@@ -131,3 +131,23 @@ public struct FileSaveResult: Codable, Equatable, Sendable {
         self.working = working
     }
 }
+
+public struct FileFindMatch: Codable, Equatable, Sendable {
+    public let name: String
+    public let path: String
+
+    public init(name: String, path: String) {
+        self.name = name
+        self.path = path
+    }
+}
+
+public struct FileSearchResult: Codable, Equatable, Sendable {
+    public let matches: [FileFindMatch]
+    public let truncated: Bool
+
+    public init(matches: [FileFindMatch], truncated: Bool) {
+        self.matches = matches
+        self.truncated = truncated
+    }
+}

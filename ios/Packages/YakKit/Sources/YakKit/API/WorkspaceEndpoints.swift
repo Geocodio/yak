@@ -57,3 +57,16 @@ extension Endpoint where Response == FileSaveResult {
             timeout: .seconds(60))
     }
 }
+
+extension Endpoint where Response == FileSearchResult {
+    /// GET threads/{id}/files/search?scope=repo&q=, 15 seconds, sent once: a failed search falls back to the
+    /// local filter instead of asking again.
+    public static func searchFiles(_ id: String, query: String) -> Endpoint<FileSearchResult> {
+        Endpoint(
+            method: .get, path: "threads/\(segment(id))/files/search",
+            query: [
+                URLQueryItem(name: "scope", value: FileScope.repo.rawValue), URLQueryItem(name: "q", value: query),
+            ],
+            retriesTransientFailures: false)
+    }
+}

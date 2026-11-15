@@ -84,11 +84,13 @@ public struct FileTreeSnapshot: Equatable, Sendable {
     public var isOffline: Bool
     public var changedCount: Int
     public var changedPaths: [String], addedPaths: [String]
+    /// The state of the find field's search.
+    public var find: FindState
 
     public init(
         root: FolderState = .notLoaded, availability: WorkspaceAvailability? = nil, rows: [FileTreeRow] = [],
         isSlow: Bool = false, isOffline: Bool = false, changedCount: Int = 0, changedPaths: [String] = [],
-        addedPaths: [String] = []
+        addedPaths: [String] = [], find: FindState = .idle
     ) {
         self.root = root
         self.availability = availability
@@ -98,6 +100,7 @@ public struct FileTreeSnapshot: Equatable, Sendable {
         self.changedCount = changedCount
         self.changedPaths = changedPaths
         self.addedPaths = addedPaths
+        self.find = find
     }
 }
 
@@ -138,6 +141,9 @@ public actor FileTree {
     private var slowTimers: [Int: Task<Void, Never>] = [:]
     private var slowRequests: Set<Int> = []
     private var nextRequestID = 0
+    private var find: FindState = .idle
+    private var searchTask: Task<Void, Never>?
+    private var searchGeneration = 0
 
     public init(
         threadID: String, scope: FileScope, client: APIClient, clock: any YakClock,
@@ -213,11 +219,72 @@ public actor FileTree {
         isStopped = true
         for (_, entry) in inFlight { entry.task.cancel() }
         for (_, timer) in slowTimers { timer.cancel() }
+        searchTask?.cancel()
         inFlight = [:]
         slowTimers = [:]
         slowRequests = []
         publish()
         broadcast.finish()
+    }
+
+    // MARK: Search
+
+    /// Waits 300 ms after the last call, then asks the server; the snapshot's `find` carries the state. A
+    /// query of one character or less is idle, one over 200 characters is cut. A failed search falls back to
+    /// the loaded folders and says the result is partial.
+    public func search(_ query: String) async {
+        guard !isStopped else { return }
+        searchTask?.cancel()
+        searchGeneration += 1
+        let generation = searchGeneration
+        let trimmed = String(query.trimmingCharacters(in: .whitespacesAndNewlines).prefix(Self.searchLengthLimit))
+        guard trimmed.count > 1 else {
+            searchTask = nil
+            find = .idle
+            publish()
+            return
+        }
+        find = .searching
+        publish()
+        let task = Task { await self.performSearch(trimmed, generation: generation) }
+        searchTask = task
+        await task.value
+    }
+
+    private static let searchLengthLimit = 200
+
+    private func performSearch(_ query: String, generation: Int) async {
+        do { try await clock.sleep(for: .milliseconds(300)) } catch { return }
+        guard generation == searchGeneration, !isStopped else { return }
+        let outcome: FindState
+        do {
+            let answer = try await client.send(.searchFiles(threadID, query: query))
+            let marked = Set(addedPaths)
+            let changed = Set(changedPaths)
+            let results = answer.matches.map { match in
+                FileFindResult(
+                    name: match.name, path: match.path,
+                    mark: marked.contains(match.path) ? .added : (changed.contains(match.path) ? .modified : nil))
+            }
+            outcome =
+                results.isEmpty
+                ? .noMatch(query: query, isPartial: false)
+                : .results(results, truncated: answer.truncated, isPartial: false)
+        } catch {
+            if case .network(.cancelled) = error { return }
+            outcome = Self.partial(FileFind.local(query, in: currentSnapshot(), loaded: loadedEntries()))
+        }
+        guard generation == searchGeneration, !isStopped, !Task.isCancelled else { return }
+        find = outcome
+        publish()
+    }
+
+    private static func partial(_ state: FindState) -> FindState {
+        switch state {
+        case .results(let results, let truncated, _): .results(results, truncated: truncated, isPartial: true)
+        case .noMatch(let query, _): .noMatch(query: query, isPartial: true)
+        default: state
+        }
     }
 
     // MARK: Loading
@@ -390,13 +457,14 @@ public actor FileTree {
 
     // MARK: Snapshot
 
-    private func publish() {
+    private func publish() { broadcast.send(currentSnapshot()) }
+
+    private func currentSnapshot() -> FileTreeSnapshot {
         let marked = Set(changedPaths).union(addedPaths)
-        broadcast.send(
-            FileTreeSnapshot(
-                root: folders[""]?.state ?? .notLoaded, availability: availability, rows: rows(marked: marked),
-                isSlow: !slowRequests.isEmpty, isOffline: isOffline, changedCount: marked.count,
-                changedPaths: changedPaths, addedPaths: addedPaths))
+        return FileTreeSnapshot(
+            root: folders[""]?.state ?? .notLoaded, availability: availability, rows: rows(marked: marked),
+            isSlow: !slowRequests.isEmpty, isOffline: isOffline, changedCount: marked.count,
+            changedPaths: changedPaths, addedPaths: addedPaths, find: find)
     }
 
     private func rows(marked: Set<String>) -> [FileTreeRow] {
