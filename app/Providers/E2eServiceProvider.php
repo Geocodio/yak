@@ -9,6 +9,7 @@ use App\Services\E2e\E2eMode;
 use App\Services\E2e\E2eRepositoryConfig;
 use App\Services\E2e\E2eRunnerCommand;
 use App\Services\E2e\E2eSandboxManager;
+use App\Services\E2e\E2eSeedCommand;
 use App\Services\E2e\E2eSessionFileSync;
 use App\Services\RepositoryConfig;
 use App\Services\Threads\Contracts\SandboxManager;
@@ -42,7 +43,7 @@ class E2eServiceProvider extends ServiceProvider
             return;
         }
 
-        $this->commands([E2eRunnerCommand::class]);
+        $this->commands([E2eRunnerCommand::class, E2eSeedCommand::class]);
         E2eGitHub::fake();
     }
 

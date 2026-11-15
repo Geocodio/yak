@@ -7,22 +7,26 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Models\ClaudeAccount;
+use App\Models\Device;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Providers\E2eServiceProvider;
+use App\Services\E2e\E2eBrokerWire;
 use App\Services\E2e\E2eGitHub;
 use App\Services\E2e\E2eRepositoryConfig;
 use App\Services\E2e\E2eRunnerScript;
 use App\Services\E2e\E2eSandboxManager;
 use App\Services\E2e\E2eSessionFileSync;
+use App\Services\E2e\E2eWorld;
 use App\Services\RepositoryConfig;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\FakeBrokerStreams;
+use App\Services\Threads\RedisBrokerStreams;
 use App\Services\Threads\ThreadDriver;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\StrayRequestException;
@@ -260,4 +264,72 @@ it('binds what the server needs and nothing from the feature suite', function ()
             ->and(str_contains(app($abstract)::class, '@anonymous'))->toBeFalse();
     }
     Http::assertNothingSent();
+});
+
+it('finishes a new turn on every seeded thread', function (): void {
+    $port = (int) end($GLOBALS['startedRedisServers'])['port'];
+
+    foreach (['threads', 'threads-commands'] as $connection) {
+        config(["database.redis.{$connection}.host" => '127.0.0.1', "database.redis.{$connection}.port" => $port, "database.redis.{$connection}.url" => null]);
+    }
+    app()->forgetInstance('redis');
+    Redis::clearResolvedInstance('redis');
+    app()->singleton(BrokerStreams::class, fn () => new RedisBrokerStreams('threads', 'threads-commands'));
+
+    // The seed needs an empty database; the beforeEach built a person, a repository and an account.
+    Device::query()->delete();
+    Repository::query()->delete();
+    ClaudeAccount::query()->delete();
+    User::query()->delete();
+
+    $world = (new E2eWorld(new E2eBrokerWire('threads'), new E2eRunnerScript(pace: 0)))->create('http://127.0.0.1:18000');
+    $headers = ['X-Yak-Protocol' => '1', 'Authorization' => 'Bearer ' . $world['phones']['main']['token'], 'Accept' => 'application/json'];
+    $threads = $world['threads'];
+
+    // A new process: a new wire and a script without live runners, so the first turn of each thread meets no runner.
+    $wire = new E2eBrokerWire('threads');
+    $script = new E2eRunnerScript(pace: 0);
+    config(['yak.threads.turn_grace_seconds' => 0]);
+    $completions = 0;
+    Event::listen(TurnCompleted::class, function () use (&$completions): void {
+        $completions++;
+    });
+
+    $this->postJson("/api/app/v1/threads/{$threads['finished']['id']}/messages", ['message' => 'Once more', 'send_key' => '8c0c2d1e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'], $headers)->assertSuccessful();
+    $this->postJson("/api/app/v1/threads/{$threads['question']['id']}/clarification-answers", ['answers' => [
+        'on_failure' => ['choices' => ['Mark the row as failed'], 'other' => null],
+    ], 'note' => null], $headers)->assertOk();
+    $this->postJson("/api/app/v1/threads/{$threads['held']['id']}/messages", ['message' => 'Keep going', 'send_key' => '9d0c2d1e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'], $headers)->assertSuccessful();
+
+    $noRunner = [];
+    for ($pass = 0; $pass < 50; $pass++) {
+        $isWritten = false;
+
+        foreach ($wire->readCommands($wire->channels(), 10, 50) as $entry) {
+            $command = $entry['command'] ?? [];
+            $channel = $entry['channel'];
+            $generation = ($command['type'] ?? null) === 'start_runner' ? $wire->startGeneration($channel) : $wire->generation($channel);
+
+            foreach ($script->respond($channel, $command, $generation) as $scripted) {
+                $noRunner[$channel] ??= ($scripted['line']['type'] ?? null) === 'broker.no_runner';
+                $wire->write($channel, $scripted['line'], $scripted['fromBroker'], $generation);
+                $isWritten = true;
+            }
+        }
+
+        Artisan::call('yak:thread-drivers', ['--once' => true]);
+
+        if (! $isWritten) {
+            break;
+        }
+    }
+
+    foreach (['finished', 'question', 'held'] as $key) {
+        $thread = Thread::withoutGlobalScopes()->where('public_id', $threads[$key]['id'])->firstOrFail();
+        expect($noRunner['threads:' . $thread->id] ?? false)->toBeTrue()
+            ->and($thread->runner_generation)->toBe(2)
+            ->and(TaskRun::query()->where('thread_id', $thread->id)->where('turn_state', TurnState::Completed)->count())->toBe(2);
+    }
+
+    expect($completions)->toBe(3);
 });

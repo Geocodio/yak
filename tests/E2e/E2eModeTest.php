@@ -57,7 +57,7 @@ it('refuses to run a registered command once the mode is off', function (): void
     $this->artisan('yak:e2e-runner', ['--once' => true])->expectsOutputToContain('only runs in the e2e test environment')->assertExitCode(1);
 
     expect(User::query()->count())->toBe(0);
-})->todo('Tasks S3 and S5 register yak:e2e-runner and yak:e2e-seed; S5 turns this into the real case');
+});
 
 it('runs without the feature suite fakes', function (): void {
     expect(app(SandboxManager::class))->not->toBeInstanceOf(FakeSandboxManager::class)
