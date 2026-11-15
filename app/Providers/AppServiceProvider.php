@@ -47,7 +47,7 @@ class AppServiceProvider extends ServiceProvider
         config(['prometheus.enabled' => false]);
 
         $this->app->singleton(IncusSandboxManager::class);
-        $this->app->singleton(BrokerStreams::class, RedisBrokerStreams::class);
+        $this->app->singleton(BrokerStreams::class, fn (): BrokerStreams => new RedisBrokerStreams('threads', 'threads-commands'));
 
         $this->app->bind(AgentRunner::class, BrokerAgentRunner::class);
 
