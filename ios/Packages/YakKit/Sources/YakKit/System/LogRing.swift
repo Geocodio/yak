@@ -74,14 +74,13 @@ public enum LogRedactor {
         }
         return [
             make(#"[{\[].*$"#, "[body removed]"),
-            make(#"(?i)\bAuthorization:.*$"#, "Authorization: [removed]"),
+            make(#"(?i)\b(Authorization|Set-Cookie|Cookie):.*$"#, "$1: [removed]"),
             make(#"(?i)\bBearer\s+\S+"#, "Bearer [removed]"),
             make(
-                #"(?i)\b((?:[A-Za-z0-9_]*token|device_code|user_code|code|password|secret|key|signature)"?\s*[=:]\s*"?)[^&\s,"]*"#,
+                #"(?i)\b((?:[A-Za-z0-9_]*(?:token|secret|key)|device_code|user_code|code|password|signature)"?\s*[=:]\s*"?)[^&\s,"]*"#,
                 "$1[removed]"),
             make(#"\?\S+"#, "?[removed]"),
             make(#"[A-Za-z0-9+/=_.\-]{24,}"#, "[removed]"),
-            make(#"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"#, "[email]"),
         ]
     }()
 
@@ -110,11 +109,49 @@ public enum LogRedactor {
         for (regex, template) in replacements {
             text = replace(text, regex, template)
         }
+        text = removeEmailAddresses(text)
         text = flatten(text)
         if text.count > LogRing.maximumLineLength {
             text = String(text.prefix(LogRing.maximumLineLength - 1)) + "…"
         }
         return text
+    }
+
+    /// A plain scan, linear in the input: for each "@", expand over the local-part and domain characters and
+    /// replace the run when the domain has a dot followed by a top-level domain of two or more letters.
+    static func removeEmailAddresses(_ text: String) -> String {
+        let characters = Array(text)
+        func isLocal(_ c: Character) -> Bool { (c.isASCII && (c.isLetter || c.isNumber)) || "._%+-".contains(c) }
+        func isDomain(_ c: Character) -> Bool { (c.isASCII && (c.isLetter || c.isNumber)) || ".-".contains(c) }
+        var result = ""
+        var cursor = 0
+        var index = 0
+        while index < characters.count {
+            guard characters[index] == "@" else {
+                index += 1
+                continue
+            }
+            var left = index
+            while left > cursor, isLocal(characters[left - 1]) { left -= 1 }
+            var right = index + 1
+            while right < characters.count, isDomain(characters[right]) { right += 1 }
+            while right > index + 1, ".-".contains(characters[right - 1]) { right -= 1 }
+            let domain = characters[(index + 1)..<right]
+            if left < index, hasTopLevelDomain(domain) {
+                result += String(characters[cursor..<left]) + "[email]"
+                cursor = right
+                index = right
+            } else {
+                index += 1
+            }
+        }
+        return result + String(characters[cursor...])
+    }
+
+    private static func hasTopLevelDomain(_ domain: ArraySlice<Character>) -> Bool {
+        guard let dot = domain.lastIndex(of: ".") else { return false }
+        let tail = domain[(dot + 1)...]
+        return tail.count >= 2 && tail.allSatisfy { $0.isASCII && $0.isLetter }
     }
 
     private static func replace(_ text: String, _ regex: Regex<AnyRegexOutput>, _ template: String) -> String {

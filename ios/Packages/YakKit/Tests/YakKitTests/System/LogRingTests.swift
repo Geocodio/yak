@@ -37,6 +37,14 @@ struct LogRingTests {
             ("device_code=XYZW-1234", ["XYZW-1234"]),
             (String(repeating: "pushToken: 0123456789abcdef ", count: 4), ["0123456789abcdef"]),
             ("Contact test.person@example.com", ["test.person@example.com"]),
+            (String(repeating: "a%", count: 2_048), []),
+            (String(repeating: "a%", count: 2_040) + "@", []),
+            (
+                "api_key=abcd1234 apiKey=efgh5678 client_secret=ijkl9012 clientSecret=mnop3456",
+                ["abcd1234", "efgh5678", "ijkl9012", "mnop3456"]
+            ),
+            ("Cookie: session=abc123def", ["abc123def"]),
+            ("Set-Cookie: sid=zzz999; Path=/", ["zzz999"]),
             (String(repeating: "0123456789abcdefghijklmnop", count: 40_000), ["0123456789abcdefghijklmnop"]),
             (
                 "ABCDEFGHIJKLMNOPQRSTUVWX\nabcdefghijklmnopqrstuvwx",
