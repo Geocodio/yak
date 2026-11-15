@@ -47,6 +47,7 @@ struct ThreadScreen: View {
         }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
+        .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
     }
 
     /// Keeps one model per thread while the screen shows it, and stops it when the thread changes or the screen goes.

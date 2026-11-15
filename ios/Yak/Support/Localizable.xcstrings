@@ -2058,12 +2058,232 @@
         }
       }
     },
-    "chat.composerPlaceholder": {
+    "composer.message": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Message Yak"
+          }
+        }
+      }
+    },
+    "composer.steer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steer Yak"
+          }
+        }
+      }
+    },
+    "composer.field.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message"
+          }
+        }
+      }
+    },
+    "composer.plus.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo, file, or model"
+          }
+        }
+      }
+    },
+    "composer.send.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send"
+          }
+        }
+      }
+    },
+    "composer.send.hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold to send after this turn"
+          }
+        }
+      }
+    },
+    "composer.sendAfterTurn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send after this turn"
+          }
+        }
+      }
+    },
+    "composer.stop.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop Yak"
+          }
+        }
+      }
+    },
+    "composer.new": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New"
+          }
+        }
+      }
+    },
+    "composer.readOnly.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can read this thread"
+          }
+        }
+      }
+    },
+    "composer.readOnly.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only its owner can send messages"
+          }
+        }
+      }
+    },
+    "composer.closed.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This thread is closed"
+          }
+        }
+      }
+    },
+    "composer.closed.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a new thread to go on."
+          }
+        }
+      }
+    },
+    "composer.computer.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This thread is on your computer"
+          }
+        }
+      }
+    },
+    "composer.computer.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bring it back with yak teleport on that computer."
+          }
+        }
+      }
+    },
+    "composer.blocked.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak cannot take messages right now"
+          }
+        }
+      }
+    },
+    "composer.blocked.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again in a little while."
+          }
+        }
+      }
+    },
+    "composer.problem.notSaved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This message could not be saved. Try again."
+          }
+        }
+      }
+    },
+    "composer.problem.notActive": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is not connected yet. Try again in a moment."
+          }
+        }
+      }
+    },
+    "composer.problem.stopFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop did not reach Yak. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "composer.shortcut.send": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send message"
+          }
+        }
+      }
+    },
+    "composer.shortcut.sendAfterTurn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send message after this turn"
+          }
+        }
+      }
+    },
+    "composer.shortcut.stop": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop the turn"
           }
         }
       }

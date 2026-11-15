@@ -77,6 +77,76 @@ import XCTest
         try audit()
     }
 
+    /// Smoke test 5, the composer's half: a send while a turn runs steers, and a long press on Send queues. The
+    /// "Sends after this turn" line under the bubble belongs to the chat.
+    func testSendWhileATurnRunsSteersAndLongPressQueues() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
+        try launch(scenario: "one-thread-working")
+        // The scripted turn must outlast the typing.
+        try stub.setPlaybackMilliseconds(3000)
+        defer { try? stub.setPlaybackMilliseconds(400) }
+        // The scripted turn must outlast the typing.
+        try stub.setPlaybackMilliseconds(3000)
+        defer { try? stub.setPlaybackMilliseconds(400) }
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        // The scripted turn runs for a few seconds and the stub's refresh after a delivery ends it, so the long press
+        // goes first and the texts are short.
+        field.tap()
+        field.typeText("Docs too")
+        let sendAfter = app.buttons["composer.send"]
+        XCTAssertTrue(sendAfter.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["composer.stop"].exists, "the scripted turn ended before the long press")
+        sendAfter.press(forDuration: 1.0)
+        let afterTurn = app.descendants(matching: .any).matching(identifier: "composer.sendAfterTurn").firstMatch
+        XCTAssertTrue(afterTurn.waitForExistence(timeout: 5), app.debugDescription)
+        // The menu opens with an animation; its item has no frame until it settles.
+        wait(
+            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: afterTurn)],
+            timeout: 5)
+        afterTurn.tap()
+        waitForLastMessage(containing: "after_turn")
+        XCTAssertTrue(stub.lastMessage().contains("Docs too"))
+        XCTAssertNotEqual(field.value as? String, "Docs too")
+        field.tap()
+        field.typeText("Add tests")
+        let send = app.buttons["composer.send"]
+        XCTAssertTrue(send.waitForExistence(timeout: 5))
+        send.tap()
+        waitForLastMessage(containing: "steer")
+        XCTAssertTrue(stub.lastMessage().contains("Add tests"))
+    }
+
+    /// Smoke test 6, the composer's half: a send while offline is kept and goes out when the connection returns.
+    /// The "Not sent" line under the bubble belongs to the chat.
+    func testADroppedConnectionShowsOfflineAndRecovers() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
+        try launch(scenario: "paired")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        try stub.setOnline(false)
+        field.tap()
+        field.typeText("Also update the changelog")
+        app.buttons["composer.send"].tap()
+        XCTAssertFalse(stub.lastMessage().contains("Also update the changelog"))
+        try stub.setOnline(true)
+        waitForLastMessage(containing: "Also update the changelog", timeout: 20)
+    }
+
+    private func waitForLastMessage(containing text: String, timeout: TimeInterval = 10) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline, !stub.lastMessage().contains(text) { Thread.sleep(forTimeInterval: 0.3) }
+        XCTAssertTrue(stub.lastMessage().contains(text), "the stub never took a message with \(text)")
+    }
+
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
