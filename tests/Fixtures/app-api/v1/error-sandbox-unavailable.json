@@ -1,0 +1,10 @@
+{
+    "details": {
+        "canRestore": false,
+        "restoring": false,
+        "state": "waking",
+        "waitingForSlot": true
+    },
+    "error": "sandbox_unavailable",
+    "message": "The sandbox is waiting for a free slot."
+}

@@ -4,9 +4,10 @@ use App\Enums\ThreadSandboxState;
 use Tests\Support\VisibilityRoutes;
 
 return [
-    'appThreads' => ['app.threads.terminal-sessions.store'],
+    'appThreads' => ['app.threads.terminal-sessions.store', 'app.threads.files.tree'],
     'appThreadProbes' => [
         'app.threads.terminal-sessions.store' => VisibilityRoutes::probe('POST', '/threads/{thread}/terminal-sessions', true),
+        'app.threads.files.tree' => VisibilityRoutes::probe('GET', '/threads/{thread}/files?scope=repo', false),
     ],
     'sweepHeaders' => ['Origin' => 'https://yak.example.test'],
     // The thread has a running sandbox and the app URL is the allowed origin, so the owner's probe reaches a ready shell.
