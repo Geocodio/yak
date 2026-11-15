@@ -4,6 +4,7 @@ namespace App\Services\E2e;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use RedisException;
 
 /**
  * A fake broker on the real Redis streams: answers start_runner, turn, steer and interrupt
@@ -22,7 +23,7 @@ class E2eRunnerCommand extends Command
 
     private bool $shouldStop = false;
 
-    /** @var array<string, list<array{due: float, line: array<string, mixed>, fromBroker: bool}>> */
+    /** @var array<string, list<array{due: float, line: array<string, mixed>, fromBroker: bool, generation: int}>> */
     private array $queues = [];
 
     public function handle(): int
@@ -52,32 +53,40 @@ class E2eRunnerCommand extends Command
         $nextChannelRefresh = 0.0;
         $nextHousekeeping = 0.0;
 
-        do {
-            $now = microtime(true);
+        try {
+            do {
+                $now = microtime(true);
 
-            if ($now >= $nextChannelRefresh) {
-                $channels = $wire->channels();
-                $nextChannelRefresh = $now + 1.0;
-            }
-
-            if ($now >= $nextHousekeeping) {
-                $wire->heartbeat();
-                foreach ($script->releaseExpired(now()) as $channel => $lines) {
-                    $this->enqueue($channel, $lines, $now);
+                if ($now >= $nextChannelRefresh) {
+                    $channels = $wire->channels();
+                    $nextChannelRefresh = $now + 1.0;
                 }
-                $nextHousekeeping = $now + 5.0;
-            }
 
-            if ($channels === []) {
-                usleep(100_000);
-            }
+                if ($now >= $nextHousekeeping) {
+                    $wire->heartbeat();
+                    foreach ($script->releaseExpired(now()) as $channel => $lines) {
+                        $this->enqueue($wire, $channel, $lines, $now);
+                    }
+                    $nextHousekeeping = $now + 5.0;
+                }
 
-            foreach ($wire->readCommands($channels, 100, 20) as $entry) {
-                $this->handleCommand($wire, $script, $entry);
-            }
+                if ($channels === []) {
+                    usleep(100_000);
+                }
 
-            $this->flushDue($wire);
-        } while (! $isOnce && ! $this->shouldStop);
+                foreach ($wire->readCommands($channels, 100, 20) as $entry) {
+                    $this->handleCommand($wire, $script, $entry);
+                }
+
+                $this->flushDue($wire);
+            } while (! $isOnce && ! $this->shouldStop);
+        } catch (RedisException $exception) {
+            $message = "yak:e2e-runner: lost Redis connection {$connection}: {$exception->getMessage()}";
+            $this->error($message);
+            Log::error($message);
+
+            return self::FAILURE;
+        }
 
         return self::SUCCESS;
     }
@@ -99,17 +108,22 @@ class E2eRunnerCommand extends Command
         $type = is_string($command['type'] ?? null) ? substr($command['type'], 0, 40) : '(none)';
         Log::info('yak:e2e-runner command', ['channel' => $channel, 'type' => $type, 'bytes' => $entry['bytes']]);
 
+        if (in_array($type, ['start_runner', 'end', 'kill'], true)) {
+            unset($this->queues[$channel]);
+        }
+
         $generation = $type === 'start_runner' ? $wire->startGeneration($channel) : $wire->generation($channel);
-        $this->enqueue($channel, $script->respond($channel, $command, $generation), microtime(true));
+        $this->enqueue($wire, $channel, $script->respond($channel, $command, $generation), microtime(true));
     }
 
     /**
      * @param  list<array{afterMilliseconds: int, line: array<string, mixed>, fromBroker: bool}>  $lines
      */
-    private function enqueue(string $channel, array $lines, float $now): void
+    private function enqueue(E2eBrokerWire $wire, string $channel, array $lines, float $now): void
     {
         $queue = $this->queues[$channel] ?? [];
         $dropped = 0;
+        $generation = $wire->generation($channel);
 
         foreach ($lines as $scheduled) {
             if (count($queue) >= self::MAX_QUEUED_LINES) {
@@ -117,7 +131,7 @@ class E2eRunnerCommand extends Command
 
                 continue;
             }
-            $queue[] = ['due' => $now + $scheduled['afterMilliseconds'] / 1000, 'line' => $scheduled['line'], 'fromBroker' => $scheduled['fromBroker']];
+            $queue[] = ['due' => $now + $scheduled['afterMilliseconds'] / 1000, 'line' => $scheduled['line'], 'fromBroker' => $scheduled['fromBroker'], 'generation' => $generation];
         }
 
         usort($queue, fn (array $first, array $second): int => $first['due'] <=> $second['due']);
@@ -135,7 +149,7 @@ class E2eRunnerCommand extends Command
         foreach ($this->queues as $channel => $queue) {
             while ($queue !== [] && $queue[0]['due'] <= $now) {
                 $next = array_shift($queue);
-                $wire->write($channel, $next['line'], $next['fromBroker']);
+                $wire->write($channel, $next['line'], $next['fromBroker'], $next['generation']);
             }
 
             $this->queues[$channel] = $queue;

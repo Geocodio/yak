@@ -26,6 +26,9 @@ final class E2eBrokerWire
 
     private bool $hasLoggedChannelCap = false;
 
+    /** @var array<string, true> channels whose consumer group exists */
+    private array $groupedChannels = [];
+
     public function __construct(private readonly string $connection = 'threads') {}
 
     /**
@@ -67,7 +70,10 @@ final class E2eBrokerWire
         $streams = [];
 
         foreach ($channels as $channel) {
-            $client->xGroup('CREATE', $channel . ':in', self::GROUP, '0', true);
+            if (! isset($this->groupedChannels[$channel])) {
+                $client->xGroup('CREATE', $channel . ':in', self::GROUP, '0', true);
+                $this->groupedChannels[$channel] = true;
+            }
             $streams[$channel . ':in'] = '>';
         }
 
@@ -111,16 +117,17 @@ final class E2eBrokerWire
      * XADD to `{channel}:out` with `generation`, the next `sequence`, `line` as JSON and `origin` (`broker` or empty).
      *
      * @param  array<string, mixed>  $line
+     * @param  int|null  $generation  the generation the line was answered in; the channel's current one when null
      * @return string the entry id
      */
-    public function write(string $channel, array $line, bool $fromBroker): string
+    public function write(string $channel, array $line, bool $fromBroker, ?int $generation = null): string
     {
         $position = $this->position($channel);
         $sequence = $position['sequence'] + 1;
         $this->positions[$channel] = ['generation' => $position['generation'], 'sequence' => $sequence];
 
         return (string) $this->client()->xAdd($channel . ':out', '*', [
-            'generation' => (string) $position['generation'],
+            'generation' => (string) ($generation ?? $position['generation']),
             'sequence' => (string) $sequence,
             'line' => json_encode($line, JSON_THROW_ON_ERROR),
             'origin' => $fromBroker ? 'broker' : '',

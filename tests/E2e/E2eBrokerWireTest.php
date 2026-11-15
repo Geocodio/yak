@@ -61,20 +61,46 @@ it('continues the generation and sequence after a restart', function (): void {
         ->and($restarted->startGeneration('threads:7'))->toBe(2);
 });
 
-it('drops a broken or oversized command and says only its size', function (): void {
+it('drops a broken or oversized command and logs only its size', function (): void {
     $client = localRedisClient();
+    config(['yak.e2e.enabled' => true]);
+    (new E2eServiceProvider(app()))->boot();
     $client->xAdd('threads:7:in', '*', ['command' => 'not json']);
     $client->xAdd('threads:7:in', '*', ['command' => json_encode(['pad' => str_repeat('x', 70_000)])]);
+    $client->sAdd('broker:channels', 'threads:7');
     Log::spy();
 
-    $commands = (new E2eBrokerWire('streams_test'))->readCommands(['threads:7'], 10, 20);
+    $this->artisan('yak:e2e-runner', ['--pace' => '0', '--once' => true, '--connection' => 'streams_test'])->assertExitCode(0);
 
-    expect($commands)->toHaveCount(2)
-        ->and($commands[0]['command'])->toBeNull()
-        ->and($commands[0]['bytes'])->toBe(8)
-        ->and($commands[1]['command'])->toBeNull()
-        ->and($commands[1]['bytes'])->toBeGreaterThan(E2eBrokerWire::MAX_COMMAND_BYTES)
+    $sizes = [];
+    Log::shouldHaveReceived('warning')->twice()->withArgs(function (string $message, array $context = []) use (&$sizes): bool {
+        $sizes[] = $context['bytes'] ?? null;
+
+        return ! str_contains($message . json_encode($context), 'not json') && ! str_contains($message . json_encode($context), 'xxxx');
+    });
+
+    expect($sizes[0])->toBe(8)
+        ->and($sizes[1])->toBeGreaterThan(E2eBrokerWire::MAX_COMMAND_BYTES)
         ->and($client->xLen('threads:7:in'))->toBe(0);
+});
+
+it('drops queued turn lines when the runner ends, as the real broker does', function (): void {
+    $client = localRedisClient();
+    config(['yak.e2e.enabled' => true]);
+    (new E2eServiceProvider(app()))->boot();
+    $streams = new RedisBrokerStreams('streams_test');
+    $streams->register('threads:7');
+    $streams->command('threads:7', ['type' => 'start_runner', 'container' => 'thread-7', 'start' => ['type' => 'start']]);
+    $streams->command('threads:7', ['type' => 'turn', 'uuid' => 'u-1', 'text' => 'hello']);
+    $streams->command('threads:7', ['type' => 'end']);
+
+    $this->artisan('yak:e2e-runner', ['--pace' => '1', '--once' => true, '--connection' => 'streams_test'])->assertExitCode(0);
+
+    $types = array_map(fn (array $entry): string => json_decode($entry['line'], true)['type'], array_values($client->xRange('threads:7:out', '-', '+')));
+
+    expect($types)->not->toBeEmpty()
+        ->and($types)->not->toContain('broker.runner_started')
+        ->and(end($types))->toBe('broker.runner_exited');
 });
 
 it('serves at most two hundred channels', function (): void {
