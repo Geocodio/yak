@@ -2,6 +2,7 @@
 
 use App\Enums\TurnState;
 use App\Events\ThreadSandboxSlotFreed;
+use App\Http\Resources\StackData;
 use App\Jobs\StartChildThreadJob;
 use App\Jobs\StopStackJob;
 use App\Models\TaskRun;
@@ -74,14 +75,16 @@ it('lets a person stop again when the job failed every try', function () {
     Log::shouldHaveReceived('error')->once()->with('A stack could not be stopped', ['root' => $world->root->id, 'error' => RuntimeException::class]);
 
     $stamp = $world->root->fresh()->stack_stopped_at;
-    expect(TaskRun::query()->where('turn_state', TurnState::Running)->count())->toBe(1);
+    expect(TaskRun::query()->where('turn_state', TurnState::Running)->count())->toBe(1)
+        ->and(StackData::for($world->working, $world->owner)['canStop'])->toBeTrue();
 
     $actions->stop($world->root);
     Queue::assertPushed(StopStackJob::class, 2);
     expect($world->root->fresh()->stack_stopped_at->equalTo($stamp))->toBeTrue();
 
     runStopJob($world->root);
-    expect(TaskRun::query()->where('turn_state', TurnState::Running)->exists())->toBeFalse();
+    expect(TaskRun::query()->where('turn_state', TurnState::Running)->exists())->toBeFalse()
+        ->and(StackData::for($world->working, $world->owner)['canStop'])->toBeFalse();
 
     $actions->stop($world->root);
     Queue::assertPushed(StopStackJob::class, 2);
@@ -104,11 +107,16 @@ it('stops every turn and updates the touched cards in the job', function () {
 
     expect(TaskRun::query()->where('turn_state', TurnState::Running)->exists())->toBeFalse()
         ->and($queued->fresh()->queued_for_slot_at)->toBeNull()
-        ->and(DB::table('thread_events')->where('thread_id', $world->root->id)->where('type', 'child')->count())->toBeGreaterThanOrEqual(2);
+        ->and(TaskRun::query()->where('turn_state', TurnState::Failed)->count())->toBe(0);
+
+    $cardCounts = fn (): array => DB::table('thread_events')->where('thread_id', $world->root->id)->where('type', 'child')->pluck('payload')
+        ->map(fn (string $payload): string => json_decode($payload, true)['childThreadId'])->countBy()->sortKeys()->all();
+    expect(array_keys($cardCounts()))->toEqualCanonicalizing([$world->working->public_id, $queued->public_id]);
+    $before = $cardCounts();
 
     runStopJob($world->root);
-
-    expect(TaskRun::query()->where('turn_state', TurnState::Failed)->count())->toBe(0);
+    expect(app(StopStack::class)->stop($world->root))->toBe(0)
+        ->and($cardCounts())->toBe($before);
 });
 
 it('never starts a queued child after a stop', function () {

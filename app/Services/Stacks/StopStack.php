@@ -10,7 +10,7 @@ use App\Services\Threads\ThreadTurns;
 
 /**
  * The Stop stack control: interrupts every running turn in a stack, kills the
- * research children's runners, drops children that were waiting for a slot,
+ * runners of research children that had a turn going, drops children that were waiting for a slot,
  * and blocks further spawns. Nothing is destroyed, so work stays recoverable.
  */
 class StopStack
@@ -41,15 +41,14 @@ class StopStack
             if (ThreadTurns::activeTurn($thread) !== null) {
                 $this->turns->stop($thread);
                 $touched = true;
+
+                if ($thread->isResearchChild() && $thread->isOpen()) {
+                    $this->commands->kill($thread);
+                }
             }
 
             if ($thread->queued_for_slot_at !== null) {
                 $thread->forceFill(['queued_for_slot_at' => null])->save();
-                $touched = true;
-            }
-
-            if ($thread->isResearchChild() && $thread->isOpen()) {
-                $this->commands->kill($thread);
                 $touched = true;
             }
 
