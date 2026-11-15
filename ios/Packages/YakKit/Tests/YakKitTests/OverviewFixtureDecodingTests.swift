@@ -3,16 +3,18 @@ import Testing
 
 @testable import YakKit
 
-/// Server fixtures are read as they are. A fixture that is not there yet reports the case as skipped, never as passed.
+/// Server fixtures are read as they are. A case whose fixture is not there is recorded as an issue, never passed silently.
 @Test(
-    .enabled(if: Fixtures.exists("stack")),
     arguments: [
         "stack", "stack-child", "stack-empty", "stack-stopped", "stack-child-created", "stack-stop",
         "stack-limit-updated", "stack-take-over", "stack-split", "stack-drop", "error-stack-full",
         "thread-environment", "thread-repository-retry", "thread-share", "thread-share-updated", "threads", "thread",
     ])
 func decodesEveryOverviewFixture(name: String) throws {
-    guard Fixtures.exists(name) else { return }
+    guard Fixtures.exists(name) else {
+        Issue.record("The server fixture \(name) is missing, so nothing was decoded.")
+        return
+    }
     let data = try Fixtures.data(name)
     let decoder = JSONDecoder()
     switch name {

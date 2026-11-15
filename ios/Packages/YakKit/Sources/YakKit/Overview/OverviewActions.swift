@@ -153,14 +153,14 @@ public actor OverviewActions {
         stackOrder.removeAll { dropped.contains($0) }
     }
 
-    private static func seconds(_ duration: Duration) -> TimeInterval {
+    static func seconds(_ duration: Duration) -> TimeInterval {
         let parts = duration.components
         return TimeInterval(parts.seconds) + TimeInterval(parts.attoseconds) / 1e18
     }
 
     // MARK: Sending
 
-    /// Sends the request, and again after each of `busyRetryWaits` while the server answers `503 unavailable`.
+    /// Sends the request, and for a non-GET again after each of `busyRetryWaits` while the server answers `503 unavailable`. A GET is already retried by the client.
     private func send<Response: Decodable & Sendable>(_ endpoint: Endpoint<Response>) async
         -> Result<Response, APIFailure>
     {
@@ -169,8 +169,8 @@ public actor OverviewActions {
             do {
                 return .success(try await client.send(endpoint))
             } catch {
-                guard case .server(let refusal) = error, refusal.status == 503, refusal.code == "unavailable",
-                    attempt < Self.busyRetryWaits.count
+                guard endpoint.method != .get, case .server(let refusal) = error, refusal.status == 503,
+                    refusal.code == "unavailable", attempt < Self.busyRetryWaits.count
                 else { return .failure(error) }
                 do { try await clock.sleep(for: Self.busyRetryWaits[attempt]) } catch {
                     return .failure(.network(.cancelled))
@@ -347,8 +347,8 @@ public actor OverviewActions {
         if let saved = await cache.subThreadDraft(parentID: parentID), saved.sendKeyIsInFlight, saved.sendKey != nil {
             sending = saved
         } else {
-            guard draft.problem == nil else {
-                return .notAdded(.refused(code: "validation_failed", message: "", fieldErrors: [:]))
+            if let problem = draft.problem {
+                return .notAdded(.refused(code: "validation_failed", message: problem.sentence, fieldErrors: [:]))
             }
             sending = draft
             sending.sendKey = draft.sendKey ?? makeID()

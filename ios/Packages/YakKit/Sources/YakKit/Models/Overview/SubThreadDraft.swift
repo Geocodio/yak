@@ -1,6 +1,18 @@
 import Foundation
 
-public enum SubThreadDraftProblem: Equatable, Sendable { case noName, nameTooLong, noBrief, briefTooLong }
+public enum SubThreadDraftProblem: Equatable, Sendable {
+    case noName, nameTooLong, noBrief, briefTooLong
+
+    /// The sentence a screen shows beside the form.
+    public var sentence: String {
+        switch self {
+        case .noName: "Give the sub-thread a name."
+        case .nameTooLong: "The name is too long."
+        case .noBrief: "Describe what the sub-thread should do."
+        case .briefTooLong: "The description is too long."
+        }
+    }
+}
 
 /// The saved "add a sub-thread" form. `sendKey` is written before the first request leaves and kept until a
 /// 201 or a definite refusal; while `sendKeyIsInFlight` is set the text is locked, so a repeat carries the

@@ -119,6 +119,6 @@
   "addChild": {
     "allowed": false,
     "error": "sub_thread_cannot_spawn",
-    "message": "A sub-thread cannot start sub-threads of its own."
+    "message": "A sub-thread cannot start sub-threads of its own. Add it to the parent thread instead."
   }
 }

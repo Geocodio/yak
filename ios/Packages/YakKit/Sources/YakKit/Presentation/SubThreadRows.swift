@@ -51,7 +51,9 @@ public enum SubThreadActions {
     public static func forDrawerRow(childID: String, stack: ThreadStack?, fetchedAt: Date?, now: Date)
         -> DrawerChildMenu
     {
-        guard let stack, let fetchedAt, now.timeIntervalSince(fetchedAt) < 10 else { return .loading }
+        guard let stack, let fetchedAt, now.timeIntervalSince(fetchedAt) < OverviewActions.seconds(freshFor) else {
+            return .loading
+        }
         guard let child = stack.children.first(where: { $0.id == childID }) else { return .ready([.open]) }
         return .ready(forChild(child, canDrive: stack.canDrive))
     }

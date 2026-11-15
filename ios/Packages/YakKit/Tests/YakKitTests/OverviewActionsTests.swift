@@ -173,7 +173,10 @@ private let draft = SubThreadDraft(name: "check-the-cache", brief: "Look at the 
 @Test func anInvalidDraftSendsNothing() async {
     let rig = OverviewRig()
     let outcome = await rig.actions.addSubThread(parentID: root, draft: SubThreadDraft(name: "check", brief: "  "))
-    #expect(outcome == .notAdded(.refused(code: "validation_failed", message: "", fieldErrors: [:])))
+    #expect(
+        outcome
+            == .notAdded(
+                .refused(code: "validation_failed", message: SubThreadDraftProblem.noBrief.sentence, fieldErrors: [:])))
     #expect(await rig.transport.requests.isEmpty)
     #expect(await rig.actions.subThreadDraft(parentID: root) == nil)
 }
@@ -439,4 +442,15 @@ private final class SessionDefaults: KeyValueStore, @unchecked Sendable {
     await rig.clock.advance(by: .seconds(60))
     _ = try await rig.actions.stack("q7other0")
     #expect(await rig.transport.requests(on: otherRoute).count == 2)
+}
+
+@Test func aBusyGetIsRetriedByTheClientOnlyNeverTwice() async {
+    let rig = OverviewRig()
+    await rig.transport.on(stackRoute, .json(503, error("unavailable", busySentence)))
+    do {
+        _ = try await rig.actions.stack(root)
+        Issue.record("A busy stack must throw.")
+    } catch {}
+    // The client's own three retries make four requests; the action adds none and does not wait on the clock.
+    #expect(await rig.transport.requests(on: stackRoute).count == 4)
 }

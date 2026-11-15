@@ -261,6 +261,18 @@ private func nextSnapshot(
         #expect(await rig.session.openOverview(threadID) == nil)
     }
 
+    @Test func closingTheThreadClosesItsOverviewFeed() async throws {
+        let rig = try await startedRig { await $0.on(showRoute, try showAnswer()) }
+        _ = try #require(await rig.session.openThread(threadID))
+        let first = try #require(await rig.session.openOverview(threadID))
+        await rig.session.closeThread(threadID)
+        for await _ in await first.states() {}
+        _ = try #require(await rig.session.openThread(threadID))
+        let second = try #require(await rig.session.openOverview(threadID))
+        #expect(second !== first)
+        await rig.session.stop()
+    }
+
     @Test func socketEventsReachTheEngine() async throws {
         let list = try EventList.load("events/simple-turn")
         let events = EventServer(threadID: threadID, events: list.stored)

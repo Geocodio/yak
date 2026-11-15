@@ -430,6 +430,7 @@ public actor InstanceSession {
             return
         }
         threads[id] = nil
+        if let feed = overviewFeeds.removeValue(forKey: id) { await feed.feed.close() }
         for task in entry.forwarders { task.cancel() }
         entry.realtimeForwarder?.cancel()
         await realtime?.unsubscribe(thread: id)

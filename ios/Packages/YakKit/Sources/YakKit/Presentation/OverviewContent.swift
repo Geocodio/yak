@@ -175,7 +175,9 @@ public struct OverviewContent: Equatable, Sendable {
             rows: SubThreadRows.make(stack),
             add: stack.addChild.allowed
                 ? .allowed
-                : .refused(code: stack.addChild.error ?? "forbidden", message: stack.addChild.message ?? ""),
+                : .refused(
+                    code: stack.addChild.error ?? "forbidden",
+                    message: stack.addChild.message ?? "You cannot add a sub-thread right now."),
             awake: awake,
             canStop: stack.canStop,
             stoppedAt: stack.stoppedAt.flatMap(parseDate),
