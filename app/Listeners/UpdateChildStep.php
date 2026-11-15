@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Events\ThreadActivity;
 use App\Events\TurnStarted;
 use App\Models\Thread;
+use App\Services\Push\LiveActivities\LiveActivitySteps;
 use App\Services\Stacks\ChildCardPublisher;
 use Illuminate\Support\Facades\Cache;
 
@@ -20,7 +21,7 @@ class UpdateChildStep
 
     public function handle(ThreadActivity $event): void
     {
-        $tool = $this->toolOf($event->line);
+        $tool = LiveActivitySteps::toolOf($event->line);
 
         if ($tool === null || ! $event->thread->isChild()) {
             return;
@@ -40,25 +41,5 @@ class UpdateChildStep
         if ($thread?->isChild()) {
             $this->cards->publish($thread);
         }
-    }
-
-    /**
-     * @param  array<string, mixed>  $line
-     */
-    private function toolOf(array $line): ?string
-    {
-        if (($line['type'] ?? null) !== 'assistant') {
-            return null;
-        }
-
-        $tool = null;
-
-        foreach ((array) ($line['message']['content'] ?? []) as $block) {
-            if (($block['type'] ?? null) === 'tool_use' && is_string($block['name'] ?? null)) {
-                $tool = $block['name'];
-            }
-        }
-
-        return $tool;
     }
 }
