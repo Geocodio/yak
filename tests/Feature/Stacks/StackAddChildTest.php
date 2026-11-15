@@ -14,6 +14,7 @@ use App\Services\Stacks\ChildSpawner;
 use App\Services\Stacks\StackActions;
 use App\Services\Stacks\StackToolRouter;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -88,6 +89,23 @@ it('turns an input refusal into a validation error, never a 500', function () {
     Log::shouldHaveReceived('warning')->once();
 });
 
+it('drops a repeat while the first start job is still pending', function () {
+    config(['queue.default' => 'database']);
+    $root = teamRoot();
+    $actor = User::factory()->create();
+    $key = '3f6d2c1a-5b7e-4d89-a1c2-9e8f7a6b5c4d';
+
+    $child = addChildOf($root, $actor, $key);
+    addChildOf($root, $actor, $key);
+
+    expect(DB::table('jobs')->count())->toBe(1);
+
+    Cache::lock('laravel_unique_job:' . StartChildThreadJob::class . ':' . $child->id)->forceRelease();
+    addChildOf($root, $actor, $key);
+
+    expect(DB::table('jobs')->count())->toBe(2);
+});
+
 it('restarts a repeat whose first dispatch was lost', function () {
     Queue::fake();
     $root = teamRoot();
@@ -148,20 +166,22 @@ it('never passes the cap when two adds race', function () {
 });
 
 it('waits on a real root lock and repeats safely', function () {
+    Queue::fake();
     $root = teamRoot();
     $actor = User::factory()->create();
     DB::commit();
 
     $holder = function (int $rootId, int $seconds, bool $createsChild): mixed {
-        $code = '$pdo = DB::connection()->getPdo(); DB::beginTransaction(); DB::table("threads")->where("id", ' . $rootId . ')->lockForUpdate()->first(); '
+        $code = 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); '
+            . 'DB::beginTransaction(); DB::table("threads")->where("id", ' . $rootId . ')->lockForUpdate()->first(); '
             . ($createsChild ? 'DB::table("threads")->insert(["public_id" => "holdchld", "name" => "holder", "title" => "Holder", "repo" => "example/api", "kind" => "implement", "parent_thread_id" => ' . $rootId . ', "root_thread_id" => ' . $rootId . ', "created_at" => now(), "updated_at" => now()]); ' : '')
-            . 'echo "locked\n"; sleep(' . $seconds . '); DB::commit();';
-        $process = Process::path(base_path())->start([PHP_BINARY, 'artisan', 'tinker', '--execute', $code]);
+            . 'fwrite(STDERR, "locked\\n"); sleep(' . $seconds . '); DB::commit();';
+        $process = Process::path(base_path())->start([PHP_BINARY, '-r', $code]);
 
-        for ($waited = 0; $waited < 100 && ! str_contains($process->latestOutput(), 'locked'); $waited++) {
+        for ($waited = 0; $waited < 100 && $process->running() && ! str_contains($process->errorOutput(), 'locked'); $waited++) {
             usleep(100_000);
         }
-        expect($process->latestOutput())->toContain('locked');
+        expect($process->errorOutput())->toContain('locked');
 
         return $process;
     };
@@ -180,12 +200,13 @@ it('waits on a real root lock and repeats safely', function () {
             ->and(addChildOf($root, $actor, '3f6d2c1a-5b7e-4d89-a1c2-9e8f7a6b5c4d')->is($child))->toBeTrue()
             ->and(Thread::query()->where('spawn_key', '3f6d2c1a-5b7e-4d89-a1c2-9e8f7a6b5c4d')->count())->toBe(1);
 
-        config(['yak.threads.max_children' => 2]);
+        expect(config('yak.threads.max_children'))->toBe(12);
+        Thread::factory()->child($root)->count(10)->create();
         $process = $holder($root->id, 2, true);
         expect(fn () => addChildOf($root, $actor, '4f6d2c1a-5b7e-4d89-a1c2-9e8f7a6b5c4d'))
-            ->toThrow(fn (ThreadActionRefused $refusal) => expect($refusal->errorCode)->toBe('stack_full')->and($refusal->details['count'])->toBe(2));
+            ->toThrow(fn (ThreadActionRefused $refusal) => expect($refusal->errorCode)->toBe('stack_full')->and($refusal->details['count'])->toBe(12));
         $process->wait();
-        expect(Thread::query()->where('parent_thread_id', $root->id)->count())->toBe(2);
+        expect(Thread::query()->where('parent_thread_id', $root->id)->count())->toBe(12);
     } finally {
         Thread::query()->where('root_thread_id', $root->id)->delete();
         YakTask::query()->whereNotNull('thread_id')->whereDoesntHave('thread')->delete();

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Thread;
 use App\Services\Stacks\ChildSpawner;
 use App\Services\Threads\ThreadBusy;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -13,15 +14,21 @@ use Throwable;
 /**
  * Builds a child thread's sandbox and starts its first turn, off the tool
  * call that spawned it. A child that must wait for a sandbox or a busy thread
- * is released for 30 seconds and tried again.
+ * is released for 30 seconds and tried again. Only one job per child is
+ * pending at a time, so a repeated add cannot start the same sandbox twice.
  */
-class StartChildThreadJob implements ShouldQueue
+class StartChildThreadJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
     public int $tries = 60;
 
     public function __construct(public readonly int $childThreadId) {}
+
+    public function uniqueId(): string
+    {
+        return (string) $this->childThreadId;
+    }
 
     public function handle(ChildSpawner $spawner): void
     {
