@@ -8,6 +8,7 @@ use App\Models\PendingSteeringMessage;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
+use App\Services\Teleport\ThreadOwnership;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -42,7 +43,7 @@ class QueuedMessages
 
             $pending->update(array_filter(['mode' => $mode, 'text' => $text], fn (mixed $value): bool => $value !== null));
 
-            if ($mode === SteeringMode::Steer && $thread !== null) {
+            if ($mode === SteeringMode::Steer && $thread !== null && app(ThreadOwnership::class)->yakMayRunTurns($thread)) {
                 $this->delivery->deliver($thread, $pending);
             }
 
@@ -63,6 +64,11 @@ class QueuedMessages
 
     private function lockThread(YakTask $rootTask): ?Thread
     {
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            // A lock wait stays under 5 seconds; the timeout surfaces as a QueryException, which the client APIs answer with 503 unavailable.
+            DB::statement('SET SESSION innodb_lock_wait_timeout = 5');
+        }
+
         return $rootTask->thread_id === null ? null : Thread::query()->lockForUpdate()->find($rootTask->thread_id);
     }
 

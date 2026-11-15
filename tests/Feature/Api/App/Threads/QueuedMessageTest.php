@@ -6,6 +6,7 @@ use App\Enums\ThreadShareMode;
 use App\Enums\ThreadStatus;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
+use App\Models\Teleport;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
@@ -127,6 +128,40 @@ it('refuses on a closed thread', function () {
     $thread->forceFill(['status' => ThreadStatus::Closed])->save();
 
     $this->patchJson(queuedMessagePath($thread, $message->uuid), ['text' => 'Late'], phoneHeadersFor($user))->assertStatus(409)->assertJsonPath('error', 'thread_closed');
+    $this->deleteJson(queuedMessagePath($thread, $message->uuid), [], phoneHeadersFor($user))->assertStatus(409)->assertJsonPath('error', 'thread_closed');
+    expect(PendingSteeringMessage::find($message->id))->not->toBeNull();
+});
+
+it('refuses to steer a GitHub review', function () {
+    [$thread, $user, $message] = threadWithQueuedMessage();
+    $message->forceFill(['reviewer_login' => 'alice'])->save();
+
+    $this->patchJson(queuedMessagePath($thread, $message->uuid), ['mode' => 'steer'], phoneHeadersFor($user))
+        ->assertStatus(422)->assertJsonPath('error', 'validation_failed')
+        ->assertJsonPath('details.errors.mode.0', 'A GitHub review waits for the follow-up, so the reviewer is asked to look again.');
+
+    expect($message->fresh()->mode)->toBe(SteeringMode::Queue);
+});
+
+it('answers message_delivered on a thread with no tasks', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+    $uuid = '7f2c1d9e-3b4a-4c5d-8e6f-0a1b2c3d4e5f';
+    $headers = phoneHeadersFor($user);
+
+    $this->patchJson(queuedMessagePath($thread, $uuid), ['text' => 'x'], $headers)->assertStatus(409)->assertJsonPath('error', 'message_delivered');
+    $this->deleteJson(queuedMessagePath($thread, $uuid), [], $headers)->assertStatus(409)->assertJsonPath('error', 'message_delivered');
+});
+
+it('keeps a message pending while a teleport is open', function () {
+    [$thread, $user, $message] = threadWithQueuedMessage();
+    Teleport::factory()->create(['thread_id' => $thread->id, 'user_id' => $user->id]);
+    $this->mock(ThreadCommands::class)->shouldNotReceive('steer');
+
+    $this->patchJson(queuedMessagePath($thread, $message->uuid), ['mode' => 'steer'], phoneHeadersFor($user))->assertOk();
+
+    expect($message->fresh()->mode)->toBe(SteeringMode::Steer)
+        ->and(ThreadTurnMessage::where('uuid', $message->uuid)->exists())->toBeFalse();
 });
 
 it('answers 404 for a uuid that is not a uuid', function () {
@@ -153,7 +188,8 @@ it('answers a hidden thread like a missing one', function () {
 
     $missing = $this->patchJson('/api/app/v1/threads/zzzzzzzz/queued-messages/' . $uuid, ['text' => 'x'], $headers)->assertNotFound();
     $this->patchJson(queuedMessagePath($hidden, $uuid), ['text' => 'x'], $headers)->assertNotFound()->assertExactJson($missing->json());
-    $this->deleteJson(queuedMessagePath($hidden, $uuid), [], $headers)->assertNotFound();
+    $missingDelete = $this->deleteJson('/api/app/v1/threads/zzzzzzzz/queued-messages/' . $uuid, [], $headers)->assertNotFound();
+    $this->deleteJson(queuedMessagePath($hidden, $uuid), [], $headers)->assertNotFound()->assertExactJson($missingDelete->json());
 });
 
 it('refuses without a token, with a revoked phone and with a computer token', function () {

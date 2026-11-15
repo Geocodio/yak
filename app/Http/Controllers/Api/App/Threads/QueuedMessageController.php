@@ -7,6 +7,7 @@ use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\App\UpdateQueuedMessageRequest;
 use App\Models\Thread;
+use App\Models\YakTask;
 use App\Services\Threads\QueuedMessages;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
@@ -16,7 +17,7 @@ class QueuedMessageController extends Controller
     public function update(UpdateQueuedMessageRequest $request, Thread $thread, string $message, QueuedMessages $queued): JsonResponse
     {
         $this->assertOpen($thread);
-        $queued->update($thread->messagesRootTask(), $message, $request->enum('mode', SteeringMode::class), $request->validated('text'));
+        $queued->update($this->rootTask($thread), $message, $request->enum('mode', SteeringMode::class), $request->validated('text'));
 
         return response()->json(['status' => 'updated']);
     }
@@ -24,9 +25,21 @@ class QueuedMessageController extends Controller
     public function destroy(Thread $thread, string $message, QueuedMessages $queued): Response
     {
         $this->assertOpen($thread);
-        $queued->withdraw($thread->messagesRootTask(), $message);
+        $queued->withdraw($this->rootTask($thread), $message);
 
         return response()->noContent();
+    }
+
+    /**
+     * A thread with no tasks has no queued messages, so the message is as good as gone.
+     */
+    private function rootTask(Thread $thread): YakTask
+    {
+        if (! $thread->tasks()->exists()) {
+            throw ThreadActionRefused::because(ThreadActionRefused::MESSAGE_DELIVERED, QueuedMessages::DELIVERED_SENTENCE);
+        }
+
+        return $thread->messagesRootTask();
     }
 
     private function assertOpen(Thread $thread): void
