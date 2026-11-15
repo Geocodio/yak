@@ -226,7 +226,7 @@ class VisibilityRoutes
      */
     public static function appThreads(): array
     {
-        return [];
+        return ['app.threads.index'];
     }
 
     /**

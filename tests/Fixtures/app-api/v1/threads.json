@@ -1,0 +1,34 @@
+{
+    "hasAnyThreads": true,
+    "needsYou": [
+        {
+            "lastActivityAt": "2026-11-15T12:00:00+00:00",
+            "needsYouLabel": "Asked you a question",
+            "needsYouReason": "question",
+            "taskId": "<volatile:string>",
+            "title": "Pick a retry policy",
+            "type": "task"
+        },
+        {
+            "canDelete": true,
+            "children": [],
+            "group": "today",
+            "id": "<volatile:string>",
+            "isPrivate": false,
+            "isShared": false,
+            "isStarred": false,
+            "isUnattended": false,
+            "lastActivityAt": "2026-11-15T11:00:00+00:00",
+            "needsYouLabel": "Asked you a question",
+            "needsYouReason": "question",
+            "ownerInitials": null,
+            "repo": "example/api",
+            "status": "stopped",
+            "title": "Retry failed uploads",
+            "type": "thread"
+        }
+    ],
+    "needsYouCount": 2,
+    "starred": [],
+    "threads": []
+}

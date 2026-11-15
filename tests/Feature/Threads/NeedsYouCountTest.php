@@ -2,53 +2,11 @@
 
 use App\Enums\CoOwnerRequestStatus;
 use App\Models\CoOwnerRequest;
-use App\Models\Thread;
-use App\Models\ThreadStar;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\NeedsYouTasks;
 use App\Services\Threads\ThreadList;
-
-function needyTask(User $user, string $description, ?Thread $thread = null): YakTask
-{
-    return YakTask::factory()->awaitingClarification()->create([
-        'description' => $description,
-        'started_by_user_id' => $user->id,
-        'thread_id' => $thread?->id,
-    ]);
-}
-
-/**
- * @return array{user: User, other: User}
- */
-function needsYouWorld(): array
-{
-    $user = User::factory()->create(['name' => 'Test person']);
-    $other = User::factory()->create();
-
-    $starred = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Starred thread']);
-    needyTask($user, 'Starred head', $starred);
-    ThreadStar::query()->create(['user_id' => $user->id, 'thread_id' => $starred->id]);
-
-    $root = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Root thread']);
-    $child = Thread::factory()->child($root)->create(['created_by_user_id' => $user->id]);
-    needyTask($user, 'Sub-thread head', $child);
-
-    $coOwnerTask = YakTask::factory()->awaitingCoOwner()->create(['description' => 'Rotate the signing key']);
-    CoOwnerRequest::factory()->create(['task_id' => $coOwnerTask->id, 'asked_user_ids' => [$user->id]]);
-    CoOwnerRequest::factory()->create(['asked_user_ids' => [$other->id]]);
-
-    needyTask($user, 'Pick a retry policy');
-
-    $open = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Open thread']);
-    needyTask($user, 'Choose a batch size', $open);
-
-    $hidden = Thread::factory()->private($other)->create();
-    needyTask($user, 'Hidden question', $hidden);
-
-    return ['user' => $user, 'other' => $other];
-}
 
 it('lists co-owner and thread-less question tasks', function () {
     ['user' => $user] = needsYouWorld();

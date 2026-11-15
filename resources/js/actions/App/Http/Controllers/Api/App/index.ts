@@ -4,6 +4,7 @@ import DeviceTokenController from './DeviceTokenController'
 import DevicePairController from './DevicePairController'
 import MeController from './MeController'
 import DeviceController from './DeviceController'
+import Threads from './Threads'
 
 const App = {
     InstanceController: Object.assign(InstanceController, InstanceController),
@@ -12,6 +13,7 @@ const App = {
     DevicePairController: Object.assign(DevicePairController, DevicePairController),
     MeController: Object.assign(MeController, MeController),
     DeviceController: Object.assign(DeviceController, DeviceController),
+    Threads: Object.assign(Threads, Threads),
 }
 
 export default App

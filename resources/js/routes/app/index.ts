@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
 import device from './device'
+import threads from './threads'
 /**
 * @see \App\Http\Controllers\Api\App\InstanceController::__invoke
 * @see app/Http/Controllers/Api/App/InstanceController.php:13
@@ -92,6 +93,7 @@ const app = {
     instance: Object.assign(instance, instance),
     device: Object.assign(device, device),
     me: Object.assign(me, me),
+    threads: Object.assign(threads, threads),
 }
 
 export default app
