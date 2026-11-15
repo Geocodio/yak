@@ -14,8 +14,8 @@ private struct Rig {
     let submission: StartThreadSubmission
     let transport: ScriptedTransport
     let clock: ManualClock
-    let files: InMemoryFileStore
-    let tokens: InMemoryTokenStore
+    let files: FailableFileStore
+    let tokens: LockableTokenStore
     let instance: Instance
     let ids: IDSequence
 
@@ -50,8 +50,8 @@ private struct Rig {
 private func makeRig() async throws -> Rig {
     let transport = ScriptedTransport()
     let clock = ManualClock()
-    let files = InMemoryFileStore()
-    let tokens = InMemoryTokenStore()
+    let files = FailableFileStore()
+    let tokens = LockableTokenStore()
     let store = InstanceStore(
         defaults: InMemoryKeyValueStore(), tokens: tokens, now: { Date(timeIntervalSince1970: 1_000) })
     let instance = try await store.add(
@@ -98,20 +98,24 @@ private final class KeyedServer: @unchecked Sendable {
         for delay in [Duration.zero, .seconds(86_400)] {
             let rig = try await makeRig()
             let seenBefore = Locked<[String]>([])
+            let answerIsLost = Locked(true)
             let server = KeyedServer()
+            // The server creates the thread, but the first answer is lost on the way back.
             await rig.transport.on(prefix: storeRoute) { request in
                 seenBefore.mutate {
                     $0 = (try? rig.files.list("instances/\(rig.instance.id.uuidString)/outbox/incoming")) ?? []
                 }
-                return server.answer(request)
+                let answer = server.answer(request)
+                return answerIsLost.value ? .failure(.timedOut) : answer
             }
-            // The first attempt gets no answer, so the item stays and the app repeats it later.
-            await rig.transport.on(storeRoute, .failure(.timedOut))
             let outcome = await rig.submit(rig.request())
             #expect(outcome == .saved)
             let first = try #require(await rig.transport.requests(on: storeRoute).first)
             let key = try #require(sendKey(first))
+            #expect(seenBefore.value == ["\(key).json"])
             #expect(rig.inbox == ["\(key).json"])
+            #expect(server.createdCount == 1)
+            answerIsLost.mutate { $0 = false }
 
             await rig.clock.advance(by: delay)
             // A fresh outbox over the same files imports the item and repeats it.
@@ -121,8 +125,6 @@ private final class KeyedServer: @unchecked Sendable {
                     baseURL: rig.instance.url, token: "bearer-one", transport: rig.transport,
                     appVersion: "1.0.0", systemDescription: "Test"),
                 files: rig.files, clock: rig.clock, makeID: rig.ids.next)
-            await rig.transport.on(prefix: storeRoute) { server.answer($0) }
-            await rig.transport.on(storeRoute, results: [])
             let deliveries = StreamRecorder(await outbox.deliveries())
             await outbox.load()
             let delivery = try await deliveries.next { _ in true }
@@ -244,7 +246,9 @@ private final class KeyedServer: @unchecked Sendable {
             #"{"slug":"example/long","name":"\#(String(repeating: "n", count: 10_000))","setupStatus":"ready"}"#)
         repos.append(#"{"slug":"../etc","name":"x","setupStatus":"ready"}"#)
         repos.append(#"{"slug":"a/b/c","name":"x","setupStatus":"ready"}"#)
-        repos.append(#"{"slug":"example/\#(String(repeating: "s", count: 94))","name":"x","setupStatus":"ready"}"#)
+        // "example/" is 8 characters: 101 in all is over the bound, 100 in all is kept.
+        repos.append(#"{"slug":"example/\#(String(repeating: "s", count: 93))","name":"x","setupStatus":"ready"}"#)
+        repos.append(#"{"slug":"example/\#(String(repeating: "t", count: 92))","name":"x","setupStatus":"ready"}"#)
         let body = """
             {"repos":[\(repos.joined(separator: ","))],"picker":{"accounts":[],"defaultsByRepo":{}},\
             "defaultRepo":"a/b/c","models":[]}
@@ -252,11 +256,43 @@ private final class KeyedServer: @unchecked Sendable {
         await rig.transport.on(optionsRoute, .json(200, body))
         let result = try await rig.submission.repositories(instance: rig.instance.id, budget: .seconds(8))
         #expect(result.repositories.count == 200)
-        #expect(result.repositories.first?.isReady == true)
+        let firstNotReady = try #require(result.repositories.firstIndex { !$0.isReady })
+        #expect(result.repositories[firstNotReady...].allSatisfy { !$0.isReady })
+        #expect(!result.repositories.contains { $0.slug == "example/\(String(repeating: "s", count: 93))" })
+        #expect(result.repositories.contains { $0.slug == "example/\(String(repeating: "t", count: 92))" })
         #expect(result.repositories.allSatisfy { $0.slug.count <= 100 && $0.name.count <= 100 })
         #expect(!result.repositories.contains { ["../etc", "a/b/c"].contains($0.slug) })
         #expect(result.repositories.first { $0.slug == "example/long" }?.name.count == 100)
         #expect(result.defaultSlug == nil)
+    }
+
+    @Test func anUnreadableTokenKeepsTheItemWithoutAskingToPairAgain() async throws {
+        let rig = try await makeRig()
+        rig.tokens.isLocked = true
+        #expect(await rig.submit(rig.request()) == .saved)
+        #expect(rig.inbox.count == 1)
+        #expect(await rig.transport.requests.isEmpty)
+
+        do {
+            _ = try await rig.submission.repositories(instance: rig.instance.id, budget: .seconds(8))
+            Issue.record("expected a failure")
+        } catch { #expect(error == .unavailable) }
+        #expect(await rig.transport.requests.isEmpty)
+    }
+
+    @Test func aFailedInboxWriteSendsNothingAndRefusesWithoutAMessage() async throws {
+        let rig = try await makeRig()
+        rig.files.failsWrites = true
+        #expect(await rig.submit(rig.request()) == .refused(message: ""))
+        #expect(rig.inbox.isEmpty)
+        #expect(await rig.transport.requests.isEmpty)
+    }
+
+    @Test func anUnauthorizedStartKeepsTheItemForTheApp() async throws {
+        let rig = try await makeRig()
+        await rig.transport.on(storeRoute, .json(401, #"{"error":"invalid_token","message":"No."}"#))
+        #expect(await rig.submit(rig.request()) == .saved)
+        #expect(rig.inbox.count == 1)
     }
 
     @Test func theDefaultSlugIsKeptWhenListed() async throws {
@@ -295,6 +331,47 @@ private final class KeyedServer: @unchecked Sendable {
             Issue.record("expected a failure")
         } catch { #expect(error == .noInstance) }
         #expect(await rig.transport.requests.isEmpty)
+    }
+}
+
+private final class LockableTokenStore: TokenStore, @unchecked Sendable {
+    private let inner = InMemoryTokenStore()
+    private let lock = NSLock()
+    private var locked = false
+    var isLocked: Bool {
+        get { lock.withLock { locked } }
+        set { lock.withLock { locked = newValue } }
+    }
+    func token(for instance: UUID) throws -> String? {
+        if isLocked { throw FileStoreError.unreadable }
+        return try inner.token(for: instance)
+    }
+    func setToken(_ token: String, for instance: UUID) throws { try inner.setToken(token, for: instance) }
+    func removeToken(for instance: UUID) throws { try inner.removeToken(for: instance) }
+}
+
+private final class FailableFileStore: FileStore, @unchecked Sendable {
+    private let inner = InMemoryFileStore()
+    private let lock = NSLock()
+    private var failing = false
+    var failsWrites: Bool {
+        get { lock.withLock { failing } }
+        set { lock.withLock { failing = newValue } }
+    }
+    func read(_ path: String) throws(FileStoreError) -> Data? { try inner.read(path) }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        if failsWrites { throw .unreadable }
+        try inner.write(data, to: path, protection: protection)
+    }
+    func remove(_ path: String) throws(FileStoreError) { try inner.remove(path) }
+    func list(_ folder: String) throws(FileStoreError) -> [String] { try inner.list(folder) }
+    func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        if failsWrites { throw .unreadable }
+        try inner.append(data, to: path, protection: protection)
+    }
+    func move(_ source: String, to destination: String) throws(FileStoreError) {
+        if failsWrites { throw .unreadable }
+        try inner.move(source, to: destination)
     }
 }
 

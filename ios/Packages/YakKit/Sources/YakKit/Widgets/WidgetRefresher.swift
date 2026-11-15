@@ -66,7 +66,7 @@ public struct WidgetRefresher: Sendable {
                 baseURL: target.url, token: token, transport: environment.http,
                 appVersion: environment.appVersion, systemDescription: environment.systemDescription,
                 sleep: { [clock = environment.clock] in try await clock.sleep(for: $0) })
-            let outcome = await Self.withBudget(budget, clock: environment.clock) { () async -> Loaded in
+            let outcome = await withBudget(budget, clock: environment.clock) { () async -> Loaded in
                 do throws(APIFailure) {
                     return .list(try await client.send(.threads(filter: .mine, search: nil)))
                 } catch {
@@ -163,22 +163,6 @@ public struct WidgetRefresher: Sendable {
         } catch {
             logFailure("token unreadable: \(type(of: error))")
             return nil
-        }
-    }
-
-    /// The work's result, or nil when the budget ends first; the work is cancelled then.
-    private static func withBudget<Result: Sendable>(
-        _ budget: Duration, clock: any YakClock, _ work: @escaping @Sendable () async -> Result
-    ) async -> Result? {
-        await withTaskGroup(of: Result?.self) { group in
-            group.addTask { await work() }
-            group.addTask {
-                do { try await clock.sleep(for: budget) } catch { return nil }
-                return nil
-            }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
         }
     }
 }

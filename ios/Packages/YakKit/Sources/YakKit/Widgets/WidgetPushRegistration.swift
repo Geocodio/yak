@@ -110,7 +110,7 @@ public struct WidgetPushRegistration: Sendable {
         guard !work.isEmpty else { return await statuses() }
 
         let pending = work
-        let overrides = await Self.withBudget(budget, clock: environment.clock) {
+        let overrides = await withBudget(budget, clock: environment.clock) {
             () async -> [UUID: WidgetPushStatus] in
             await self.send(pending, token: token, environment: build.environment)
         }
@@ -303,22 +303,6 @@ public struct WidgetPushRegistration: Sendable {
                 try encoder.encode(record), to: InstanceFolders.widgetPushRecord(id), protection: .untilFirstUnlock)
         } catch {
             logFailure("widget push record not saved: \(type(of: error))")
-        }
-    }
-
-    /// The work's result, or nil when the budget ends first; the work is cancelled then.
-    private static func withBudget<Result: Sendable>(
-        _ budget: Duration, clock: any YakClock, _ work: @escaping @Sendable () async -> Result
-    ) async -> Result? {
-        await withTaskGroup(of: Result?.self) { group in
-            group.addTask { await work() }
-            group.addTask {
-                do { try await clock.sleep(for: budget) } catch { return nil }
-                return nil
-            }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
         }
     }
 }

@@ -64,6 +64,7 @@ public enum StartThreadOptionsFailure: Error, Equatable, Sendable {
 public struct StartThreadSubmission: Sendable {
     public static let textLimit = 4000
     public static let slugLimit = 100
+    public static let nameLimit = 100
     public static let repositoryLimit = 200
     public static let messageLimit = 200
 
@@ -105,7 +106,7 @@ public struct StartThreadSubmission: Sendable {
 
         let client = makeClient(target, token: token)
         let newThread = NewThreadDraft(repo: request.repo, mode: request.mode)
-        let outcome = await Self.withBudget(budget, clock: environment.clock) { () async -> Created in
+        let outcome = await withBudget(budget, clock: environment.clock) { () async -> Created in
             do throws(APIFailure) {
                 return .thread(
                     try await client.send(
@@ -135,11 +136,15 @@ public struct StartThreadSubmission: Sendable {
         -> (repositories: [StartThreadRepository], defaultSlug: String?)
     {
         guard let target = await instances.all().first(where: { $0.id == instance }) else { throw .noInstance }
-        guard await instances.state(of: target.id) == .ready, let token = readToken(for: target) else {
-            throw .needsPairing
+        switch await instances.state(of: target.id) {
+        case .needsPairing: throw .needsPairing
+        // The Keychain is locked, not empty: pairing again would not help.
+        case .tokenUnreadable: throw .unavailable
+        case .ready: break
         }
+        guard let token = readToken(for: target) else { throw .unavailable }
         let client = makeClient(target, token: token)
-        let outcome = await Self.withBudget(budget, clock: environment.clock) { () async -> Options in
+        let outcome = await withBudget(budget, clock: environment.clock) { () async -> Options in
             do throws(APIFailure) {
                 return .options(try await client.send(.newThreadOptions()))
             } catch {
@@ -151,7 +156,7 @@ public struct StartThreadSubmission: Sendable {
             var kept = options.repos.compactMap { repository -> StartThreadRepository? in
                 guard Self.isRepositorySlug(repository.slug) else { return nil }
                 return StartThreadRepository(
-                    slug: repository.slug, name: WidgetText.bounded(repository.name, limit: Self.slugLimit),
+                    slug: repository.slug, name: WidgetText.bounded(repository.name, limit: Self.nameLimit),
                     isReady: repository.setupStatus == "ready")
             }
             // A stable partition: ready repositories first, each group in the server's order.
@@ -226,22 +231,6 @@ public struct StartThreadSubmission: Sendable {
         case .serverTooOld: "serverTooOld"
         case .notYak: "notYak"
         case .encodingFailed: "encodingFailed"
-        }
-    }
-
-    /// The work's result, or nil when the budget ends first; the work is cancelled then.
-    private static func withBudget<Result: Sendable>(
-        _ budget: Duration, clock: any YakClock, _ work: @escaping @Sendable () async -> Result
-    ) async -> Result? {
-        await withTaskGroup(of: Result?.self) { group in
-            group.addTask { await work() }
-            group.addTask {
-                do { try await clock.sleep(for: budget) } catch { return nil }
-                return nil
-            }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
         }
     }
 }
