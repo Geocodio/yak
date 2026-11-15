@@ -103,6 +103,11 @@ private func waitFor(_ recorder: Statuses, _ instance: Instance, _ status: PushR
     _ = try await recorder.next { $0[id] == status }
 }
 
+private func waitForAll(_ recorder: Statuses, _ instances: [Instance], _ status: PushRegistrationStatus) async throws {
+    let ids = instances.map(\.id)
+    _ = try await recorder.next { snapshot in ids.allSatisfy { snapshot[$0] == status } }
+}
+
 private func settle() async {
     for _ in 0..<200 { await Task.yield() }
 }
@@ -114,8 +119,7 @@ private func settle() async {
         let statuses = Statuses(await rig.registrar.statuses())
         await rig.registrar.start()
         await rig.registrar.setToken(alertToken, kind: .alert)
-        try await waitFor(statuses, rig.first, .registered)
-        try await waitFor(statuses, rig.second, .registered)
+        try await waitForAll(statuses, [rig.first, rig.second], .registered)
 
         for host in ["yak.example.com", "other.example.com"] {
             let sent = await requests(rig, alertRoute, host: host)
@@ -144,6 +148,22 @@ private func settle() async {
         await rig.registrar.stop()
     }
 
+    @Test func anAvailableInstanceRegistersNextToAnotherBuild() async throws {
+        let rig = try await makeRig(second: try mePayload(bundleID: "com.example.other"))
+        await rig.transport.on(alertRoute, noContent)
+        let statuses = Statuses(await rig.registrar.statuses())
+        await rig.registrar.start()
+        await rig.registrar.setToken(alertToken, kind: .alert)
+        let secondID = rig.second.id
+        _ = try await statuses.next {
+            $0[rig.first.id] == .registered && $0[secondID] == .unavailable(.otherBuild)
+        }
+        await settle()
+        #expect(await requests(rig, alertRoute, host: "yak.example.com").count == 1)
+        #expect(await requests(rig, alertRoute, host: "other.example.com").isEmpty)
+        await rig.registrar.stop()
+    }
+
     @Test func aBuildWithoutAnIdentityRegistersNothing() async throws {
         let rig = try await makeRig(build: nil)
         let statuses = Statuses(await rig.registrar.statuses())
@@ -155,7 +175,7 @@ private func settle() async {
     }
 
     @Test func aServerRefusalIsStoredAndNotRetried() async throws {
-        let rig = try await makeRig()
+        let rig = try await makeRig(second: try mePayload(bundleID: "com.example.other"))
         await rig.transport.on(
             alertRoute,
             .json(
@@ -173,7 +193,7 @@ private func settle() async {
         #expect(try record(rig, rig.first)?.entries["alert"]?.refusal != nil)
 
         await rig.registrar.setToken(newerToken, kind: .alert)
-        await rig.transport.waitForRequests(3, on: alertRoute)
+        await rig.transport.waitForRequests(2, on: alertRoute)
         #expect(await requests(rig, alertRoute, host: "yak.example.com").count == 2)
         await rig.registrar.stop()
     }
@@ -214,7 +234,7 @@ private func settle() async {
     }
 
     @Test func waitsForTheNetworkWhileOffline() async throws {
-        let rig = try await makeRig()
+        let rig = try await makeRig(second: try mePayload(bundleID: "com.example.other"))
         await rig.transport.on(alertRoute, .failure(.notConnectedToInternet), noContent)
         let statuses = Statuses(await rig.registrar.statuses())
         await rig.registrar.start()
@@ -223,6 +243,10 @@ private func settle() async {
         try await waitFor(statuses, rig.first, .waitingForNetwork)
         #expect(rig.clock.sleeperDeadlines.isEmpty)
         let before = await requests(rig, alertRoute, host: "yak.example.com").count
+        await rig.registrar.sync()
+        await settle()
+        let current = Statuses(await rig.registrar.statuses())
+        try await waitFor(current, rig.first, .waitingForNetwork)
 
         await rig.registrar.networkChanged(isOnline: true)
         try await waitFor(statuses, rig.first, .registered)
@@ -244,8 +268,7 @@ private func settle() async {
         let again = PushRegistrar(instances: rig.store, tokens: rig.tokens, environment: rig.environment)
         let statuses = Statuses(await again.statuses())
         await again.start()
-        try await waitFor(statuses, rig.first, .registered)
-        try await waitFor(statuses, rig.second, .registered)
+        try await waitForAll(statuses, [rig.first, rig.second], .registered)
         #expect(try record(rig, rig.first)?.entries["alert"]?.isRegistered == true)
         await again.stop()
     }
@@ -256,8 +279,7 @@ private func settle() async {
         let statuses = Statuses(await rig.registrar.statuses())
         await rig.registrar.start()
         await rig.registrar.setToken(alertToken, kind: .alert)
-        try await waitFor(statuses, rig.first, .registered)
-        try await waitFor(statuses, rig.second, .registered)
+        try await waitForAll(statuses, [rig.first, rig.second], .registered)
         await rig.registrar.setToken(alertToken, kind: .alert)
         await rig.registrar.sync()
         await settle()
@@ -323,9 +345,16 @@ private func settle() async {
         await rig.transport.waitForRequests(3, on: alertRoute)
         await rig.clock.waitForSleeper(endingAt: .seconds(4))
         #expect(rig.clock.sleeperDeadlines == [.seconds(4)])
+        await rig.registrar.setToken(newerToken, kind: .alert)
         await rig.clock.advance(by: .seconds(4))
         try await waitFor(statuses, rig.first, .registered)
-        #expect(await rig.transport.requests(on: alertRoute).count == 4)
+        let sent = await rig.transport.requests(on: alertRoute)
+        #expect(sent.count == 4)
+        #expect(body(sent[3]).contains(newerToken))
+        for snapshot in await statuses.values {
+            #expect(snapshot[rig.first.id] != .waitingForNetwork)
+            if case .retrying = snapshot[rig.first.id] { Issue.record("cancellation must not show retrying") }
+        }
         await rig.registrar.stop()
     }
 

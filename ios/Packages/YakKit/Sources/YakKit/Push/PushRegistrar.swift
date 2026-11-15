@@ -131,6 +131,7 @@ public actor PushRegistrar {
         await reconcile()
     }
 
+    /// Final: the status streams finish and the registrar is not started again; make a new one instead.
     public func stop() async {
         isStopped = true
         for task in workers.values { task.cancel() }
@@ -174,7 +175,7 @@ public actor PushRegistrar {
     }
 
     /// Best effort `DELETE push-tokens/<kind>` for each stored token, before the bearer token is erased. The
-    /// record stays for `forget`.
+    /// record stays for `forget`, which the caller must call; until then the instance gets no work.
     public func unregister(_ instance: UUID, budget: Duration) async {
         unregistering.insert(instance)
         cancelWorker(instance)
@@ -319,7 +320,7 @@ public actor PushRegistrar {
                 applyDeviceTokens(to: id)
             } else {
                 cancelWorker(id)
-                clearRefusals(id)
+                if case .unavailable = decided { clearRefusals(id) }
             }
             if workers[id] == nil || !isEligible(id) { setBaseline(id) }
         }
@@ -357,7 +358,7 @@ public actor PushRegistrar {
         save(id)
     }
 
-    /// A refusal ends when the instance's availability changes, so a later key or build is tried again.
+    /// A refusal ends when the instance's availability becomes unavailable (a failed Keychain read does not), so a later key or build is tried again.
     private func clearRefusals(_ id: UUID) {
         guard var record = records[id], record.entries.values.contains(where: { $0.refusal != nil }) else { return }
         for key in record.entries.keys { record.entries[key]?.refusal = nil }
@@ -375,6 +376,7 @@ public actor PushRegistrar {
         case .tokenUnreadable?: return statusBroadcast.value[id] ?? .registering
         case .eligible?:
             if let pause = paused[id] { return pause }
+            if waitingForNetwork.contains(id) { return .waitingForNetwork }
             let entries = PushTokenKind.allCases.compactMap { records[id]?.entries[$0.rawValue] }
             if entries.isEmpty { return .waitingForToken }
             if let refusal = entries.lazy.compactMap(\.refusal).first { return .refused(refusal) }
