@@ -4,6 +4,10 @@ import XCTest
 /// What the walkthrough classes share: the stub, the app, launching a scenario and saving a screenshot of a state
 /// followed by the accessibility audit. It has no tests of its own.
 @MainActor class WalkthroughCase: XCTestCase {
+    /// Screens that show the scrolling thread list. A row cut by the bottom bar there is expected; on a message
+    /// screen (empty, no results, error) nothing may be cut.
+    static let threadListScreens: Set<String> = ["drawer", "drawer-everyone", "drawer-offline", "drawer-sub-threads"]
+
     var stub: StubControl!
     let app = XCUIApplication()
     let environment = ProcessInfo.processInfo.environment
@@ -119,9 +123,9 @@ import XCTest
                 return true
             }
             // In landscape the list is short, so a row is cut by the bottom bar; the audit finds that cut text but
-            // cannot name its element. Only these two list screens are excused.
+            // cannot name its element. Only the screens that show the thread list are excused, never a message screen.
             if issue.auditType == .contrast, issue.element == nil, environment["YAK_ORIENTATION"] == "landscape",
-                ["drawer-offline", "drawer-sub-threads"].contains(name)
+                Self.threadListScreens.contains(name)
             {
                 return true
             }
@@ -129,7 +133,7 @@ import XCTest
             // bar covers. Only these screens are excused, and only a finding without an element or one whose element
             // meets the bar.
             if issue.auditType == .contrast, environment["YAK_TEXT_SIZE"] == "largest",
-                ["drawer", "drawer-offline", "drawer-sub-threads"].contains(name),
+                Self.threadListScreens.contains(name),
                 issue.element.map({ $0.frame.maxY > app.textFields["drawer.search"].frame.minY - 8 }) ?? true
             {
                 return true
