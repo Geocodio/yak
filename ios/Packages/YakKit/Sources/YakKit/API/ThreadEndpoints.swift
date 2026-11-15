@@ -21,9 +21,10 @@ private struct SendMessageBody: Encodable, Sendable {
     let model: String?
     let sendKey: String
     let delivery: MessageDelivery
+    let intent: MessageIntent?
 
     enum CodingKeys: String, CodingKey {
-        case message, model, delivery
+        case message, model, delivery, intent
         case sendKey = "send_key"
     }
 }
@@ -158,18 +159,20 @@ extension Endpoint where Response == ThreadEvent {
 extension Endpoint where Response == MessageSendResult {
     public static func sendMessage(
         _ id: String, text: String, model: String?, delivery: MessageDelivery, sendKey: UUID,
-        attachments: [MultipartBody.Part], references: [String]
+        attachments: [MultipartBody.Part], references: [String], intent: MessageIntent? = nil
     ) -> Endpoint<MessageSendResult> {
         let path = "threads/\(segment(id))/messages"
         if attachments.isEmpty {
             let body = SendMessageBody(
-                message: text, model: model, sendKey: sendKey.uuidString, delivery: delivery)
+                message: text, model: model, sendKey: sendKey.uuidString, delivery: delivery,
+                intent: intent)
             return Endpoint(method: .post, path: path, body: body)
         }
         var parts: [MultipartBody.Part] = [.field(name: "message", value: text)]
         if let model { parts.append(.field(name: "model", value: model)) }
         parts.append(.field(name: "send_key", value: sendKey.uuidString))
         parts.append(.field(name: "delivery", value: delivery.rawValue))
+        if let intent { parts.append(.field(name: "intent", value: intent.rawValue)) }
         parts += attachmentParts(attachments, references: references)
         return Endpoint(
             method: .post, path: path, multipart: MultipartBody(parts: parts, boundary: "yak-\(sendKey.uuidString)"))

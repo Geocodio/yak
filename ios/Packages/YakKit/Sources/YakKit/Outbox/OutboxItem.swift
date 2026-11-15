@@ -52,6 +52,8 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
     public var model: String?
     public var delivery: MessageDelivery
     public var attachments: [OutboxAttachment]
+    /// What the message asks Yak to do about the preview; nil for an ordinary message.
+    public var intent: MessageIntent?
     public var state: OutboxState
     public var attemptCount: Int
     /// True once a request for this item has been started, so the server may hold its `send_key`. A failure
@@ -62,8 +64,9 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
     public init(
         id: UUID, target: OutboxTarget, text: String, model: String?, delivery: MessageDelivery,
         attachments: [OutboxAttachment], state: OutboxState = .queued, attemptCount: Int = 0,
-        mayHaveReachedServer: Bool = false, createdAt: Date
+        mayHaveReachedServer: Bool = false, createdAt: Date, intent: MessageIntent? = nil
     ) {
+        self.intent = intent
         self.id = id
         self.target = target
         self.text = text
@@ -85,6 +88,7 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
         model = try container.decodeIfPresent(String.self, forKey: .model)
         delivery = try container.decode(MessageDelivery.self, forKey: .delivery)
         attachments = try container.decode([OutboxAttachment].self, forKey: .attachments)
+        intent = try container.decodeIfPresent(MessageIntent.self, forKey: .intent)
         state = try container.decode(OutboxState.self, forKey: .state)
         attemptCount = try container.decode(Int.self, forKey: .attemptCount)
         mayHaveReachedServer =
@@ -118,11 +122,13 @@ public struct OutboxDraft: Equatable, Sendable {
     public var model: String?
     public var delivery: MessageDelivery
     public var attachments: [OutboxAttachment]
+    public var intent: MessageIntent?
 
     public init(
         target: OutboxTarget, text: String, model: String? = nil, delivery: MessageDelivery = .steer,
-        attachments: [OutboxAttachment] = []
+        attachments: [OutboxAttachment] = [], intent: MessageIntent? = nil
     ) {
+        self.intent = intent
         self.target = target
         self.text = text
         self.model = model

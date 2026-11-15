@@ -77,7 +77,7 @@ public actor InstanceSession {
 
     private let instances: InstanceStore
     private let tokens: any TokenStore
-    private let environment: SessionEnvironment
+    let environment: SessionEnvironment
     private let statusBroadcast = Broadcast(SessionStatus.starting)
     private let connectionBroadcast = Broadcast(ConnectionState.offline)
 

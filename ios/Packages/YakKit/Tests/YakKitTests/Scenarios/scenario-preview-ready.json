@@ -1,0 +1,14 @@
+{
+  "state": "ready",
+  "steps": [],
+  "log": [],
+  "error": null,
+  "url": "https://t-p7m4q2hx9z.yak.example.test/",
+  "port": 5173,
+  "coldStartCommand": "npm run dev",
+  "setup": {
+    "intent": null,
+    "isRunning": false,
+    "endedWithoutManifest": false
+  }
+}
