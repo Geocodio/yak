@@ -21,6 +21,8 @@ final class AppModel {
     }
 
     private(set) var route: Route = .connect
+    /// The running session of the signed-in instance; set together with the route.
+    private(set) var activeSession: InstanceSession?
     private(set) var refreshState: RefreshState = .idle
     private(set) var hasLoaded = false
     /// The pairing in progress for a scanned or opened link, kept while it shows a problem.
@@ -121,6 +123,14 @@ final class AppModel {
     func handle(link: DeepLink) async {
         guard let scene, scene.hasAppliedColdStart, case .signedIn(let active) = route else {
             if case .pair = link { return }
+            if hasLoaded, case .connect = route {
+                switch link {
+                case .thread(let address, _), .task(let address, _), .newThread(let address, _, _):
+                    addressToConnect = address
+                    return
+                case .pair: break
+                }
+            }
             launchLink = link
             return
         }
@@ -187,6 +197,7 @@ final class AppModel {
         let active = await instances.active()
         if let running = runningInstance, running != active?.id {
             runningInstance = nil
+            activeSession = nil
             await sessions.stop(running)
         }
         if let active {
@@ -194,12 +205,17 @@ final class AppModel {
             // Only a missing token means "Pair again".
             if await instances.state(of: active.id) == .needsPairing {
                 await sessions.stop(active.id)
+                activeSession = nil
                 route = .pairAgain(active)
             } else {
                 runningInstance = active.id
+                // A window that belongs to another instance starts over; a link switch already claimed it.
+                if let scene, scene.state.instanceID != active.id { scene.reset(instanceID: active.id) }
+                activeSession = sessions.session(for: active)
                 route = .signedIn(active)
             }
         } else {
+            activeSession = nil
             route = .connect
         }
         hasLoaded = true

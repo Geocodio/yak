@@ -5,12 +5,13 @@ extension View {
     /// Covers the whole screen while a scanned or opened pairing link is being paired, and shows why it failed.
     /// A full-screen cover keeps what is under it alive, so typed text and a running sign-in survive a
     /// cancelled link, and the system takes the covered screen out of VoiceOver and the audit tree (hiding
-    /// it by modifier does not work on a wide screen). A sheet presents its own cover (`inSheet`), and the
-    /// cover of the screen under a sheet stands down while the sheet is open.
-    func linkPairingStatus(_ model: AppModel, inSheet: Bool = false) -> some View {
+    /// it by modifier does not work on a wide screen). The screen under every sheet presents at depth 0; a sheet
+    /// presents at its own depth (1 for a sheet on the screen, 2 for a sheet on that sheet), so only the topmost
+    /// one shows the cover.
+    func linkPairingStatus(_ model: AppModel, sheetDepth: Int = 0) -> some View {
         fullScreenCover(
             isPresented: Binding(
-                get: { model.linkPairing != nil && (inSheet || model.openSheetCount == 0) }, set: { _ in })
+                get: { model.linkPairing != nil && model.openSheetCount == sheetDepth }, set: { _ in })
         ) {
             LinkPairingOverlay(model: model)
         }

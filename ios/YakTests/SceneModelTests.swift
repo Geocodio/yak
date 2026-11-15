@@ -59,3 +59,16 @@ private func instance(_ address: String) -> Instance {
     #expect(SceneModel.restoredState(from: Data("garbage".utf8)) == SceneState())
     #expect(SceneModel.restoredState(from: nil) == SceneState())
 }
+
+@MainActor @Test func resettingTheWindowForAnotherInstanceStartsOver() {
+    let first = UUID()
+    let scene = SceneModel(
+        state: SceneState(instanceID: first, threadID: "a1b2c3d4", isDrawerOpen: true, filter: .everyone))
+    scene.applyColdStart(.thread("a1b2c3d4"))
+    scene.justPairedUserName = "Test Person"
+    let second = UUID()
+    scene.reset(instanceID: second)
+    #expect(scene.state == SceneState(instanceID: second))
+    #expect(!scene.hasAppliedColdStart)
+    #expect(scene.justPairedUserName == "Test Person")
+}

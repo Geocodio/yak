@@ -35,7 +35,7 @@ struct DrawerPlaceholder: View {
     @ViewBuilder private var content: some View {
         if let list = state?.list {
             if state?.isEmpty == true {
-                message("drawer.empty", actionTitle: "shell.startThread") {
+                message(Text("drawer.empty"), actionTitle: "shell.startThread") {
                     scene.openNewThread(repo: nil, text: nil)
                 }
             } else {
@@ -49,8 +49,13 @@ struct DrawerPlaceholder: View {
                     }
                 }
             }
-        } else if case .failed? = state?.load {
-            message("drawer.loadFailed", actionTitle: "common.retry", action: retry)
+        } else if case .failed(let problem)? = state?.load {
+            switch problem {
+            case .offline: message(Text("drawer.offline"), actionTitle: "common.retry", action: retry)
+            case .server(_, let text) where !text.isEmpty:
+                message(Text(verbatim: text), actionTitle: "common.retry", action: retry)
+            default: message(Text("drawer.loadFailed"), actionTitle: "common.retry", action: retry)
+            }
         } else {
             skeleton
         }
@@ -112,7 +117,7 @@ struct DrawerPlaceholder: View {
 
     private func rowButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.body).fixedSize(horizontal: false, vertical: true)
+            Text(title).font(.body).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         }
         .foregroundStyle(.primary)
@@ -126,7 +131,7 @@ struct DrawerPlaceholder: View {
                 ForEach(0..<5, id: \.self) { _ in
                     RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.08)).frame(height: 18)
                 }
-                if state?.load == .slow { SlowHint(retry: retry) }
+                SlowHint(retry: retry)
             }
         }
         .padding(20)
@@ -139,11 +144,11 @@ struct DrawerPlaceholder: View {
         }
     }
 
-    private func message(_ text: LocalizedStringKey, actionTitle: LocalizedStringKey, action: @escaping () -> Void)
+    private func message(_ text: Text, actionTitle: LocalizedStringKey, action: @escaping () -> Void)
         -> some View
     {
         VStack(alignment: .leading, spacing: 16) {
-            Text(text).foregroundStyle(Color.yakMuted)
+            text.foregroundStyle(Color.yakMuted)
             Button(actionTitle, action: action).buttonStyle(SecondaryButtonStyle())
         }
         .padding(20)

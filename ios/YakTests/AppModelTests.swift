@@ -164,3 +164,68 @@ func aLinkThatIsNotAPairingLinkChangesNothing(link: String) async {
     #expect(model.route == .connect)
     #expect(!model.wantsScanner)
 }
+
+@MainActor private func pairTwoInstances(_ model: AppModel) async {
+    for (host, code) in [("first", "a"), ("second", "b")] {
+        await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2F\(host).example.com&code=\(code)")!)
+        await model.confirmLinkPairing()
+    }
+}
+
+@MainActor @Test func pairingAnotherInstanceStartsTheWindowOver() async {
+    let (model, _) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let first = scene.state.instanceID
+    scene.applyColdStart(.thread("a1b2c3d4"))
+    scene.justPairedUserName = "Sam"
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Fsecond.example.com&code=b")!)
+    await model.confirmLinkPairing()
+    #expect(scene.state.instanceID != first)
+    #expect(scene.state.threadID == nil)
+    #expect(!scene.hasAppliedColdStart)
+    #expect(scene.justPairedUserName == "Sam")
+}
+
+@MainActor @Test func aLinkSwitchKeepsTheThreadItOpened() async throws {
+    let (model, instances) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    scene.applyColdStart(.drawer(.mine))
+    await model.handle(link: .thread(instance: URL(string: "https://first.example.com")!, id: "a1b2c3d4"))
+    let first = try #require(await instances.all().first { $0.url.host() == "first.example.com" })
+    #expect(await instances.active()?.id == first.id)
+    #expect(scene.state.threadID == "a1b2c3d4")
+    #expect(scene.state.instanceID == first.id)
+    #expect(scene.hasAppliedColdStart)
+}
+
+@MainActor @Test func aLinkBeforeTheColdStartIsTakenOnce() async {
+    let (model, _) = makeLinkModel()
+    _ = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    let link = DeepLink.thread(instance: URL(string: "https://second.example.com")!, id: "a1b2c3d4")
+    await model.handle(link: link)
+    #expect(model.takeLaunchLink() == link)
+    #expect(model.takeLaunchLink() == nil)
+}
+
+@MainActor @Test func aLinkForAnUnknownInstanceFillsTheAddress() async {
+    let (model, _) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    scene.applyColdStart(.drawer(.mine))
+    let address = URL(string: "https://unknown.example.com")!
+    await model.handle(link: .thread(instance: address, id: "a1b2c3d4"))
+    #expect(model.addressToConnect == address)
+}
+
+@MainActor @Test func aLinkOnTheConnectScreenFillsTheAddress() async {
+    let (model, _) = makeLinkModel()
+    await model.reloadRoute()
+    let address = URL(string: "https://unknown.example.com")!
+    await model.handle(link: .thread(instance: address, id: "a1b2c3d4"))
+    #expect(model.addressToConnect == address)
+    #expect(model.takeLaunchLink() == nil)
+}

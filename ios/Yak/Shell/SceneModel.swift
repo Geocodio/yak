@@ -4,6 +4,8 @@ import YakKit
 
 /// What one window restores after a relaunch.
 struct SceneState: Codable, Equatable {
+    /// The instance the thread and filter belong to; a restored state for another instance is not used.
+    var instanceID: UUID?
     var threadID: String?
     var focusedPane: PaneID = .chat
     var isDrawerOpen = false
@@ -56,6 +58,13 @@ final class SceneModel {
         }
     }
 
+    /// A fresh window for `instanceID`: the cold start runs again. The banner after a pairing stays.
+    func reset(instanceID: UUID) {
+        state = SceneState(instanceID: instanceID)
+        hasAppliedColdStart = false
+        newThreadPrefill = nil
+    }
+
     func open(thread id: String, isCompactWidth: Bool) {
         state.threadID = id
         state.focusedPane = .chat
@@ -90,6 +99,7 @@ final class SceneModel {
             }
             // The shell of the other instance starts on this thread.
             hasAppliedColdStart = true
+            state.instanceID = target.id
             open(thread: id, isCompactWidth: true)
             return .switchInstance(target)
         case .newThread(let address, let repo, let text):
@@ -99,6 +109,7 @@ final class SceneModel {
             openNewThread(repo: repo, text: text)
             if target.id == active.id { return .handled }
             hasAppliedColdStart = true
+            state.instanceID = target.id
             return .switchInstance(target)
         }
     }

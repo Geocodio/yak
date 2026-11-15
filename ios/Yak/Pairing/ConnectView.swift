@@ -8,6 +8,8 @@ struct ConnectView: View {
 
     @State private var showsAddress = false
     @State private var showsScan = false
+    /// The address of a link for an instance this phone is not paired with.
+    @State private var linkAddress = ""
     @ScaledMetric(relativeTo: .subheadline) private var stepSize: CGFloat = 28
 
     var body: some View {
@@ -46,8 +48,15 @@ struct ConnectView: View {
                     showsAddress = true
                 })
         }
+        .onChange(of: model.addressToConnect, initial: true) {
+            guard let address = model.addressToConnect else { return }
+            model.addressToConnect = nil
+            linkAddress = address.absoluteString
+            showsScan = false
+            showsAddress = true
+        }
         .navigationDestination(isPresented: $showsAddress) {
-            EnterAddressView(model: model, onDone: onDone)
+            EnterAddressView(model: model, initialAddress: linkAddress, onDone: onDone)
         }
     }
 

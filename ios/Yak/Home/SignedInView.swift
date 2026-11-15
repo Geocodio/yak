@@ -90,7 +90,7 @@ struct SignedInView: View {
         .sheet(isPresented: $showsAdd) {
             NavigationStack {
                 ConnectView(model: model, onDone: { showsAdd = false })
-                    .linkPairingStatus(model, inSheet: true)
+                    .linkPairingStatus(model, sheetDepth: 2)
                     .countsAsOpenSheet(model)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {

@@ -147,6 +147,7 @@ import XCTest
 
     func testLinkConfirmationReplacesTheSavedInstance() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         try openLinkAndWaitForConfirmation()
         XCTAssertTrue(label("replaces the instance").exists)
@@ -155,6 +156,7 @@ import XCTest
 
     func testLinkOverTheAddSheet() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         app.buttons["Add an instance"].tap()
         XCTAssertTrue(app.buttons["Scan a code"].waitForExistence(timeout: 5))
@@ -164,6 +166,7 @@ import XCTest
 
     func testLinkOverSignedIn() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         try openLinkAndWaitForConfirmation()
         try shoot("link-over-signed-in")
@@ -218,6 +221,7 @@ import XCTest
 
     func testSignedIn() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as Test Person").waitForExistence(timeout: 10))
         try shoot("signed-in")
         app.buttons["Add an instance"].tap()
@@ -227,6 +231,7 @@ import XCTest
 
     func testSignedInRemoveConfirmation() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         app.buttons["Remove this instance"].tap()
         XCTAssertTrue(app.buttons["Remove"].waitForExistence(timeout: 5))
@@ -235,25 +240,30 @@ import XCTest
 
     func testSignedInRefreshing() throws {
         try start("slow", paired: true)
+        openAccount()
         XCTAssertTrue(label("Refreshing").waitForExistence(timeout: 5))
         try shoot("signed-in-refreshing")
     }
 
     func testSignedInRefreshingSlowly() throws {
         try start("slower", paired: true)
+        openAccount()
         XCTAssertTrue(label("The connection is slow").waitForExistence(timeout: 12))
         try shoot("signed-in-refreshing-slow")
     }
 
     func testSignedInOffline() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         try stub.setOnline(false)
         XCTAssertTrue(label("You are offline").waitForExistence(timeout: 15))
         try shoot("signed-in-offline")
     }
 
-    func testSignedInUnreachable() throws { try signedInProblem("down", "Could not reach", "signed-in-unreachable") }
+    func testSignedInUnreachable() throws {
+        try signedInProblem("down", "Could not reach", "signed-in-unreachable", inAccountSheet: true)
+    }
     func testSignedInAppTooOld() throws {
         try signedInProblem("server-too-new", "This version of the app is too old", "signed-in-app-too-old")
     }
@@ -261,7 +271,7 @@ import XCTest
         try signedInProblem("server-too-old", "Your Yak is too old", "signed-in-server-too-old")
     }
     func testSignedInFailed() throws {
-        try signedInProblem("broken", "Your Yak answered with an error", "signed-in-failed")
+        try signedInProblem("broken", "Your Yak answered with an error", "signed-in-failed", inAccountSheet: true)
     }
 
     func testTokenUnreadable() throws {
@@ -317,8 +327,11 @@ import XCTest
         try expectProblem(title, shot: "link-problem-\(scenario)")
     }
 
-    private func signedInProblem(_ scenario: String, _ text: String, _ shot: String) throws {
+    private func signedInProblem(
+        _ scenario: String, _ text: String, _ shot: String, inAccountSheet: Bool = false
+    ) throws {
         try start(scenario, paired: true)
+        if inAccountSheet { openAccount() }
         XCTAssertTrue(label(text).waitForExistence(timeout: 15))
         try shoot(shot)
     }
@@ -358,6 +371,14 @@ import XCTest
         }
         app.launchArguments = arguments
         app.launch()
+    }
+
+    /// Opens the account sheet from the drawer, opening the drawer first when the thread screen shows.
+    private func openAccount() {
+        let account = app.buttons["drawer.account"]
+        if !account.waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        XCTAssertTrue(account.waitForExistence(timeout: 10))
+        account.tap()
     }
 
     private func label(_ text: String) -> XCUIElement {
@@ -443,9 +464,9 @@ import XCTest
             if issue.auditType == .contrast, let element = issue.element, element.frame.maxY > screenBottom {
                 return true
             }
-            // The Cancel in a navigation bar is the toolbar button, which is dimmed under a sheet's dimming and
+            // The Cancel or Close in a navigation bar is the toolbar button, which is dimmed under a sheet's dimming and
             // sized by the system; the Cancel buttons in the page are judged.
-            if let element = issue.element, element.label == "Cancel",
+            if let element = issue.element, ["Cancel", "Close"].contains(element.label),
                 [.contrast, .dynamicType].contains(issue.auditType),
                 app.navigationBars.allElementsBoundByIndex.contains(where: { $0.frame.contains(element.frame) })
             {

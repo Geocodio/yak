@@ -16,13 +16,10 @@ struct RootView: View {
                 case .connect:
                     NavigationStack { ConnectView(model: model) }.linkPairingStatus(model)
                 case .signedIn(let instance):
-                    if let scene {
-                        InstanceShell(
-                            model: model, instance: instance, session: model.sessions.session(for: instance),
-                            scene: scene
-                        )
-                        .id(instance.id)
-                        .linkPairingStatus(model)
+                    if let scene, let session = model.activeSession {
+                        InstanceShell(model: model, instance: instance, session: session, scene: scene)
+                            .id(instance.id)
+                            .linkPairingStatus(model)
                     }
                 case .pairAgain(let instance):
                     PairAgainView(model: model, instance: instance).linkPairingStatus(model)

@@ -16,6 +16,8 @@ struct InstanceShell: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private var isCompactWidth: Bool { sizeClass != .regular }
+    /// The list loads and polls only while the drawer is on screen and the app is in front.
+    private var isListVisible: Bool { drawerBinding.wrappedValue && scenePhase == .active }
 
     var body: some View {
         Group {
@@ -29,13 +31,12 @@ struct InstanceShell: View {
         }
         .task { for await next in await session.statuses() { status = next } }
         .task(id: status == .active) { await followThreadList() }
-        .onChange(of: scene.state.filter) { Task { await feed?.setFilter(scene.state.filter, search: nil) } }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await feed?.setVisible(true) } }
-        }
+        .onChange(of: scene.state.filter) { Task { await syncFilter() } }
+        .onChange(of: isListVisible) { Task { await feed?.setVisible(isListVisible) } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
         .sheet(isPresented: $showsAccount) {
             SignedInView(model: model, instance: instance, onClose: { showsAccount = false })
+                .linkPairingStatus(model, sheetDepth: 1)
                 .countsAsOpenSheet(model)
         }
         .sheet(isPresented: isConnecting) {
@@ -44,7 +45,7 @@ struct InstanceShell: View {
                     model: model, initialAddress: model.addressToConnect?.absoluteString ?? "",
                     onDone: { model.addressToConnect = nil }
                 )
-                .linkPairingStatus(model, inSheet: true)
+                .linkPairingStatus(model, sheetDepth: 1)
                 .countsAsOpenSheet(model)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -93,7 +94,7 @@ struct InstanceShell: View {
     private var drawer: some View {
         DrawerPlaceholder(
             model: model, instance: instance, scene: scene, state: listState, isCompactWidth: isCompactWidth,
-            retry: { Task { await feed?.refresh() } }, openAccount: { showsAccount = true })
+            retry: { Task { await retryList() } }, openAccount: { showsAccount = true })
     }
 
     private var threadScreen: some View {
@@ -142,7 +143,7 @@ struct InstanceShell: View {
     private func followThreadList() async {
         guard status == .active, let feed = await session.threadList() else { return }
         self.feed = feed
-        await feed.setVisible(true)
+        await feed.setVisible(isListVisible)
         for await state in await feed.states() {
             listState = state
             await applyColdStartIfNeeded(state, feed: feed)
@@ -162,10 +163,23 @@ struct InstanceShell: View {
                 }
             scene.applyColdStart(
                 ColdStart.destination(mine: list, restoredThreadID: scene.state.threadID, link: own))
+            await syncFilter()
             if let link { await model.handle(link: link) }
         }
-        if state.filter != scene.state.filter, state.search == nil {
-            await feed.setFilter(scene.state.filter, search: nil)
+    }
+
+    /// Points the feed at the filter the scene shows; the feed ignores a filter it already has.
+    private func syncFilter() async {
+        await feed?.setFilter(scene.state.filter, search: nil)
+    }
+
+    /// Reloads the list, or starts the session again while it is still signing in.
+    private func retryList() async {
+        if let feed {
+            await feed.refresh()
+        } else {
+            await session.stop()
+            await session.start()
         }
     }
 }

@@ -947,7 +947,17 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The threads did not load. Check your connection and try again."
+            "value": "The threads did not load. Try again."
+          }
+        }
+      }
+    },
+    "drawer.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are offline. The list loads when the connection returns."
           }
         }
       }
