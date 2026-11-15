@@ -45,6 +45,7 @@ class ThreadStarter
     /**
      * @param  Collection<int, TaskAttachment>  $attachments  already stored, not yet tied to a task
      * @param  list<array{repo: string, role: string}>  $extraRepositories  research mode treats every extra as context
+     * @param  string|null  $sendKey  stored with the thread; the database allows one thread per starter and key
      *
      * @throws ValidationException when an extra is the primary, repeated, or not reachable by the GitHub App
      * @throws ThreadAccountUnavailable when no usable account exists, or the chosen one is not the starter's to use
@@ -58,6 +59,7 @@ class ThreadStarter
         ?string $model,
         Collection $attachments = new Collection,
         array $extraRepositories = [],
+        ?string $sendKey = null,
     ): Thread {
         $this->assertExtrasAllowed($repo, $extraRepositories);
 
@@ -80,7 +82,7 @@ class ThreadStarter
         $isRepositorySettingUp = in_array($setupStatus, ['pending', 'running'], true);
         $description = trim($description);
 
-        $task = DB::transaction(function () use ($starter, $repo, $mode, $description, $resolved, $attachments, $extraRepositories): YakTask {
+        $task = DB::transaction(function () use ($starter, $repo, $mode, $description, $resolved, $attachments, $extraRepositories, $sendKey): YakTask {
             $thread = Thread::query()->create([
                 'name' => Str::slug(Str::limit($description, 40, '')) . '-' . Str::lower(Str::random(6)),
                 'title' => Str::limit(AttachmentReferences::stripFromText((string) strtok($description, "\n")), 120, '...'),
@@ -90,6 +92,7 @@ class ThreadStarter
                 'owner_user_id' => $starter->id,
                 'claude_account_id' => $resolved->account->id,
                 'model' => $resolved->model,
+                'send_key' => $sendKey,
             ]);
 
             ThreadRepository::query()->create(['thread_id' => $thread->id, 'repo' => $repo, 'role' => RepositoryRole::Primary, 'sandbox_path' => ThreadRepository::sandboxPathFor($repo, RepositoryRole::Primary)]);
