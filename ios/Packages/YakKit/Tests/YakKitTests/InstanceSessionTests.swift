@@ -394,6 +394,35 @@ private func nextSnapshot(
         await rig.session.stop()
     }
 
+    @Test func unpairingAfterARevokeErasesTheHeldMessages() async throws {
+        let messages = "POST threads/\(threadID)/messages"
+        let rig = try await startedRig { await $0.on(messages, revokedAnswer) }
+        await rig.transport.on("DELETE device", .json(200, "{}"))
+        let statuses = StreamRecorder(await rig.session.statuses())
+        _ = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Private words"))
+        _ = await statuses.next { $0 == .needsPairing }
+        await rig.session.unpair()
+        #expect(try rig.files.list(InstanceFolders.outbox(rig.instance.id)).isEmpty)
+        #expect(try rig.files.list("instances/\(rig.instance.id.uuidString)").isEmpty)
+    }
+
+    @Test func theOutboxIsReadableWhenMeAnswersRevokedAtStart() async throws {
+        let messages = "POST threads/\(threadID)/messages"
+        let rig = try await startedRig()
+        await rig.transport.hold(messages)
+        let item = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Held for pairing"))
+        await rig.session.stop()
+        await rig.transport.on(meRoute, revokedAnswer)
+        let statuses = StreamRecorder(await rig.session.statuses())
+        await rig.session.start()
+        _ = await statuses.next { $0 == .needsPairing }
+        let paused = try #require(await rig.session.outbox())
+        #expect(await paused.pauseReason() == .unauthorized(code: "device_revoked"))
+        #expect(await paused.items().map(\.id) == [item.id])
+        #expect(await rig.transport.requests(on: messages).count == 1)
+        await rig.session.stop()
+    }
+
     @Test func aSentMessageIsNeverMissingFromItsThread() async throws {
         let messages = "POST threads/\(threadID)/messages"
         let rig = try await startedRig { transport in

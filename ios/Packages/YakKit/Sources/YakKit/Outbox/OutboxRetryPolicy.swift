@@ -4,7 +4,8 @@ public enum OutboxDecision: Equatable, Sendable {
     case retry(after: Duration)
     case refuse(OutboxRefusal)
     case pause(OutboxPause)
-    /// The attempt was cancelled: no failure, not counted.
+    /// The attempt was cancelled: no failure, but it counts as an attempt (the request may have arrived), so
+    /// repeated cancellations move the item up the backoff table.
     case stayQueued
 }
 

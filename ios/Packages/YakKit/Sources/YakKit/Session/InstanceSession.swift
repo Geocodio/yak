@@ -331,7 +331,7 @@ public actor InstanceSession {
             do { try await instances.markRevoked(instance.id) } catch {
                 logFailure("instance not marked revoked: \(type(of: error))")
             }
-            await currentOutbox?.pause(.unauthorized(code: code))
+            await pauseOutboxForRevoke(code: code)
             await tearDown(closingThreads: true)
             await eraseCache()
             await releaseParts(keepingOutbox: true)
@@ -343,6 +343,21 @@ public actor InstanceSession {
         case .serverTooOld:
             await stopCalling(.serverTooOld)
             statusBroadcast.send(.serverTooOld)
+        }
+    }
+
+    /// A revoke at start finds no outbox yet; one is built and paused so its held items stay readable.
+    private func pauseOutboxForRevoke(code: String) async {
+        let reason = OutboxPause.unauthorized(code: code)
+        if let currentOutbox {
+            await currentOutbox.pause(reason)
+        } else if let client {
+            let held = Outbox(
+                instance: instance.id, client: client, files: environment.files, clock: environment.clock,
+                makeID: environment.makeID)
+            await held.pause(reason)
+            await held.load()
+            currentOutbox = held
         }
     }
 
@@ -486,12 +501,10 @@ public actor InstanceSession {
         runID += 1
         await tearDown(closingThreads: true)
         await eraseCache()
-        if let currentOutbox {
-            await currentOutbox.eraseAll()
-        } else {
-            do { try environment.files.remove(InstanceFolders.outbox(instance.id)) } catch {
-                logFailure("outbox not erased: \(type(of: error))")
-            }
+        // A shut-down outbox ignores eraseAll, so the folder is removed here whatever the outbox says.
+        await currentOutbox?.eraseAll()
+        do { try environment.files.remove(InstanceFolders.outbox(instance.id)) } catch {
+            logFailure("outbox not erased: \(type(of: error))")
         }
         do { try await instances.remove(instance.id) } catch {
             logFailure("instance not removed: \(type(of: error))")
