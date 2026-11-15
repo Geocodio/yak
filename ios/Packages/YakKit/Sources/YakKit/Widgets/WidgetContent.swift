@@ -68,7 +68,7 @@ struct WidgetContentParts {
             updatedAt: snapshot.updatedAt, isStale: now.timeIntervalSince(snapshot.updatedAt) > staleAfter)
     }
 
-    private static func row(_ item: WidgetItem, instance: Instance?, running: Bool) -> WidgetRowContent? {
+    static func row(_ item: WidgetItem, instance: Instance?, running: Bool) -> WidgetRowContent? {
         guard let link = link(for: item, instance: instance) else { return nil }
         let title: WidgetRowTitle
         if item.isPrivate || item.title == nil {
@@ -85,19 +85,23 @@ struct WidgetContentParts {
             lastActivityAt: item.lastActivityAt, link: link)
     }
 
+    /// The paired address as a query value.
+    static func addressQueryValue(_ instance: Instance) -> String? {
+        let unreserved = CharacterSet(
+            charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        return instance.url.absoluteString.addingPercentEncoding(withAllowedCharacters: unreserved)
+    }
+
     /// Built from parts, so a hostile id cannot add a query item; an id that is not exactly 8 ASCII letters or
     /// digits gives no link.
-    private static func link(for item: WidgetItem, instance: Instance?) -> URL? {
+    static func link(for item: WidgetItem, instance: Instance?) -> URL? {
         guard let instance, item.id.utf8.count == 8,
             item.id.utf8.allSatisfy({ ($0 >= 48 && $0 <= 57) || ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) })
         else { return nil }
         var components = URLComponents()
         components.scheme = "yak"
         components.host = item.kind == .task ? "task" : "thread"
-        let unreserved = CharacterSet(
-            charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
-        guard let address = instance.url.absoluteString.addingPercentEncoding(withAllowedCharacters: unreserved)
-        else { return nil }
+        guard let address = addressQueryValue(instance) else { return nil }
         components.percentEncodedQuery = "instance=\(address)&id=\(item.id)"
         return components.url
     }
