@@ -49,7 +49,7 @@ function threadWithChanges(User $owner, array $threadAttributes = []): Thread
         'event_sequence' => 12,
         'sandbox_state' => ThreadSandboxState::None,
     ]);
-    YakTask::factory()->create(['thread_id' => $thread->id, 'status' => TaskStatus::Success, 'started_by_user_id' => $owner->id, 'branch_name' => 'yak/retry-failed-uploads']);
+    YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Retry failed uploads', 'status' => TaskStatus::Success, 'started_by_user_id' => $owner->id, 'branch_name' => 'yak/retry-failed-uploads']);
     ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'example/api', 'role' => RepositoryRole::Primary, 'branch' => 'yak/retry-failed-uploads']);
     $diff = ThreadDiff::factory()->create(['thread_id' => $thread->id, 'base_sha' => str_repeat('a', 40), 'head_sha' => str_repeat('b', 40), 'files_count' => 2, 'additions' => 10, 'deletions' => 5]);
     ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id, 'path' => 'src/upload.php', 'additions' => 6, 'deletions' => 3]);

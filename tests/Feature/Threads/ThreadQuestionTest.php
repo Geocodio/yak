@@ -1,7 +1,11 @@
 <?php
 
 use App\DataTransferObjects\ClarificationQuestion;
+use App\DataTransferObjects\ThreadMessageInput;
+use App\Enums\MessageDelivery;
+use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadListFilter;
 use App\Events\ThreadEventBroadcast;
 use App\Http\Resources\ThreadQuestionData;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
@@ -13,6 +17,8 @@ use App\Models\YakTask;
 use App\Services\ClarificationAnswerSubmitter;
 use App\Services\Threads\ThreadEventPublisher;
 use App\Services\Threads\ThreadEventWindow;
+use App\Services\Threads\ThreadList;
+use App\Services\Threads\ThreadMessageSender;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -149,13 +155,37 @@ it('emits nothing when an older task leaves the status', function () {
     expect(questionEvents($thread))->toBe([]);
 });
 
-it('keeps the question while a plain message runs a turn', function () {
+it('closes the question when the person answers in the composer', function () {
+    [$thread, $task] = threadAwaitingAnswer();
+    $thread->update(['claude_account_id' => ClaudeAccount::factory()->create()->id]);
+    $person = User::factory()->create(['name' => 'Test person']);
+    $task->update(['clarification_reminder_at' => now()->addDay()]);
+
+    expect(collect(ThreadList::for($person, ThreadListFilter::Everyone)['needsYou'])->firstWhere('id', $thread->public_id))->not->toBeNull();
+
+    app(ThreadMessageSender::class)->send($thread, $person, new ThreadMessageInput('Use the staging bucket', null, null, null, MessageDelivery::Steer, null));
+
+    $task->refresh();
+    $needsYou = collect(ThreadList::for($person, ThreadListFilter::Everyone)['needsYou'])->firstWhere('id', $thread->public_id);
+
+    expect($task->status)->toBe(TaskStatus::Running)
+        ->and($task->clarification_expires_at)->toBeNull()
+        ->and($task->clarification_reminder_at)->toBeNull()
+        ->and($task->clarificationAnswersAwaitingResume())->toBeNull()
+        ->and($task->clarificationRounds()[0]['note'])->toBe('Use the staging bucket')
+        ->and($task->clarificationRounds()[0]['answered_by'])->toBe('Test person')
+        ->and($needsYou)->toBeNull()
+        ->and(ThreadQuestionData::for($thread))->toBeNull()
+        ->and(questionEvents($thread)[0]['open'] ?? null)->toBeFalse();
+});
+
+it('keeps the question open when an automated turn starts', function () {
     [$thread, $task] = threadAwaitingAnswer();
     $thread->update(['claude_account_id' => ClaudeAccount::factory()->create()->id]);
 
-    app(ThreadTurns::class)->start($task, 'Use the staging bucket', null, null);
+    app(ThreadTurns::class)->start($task, 'Continue.', User::factory()->create(), null, TaskRunKind::RepositoryEvent);
 
-    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
+    expect($task->refresh()->status)->toBe(TaskStatus::AwaitingClarification)
         ->and(questionEvents($thread))->toBe([])
         ->and(ThreadQuestionData::for($thread))->not->toBeNull();
 });

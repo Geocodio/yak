@@ -178,6 +178,12 @@ class CreatePullRequestJob implements ShouldQueue
 
         if (! isset($prResponse['number'], $prResponse['html_url'])) {
             $error = $prResponse['message'] ?? json_encode($prResponse);
+
+            // GitHub answers "Validation Failed" with the field it refused; a refused head is a branch it does not have.
+            if (in_array('head', array_column(array_filter((array) ($prResponse['errors'] ?? []), 'is_array'), 'field'), true)) {
+                $error = "the branch {$this->task->branch_name} is not on GitHub, so Yak's commits were never pushed";
+            }
+
             throw new \RuntimeException("GitHub PR creation failed: {$error}");
         }
 

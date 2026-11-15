@@ -112,6 +112,7 @@ class ThreadMessageSender
                     intent: $input->intent,
                     storeAttachments: $input->storeAttachments,
                     sendKey: $input->sendKey,
+                    answersQuestion: $input->intent === null,
                 );
 
                 return new ThreadMessageResult('sent', rescue(fn () => $run->prompt_uuid, null, false), null);
