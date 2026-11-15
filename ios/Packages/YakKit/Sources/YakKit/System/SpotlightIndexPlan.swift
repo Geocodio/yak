@@ -94,19 +94,15 @@ public enum SpotlightIndexPlan {
         let expiresAt = now.addingTimeInterval(lifetime)
         var entries: [SpotlightEntry] = []
         var seen = Set<String>()
+        let hidden = includePrivate ? [] : idsUnderPrivateRows(in: lists)
 
         for list in lists {
-            var tops = list.starred
-            for item in list.needsYou {
-                if case .thread(let row) = item { tops.append(row) }
-            }
-            tops.append(contentsOf: list.threads)
-            for top in tops {
+            for top in topRows(of: list) {
                 var stack: [(row: ThreadRow, depth: Int)] = [(top, 0)]
                 while let (row, depth) = stack.popLast() {
                     // A private row hides its whole subtree, whatever the children's own flags say.
-                    if row.isPrivate && !includePrivate { continue }
-                    if isValidThreadID(row.id), !seen.contains(row.id) {
+                    if hidden.contains(row.id) { continue }
+                    if ThreadIdentifier.isValid(row.id), !seen.contains(row.id) {
                         let title = cleaned(row.title, limit: maximumTitleLength)
                         if !title.isEmpty {
                             seen.insert(row.id)
@@ -126,12 +122,43 @@ public enum SpotlightIndexPlan {
         return entries
     }
 
+    private static func topRows(of list: ThreadList) -> [ThreadRow] {
+        var tops = list.starred
+        for item in list.needsYou {
+            if case .thread(let row) = item { tops.append(row) }
+        }
+        return tops + list.threads
+    }
+
+    /// The ids of every private row and every row below one, in any list, so a thread flagged public under a
+    /// private parent stays out even where another list shows it as a top-level row.
+    private static func idsUnderPrivateRows(in lists: [ThreadList]) -> Set<String> {
+        var hidden = Set<String>()
+        for list in lists {
+            var stack: [(row: ThreadRow, depth: Int, underPrivate: Bool)] = topRows(of: list).map { ($0, 0, false) }
+            while let (row, depth, underPrivate) = stack.popLast() {
+                let isHidden = underPrivate || row.isPrivate
+                if isHidden { hidden.insert(row.id) }
+                if depth < maximumDepth {
+                    for child in row.children { stack.append((child, depth + 1, isHidden)) }
+                }
+            }
+        }
+        return hidden
+    }
+
+    /// The one rule for whether private titles may enter the index. Pass this value, not the raw switch, to
+    /// `recordingIntent` and `record`, so the record never claims more than `changes` writes.
+    public static func allowsPrivateTitles(includePrivate: Bool, appLockOn: Bool) -> Bool {
+        includePrivate && !appLockOn
+    }
+
     public static func changes(
         record: SpotlightIndexRecord, paired: Set<UUID>,
         active: (instance: SpotlightInstance, lists: [ThreadList])?,
         includePrivate: Bool, appLockOn: Bool, now: Date
     ) -> [SpotlightChange] {
-        let privateAllowed = includePrivate && !appLockOn
+        let privateAllowed = allowsPrivateTitles(includePrivate: includePrivate, appLockOn: appLockOn)
         var result: [SpotlightChange] = []
         if record.pendingEraseAll || (record.includedPrivate && !privateAllowed) {
             result.append(.eraseAll)
@@ -160,6 +187,7 @@ public enum SpotlightIndexPlan {
 
     /// Stored before a change is written. For `.replace`: the domain is in `indexedDomains`, and
     /// `includedPrivate` is set when `includePrivate` is true. Any other change: the record unchanged.
+    /// `includePrivate` must be `allowsPrivateTitles(includePrivate:appLockOn:)`, never the raw switch.
     public static func recordingIntent(
         of change: SpotlightChange, includePrivate: Bool, in record: SpotlightIndexRecord
     ) -> SpotlightIndexRecord {
@@ -171,6 +199,7 @@ public enum SpotlightIndexPlan {
         return record
     }
 
+    /// `includePrivate` is the same effective value as for `recordingIntent`.
     public static func record(
         _ record: SpotlightIndexRecord, after change: SpotlightChange, succeeded: Bool, includePrivate: Bool
     ) -> SpotlightIndexRecord {
@@ -196,7 +225,7 @@ public enum SpotlightIndexPlan {
         guard identifier.count <= 120 else { return nil }
         let parts = identifier.split(separator: "/", omittingEmptySubsequences: false)
         guard parts.count == 2, let id = UUID(uuidString: String(parts[0])),
-            let instance = instances.first(where: { $0.id == id }), isValidThreadID(String(parts[1]))
+            let instance = instances.first(where: { $0.id == id }), ThreadIdentifier.isValid(String(parts[1]))
         else { return nil }
         var components = URLComponents()
         components.scheme = "yak"
@@ -208,23 +237,19 @@ public enum SpotlightIndexPlan {
         return components.url
     }
 
-    private static func isValidThreadID(_ id: String) -> Bool {
-        id.utf8.count == 8
-            && id.utf8.allSatisfy {
-                ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x61 && $0 <= 0x7A)
-            }
-    }
-
-    /// Control, separator and bidirectional formatting characters become spaces, whitespace runs collapse,
+    /// Control, separator and formatting characters become spaces, whitespace runs collapse,
     /// the ends are trimmed and the result is cut to `limit` grapheme clusters with a trailing "…".
     private static func cleaned(_ text: String, limit: Int) -> String {
         var scalars = String.UnicodeScalarView()
         var previousWasSpace = true
         for scalar in text.unicodeScalars.prefix(limit * 4) {
-            let isBidirectional = (0x202A...0x202E).contains(scalar.value) || (0x2066...0x2069).contains(scalar.value)
             let category = scalar.properties.generalCategory
+            // Every format scalar (all bidirectional controls, zero-width space, byte order mark) becomes a
+            // space, as in `LogRedactor.flatten`; the zero-width joiners stay so emoji and scripts that
+            // need them still render.
+            let isJoiner = scalar.value == 0x200C || scalar.value == 0x200D
             let isSpace =
-                isBidirectional || scalar.properties.isWhitespace || category == .control
+                (category == .format && !isJoiner) || scalar.properties.isWhitespace || category == .control
                 || category == .lineSeparator || category == .paragraphSeparator
             if isSpace {
                 if !previousWasSpace { scalars.append(" ") }

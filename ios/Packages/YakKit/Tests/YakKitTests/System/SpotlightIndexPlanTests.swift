@@ -53,6 +53,21 @@ struct SpotlightIndexPlanTests {
         #expect(ids(entries([list(threads: [publicParent])])) == ["aaaaaaaa"])
     }
 
+    @Test func aPublicSubThreadUnderAPrivateParentStaysOutOfEveryList() {
+        let child = row("cccccccc")
+        let privateParent = row("pppppppp", isPrivate: true, children: [child])
+        let first = list(threads: [privateParent])
+        let second = list(starred: [child], needsYou: [.thread(child)], threads: [child])
+        #expect(entries([first, second]).isEmpty)
+        #expect(entries([second, first]).isEmpty)
+        #expect(Set(ids(entries([first, second], includePrivate: true))) == ["pppppppp", "cccccccc"])
+    }
+
+    @Test func formatCharactersBecomeSpacesInTitles() {
+        let result = entries([list(threads: [row("aaaaaaa1", "a\u{200E}b\u{200F}c\u{061C}d\u{200B}e\u{FEFF}f")])])
+        #expect(result[0].title == "a b c d e f")
+    }
+
     @Test func theSwitchLetsPrivateTitlesIn() throws {
         let result = entries([try decoded(ThreadList.self, "scenario-thread-list")], includePrivate: true)
         #expect(Set(ids(result)) == ["d0e515ef", "a1b2c3d4", "e5f6g7h8"])
@@ -151,6 +166,12 @@ struct SpotlightIndexPlanTests {
             Issue.record("no replace")
             return
         }
+    }
+
+    @Test func theEffectivePrivateValueFollowsTheAppLock() {
+        #expect(SpotlightIndexPlan.allowsPrivateTitles(includePrivate: true, appLockOn: false))
+        #expect(!SpotlightIndexPlan.allowsPrivateTitles(includePrivate: true, appLockOn: true))
+        #expect(!SpotlightIndexPlan.allowsPrivateTitles(includePrivate: false, appLockOn: false))
     }
 
     @Test func turningTheSwitchOffErasesBeforeReindexing() throws {

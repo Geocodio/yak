@@ -19,6 +19,16 @@ struct LogRingTests {
         #expect(lines.last?.text == "100000")
     }
 
+    @Test func largeLinesKeepTheRingBounded() {
+        var ring = LogRing()
+        let megabyte = String(repeating: "abcdefg hijklmn ", count: 65_536)
+        for _ in 1...300 {
+            ring.append(date: moment, level: .error, category: "test", message: megabyte)
+        }
+        #expect(ring.lines.count == 200)
+        #expect(ring.lines.allSatisfy { $0.text.count <= 500 })
+    }
+
     @Test func hostileLinesAreRedactedAndBounded() {
         let clock = ContinuousClock()
         let elapsed = clock.measure { runHostileCases() }
@@ -37,6 +47,11 @@ struct LogRingTests {
             ("device_code=XYZW-1234", ["XYZW-1234"]),
             (String(repeating: "pushToken: 0123456789abcdef ", count: 4), ["0123456789abcdef"]),
             ("Contact test.person@example.com", ["test.person@example.com"]),
+            (
+                "Contact test.person@mail.averyverylongexampledomain.com",
+                ["test.person", "averyverylong"]
+            ),
+            ("Authorization=Basic dXNlcjpwYXNz", ["dXNlcjpwYXNz"]),
             (String(repeating: "a%", count: 2_048), []),
             (String(repeating: "a%", count: 2_040) + "@", []),
             (

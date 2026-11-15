@@ -74,15 +74,16 @@ public enum LogRedactor {
         }
         return [
             make(#"[{\[].*$"#, "[body removed]"),
-            make(#"(?i)\b(Authorization|Set-Cookie|Cookie):.*$"#, "$1: [removed]"),
+            make(#"(?i)\b(Authorization|Set-Cookie|Cookie)[:=].*$"#, "$1: [removed]"),
             make(#"(?i)\bBearer\s+\S+"#, "Bearer [removed]"),
             make(
                 #"(?i)\b((?:[A-Za-z0-9_]*(?:token|secret|key)|device_code|user_code|code|password|signature)"?\s*[=:]\s*"?)[^&\s,"]*"#,
                 "$1[removed]"),
             make(#"\?\S+"#, "?[removed]"),
-            make(#"[A-Za-z0-9+/=_.\-]{24,}"#, "[removed]"),
         ]
     }()
+
+    nonisolated(unsafe) private static let longRun = try! Regex(#"[A-Za-z0-9+/=_.\-]{24,}"#)
 
     /// Control, format, separator characters become spaces and whitespace runs collapse.
     static func flatten(_ text: String) -> String {
@@ -109,7 +110,9 @@ public enum LogRedactor {
         for (regex, template) in replacements {
             text = replace(text, regex, template)
         }
+        // Addresses go before the long-run rule, which would otherwise eat a long domain and hide the address.
         text = removeEmailAddresses(text)
+        text = replace(text, longRun, "[removed]")
         text = flatten(text)
         if text.count > LogRing.maximumLineLength {
             text = String(text.prefix(LogRing.maximumLineLength - 1)) + "…"
