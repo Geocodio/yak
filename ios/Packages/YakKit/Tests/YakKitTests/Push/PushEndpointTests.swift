@@ -28,7 +28,7 @@ private func bodyText<R>(_ endpoint: Endpoint<R>) throws -> String? {
     #expect(!test.retriesTransientFailures || test.method != .get)
 
     let read = Endpoint.notificationPreferences()
-    #expect(read.method == .get && read.path == "notifications")
+    #expect(read.method == .get && read.path == "notifications" && !read.retriesTransientFailures)
 
     let update = Endpoint.updateNotificationPreference(.turnFinished, isOn: false)
     #expect(update.method == .put && update.path == "notifications")

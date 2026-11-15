@@ -436,7 +436,10 @@ public actor PushRegistrar {
         var cancellations = 0
         while isCurrent(id, generation) {
             guard case .eligible(let instance)? = basis[id], let step = nextStep(id) else { break }
-            guard let client = client(for: instance) else { break }
+            guard let client = client(for: instance) else {
+                paused[id] = .needsPairing
+                break
+            }
             let failure: APIFailure?
             switch step {
             case .token(let kind, _):

@@ -54,6 +54,20 @@ public struct PushPayload: Decodable, Equatable, Sendable {
         public let id: String?
         public let path: String?
         public let needsYouCount: Int?
+
+        private enum CodingKeys: String, CodingKey { case instance, event, kind, id, path, needsYouCount }
+
+        /// The core members are strict, so a missing one drops the object. The optional members are
+        /// read one by one, so one of the wrong type is nil and the push keeps its destination.
+        public init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            instance = try container.decode(String.self, forKey: .instance)
+            event = try container.decode(PushEvent.self, forKey: .event)
+            kind = try container.decode(PushKind.self, forKey: .kind)
+            id = try? container.decodeIfPresent(String.self, forKey: .id)
+            path = try? container.decodeIfPresent(String.self, forKey: .path)
+            needsYouCount = try? container.decodeIfPresent(Int.self, forKey: .needsYouCount)
+        }
     }
 
     public let aps: Aps
@@ -199,13 +213,15 @@ public struct DeliveredNotification: Equatable, Sendable {
 
 public enum PushCleanup {
     /// The delivered notifications that came from `instance`, to remove when it is unpaired or revoked.
+    /// `paired` is every paired instance, so an address that exactly names another paired instance is left alone.
     public static func identifiers(
-        in delivered: [DeliveredNotification], from instance: Instance,
+        in delivered: [DeliveredNotification], from instance: Instance, among paired: [Instance]? = nil,
         normalize: (String) -> URL? = InstanceAddress.normalize
     ) -> [String] {
-        delivered.compactMap { notification in
+        let candidates = paired ?? [instance]
+        return delivered.compactMap { notification in
             guard let yak = notification.payload?.yak, let address = normalize(yak.instance),
-                InstanceMatch.instance(forNormalized: address, in: [instance]) != nil
+                InstanceMatch.instance(forNormalized: address, in: candidates)?.id == instance.id
             else { return nil }
             return notification.identifier
         }

@@ -156,3 +156,32 @@ func aBadIdOpensTheInstance(id: String) throws {
     #expect(alert?.title == "Private thread")
     #expect(alert?.body == "Open Yak to read it.")
 }
+
+@Test func aWrongTypedOptionalMemberKeepsTheYakObject() throws {
+    let data = Data(
+        #"{"aps":{},"yak":{"instance":"https://yak.example.com","event":"needs_you","kind":"thread","id":7,"path":["x"],"needsYouCount":"two"}}"#
+            .utf8)
+    let yak = try #require(try PushPayload(json: data).yak)
+    #expect(yak.instance == "https://yak.example.com" && yak.kind == .thread)
+    #expect(yak.id == nil && yak.path == nil && yak.needsYouCount == nil)
+}
+
+@Test func aMissingCoreMemberDropsTheYakObject() throws {
+    let data = Data(#"{"aps":{},"yak":{"instance":"https://yak.example.com","kind":"thread"}}"#.utf8)
+    #expect(try PushPayload(json: data).yak == nil)
+}
+
+@Test func cleanupLeavesAnotherPairedInstancesExactAddress() throws {
+    var first = home
+    first.canonicalURL = other.url
+    let delivered = [
+        DeliveredNotification(
+            identifier: "for-other",
+            payload: try PushPayload(
+                json: Data(
+                    #"{"aps":{},"yak":{"instance":"https://other.example.com","event":"needs_you","kind":"thread"}}"#
+                        .utf8)))
+    ]
+    #expect(PushCleanup.identifiers(in: delivered, from: first, among: [first, other]).isEmpty)
+    #expect(PushCleanup.identifiers(in: delivered, from: other, among: [first, other]) == ["for-other"])
+}

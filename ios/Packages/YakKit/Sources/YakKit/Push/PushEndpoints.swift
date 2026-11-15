@@ -40,8 +40,9 @@ extension Endpoint where Response == PushTestResult {
 }
 
 extension Endpoint where Response == NotificationPreferences {
+    /// Not retried: the Settings screen awaits it within one 15 second request timeout.
     public static func notificationPreferences() -> Endpoint<NotificationPreferences> {
-        Endpoint(method: .get, path: "notifications")
+        Endpoint(method: .get, path: "notifications", retriesTransientFailures: false)
     }
 
     /// Sets one switch; the answer is the full set.

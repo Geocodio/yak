@@ -38,13 +38,33 @@ private func mePayload(bundleID: String = "com.example.yak", environment: String
     return try JSONDecoder().decode(Me.self, from: data)
 }
 
+private final class FlakyTokenStore: TokenStore, @unchecked Sendable {
+    private let base = InMemoryTokenStore()
+    private let lock = NSLock()
+    private var allowedReads: Int?
+    /// The number of reads that still succeed; every later read fails. Nil: all succeed.
+    func failReads(after count: Int) { lock.withLock { allowedReads = count } }
+    struct ReadFailure: Error {}
+    func token(for instance: UUID) throws -> String? {
+        let allowed = lock.withLock { () -> Bool in
+            guard let remaining = allowedReads else { return true }
+            allowedReads = max(remaining - 1, 0)
+            return remaining > 0
+        }
+        if !allowed { throw ReadFailure() }
+        return try base.token(for: instance)
+    }
+    func setToken(_ token: String, for instance: UUID) throws { try base.setToken(token, for: instance) }
+    func removeToken(for instance: UUID) throws { try base.removeToken(for: instance) }
+}
+
 private struct Rig {
     let registrar: PushRegistrar
     let transport: ScriptedTransport
     let clock: ManualClock
     let files: InMemoryFileStore
     let store: InstanceStore
-    let tokens: InMemoryTokenStore
+    let tokens: any TokenStore
     let environment: SessionEnvironment
     let first: Instance
     let second: Instance
@@ -63,7 +83,7 @@ private func makeRig(
     second: Me? = nil, first: Me? = nil,
     build: PushBuild? = PushBuild(bundleID: "com.example.yak", environment: .production),
     transport: ScriptedTransport = ScriptedTransport(), files: InMemoryFileStore = InMemoryFileStore(),
-    clock: ManualClock = ManualClock(), tokens: InMemoryTokenStore = InMemoryTokenStore()
+    clock: ManualClock = ManualClock(), tokens: any TokenStore = InMemoryTokenStore()
 ) async throws -> Rig {
     let store = InstanceStore(
         defaults: MemoryDefaults(), tokens: tokens, now: { Date(timeIntervalSince1970: 1_000) }, build: build)
@@ -401,6 +421,41 @@ private func settle() async {
         await rig.registrar.setToken(newerToken, kind: .alert)
         await settle()
         #expect(await requests(rig, alertRoute, host: "yak.example.com").count == 1)
+        await rig.registrar.stop()
+    }
+
+    @Test func unregisterNeverSendsAQueuedTokenUpdate() async throws {
+        let rig = try await makeRig(second: try mePayload(bundleID: "com.example.other"))
+        await rig.transport.on(alertRoute, noContent)
+        await rig.transport.on("DELETE push-tokens/alert", noContent)
+        let statuses = Statuses(await rig.registrar.statuses())
+        await rig.registrar.start()
+        await rig.registrar.setToken(alertToken, kind: .alert)
+        try await waitFor(statuses, rig.first, .registered)
+
+        await rig.transport.hold(alertRoute)
+        await rig.registrar.setToken(newerToken, kind: .alert)
+        await rig.transport.waitForRequests(2, on: alertRoute)
+        let unregistering = Task { await rig.registrar.unregister(rig.first.id, budget: .seconds(5)) }
+        await rig.transport.waitForRequests(1, on: "DELETE push-tokens/alert")
+        await rig.transport.release(alertRoute)
+        await unregistering.value
+        await rig.registrar.setToken(startToken, kind: .liveActivityStart)
+        await settle()
+        #expect(await requests(rig, alertRoute, host: "yak.example.com").count == 2)
+        #expect(await requests(rig, startRoute, host: "yak.example.com").isEmpty)
+        await rig.registrar.stop()
+    }
+
+    @Test func anUnreadableTokenMidWorkShowsNeedsPairing() async throws {
+        let tokens = FlakyTokenStore()
+        let rig = try await makeRig(tokens: tokens)
+        let statuses = Statuses(await rig.registrar.statuses())
+        await rig.registrar.start()
+        tokens.failReads(after: 2)
+        await rig.registrar.setToken(alertToken, kind: .alert)
+        try await waitFor(statuses, rig.first, .needsPairing)
+        #expect(await rig.transport.requests.isEmpty)
         await rig.registrar.stop()
     }
 
