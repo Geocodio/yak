@@ -164,10 +164,32 @@ private struct Harness {
     @Test func networkReturnSendsAtOnce() async throws {
         let harness = Harness()
         let (transport, clock, outbox) = (harness.transport, harness.clock, harness.outbox)
-        await transport.on(threadRoute, .failure(.notConnectedToInternet), try .scenario(200, "scenario-message-sent"))
+        let offline = FakeTransport.Result.failure(.notConnectedToInternet)
+        await transport.on(threadRoute, offline, offline, offline, offline, offline, try .scenario(200, "scenario-message-sent"))
         let deliveries = StreamRecorder(await outbox.deliveries())
         _ = try await outbox.enqueue(draft("Hello"))
-        await clock.waitForSleeper(endingAt: .seconds(1))
+        var elapsed = Duration.zero
+        for offset in [1, 3, 7, 15].map({ Duration.seconds($0) }) {
+            await clock.waitForSleeper(endingAt: offset)
+            await clock.advance(by: offset - elapsed)
+            elapsed = offset
+        }
+        await clock.waitForSleeper(endingAt: .seconds(30))
+        await outbox.networkReturned()
+        _ = await deliveries.next { _ in true }
+        #expect(await transport.requests(on: threadRoute).count == 6)
+    }
+
+    @Test func cancelledAttemptWaitsForTheNextTrigger() async throws {
+        let harness = Harness()
+        let (transport, outbox) = (harness.transport, harness.outbox)
+        await transport.on(threadRoute, .failure(.cancelled), try .scenario(200, "scenario-message-sent"))
+        let deliveries = StreamRecorder(await outbox.deliveries())
+        _ = try await outbox.enqueue(draft("Hello"))
+        await settle()
+        #expect(await transport.requests(on: threadRoute).count == 1)
+        #expect(await outbox.items().first?.state == .queued)
+        #expect(await outbox.items().first?.attemptCount == 0)
         await outbox.networkReturned()
         _ = await deliveries.next { _ in true }
         #expect(await transport.requests(on: threadRoute).count == 2)

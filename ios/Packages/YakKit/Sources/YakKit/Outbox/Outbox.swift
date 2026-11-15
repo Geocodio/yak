@@ -169,11 +169,14 @@ public actor Outbox {
         }
         switch outcome {
         case .success(let delivery):
+            for receiver in deliveryReceivers.values { receiver.yield(delivery) }
             stored.remove(at: index)
             publish()
-            for receiver in deliveryReceivers.values { receiver.yield(delivery) }
         case .failure(let failure):
-            apply(OutboxRetryPolicy.decision(for: failure, attempt: attempt), toItemAt: index, attempt: attempt)
+            let decision = OutboxRetryPolicy.decision(for: failure, attempt: attempt)
+            apply(decision, toItemAt: index, attempt: attempt)
+            // A cancelled attempt waits for the next trigger; pumping here would resend it in a tight loop.
+            if decision == .stayQueued { return }
         }
         pump()
     }
