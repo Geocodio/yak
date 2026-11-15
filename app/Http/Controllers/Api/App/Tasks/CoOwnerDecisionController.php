@@ -86,9 +86,10 @@ class CoOwnerDecisionController extends Controller
      */
     private function isDecidedBy(CoOwnerRequest $coOwnerRequest, CoOwnerRequestStatus $status, User $user): bool
     {
-        $coOwnerRequest->refresh();
-
-        return $coOwnerRequest->status === $status && $coOwnerRequest->decided_by_user_id === $user->id;
+        return CoOwnerRequest::whereKey($coOwnerRequest->id)
+            ->where('status', $status)
+            ->where('decided_by_user_id', $user->id)
+            ->exists();
     }
 
     private function refusal(CoOwnerDecisionException $exception): ThreadActionRefused
