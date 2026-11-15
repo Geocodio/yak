@@ -33,6 +33,18 @@ private struct StoredEvents: Codable {
     var firstLoadedAfter: Int
 }
 
+private struct LastOpened: Codable {
+    var id: String
+
+    /// Letters, digits, dash and underscore, at most 64: nothing that could leave the thread folder.
+    static func isPlainID(_ id: String) -> Bool {
+        !id.isEmpty && id.utf8.count <= 64
+            && id.utf8.allSatisfy {
+                ($0 >= 48 && $0 <= 57) || ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) || $0 == 45 || $0 == 95
+            }
+    }
+}
+
 /// One instance's copies on disk. Best effort: a failed write or read is logged and the app goes on without it.
 public actor Cache {
     public static let maximumEventsPerThread = 2000
@@ -55,6 +67,7 @@ public actor Cache {
 
     private var indexPath: String { "\(root)/index.json" }
     private var widgetPath: String { "\(root)/widget.json" }
+    private var lastOpenedPath: String { "\(root)/last-opened.json" }
     private func listPath(_ filter: ThreadListFilter) -> String { "\(root)/lists/\(filter.rawValue).json" }
     func folder(_ id: String) -> String { "\(root)/threads/\(Endpoint<ThreadShow>.segment(id))" }
 
@@ -129,14 +142,34 @@ public actor Cache {
     }
 
     /// Records that a thread with a saved copy was opened now.
+    /// The id also goes to a small file of its own, so a widget or an intent can read it without the index.
     public func markOpened(_ id: String) {
         touch(id, addingIfMissing: false)
+        store(LastOpened(id: id), at: lastOpenedPath, protection: .untilFirstUnlock)
+    }
+
+    /// The thread opened most recently, which is not always the newest index entry: saving a thread touches it too.
+    /// Nil when none, or when the file is larger than 1 KB or holds an id that is not a plain id.
+    public func lastOpenedThreadID() -> String? {
+        let data: Data
+        do {
+            guard let found = try files.read(lastOpenedPath, maximumBytes: 1024) else { return nil }
+            data = found
+        } catch {
+            logFailure("last opened read failed: \(Swift.type(of: error))")
+            return nil
+        }
+        guard let id = (try? decoder.decode(LastOpened.self, from: data))?.id, LastOpened.isPlainID(id) else {
+            return nil
+        }
+        return id
     }
 
     public func removeThread(_ id: String) {
         delete(folder(id))
         var index = loadIndex()
         if index.removeValue(forKey: id) != nil { saveIndex(index) }
+        if lastOpenedThreadID() == id { delete(lastOpenedPath) }
     }
 
     // MARK: Question drafts
