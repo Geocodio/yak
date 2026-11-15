@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\TimeoutAwaitingCiCommand;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
@@ -9,6 +10,7 @@ use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
+use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\User;
@@ -81,6 +83,26 @@ it('resumes on the pushed branch and keeps the work', function () {
     Queue::assertPushed(RetryYakJob::class, 1);
     Queue::assertNotPushed(RunYakJob::class);
     expect($task->fresh()->status)->toBe(TaskStatus::Retrying)->and($task->fresh()->attempts)->toBe(3);
+});
+
+it('resumes CI after a timeout and checks the build once', function () {
+    config()->set('yak.channels.github.installation_id', 99999);
+    GitHubInstallationToken::factory()->create(['installation_id' => 99999, 'token' => 'ghs_test_token', 'expires_at' => now()->addHour()]);
+    Repository::factory()->create(['slug' => 'example/api', 'github_full_name' => 'example/api', 'ci_system' => 'github_actions']);
+    Http::fake(['api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [
+        ['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'success'],
+    ]])]);
+    $task = actionTask($this->user, ['branch_name' => 'yak/upgrade-payments-sdk', 'attempts' => 1, 'error_log' => TimeoutAwaitingCiCommand::TIMEOUT_ERROR_PREFIX . ' 30 minutes']);
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi)->and($task->fresh()->error_log)->toBeNull();
+    Queue::assertPushed(ProcessCIResultJob::class, 1);
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->passed && $job->commitSha === 'new222');
+    Queue::assertNotPushed(RunYakJob::class);
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
+    Queue::assertPushed(ProcessCIResultJob::class, 1);
 });
 
 it('cancels once and answers the same for a repeat', function () {
@@ -175,6 +197,15 @@ it('queues one render for the same footage', function () {
     ContractFixture::assertMatches('app', 'task-retry-render', $first->json());
 });
 
+it('clears the render request when the render fails for good', function () {
+    $task = actionTask($this->user, ['status' => TaskStatus::Success]);
+    $raw = Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video', 'render_requested_at' => now()]);
+
+    (new RenderVideoJob($raw->id))->failed(new RuntimeException('renderer crashed'));
+
+    expect($raw->fresh()->render_requested_at)->toBeNull();
+});
+
 it('counts a render request older than thirty minutes as gone', function () {
     $task = actionTask($this->user, ['status' => TaskStatus::Success]);
     Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video', 'render_requested_at' => now()->subMinutes(31)]);
@@ -220,11 +251,22 @@ it('refuses to move a task that has a pull request', function () {
     $this->postJson(appTaskPath($task, '/reroute'), ['repo' => 'example/web'], $this->headers)->assertStatus(409)->assertJsonPath('error', 'task_not_reroutable');
 });
 
-it('waits at most five seconds for the task lock', function () {
+it('answers a task that vanished before the lock like a missing one', function () {
+    $task = actionTask($this->user);
+    $missing = $this->postJson(appTaskPath((clone $task)->forceFill(['public_id' => 'nope0000']), '/retry'), [], $this->headers)->assertNotFound();
+    YakTask::retrieved(fn () => YakTask::withoutGlobalScopes()->whereKey($task->id)->delete());
+
+    $vanished = $this->postJson(appTaskPath($task, '/cancel'), [], $this->headers)->assertNotFound();
+
+    expect($vanished->json())->toBe($missing->json());
+});
+
+it('answers 503 unavailable when a write waits too long for the task lock', function () {
     $task = actionTask($this->user, ['status' => TaskStatus::Running]);
     YakTask::updating(fn () => throw tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']));
 
     $this->postJson(appTaskPath($task, '/cancel'), [], $this->headers)->assertStatus(503)
+        ->assertJsonPath('error', 'unavailable')
         ->assertJsonPath('message', 'Yak is still handling another request for this task. Try again in a moment.');
 });
 

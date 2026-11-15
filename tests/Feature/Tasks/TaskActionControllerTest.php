@@ -357,6 +357,19 @@ test('reroute validates the target repo exists', function () {
         ->assertSessionHasErrors(['repo']);
 });
 
+test('reroute to an inactive repository flashes the reason on the task page', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'old', 'is_active' => false]);
+    $task = YakTask::factory()->create(['mode' => TaskMode::Fix, 'repo' => 'web', 'pr_url' => null]);
+
+    $this->post(route('tasks.reroute', $task), ['repo' => 'old'])
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('error', 'Repository not found or inactive.');
+
+    Queue::assertNothingPushed();
+    expect($task->fresh()->repo)->toBe('web');
+});
+
 function ciTimedOutTask(): YakTask
 {
     config()->set('yak.channels.github.installation_id', 99999);

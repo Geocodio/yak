@@ -12,6 +12,7 @@ use App\Services\Tasks\TaskActions;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class TaskActionController extends Controller
 {
@@ -52,6 +53,8 @@ class TaskActionController extends Controller
             $outcome = $action();
         } catch (ThreadActionRefused $refused) {
             return redirect()->route('tasks.show', $task)->with('error', $refused->getMessage());
+        } catch (ValidationException $invalid) {
+            return redirect()->route('tasks.show', $task)->with('error', (string) collect($invalid->errors())->flatten()->first());
         }
 
         $redirect = redirect()->route('tasks.show', $task);

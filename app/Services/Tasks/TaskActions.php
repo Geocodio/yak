@@ -37,6 +37,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
 
 /**
@@ -330,7 +331,7 @@ class TaskActions
     {
         return ShortLockWait::transaction(function () use ($task, $callback) {
             $locked = YakTask::withoutGlobalScopes()->whereKey($task->id)->lockForUpdate()->first()
-                ?? throw new HttpException(404);
+                ?? throw new NotFoundHttpException;
 
             return $callback($locked);
         }, fn (): Throwable => new HttpException(503, 'Yak is still handling another request for this task. Try again in a moment.'));
