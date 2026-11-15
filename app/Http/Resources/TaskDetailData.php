@@ -64,7 +64,7 @@ final class TaskDetailData
     /**
      * @return array<string, mixed>
      */
-    public static function build(YakTask $task, Request $request): array
+    public static function build(YakTask $task, Request $request, bool $withActivity = true, bool $isTimeBounded = false): array
     {
         $conversation = $task->conversation();
         $coOwnerRequest = CoOwnerPanelData::latestRequest($task);
@@ -78,15 +78,11 @@ final class TaskDetailData
             ? PrReview::where('yak_task_id', $task->id)->with('comments')->first()
             : null;
 
-        return [
+        $detail = [
             'task' => self::task($task, $head, $coOwnerRequest, $focusedRun, $attempt, $attemptCount),
             'thread' => self::thread($task, $conversation),
-            'runs' => self::runs($conversation),
-            'attempts' => range(1, $attemptCount),
-            'activitySummary' => ActivityLogData::summary($focusedRun, $attempt),
-            'activity' => ActivityLogData::window($focusedRun, $attempt),
             'progress' => ['steps' => self::progressSteps($task, $head, $coOwnerRequest)],
-            'coOwner' => $request->user() !== null ? CoOwnerPanelData::forRequest($coOwnerRequest, $request->user()) : null,
+            'coOwner' => $request->user() !== null ? CoOwnerPanelData::forRequest($coOwnerRequest, $request->user(), $isTimeBounded) : null,
             'earlyWarning' => EarlyWarningData::forTask($task, $coOwnerRequest, $request->user()),
             'media' => self::latestMedia($conversation),
             'walkthrough' => self::walkthrough($task),
@@ -94,9 +90,21 @@ final class TaskDetailData
             'findings' => self::findings($review),
             'composer' => self::composer($task, $conversation),
             'questions' => self::questions($conversation->last() ?? $task),
-            'debug' => self::debug($task, $focusedRun),
             'actions' => self::actions($task, $head, $coOwnerRequest),
             'pollInterval' => in_array($task->status, self::FAST_POLL_STATUSES, true) ? 5000 : 15000,
+        ];
+
+        if (! $withActivity) {
+            return $detail;
+        }
+
+        return [
+            ...$detail,
+            'runs' => self::runs($conversation),
+            'attempts' => range(1, $attemptCount),
+            'activitySummary' => ActivityLogData::summary($focusedRun, $attempt),
+            'activity' => ActivityLogData::window($focusedRun, $attempt),
+            'debug' => self::debug($task, $focusedRun),
             'transcriptLogId' => self::resolveTranscriptLogId($request, $conversation),
         ];
     }

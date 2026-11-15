@@ -77,9 +77,10 @@ class AppService
      * the auth+header setup that the four channel/health/notification
      * sites used to repeat verbatim.
      */
-    public function installationClient(int $installationId): PendingRequest
+    public function installationClient(int $installationId, bool $isTimeBounded = false): PendingRequest
     {
-        return Http::withToken($this->getInstallationToken($installationId))
+        return Http::withToken($this->getInstallationToken($installationId, $isTimeBounded))
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             // GitHub 301s requests for a renamed repository to its new path.
             // Guzzle's default (non-strict) handling replays a redirected
@@ -1293,9 +1294,9 @@ GRAPHQL;
      *
      * @return array<string, mixed>|null
      */
-    public function collaboratorPermission(int $installationId, string $repoSlug, string $login): ?array
+    public function collaboratorPermission(int $installationId, string $repoSlug, string $login, bool $isTimeBounded = false): ?array
     {
-        $response = $this->installationClient($installationId)
+        $response = $this->installationClient($installationId, $isTimeBounded)
             ->get('https://api.github.com/repos/' . $repoSlug . '/collaborators/' . rawurlencode($login) . '/permission');
 
         if ($response->status() === 404) {
@@ -1306,9 +1307,9 @@ GRAPHQL;
     }
 
     /** The current login for a GitHub user id, or null when the account is gone. */
-    public function loginForUserId(int $installationId, int $githubId): ?string
+    public function loginForUserId(int $installationId, int $githubId, bool $isTimeBounded = false): ?string
     {
-        $response = $this->installationClient($installationId)->get('https://api.github.com/user/' . $githubId);
+        $response = $this->installationClient($installationId, $isTimeBounded)->get('https://api.github.com/user/' . $githubId);
 
         if ($response->status() === 404) {
             return null;

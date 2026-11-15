@@ -21,7 +21,7 @@ class GitHubWriteAccess
     public function __construct(private AppService $github) {}
 
     /** One of 'write', 'read', 'unlinked' or 'error'. */
-    public function check(Repository $repository, User $user): string
+    public function check(Repository $repository, User $user, bool $isTimeBounded = false): string
     {
         if (! $user->hasLinkedGitHub()) {
             return 'unlinked';
@@ -35,14 +35,14 @@ class GitHubWriteAccess
 
         try {
             $installationId = (int) config('yak.channels.github.installation_id');
-            $login = $this->github->loginForUserId($installationId, (int) $user->github_id);
+            $login = $this->github->loginForUserId($installationId, (int) $user->github_id, $isTimeBounded);
             if ($login === null) {
                 $result = 'read';
             } else {
                 if ($login !== $user->github_login) {
                     $user->update(['github_login' => $login]);
                 }
-                $result = self::grantsWrite($this->github->collaboratorPermission($installationId, $repository->github_full_name, $login)) ? 'write' : 'read';
+                $result = self::grantsWrite($this->github->collaboratorPermission($installationId, $repository->github_full_name, $login, $isTimeBounded)) ? 'write' : 'read';
             }
         } catch (\Throwable $exception) {
             report($exception);

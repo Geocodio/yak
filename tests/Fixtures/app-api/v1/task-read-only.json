@@ -1,0 +1,118 @@
+{
+    "actions": {
+        "canCancel": false,
+        "canRequestReview": false,
+        "canReroute": false,
+        "canRerunReview": false,
+        "canRetry": false,
+        "canRetryRender": false,
+        "rerouteTargets": []
+    },
+    "canDrive": false,
+    "coOwner": null,
+    "composer": {
+        "buttonLabel": "Send",
+        "nextAttachmentNumber": 1,
+        "note": "Replies here and in the Linear thread land in the same conversation.",
+        "placeholder": "Reply to Yak. It will push changes to PR #41…",
+        "queued": [],
+        "state": "follow_up"
+    },
+    "deployment": null,
+    "earlyWarning": null,
+    "findings": null,
+    "media": [],
+    "pollInterval": 15000,
+    "progress": {
+        "steps": [
+            {
+                "current": false,
+                "done": true,
+                "label": "Received",
+                "tooltip": "Task landed in the queue."
+            },
+            {
+                "current": false,
+                "done": true,
+                "label": "Picked up",
+                "tooltip": "An agent has claimed the task and started setup."
+            },
+            {
+                "current": false,
+                "done": true,
+                "label": "Working",
+                "tooltip": "Agent is investigating the codebase and implementing the fix."
+            },
+            {
+                "current": false,
+                "done": true,
+                "label": "Pushed",
+                "tooltip": "Changes committed and pushed to a branch."
+            },
+            {
+                "current": false,
+                "done": true,
+                "label": "CI passing",
+                "tooltip": "Waiting for CI to verify the changes."
+            },
+            {
+                "current": false,
+                "done": true,
+                "label": "Pull request",
+                "tooltip": "Pull request opened for human review."
+            },
+            {
+                "current": true,
+                "done": true,
+                "label": "Done",
+                "tooltip": "Task complete."
+            }
+        ]
+    },
+    "questions": null,
+    "task": {
+        "attempt": 1,
+        "attemptCount": 1,
+        "branch": "yak/upgrade-payments-sdk",
+        "cost": null,
+        "duration": "—",
+        "externalId": "ENG-12",
+        "headline": "Upgrade the payments SDK",
+        "id": "k3m9p2qa",
+        "mode": "fix",
+        "model": null,
+        "nextSteps": null,
+        "pr": {
+            "number": 41,
+            "state": "open",
+            "url": "https://github.com/example/api/pull/41"
+        },
+        "repo": "example/api",
+        "repoUrl": "https://yak.example.com/repos/example/api/edit",
+        "researchArtifactUrl": null,
+        "responsible": null,
+        "runId": "k3m9p2qa",
+        "sourceLabel": "Linear",
+        "sourceUrl": "https://linear.example.com/issue/ENG-12",
+        "startedBy": "Test person",
+        "status": "success",
+        "statusLabel": "success",
+        "summary": "Upgrade the payments SDK",
+        "trigger": null,
+        "turns": 0
+    },
+    "thread": [
+        {
+            "attachments": [],
+            "bodyHtml": "<p>Upgrade the payments SDK</p>\n",
+            "fullText": null,
+            "kind": "user",
+            "meta": "Test person · via Linear · 12:00 PM",
+            "who": "Test person"
+        }
+    ],
+    "threadId": "d0e515ef",
+    "walkthrough": {
+        "status": "none"
+    }
+}

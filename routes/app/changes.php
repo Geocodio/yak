@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\App\Tasks\TaskController;
 use App\Http\Controllers\Api\App\Tasks\TaskListController;
 use App\Http\Controllers\Api\App\Threads\PullRequestController;
 use App\Http\Controllers\Api\App\Threads\ThreadDiffController;
@@ -13,3 +14,4 @@ Route::put('threads/{thread}/pull-requests/order', [PullRequestController::class
 Route::post('threads/{thread}/pull-requests/{repository}/fix', [PullRequestController::class, 'fix'])->middleware('thread.drive')->where('repository', '[0-9]{1,10}')->name('app.threads.pull-requests.fix');
 
 Route::get('tasks', TaskListController::class)->name('app.tasks.index');
+Route::get('tasks/{task}', [TaskController::class, 'show'])->name('app.tasks.show');
