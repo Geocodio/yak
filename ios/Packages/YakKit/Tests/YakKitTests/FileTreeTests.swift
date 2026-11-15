@@ -156,6 +156,23 @@ private func row(_ path: String, in snapshot: FileTreeSnapshot) -> FileTreeRow? 
         #expect(await rig.requestedPaths() == ["", "src"])
     }
 
+    @Test func aListingThatNamesItsOwnFolderDoesNotLoopForever() async throws {
+        func listing(_ path: String, _ entries: String) -> FakeTransport.Result {
+            .json(200, #"{"root":"/workspace","path":"\#(path)","entries":[\#(entries)]}"#)
+        }
+        func directory(_ name: String, _ path: String) -> String {
+            #"{"name":"\#(name)","path":"\#(path)","isDirectory":true,"isWritable":true,"size":null}"#
+        }
+        let rig = await makeRig {
+            await $0.set("", listing("", directory("src", "src") + "," + directory("top", "")))
+            await $0.set("src", listing("src", directory("src", "src") + "," + directory("up", "")))
+        }
+        await rig.tree.start()
+        await rig.tree.toggle("src")
+        let snapshot = await rig.current()
+        #expect(snapshot.rows.map(\.id) == ["src"])
+    }
+
     @Test func anEmptyFolderSaysSo() async {
         let rig = await makeRig {
             await $0.set("", root)

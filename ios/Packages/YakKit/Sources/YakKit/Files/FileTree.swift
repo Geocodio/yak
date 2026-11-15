@@ -469,9 +469,14 @@ public actor FileTree {
 
     private func rows(marked: Set<String>) -> [FileTreeRow] {
         var result: [FileTreeRow] = []
+        // A folder being listed is never listed again below itself, so a listing that names an ancestor
+        // (or the root, path "") as a child cannot recurse without end.
+        var visiting: Set<String> = [""]
         func visit(_ path: String, depth: Int) {
             guard let folder = folders[path] else { return }
-            for entry in folder.entries {
+            visiting.insert(path)
+            defer { visiting.remove(path) }
+            for entry in folder.entries where !(entry.isDirectory && visiting.contains(entry.path)) {
                 let isExpanded = entry.isDirectory && expanded.contains(entry.path)
                 let state = entry.isDirectory ? (folders[entry.path]?.state ?? .notLoaded) : nil
                 var isEmpty = false
