@@ -22,7 +22,7 @@ class YakPromptBuilder
         $repoInstructions = self::resolveRepoInstructions($task);
 
         return Prompts::render('system', [
-            'taskId' => $task->external_id,
+            'taskId' => $task->commitReference(),
             'devEnvironmentInstructions' => $devEnvironmentInstructions,
             'channelRules' => $channelRules,
             'repoInstructions' => $repoInstructions,

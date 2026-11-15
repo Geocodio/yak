@@ -449,6 +449,21 @@ class YakTask extends Model
     }
 
     /**
+     * The reference the agent puts in its commit messages. A review task's id is the pull request URL, which
+     * reads as `repo#number` here; a follow-up keeps the reference of the task it continues.
+     */
+    public function commitReference(): string
+    {
+        $id = (string) $this->external_id;
+
+        if (preg_match('#^https://github\.com/[^/]+/([^/]+)/pull/(\d+)#', $id, $match) === 1) {
+            return "{$match[1]}#{$match[2]}";
+        }
+
+        return $id;
+    }
+
+    /**
      * The first task of the follow-up conversation this task belongs to,
      * found by walking up the parents (which stay loaded on each task).
      */

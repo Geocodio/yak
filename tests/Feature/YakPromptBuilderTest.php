@@ -646,3 +646,14 @@ test('system prompt uses AGENTS.md from the repo files over the stored agent_ins
     expect($prompt)->toContain('Run pint before every commit.')
         ->not->toContain('Stored instructions');
 });
+
+it('writes a short repo and number commit reference for a review task and its follow-ups', function (string $externalId, string $reference) {
+    $task = YakTask::factory()->create(['external_id' => $externalId]);
+
+    expect(YakPromptBuilder::systemPrompt($task))->toContain("[{$reference}] Short description");
+})->with([
+    'review' => ['https://github.com/Geocodio/internal-landing/pull/11', 'internal-landing#11'],
+    'review follow-up' => ['https://github.com/Geocodio/internal-landing/pull/11-followup-27', 'internal-landing#11'],
+    'linear issue' => ['ENG-123', 'ENG-123'],
+    'teleport' => ['TELEPORT-UD9UWYPH', 'TELEPORT-UD9UWYPH'],
+]);
