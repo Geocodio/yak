@@ -38,7 +38,6 @@ class ChildAwakeLimit
     public function set(Thread $parent, int $limit): void
     {
         $parent->forceFill(['child_awake_limit' => max(1, min($limit, (int) config('yak.threads.person_awake_cap')))])->save();
-        $this->startNextQueued($parent);
     }
 
     /**

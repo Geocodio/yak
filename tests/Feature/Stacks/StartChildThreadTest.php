@@ -82,7 +82,7 @@ it('starts a child once however many times the job runs', function () {
 
 it('does not start a child in a stopped stack', function () {
     $child = spawnedChild($this->parent, ThreadKind::General);
-    $child->update(['stack_stopped_at' => now()]);
+    $this->parent->update(['stack_stopped_at' => now()]);
 
     (new StartChildThreadJob($child->id))->handle(app(ChildSpawner::class));
 

@@ -6,8 +6,10 @@ use App\Enums\StackMessageKind;
 use App\Enums\StackThreadMessageKind;
 use App\Enums\ThreadOwnerSide;
 use App\Exceptions\StackRuleViolation;
+use App\Jobs\DeliverStackNoteJob;
 use App\Models\StackThreadMessage;
 use App\Models\Thread;
+use App\Models\User;
 use App\Services\Teleport\StackMessageInbox;
 use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadSandbox;
@@ -48,6 +50,35 @@ class StackMessenger
 
         $this->deliver($to, self::frame($from, $text), $from);
         $message->forceFill(['delivered_at' => now()])->save();
+
+        return $message;
+    }
+
+    public static function personFrame(?User $person, string $text): string
+    {
+        $name = $person?->name ?? 'a person';
+
+        return "[Note from {$name}, the person driving this stack.]\n\n{$text}";
+    }
+
+    /**
+     * Stores a note from the person and queues its delivery after the commit, so the request
+     * never wakes a sandbox or starts a turn. The agent throttle does not apply to a person.
+     */
+    public function sendFromPerson(Thread $about, Thread $to, string $text, User $person): StackThreadMessage
+    {
+        $this->assertReceiverOpen($to);
+
+        $message = StackThreadMessage::query()->create([
+            'root_thread_id' => $about->rootThread()->id,
+            'from_thread_id' => $about->id,
+            'to_thread_id' => $to->id,
+            'from_user_id' => $person->id,
+            'kind' => StackThreadMessageKind::Message,
+            'text' => $text,
+        ]);
+
+        DeliverStackNoteJob::dispatch($message->id)->afterCommit();
 
         return $message;
     }

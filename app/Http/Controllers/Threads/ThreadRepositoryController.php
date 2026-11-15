@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\Threads;
 
 use App\Enums\RepositoryRole;
-use App\Enums\RepositorySetupStatus;
-use App\Events\ThreadRepositoryChanged;
 use App\Exceptions\RepositoryRoleBlocked;
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\UpdateThreadRepositoryRequest;
-use App\Jobs\RetryRepositorySetupJob;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
+use App\Services\Threads\Repos\RepositorySetupRetry;
 use App\Services\Threads\Repos\ThreadRepositoryRoles;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
@@ -34,22 +33,20 @@ class ThreadRepositoryController extends Controller
         return back();
     }
 
-    public function retry(Thread $thread, ThreadRepository $repository): RedirectResponse
+    public function retry(Thread $thread, ThreadRepository $repository, RepositorySetupRetry $setupRetry): RedirectResponse
     {
         abort_unless(Gate::allows('view', $thread), 404);
         Gate::authorize('drive', $thread);
 
-        if ($repository->isPrimary()) {
-            throw ValidationException::withMessages(['repository' => 'Only an extra repository has a setup to retry.']);
+        try {
+            $setupRetry->retry($thread, $repository);
+        } catch (ThreadActionRefused $refusal) {
+            throw ValidationException::withMessages(['repository' => match (true) {
+                $refusal->errorCode === ThreadActionRefused::THREAD_CLOSED => $refusal->getMessage(),
+                $repository->isPrimary() => 'Only an extra repository has a setup to retry.',
+                default => 'Only a failed setup can be retried.',
+            }]);
         }
-
-        if ($repository->setup_status !== RepositorySetupStatus::Failed) {
-            throw ValidationException::withMessages(['repository' => 'Only a failed setup can be retried.']);
-        }
-
-        $repository->update(['setup_status' => RepositorySetupStatus::Pending, 'setup_error' => null]);
-        ThreadRepositoryChanged::dispatch($thread, $repository);
-        RetryRepositorySetupJob::dispatch($thread, $repository);
 
         return back();
     }

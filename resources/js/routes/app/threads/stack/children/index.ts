@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::store
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:31
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:33
 * @route '/api/app/v1/threads/{thread}/stack/children'
 */
 export const store = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::store
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:31
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:33
 * @route '/api/app/v1/threads/{thread}/stack/children'
 */
 store.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::store
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:31
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:33
 * @route '/api/app/v1/threads/{thread}/stack/children'
 */
 store.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

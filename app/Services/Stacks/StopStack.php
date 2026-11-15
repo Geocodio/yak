@@ -15,7 +15,11 @@ use App\Services\Threads\ThreadTurns;
  */
 class StopStack
 {
-    public function __construct(private readonly ThreadTurns $turns, private readonly ThreadCommands $commands) {}
+    public function __construct(
+        private readonly ThreadTurns $turns,
+        private readonly ThreadCommands $commands,
+        private readonly ChildCardPublisher $cards,
+    ) {}
 
     /**
      * @return int how many threads were stopped
@@ -47,6 +51,10 @@ class StopStack
             if ($thread->isResearchChild() && $thread->isOpen()) {
                 $this->commands->kill($thread);
                 $touched = true;
+            }
+
+            if ($touched && $thread->isChild()) {
+                $this->cards->publish($thread);
             }
 
             $stopped += $touched ? 1 : 0;

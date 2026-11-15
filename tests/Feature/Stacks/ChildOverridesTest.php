@@ -24,6 +24,13 @@ beforeEach(function () {
     $this->user = User::factory()->create();
     $this->parent = Thread::factory()->ownedByDevice()->create();
     $this->child = Thread::factory()->child($this->parent)->create(['name' => 'scout']);
+    StackThreadMessage::factory()->create([
+        'root_thread_id' => $this->parent->id,
+        'from_thread_id' => $this->child->id,
+        'to_thread_id' => $this->parent->id,
+        'kind' => StackThreadMessageKind::Failure,
+        'delivered_at' => now(),
+    ]);
 });
 
 it('take over stops delivery to the parent', function () {
@@ -178,5 +185,5 @@ it('a message to a child closed by the cascade is refused', function () {
     app(ThreadCloser::class)->close($parent, 'pr_merged');
 
     expect(fn () => app(StackMessenger::class)->send($sibling, $runner->fresh(), 'Anyone there?'))->toThrow(StackRuleViolation::class, 'closed')
-        ->and(StackThreadMessage::query()->count())->toBe(0);
+        ->and(StackThreadMessage::query()->where('kind', '!=', StackThreadMessageKind::Failure)->count())->toBe(0);
 });

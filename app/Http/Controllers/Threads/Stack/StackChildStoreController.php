@@ -7,6 +7,7 @@ use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\Stack\StoreStackChildRequest;
 use App\Models\Thread;
+use App\Models\User;
 use App\Services\Stacks\StackActions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
@@ -22,10 +23,13 @@ class StackChildStoreController extends Controller
         abort_unless(Gate::allows('view', $thread), 404);
         Gate::authorize('drive', $thread);
 
+        $user = $request->user();
+        assert($user instanceof User);
+
         try {
             $child = $actions->addChild(
                 $thread,
-                $request->user() ?? abort(403),
+                $user,
                 (string) $request->validated('name'),
                 (string) $request->validated('brief'),
                 ThreadKind::from((string) $request->validated('kind')),

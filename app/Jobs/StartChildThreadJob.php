@@ -45,7 +45,7 @@ class StartChildThreadJob implements ShouldBeUnique, ShouldQueue
     {
         $child = Thread::query()->withoutGlobalScopes()->find($this->childThreadId);
 
-        if ($child === null || ! $child->isOpen() || $child->stack_stopped_at !== null) {
+        if ($child === null || ! $child->isOpen() || $child->rootThread()->stack_stopped_at !== null) {
             return;
         }
 

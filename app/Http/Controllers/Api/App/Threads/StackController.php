@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\App\Threads;
 use App\Enums\ThreadKind;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\App\StoreAppStackChildRequest;
+use App\Http\Requests\Api\App\UpdateAppStackLimitRequest;
 use App\Http\Resources\StackData;
 use App\Models\Thread;
+use App\Models\User;
 use App\Services\Stacks\StackActions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,7 +34,7 @@ class StackController extends Controller
     {
         $child = $actions->addChild(
             $thread,
-            $request->user() ?? abort(403),
+            $this->person($request),
             (string) $request->validated('name'),
             (string) $request->validated('brief'),
             ThreadKind::from((string) $request->validated('kind')),
@@ -41,5 +43,64 @@ class StackController extends Controller
         );
 
         return response()->json(['id' => $child->public_id, 'name' => $child->name], 201);
+    }
+
+    /**
+     * Stops every turn of the stack in a job; asking again while a turn still runs queues the job again.
+     */
+    public function stop(Request $request, Thread $thread, StackActions $actions): JsonResponse
+    {
+        // A hidden thread answers exactly like a missing one.
+        abort_unless(Gate::allows('view', $thread), 404);
+        Gate::authorize('drive', $thread->rootThread());
+
+        $actions->stop($thread);
+
+        return response()->json(['status' => 'stopping']);
+    }
+
+    public function limit(UpdateAppStackLimitRequest $request, Thread $thread, StackActions $actions): JsonResponse
+    {
+        $actions->setLimit($thread, (int) $request->validated('limit'));
+
+        return response()->json(['status' => 'updated', 'limit' => StackData::limit($thread->rootThread()->refresh())]);
+    }
+
+    public function takeOver(Request $request, Thread $thread, StackActions $actions): JsonResponse
+    {
+        $this->authorizeChild($thread);
+        $actions->takeOver($thread, $this->person($request));
+
+        return response()->json(['status' => 'taken_over']);
+    }
+
+    public function split(Request $request, Thread $thread, StackActions $actions): JsonResponse
+    {
+        $this->authorizeChild($thread);
+        $actions->split($thread, $this->person($request));
+
+        return response()->json(['status' => 'split_requested']);
+    }
+
+    public function drop(Request $request, Thread $thread, StackActions $actions): JsonResponse
+    {
+        $this->authorizeChild($thread);
+        $actions->drop($thread, $this->person($request));
+
+        return response()->json(['status' => 'dropped']);
+    }
+
+    private function authorizeChild(Thread $thread): void
+    {
+        abort_unless(Gate::allows('view', $thread) && $thread->isChild(), 404);
+        Gate::authorize('drive', $thread);
+    }
+
+    private function person(Request $request): User
+    {
+        $user = $request->user();
+        assert($user instanceof User);
+
+        return $user;
     }
 }
