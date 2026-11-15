@@ -1,0 +1,15 @@
+{
+  "state": "blocked",
+  "banner": {"title": "Blocked: CI is failing in example/web", "body": "Fix it before merging in order.", "tone": "danger"},
+  "openCount": 2, "totalCount": 2, "canDrive": true,
+  "pullRequests": [
+    {"rowId": 77, "repo": "example/api", "repoInitials": "AP", "role": "primary", "number": 41, "url": "https://github.com/example/api/pull/41", "title": "Retry failed uploads", "state": "open", "closedAt": null,
+     "ci": {"status": "passing", "passedChecks": 2, "totalChecks": 2, "checks": [{"name": "tests", "state": "passing", "durationSeconds": 182, "excerpt": null}]},
+     "mergeAfter": null, "siblingBlock": null, "canAskToFix": false},
+    {"rowId": 78, "repo": "example/web", "repoInitials": "WE", "role": "changes", "number": 12, "url": "https://github.com/example/web/pull/12", "title": "Retry failed uploads", "state": "open", "closedAt": null,
+     "ci": {"status": "failing", "passedChecks": 0, "totalChecks": 1, "checks": [{"name": "lint", "state": "failing", "durationSeconds": 40, "excerpt": "src/uploads.ts:3 unused import"}]},
+     "mergeAfter": {"repo": "example/api", "number": 41, "reason": null}, "siblingBlock": null, "canAskToFix": true}
+  ],
+  "withoutPullRequest": [],
+  "expectations": ["example/api opens first", "example/web waits for it"]
+}
