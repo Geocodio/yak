@@ -12,6 +12,7 @@ public struct ThreadMessage: Codable, Equatable, Sendable {
     public let sentAt: String
     public let readAfterSequence: Int?
     public let bodyHtml: String
+    public let attachments: [MessageAttachment]?
 
     public init(
         id: String,
@@ -26,7 +27,8 @@ public struct ThreadMessage: Codable, Equatable, Sendable {
         intent: String? = nil,
         sentAt: String,
         readAfterSequence: Int? = nil,
-        bodyHtml: String
+        bodyHtml: String,
+        attachments: [MessageAttachment]? = nil
     ) {
         self.id = id
         self.uuid = uuid
@@ -41,5 +43,6 @@ public struct ThreadMessage: Codable, Equatable, Sendable {
         self.sentAt = sentAt
         self.readAfterSequence = readAfterSequence
         self.bodyHtml = bodyHtml
+        self.attachments = attachments
     }
 }
