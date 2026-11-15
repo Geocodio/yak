@@ -64,3 +64,28 @@ it('runs without the feature suite fakes', function (): void {
         ->and(app(BrokerStreams::class))->toBeInstanceOf(RedisBrokerStreams::class)
         ->and(get_class(app(RepositoryConfig::class)))->toBe(RepositoryConfig::class);
 });
+
+it('runs with the environment the start script sets', function (): void {
+    $exported = [];
+    foreach (file(base_path('scripts/e2e/env.sh'), FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+        if (preg_match('/^export ([A-Z0-9_]+)=(.*)$/', $line, $matches)) {
+            $exported[$matches[1]] = $matches[2];
+        }
+    }
+
+    $phpunit = simplexml_load_file(base_path('phpunit.xml'));
+    $mirrored = 0;
+    foreach ($phpunit->php->env as $env) {
+        $name = (string) $env['name'];
+
+        if ($name === 'BCRYPT_ROUNDS' || preg_match('/^(YAK|PULSE|TELESCOPE|NIGHTWATCH|TELEMETRY|QUEUE_METRICS)_/', $name)) {
+            expect($exported)->toHaveKey($name);
+            expect($exported[$name])->toBe((string) $env['value']);
+            $mirrored++;
+        }
+    }
+
+    expect($mirrored)->toBeGreaterThan(5);
+    expect($exported['APP_ENV'])->toBe('testing');
+    expect($exported['YAK_E2E'])->toBe('true');
+});
