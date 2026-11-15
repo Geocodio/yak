@@ -7,6 +7,7 @@ use App\Enums\DiffFileStatus;
 use App\Enums\FileScope;
 use App\Enums\RunnerState;
 use App\Enums\ThreadLockHolder;
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\SaveThreadFileRequest;
 use App\Http\Resources\ThreadDiffData;
@@ -102,21 +103,32 @@ class ThreadFileController extends Controller
         $scope = FileScope::from($request->string('scope')->toString());
         $path = $request->string('path')->toString();
 
-        $outcome = $saver->save(
-            $thread,
-            $user,
-            $scope,
-            $path,
-            (string) $request->input('content'),
-            $request->string('base_sha256')->toString(),
-            $request->boolean('overwrite'),
-        );
+        try {
+            $outcome = $saver->save(
+                $thread,
+                $user,
+                $scope,
+                $path,
+                (string) $request->input('content'),
+                $request->string('base_sha256')->toString(),
+                $request->boolean('overwrite'),
+            );
+        } catch (ThreadActionRefused $refused) {
+            if ($refused->errorCode !== ThreadActionRefused::THREAD_CLOSED) {
+                throw $refused;
+            }
+
+            return response()->json(['state' => 'closed', 'message' => $refused->getMessage()], 409);
+        }
 
         if (! $outcome->saved || $outcome->written === null) {
             return response()->json($outcome->toArray(), 409);
         }
 
-        $notes->record($thread, $user, SandboxPath::resolve($thread, $scope, $path), $outcome->written->sha256);
+        if (! $outcome->unchanged) {
+            $notes->record($thread, $user, SandboxPath::resolve($thread, $scope, $path), $outcome->written->sha256);
+        }
+
         $this->sandbox->markSessionOpen($thread);
 
         $thread->refresh();

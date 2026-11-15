@@ -46,6 +46,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(StampClientProtocol::class);
+        // A saved file keeps its trailing newline and edge whitespace byte for byte.
+        $middleware->trimStrings(except: [fn (Request $request): bool => $request->isMethod('PUT') && $request->is('threads/*/files/content', 'api/app/v1/threads/*/files/content')]);
         $middleware->trustProxies(at: ['127.0.0.1', '172.16.0.0/12']);
         $middleware->alias([
             'restrict-to-ingress' => RestrictToIngress::class,

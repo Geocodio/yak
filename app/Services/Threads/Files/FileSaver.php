@@ -6,9 +6,11 @@ use App\DataTransferObjects\Files\FileContent;
 use App\DataTransferObjects\Files\SaveOutcome;
 use App\Enums\FileScope;
 use App\Exceptions\SandboxCommandFailed;
+use App\Exceptions\ThreadActionRefused;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\ThreadRecovery;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -27,6 +29,10 @@ class FileSaver
 
     public function save(Thread $thread, User $user, FileScope $scope, string $path, string $content, string $baseSha256, bool $overwrite): SaveOutcome
     {
+        if (! $thread->isOpen()) {
+            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, ThreadRecovery::CLOSED_SENTENCE);
+        }
+
         $absolute = SandboxPath::resolve($thread, $scope, $path);
 
         if (! SandboxPath::isWritable($absolute)) {
@@ -47,6 +53,10 @@ class FileSaver
 
         if (! $matches && ! $overwrite) {
             return new SaveOutcome(false, $current, null);
+        }
+
+        if ($overwrite && $current?->sha256 === hash('sha256', $content)) {
+            return new SaveOutcome(true, null, $current, unchanged: true);
         }
 
         $this->write($thread, $scope, $absolute, $content);

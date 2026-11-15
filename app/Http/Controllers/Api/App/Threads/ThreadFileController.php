@@ -4,16 +4,22 @@ namespace App\Http\Controllers\Api\App\Threads;
 
 use App\Enums\DiffFileStatus;
 use App\Enums\FileScope;
+use App\Enums\RunnerState;
+use App\Enums\ThreadLockHolder;
 use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\App\ListThreadFilesRequest;
+use App\Http\Requests\Api\App\SaveAppThreadFileRequest;
 use App\Http\Requests\Api\App\ShowThreadFileRequest;
 use App\Http\Resources\ThreadDiffData;
 use App\Models\Thread;
+use App\Services\Threads\Files\FileSaver;
+use App\Services\Threads\Files\HumanEditNotes;
 use App\Services\Threads\Files\SandboxFileAvailability;
 use App\Services\Threads\Files\SandboxFiles;
 use App\Services\Threads\Files\SandboxPath;
 use App\Services\Threads\ThreadSandbox;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 
@@ -70,7 +76,49 @@ class ThreadFileController extends Controller
         return response()->json([...$file->toArray(), 'state' => 'ready', 'canEdit' => $canEdit]);
     }
 
-    private function ensureAvailable(ListThreadFilesRequest $request, Thread $thread): void
+    /**
+     * Saves the person's edit over the file they opened. A changed file answers 409 `file_conflict` with the file on
+     * disk; a repeated save of the same content is recognised by the file itself and writes nothing twice.
+     */
+    public function update(SaveAppThreadFileRequest $request, Thread $thread, FileSaver $saver, HumanEditNotes $notes): JsonResponse
+    {
+        $this->ensureAvailable($request, $thread);
+
+        $user = $request->user() ?? abort(401);
+        $scope = FileScope::from($request->string('scope')->toString());
+        $path = $request->string('path')->toString();
+
+        $outcome = $saver->save(
+            $thread,
+            $user,
+            $scope,
+            $path,
+            (string) $request->input('content'),
+            $request->string('base_sha256')->toString(),
+            $request->boolean('overwrite'),
+        );
+
+        if (! $outcome->saved || $outcome->written === null) {
+            throw ThreadActionRefused::because(ThreadActionRefused::FILE_CONFLICT, 'The file changed since you opened it.', [
+                'state' => 'conflict',
+                'file' => $outcome->current?->toArray(),
+            ]);
+        }
+
+        if (! $outcome->unchanged) {
+            $notes->record($thread, $user, SandboxPath::resolve($thread, $scope, $path), $outcome->written->sha256);
+        }
+
+        $this->sandbox->markSessionOpen($thread);
+        $thread->refresh();
+
+        return response()->json([
+            ...$outcome->toArray(),
+            'working' => $thread->runner_state === RunnerState::Busy || $thread->lock_holder !== ThreadLockHolder::None,
+        ]);
+    }
+
+    private function ensureAvailable(FormRequest $request, Thread $thread): void
     {
         $unavailable = $this->availability->check($thread, $request->user() ?? abort(401));
 

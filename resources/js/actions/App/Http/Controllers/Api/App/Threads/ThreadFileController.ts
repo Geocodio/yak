@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::tree
-* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:32
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:38
 * @route '/api/app/v1/threads/{thread}/files'
 */
 export const tree = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ tree.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::tree
-* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:32
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:38
 * @route '/api/app/v1/threads/{thread}/files'
 */
 tree.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ tree.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::tree
-* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:32
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:38
 * @route '/api/app/v1/threads/{thread}/files'
 */
 tree.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ tree.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::tree
-* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:32
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:38
 * @route '/api/app/v1/threads/{thread}/files'
 */
 tree.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +69,7 @@ tree.head = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::show
-* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:56
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:62
 * @route '/api/app/v1/threads/{thread}/files/content'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -84,7 +84,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::show
-* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:56
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:62
 * @route '/api/app/v1/threads/{thread}/files/content'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -117,7 +117,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::show
-* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:56
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:62
 * @route '/api/app/v1/threads/{thread}/files/content'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -127,7 +127,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::show
-* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:56
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:62
 * @route '/api/app/v1/threads/{thread}/files/content'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -135,6 +135,64 @@ show.head = (args: { thread: string | { public_id: string } } | [thread: string 
     method: 'head',
 })
 
-const ThreadFileController = { tree, show }
+/**
+* @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::update
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:83
+* @route '/api/app/v1/threads/{thread}/files/content'
+*/
+export const update = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+    url: update.url(args, options),
+    method: 'put',
+})
+
+update.definition = {
+    methods: ["put"],
+    url: '/api/app/v1/threads/{thread}/files/content',
+} satisfies RouteDefinition<["put"]>
+
+/**
+* @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::update
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:83
+* @route '/api/app/v1/threads/{thread}/files/content'
+*/
+update.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return update.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\App\Threads\ThreadFileController::update
+* @see app/Http/Controllers/Api/App/Threads/ThreadFileController.php:83
+* @route '/api/app/v1/threads/{thread}/files/content'
+*/
+update.put = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+    url: update.url(args, options),
+    method: 'put',
+})
+
+const ThreadFileController = { tree, show, update }
 
 export default ThreadFileController
