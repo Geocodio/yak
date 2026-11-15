@@ -45,7 +45,8 @@ class TerminalSessionController extends Controller
 
     private function refusal(string $code): ThreadActionRefused
     {
-        [$status, $message] = self::REFUSALS[$code] ?? self::REFUSALS['forbidden'];
+        $code = array_key_exists($code, self::REFUSALS) ? $code : 'forbidden';
+        [$status, $message] = self::REFUSALS[$code];
 
         return new ThreadActionRefused($code, $message, status: $status);
     }

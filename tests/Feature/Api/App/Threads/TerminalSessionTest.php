@@ -135,6 +135,15 @@ it('answers each refusal with its code and sentence', function (string $case, in
     ['no sandbox', 409, 'no_sandbox', 'This thread has no sandbox yet.'],
 ]);
 
+it('never wakes a paused sandbox for a share recipient', function () {
+    [$thread, $user] = terminalThread(['sandbox_state' => ThreadSandboxState::Stopped]);
+    $recipient = User::factory()->create();
+    app(ThreadSharing::class)->apply($thread, $user, ThreadShareMode::People, [$recipient->id]);
+    mockEnsureAwake(null);
+
+    openAppTerminal($thread, $user, headers: phoneHeadersFor($recipient))->assertStatus(403)->assertJsonPath('error', 'forbidden');
+});
+
 it('answers a failed restore as blocked', function (ThreadSandboxState $state) {
     [$thread, $user] = terminalThread(['sandbox_state' => $state, 'blocked_reason' => ThreadBlockReason::RestoreFailed]);
     mockEnsureAwake(null);
