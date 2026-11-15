@@ -4,12 +4,17 @@ use App\Enums\ThreadShareMode;
 use App\Jobs\Push\DeleteLiveActivityChannelJob;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Push\Apns\ApnsClient;
+use App\Services\Push\Apns\ApnsConfig;
+use App\Services\Push\Apns\ApnsProviderToken;
 use App\Services\Push\LiveActivities\LiveActivityChannels;
 use App\Services\Threads\ThreadSharing;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Contracts\Queue\Job;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\ContractFixture;
 
@@ -86,13 +91,23 @@ it('names a setup problem', function () {
 });
 
 it('answers 503 after a provider token renewal without a second creation', function () {
-    fakeApns(['api-manage-broadcast.push.apple.com:2196/*' => Http::response(['reason' => 'ExpiredProviderToken'], 403)]);
+    fakeApns(['api-manage-broadcast.push.apple.com:2196/*' => Http::sequence()
+        ->push(['reason' => 'ExpiredProviderToken'], 403)
+        ->push('', 201, ['apns-channel-id' => 'dGVzdC1jaGFubmVs'])]);
     [, $thread, $headers] = channelWorld();
+    $cacheKey = 'apns:provider-token:ABC123DEFG';
+    $rejectedToken = app(ApnsProviderToken::class)->current();
+    expect(Cache::get($cacheKey))->toBe($rejectedToken);
+    $this->travel(1)->second();
 
     $this->postJson(channelPath($thread), [], $headers)->assertStatus(503)->assertJsonPath('error', 'unavailable')
         ->assertJsonPath('message', 'Apple did not answer in time. Try again in a minute.');
 
-    expect(apnsRequests('/channels'))->toHaveCount(1)->and($thread->fresh()->live_activity_channel)->toBeNull();
+    expect(apnsRequests('/channels'))->toHaveCount(1)
+        ->and($thread->fresh()->live_activity_channel)->toBeNull()
+        ->and(Cache::get($cacheKey))->not->toBe($rejectedToken);
+
+    $this->postJson(channelPath($thread), [], $headers)->assertOk()->assertExactJson(['channel' => 'dGVzdC1jaGFubmVs']);
 });
 
 it('answers 503 when Apple has no channels left', function () {
@@ -171,4 +186,28 @@ it('keeps a newer channel when an old delete finishes', function () {
     DeleteLiveActivityChannelJob::dispatchSync($thread->id, 'dGVzdC1jaGFubmVs');
 
     expect($thread->fresh()->live_activity_channel)->toBe('newer-channel');
+});
+
+it('reports a refusal to delete without the channel id and keeps the column', function () {
+    fakeApns(['api-manage-broadcast.push.apple.com:2196/*' => Http::response(['reason' => 'BadChannelId'], 400)]);
+    Exceptions::fake();
+    [, $thread] = channelWorld();
+    $thread->forceFill(['live_activity_channel' => 'dGVzdC1jaGFubmVs'])->save();
+
+    DeleteLiveActivityChannelJob::dispatchSync($thread->id, 'dGVzdC1jaGFubmVs');
+
+    Exceptions::assertReported(fn (RuntimeException $exception) => $exception->getMessage() === 'APNs refused to delete a live activity channel: status 400, reason BadChannelId.');
+    expect($thread->fresh()->live_activity_channel)->toBe('dGVzdC1jaGFubmVs');
+});
+
+it('retries a delete after the backoff of the current attempt', function () {
+    fakeApns(['api-manage-broadcast.push.apple.com:2196/*' => Http::response('', 503)]);
+    [, $thread] = channelWorld();
+    $job = new DeleteLiveActivityChannelJob($thread->id, 'dGVzdC1jaGFubmVs');
+    $queueJob = Mockery::mock(Job::class);
+    $queueJob->shouldReceive('attempts')->andReturn(2);
+    $queueJob->shouldReceive('release')->once()->with(30);
+    $job->setJob($queueJob);
+
+    $job->handle(app(ApnsClient::class), app(ApnsConfig::class));
 });

@@ -34,6 +34,7 @@ class LiveActivityChannels
     /**
      * Returns the stored channel, or creates one at Apple while holding a per-thread lock and stores it before returning.
      * A request that waited on the lock reads the column again, so concurrent callers create one channel.
+     * The lock lives 30 seconds: the worst case is two 5-second Apple calls plus a provider token renewal wait, and the lock must outlive it so a second caller never sees an empty column while the first still creates.
      *
      * @throws HttpException 503 when the lock wait runs out, Apple is slow or the channel limit is reached
      */
@@ -44,7 +45,7 @@ class LiveActivityChannels
         }
 
         try {
-            return Cache::lock("live-activity-channel:{$thread->id}", 15)->block(
+            return Cache::lock("live-activity-channel:{$thread->id}", 30)->block(
                 ShortLockWait::LOCK_WAIT_SECONDS,
                 fn (): string => $this->createOnce($thread, $repeatAfterRenewal),
             );

@@ -9,6 +9,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use RuntimeException;
 
 /**
  * Deletes a thread's channel at Apple, then clears the column only while it still holds that channel.
@@ -39,10 +40,12 @@ class DeleteLiveActivityChannelJob implements ShouldQueueAfterCommit
 
             if (! $response->isSuccess()) {
                 if ($response->isRetryable() || $response->isProviderTokenProblem()) {
-                    $this->release(5);
+                    $this->release($this->backoff()[$this->attempts() - 1] ?? 30);
 
                     return;
                 }
+
+                report(new RuntimeException("APNs refused to delete a live activity channel: status {$response->status}, reason " . ($response->reason ?? 'none') . '.'));
 
                 return;
             }
