@@ -124,6 +124,22 @@ public actor InstanceStore {
         try persist()
     }
 
+    /// The count the last unfiltered thread list reported, kept for the instance list and the app badge.
+    public func setNeedsYouCount(_ instance: UUID, _ count: Int) throws {
+        guard let index = instances.firstIndex(where: { $0.id == instance }) else {
+            throw InstanceStoreError.unknownInstance
+        }
+        let clamped = max(0, count)
+        guard instances[index].needsYouCount != clamped else { return }
+        instances[index].needsYouCount = clamped
+        try persist()
+    }
+
+    /// The sum over instances that can be used; one that needs pairing no longer asks for attention.
+    public func badgeCount() -> Int {
+        instances.filter { state(of: $0.id) == .ready }.reduce(0) { $0 + $1.needsYouCount }
+    }
+
     public func setActive(_ instance: UUID) throws {
         guard let index = instances.firstIndex(where: { $0.id == instance }) else {
             throw InstanceStoreError.unknownInstance

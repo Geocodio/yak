@@ -34,4 +34,32 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         self.running = running
         self.updatedAt = updatedAt
     }
+
+    /// Most items a widget family can show.
+    static let itemLimit = 8
+
+    /// A private thread's title is dropped here, so no later step can leak it. Tasks and threads of
+    /// unknown kinds that the app cannot show are skipped.
+    public static func make(from list: ThreadList, instanceName: String, now: Date) -> WidgetSnapshot {
+        func item(_ row: ThreadRow) -> WidgetItem {
+            WidgetItem(kind: .thread, id: row.id, title: row.isPrivate ? nil : row.title, isPrivate: row.isPrivate)
+        }
+        let needsYou: [WidgetItem] = list.needsYou.compactMap { entry in
+            switch entry {
+            case .thread(let row): item(row)
+            case .task(let task): WidgetItem(kind: .task, id: task.taskId.value, title: task.title, isPrivate: false)
+            case .unknown: nil
+            }
+        }
+        func flattened(_ rows: [ThreadRow]) -> [ThreadRow] {
+            rows.flatMap { [$0] + flattened($0.children) }
+        }
+        var seen: Set<String> = []
+        let running = flattened(list.starred + list.threads)
+            .filter { $0.status == .running && seen.insert($0.id).inserted }
+            .prefix(itemLimit).map(item)
+        return WidgetSnapshot(
+            instanceName: instanceName, needsYouCount: list.needsYouCount,
+            needsYou: Array(needsYou.prefix(itemLimit)), running: Array(running), updatedAt: now)
+    }
 }
