@@ -13,9 +13,11 @@ use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\Threads\SendKeys;
 use App\Services\Threads\ThreadSharing;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Tests\Support\ContractFixture;
 
 require_once __DIR__ . '/../../../../Support/ThreadTurnHelpers.php';
@@ -73,7 +75,7 @@ it('queues after the turn when asked', function () {
     $pending = PendingSteeringMessage::where('text', 'Then update the docs')->firstOrFail();
     expect($response->json('uuid'))->toBe($pending->uuid);
     $this->getJson(appThreadPath($thread), $headers)->assertOk()
-        ->assertJsonFragment(['uuid' => $pending->uuid, 'state' => 'pending']);
+        ->assertJsonFragment(['uuid' => $pending->uuid, 'state' => 'pending', 'mode' => 'queue', 'sendKey' => APP_SEND_KEY]);
     ContractFixture::assertMatches('app', 'thread-message-queued', $response->json(), ['uuid']);
 });
 
@@ -109,7 +111,7 @@ it('answers each refusal with 409 and its code', function () {
     $body = ['message' => 'Hello', 'send_key' => APP_SEND_KEY];
 
     $thread->forceFill(['status' => ThreadStatus::Closed])->save();
-    $this->postJson(appThreadPath($thread, '/messages'), $body, $headers)->assertStatus(409)->assertJsonPath('error', 'thread_closed');
+    $this->postJson(appThreadPath($thread, '/messages'), $body, $headers)->assertStatus(409)->assertJsonPath('error', 'thread_closed')->assertJsonPath('message', 'This thread is closed.');
 
     $thread->forceFill(['status' => ThreadStatus::Open, 'blocked_reason' => ThreadBlockReason::WaitingForRepository])->save();
     $this->postJson(appThreadPath($thread, '/messages'), $body, $headers)->assertStatus(409)
@@ -118,6 +120,50 @@ it('answers each refusal with 409 and its code', function () {
 
     $thread->forceFill(['blocked_reason' => null, 'owner_side' => ThreadOwnerSide::Device])->save();
     $this->postJson(appThreadPath($thread, '/messages'), $body, $headers)->assertStatus(409)->assertJsonPath('error', 'thread_owned_by_device');
+});
+
+it('refuses an intent and a clear while a turn runs', function () {
+    [$thread, $user] = runningThreadForApp();
+    $headers = phoneHeadersFor($user);
+
+    $this->postJson(appThreadPath($thread, '/messages'), ['message' => 'Fix it', 'send_key' => APP_SEND_KEY, 'intent' => 'fix_preview'], $headers)
+        ->assertStatus(409)->assertJsonPath('error', 'turn_running')->assertJsonPath('message', 'Claude is already working on this thread.');
+    $this->postJson(appThreadPath($thread, '/messages'), ['message' => '/clear', 'send_key' => '4d1f3c0a-2b6e-4f3a-8a55-0c8f1a9b7d22'], $headers)
+        ->assertStatus(409)->assertJsonPath('error', 'turn_running')->assertJsonPath('message', 'Stop the running turn before clearing.');
+});
+
+it('refuses a thread without tasks', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+
+    $this->postJson(appThreadPath($thread, '/messages'), ['message' => 'Hello', 'send_key' => APP_SEND_KEY], phoneHeadersFor($user))
+        ->assertStatus(409)->assertJsonPath('error', 'thread_blocked')->assertJsonPath('details.reason', 'no_task');
+});
+
+it('asks for the publish acknowledgement on a private thread', function () {
+    $user = User::factory()->create();
+    $thread = privateThreadOf($user);
+    YakTask::factory()->create(['thread_id' => $thread->id]);
+
+    $this->postJson(appThreadPath($thread, '/messages'), ['message' => 'Record it', 'send_key' => APP_SEND_KEY, 'intent' => 'record_walkthrough_and_open_pr'], phoneHeadersFor($user))
+        ->assertStatus(422)->assertJsonStructure(['details' => ['errors' => ['acknowledged_private_publish']]]);
+});
+
+it('answers a repeat that arrives mid-send with a 503 sentence, then succeeds once the lock is free', function () {
+    [$thread, $user] = idleThreadForApp();
+    $headers = phoneHeadersFor($user);
+    $body = ['message' => 'Hello', 'send_key' => APP_SEND_KEY];
+    $this->app->bind(SendKeys::class, fn () => new SendKeys(lockWaitSeconds: 0));
+    $lock = Cache::lock("thread-send-result:{$thread->id}:{$user->id}:" . APP_SEND_KEY . ':lock', 30);
+    expect($lock->get())->toBeTrue();
+
+    $this->postJson(appThreadPath($thread, '/messages'), $body, $headers)->assertStatus(503)
+        ->assertJsonPath('error', 'unavailable')
+        ->assertJsonPath('message', 'Yak is still handling this message. Try again in a moment.');
+
+    $lock->release();
+    $this->postJson(appThreadPath($thread, '/messages'), $body, $headers)->assertOk();
+    expect(ThreadTurnMessage::count())->toBe(1);
 });
 
 it('validates the message', function (array $body, string $field) {
@@ -130,6 +176,7 @@ it('validates the message', function (array $body, string $field) {
     'bad send key' => [['message' => 'Hello', 'send_key' => 'nope'], 'send_key'],
     'bad delivery' => [['message' => 'Hello', 'send_key' => APP_SEND_KEY, 'delivery' => 'later'], 'delivery'],
     'empty message' => [['message' => '', 'send_key' => APP_SEND_KEY], 'message'],
+    'too many refs' => [['message' => 'Hello', 'send_key' => APP_SEND_KEY, 'attachment_refs' => ['Image #1', 'Image #2', 'Image #3', 'Image #4', 'Image #5', 'Image #6', 'Image #7', 'Image #8', 'Image #9']], 'attachment_refs'],
     'long message' => [['message' => str_repeat('a', 20001), 'send_key' => APP_SEND_KEY], 'message'],
 ]);
 
@@ -141,6 +188,7 @@ it('lets a share recipient read but not send', function () {
     $this->postJson(appThreadPath($thread, '/messages'), ['message' => 'Hello', 'send_key' => APP_SEND_KEY], phoneHeadersFor($recipient))
         ->assertForbidden()->assertJsonPath('error', 'forbidden');
 
+    $this->getJson(appThreadPath($thread), phoneHeadersFor($recipient))->assertOk();
     expect(PendingSteeringMessage::count())->toBe(0);
 });
 

@@ -148,8 +148,14 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             $status = $e->getStatusCode();
+            // A 503 raised on purpose (a repeat that arrives while the first send runs) carries a sentence that says what to do.
+            $message = match (true) {
+                $status === 405 => 'This endpoint does not accept that method.',
+                $status === 503 && $e->getMessage() !== '' => $e->getMessage(),
+                default => 'Yak could not handle this request.',
+            };
 
-            return response()->json(['error' => ClientApi::errorCodeForStatus($status), 'message' => $status === 405 ? 'This endpoint does not accept that method.' : 'Yak could not handle this request.'], $status, $e->getHeaders());
+            return response()->json(['error' => ClientApi::errorCodeForStatus($status), 'message' => $message], $status, $e->getHeaders());
         });
         // Registered last: anything no renderer above claimed is a server error, and the client never sees HTML or the detail.
         $exceptions->render(function (Throwable $e, Request $request) {

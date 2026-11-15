@@ -13,6 +13,7 @@ class SendAppThreadMessageRequest extends SendThreadMessageRequest
     {
         return [
             ...parent::rules(),
+            'attachment_refs' => ['nullable', 'array', 'max:' . (int) config('yak.attachments.max_files')],
             'send_key' => ['required', 'uuid'],
             'delivery' => ['nullable', Rule::enum(MessageDelivery::class)],
         ];
