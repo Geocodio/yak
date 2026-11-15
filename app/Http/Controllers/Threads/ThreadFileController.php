@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers\Threads;
 
+use App\DataTransferObjects\Files\SandboxUnavailable;
 use App\Enums\DiffFileStatus;
 use App\Enums\FileScope;
 use App\Enums\RunnerState;
 use App\Enums\ThreadLockHolder;
-use App\Enums\ThreadOwnerSide;
-use App\Enums\ThreadSandboxState;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\SaveThreadFileRequest;
 use App\Http\Resources\ThreadDiffData;
 use App\Models\Thread;
 use App\Services\Threads\Files\FileSaver;
 use App\Services\Threads\Files\HumanEditNotes;
+use App\Services\Threads\Files\SandboxFileAvailability;
 use App\Services\Threads\Files\SandboxFiles;
 use App\Services\Threads\Files\SandboxPath;
 use App\Services\Threads\ThreadSandbox;
@@ -24,7 +24,7 @@ use Illuminate\Validation\Rule;
 
 class ThreadFileController extends Controller
 {
-    public function __construct(private readonly SandboxFiles $files, private readonly ThreadSandbox $sandbox) {}
+    public function __construct(private readonly SandboxFiles $files, private readonly ThreadSandbox $sandbox, private readonly SandboxFileAvailability $availability) {}
 
     public function tree(Request $request, Thread $thread): JsonResponse
     {
@@ -137,33 +137,19 @@ class ThreadFileController extends Controller
     /** A 409 `{state}` answer when the sandbox cannot serve files right now; null when it can. */
     private function unavailable(Thread $thread): ?JsonResponse
     {
-        if ($thread->owner_side === ThreadOwnerSide::Device) {
-            return response()->json(['state' => 'on_device'], 409);
+        $user = request()->user() ?? abort(401);
+        $unavailable = $this->availability->check($thread, $user);
+
+        if ($unavailable === null) {
+            return null;
         }
 
-        $canDrive = Gate::allows('drive', $thread);
+        $body = $unavailable->webBody();
 
-        switch ($thread->sandbox_state) {
-            case ThreadSandboxState::Running:
-                return null;
-            case ThreadSandboxState::None:
-            case ThreadSandboxState::Destroying:
-            case ThreadSandboxState::Destroyed:
-                return $thread->isOpen()
-                    ? response()->json(['state' => 'destroyed', 'canRestore' => $canDrive], 409)
-                    : response()->json(['state' => 'closed_destroyed'], 409);
-            case ThreadSandboxState::Starting:
-                return response()->json(['state' => 'waking', 'waitingForSlot' => false, 'restoring' => true], 409);
-            default:
-                if (! $canDrive) {
-                    return response()->json(['state' => 'waking', 'waitingForSlot' => false, 'restoring' => false], 409);
-                }
-
-                $wake = $this->sandbox->ensureAwake($thread);
-
-                return $wake->ready
-                    ? null
-                    : response()->json(['state' => 'waking', 'waitingForSlot' => $wake->waitingForSlot, 'restoring' => $wake->restoring], 409);
+        if ($unavailable->state === SandboxUnavailable::DESTROYED) {
+            $body['canRestore'] = Gate::allows('drive', $thread);
         }
+
+        return response()->json($body, 409);
     }
 }
