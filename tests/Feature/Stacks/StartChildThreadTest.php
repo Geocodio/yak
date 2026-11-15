@@ -13,6 +13,7 @@ use App\Services\Stacks\ChildSpawner;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
 use Tests\Support\FakeSessionFileSync;
 
@@ -95,4 +96,28 @@ it('drives the first turn of an HTTP spawn as the acting user', function () {
     (new StartChildThreadJob($child->id))->handle(app(ChildSpawner::class));
 
     expect(TaskRun::query()->where('thread_id', $child->id)->sole()->driver_user_id)->toBe($actor->id);
+});
+
+it('starts a child once when two starts run', function () {
+    $child = spawnedChild($this->parent, ThreadKind::Implement);
+
+    app(ChildSpawner::class)->start($child);
+    app(ChildSpawner::class)->start($child->fresh());
+
+    expect(TaskRun::query()->where('thread_id', $child->id)->count())->toBe(1);
+});
+
+it('leaves a child alone while another worker holds its start claim', function () {
+    $child = spawnedChild($this->parent, ThreadKind::Implement);
+    $claim = Cache::lock("child-start:{$child->id}", 60);
+    $claim->get();
+
+    app(ChildSpawner::class)->start($child);
+
+    expect(TaskRun::query()->where('thread_id', $child->id)->count())->toBe(0);
+
+    $claim->release();
+    app(ChildSpawner::class)->start($child->fresh());
+
+    expect(TaskRun::query()->where('thread_id', $child->id)->count())->toBe(1);
 });

@@ -17,12 +17,11 @@ use Throwable;
  * is released for 30 seconds and tried again. Only one job per child is
  * pending at a time, so a repeated add cannot start the same sandbox twice.
  *
- * The unique lock is held for as long as the job is pending, which includes
- * every 30 second wait for a slot. A dispatch for a child that is still
- * waiting is dropped until the lock frees or expires after uniqueFor() seconds,
- * so a caller that must start a queued child right away (a raised limit, a
- * freed slot) cannot rely on dispatching this job. The lock expires so that a
- * lost pending row never blocks a retry for long.
+ * The unique lock is held for as long as the job is pending and expires after
+ * uniqueFor() seconds. A dispatch dropped because a job is still pending loses
+ * nothing: that job re-checks the child every 30 seconds. ChildSpawner::start
+ * holds a per-child claim, so two jobs, or a job and a freed slot, never build
+ * the same sandbox twice even after the unique lock expired.
  */
 class StartChildThreadJob implements ShouldBeUnique, ShouldQueue
 {

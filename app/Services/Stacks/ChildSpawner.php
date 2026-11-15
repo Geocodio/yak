@@ -14,6 +14,7 @@ use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Devices\ShortLockWait;
 use App\Services\Threads\ThreadTurns;
 use App\YakPromptBuilder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -131,6 +132,22 @@ class ChildSpawner
      * turn starts; running this again later resumes it.
      */
     public function start(Thread $child): void
+    {
+        $lock = Cache::lock("child-start:{$child->id}", 900);
+
+        // Another worker is building this child's sandbox now; it starts the turn.
+        if (! $lock->get()) {
+            return;
+        }
+
+        try {
+            $this->startOnce($child);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function startOnce(Thread $child): void
     {
         if ($child->runs()->exists()) {
             return;
