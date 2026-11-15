@@ -9,12 +9,13 @@ use App\Services\Threads\ThreadSharing;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\Support\VisibilityRoutes;
+use Tests\TestCase;
 
 /**
  * @param  array{method: string, path: string, isDrive: bool, body: array<string, mixed>}  $probe
  * @param  array<string, string>  $headers
  */
-function sweepRequest(mixed $test, array $probe, string $threadKey, array $headers): TestResponse
+function sweepRequest(TestCase $test, array $probe, string $threadKey, array $headers): TestResponse
 {
     $path = '/api/app/v1' . str_replace(['{thread}', '{message}'], [$threadKey, '6f1d7c0e-5b7a-4a52-9c1e-0d2f3a4b5c6d'], $probe['path']);
 
@@ -62,7 +63,7 @@ it('answers a stranger on a private thread exactly like a missing thread', funct
 
     $missing = sweepRequest($this, $probe, 'zzzzzzzz', $headers)->assertNotFound();
     sweepRequest($this, $probe, $thread->public_id, $headers)->assertNotFound()->assertExactJson($missing->json());
-    sweepRequest($this, $probe, (string) $thread->id, $headers)->assertNotFound();
+    sweepRequest($this, $probe, (string) $thread->id, $headers)->assertNotFound()->assertExactJson($missing->json());
 })->with(array_keys(VisibilityRoutes::appThreadProbes()));
 
 it('refuses a share recipient on every action', function (string $name) {
