@@ -1,0 +1,28 @@
+{
+  "mode": "people",
+  "userIds": [
+    7
+  ],
+  "people": [
+    {
+      "id": 6,
+      "name": "Test Person",
+      "role": "Owner"
+    },
+    {
+      "id": 7,
+      "name": "Second Person",
+      "role": null
+    },
+    {
+      "id": 8,
+      "name": "Third Person",
+      "role": null
+    }
+  ],
+  "secretFiles": [
+    ".env"
+  ],
+  "memoryFolder": null,
+  "memoryFiles": []
+}

@@ -7,6 +7,8 @@ public struct ThreadShow: Codable, Equatable, Sendable {
     public let panes: ThreadPanes
     public var question: ThreadQuestion?
     public let latestSequence: Int
+    public let stackParent: StackParent?
+    public let capacity: ThreadCapacity?
 
     public init(
         thread: ThreadDetail,
@@ -16,7 +18,9 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         notice: ThreadNotice? = nil,
         panes: ThreadPanes,
         question: ThreadQuestion? = nil,
-        latestSequence: Int
+        latestSequence: Int,
+        stackParent: StackParent? = nil,
+        capacity: ThreadCapacity? = nil
     ) {
         self.thread = thread
         self.canDrive = canDrive
@@ -26,6 +30,8 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         self.panes = panes
         self.question = question
         self.latestSequence = latestSequence
+        self.stackParent = stackParent
+        self.capacity = capacity
     }
 }
 
@@ -49,6 +55,8 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
     public let isStarred: Bool
     public let ownerSide: String?
     public let preview: ThreadPreviewHints?
+    public let sharedWithCount: Int?
+    public let startedOnDevice: Bool?
 
     public init(
         id: String,
@@ -69,7 +77,9 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
         isOwner: Bool,
         isStarred: Bool,
         ownerSide: String? = nil,
-        preview: ThreadPreviewHints? = nil
+        preview: ThreadPreviewHints? = nil,
+        sharedWithCount: Int? = nil,
+        startedOnDevice: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -90,6 +100,8 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
         self.isStarred = isStarred
         self.ownerSide = ownerSide
         self.preview = preview
+        self.sharedWithCount = sharedWithCount
+        self.startedOnDevice = startedOnDevice
     }
 
     public var isPrivate: Bool { visibility == "private" }
@@ -147,5 +159,27 @@ public struct ThreadPreviewHints: Codable, Equatable, Sendable {
     public init(port: Int? = nil, personAwakeCap: Int? = nil) {
         self.port = port
         self.personAwakeCap = personAwakeCap
+    }
+}
+
+public struct CapacityCounter: Codable, Equatable, Sendable {
+    public let used: Int
+    public let limit: Int
+
+    public init(used: Int, limit: Int) {
+        self.used = used
+        self.limit = limit
+    }
+}
+
+public struct ThreadCapacity: Codable, Equatable, Sendable {
+    public let turns: CapacityCounter
+    public let sandboxes: CapacityCounter
+    public let share: CapacityCounter
+
+    public init(turns: CapacityCounter, sandboxes: CapacityCounter, share: CapacityCounter) {
+        self.turns = turns
+        self.sandboxes = sandboxes
+        self.share = share
     }
 }

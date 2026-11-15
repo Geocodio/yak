@@ -49,6 +49,7 @@ public struct ThreadRow: Codable, Equatable, Sendable {
     public let lastActivityAt: String?
     public let group: ThreadRowGroup
     public let children: [ThreadRow]
+    public let step: String?
 
     public init(
         id: String,
@@ -65,7 +66,8 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         ownerInitials: String? = nil,
         lastActivityAt: String? = nil,
         group: ThreadRowGroup,
-        children: [ThreadRow]
+        children: [ThreadRow],
+        step: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -82,6 +84,7 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         self.lastActivityAt = lastActivityAt
         self.group = group
         self.children = children
+        self.step = step
     }
 }
 

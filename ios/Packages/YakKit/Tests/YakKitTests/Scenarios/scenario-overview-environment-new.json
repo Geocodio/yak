@@ -1,0 +1,36 @@
+{
+  "sandbox": {
+    "state": "running",
+    "stateChangedAt": "2026-11-15T11:00:00+00:00"
+  },
+  "branch": null,
+  "pullRequest": null,
+  "deployment": null,
+  "account": {
+    "name": "Shared account",
+    "kind": "setup_token",
+    "isYours": false
+  },
+  "model": "sonnet",
+  "startedBy": {
+    "name": "Test Person",
+    "at": "2026-11-15T11:00:00+00:00"
+  },
+  "stoppedAfterMinutes": 30,
+  "repositories": [
+    {
+      "id": 21,
+      "repo": "example/api",
+      "role": "primary",
+      "path": "/workspace",
+      "setupStatus": "ready",
+      "setupError": null,
+      "setupOutput": null,
+      "addedBy": null,
+      "addedAt": "2026-11-15T11:00:00+00:00",
+      "isDatasetAttached": true,
+      "canMakeContextOnly": false
+    }
+  ],
+  "notUploadedDirectories": []
+}
