@@ -131,7 +131,7 @@
         "blockedReason": null,
         "branch": null,
         "id": "<volatile:string>",
-        "isOwner": false,
+        "isOwner": true,
         "isStarred": false,
         "kind": "general",
         "lastActivityAt": null,
