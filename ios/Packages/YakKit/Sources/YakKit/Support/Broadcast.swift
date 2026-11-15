@@ -18,7 +18,7 @@ public final class Broadcast<Value: Sendable>: @unchecked Sendable {
 
     public func send(_ value: Value) {
         // Yielding under the lock keeps every subscriber's last value equal to `current`. Yielding to
-        // an unbounded stream never blocks or calls `onTermination`, so the lock cannot deadlock.
+        // a stream whose consumer has ended does nothing, and `onTermination` never takes this lock inline.
         lock.withLock {
             guard !isFinished else { return }
             current = value
@@ -40,8 +40,10 @@ public final class Broadcast<Value: Sendable>: @unchecked Sendable {
                 continuation.finish()
                 return
             }
+            // A cancelled consumer ends its stream while `send` may be yielding under the lock, and the two
+            // would wait for each other, so the entry is removed from a separate task.
             continuation.onTermination = { [weak self] _ in
-                self?.lock.withLock { _ = self?.continuations.removeValue(forKey: identifier) }
+                Task { self?.lock.withLock { _ = self?.continuations.removeValue(forKey: identifier) } }
             }
         }
     }

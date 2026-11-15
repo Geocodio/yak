@@ -126,14 +126,14 @@ private func nextSnapshot(
         let cache = Cache(instance: rig.instance.id, files: rig.files, clock: rig.clock)
         await cache.saveThreadList(try decoded(ThreadList.self, "scenario-thread-list"), filter: .mine)
         let statuses = StreamRecorder(await rig.session.statuses())
-        let outbox = await rig.session.outbox()
         _ = await rig.session.openThread(threadID)
         _ = await statuses.next { $0 == .needsPairing }
         #expect(try rig.files.list(InstanceFolders.cache(rig.instance.id)).isEmpty)
         #expect(await rig.instances.state(of: rig.instance.id) == .needsPairing)
-        #expect(await outbox?.pauseReason() == .unauthorized(code: "device_revoked"))
+        #expect(await rig.session.outbox()?.pauseReason() == .unauthorized(code: "device_revoked"))
         #expect(await rig.session.openThread(threadID) == nil)
         await rig.session.stop()
+        #expect(await rig.session.outbox() == nil)
     }
 
     @Test func startWithoutATokenNeedsPairing() async throws {
@@ -343,6 +343,76 @@ private func nextSnapshot(
         try rig.tokens.setToken("new-test-token", for: rig.instance.id)
         await rig.session.start()
         _ = await statuses.next { $0 == .active }
+        await rig.session.stop()
+    }
+
+    @Test func aStopOrRevokeAtAnyPointOfStartingLeavesNoSocketOpen() async throws {
+        for revokes in [false, true] {
+            for yields in 0..<150 {
+                let rig = try await makeRig()
+                let starting = Task { await rig.session.start() }
+                for _ in 0..<yields { await Task.yield() }
+                if revokes {
+                    await rig.session.handle(.unauthorized(code: "device_revoked"))
+                } else {
+                    await rig.session.stop()
+                }
+                await starting.value
+                await rig.session.stop()
+                for _ in 0..<200 { await Task.yield() }
+                for index in 0..<(await rig.server.acceptedCount) {
+                    let connection = await rig.server.waitForConnection(index)
+                    #expect(await connection.isClosed, "revokes \(revokes), yields \(yields), socket \(index)")
+                }
+            }
+        }
+    }
+
+    @Test func theOutboxStaysReadableAfterARevokeUntilTheNextStart() async throws {
+        let messages = "POST threads/\(threadID)/messages"
+        let rig = try await startedRig { transport in
+            await transport.on(messages, revokedAnswer, try .scenario(200, "scenario-message-sent"))
+        }
+        let statuses = StreamRecorder(await rig.session.statuses())
+        let item = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Held for pairing"))
+        _ = await statuses.next { $0 == .needsPairing }
+        let paused = try #require(await rig.session.outbox())
+        #expect(await paused.pauseReason() == .unauthorized(code: "device_revoked"))
+        #expect(await paused.items().map(\.id) == [item.id])
+
+        // Pairing again keeps the instance, so its saved items are found and sent.
+        let paired = try await rig.instances.add(
+            url: rig.instance.url, name: "Example Yak", userName: "Test Person", token: "new-test-token")
+        #expect(paired.id == rig.instance.id)
+        await rig.session.start()
+        let fresh = try #require(await rig.session.outbox())
+        #expect(fresh !== paused)
+        let deliveries = StreamRecorder(await fresh.deliveries())
+        let delivery = await deliveries.next { _ in true }
+        #expect(delivery.sendKey == item.id)
+        #expect(await fresh.items().isEmpty && fresh !== paused)
+        await rig.session.stop()
+    }
+
+    @Test func aSentMessageIsNeverMissingFromItsThread() async throws {
+        let messages = "POST threads/\(threadID)/messages"
+        let rig = try await startedRig { transport in
+            await transport.on(showRoute, try showAnswer())
+            await transport.on(messages, try .scenario(200, "scenario-message-sent"))
+        }
+        await rig.transport.hold(messages)
+        let engine = try #require(await rig.session.openThread(threadID))
+        let snapshots = StreamRecorder(await engine.snapshots())
+        let item = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Please add a test"))
+        let outboxID = "outbox:\(item.id.uuidString.lowercased())"
+        _ = await nextSnapshot(snapshots, clock: rig.clock) { $0.entries.contains { $0.id == outboxID } }
+        await rig.transport.release(messages)
+        _ = await nextSnapshot(snapshots, clock: rig.clock) {
+            $0.entries.contains { if case .delivered = $0 { true } else { false } }
+        }
+        let shown = await snapshots.values
+        let first = try #require(shown.firstIndex { $0.entries.contains { $0.id == outboxID } })
+        #expect(shown[first...].allSatisfy { $0.entries.contains { $0.id == outboxID } })
         await rig.session.stop()
     }
 

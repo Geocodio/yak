@@ -11,6 +11,13 @@ private func logFailure(_ message: String) {
     #endif
 }
 
+/// One change of the outbox, in the order it happened: a delivery always comes before the list that no
+/// longer holds the delivered item.
+public enum OutboxUpdate: Equatable, Sendable {
+    case items([OutboxItem])
+    case delivery(OutboxDelivery)
+}
+
 /// Unsent messages and new threads. Each queue sends only its head, repeats a lost send with the
 /// same `send_key`, and holds everything behind a refused head until the person acts on it.
 public actor Outbox {
@@ -30,6 +37,7 @@ public actor Outbox {
     private let changeBroadcast = Broadcast<[OutboxItem]>([])
     private var deliveryReceivers: [Int: AsyncStream<OutboxDelivery>.Continuation] = [:]
     private var nextReceiver = 0
+    private var updateReceivers: [Int: AsyncStream<OutboxUpdate>.Continuation] = [:]
 
     public init(
         instance: UUID, client: APIClient, files: any FileStore, clock: any YakClock,
@@ -60,6 +68,19 @@ public actor Outbox {
         return stream
     }
 
+    /// The current list first, then every change and delivery in the order they happened.
+    public func updates() -> AsyncStream<OutboxUpdate> {
+        let (stream, continuation) = AsyncStream.makeStream(of: OutboxUpdate.self)
+        continuation.yield(.items(stored))
+        nextReceiver += 1
+        let identifier = nextReceiver
+        updateReceivers[identifier] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { await self?.dropUpdateReceiver(identifier) }
+        }
+        return stream
+    }
+
     public func pauseReason() -> OutboxPause? { pauseState }
 
     // MARK: Changing
@@ -76,7 +97,7 @@ public actor Outbox {
             stored.removeAll { $0.id == item.id }
             throw error
         }
-        changeBroadcast.send(stored)
+        announceItems()
         pump()
         return item
     }
@@ -157,7 +178,7 @@ public actor Outbox {
         } catch {
             logFailure("outbox list not saved, inbox kept: \(type(of: error))")
         }
-        changeBroadcast.send(stored)
+        announceItems()
         pump()
     }
 
@@ -170,7 +191,7 @@ public actor Outbox {
         retryTimers = [:]
         stored = []
         removeFile(InstanceFolders.outbox(instance))
-        changeBroadcast.send([])
+        announceItems()
     }
 
     private func sortByCreation() {
@@ -337,6 +358,7 @@ public actor Outbox {
         switch outcome {
         case .success(let delivery):
             for receiver in deliveryReceivers.values { receiver.yield(delivery) }
+            for receiver in updateReceivers.values { receiver.yield(.delivery(delivery)) }
             let item = stored.remove(at: index)
             publish()
             removeAttachments(of: item)
@@ -431,8 +453,14 @@ public actor Outbox {
     /// The list is saved before anyone hears of the change.
     private func publish() {
         do { try persist() } catch { logFailure("outbox list not saved: \(type(of: error))") }
+        announceItems()
+    }
+
+    private func announceItems() {
         changeBroadcast.send(stored)
+        for receiver in updateReceivers.values { receiver.yield(.items(stored)) }
     }
 
     private func dropReceiver(_ identifier: Int) { deliveryReceivers[identifier] = nil }
+    private func dropUpdateReceiver(_ identifier: Int) { updateReceivers[identifier] = nil }
 }

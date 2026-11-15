@@ -198,6 +198,26 @@ private struct Harness {
         #expect(await transport.requests(on: threadRoute).count == 2)
     }
 
+    @Test func changesAndDeliveriesShareOneOrderedStream() async throws {
+        let harness = Harness()
+        let (transport, outbox) = (harness.transport, harness.outbox)
+        await transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
+        await transport.hold(threadRoute)
+        let updates = StreamRecorder(await outbox.updates())
+        let item = try await outbox.enqueue(draft("Ordered"))
+        await transport.waitForRequests(1, on: threadRoute)
+        await transport.release(threadRoute)
+        _ = await updates.next { if case .delivery = $0 { true } else { false } }
+        _ = await updates.next { if case .items(let items) = $0 { items.isEmpty } else { false } }
+        let shown = await updates.values
+        let deliveryIndex = try #require(shown.firstIndex { if case .delivery = $0 { true } else { false } })
+        let firstWithItem = try #require(
+            shown.firstIndex { if case .items(let list) = $0 { list.contains { $0.id == item.id } } else { false } })
+        let emptyAfter = try #require(
+            shown[firstWithItem...].firstIndex { if case .items(let list) = $0 { list.isEmpty } else { false } })
+        #expect(deliveryIndex < emptyAfter)
+    }
+
     @Test func editAndRemoveFollowTheRules() async throws {
         // queued
         let queued = Harness()

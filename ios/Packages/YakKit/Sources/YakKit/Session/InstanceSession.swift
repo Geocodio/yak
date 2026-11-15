@@ -141,6 +141,7 @@ public actor InstanceSession {
             statusBroadcast.send(.needsPairing)
             return
         }
+        currentOutbox = nil
         statusBroadcast.send(.starting)
         let transport = SessionTransport(wrapping: environment.http) { [weak self] signal in
             Task { await self?.handle(signal) }
@@ -207,7 +208,7 @@ public actor InstanceSession {
         do { try await instances.update(instance.id, from: me) } catch {
             logFailure("instance not updated: \(type(of: error))")
         }
-        guard runID == run, !hasEnded, let client else { return }
+        guard isCurrent(run), let client else { return }
         let configuration = RealtimeConfiguration(
             me.realtime, appVersion: environment.appVersion, allowsInsecure: environment.allowsInsecureRealtime)
         let newRealtime = RealtimeClient(
@@ -217,13 +218,14 @@ public actor InstanceSession {
             }, clock: environment.clock)
         realtime = newRealtime
         let states = await newRealtime.states()
+        guard isCurrent(run) else { return await abandon(newRealtime) }
         let broadcast = connectionBroadcast
         connectionForwarder = Task {
             for await state in states { broadcast.send(state) }
         }
         for id in threads.keys {
             let forwarder = await realtimeForwarder(thread: id, realtime: newRealtime)
-            guard runID == run, var entry = threads[id] else {
+            guard isCurrent(run), var entry = threads[id] else {
                 forwarder.cancel()
                 continue
             }
@@ -231,7 +233,19 @@ public actor InstanceSession {
             entry.realtimeForwarder = forwarder
             threads[id] = entry
         }
+        // A stop or a revoke during the awaits above has already cleared `realtime` and the forwarders, so
+        // nothing owns this client any more and it must not run.
+        guard isCurrent(run) else { return await abandon(newRealtime) }
         await newRealtime.start()
+        if !isCurrent(run) { await abandon(newRealtime) }
+    }
+
+    /// False once a stop, a start or an ending (a revoke included) has replaced the run.
+    private func isCurrent(_ run: Int) -> Bool { runID == run && !hasEnded }
+
+    private func abandon(_ client: RealtimeClient) async {
+        if realtime === client { realtime = nil }
+        await client.stop()
     }
 
     /// Asks `me` again by the outbox's schedule until it answers.
@@ -275,10 +289,12 @@ public actor InstanceSession {
     }
 
     /// Stops the outbox's work and drops everything the session built; the outbox items stay on disk.
-    private func releaseParts() async {
+    /// After a revoke the shut-down outbox stays readable, so the pairing screen can say why messages are
+    /// held, until the next `start()` replaces it.
+    private func releaseParts(keepingOutbox: Bool = false) async {
         await currentOutbox?.shutDown()
         cache = nil
-        currentOutbox = nil
+        if !keepingOutbox { currentOutbox = nil }
         feed = nil
         realtime = nil
         client = nil
@@ -318,7 +334,7 @@ public actor InstanceSession {
             await currentOutbox?.pause(.unauthorized(code: code))
             await tearDown(closingThreads: true)
             await eraseCache()
-            await releaseParts()
+            await releaseParts(keepingOutbox: true)
             isStarted = false
             statusBroadcast.send(.needsPairing)
         case .appTooOld(let minimum):
@@ -395,18 +411,22 @@ public actor InstanceSession {
         }
     }
 
+    /// One task reads the outbox's changes and deliveries from a single stream, so the engine hears of a
+    /// delivery before the list that no longer holds the delivered item.
     private func outboxForwarders(thread id: String, engine: ThreadEngine) async -> [Task<Void, Never>] {
         guard let currentOutbox else { return [] }
-        let changes = await currentOutbox.changes()
-        let deliveries = await currentOutbox.deliveries()
+        let updates = await currentOutbox.updates()
         let target = OutboxTarget.thread(id)
         return [
             Task {
-                for await items in changes { await engine.outboxChanged(items.filter { $0.target == target }) }
-            },
-            Task {
-                for await delivery in deliveries where delivery.target == target { await engine.delivered(delivery) }
-            },
+                for await update in updates {
+                    switch update {
+                    case .items(let items): await engine.outboxChanged(items.filter { $0.target == target })
+                    case .delivery(let delivery) where delivery.target == target: await engine.delivered(delivery)
+                    case .delivery: break
+                    }
+                }
+            }
         ]
     }
 
