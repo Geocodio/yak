@@ -74,10 +74,10 @@ class LiveActivities
     {
         DeviceLiveActivity::query()->where('thread_id', $thread->id)->delete();
 
+        $this->forgetPendingStep($thread);
+
         try {
-            Cache::forget(self::stepKey($thread));
             Cache::forget(self::windowKey($thread));
-            Cache::forget(self::pendingKey($thread));
         } catch (Throwable $exception) {
             report($exception);
         }
@@ -96,9 +96,23 @@ class LiveActivities
         $label = LiveActivitySteps::forWaiting($reason);
 
         if ($label !== null) {
+            $this->forgetPendingStep($thread);
             $this->update($thread, LiveActivityState::Working, $label, 10);
         } elseif (LiveActivitySteps::needsPerson($reason)) {
             $this->end($thread, LiveActivityState::NeedsYou);
+        }
+    }
+
+    /**
+     * Drops the remembered label and any held-back update, so a queued step job sends nothing over a newer state and the next tool label always goes out.
+     */
+    private function forgetPendingStep(Thread $thread): void
+    {
+        try {
+            Cache::forget(self::stepKey($thread));
+            Cache::forget(self::pendingKey($thread));
+        } catch (Throwable $exception) {
+            report($exception);
         }
     }
 

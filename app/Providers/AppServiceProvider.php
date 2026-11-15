@@ -5,10 +5,7 @@ namespace App\Providers;
 use App\Agents\BrokerAgentRunner;
 use App\Contracts\AgentRunner;
 use App\Models\Device;
-use App\Models\Thread;
 use App\Models\User;
-use App\Observers\ThreadBlockedPushObserver;
-use App\Observers\ThreadLiveActivityObserver;
 use App\Services\AppDiskUsage;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxPoolUsage;
@@ -106,9 +103,6 @@ class AppServiceProvider extends ServiceProvider
         // Flux previously registered this namespace so `<x-layouts::auth.simple>`
         // resolves to resources/views/layouts/auth/simple.blade.php.
         Blade::anonymousComponentNamespace('layouts', 'layouts');
-
-        Thread::observe(ThreadBlockedPushObserver::class);
-        Thread::observe(ThreadLiveActivityObserver::class);
 
         // Listeners in app/Listeners are auto-discovered. Registering
         // RecordAiUsage here as well made every AI SDK call write two

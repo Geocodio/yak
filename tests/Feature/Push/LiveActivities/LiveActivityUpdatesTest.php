@@ -152,6 +152,48 @@ it('sends at most one step update per 15 seconds', function () {
 
     fireTool($this->thread, 'Edit');
     Queue::assertPushed(SendPendingStepUpdateJob::class, 1);
+    Queue::assertPushed(BroadcastLiveActivityJob::class, 1);
+
+    Cache::forget(LiveActivities::pendingKey($this->thread));
+    fireTool($this->thread, 'Edit');
+    Queue::assertPushed(SendPendingStepUpdateJob::class, 1);
+});
+
+it('reports a cache failure and skips the step update', function () {
+    Queue::fake();
+    Exceptions::fake();
+    Cache::shouldReceive('get')->andThrow(new RuntimeException('cache down'));
+
+    fireTool($this->thread, 'Bash');
+
+    Exceptions::assertReported(fn (RuntimeException $exception) => $exception->getMessage() === 'cache down');
+    Queue::assertNothingPushed();
+});
+
+it('sends nothing from a pending job without a stored label', function () {
+    Queue::fake()->except(BroadcastLiveActivityJob::class);
+
+    (new SendPendingStepUpdateJob($this->thread->id))->handle(app(LiveActivities::class));
+
+    expect(apnsRequests('/4/broadcasts/'))->toBeEmpty();
+});
+
+it('lets a waiting update replace a held-back step and the next tool label through', function () {
+    Queue::fake()->except(BroadcastLiveActivityJob::class);
+    fireTool($this->thread, 'Bash');
+    $this->travel(3)->seconds();
+    fireTool($this->thread, 'Read');
+
+    $this->thread->update(['blocked_reason' => ThreadBlockReason::WaitingForSandbox]);
+    $this->travel(12)->seconds();
+    (new SendPendingStepUpdateJob($this->thread->id))->handle(app(LiveActivities::class));
+
+    expect(broadcasts())->toHaveCount(2)->and(broadcasts()[1]['aps']['content-state']['step'])->toBe('Waiting for a sandbox');
+
+    $this->travel(16)->seconds();
+    fireTool($this->thread, 'Read');
+
+    expect(broadcasts()[2]['aps']['content-state']['step'])->toBe('Reading files');
 });
 
 it('sends the latest step at the window end', function () {
