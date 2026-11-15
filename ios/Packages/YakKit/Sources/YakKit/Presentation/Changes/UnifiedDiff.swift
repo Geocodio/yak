@@ -77,7 +77,7 @@ public enum UnifiedDiff {
                 String(decoding: line.dropFirst(count), as: UTF8.self)
             }
 
-            if first == at, line.starts(with: [at, at, space, minus]) {
+            if first == at, line.starts(with: [at, at]) {
                 isInsideHunk = true
                 if let header = parseHunkHeader(line) {
                     hunkCount += 1
@@ -126,6 +126,7 @@ public enum UnifiedDiff {
     /// Reads `@@ -a[,b] +c[,d] @@ section`. Nil when the header is malformed.
     private static func parseHunkHeader(_ line: Substring.UTF8View) -> (oldStart: Int, newStart: Int, section: String)?
     {
+        guard line.starts(with: [at, at, space, minus]) else { return nil }
         var index = line.index(line.startIndex, offsetBy: 4)
 
         func number() -> Int? {

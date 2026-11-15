@@ -48,11 +48,22 @@ private struct PatchFile: Decodable {
     }
 
     @Test func aBrokenHeaderDoesNotStopTheParse() {
-        let parsed = UnifiedDiff.parse("@@ -nonsense @@\n+x\n@@ -3 +3 @@\n+y\n")
-        #expect(parsed.rows[0] == DiffRow(id: 0, kind: .context, oldLine: nil, newLine: nil, text: "@@ -nonsense @@"))
+        let parsed = UnifiedDiff.parse("@@ nonsense @@\n+x\n@@ -3 +3 @@\n+y\n")
+        #expect(parsed.rows[0] == DiffRow(id: 0, kind: .context, oldLine: nil, newLine: nil, text: "@@ nonsense @@"))
         #expect(parsed.rows[1].kind == .added && parsed.rows[1].newLine == nil && parsed.rows[1].text == "x")
         #expect(parsed.rows[3].newLine == 3)
         #expect(parsed.hunkCount == 1)
+    }
+
+    @Test func aBrokenHeaderOutsideAHunkStartsOne() {
+        let parsed = UnifiedDiff.parse("@@ nonsense @@\n+x\n")
+        #expect(parsed.rows.map(\.kind) == [.context, .added])
+        #expect(parsed.rows[1].newLine == nil && parsed.rows[1].text == "x")
+    }
+
+    @Test func aBrokenHeaderInsideAHunkClearsTheNumbers() {
+        let parsed = UnifiedDiff.parse("@@ -1 +1 @@\n a\n@@ nonsense @@\n b\n")
+        #expect(parsed.rows[3].oldLine == nil && parsed.rows[3].newLine == nil)
     }
 
     @Test func hugeNumbersDoNotTrap() {
