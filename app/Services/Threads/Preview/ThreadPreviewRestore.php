@@ -8,6 +8,7 @@ use App\Enums\ThreadOwnerSide;
 use App\Exceptions\ThreadActionRefused;
 use App\Jobs\Threads\RestoreThreadPreviewJob;
 use App\Models\Thread;
+use App\Services\Threads\ThreadRecovery;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
@@ -35,6 +36,29 @@ final class ThreadPreviewRestore
                 ->exists();
     }
 
+    public static function dispatchKey(Thread $thread): string
+    {
+        return "thread-preview:restore:{$thread->id}";
+    }
+
+    /**
+     * True while a preview restore step runs or its dispatch key is set. A cache that is down reads as not dispatched.
+     */
+    public function isInFlight(Thread $thread): bool
+    {
+        if ($this->isRunning($thread)) {
+            return true;
+        }
+
+        try {
+            return Cache::has(self::dispatchKey($thread));
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
+    }
+
     /**
      * Starts a preview restore of a destroyed sandbox, or retries a failed one whatever the sandbox state.
      * False when one already runs or was just dispatched; the result arrives through status and the `thread` event.
@@ -53,11 +77,11 @@ final class ThreadPreviewRestore
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_OWNED_BY_DEVICE, 'This thread runs on a local machine.');
         }
 
-        if ($this->isRunning($thread)) {
+        if ($this->isRunning($thread) || ThreadRecovery::isRestoreQueued($thread)) {
             return false;
         }
 
-        $key = "thread-preview:restore:{$thread->id}";
+        $key = self::dispatchKey($thread);
 
         try {
             if (Cache::has($key)) {

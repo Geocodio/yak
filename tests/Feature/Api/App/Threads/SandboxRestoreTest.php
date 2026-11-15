@@ -2,15 +2,18 @@
 
 use App\DataTransferObjects\SandboxWake;
 use App\Enums\EvictionReason;
+use App\Enums\RestoreStepStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSandboxState;
 use App\Jobs\RetryThreadRestoreJob;
+use App\Jobs\Threads\RestoreThreadPreviewJob;
 use App\Models\Thread;
 use App\Models\ThreadRestoreStep;
 use App\Models\User;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\FakeSandboxManager;
+use App\Services\Threads\Preview\ThreadPreviewRestore;
 use App\Services\Threads\SandboxCapacity;
 use App\Services\Threads\SandboxRestorer;
 use App\Services\Threads\ThreadRecovery;
@@ -18,6 +21,7 @@ use App\Services\Threads\ThreadSandbox;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\Job as QueueJob;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\TestResponse;
@@ -272,4 +276,39 @@ it('keeps the sandbox lock longer than the restore job timeout', function () {
 
 it('adds the restore guard column', function () {
     expect(Schema::hasColumn('threads', 'restore_requested_at'))->toBeTrue();
+});
+
+it('does not start a terminal restore while a preview restore runs or is dispatched', function () {
+    Queue::fake();
+    [$thread, $user] = removedSandboxThread();
+    ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'status' => RestoreStepStatus::Running, 'started_at' => now()->subMinute()]);
+
+    postRestore($thread, $user)->assertOk();
+
+    Queue::assertNothingPushed();
+    expect($thread->fresh()->restore_requested_at)->toBeNull();
+
+    ThreadRestoreStep::query()->delete();
+    Cache::put(ThreadPreviewRestore::dispatchKey($thread), true, 300);
+
+    postRestore($thread, $user)->assertOk();
+
+    Queue::assertNothingPushed();
+});
+
+it('does not start a preview restore while a terminal restore is queued, and starts one once it is stale', function () {
+    Queue::fake();
+    [$thread, $user] = removedSandboxThread();
+
+    postRestore($thread, $user)->assertOk();
+    $previewRestore = fn () => test()->postJson(appThreadPath($thread, '/preview/restore'), [], phoneHeadersFor($user));
+    $previewRestore()->assertStatus(202);
+
+    Queue::assertPushed(RetryThreadRestoreJob::class, 1);
+    Queue::assertNotPushed(RestoreThreadPreviewJob::class);
+
+    $this->travel(ThreadRecovery::RESTORE_GUARD_SECONDS + 5)->seconds();
+    $previewRestore()->assertStatus(202);
+
+    Queue::assertPushed(RestoreThreadPreviewJob::class, 1);
 });

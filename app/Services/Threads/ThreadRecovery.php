@@ -13,6 +13,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Services\Devices\ShortLockWait;
 use App\Services\Teleport\ThreadNotOwnedByYak;
+use App\Services\Threads\Preview\ThreadPreviewRestore;
 
 /**
  * Getting a thread going again: continue after a guard stop and retry a failed restore.
@@ -93,7 +94,7 @@ class ThreadRecovery
                 return false;
             }
 
-            if (self::isRestoreQueued($locked)) {
+            if (self::isRestoreQueued($locked) || app(ThreadPreviewRestore::class)->isInFlight($locked)) {
                 return false;
             }
 
