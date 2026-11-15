@@ -9,6 +9,7 @@ use App\Exceptions\TeleportError;
 use App\Models\Device;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -74,5 +75,8 @@ class OwnershipMover
             $thread->setRawAttributes($lockedThread->getAttributes(), true);
             $teleport->setRawAttributes($lockedTeleport->getAttributes(), true);
         });
+
+        // Open pages reload on this event, so the page follows the thread to its new side.
+        app(ThreadEventPublisher::class)->appendThreadState($thread->id);
     }
 }

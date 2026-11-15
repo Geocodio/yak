@@ -55,7 +55,7 @@ export function LocalTurnsFold({ threadId, localTurns, modelLabels = {} }: { thr
     const loadEarlier = () => {
         setIsLoading(true);
         setFailed(false);
-        fetchJsonWithRetry<{ turns: LocalTurn[]; hasMore: boolean }>(`/threads/${threadId}/local-turns?before=${turns[0].id}&limit=${PAGE_SIZE}`)
+        fetchJsonWithRetry<{ turns: LocalTurn[]; hasMore: boolean }>(`/threads/${threadId}/local-turns?stint=${localTurns.stintId}&before=${turns[0].id}&limit=${PAGE_SIZE}`)
             .then((page) => {
                 setTurns((current) => [...page.turns, ...current]);
                 setHasMore(page.hasMore);

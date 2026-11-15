@@ -16,7 +16,7 @@ export type PanelProps = {
     /** Catalog label of each model id and family alias. */
     modelLabels?: Record<string, string>;
     accountName?: string | null;
-    environmentSwitch?: TeleportData['environmentSwitch'];
+    environmentSwitch?: TeleportData['environmentSwitches'][number] | null;
     /** The thread's stack, loaded once by the page; null until it arrives. */
     stack?: StackData | null;
     reloadStack?: () => void;

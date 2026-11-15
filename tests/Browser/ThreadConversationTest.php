@@ -52,6 +52,12 @@ it('places a read message at readAfterSequence and a live read one after the ans
     threadMergePage()->assertScript(threadMergeScript("[{$anchored},{$live}]", "['b']", $items), '["i1","i2","a","i3","b"]');
 });
 
+it('places a message anchored between two items before the next item', function () use ($person, $event) {
+    $anchored = str_replace(["state:'pending'", 'readAfterSequence:null'], ["state:'read'", 'readAfterSequence:12'], $person);
+    $items = '[' . implode(',', array_map($event, [9, 15])) . ']';
+    threadMergePage()->assertScript(threadMergeScript("[{$anchored}]", '[]', $items), '["i9","a","i15"]');
+});
+
 it('keeps the person\'s messages in send order when an earlier one was read later', function () use ($person, $event) {
     $first = str_replace(["state:'pending'", 'readAfterSequence:null'], ["state:'read'", 'readAfterSequence:3'], $person);
     $second = str_replace(["'a'", "'m-a'", '00:00:00Z', "state:'pending'", 'readAfterSequence:null'], ["'b'", "'m-b'", '00:00:30Z', "state:'read'", 'readAfterSequence:1'], $person);

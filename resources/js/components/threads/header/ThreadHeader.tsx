@@ -47,7 +47,8 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
     const isDesktop = useMediaQuery('(min-width: 1024px)');
     const isOpen = thread.status === 'open';
     const canStar = thread.parentThreadId === null;
-    const canOpenPullRequest = canDrive && isOpen && pullRequest === null && diffTotals !== null;
+    // A thread on the person's computer cannot push or open a pull request from Yak.
+    const canOpenPullRequest = canDrive && isOpen && pullRequest === null && diffTotals !== null && composer.state !== 'disabled_computer';
     const showOpenPullRequest = isDesktop && canOpenPullRequest;
     const actions = useMemo(
         () =>

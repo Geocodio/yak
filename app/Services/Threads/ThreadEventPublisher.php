@@ -153,7 +153,7 @@ class ThreadEventPublisher
     }
 
     /**
-     * @return array{status: string, sandboxState: string, runnerState: string, blockedReason: string|null, pullRequestOpening: 'opening'|'failed'|null}
+     * @return array{status: string, sandboxState: string, runnerState: string, blockedReason: string|null, pullRequestOpening: 'opening'|'failed'|null, ownerSide: string}
      */
     private function threadState(int $threadId): array
     {
@@ -165,6 +165,7 @@ class ThreadEventPublisher
             'runnerState' => $thread->runner_state->value,
             'blockedReason' => $thread->blocked_reason?->value,
             'pullRequestOpening' => app(PullRequestOpening::class)->flag($threadId),
+            'ownerSide' => $thread->owner_side->value,
         ];
     }
 }

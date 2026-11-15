@@ -89,42 +89,42 @@ it('groups the uploaded transcript into turns and stops at the teleport', functi
     [$thread, $user] = teleportedThread();
 
     $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page
-        ->where('localTurns.count', 2)
-        ->where('localTurns.firstPromptText', 'Find the **duplicate** plan')
-        ->where('localTurns.startedAt', '2026-11-13T16:12:00Z')
-        ->where('localTurns.endedAt', '2026-11-14T09:00:00Z')
-        ->where('localTurns.hasMore', false)
-        ->where('localTurns.authorInitials', 'MH')
-        ->has('localTurns.turns', 2)
-        ->where('localTurns.turns.0.html', "<p>Find the <strong>duplicate</strong> plan</p>\n")
-        ->has('localTurns.turns.0.items', 2)
-        ->where('localTurns.turns.0.items.0.kind', 'tools')
-        ->has('localTurns.turns.0.items.0.steps', 3)
-        ->where('localTurns.turns.0.items.0.steps.0.category', 'command')
-        ->where('localTurns.turns.0.items.0.steps.0.content.output', 'found with key [redacted]')
-        ->where('localTurns.turns.0.items.0.steps.1.failed', true)
-        ->where('localTurns.turns.0.items.0.steps.2.label', 'Agent: Explore pricing')
-        ->where('localTurns.turns.0.items.1.kind', 'text')
-        ->where('localTurns.turns.0.items.1.html', "<p>It is <code>PlanCatalog</code>.</p>\n")
-        ->where('localTurns.turns.1.text', 'Fix it'));
+        ->where('localTurns.0.count', 2)
+        ->where('localTurns.0.firstPromptText', 'Find the **duplicate** plan')
+        ->where('localTurns.0.startedAt', '2026-11-13T16:12:00Z')
+        ->where('localTurns.0.endedAt', '2026-11-14T09:00:00Z')
+        ->where('localTurns.0.hasMore', false)
+        ->where('localTurns.0.authorInitials', 'MH')
+        ->has('localTurns.0.turns', 2)
+        ->where('localTurns.0.turns.0.html', "<p>Find the <strong>duplicate</strong> plan</p>\n")
+        ->has('localTurns.0.turns.0.items', 2)
+        ->where('localTurns.0.turns.0.items.0.kind', 'tools')
+        ->has('localTurns.0.turns.0.items.0.steps', 3)
+        ->where('localTurns.0.turns.0.items.0.steps.0.category', 'command')
+        ->where('localTurns.0.turns.0.items.0.steps.0.content.output', 'found with key [redacted]')
+        ->where('localTurns.0.turns.0.items.0.steps.1.failed', true)
+        ->where('localTurns.0.turns.0.items.0.steps.2.label', 'Agent: Explore pricing')
+        ->where('localTurns.0.turns.0.items.1.kind', 'text')
+        ->where('localTurns.0.turns.0.items.1.html', "<p>It is <code>PlanCatalog</code>.</p>\n")
+        ->where('localTurns.0.turns.1.text', 'Fix it'));
 });
 
 it('opens on the latest ten turns and pages earlier ones', function () {
     [$thread, $user] = teleportedThread(40);
 
     $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page
-        ->where('localTurns.count', 42)
-        ->where('localTurns.hasMore', true)
-        ->has('localTurns.turns', 10)
-        ->where('localTurns.turns.0.id', 33));
+        ->where('localTurns.0.count', 42)
+        ->where('localTurns.0.hasMore', true)
+        ->has('localTurns.0.turns', 10)
+        ->where('localTurns.0.turns.0.id', 33));
 
-    $this->actingAs($user)->getJson(route('threads.local-turns', ['thread' => $thread, 'before' => 33, 'limit' => 25]))
+    $this->actingAs($user)->getJson(route('threads.local-turns', ['thread' => $thread, 'stint' => Teleport::query()->where('thread_id', $thread->id)->value('id'), 'before' => 33, 'limit' => 25]))
         ->assertOk()
         ->assertJsonCount(25, 'turns')
         ->assertJsonPath('turns.0.id', 8)
         ->assertJsonPath('hasMore', true);
 
-    $this->actingAs($user)->getJson(route('threads.local-turns', ['thread' => $thread, 'before' => 8, 'limit' => 25]))
+    $this->actingAs($user)->getJson(route('threads.local-turns', ['thread' => $thread, 'stint' => Teleport::query()->where('thread_id', $thread->id)->value('id'), 'before' => 8, 'limit' => 25]))
         ->assertJsonCount(7, 'turns')
         ->assertJsonPath('hasMore', false);
 });
@@ -133,7 +133,7 @@ it('shows nothing without a completed teleport up', function () {
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['owner_user_id' => $user->id]);
 
-    $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page->where('localTurns', null));
+    $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page->where('localTurns', []));
 });
 
 it('gives nothing to a person who cannot read the thread', function () {
@@ -141,6 +141,38 @@ it('gives nothing to a person who cannot read the thread', function () {
     $thread->update(['visibility' => ThreadVisibility::Private]);
     $stranger = User::factory()->create();
 
-    $this->actingAs($stranger)->getJson(route('threads.local-turns', ['thread' => $thread, 'before' => 3]))->assertNotFound();
+    $this->actingAs($stranger)->getJson(route('threads.local-turns', ['thread' => $thread, 'stint' => Teleport::query()->where('thread_id', $thread->id)->value('id'), 'before' => 3]))->assertNotFound();
     $this->actingAs($stranger)->get(route('threads.show', $thread))->assertNotFound();
+});
+
+it('shows the stretch from every later move to the computer, cut at each side', function () {
+    [$thread, $user] = teleportedThread();
+    $path = LOCAL_SESSION . '.jsonl';
+    $store = app(SessionStore::class);
+    $yakEnd = (int) $store->files($thread, LOCAL_SESSION)[0]['length'];
+
+    Teleport::factory()->down()->inState(TeleportState::Completed)->create([
+        'thread_id' => $thread->id,
+        'user_id' => $user->id,
+        'session_id' => LOCAL_SESSION,
+        'completed_at' => '2026-11-14 12:00:00',
+        'manifest' => ['session' => ['session_id' => LOCAL_SESSION, 'files' => [['rel_path' => $path, 'length' => $yakEnd, 'sha256' => null]]]],
+    ]);
+    $laptop = jsonl([['type' => 'user', 'timestamp' => '2026-11-14T13:00:00Z', 'message' => ['role' => 'user', 'content' => 'Laptop again']], ['type' => 'assistant', 'message' => ['content' => [['type' => 'text', 'text' => 'Sure']]]]]);
+    $store->append($thread, LOCAL_SESSION, $path, $yakEnd, $laptop, hash('sha256', $laptop), hash('sha256', substr($store->read($thread, LOCAL_SESSION, $path), -256)));
+    Teleport::factory()->up()->inState(TeleportState::Completed)->create([
+        'thread_id' => $thread->id,
+        'user_id' => $user->id,
+        'session_id' => LOCAL_SESSION,
+        'completed_at' => '2026-11-14 14:00:00',
+        'payload' => ['uploaded_files' => [['rel_path' => $path, 'length' => $yakEnd + strlen($laptop), 'sha256' => null]]],
+    ]);
+
+    $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page
+        ->has('localTurns', 2)
+        ->where('localTurns.0.movedAt', null)
+        ->where('localTurns.0.count', 2)
+        ->where('localTurns.1.movedAt', '2026-11-14T12:00:00+00:00')
+        ->where('localTurns.1.count', 1)
+        ->where('localTurns.1.turns.0.text', 'Laptop again'));
 });

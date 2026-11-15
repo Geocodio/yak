@@ -217,7 +217,7 @@ class TeleportUpCompleter
     {
         try {
             $task = YakTask::query()->where('thread_id', $thread->id)->orderBy('id')->firstOrFail();
-            app(ThreadTurns::class)->start($task, $prompt, $teleport->user, null);
+            app(ThreadTurns::class)->start($task, $prompt, $teleport->user, null, shownText: filled($teleport->message) ? $teleport->message : null);
 
             return true;
         } catch (Throwable $exception) {

@@ -103,18 +103,22 @@ it('links the thread it continued from', function () {
     expect($teleport['continuedFromThreadId'])->toBe($from->public_id)->and($teleport['continuedFromTitle'])->toBe('Fix login');
 });
 
-it('reports the last completed teleport as an environment switch', function () {
+it('lists every completed teleport as an environment switch, oldest first', function () {
     $thread = Thread::factory()->create();
     $device = Device::factory()->create();
     $viewer = User::factory()->create();
 
-    expect(teleportProp($viewer, $thread)['environmentSwitch'])->toBeNull();
+    expect(teleportProp($viewer, $thread)['environmentSwitches'])->toBe([]);
 
     Teleport::factory()->up()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => '2026-11-11 10:00:00']);
-    expect(teleportProp($viewer, $thread)['environmentSwitch'])->toMatchArray(['from' => 'your computer', 'to' => 'Yak']);
+    expect(teleportProp($viewer, $thread)['environmentSwitches'])->toHaveCount(1)->and(teleportProp($viewer, $thread)['environmentSwitches'][0])->toMatchArray(['from' => 'your computer', 'to' => 'Yak']);
 
     Teleport::factory()->down()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => '2026-11-11 12:00:00']);
-    expect(teleportProp($viewer, $thread)['environmentSwitch'])->toMatchArray(['from' => 'Yak', 'to' => 'your computer']);
+    $switches = teleportProp($viewer, $thread)['environmentSwitches'];
+
+    expect($switches)->toHaveCount(2)
+        ->and($switches[0])->toMatchArray(['from' => 'your computer', 'to' => 'Yak'])
+        ->and($switches[1])->toMatchArray(['from' => 'Yak', 'to' => 'your computer']);
 });
 
 it('exposes the teleport block as an Inertia prop', function () {

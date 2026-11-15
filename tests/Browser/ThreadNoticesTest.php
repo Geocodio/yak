@@ -268,7 +268,9 @@ it('shows the environment note and side-switch divider after a teleport up and a
     Teleport::factory()->down()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => now()]);
 
     visit("/threads/{$thread->public_id}")
-        ->assertSeeIn('[data-testid="side-switch-divider"]', 'Moved from Yak to your computer')
+        ->assertSee('Moved from your computer to Yak')
+        ->assertSee('Moved from Yak to your computer')
+        ->assertCount('[data-testid="side-switch-divider"]', 2)
         ->assertVisible('[data-testid="environment-note"]')
         ->assertNoJavaScriptErrors();
 });

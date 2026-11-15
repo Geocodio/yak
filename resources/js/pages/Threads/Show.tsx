@@ -111,6 +111,9 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const isPhoneDockVisible = phoneTab === 'preview' || phoneTab === 'files' || phoneTab === 'terminal';
     const changesCount = diff?.filesCount ?? 0;
 
+    // The note says what changed at the latest move to Yak.
+    const noteSwitch = [...teleport.environmentSwitches].reverse().find((entry) => entry.to === 'Yak');
+
     const panelProps: PanelProps = {
         thread,
         canDrive,
@@ -121,7 +124,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         modelLabels,
         capacity,
         accountName: composer.accountName,
-        environmentSwitch: teleport.environmentSwitch,
+        environmentSwitch: teleport.environmentSwitches.at(-1) ?? null,
         stack,
         reloadStack,
         diff,
@@ -214,7 +217,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurns} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />
+                    <Conversation working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurns} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />
                     <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
                 </div>
 

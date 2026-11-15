@@ -56,6 +56,7 @@ class SteeringDelivery
                 'uuid' => $uuid,
                 'kind' => TurnMessageKind::Steer,
                 'state' => TurnMessageState::Sent,
+                'text' => $message->text,
                 'pending_steering_message_id' => $message->id,
                 'send_key' => $message->send_key,
             ]);

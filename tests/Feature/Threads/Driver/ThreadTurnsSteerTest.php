@@ -42,6 +42,19 @@ it('sends a steer to a running turn with a uuid', function () {
         ->and($turnMessage->pending_steering_message_id)->toBe($message->id);
 });
 
+it('keeps a steer on the conversation after its pending row is drained', function () {
+    [$thread, $run] = runningThreadWithTask();
+    $fakes = fakeTurnCollaborators();
+    $fakes['commands']->shouldReceive('steer')->once();
+
+    $message = app(ThreadTurns::class)->steer($thread, 'also the footer', User::factory()->create(['name' => 'Ada']), null, null, 'thread');
+    $message->delete();
+
+    $shown = collect(ThreadMessagesData::for($thread))->firstWhere('uuid', $message->uuid);
+
+    expect($shown['text'])->toBe('also the footer');
+});
+
 it('queues when no turn runs', function () {
     [$thread, $task] = threadWithTask();
     $fakes = fakeTurnCollaborators();

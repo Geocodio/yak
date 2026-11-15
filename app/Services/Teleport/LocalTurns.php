@@ -15,17 +15,14 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * The conversation turns that ran on the person's computer before the latest
+ * The conversation turns that ran on the person's computer, one stretch per
  * teleport up, read from the transcript as it was uploaded then. Turns Yak ran
- * afterwards are already in the thread timeline and are cut off by the length
- * recorded at that teleport.
+ * are already in the thread timeline and are cut off by the lengths recorded at
+ * the teleports.
  *
  * A turn is a person prompt with Claude's replies and tool steps up to the next
  * prompt. Tool results that are not prompts, meta lines and subagent work stay
  * out of the turn count.
- *
- * ponytail: only the latest stretch is shown; a session that moved up more than
- * once has no clean boundary between its stretches, so it shows none.
  *
  * @phpstan-type Step array{key: string, logId: null, category: string, tool: ?string, label: string, durationMs: null, exitCode: null, failed: bool, running: bool, retryPassed: bool, retried: bool, at: null, createdAt: null, content: array{input: string, output: ?string}}
  * @phpstan-type Item array{kind: 'text', key: string, html: string, model: ?string}|array{kind: 'tools', key: string, steps: list<Step>}
@@ -50,74 +47,119 @@ class LocalTurns
     public function __construct(private readonly SessionStore $store) {}
 
     /**
-     * @return array{count: int, firstPromptText: string, startedAt: string, endedAt: string, hasMore: bool, authorName: string, authorInitials: string, turns: list<Turn>}|null
+     * One entry per stretch on the person's computer, oldest first. `movedAt` is when the thread moved there, or null
+     * for the stretch the thread began with, which belongs at the top.
+     *
+     * @return list<array{stintId: string, movedAt: ?string, count: int, firstPromptText: string, startedAt: string, endedAt: string, hasMore: bool, authorName: string, authorInitials: string, turns: list<Turn>}>
      */
-    public function summary(Thread $thread): ?array
+    public function summaries(Thread $thread): array
     {
-        $up = $this->latestUp($thread);
-        $turns = $up === null ? [] : $this->turns($thread, $up);
+        $summaries = [];
 
-        if ($turns === []) {
-            return null;
+        foreach ($this->stints($thread) as $stint) {
+            $turns = $this->turns($thread, $stint);
+
+            if ($turns === []) {
+                continue;
+            }
+
+            $name = (string) $stint['up']->user?->name;
+            $shown = array_slice($turns, -self::INITIAL);
+
+            $summaries[] = [
+                'stintId' => $stint['up']->id,
+                'movedAt' => $stint['movedAt'],
+                'count' => count($turns),
+                'firstPromptText' => Str::limit($turns[0]['text'], 200),
+                'startedAt' => $turns[0]['at'],
+                'endedAt' => $turns[array_key_last($turns)]['at'],
+                'hasMore' => count($turns) > count($shown),
+                'authorName' => $name,
+                'authorInitials' => ThreadMessagesData::initials($name),
+                'turns' => $shown,
+            ];
         }
 
-        $name = (string) $up?->user?->name;
-        $shown = array_slice($turns, -self::INITIAL);
-
-        return [
-            'count' => count($turns),
-            'firstPromptText' => Str::limit($turns[0]['text'], 200),
-            'startedAt' => $turns[0]['at'],
-            'endedAt' => $turns[array_key_last($turns)]['at'],
-            'hasMore' => count($turns) > count($shown),
-            'authorName' => $name,
-            'authorInitials' => ThreadMessagesData::initials($name),
-            'turns' => $shown,
-        ];
+        return $summaries;
     }
 
     /**
-     * Up to $limit turns that come before turn $before, oldest first.
+     * Up to $limit turns of one stretch that come before turn $before, oldest first.
      *
      * @return array{turns: list<Turn>, hasMore: bool}
      */
-    public function before(Thread $thread, int $before, int $limit): array
+    public function before(Thread $thread, string $stintId, int $before, int $limit): array
     {
-        $up = $this->latestUp($thread);
-        $earlier = array_values(array_filter($up === null ? [] : $this->turns($thread, $up), fn (array $turn): bool => $turn['id'] < $before));
+        $stint = collect($this->stints($thread))->first(fn (array $candidate): bool => $candidate['up']->id === $stintId);
+        $earlier = array_values(array_filter($stint === null ? [] : $this->turns($thread, $stint), fn (array $turn): bool => $turn['id'] < $before));
         $page = array_slice($earlier, -max(1, min($limit, self::MAX_PAGE)));
 
         return ['turns' => $page, 'hasMore' => count($page) < count($earlier)];
     }
 
-    private function latestUp(Thread $thread): ?Teleport
+    /**
+     * Each completed teleport up ends a stretch on the computer. It starts where the session file stood when the
+     * thread last moved down to that computer, or at the top when the thread began there.
+     *
+     * @return list<array{up: Teleport, start: int, end: int, movedAt: ?string}>
+     */
+    private function stints(Thread $thread): array
     {
-        $ups = $thread->teleports()->where('direction', TeleportDirection::Up)->where('state', TeleportState::Completed)->oldest('id')->get();
-        $latest = $ups->last();
+        $completed = $thread->teleports()->where('state', TeleportState::Completed)->oldest('id')->get();
+        $stints = [];
+        $down = null;
 
-        if ($latest === null || $ups->where('session_id', $latest->session_id)->count() > 1) {
-            return null;
+        foreach ($completed as $up) {
+            if ($up->direction === TeleportDirection::Down) {
+                $down = $up;
+
+                continue;
+            }
+
+            $sessionId = (string) $up->session_id;
+            $end = $this->lengthOf($up->payload['uploaded_files'] ?? [], $sessionId);
+
+            if ($end === null || $sessionId === '') {
+                continue;
+            }
+
+            $downSession = $down?->manifest['session'] ?? [];
+            $start = ($downSession['session_id'] ?? null) === $sessionId
+                ? ($this->lengthOf($downSession['files'] ?? [], $sessionId) ?? 0)
+                : 0;
+
+            $stints[] = ['up' => $up, 'start' => $start, 'end' => $end, 'movedAt' => $down?->completed_at?->toIso8601String()];
         }
 
-        return $latest;
+        return $stints;
     }
 
     /**
-     * @return list<Turn>
+     * @param  list<array{rel_path: string, length: int}>  $files
      */
-    private function turns(Thread $thread, Teleport $up): array
+    private function lengthOf(array $files, string $sessionId): ?int
     {
-        $sessionId = (string) $up->session_id;
-        $path = $sessionId . '.jsonl';
-        $length = collect($up->payload['uploaded_files'] ?? [])->firstWhere('rel_path', $path)['length'] ?? null;
-
-        if ($length === null || $sessionId === '') {
-            return [];
+        foreach ($files as $file) {
+            if ($file['rel_path'] === $sessionId . '.jsonl') {
+                return (int) $file['length'];
+            }
         }
 
-        return Cache::remember("local-turns:{$up->id}", now()->addHour(), function () use ($thread, $sessionId, $path, $length): array {
+        return null;
+    }
+
+    /**
+     * @param  array{up: Teleport, start: int, end: int, movedAt: ?string}  $stint
+     * @return list<Turn>
+     */
+    private function turns(Thread $thread, array $stint): array
+    {
+        $up = $stint['up'];
+        $sessionId = (string) $up->session_id;
+
+        return Cache::remember("local-turns:{$up->id}:{$stint['start']}", now()->addHour(), function () use ($thread, $sessionId, $stint): array {
             try {
-                $bytes = substr($this->store->read($thread, $sessionId, $path), 0, (int) $length);
+                $bytes = substr($this->store->read($thread, $sessionId, $sessionId . '.jsonl'), $stint['start'], $stint['end'] - $stint['start']);
             } catch (Throwable) {
                 return [];
             }

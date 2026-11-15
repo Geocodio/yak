@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\RunnerState;
+use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSandboxState;
+use App\Models\Device;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
 use App\Models\ThreadDiffFile;
@@ -36,6 +38,17 @@ function layoutThread(array $attributes = []): Thread
 
     return $thread;
 }
+
+test('a thread on the computer has no Open PR button and says so in the sandbox line', function () {
+    $device = Device::factory()->create(['user_id' => $this->owner->id]);
+    $thread = layoutThread(['owner_side' => ThreadOwnerSide::Device, 'owner_device_id' => $device->id]);
+
+    visit(route('threads.show', $thread))->resize(1440, 900)
+        ->assertMissing('[data-testid="thread-header-open-pr"]')
+        ->assertSeeIn('[data-testid="environment-sandbox-state"]', 'the Yak sandbox is not running it')
+        ->assertDontSee('awake and ready')
+        ->assertNoJavaScriptErrors();
+});
 
 test('Files opens in Changed mode as a full-width view, the rail steps aside and Open PR stays in the header', function () {
     $thread = layoutThread();

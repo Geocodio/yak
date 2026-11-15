@@ -52,8 +52,8 @@ final class ThreadMessagesData
 
             $steer = $row->kind === TurnMessageKind::Steer ? $row->pendingSteeringMessage : null;
 
-            // A steer whose pending row is gone has no text to show.
-            if ($row->kind === TurnMessageKind::Steer && $steer === null) {
+            // A steer keeps its own text, so it still shows once its pending row is drained.
+            if ($row->kind === TurnMessageKind::Steer && $steer === null && blank($row->text)) {
                 continue;
             }
 

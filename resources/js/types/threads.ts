@@ -104,7 +104,7 @@ export type TeleportData = {
     failure: { code: string; message: string } | null;
     heldEvents: HeldEventData[];
     environmentNote: string | null;
-    environmentSwitch: { from: string; to: string; at: string } | null;
+    environmentSwitches: { from: string; to: string; at: string }[];
     accountName: string | null;
     continuedFromThreadId: string | null;
     continuedFromTitle: string | null;
@@ -145,7 +145,7 @@ export type ThreadPageData = {
     walkthrough: ThreadWalkthrough | null;
     sharedFiles: SharedFile[];
     messages: ThreadMessage[];
-    localTurns: LocalTurnsData | null;
+    localTurns: LocalTurnsData[];
     composer: ThreadComposer;
     notice: ThreadNotice | null;
     capacity: ThreadCapacity | null;
@@ -165,6 +165,10 @@ export type LocalTurn = {
 
 /** The `localTurns` prop of `Threads/Show`: the fold summary and the newest turns. */
 export type LocalTurnsData = {
+    /** The teleport up that ended this stretch on the computer. */
+    stintId: string;
+    /** When the thread moved to the computer for this stretch; null for the stretch the thread began with. */
+    movedAt: string | null;
     count: number;
     firstPromptText: string;
     startedAt: string;

@@ -240,8 +240,8 @@ it('records when preparation started', function () {
 
 it('starts a turn with the message', function () {
     $begin = beginAndUpload($this);
-    $this->turns->shouldReceive('start')->once()->withArgs(function ($task, string $prompt, $driver, $model) {
-        return $task->source === 'teleport' && $prompt === 'continue with the cache tests' && $driver->id === $this->device->user_id && $model === null;
+    $this->turns->shouldReceive('start')->once()->withArgs(function ($task, string $prompt, $driver, $model, $kind = null, $shownText = null) {
+        return $task->source === 'teleport' && $prompt === 'continue with the cache tests' && $driver->id === $this->device->user_id && $model === null && $shownText === 'continue with the cache tests';
     });
 
     $this->postJson("/api/cli/v1/teleports/{$begin['teleport_id']}/complete", completeBody(message: 'continue with the cache tests'), cliHeaders($this->token))
