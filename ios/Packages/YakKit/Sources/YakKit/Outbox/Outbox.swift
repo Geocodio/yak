@@ -101,8 +101,10 @@ public actor Outbox {
 
     public func enqueue(_ draft: OutboxDraft) async throws(FileStoreError) -> OutboxItem {
         guard !isShutDown else { throw .unreadable }
+        if let sendKey = draft.sendKey, let existing = stored.first(where: { $0.id == sendKey }) { return existing }
         let item = OutboxItem(
-            id: makeID(), target: draft.target, text: draft.text, model: draft.model, delivery: draft.delivery,
+            id: draft.sendKey ?? makeID(), target: draft.target, text: draft.text, model: draft.model,
+            delivery: draft.delivery,
             attachments: draft.attachments, createdAt: clock.now(), intent: draft.intent)
         stored.append(item)
         do {

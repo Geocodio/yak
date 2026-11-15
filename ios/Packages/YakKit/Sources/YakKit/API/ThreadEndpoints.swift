@@ -216,3 +216,9 @@ extension Endpoint where Response == ChannelAuthorization {
             body: ChannelAuthorizationBody(socketID: socketID, channelName: channelName))
     }
 }
+
+extension Endpoint where Response == RepositoryAccess {
+    public static func repositoryAccess(repo: String) -> Endpoint<RepositoryAccess> {
+        Endpoint(method: .get, path: "threads/new/repository-access", query: [URLQueryItem(name: "repo", value: repo)])
+    }
+}

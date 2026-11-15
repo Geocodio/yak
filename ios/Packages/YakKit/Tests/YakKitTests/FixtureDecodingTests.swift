@@ -206,3 +206,8 @@ private func jsonBody<Response>(_ endpoint: Endpoint<Response>) throws -> [Strin
     let unpair = Endpoint.unpair()
     #expect(unpair.path == "device" && unpair.method == .delete)
 }
+
+@Test func decodesTheRepositoryAccessFixture() throws {
+    let access = try JSONDecoder().decode(RepositoryAccess.self, from: try Fixtures.data("thread-repository-access"))
+    #expect(access.allowed || access.reason != nil)
+}
