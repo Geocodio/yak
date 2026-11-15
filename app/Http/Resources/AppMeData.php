@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Models\Device;
 use App\Models\User;
 use App\Services\Ssh\TerminalSessions;
+use App\Services\Push\Apns\ApnsConfig;
 use App\Services\Threads\NeedsYouCount;
 
 /**
@@ -21,14 +22,14 @@ final class AppMeData
      *     realtime: ?array{key: string, host: string, port: int, scheme: string},
      *     terminal: array{wsUrl: string},
      *     attachments: array{maxFiles: int, maxFileBytes: int},
-     *     push: array{apns: bool, bundleId: ?string, environment: ?string},
+     *     push: array{apns: bool, bundleId: ?string, environment: string},
      *     features: array{liveActivities: bool, widgets: bool}
      * }
      */
     public static function from(User $user, Device $device): array
     {
-        $apns = (array) config('yak.apns');
-        $isApnsConfigured = collect(['key', 'key_id', 'team_id', 'bundle_id'])->every(fn (string $field): bool => ($apns[$field] ?? null) !== null && $apns[$field] !== '');
+        $apns = app(ApnsConfig::class);
+        $isApnsConfigured = $apns->isConfigured();
 
         return [
             'user' => [
@@ -58,8 +59,8 @@ final class AppMeData
             ],
             'push' => [
                 'apns' => $isApnsConfigured,
-                'bundleId' => $apns['bundle_id'] ?? null,
-                'environment' => $apns['environment'] ?? null,
+                'bundleId' => $apns->bundleId(),
+                'environment' => $apns->environment(),
             ],
             'features' => ['liveActivities' => $isApnsConfigured, 'widgets' => true],
         ];

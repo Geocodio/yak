@@ -5,8 +5,8 @@ use App\Models\YakTask;
 use Tests\Support\ContractFixture;
 
 it('reports what the app needs at runtime', function () {
+    fakeApns();
     config([
-        'yak.apns' => ['key' => 'secret-key-material', 'key_id' => 'kid', 'team_id' => 'tid', 'bundle_id' => 'com.example.yak', 'environment' => 'production'],
         'app.version' => '2026.11.1',
         'yak.instance_name' => 'Example Yak',
         'broadcasting.default' => 'reverb',
@@ -28,7 +28,7 @@ it('reports what the app needs at runtime', function () {
 });
 
 it('reports push as unavailable without a key and realtime as null without Reverb', function () {
-    config(['yak.apns' => ['key' => null, 'key_id' => null, 'team_id' => null, 'bundle_id' => 'com.example.yak', 'environment' => null], 'broadcasting.default' => 'null', 'yak.instance_name' => null]);
+    config(['yak.apns' => ['key_path' => null, 'key_id' => null, 'team_id' => null, 'bundle_id' => 'com.example.yak', 'environment' => null], 'broadcasting.default' => 'null', 'yak.instance_name' => null]);
     [, $headers] = phoneWithHeaders();
 
     $this->getJson('/api/app/v1/me', $headers)->assertOk()
@@ -39,19 +39,32 @@ it('reports push as unavailable without a key and realtime as null without Rever
 });
 
 it('does not report push as available when only part of the APNs config is set', function () {
-    config(['yak.apns' => ['key' => 'k', 'key_id' => 'kid', 'team_id' => null, 'bundle_id' => 'com.example.yak', 'environment' => 'production']]);
+    fakeApns();
+    config(['yak.apns.team_id' => null]);
     [, $headers] = phoneWithHeaders();
 
     $this->getJson('/api/app/v1/me', $headers)->assertOk()->assertJsonPath('push.apns', false);
 });
 
+it('tells the phone the truth when the key file is broken', function () {
+    $path = fakeApns();
+    file_put_contents($path, 'not a key');
+    [, $headers] = phoneWithHeaders();
+
+    $this->getJson('/api/app/v1/me', $headers)->assertOk()
+        ->assertJsonPath('push.apns', false)
+        ->assertJsonPath('features.liveActivities', false)
+        ->assertJsonPath('push.environment', 'production');
+});
+
 it('never includes the key itself', function () {
-    config(['yak.apns' => ['key' => 'secret-key-material', 'key_id' => 'kid', 'team_id' => 'tid', 'bundle_id' => 'com.example.yak', 'environment' => 'production'], 'broadcasting.connections.reverb.secret' => 'reverb-secret-material']);
+    $path = fakeApns();
+    config(['broadcasting.connections.reverb.secret' => 'reverb-secret-material']);
     [, $headers] = phoneWithHeaders();
 
     $body = $this->getJson('/api/app/v1/me', $headers)->assertOk()->getContent();
 
-    expect($body)->not->toContain('secret-key-material')->not->toContain('reverb-secret-material');
+    expect($body)->not->toContain('PRIVATE KEY')->not->toContain($path)->not->toContain('reverb-secret-material');
 });
 
 it('refuses a computer token', function () {
