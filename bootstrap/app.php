@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\Drone\PollCommand;
+use App\Exceptions\SandboxCommandFailed;
 use App\Exceptions\TeleportError;
 use App\Exceptions\ThreadActionRefused;
 use App\Http\Middleware\AuthenticateDevice;
@@ -14,6 +15,7 @@ use App\Http\Middleware\VerifySessionStoreToken;
 use App\Http\Middleware\VerifySshInternalToken;
 use App\Http\Responses\CliError;
 use App\Services\PreviewAccess;
+use App\Services\Threads\Files\InvalidFilePath;
 use App\Support\ClientApi;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -92,6 +94,24 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => 'The request is not valid.',
                 'details' => ['errors' => $e->errors()],
             ], 422);
+        });
+        $exceptions->render(function (InvalidFilePath $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json([
+                'error' => 'validation_failed',
+                'message' => 'The request is not valid.',
+                'details' => ['errors' => ['path' => [$e->getMessage()]]],
+            ], 422);
+        });
+        $exceptions->render(function (SandboxCommandFailed $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json(['error' => 'unavailable', 'message' => 'The sandbox did not answer. Try again in a moment.'], 503);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if (ClientApi::for($request) === null) {

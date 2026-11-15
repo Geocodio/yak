@@ -5,8 +5,11 @@ namespace App\Services\Threads\Files;
 use App\DataTransferObjects\Files\FileContent;
 use App\DataTransferObjects\Files\FileEntry;
 use App\Enums\FileScope;
+use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
-use App\Services\Threads\ThreadShell;
+use App\Services\Threads\Contracts\SandboxManager;
+use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -15,6 +18,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class SandboxFiles
 {
+    public const COMMAND_TIMEOUT_SECONDS = 20;
+
     private const EXIT_OUTSIDE_ROOT = 3;
 
     private const EXIT_NOT_A_FILE = 4;
@@ -44,7 +49,7 @@ class SandboxFiles
         $absolute = SandboxPath::resolveDirectory($thread, $scope, $directory);
         $guard = $this->guard($thread, $scope, $absolute);
 
-        $result = ThreadShell::for($thread)->run('', sprintf(
+        $result = $this->exec($thread, sprintf(
             "%s find %s -mindepth 1 -maxdepth 1 -printf '%%y\\t%%s\\t%%f\\0'",
             $guard,
             escapeshellarg($absolute),
@@ -115,7 +120,7 @@ class SandboxFiles
             $maxBytes + 1,
         );
 
-        $result = ThreadShell::for($thread)->run('', sprintf(
+        $result = $this->exec($thread, sprintf(
             '%s [ -f %s ] || exit %d; stat -c %%s -- %s; head -c %d -- %s | base64 -w0; echo; %s',
             $guard,
             $path,
@@ -146,6 +151,16 @@ class SandboxFiles
             $isText ? $this->decodeHead(trim($headLine)) : null,
             $this->language($absolute),
         );
+    }
+
+    /** Runs one snippet in the sandbox and gives up after the file command bound, without naming the path. */
+    private function exec(Thread $thread, string $script): ProcessResult
+    {
+        try {
+            return app(SandboxManager::class)->exec($thread, ['bash', '-lc', $script], null, [], self::COMMAND_TIMEOUT_SECONDS);
+        } catch (ProcessTimedOutException) {
+            throw new SandboxCommandFailed('A sandbox file command timed out.');
+        }
     }
 
     private function decodeHead(string $line): ?string

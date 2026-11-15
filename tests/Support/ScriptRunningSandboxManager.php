@@ -12,7 +12,7 @@ class ScriptRunningSandboxManager extends LocalGitSandboxManager
     /** @var array<string, string> */
     public array $remotes = [];
 
-    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
+    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult
     {
         if ($stdin === null || $command !== ['bash', '-s']) {
             return parent::exec($thread, $command, $stdin, $env);

@@ -9,6 +9,7 @@ use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
+use Throwable;
 
 /**
  * In-memory sandbox manager with the real state machine. It never touches the
@@ -28,7 +29,7 @@ class FakeSandboxManager implements SandboxManager
     /** @var array<int, ThreadSandboxState> */
     private array $states = [];
 
-    /** @var list<ProcessResult> */
+    /** @var list<ProcessResult|Throwable> */
     private array $execResults = [];
 
     /** Makes the next copyFrom throw, as a failed `incus copy` does. */
@@ -37,7 +38,7 @@ class FakeSandboxManager implements SandboxManager
         $this->copyShouldFail = true;
     }
 
-    public function queueExecResult(ProcessResult $result): void
+    public function queueExecResult(ProcessResult|Throwable $result): void
     {
         $this->execResults[] = $result;
     }
@@ -72,7 +73,7 @@ class FakeSandboxManager implements SandboxManager
         $this->move($thread, 'destroy', [ThreadSandboxState::Running, ThreadSandboxState::Paused, ThreadSandboxState::Stopped], ThreadSandboxState::Destroyed);
     }
 
-    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
+    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult
     {
         $state = $this->state($thread);
 
@@ -80,9 +81,15 @@ class FakeSandboxManager implements SandboxManager
             throw InvalidSandboxTransition::for('exec in', $state);
         }
 
-        $this->calls[] = ['operation' => 'exec', 'threadId' => $thread->id, 'arguments' => ['command' => $command, 'stdin' => $stdin, 'env' => $env]];
+        $this->calls[] = ['operation' => 'exec', 'threadId' => $thread->id, 'arguments' => ['command' => $command, 'stdin' => $stdin, 'env' => $env, 'timeout' => $timeout]];
 
-        return array_shift($this->execResults)
+        $queued = array_shift($this->execResults);
+
+        if ($queued instanceof Throwable) {
+            throw $queued;
+        }
+
+        return $queued
             ?? ($command === SandboxAddress::COMMAND ? Process::result("2: eth0    inet 10.100.0.2/24 scope global eth0\n") : Process::result());
     }
 

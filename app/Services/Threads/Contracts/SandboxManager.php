@@ -36,8 +36,9 @@ interface SandboxManager
     /**
      * @param  list<string>  $command
      * @param  array<string, string>  $env
+     * @param  int|null  $timeout  seconds before the command is given up; the manager's default when null
      */
-    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult;
+    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult;
 
     /** Clones the source's sandbox into the target's, leaving the target stopped. */
     public function copyFrom(Thread $source, Thread $target): void;

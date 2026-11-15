@@ -124,7 +124,7 @@ it('carries a three repo thread from start to close with one retry on the change
     // A turn ends with commits in the primary and the changes repo and an edit in the context repo.
     $sandbox = new class extends ThreadFakeSandboxManager
     {
-        public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
+        public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult
         {
             parent::exec($thread, $command, $stdin, $env);
             $line = implode(' ', $command);

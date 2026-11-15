@@ -23,7 +23,7 @@ class RepositoryWipSandbox extends FakeSandboxManager
 
     public bool $hasLocalLink = false;
 
-    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
+    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult
     {
         parent::exec($thread, $command, $stdin, $env);
         $line = implode(' ', $command);

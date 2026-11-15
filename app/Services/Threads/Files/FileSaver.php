@@ -5,10 +5,11 @@ namespace App\Services\Threads\Files;
 use App\DataTransferObjects\Files\FileContent;
 use App\DataTransferObjects\Files\SaveOutcome;
 use App\Enums\FileScope;
+use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
 use App\Models\User;
-use App\Services\Threads\ThreadShell;
-use RuntimeException;
+use App\Services\Threads\Contracts\SandboxManager;
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -18,6 +19,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class FileSaver
 {
+    public const WRITE_TIMEOUT_SECONDS = 30;
+
     private const EXIT_OUTSIDE_ROOT = 3;
 
     public function __construct(private readonly SandboxFiles $files) {}
@@ -77,14 +80,18 @@ class FileSaver
             self::EXIT_OUTSIDE_ROOT,
         );
 
-        $result = ThreadShell::for($thread)->run('', $script, input: base64_encode($content));
+        try {
+            $result = app(SandboxManager::class)->exec($thread, ['bash', '-lc', $script], base64_encode($content), [], self::WRITE_TIMEOUT_SECONDS);
+        } catch (ProcessTimedOutException) {
+            throw new SandboxCommandFailed('A sandbox file command timed out.');
+        }
 
         if ($result->exitCode() === self::EXIT_OUTSIDE_ROOT) {
             throw new InvalidFilePath('The path is outside the allowed folder.');
         }
 
         if ($result->failed()) {
-            throw new RuntimeException('Could not write the file: ' . trim($result->errorOutput()));
+            throw new SandboxCommandFailed('Writing a sandbox file failed.');
         }
     }
 }

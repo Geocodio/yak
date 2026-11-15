@@ -105,7 +105,7 @@ test('exec needs an awake sandbox, records the call and returns queued results',
         ->and($first->exitCode())->toBe(3)
         ->and($second->successful())->toBeTrue()
         ->and(end($sandboxes->calls)['operation'])->toBe('exec')
-        ->and($sandboxes->calls[2]['arguments'])->toBe(['command' => ['git', 'status'], 'stdin' => 'input', 'env' => ['A' => 'b']]);
+        ->and($sandboxes->calls[2]['arguments'])->toBe(['command' => ['git', 'status'], 'stdin' => 'input', 'env' => ['A' => 'b'], 'timeout' => null]);
 });
 
 test('copyFrom clones an existing sandbox into a stopped one and refuses an empty source', function () {
