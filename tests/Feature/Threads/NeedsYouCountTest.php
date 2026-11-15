@@ -9,6 +9,7 @@ use App\Models\YakTask;
 use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\NeedsYouTasks;
 use App\Services\Threads\ThreadList;
+use Illuminate\Support\Facades\DB;
 
 it('lists co-owner and thread-less question tasks', function () {
     ['user' => $user] = needsYouWorld();
@@ -100,4 +101,13 @@ it('labels a question in a closed private thread the signed-in person cannot see
 
     expect($items['Closed private question'])->toMatchArray(['needsYouReason' => 'question', 'isPrivate' => true])
         ->and($items['Plain question']['isPrivate'])->toBeFalse();
+});
+
+it('counts with one query', function () {
+    ['user' => $user] = needsYouWorld();
+    DB::enableQueryLog();
+
+    NeedsYouTasks::count($user);
+
+    expect(DB::getQueryLog())->toHaveCount(1);
 });

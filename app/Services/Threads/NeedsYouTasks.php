@@ -69,7 +69,7 @@ class NeedsYouTasks
     }
 
     /**
-     * One cheap query that ignores the list cap.
+     * One count query that ignores the list cap.
      */
     public static function count(User $user): int
     {
@@ -82,10 +82,9 @@ class NeedsYouTasks
     private static function matching(User $user): Builder
     {
         $coOwnerTaskIds = CoOwnerRequest::query()
+            ->select('task_id')
             ->where('status', CoOwnerRequestStatus::Pending)
-            ->whereJsonContains('asked_user_ids', $user->id)
-            ->pluck('task_id')
-            ->all();
+            ->whereJsonContains('asked_user_ids', $user->id);
 
         $query = YakTask::withoutGlobalScopes();
         VisibleTaskScope::constrain($query, 'tasks', $user->id);

@@ -27,6 +27,7 @@ class ThreadEventFeed
         }
 
         $source = 'window';
+        $events = $events === null ? null : array_map(fn (array $event): array => [...$event, 'data' => $this->objectWhenEmpty($event['data'])], $events);
 
         if ($events === null) {
             $source = 'database';
@@ -40,9 +41,6 @@ class ThreadEventFeed
                 ->all());
         }
 
-        // An event without fields is an empty JSON object, never an array.
-        $events = array_map(fn (array $event): array => $event['data'] === [] ? [...$event, 'data' => (object) []] : $event, $events);
-
         return [
             'events' => $events,
             'latestSequence' => (int) Thread::withoutGlobalScopes()->whereKey($thread->id)->value('event_sequence'),
@@ -51,7 +49,7 @@ class ThreadEventFeed
     }
 
     /**
-     * @return array{sequence: int, type: string, data: array<string, mixed>, createdAt: string}
+     * @return array{sequence: int, type: string, data: array<string, mixed>|object, createdAt: string}
      */
     public function one(Thread $thread, int $sequence): array
     {
@@ -59,15 +57,25 @@ class ThreadEventFeed
     }
 
     /**
-     * @return array{sequence: int, type: string, data: array<string, mixed>, createdAt: string}
+     * @return array{sequence: int, type: string, data: array<string, mixed>|object, createdAt: string}
      */
     private function shape(ThreadEvent $event): array
     {
         return [
             'sequence' => $event->sequence,
             'type' => $event->type,
-            'data' => $event->type === 'entry' ? $this->projector->withHtml($event->payload) : $event->payload,
+            // An event without fields is an empty JSON object, never an array.
+            'data' => $this->objectWhenEmpty($event->type === 'entry' ? $this->projector->withHtml($event->payload) : $event->payload),
             'createdAt' => $event->created_at->toIso8601String(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|object
+     */
+    private function objectWhenEmpty(array $data): array|object
+    {
+        return $data === [] ? (object) [] : $data;
     }
 }
