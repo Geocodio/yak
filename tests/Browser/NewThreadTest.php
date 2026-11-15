@@ -23,7 +23,8 @@ it('starts a thread with the account and model pickers', function () {
         ->click('[data-testid="composer-model"]')
         ->click('[data-testid="composer-model-haiku"]')
         ->click('[data-testid="start-thread-submit"]')
-        ->assertPathBeginsWith('/threads/');
+        ->assertPathBeginsWith('/threads/')
+        ->assertSeeIn('[data-testid="thread-message-pending"], [data-testid="thread-message"]', 'Fix the flaky checkout test');
 
     $thread = Thread::query()->latest('id')->firstOrFail();
     expect($thread->claude_account_id)->toBe($other->id)->and($thread->model)->toBe('haiku');

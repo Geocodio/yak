@@ -11,6 +11,7 @@ use App\Models\Thread;
 use App\Models\ThreadEvent;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Support\AttachmentReferences;
 use App\Support\Markdown;
 use Illuminate\Support\Str;
@@ -96,6 +97,12 @@ final class ThreadMessagesData
         }
 
         $root = $thread->tasks()->oldest()->first()?->rootTask();
+
+        // The first turn writes its message row later, so until a run exists the starting request is the pending message.
+        if ($rows->isEmpty() && $root !== null && filled($root->description) && ! $thread->runs()->exists()) {
+            $messages[] = self::initialMessage($root);
+        }
+
         $delivered = array_filter(array_column($messages, 'uuid'));
         $undelivered = $root === null ? collect() : PendingSteeringMessage::query()
             ->where('root_task_id', $root->id)
@@ -130,6 +137,34 @@ final class ThreadMessagesData
         }
 
         return $messages;
+    }
+
+    /**
+     * @return array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
+     */
+    private static function initialMessage(YakTask $task): array
+    {
+        $files = $task->attachments()->where('context', TaskAttachment::CONTEXT_REQUEST)->whereNull('thread_turn_message_id')->get();
+        $attachments = array_values($files->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all());
+
+        return [
+            'id' => 'initial-message',
+            'uuid' => null,
+            'text' => (string) $task->description,
+            'authorName' => $task->author_name,
+            'authorInitials' => self::initials($task->author_name),
+            'model' => null,
+            'state' => 'pending',
+            'canEditText' => false,
+            'intent' => null,
+            'sendKey' => null,
+            'mode' => null,
+            'sentAt' => $task->created_at?->toIso8601String() ?? '',
+            'readAfterSequence' => null,
+            'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml((string) $task->description), array_values(array_filter(array_column($attachments, 'reference')))),
+            'attachments' => $attachments,
+            'attachmentIds' => array_values($files->pluck('id')->map(fn ($id): int => (int) $id)->all()),
+        ];
     }
 
     /**

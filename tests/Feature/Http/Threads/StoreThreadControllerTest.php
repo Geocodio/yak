@@ -1,9 +1,12 @@
 <?php
 
+use App\Http\Resources\ThreadMessagesData;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\TaskAttachment;
+use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Services\Threads\ThreadStarter;
 use Illuminate\Http\UploadedFile;
@@ -53,4 +56,23 @@ it('removes uploaded attachments when the start fails', function () {
     ]))->toThrow(RuntimeException::class);
 
     expect(TaskAttachment::count())->toBe(0)->and(Storage::disk('artifacts')->allFiles())->toBe([]);
+});
+
+it('shows the first message as pending before the first turn writes its own', function () {
+    $account = ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id]);
+    $this->actingAs($this->user)->post(route('threads.store'), [
+        'repo' => 'acme/widgets', 'mode' => 'fix', 'description' => 'Fix the bug', 'claude_account_id' => $account->id,
+    ]);
+    $thread = Thread::query()->latest('id')->firstOrFail();
+
+    $messages = ThreadMessagesData::for($thread);
+
+    expect($messages)->toHaveCount(1)
+        ->and($messages[0])->toMatchArray(['id' => 'initial-message', 'uuid' => null, 'state' => 'pending', 'text' => 'Fix the bug', 'authorName' => $this->user->name]);
+
+    $task = $thread->tasks()->firstOrFail();
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id]);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'text' => 'Fix the bug']);
+
+    expect(array_column(ThreadMessagesData::for($thread), 'id'))->not->toContain('initial-message')->toHaveCount(1);
 });
