@@ -4,7 +4,7 @@ public struct WidgetItem: Codable, Equatable, Sendable {
     public enum Kind: String, Codable, Sendable { case thread, task }
     public let kind: Kind
     public let id: String
-    /// Nil for a private thread; the widget shows "A private thread".
+    /// Nil for a private thread or a task of one; the widget shows "A private thread".
     public let title: String?
     public let isPrivate: Bool
 
@@ -38,7 +38,7 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
     /// Most items a widget family can show.
     static let itemLimit = 8
 
-    /// A private thread's title is dropped here, so no later step can leak it. Tasks and threads of
+    /// A private thread's or task's title is dropped here, so no later step can leak it. Tasks and threads of
     /// unknown kinds that the app cannot show are skipped.
     public static func make(from list: ThreadList, instanceName: String, now: Date) -> WidgetSnapshot {
         func item(_ row: ThreadRow) -> WidgetItem {
@@ -47,7 +47,10 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         let needsYou: [WidgetItem] = list.needsYou.compactMap { entry in
             switch entry {
             case .thread(let row): item(row)
-            case .task(let task): WidgetItem(kind: .task, id: task.taskId.value, title: task.title, isPrivate: false)
+            case .task(let task):
+                WidgetItem(
+                    kind: .task, id: task.taskId.value, title: task.isPrivate ? nil : task.title,
+                    isPrivate: task.isPrivate)
             case .unknown: nil
             }
         }

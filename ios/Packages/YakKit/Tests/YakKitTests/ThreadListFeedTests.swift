@@ -65,6 +65,19 @@ struct ThreadListFeedTests {
         #expect(snapshot.needsYou[0].title == nil && snapshot.needsYou[0].isPrivate)
     }
 
+    @Test func aPrivateTaskTitleNeverReachesTheWidget() throws {
+        let json = #"""
+            {"needsYou": [{"type": "task", "taskId": "t1", "title": "Secret task title",
+              "needsYouReason": "co_owner", "needsYouLabel": null, "isPrivate": true, "lastActivityAt": null}],
+             "threads": [], "needsYouCount": 1, "hasAnyThreads": true}
+            """#
+        let list = try JSONDecoder().decode(ThreadList.self, from: Data(json.utf8))
+        let snapshot = WidgetSnapshot.make(from: list, instanceName: "Example Yak", now: Date(timeIntervalSince1970: 0))
+        let bytes = String(decoding: try JSONEncoder().encode(snapshot), as: UTF8.self)
+        #expect(!bytes.contains("Secret task title"))
+        #expect(snapshot.needsYou[0].title == nil && snapshot.needsYou[0].isPrivate)
+    }
+
     @Test func showsTheCachedListFirstThenLoads() async throws {
         let cached = try decoded(ThreadList.self, "scenario-thread-list")
         let rig = try await makeRig(cachedMine: cached)

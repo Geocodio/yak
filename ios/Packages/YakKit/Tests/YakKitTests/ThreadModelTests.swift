@@ -17,8 +17,17 @@ private func mutated(_ name: String, _ change: (inout [String: Any]) -> Void) th
         return
     }
     #expect(row.needsYouReason == .question && row.group == .today)
-    #expect(task.taskId.value == "k3m9p2qa" && task.needsYouReason == .coOwner)
+    #expect(task.taskId.value == "k3m9p2qa" && task.needsYouReason == .coOwner && !task.isPrivate)
     #expect(list.threads[0].isPrivate && list.threads[0].children[0].id == "e5f6g7h8")
+}
+
+@Test func aTaskWithoutIsPrivateIsNotPrivate() throws {
+    let json = #"{"type": "task", "taskId": "t1", "title": "T", "needsYouReason": "co_owner"}"#
+    guard case .task(let task) = try JSONDecoder().decode(NeedsYouItem.self, from: Data(json.utf8)) else {
+        Issue.record("not a task")
+        return
+    }
+    #expect(!task.isPrivate)
 }
 
 @Test func decodesThreadShowAndTheQuestionVariant() throws {

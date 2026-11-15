@@ -7,6 +7,20 @@ public struct ThreadList: Codable, Equatable, Sendable {
     public let needsYouCount: Int
     public let hasAnyThreads: Bool
 
+    public init(
+        starred: [ThreadRow],
+        needsYou: [NeedsYouItem],
+        threads: [ThreadRow],
+        needsYouCount: Int,
+        hasAnyThreads: Bool
+    ) {
+        self.starred = starred
+        self.needsYou = needsYou
+        self.threads = threads
+        self.needsYouCount = needsYouCount
+        self.hasAnyThreads = hasAnyThreads
+    }
+
     private enum CodingKeys: String, CodingKey { case starred, needsYou, threads, needsYouCount, hasAnyThreads }
 
     public init(from decoder: any Decoder) throws {
@@ -35,6 +49,40 @@ public struct ThreadRow: Codable, Equatable, Sendable {
     public let lastActivityAt: String?
     public let group: ThreadRowGroup
     public let children: [ThreadRow]
+
+    public init(
+        id: String,
+        title: String,
+        repo: String,
+        status: ThreadRowStatus,
+        needsYouReason: NeedsYouReason? = nil,
+        needsYouLabel: String? = nil,
+        isPrivate: Bool,
+        isShared: Bool,
+        isUnattended: Bool,
+        isStarred: Bool,
+        canDelete: Bool,
+        ownerInitials: String? = nil,
+        lastActivityAt: String? = nil,
+        group: ThreadRowGroup,
+        children: [ThreadRow]
+    ) {
+        self.id = id
+        self.title = title
+        self.repo = repo
+        self.status = status
+        self.needsYouReason = needsYouReason
+        self.needsYouLabel = needsYouLabel
+        self.isPrivate = isPrivate
+        self.isShared = isShared
+        self.isUnattended = isUnattended
+        self.isStarred = isStarred
+        self.canDelete = canDelete
+        self.ownerInitials = ownerInitials
+        self.lastActivityAt = lastActivityAt
+        self.group = group
+        self.children = children
+    }
 }
 
 public struct TaskNeedsYou: Codable, Equatable, Sendable {
@@ -42,7 +90,35 @@ public struct TaskNeedsYou: Codable, Equatable, Sendable {
     public let title: String
     public let needsYouReason: NeedsYouReason
     public let needsYouLabel: String?
+    /// True when the task's thread is private. Absent from older servers, so it defaults to false.
+    public let isPrivate: Bool
     public let lastActivityAt: String?
+
+    public init(
+        taskId: LenientID, title: String, needsYouReason: NeedsYouReason, needsYouLabel: String? = nil,
+        isPrivate: Bool = false, lastActivityAt: String? = nil
+    ) {
+        self.taskId = taskId
+        self.title = title
+        self.needsYouReason = needsYouReason
+        self.needsYouLabel = needsYouLabel
+        self.isPrivate = isPrivate
+        self.lastActivityAt = lastActivityAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case taskId, title, needsYouReason, needsYouLabel, isPrivate, lastActivityAt
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        taskId = try container.decode(LenientID.self, forKey: .taskId)
+        title = try container.decode(String.self, forKey: .title)
+        needsYouReason = try container.decode(NeedsYouReason.self, forKey: .needsYouReason)
+        needsYouLabel = try container.decodeIfPresent(String.self, forKey: .needsYouLabel)
+        isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate) ?? false
+        lastActivityAt = try container.decodeIfPresent(String.self, forKey: .lastActivityAt)
+    }
 }
 
 /// One entry of the needs-you list. A missing `type` means a thread.
