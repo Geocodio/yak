@@ -4,6 +4,7 @@ namespace App\Services\Tasks;
 
 use App\Models\Artifact;
 use App\Models\TaskAttachment;
+use App\Models\Thread;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\URL;
 
@@ -29,7 +30,34 @@ final class AppMediaLinks
     /** @var array<int, array<string, Artifact>>|null */
     private ?array $artifactsByTask = null;
 
-    public function __construct(private readonly YakTask $task) {}
+    /**
+     * @param  array<int, TaskAttachment>|null  $preloadedAttachments
+     * @param  array<string, YakTask>|null  $preloadedConversation
+     */
+    public function __construct(private readonly ?YakTask $task, ?array $preloadedAttachments = null, ?array $preloadedConversation = null)
+    {
+        $this->attachmentsById = $preloadedAttachments;
+        $this->conversationByPublicId = $preloadedConversation;
+    }
+
+    /**
+     * Links scoped to one thread: the tasks of the thread are the conversation, and only the listed attachments the
+     * thread owns (through a task, or through a queued message of its tasks) are signed.
+     *
+     * @param  list<int>  $attachmentIds
+     */
+    public static function forThread(Thread $thread, array $attachmentIds): self
+    {
+        $taskIds = $thread->tasks()->select('id');
+        $attachments = $attachmentIds === [] ? collect() : TaskAttachment::query()
+            ->whereIn('id', $attachmentIds)
+            ->where(fn ($owned) => $owned
+                ->whereIn('yak_task_id', $taskIds)
+                ->orWhereIn('pending_steering_message_id', fn ($pending) => $pending->select('id')->from('pending_steering_messages')->whereIn('root_task_id', $taskIds)))
+            ->get()->keyBy('id');
+
+        return new self(null, $attachments->all(), $thread->tasks()->get()->keyBy('public_id')->all());
+    }
 
     /**
      * Rewrites every string inside the value, keys untouched.
@@ -171,6 +199,6 @@ final class AppMediaLinks
      */
     private function conversation(): array
     {
-        return $this->conversationByPublicId ??= $this->task->conversation()->keyBy('public_id')->all();
+        return $this->conversationByPublicId ??= $this->task?->conversation()->keyBy('public_id')->all() ?? [];
     }
 }
