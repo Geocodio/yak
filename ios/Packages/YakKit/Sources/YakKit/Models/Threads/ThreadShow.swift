@@ -47,6 +47,8 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
     public let pullRequestCount: Int
     public let isOwner: Bool
     public let isStarred: Bool
+    public let ownerSide: String?
+    public let preview: ThreadPreviewHints?
 
     public init(
         id: String,
@@ -65,7 +67,9 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
         lastActivityAt: String? = nil,
         pullRequestCount: Int,
         isOwner: Bool,
-        isStarred: Bool
+        isStarred: Bool,
+        ownerSide: String? = nil,
+        preview: ThreadPreviewHints? = nil
     ) {
         self.id = id
         self.name = name
@@ -84,6 +88,8 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
         self.pullRequestCount = pullRequestCount
         self.isOwner = isOwner
         self.isStarred = isStarred
+        self.ownerSide = ownerSide
+        self.preview = preview
     }
 
     public var isPrivate: Bool { visibility == "private" }
@@ -130,5 +136,16 @@ public struct ThreadNotice: Codable, Equatable, Sendable {
         self.body = body
         self.resetsAt = resetsAt
         self.canContinue = canContinue
+    }
+}
+
+/// The parts of `thread.preview` the terminal reads: the dev server's port and the per-person awake cap.
+public struct ThreadPreviewHints: Codable, Equatable, Sendable {
+    public let port: Int?
+    public let personAwakeCap: Int?
+
+    public init(port: Int? = nil, personAwakeCap: Int? = nil) {
+        self.port = port
+        self.personAwakeCap = personAwakeCap
     }
 }
