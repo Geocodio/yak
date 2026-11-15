@@ -242,6 +242,24 @@ private func everyRefusalHasItsPhase(refusal: Refusal) async throws {
     await flaky.connection.close()
 }
 
+@Test func aNetworkErrorDuringAReconnectSeriesIsAnotherTry() async throws {
+    let rig = await makeRig()
+    await rig.transport.on(
+        route, try scenarioResult(200, "scenario-terminal-session"), .failure(.networkConnectionLost),
+        try scenarioResult(200, "scenario-terminal-session"))
+    let first = await shell(banner: Data("A".utf8))
+    await first.closeWith(code: 1006)
+    await rig.connector.enqueue(.socket(first), .socket(await shell(banner: Data("B".utf8))))
+    await rig.connection.start(columns: 80, rows: 24)
+    try await rig.phase { if case .lost(1, _) = $0 { true } else { false } }
+    await rig.step(.seconds(1))
+    try await rig.phase { if case .lost(2, _) = $0 { true } else { false } }
+    await rig.step(.seconds(2))
+    try await rig.phase(where: isConnected)
+    #expect(await rig.transport.requests(on: route).count == 3)
+    await rig.connection.close()
+}
+
 private struct Ending: Sendable, CustomTestStringConvertible {
     let name: String
     var testDescription: String { name }

@@ -337,7 +337,7 @@ public actor TerminalConnection {
     private func drive(owner: Int) async {
         var tries = 0
         while owner == generation, !Task.isCancelled {
-            let result = await attempt(owner: owner)
+            let result = await attempt(owner: owner, isReconnecting: tries > 0)
             guard owner == generation, !Task.isCancelled else { return }
             switch result {
             case .finished(let phase):
@@ -360,7 +360,7 @@ public actor TerminalConnection {
 
     // MARK: One attempt
 
-    private func attempt(owner: Int) async -> AttemptResult {
+    private func attempt(owner: Int, isReconnecting: Bool) async -> AttemptResult {
         let began = clock.now()
         setPhase(.opening(step: .sandbox, since: began, isSlow: false), owner: owner)
         startSlowTimer(since: began, owner: owner)
@@ -374,7 +374,7 @@ public actor TerminalConnection {
             } catch {
                 cancelSlowTimer()
                 guard owner == generation else { return .finished(.idle) }
-                return failure(error)
+                return failure(error, isReconnecting: isReconnecting)
             }
             cancelSlowTimer()
             guard owner == generation else { return .finished(.idle) }
@@ -428,9 +428,14 @@ public actor TerminalConnection {
         setPhase(.opening(step: .sandbox, since: since, isSlow: true), owner: owner)
     }
 
-    /// Maps a failed request to the attempt's outcome.
-    private func failure(_ failure: APIFailure) -> AttemptResult {
+    /// Maps a failed request to the attempt's outcome. Inside a reconnect series a network error or a 503 is
+    /// one more lost try, so the series keeps backing off instead of waiting for a tap on Retry.
+    private func failure(_ failure: APIFailure, isReconnecting: Bool) -> AttemptResult {
         if case .network = failure, !isNetworkOnline { return .finished(.offline) }
+        if isReconnecting {
+            if case .network = failure { return .lost(hadOutput: false) }
+            if case .server(let error) = failure, error.status == 503 { return .lost(hadOutput: false) }
+        }
         guard case .server(let error) = failure else { return .finished(.failed(ThreadProblem(failure))) }
         switch error.code {
         case "origin_not_allowed": return .finished(.refused(.originNotAllowed(message: error.message)))
