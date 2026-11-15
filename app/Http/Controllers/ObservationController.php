@@ -18,7 +18,7 @@ class ObservationController extends Controller
         $outcome = $request->string('outcome')->toString();
 
         return Inertia::render('Observations/Index', [
-            'observations' => fn () => $this->paginated($repo, $outcome, max(1, $request->integer('page', 1))),
+            'observations' => fn () => $this->paginated($repo, $outcome),
             'filters' => [
                 'repo' => $repo,
                 'outcome' => $outcome,
@@ -32,10 +32,10 @@ class ObservationController extends Controller
     /**
      * @return ScrollProp<LengthAwarePaginator<int, array<string, mixed>>>
      */
-    private function paginated(string $repo, string $outcome, int $page): ScrollProp
+    private function paginated(string $repo, string $outcome): ScrollProp
     {
         /** @var LengthAwarePaginator<int, array<string, mixed>> $mapped */
-        $mapped = ObservationQuery::page($repo, $outcome, $page)->through(ObservationData::from(...));
+        $mapped = ObservationQuery::page($repo, $outcome)->through(ObservationData::from(...));
 
         return Inertia::scroll($mapped)->matchOn('data.id');
     }

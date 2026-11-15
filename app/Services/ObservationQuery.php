@@ -17,7 +17,7 @@ class ObservationQuery
     /**
      * @return LengthAwarePaginator<int, Observation>
      */
-    public static function page(?string $repo, ?string $outcome, int $page, ?string $search = null): LengthAwarePaginator
+    public static function page(?string $repo, ?string $outcome, ?int $page = null, ?string $search = null): LengthAwarePaginator
     {
         $pattern = $search !== null && trim($search) !== '' ? ThreadList::likePattern(trim($search)) : null;
 

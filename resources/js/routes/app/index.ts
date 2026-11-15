@@ -2,6 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../
 import device from './device'
 import threads from './threads'
 import broadcasting from './broadcasting'
+import observations from './observations'
 import tasks from './tasks'
 import media from './media'
 /**
@@ -98,6 +99,7 @@ const app = {
     me: Object.assign(me, me),
     threads: Object.assign(threads, threads),
     broadcasting: Object.assign(broadcasting, broadcasting),
+    observations: Object.assign(observations, observations),
     tasks: Object.assign(tasks, tasks),
     media: Object.assign(media, media),
 }
