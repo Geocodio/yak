@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PushTokenKind;
+use App\Services\Devices\ShortLockWait;
 use App\Services\Push\Apns\ApnsConfig;
 use App\Services\Push\PushEvent;
 use Database\Factories\UserFactory;
@@ -19,6 +20,8 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use NotificationChannels\WebPush\HasPushSubscriptions;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Throwable;
 
 /**
  * @property array<string, bool>|null $push_event_preferences
@@ -191,15 +194,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Merges the known switches into the stored value under a row lock, so two quick changes from two phones (or a phone and the web) both stick.
+     *
      * @param  array<string, bool>  $preferences
      */
     public function setPushPreferences(array $preferences): void
     {
-        $known = array_map(fn (PushEvent $event): string => $event->value, PushEvent::cases());
+        $known = array_flip(array_map(fn (PushEvent $event): string => $event->value, PushEvent::cases()));
 
-        $this->forceFill([
-            'push_event_preferences' => array_map('boolval', array_merge($this->push_event_preferences ?? [], array_intersect_key($preferences, array_flip($known)))),
-        ])->save();
+        ShortLockWait::transaction(function () use ($preferences, $known): void {
+            $current = self::query()->whereKey($this->getKey())->lockForUpdate()->value('push_event_preferences');
+            $current = is_string($current) ? (json_decode($current, true) ?: []) : ($current ?? []);
+
+            $this->forceFill([
+                'push_event_preferences' => array_map('boolval', array_merge($current, array_intersect_key($preferences, $known))),
+            ])->save();
+        }, fn (): Throwable => new HttpException(503, 'Yak is still saving another change to your notifications. Try again in a moment.'));
     }
 
     /**

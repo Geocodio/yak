@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenControll
 use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
 use App\Http\Controllers\Api\App\MeController as AppMeController;
 use App\Http\Controllers\Api\App\SignedMediaController;
+use App\Http\Controllers\Api\App\Push\NotificationPreferenceController as AppNotificationPreferenceController;
 use App\Http\Controllers\Api\App\Push\PushTestController as AppPushTestController;
 use App\Http\Controllers\Api\App\Push\PushTokenController as AppPushTokenController;
 use App\Http\Controllers\Api\App\Threads\ClarificationAnswerController as AppClarificationAnswerController;
@@ -486,6 +487,8 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::delete('device', [AppDeviceController::class, 'destroy'])->name('app.device.destroy');
         Route::put('push-tokens/{kind}', [AppPushTokenController::class, 'update'])->where('kind', PushTokenKind::routePattern())->name('app.push-tokens.update');
         Route::delete('push-tokens/{kind}', [AppPushTokenController::class, 'destroy'])->where('kind', PushTokenKind::routePattern())->name('app.push-tokens.destroy');
+        Route::get('notifications', [AppNotificationPreferenceController::class, 'show'])->name('app.notifications.show');
+        Route::put('notifications', [AppNotificationPreferenceController::class, 'update'])->name('app.notifications.update');
         Route::post('push-tokens/alert/test', AppPushTestController::class)->middleware('throttle:app-push-test')->name('app.push-tokens.test');
         Route::get('threads', AppThreadListController::class)->name('app.threads.index');
         Route::get('threads/new', [AppNewThreadController::class, 'create'])->name('app.threads.new');

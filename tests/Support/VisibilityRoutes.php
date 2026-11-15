@@ -197,7 +197,7 @@ class VisibilityRoutes
             // Device-token protocol for the app: phones, no web session; instance is public discovery, me reads the device owner only.
             'app.instance', 'app.device.code', 'app.device.token', 'app.device.pair', 'app.me', 'app.device.destroy',
             // The device's own push tokens and preferences: per device and per user, no thread data.
-            'app.push-tokens.update', 'app.push-tokens.destroy', 'app.push-tokens.test',
+            'app.push-tokens.update', 'app.push-tokens.destroy', 'app.notifications.show', 'app.notifications.update', 'app.push-tokens.test',
             // Web-session routes that read only the signed-in user's own pairing codes.
             'settings.devices.pairing-codes.store', 'settings.devices.pairing-codes.show',
             // Device-token protocol for the CLI: no web session; each controller resolves the thread through the device owner's visibility.
