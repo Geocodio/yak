@@ -68,7 +68,9 @@ extension ThreadEngine {
     }
 
     public func setQueuedMessageMode(_ uuid: String, mode: MessageMode) async -> ThreadActionOutcome {
-        await perform("mode:\(uuid):\(mode.rawValue)", .updateQueuedMessage(threadID, uuid: uuid, mode: mode, text: nil))
+        await perform(
+            "mode:\(uuid):\(mode.rawValue)",
+            .updateQueuedMessage(threadID, uuid: uuid, mode: mode, text: nil))
     }
 
     /// Trims the text and refuses an empty one without a request; the server limits the length.
@@ -77,7 +79,9 @@ extension ThreadEngine {
         guard !trimmed.isEmpty else {
             return .refused(code: "validation_failed", message: "", fieldErrors: ["text": []])
         }
-        return await perform("edit:\(uuid):\(trimmed)", .updateQueuedMessage(threadID, uuid: uuid, mode: nil, text: trimmed))
+        return await perform(
+            "edit:\(uuid):\(trimmed)",
+            .updateQueuedMessage(threadID, uuid: uuid, mode: nil, text: trimmed))
     }
 
     public func withdrawQueuedMessage(_ uuid: String) async -> ThreadActionOutcome {
