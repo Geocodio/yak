@@ -1,0 +1,21 @@
+{
+    "aps": {
+        "alert": {
+            "body": "Open Yak to read it.",
+            "title": "Private thread"
+        },
+        "badge": 0,
+        "filter-criteria": "yak.example.com",
+        "interruption-level": "time-sensitive",
+        "sound": "default",
+        "thread-id": "thread-d0e515ef"
+    },
+    "yak": {
+        "event": "needs_you",
+        "id": "d0e515ef",
+        "instance": "https://yak.example.com",
+        "kind": "thread",
+        "needsYouCount": 0,
+        "path": "/threads/d0e515ef"
+    }
+}

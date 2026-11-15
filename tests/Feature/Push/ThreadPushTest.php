@@ -48,6 +48,11 @@ it('skips a person viewing the thread', function () {
     $this->push->assertNothingSent();
 });
 
+it('skips a person with neither a Web Push device nor an alert token', function () {
+    expect(sendPush($this->thread, [$this->user]))->toBe(0);
+    $this->push->assertNothingSent();
+});
+
 it('skips a disabled device', function () {
     $this->push->subscription($this->user, ['is_enabled' => false]);
 

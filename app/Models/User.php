@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\PushTokenKind;
+use App\Services\Push\Apns\ApnsConfig;
 use App\Services\Push\PushEvent;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -160,6 +162,24 @@ class User extends Authenticatable
     {
         /** @var Collection<int, PushDevice> */
         return $this->pushSubscriptions()->where('is_enabled', true)->get();
+    }
+
+    /**
+     * The alert tokens of this person's phones that are not revoked. Empty while APNs is not configured, so a person with only a phone is skipped exactly as before APNs existed.
+     *
+     * @return Collection<int, DevicePushToken>
+     */
+    public function routeNotificationForApns(): Collection
+    {
+        if (! app(ApnsConfig::class)->isConfigured()) {
+            return new Collection;
+        }
+
+        return DevicePushToken::query()
+            ->deliverable()
+            ->where('kind', PushTokenKind::Alert->value)
+            ->whereHas('device', fn (Builder $device) => $device->where('user_id', $this->id))
+            ->get();
     }
 
     /**

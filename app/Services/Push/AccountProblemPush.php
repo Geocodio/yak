@@ -17,7 +17,7 @@ class AccountProblemPush
     {
         $owner = $account->owner;
 
-        if ($owner === null || $owner->routeNotificationForWebPush()->isEmpty()) {
+        if ($owner === null || ($owner->routeNotificationForWebPush()->isEmpty() && $owner->routeNotificationForApns()->isEmpty())) {
             return;
         }
 
