@@ -3,11 +3,13 @@
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\Artifact;
+use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\TaskAttachment;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Tasks\AppMediaLinks;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
@@ -68,7 +70,8 @@ it('serves a signed attachment without a session', function () {
     $attachment = TaskAttachment::factory()->for($task, 'task')->create(['disk_path' => 'attachments/a/before.png', 'original_name' => 'before.png', 'mime_type' => 'image/png']);
 
     $this->get((new AppMediaLinks($task))->forAttachment($attachment))
-        ->assertOk()->assertHeader('Content-Type', 'image/png');
+        ->assertOk()->assertHeader('Content-Type', 'image/png')
+        ->assertStreamedContent('png-bytes');
 });
 
 it('refuses an unsigned, tampered or expired link', function () {
@@ -85,16 +88,20 @@ it('refuses an unsigned, tampered or expired link', function () {
 });
 
 it('rewrites research artifact links to signed file links', function () {
-    $task = mediaTask($this->user, ['mode' => TaskMode::Research, 'result_summary' => 'Done.']);
+    $task = mediaTask($this->user, ['mode' => TaskMode::Research, 'result_summary' => 'Done.', 'started_at' => now()->subMinute(), 'completed_at' => now()]);
     Storage::disk('artifacts')->put('research.html', '<p>report</p>');
     Artifact::factory()->research()->create(['yak_task_id' => $task->id]);
 
     $response = $this->getJson(appTaskPath($task), phoneHeadersFor($this->user))->assertOk();
 
-    $artifactUrl = $response->json('task.researchArtifactUrl') ?? $response->json('researchArtifactUrl');
+    $artifactUrl = $response->json('task.researchArtifactUrl');
     expect($artifactUrl)->toStartWith('https://yak.example.com/artifacts/k3m9p2qa/research.html?')
         ->and(signedExpiryMinutes($artifactUrl))->toBe(30)
-        ->and($response->getContent())->not->toContain('/viewer/');
+        ->and(str_replace('\\/', '/', $response->getContent()))->not->toContain('/viewer/');
+
+    $entryUrl = collect($response->json('thread'))->flatMap(fn (array $entry) => $entry['links'] ?? [])->firstWhere('label', 'View research artifact')['url'] ?? null;
+    expect($entryUrl)->toStartWith('https://yak.example.com/artifacts/k3m9p2qa/research.html?')
+        ->and(signedExpiryMinutes($entryUrl))->toBe(30);
 
     // A fresh client: nobody is signed in.
     $this->app['auth']->forgetGuards();
@@ -111,4 +118,42 @@ it('leaves the web body unchanged', function () {
 
     $this->actingAs($this->user)->get(route('tasks.show', $task))
         ->assertInertia(fn ($page) => $page->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => 'k3m9p2qa', 'filename' => 'research.html'])));
+});
+
+describe('signed pull request images', function () {
+    beforeEach(function () {
+        config()->set('yak.channels.github.installation_id', 99999);
+        GitHubInstallationToken::factory()->create(['installation_id' => 99999, 'token' => 'ghs_test_token', 'expires_at' => now()->addHour()]);
+        $this->reviewTask = mediaTask($this->user, ['mode' => TaskMode::Review, 'context' => json_encode([
+            'pr_number' => 42, 'body' => '![shot](https://github.com/user-attachments/assets/' . MEDIA_PR_ASSET . ')',
+        ])]);
+        $this->imageLink = (new AppMediaLinks($this->reviewTask))->forPullRequestImage('k3m9p2qa', MEDIA_PR_ASSET);
+    });
+
+    it('serves a signed image without a session', function () {
+        Http::fake([
+            'api.github.com/markdown' => Http::response('<img src="https://private-user-images.githubusercontent.com/1/2-' . MEDIA_PR_ASSET . '.png?jwt=abc">'),
+            'private-user-images.githubusercontent.com/*' => Http::response('png-bytes', 200, ['Content-Type' => 'image/png']),
+        ]);
+
+        $this->get($this->imageLink)->assertOk()->assertHeader('Content-Type', 'image/png')->assertContent('png-bytes');
+    });
+
+    it('refuses an unsigned, changed or expired link', function () {
+        Http::fake();
+
+        $this->get('https://yak.example.com/app-media/tasks/k3m9p2qa/pr-images/' . MEDIA_PR_ASSET)->assertForbidden();
+        $this->get(str_replace(MEDIA_PR_ASSET, '00000000-0000-0000-0000-000000000000', $this->imageLink))->assertForbidden();
+        $this->travel(31)->minutes();
+        $this->get($this->imageLink)->assertForbidden();
+        Http::assertNothingSent();
+    });
+
+    it('answers 404 for an asset that is not in the stored PR body', function () {
+        Http::fake();
+        $link = (new AppMediaLinks($this->reviewTask))->forPullRequestImage('k3m9p2qa', '00000000-0000-0000-0000-000000000000');
+
+        $this->get($link)->assertNotFound();
+        Http::assertNothingSent();
+    });
 });

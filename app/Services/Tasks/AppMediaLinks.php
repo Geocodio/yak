@@ -49,15 +49,15 @@ final class AppMediaLinks
         $characters = self::URL_CHARACTERS;
 
         if (str_contains($html, '/pr-images/')) {
-            $html = (string) preg_replace_callback(
+            $html = preg_replace_callback(
                 "#https?://{$characters}+?/tasks/([A-Za-z0-9]+)/pr-images/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})#i",
                 fn (array $match): string => $this->conversationTask($match[1]) !== null ? $this->forPullRequestImage($match[1], $match[2]) : $match[0],
                 $html,
-            );
+            ) ?? $html;
         }
 
         if (str_contains($html, '/task-attachments/')) {
-            $html = (string) preg_replace_callback(
+            $html = preg_replace_callback(
                 "#https?://{$characters}+?(?<!app-media)/task-attachments/(\d+)(\?{$characters}*)?#",
                 function (array $match): string {
                     $attachment = TaskAttachment::query()->find((int) $match[1]);
@@ -67,23 +67,23 @@ final class AppMediaLinks
                         : $match[0];
                 },
                 $html,
-            );
+            ) ?? $html;
         }
 
         if (str_contains($html, '/viewer/')) {
-            $html = (string) preg_replace_callback(
+            $html = preg_replace_callback(
                 "#https?://{$characters}+?/artifacts/([A-Za-z0-9]+)/viewer/([^\s\"'<>?]+)#",
                 fn (array $match): string => $this->forConversationArtifact($match[1], rawurldecode($match[2])) ?? $match[0],
                 $html,
-            );
+            ) ?? $html;
         }
 
         if (str_contains($html, '/artifacts/') && str_contains($html, 'signature=')) {
-            $html = (string) preg_replace_callback(
+            $html = preg_replace_callback(
                 "#https?://{$characters}+?/artifacts/([A-Za-z0-9]+)/([^\s\"'<>/?]+)\?{$characters}*signature={$characters}*#",
                 fn (array $match): string => $this->forConversationArtifact($match[1], rawurldecode($match[2])) ?? $match[0],
                 $html,
-            );
+            ) ?? $html;
         }
 
         return $html;
