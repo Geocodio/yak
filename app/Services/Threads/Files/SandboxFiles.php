@@ -4,6 +4,7 @@ namespace App\Services\Threads\Files;
 
 use App\DataTransferObjects\Files\FileContent;
 use App\DataTransferObjects\Files\FileEntry;
+use App\DataTransferObjects\Files\FolderListing;
 use App\Enums\FileScope;
 use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
@@ -46,12 +47,22 @@ class SandboxFiles
      */
     public function tree(Thread $thread, FileScope $scope, string $directory): array
     {
+        return $this->listFolder($thread, $scope, $directory)->entries;
+    }
+
+    /**
+     * One level of a folder, cut at the tree limit. A missing folder, or a path that is a file, is not found.
+     */
+    public function listFolder(Thread $thread, FileScope $scope, string $directory): FolderListing
+    {
         $absolute = SandboxPath::resolveDirectory($thread, $scope, $directory);
         $guard = $this->guard($thread, $scope, $absolute);
 
         $result = $this->exec($thread, sprintf(
-            "%s find %s -mindepth 1 -maxdepth 1 -printf '%%y\\t%%s\\t%%f\\0'",
+            "%s[ -d %s ] || exit %d; find %s -mindepth 1 -maxdepth 1 -printf '%%y\\t%%s\\t%%f\\0'",
             $guard,
+            escapeshellarg($absolute),
+            self::EXIT_NOT_A_FILE,
             escapeshellarg($absolute),
         ));
 
@@ -82,7 +93,9 @@ class SandboxFiles
         usort($entries, fn (FileEntry $left, FileEntry $right): int => [! $left->isDirectory, mb_strtolower($left->name)]
             <=> [! $right->isDirectory, mb_strtolower($right->name)]);
 
-        return array_slice($entries, 0, (int) config('yak.files.tree_limit'));
+        $limit = (int) config('yak.files.tree_limit');
+
+        return new FolderListing(array_slice($entries, 0, $limit), count($entries) > $limit);
     }
 
     public function read(Thread $thread, FileScope $scope, string $path): FileContent

@@ -41,7 +41,7 @@ class ThreadFileController extends Controller
         }
 
         $directory = (string) $request->query('path', '');
-        $entries = $this->files->tree($thread, $scope, $directory);
+        $entries = $this->files->listFolder($thread, $scope, $directory)->entries;
         $this->sandbox->markSessionOpen($thread);
 
         $changedPaths = [];
