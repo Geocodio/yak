@@ -1,0 +1,17 @@
+{
+  "aps": {
+    "alert": { "title": "Example account", "body": "The account needs attention." },
+    "sound": "default",
+    "badge": 0,
+    "thread-id": "account",
+    "interruption-level": "active"
+  },
+  "yak": {
+    "instance": "https://yak.example.com",
+    "event": "account",
+    "kind": "account",
+    "id": null,
+    "path": "/settings/claude-accounts",
+    "needsYouCount": 0
+  }
+}

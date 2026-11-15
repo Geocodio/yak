@@ -64,3 +64,15 @@ func theThreadFixtureCarriesAChannel() throws {
 func theQuestionFixtureHasNoChannel() throws {
     #expect(try decodeFixture(ThreadShow.self, "thread-question").liveActivityChannel == nil)
 }
+
+@Test(
+    arguments: [
+        "push/alert-needs-you", "push/alert-turn-finished", "push/alert-pull-request", "push/alert-private",
+        "push/alert-account",
+    ])
+func decodesTheAlertPayloads(name: String) throws {
+    guard Fixtures.exists(name) else { return }
+    let payload = try decodeFixture(PushPayload.self, name)
+    let yak = try #require(payload.yak)
+    if name == "push/alert-account" { #expect(yak.id == nil) }
+}
