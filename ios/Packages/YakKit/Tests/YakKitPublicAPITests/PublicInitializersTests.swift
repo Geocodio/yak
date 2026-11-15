@@ -85,3 +85,18 @@ import YakKit
     _ = OutboxAttachment(reference: "r", fileName: "f.png", contentType: "image/png", path: "p")
     _ = OutboxRefusal(code: "c", message: "m")
 }
+
+@Test func workspaceModelsAreBuildableOutsideTheModule() {
+    let session = TerminalSession(url: "wss://bridge.example.com/t", token: "token", expiresAt: "2026-11-16T09:00:00Z")
+    let entry = FileTreeEntry(name: "a.txt", path: "a.txt", isDirectory: false, isWritable: true, size: 3)
+    let folder = FileTreeFolder(root: "", entries: [entry])
+    let body = FileBody(
+        path: "a.txt", sha256: "abc", size: 3, isBinary: false, isTooLarge: false, content: "hey", headContent: nil,
+        language: .text)
+    let content = FileContent(
+        path: "a.txt", sha256: "abc", size: 3, isBinary: false, isTooLarge: false, content: "hey", headContent: nil,
+        language: .text, canEdit: true)
+    let saved = FileSaveResult(file: body, working: true)
+    #expect(session.token == "token" && folder.entries == [entry] && !folder.truncated)
+    #expect(content.body == body && saved.file == body)
+}

@@ -91,6 +91,9 @@ private func jsonBody<R>(_ endpoint: Endpoint<R>) throws -> [String: Any] {
     let bare = APIError(
         status: 409, code: "sandbox_unavailable", message: "x",
         details: ["state": .string("later_state"), "canRestore": .bool(true)])
+    let stateless = try #require(
+        SandboxUnavailable(APIError(status: 409, code: "sandbox_unavailable", message: "x", details: [:])))
+    #expect(stateless.state.rawValue == "unknown")
     let read = try #require(SandboxUnavailable(bare))
     #expect(read.state.rawValue == "later_state" && read.canRestore && !read.restoring)
     #expect(SandboxUnavailable(APIError(status: 403, code: "forbidden", message: "", details: [:])) == nil)
@@ -111,6 +114,14 @@ private func jsonBody<R>(_ endpoint: Endpoint<R>) throws -> [String: Any] {
     #expect(try #require(FileConflict(error)).file == nil)
 }
 
+@Test func aConflictWithAnUnreadableFileIsNotADeletion() throws {
+    let malformed = APIError(
+        status: 409, code: "file_conflict", message: "x",
+        details: ["file": .object(["path": .string("a.txt"), "size": .number(1)])])
+    #expect(FileConflict(malformed) == nil)
+    #expect(FileConflict(APIError(status: 409, code: "file_conflict", message: "x", details: [:])) == nil)
+}
+
 @Test func originDropsPathAndDefaultPort() throws {
     func origin(_ text: String) -> String? { TerminalOrigin.make(instance: URL(string: text)!) }
     #expect(origin("https://yak.example.com/sub/") == "https://yak.example.com")
@@ -119,6 +130,8 @@ private func jsonBody<R>(_ endpoint: Endpoint<R>) throws -> [String: Any] {
     #expect(origin("http://127.0.0.1:8080") == "http://127.0.0.1:8080")
     #expect(origin("http://yak.example.com:80") == "http://yak.example.com")
     #expect(origin("file:///tmp/x") == nil)
+    #expect(origin("wss://yak.example.com") == nil)
+    #expect(origin("http://[::1]:8080") == "http://[::1]:8080")
 }
 
 @Test func endpointsCarryTheContract() throws {
@@ -161,4 +174,12 @@ private func jsonBody<R>(_ endpoint: Endpoint<R>) throws -> [String: Any] {
         ThreadShow.self,
         from: Scenarios.data("scenario-thread-show", setting: ["thread", "ownerSide"], toJSON: "null"))
     #expect(without.thread.ownerSide == nil)
+    var object = try #require(
+        JSONSerialization.jsonObject(with: Scenarios.data("scenario-thread-show")) as? [String: Any])
+    var thread = try #require(object["thread"] as? [String: Any])
+    thread["ownerSide"] = nil
+    thread["preview"] = nil
+    object["thread"] = thread
+    let absent = try JSONDecoder().decode(ThreadShow.self, from: JSONSerialization.data(withJSONObject: object))
+    #expect(absent.thread.ownerSide == nil && absent.thread.preview == nil)
 }

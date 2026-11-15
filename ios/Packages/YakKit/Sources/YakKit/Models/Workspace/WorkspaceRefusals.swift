@@ -25,7 +25,8 @@ public struct SandboxUnavailable: Equatable, Sendable {
     public let waitingForSlot: Bool
     public let restoring: Bool
 
-    /// Nil unless the error's code is `sandbox_unavailable`. Missing booleans read as false.
+    /// Nil unless the error's code is `sandbox_unavailable`. Missing booleans read as false. A missing
+    /// `details.state` reads as the state "unknown", which callers show as the generic unavailable screen.
     public init?(_ error: APIError) {
         guard error.code == "sandbox_unavailable" else { return nil }
         state = SandboxUnavailableState(rawValue: error.details["state"]?.stringValue ?? "unknown")
@@ -42,17 +43,19 @@ public struct FileConflict: Equatable, Sendable {
     /// Nil when the file was deleted meanwhile.
     public let file: FileBody?
 
-    /// Nil unless the error's code is `file_conflict`.
+    /// Nil unless the error's code is `file_conflict` and `details.file` is either JSON null (the file was
+    /// deleted meanwhile) or a file object that decodes. A missing key or a malformed file object is not a
+    /// deletion: the caller handles it as an unknown refusal, so a save never overwrites on a guess.
     public init?(_ error: APIError) {
-        guard error.code == "file_conflict" else { return nil }
-        message = error.message
-        // A missing or malformed `file` reads as a deletion.
-        if let value = error.details["file"], value != .null,
-            let data = try? JSONEncoder().encode(value)
-        {
-            file = try? JSONDecoder().decode(FileBody.self, from: data)
-        } else {
+        guard error.code == "file_conflict", let value = error.details["file"] else { return nil }
+        if value == .null {
             file = nil
+        } else {
+            guard let data = try? JSONEncoder().encode(value),
+                let body = try? JSONDecoder().decode(FileBody.self, from: data)
+            else { return nil }
+            file = body
         }
+        message = error.message
     }
 }

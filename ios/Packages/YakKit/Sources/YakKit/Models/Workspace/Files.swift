@@ -9,6 +9,14 @@ public struct FileTreeEntry: Codable, Equatable, Sendable, Identifiable {
     public let isWritable: Bool
     public let size: Int?
     public var id: String { path }
+
+    public init(name: String, path: String, isDirectory: Bool, isWritable: Bool, size: Int?) {
+        self.name = name
+        self.path = path
+        self.isDirectory = isDirectory
+        self.isWritable = isWritable
+        self.size = size
+    }
 }
 
 /// One folder of the tree. `changedPaths` and `addedPaths` cover the whole thread, not only this folder.
@@ -19,6 +27,17 @@ public struct FileTreeFolder: Codable, Equatable, Sendable {
     public let addedPaths: [String]
     /// False when the key is missing.
     public let truncated: Bool
+
+    public init(
+        root: String, entries: [FileTreeEntry], changedPaths: [String] = [], addedPaths: [String] = [],
+        truncated: Bool = false
+    ) {
+        self.root = root
+        self.entries = entries
+        self.changedPaths = changedPaths
+        self.addedPaths = addedPaths
+        self.truncated = truncated
+    }
 }
 
 extension FileTreeFolder {
@@ -53,6 +72,20 @@ public struct FileBody: Codable, Equatable, Sendable {
     public let content: String?
     public let headContent: String?
     public let language: FileLanguage
+
+    public init(
+        path: String, sha256: String, size: Int, isBinary: Bool, isTooLarge: Bool, content: String?,
+        headContent: String?, language: FileLanguage
+    ) {
+        self.path = path
+        self.sha256 = sha256
+        self.size = size
+        self.isBinary = isBinary
+        self.isTooLarge = isTooLarge
+        self.content = content
+        self.headContent = headContent
+        self.language = language
+    }
 }
 
 /// A file as `GET files/content` returns it.
@@ -67,6 +100,21 @@ public struct FileContent: Codable, Equatable, Sendable {
     public let language: FileLanguage
     public let canEdit: Bool
 
+    public init(
+        path: String, sha256: String, size: Int, isBinary: Bool, isTooLarge: Bool, content: String?,
+        headContent: String?, language: FileLanguage, canEdit: Bool
+    ) {
+        self.path = path
+        self.sha256 = sha256
+        self.size = size
+        self.isBinary = isBinary
+        self.isTooLarge = isTooLarge
+        self.content = content
+        self.headContent = headContent
+        self.language = language
+        self.canEdit = canEdit
+    }
+
     public var body: FileBody {
         FileBody(
             path: path, sha256: sha256, size: size, isBinary: isBinary, isTooLarge: isTooLarge,
@@ -77,4 +125,9 @@ public struct FileContent: Codable, Equatable, Sendable {
 public struct FileSaveResult: Codable, Equatable, Sendable {
     public let file: FileBody
     public let working: Bool
+
+    public init(file: FileBody, working: Bool) {
+        self.file = file
+        self.working = working
+    }
 }

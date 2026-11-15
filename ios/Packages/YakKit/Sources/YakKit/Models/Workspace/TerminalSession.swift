@@ -7,6 +7,12 @@ public struct TerminalSession: Codable, Equatable, Sendable {
     public let token: String
     public let expiresAt: String
 
+    public init(url: String, token: String, expiresAt: String) {
+        self.url = url
+        self.token = token
+        self.expiresAt = expiresAt
+    }
+
     enum CodingKeys: String, CodingKey {
         case url, token
         case expiresAt = "expires_at"
