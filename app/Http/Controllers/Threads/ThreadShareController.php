@@ -21,7 +21,9 @@ class ThreadShareController extends Controller
 
     public function show(Request $request, Thread $thread): JsonResponse
     {
-        return response()->json(ThreadShareData::for($thread, $this->owner($request, $thread)));
+        $this->owner($request, $thread);
+
+        return response()->json(ThreadShareData::for($thread));
     }
 
     public function update(UpdateThreadShareRequest $request, Thread $thread): JsonResponse

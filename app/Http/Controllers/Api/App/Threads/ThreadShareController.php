@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\App\Threads;
 
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\UpdateThreadShareRequest;
 use App\Http\Resources\ThreadShareData;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Devices\ShortLockWait;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadSharing;
 use Illuminate\Http\JsonResponse;
@@ -22,12 +24,19 @@ class ThreadShareController extends Controller
 
     public function show(Request $request, Thread $thread): JsonResponse
     {
-        return response()->json(ThreadShareData::for($thread, $this->owner($request, $thread)));
+        $this->owner($request, $thread);
+
+        return response()->json(ThreadShareData::for($thread));
     }
 
     public function update(UpdateThreadShareRequest $request, Thread $thread): JsonResponse
     {
-        $this->sharing->apply($thread, $this->owner($request, $thread), $request->mode(), $request->userIds());
+        $owner = $this->owner($request, $thread);
+
+        ShortLockWait::transaction(
+            fn () => $this->sharing->apply($thread, $owner, $request->mode(), $request->userIds()),
+            fn (): ThreadActionRefused => new ThreadActionRefused('unavailable', 'Yak is busy changing this thread. Try again in a few seconds.', [], 503),
+        );
 
         $current = $this->sharing->current($thread);
 

@@ -5,6 +5,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Services\Threads\ThreadSharing;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Tests\Support\ContractFixture;
 
 function shareThread(): array
@@ -39,14 +40,17 @@ it('shares with chosen people', function () {
     ContractFixture::assertMatches('app', 'thread-share-updated', $response->json(), ['userIds.*']);
 });
 
-it('validates the share', function (array $body) {
+it('validates the share', function (array $body, string $field) {
     [$thread, $owner] = shareThread();
 
-    $this->putJson(appThreadPath($thread, '/share'), $body, phoneHeadersFor($owner))->assertUnprocessable();
+    $response = $this->putJson(appThreadPath($thread, '/share'), $body, phoneHeadersFor($owner))->assertUnprocessable()
+        ->assertJsonPath('error', 'validation_failed');
+
+    expect(array_keys($response->json('details.errors')))->toBe([$field]);
 })->with([
-    'unknown mode' => [['mode' => 'everyone_on_earth']],
-    'people without ids' => [['mode' => 'people']],
-    'too many ids' => [['mode' => 'people', 'user_ids' => range(1, 201)]],
+    'unknown mode' => [['mode' => 'everyone_on_earth'], 'mode'],
+    'people without ids' => [['mode' => 'people'], 'user_ids'],
+    'too many ids' => [['mode' => 'people', 'user_ids' => range(1, 201)], 'user_ids'],
 ]);
 
 it('refuses a person who is not the owner', function () {
@@ -55,10 +59,10 @@ it('refuses a person who is not the owner', function () {
     $team = Thread::factory()->create(['owner_user_id' => $owner->id]);
     $headers = phoneHeadersFor($recipient);
 
-    $this->getJson(appThreadPath($thread, '/share'), $headers)->assertForbidden();
-    $this->putJson(appThreadPath($thread, '/share'), ['mode' => 'only_me'], $headers)->assertForbidden();
-    $this->getJson(appThreadPath($team, '/share'), $headers)->assertForbidden();
-    $this->putJson(appThreadPath($team, '/share'), ['mode' => 'only_me'], $headers)->assertForbidden();
+    $this->getJson(appThreadPath($thread, '/share'), $headers)->assertForbidden()->assertJsonPath('error', 'forbidden');
+    $this->putJson(appThreadPath($thread, '/share'), ['mode' => 'only_me'], $headers)->assertForbidden()->assertJsonPath('error', 'forbidden');
+    $this->getJson(appThreadPath($team, '/share'), $headers)->assertForbidden()->assertJsonPath('error', 'forbidden');
+    $this->putJson(appThreadPath($team, '/share'), ['mode' => 'only_me'], $headers)->assertForbidden()->assertJsonPath('error', 'forbidden');
 });
 
 it('answers a hidden thread like a missing one', function (string $method) {
@@ -83,3 +87,12 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
     [, $computerHeaders] = phoneWithHeaders(['user_id' => $owner->id], isPhone: false);
     $this->json($method, $path, [], $computerHeaders)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
 })->with(['GET', 'PUT']);
+
+it('answers 503 unavailable when the thread lock cannot be taken in time', function () {
+    [$thread, $owner] = shareThread();
+    Thread::updating(fn () => throw tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']));
+
+    $this->putJson(appThreadPath($thread, '/share'), ['mode' => 'everyone'], phoneHeadersFor($owner))
+        ->assertStatus(503)
+        ->assertExactJson(['error' => 'unavailable', 'message' => 'Yak is busy changing this thread. Try again in a few seconds.']);
+});
