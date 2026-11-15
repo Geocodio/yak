@@ -28,8 +28,8 @@ module ReleaseSupport
       if REQUIRED_CONFIG_KEYS.include?(key) && value.strip.empty?
         raise Refusal, "#{key} is not set. Add it to the testflight environment's variables."
       end
-      if value.match?(/[[:cntrl:]]/) || value.include?("$(") || value.include?("#include") || value.include?("\\")
-        raise Refusal, "#{key} holds a newline, a control character, a backslash, \"$(\" or \"#include\", which Config.xcconfig cannot store. Fix the value of #{key}."
+      if value.match?(/[[:cntrl:]]/) || value.include?("$") || value.include?("#include") || value.include?("\\")
+        raise Refusal, "#{key} holds a newline, a control character, a backslash, \"$\" or \"#include\", which Config.xcconfig cannot store. Fix the value of #{key}."
       end
       "#{key} = #{value.gsub(%r{/(?=/)}, "/$()")}".rstrip + "\n"
     end.join
@@ -41,19 +41,19 @@ module ReleaseSupport
       next if stripped.empty? || stripped.start_with?("//")
       key, separator, value = stripped.partition("=")
       next if separator.empty?
-      result[key.strip] = value.strip.gsub("/$()", "/")
+      result[key.strip] = value.split("//", 2).first.to_s.strip.gsub("/$()", "/")
     end
   end
 
   def self.build_number(run_number:, attempt:, latest_uploaded:)
     unless latest_uploaded.nil? || latest_uploaded.match?(BUILD_NUMBER_PATTERN)
-      raise Refusal, "TestFlight reported the latest build as #{latest_uploaded.inspect}, which is not a build number."
+      raise Refusal, "TestFlight reported the latest build as #{latest_uploaded.inspect}, which is not a build number. Check the App Store Connect API key and that TestFlight lists a numeric build."
     end
     if run_number.nil?
       return latest_uploaded.nil? ? "1" : (latest_uploaded.split(".").first.to_i + 1).to_s
     end
     unless run_number.is_a?(Integer) && run_number.positive? && attempt.is_a?(Integer) && attempt.positive?
-      raise Refusal, "The run number and attempt must be positive whole numbers."
+      raise Refusal, "The run number and attempt must be positive whole numbers. Check GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT and YAK_BUILD_NUMBER_OFFSET."
     end
     number = attempt == 1 ? run_number.to_s : "#{run_number}.#{attempt}"
     if latest_uploaded && Gem::Version.new(number) <= Gem::Version.new(latest_uploaded)
@@ -63,9 +63,13 @@ module ReleaseSupport
     number
   end
 
+  def self.scrub(value)
+    value.to_s.dup.force_encoding(Encoding::UTF_8).scrub("")
+  end
+
   # Only titles of merged pull requests (a subject ending in "(#N)") reach the notes.
   def self.release_notes(subjects, fallback:)
-    lines = subjects.map { |subject| subject.to_s.gsub(HIDDEN_CHARACTERS, "").strip }
+    lines = subjects.map { |subject| scrub(subject).gsub(HIDDEN_CHARACTERS, "").strip }
                     .select { |subject| subject.match?(/\(#\d+\)\z/) }
                     .uniq
                     .first(MAXIMUM_NOTE_LINES)
@@ -77,7 +81,8 @@ module ReleaseSupport
 
   def self.testers(text)
     addresses = []
-    text.each_line.with_index(1) do |line, number|
+    text.to_s.dup.force_encoding(Encoding::UTF_8).each_line.with_index(1) do |line, number|
+      raise Refusal, "The testers file has an invalid email address on line #{number}. Fix that line." unless line.valid_encoding?
       entry = line.sub(/#.*/, "").strip
       next if entry.empty?
       if !entry.match?(ADDRESS_PATTERN) || entry.match?(HIDDEN_CHARACTERS)
@@ -87,7 +92,7 @@ module ReleaseSupport
     end
     addresses.uniq!
     if addresses.size > MAXIMUM_TESTERS
-      raise Refusal, "The testers file lists #{addresses.size} addresses; TestFlight allows #{MAXIMUM_TESTERS} internal testers."
+      raise Refusal, "The testers file lists #{addresses.size} addresses; TestFlight allows #{MAXIMUM_TESTERS} internal testers. Remove addresses from the testers file."
     end
     addresses
   end

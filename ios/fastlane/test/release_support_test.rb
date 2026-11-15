@@ -36,7 +36,7 @@ class ReleaseSupportTest < Minitest::Test
   end
 
   def test_config_refuses_each
-    ["a\nb", "a\r\nb", "$(OTHER)", "#include \"x\"", "a\\b", "a\u0007b"].each do |bad|
+    ["a\nb", "a\r\nb", "$(OTHER)", "${OTHER}", "$OTHER", "#include \"x\"", "a\\b", "a\u0007b"].each do |bad|
       error = assert_raises(ReleaseSupport::Refusal, bad.inspect) do
         ReleaseSupport.config_text(values("YAK_DISPLAY_NAME" => bad))
       end
@@ -55,6 +55,24 @@ class ReleaseSupportTest < Minitest::Test
   def test_read_config_ignores_comments_and_blank_lines
     text = "// a comment\n\nYAK_TEAM_ID = TEAMID1234\n  // indented\nnot a setting\n"
     assert_equal({ "YAK_TEAM_ID" => "TEAMID1234" }, ReleaseSupport.read_config(text))
+  end
+
+  def test_read_config_cuts_inline_comments_but_keeps_escaped_slashes
+    assert_equal({ "YAK_DISPLAY_NAME" => "a" }, ReleaseSupport.read_config("YAK_DISPLAY_NAME = a // c\n"))
+    url = "https://example.com/x"
+    written = ReleaseSupport.config_text(values("YAK_SENTRY_DSN" => url))
+    assert_equal url, ReleaseSupport.read_config(written)["YAK_SENTRY_DSN"]
+  end
+
+  def test_release_notes_survives_invalid_utf8
+    notes = ReleaseSupport.release_notes(["bad \xFF byte (#3)".dup.force_encoding("UTF-8"),
+                                          "bin \xFF (#4)".dup.force_encoding("BINARY")], fallback: "none")
+    assert_equal "- bad  byte (#3)\n- bin  (#4)", notes
+  end
+
+  def test_testers_refuses_invalid_utf8_without_crashing
+    error = assert_raises(ReleaseSupport::Refusal) { ReleaseSupport.testers("a@example.com\nb\xFF@example.com\n".dup.force_encoding("UTF-8")) }
+    assert_includes error.message, "line 2"
   end
 
   def test_build_number_first_attempt
