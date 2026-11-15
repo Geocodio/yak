@@ -2,6 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../
 import device from './device'
 import pushTokens from './push-tokens'
 import notifications from './notifications'
+import liveActivities from './live-activities'
 import threads from './threads'
 import broadcasting from './broadcasting'
 import observations from './observations'
@@ -101,6 +102,7 @@ const app = {
     me: Object.assign(me, me),
     pushTokens: Object.assign(pushTokens, pushTokens),
     notifications: Object.assign(notifications, notifications),
+    liveActivities: Object.assign(liveActivities, liveActivities),
     threads: Object.assign(threads, threads),
     broadcasting: Object.assign(broadcasting, broadcasting),
     observations: Object.assign(observations, observations),
