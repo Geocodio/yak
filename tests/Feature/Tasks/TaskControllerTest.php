@@ -856,6 +856,23 @@ test('rerouteTargets excludes the current repo and inactive repos', function () 
         ->assertInertia(fn (Assert $page) => $page->where('actions.rerouteTargets', ['org/other']));
 });
 
+test('a follow-up of a review task is flagged and offers no review re-run', function () {
+    $review = YakTask::factory()->create(['mode' => TaskMode::Review, 'status' => TaskStatus::Success]);
+    $followUp = YakTask::factory()->create(['mode' => TaskMode::Review, 'status' => TaskStatus::Failed, 'parent_task_id' => $review->id]);
+
+    $this->get(route('tasks.show', $review))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.isFollowUp', true)
+            ->where('actions.canRerunReview', false));
+
+    $followUp->delete();
+
+    $this->get(route('tasks.show', $review))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.isFollowUp', false)
+            ->where('actions.canRerunReview', true));
+});
+
 test('canRerunReview stays true and canRetry stays false for a finished review task', function () {
     // A Review-mode task's contextual action is `rerun_review` for any
     // status (see the deleted TaskDetail::contextualAction()) -- canRetry

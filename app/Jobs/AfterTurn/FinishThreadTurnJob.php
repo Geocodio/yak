@@ -102,7 +102,7 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             }
 
             $container = (string) $thread->refresh()->sandbox_container;
-            $this->refreshGitCredentials($sandboxes, $thread);
+            $this->refreshGitCredentials($sandboxes, $threadSandbox, $thread);
             $this->finishTurn($repository, $result, ThreadShell::for($thread), $container, $recorder);
 
             // A wrong-repository verdict sends the task back to intake; its next run starts a thread in the right repo.
@@ -179,10 +179,29 @@ abstract class FinishThreadTurnJob implements ShouldQueue
      * The credential helper baked into the sandbox may have expired during a
      * long turn, which would surface as a 401 on push.
      */
-    private function refreshGitCredentials(SandboxManager $sandboxes, Thread $thread): void
+    private function refreshGitCredentials(SandboxManager $sandboxes, ThreadSandbox $threadSandbox, Thread $thread): void
     {
-        if ($sandboxes instanceof IncusThreadSandboxManager) {
-            app(ThreadGitHubCredentials::class)->refresh($thread);
+        if (! $sandboxes instanceof IncusThreadSandboxManager) {
+            return;
+        }
+
+        $credentials = app(ThreadGitHubCredentials::class);
+
+        try {
+            $credentials->refresh($thread);
+
+            return;
+        } catch (\Throwable) {
+            // The sandbox may have been paused behind the turn; wake it and try once more.
+        }
+
+        try {
+            if ($threadSandbox->ensureAwake($thread->refresh())->ready) {
+                $credentials->refresh($thread);
+            }
+        } catch (\Throwable $e) {
+            // The token already in the sandbox may still work; the push reports its own failure if it does not.
+            Log::warning('Refreshing the sandbox GitHub token failed after the turn', ['thread' => $thread->id, 'error' => $e->getMessage()]);
         }
     }
 }

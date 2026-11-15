@@ -75,6 +75,7 @@ export type TaskDetail = {
     status: TaskStatus;
     statusLabel: string;
     mode: 'fix' | 'research' | 'review' | 'setup';
+    isFollowUp: boolean;
     headline: string;
     summary: string;
     repo: string | null;

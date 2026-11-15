@@ -5,6 +5,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Jobs\RunYakReviewJob;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
@@ -210,4 +211,31 @@ it('passes hydrated prior findings into the prompt context', function () {
     expect($capturedPrompt)->toContain('## Prior findings (unresolved threads)')
         ->and($capturedPrompt)->toContain('id=555')
         ->and($capturedPrompt)->toContain('still broken');
+});
+
+it('skips the review when the head equals the last reviewed commit', function () {
+    $repo = Repository::factory()->create(['slug' => 'geocodio/api', 'pr_review_enabled' => true, 'is_active' => true]);
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/50',
+        'context' => json_encode([
+            'pr_number' => 50, 'head_sha' => 'same-head', 'base_sha' => 'pr-base',
+            'review_scope' => 'incremental', 'incremental_base_sha' => 'same-head',
+        ]),
+    ]);
+
+    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox->shouldNotReceive('create');
+    app()->instance(IncusSandboxManager::class, $sandbox);
+    $agent = mock(AgentRunner::class);
+    $agent->shouldNotReceive('run');
+    $github = mock(GitHubAppService::class);
+    $github->shouldNotReceive('createPullRequestReview');
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Success)
+        ->and($task->result_summary)->toBe('No new commits since the last review');
 });

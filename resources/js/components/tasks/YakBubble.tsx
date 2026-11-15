@@ -37,7 +37,11 @@ export type YakBubbleContext = {
 
 const MILESTONE_LABELS = ['Pushed', 'CI passing', 'Pull request'];
 
-function failureTitle(mode: TaskDetail['mode']): string {
+function failureTitle({ mode, isFollowUp }: Pick<TaskDetail, 'mode' | 'isFollowUp'>): string {
+    if (isFollowUp) {
+        return 'Yak could not finish this change';
+    }
+
     return mode === 'setup' ? 'Setup could not finish' : mode === 'review' ? 'Review could not finish' : 'This run could not finish';
 }
 
@@ -57,7 +61,7 @@ function ErrorCard({ entry, context, rows }: { entry: ThreadEntryData; context: 
         <div className="flex flex-col gap-2 rounded-[10px] bg-fail-soft p-3" data-testid="run-error">
             <h3 className="m-0 flex items-center gap-[7px] text-[14.5px] font-semibold text-fail">
                 <CircleAlert size={16} className="shrink-0" aria-hidden />
-                {failureTitle(task.mode)}
+                {failureTitle(task)}
             </h3>
             <p className="m-0 max-w-[65ch] text-[13.5px] leading-[1.55] wrap-break-word text-body">{entry.error}</p>
             {step && (

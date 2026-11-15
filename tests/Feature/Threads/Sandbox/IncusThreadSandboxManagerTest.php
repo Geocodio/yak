@@ -136,6 +136,13 @@ test('exec returns non-zero results but throws on transport failure without env 
     }
 });
 
+test('exec treats a frozen instance as a failed transport', function () {
+    $thread = Thread::factory()->create();
+    Process::fake(['*' => Process::result('', 'Error: Instance is frozen', 1)]);
+
+    expect(fn () => incusManager()->exec($thread, ['true']))->toThrow(SandboxCommandFailed::class);
+});
+
 test('available memory counts arc above minimum as free', function () {
     $meminfo = "MemTotal: 100 kB\nMemAvailable:   2048 kB\n";
     $arc = "size 4 5000\nc_min 4 3000\n";
