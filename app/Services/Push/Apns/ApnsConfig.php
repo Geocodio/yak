@@ -102,18 +102,18 @@ final class ApnsConfig
             return 'unknown environment';
         }
 
-        $cacheKey = $path . '|' . (is_file($path) ? (int) filemtime($path) : 0);
+        $contents = is_file($path) && is_readable($path) ? @file_get_contents($path) : false;
+
+        if (! is_string($contents) || trim($contents) === '') {
+            return 'unreadable';
+        }
+
+        $cacheKey = hash('sha256', $contents);
 
         if (isset(self::$parsedKeys[$cacheKey])) {
             $this->key = self::$parsedKeys[$cacheKey];
 
             return null;
-        }
-
-        $contents = is_file($path) && is_readable($path) ? @file_get_contents($path) : false;
-
-        if (! is_string($contents) || trim($contents) === '') {
-            return 'unreadable';
         }
 
         $key = @openssl_pkey_get_private($contents);

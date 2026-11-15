@@ -94,3 +94,19 @@ it('defaults the environment to production', function () {
     expect(app(ApnsConfig::class)->environment())->toBe('production')
         ->and(config('yak.apns.environment'))->toBeNull();
 });
+
+it('notices a key file replaced at the same path within the same second', function () {
+    Exceptions::fake();
+    $path = fakeApns();
+    $modifiedAt = filemtime($path);
+
+    expect(app(ApnsConfig::class)->isConfigured())->toBeTrue();
+
+    openssl_pkey_export(openssl_pkey_new(['curve_name' => 'secp384r1', 'private_key_type' => OPENSSL_KEYTYPE_EC]), $replacement);
+    file_put_contents($path, $replacement);
+    touch($path, $modifiedAt);
+
+    expect(app(ApnsConfig::class)->isConfigured())->toBeFalse();
+
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => str_contains($exception->getMessage(), 'not an EC P-256 key'));
+});
