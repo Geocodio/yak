@@ -49,6 +49,7 @@ final class ApnsClient
 
     /**
      * A WidgetKit push: push type `widgets`, topic `<bundle id>.push-type.widgets`, low priority (5) so the system may defer it, and a body of `{"aps": {"content-changed": true}}`.
+     * Source: Apple, "Updating widgets with WidgetKit push notifications" (WidgetKit documentation). It confirms `apns-push-type: widgets`, the topic suffix `.push-type.widgets` and the body `{"aps": {"content-changed": true}}`. It does not name a priority; 5 follows Apple's general APNs guidance for notifications that need not arrive immediately.
      * The collapse id lets Apple keep only the newest reload for a device.
      *
      * @param  array<string, mixed>  $payload
