@@ -28,7 +28,7 @@ function previewWarmPath(Thread $thread): string
 }
 
 /** Runs the callbacks that Laravel defers until after the response (the test kernel normally runs them in terminate). */
-function runDeferredCallbacks(): void
+function runPreviewDeferredCallbacks(): void
 {
     app(DeferredCallbackCollection::class)->invoke();
 }
@@ -45,7 +45,7 @@ it('answers 204 at once and wakes after the response', function () {
     expect(app(DeferredCallbackCollection::class))->toHaveCount(1)
         ->and($this->thread->fresh()->preview_last_request_at->equalTo(now()))->toBeTrue();
 
-    runDeferredCallbacks();
+    runPreviewDeferredCallbacks();
 });
 
 it('answers 204 when the wake fails', function () {
@@ -53,7 +53,7 @@ it('answers 204 when the wake fails', function () {
     $this->mock(ThreadPreviewWaker::class)->shouldReceive('wake')->once()->andThrow(new RuntimeException('sandbox exploded'));
 
     $this->postJson(previewWarmPath($this->thread), [], phoneHeadersFor($this->owner))->assertNoContent();
-    runDeferredCallbacks();
+    runPreviewDeferredCallbacks();
 
     Exceptions::assertReported(RuntimeException::class);
 });
@@ -63,11 +63,11 @@ it('wakes once for a web warm and an app warm within five seconds', function () 
 
     $this->actingAs($this->owner)->postJson(route('threads.preview.warm', $this->thread))->assertOk();
     $this->postJson(previewWarmPath($this->thread), [], phoneHeadersFor($this->owner))->assertNoContent();
-    runDeferredCallbacks();
+    runPreviewDeferredCallbacks();
 
     $this->travel(6)->seconds();
     $this->postJson(previewWarmPath($this->thread), [], phoneHeadersFor($this->owner))->assertNoContent();
-    runDeferredCallbacks();
+    runPreviewDeferredCallbacks();
 });
 
 it('wakes nothing for a closed, local machine or destroyed thread', function (Closure $arrange) {
@@ -75,7 +75,7 @@ it('wakes nothing for a closed, local machine or destroyed thread', function (Cl
     $thread = $arrange($this->owner);
 
     $this->postJson(previewWarmPath($thread), [], phoneHeadersFor($this->owner))->assertNoContent();
-    runDeferredCallbacks();
+    runPreviewDeferredCallbacks();
 
     expect(app(SandboxManager::class)->calls)->toBe([]);
     Queue::assertNothingPushed();
@@ -92,7 +92,7 @@ it('answers 204 when the cache is down', function () {
     $this->mock(ThreadPreviewWaker::class)->shouldNotReceive('wake');
 
     $this->postJson(previewWarmPath($this->thread), [], phoneHeadersFor($this->owner))->assertNoContent();
-    runDeferredCallbacks();
+    runPreviewDeferredCallbacks();
 
     Exceptions::assertReported(RuntimeException::class);
 });
@@ -104,7 +104,7 @@ it('lets a share recipient warm', function () {
     $this->mock(ThreadPreviewWaker::class)->shouldReceive('wake')->once()->andReturn(PreviewWakeOutcome::waking([]));
 
     $this->postJson(previewWarmPath($thread), [], phoneHeadersFor($recipient))->assertNoContent();
-    runDeferredCallbacks();
+    runPreviewDeferredCallbacks();
 });
 
 it('answers a hidden thread exactly like a missing one', function () {

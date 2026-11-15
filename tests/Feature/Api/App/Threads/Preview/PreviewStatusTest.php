@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadSharing;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\ContractFixture;
 
@@ -155,4 +157,17 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
 
     [, $computerHeaders] = phoneWithHeaders(['user_id' => $this->owner->id], isPhone: false);
     $this->getJson($path, $computerHeaders)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
+});
+
+it('answers the generic server error and touches no sandbox when the cache is down', function () {
+    Exceptions::fake();
+    Queue::fake();
+    Cache::partialMock()->shouldReceive('get')->andThrow(new RuntimeException('cache down'));
+
+    $this->getJson(previewStatusPath($this->thread), phoneHeadersFor($this->owner))
+        ->assertStatus(500)
+        ->assertJson(['error' => 'server_error', 'message' => 'Yak could not handle this request. Try again.']);
+
+    expect(app(SandboxManager::class)->calls)->toBe([]);
+    Queue::assertNothingPushed();
 });

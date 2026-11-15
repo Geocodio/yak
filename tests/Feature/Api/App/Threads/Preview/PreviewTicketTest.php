@@ -23,7 +23,7 @@ function previewTicketPath(Thread $thread): string
 }
 
 /** @return array{scheme: string, host: string, path: string, ticket: string, to: string} */
-function ticketParts(string $url): array
+function previewTicketParts(string $url): array
 {
     $parts = parse_url($url);
     parse_str($parts['query'], $query);
@@ -36,7 +36,7 @@ it('mints a single-use ticket for the asked path', function () {
         ->assertJsonPath('expiresAt', '2026-11-15T12:01:00+00:00');
     ContractFixture::assertMatches('app', 'thread-preview-ticket', $response->json(), ['url']);
 
-    $parts = ticketParts($response->json('url'));
+    $parts = previewTicketParts($response->json('url'));
     expect($parts['scheme'])->toBe('https')
         ->and($parts['host'])->toBe($this->host)
         ->and($parts['path'])->toBe('/_yak/auth')
@@ -48,13 +48,13 @@ it('mints a single-use ticket for the asked path', function () {
 it('mints for the root when no path is given', function (array $body) {
     $response = $this->postJson(previewTicketPath($this->thread), $body, phoneHeadersFor($this->owner))->assertOk();
 
-    expect(ticketParts($response->json('url'))['to'])->toBe('/');
+    expect(previewTicketParts($response->json('url'))['to'])->toBe('/');
 })->with([[[]], [['path' => null]], [['path' => '']]]);
 
 it('keeps a query string', function () {
     $response = $this->postJson(previewTicketPath($this->thread), ['path' => '/pricing?plan=team&period=year'], phoneHeadersFor($this->owner))->assertOk();
 
-    expect(ticketParts($response->json('url'))['to'])->toBe('/pricing?plan=team&period=year');
+    expect(previewTicketParts($response->json('url'))['to'])->toBe('/pricing?plan=team&period=year');
 });
 
 it('refuses a path that could leave the host', function (mixed $path) {
@@ -80,15 +80,15 @@ it('assigns the preview host on first use', function () {
 
     $response = $this->postJson(previewTicketPath($thread), [], phoneHeadersFor($this->owner))->assertOk();
 
-    $host = ticketParts($response->json('url'))['host'];
+    $host = previewTicketParts($response->json('url'))['host'];
     expect($host)->toStartWith('t-')->toEndWith('.yak.example.com')
         ->and($thread->fresh()->preview_hostname)->toBe($host);
 });
 
 it('mints a new ticket on each call', function () {
     $headers = phoneHeadersFor($this->owner);
-    $first = ticketParts($this->postJson(previewTicketPath($this->thread), [], $headers)->assertOk()->json('url'))['ticket'];
-    $second = ticketParts($this->postJson(previewTicketPath($this->thread), [], $headers)->assertOk()->json('url'))['ticket'];
+    $first = previewTicketParts($this->postJson(previewTicketPath($this->thread), [], $headers)->assertOk()->json('url'))['ticket'];
+    $second = previewTicketParts($this->postJson(previewTicketPath($this->thread), [], $headers)->assertOk()->json('url'))['ticket'];
 
     expect($first)->not->toBe($second)
         ->and(app(PreviewAccess::class)->redeemTicket($this->host, $first))->toBe($this->owner->id)
@@ -130,7 +130,7 @@ it('mints for a share recipient, bound to that recipient', function () {
     app(ThreadSharing::class)->apply($thread, $this->owner, ThreadShareMode::People, [$recipient->id]);
 
     $response = $this->postJson(previewTicketPath($thread), [], phoneHeadersFor($recipient))->assertOk();
-    $parts = ticketParts($response->json('url'));
+    $parts = previewTicketParts($response->json('url'));
 
     expect($parts['host'])->toBe($thread->preview_hostname)
         ->and(app(PreviewAccess::class)->redeemTicket($parts['host'], $parts['ticket']))->toBe($recipient->id);
