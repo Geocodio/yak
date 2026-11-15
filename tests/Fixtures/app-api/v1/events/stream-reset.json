@@ -56,7 +56,7 @@
         },
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
-            "data": [],
+            "data": {},
             "sequence": 6,
             "type": "stream.reset"
         },
@@ -225,7 +225,7 @@
             },
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
-                "data": [],
+                "data": {},
                 "sequence": 6,
                 "type": "stream.reset"
             },

@@ -15,7 +15,7 @@ class ThreadEventFeed
     public function __construct(private readonly ThreadEventWindow $window, private readonly ThreadEventProjector $projector) {}
 
     /**
-     * @return array{events: list<array{sequence: int, type: string, data: array<string, mixed>, createdAt: string}>, latestSequence: int, source: 'window'|'database'}
+     * @return array{events: list<array{sequence: int, type: string, data: array<string, mixed>|object, createdAt: string}>, latestSequence: int, source: 'window'|'database'}
      */
     public function since(Thread $thread, int $after, int $limit): array
     {
@@ -39,6 +39,9 @@ class ThreadEventFeed
                 ->map(fn (ThreadEvent $event): array => $this->shape($event))
                 ->all());
         }
+
+        // An event without fields is an empty JSON object, never an array.
+        $events = array_map(fn (array $event): array => $event['data'] === [] ? [...$event, 'data' => (object) []] : $event, $events);
 
         return [
             'events' => $events,

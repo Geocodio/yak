@@ -181,7 +181,15 @@ function dispatchedBroadcasts(): array
 function writeScenario($test, string $scenario, string $source, array $broadcasts): array
 {
     $headers = phoneHeadersFor($test->user);
-    $catchUp = $test->getJson(appThreadPath($test->thread, '/events?after=0&limit=500'), $headers)->assertOk()->json();
+    $catchUpResponse = $test->getJson(appThreadPath($test->thread, '/events?after=0&limit=500'), $headers)->assertOk();
+    $catchUp = $catchUpResponse->json();
+    // Decoding to arrays turns an empty JSON object into a list, so the object is restored from the wire form.
+    $wire = json_decode($catchUpResponse->getContent(), false, 512, JSON_THROW_ON_ERROR);
+    foreach ($wire->events as $index => $event) {
+        if ($event->data instanceof stdClass && (array) $event->data === []) {
+            $catchUp['events'][$index]['data'] = (object) [];
+        }
+    }
 
     $pointers = [];
     foreach ($broadcasts as $broadcast) {
