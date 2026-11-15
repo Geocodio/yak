@@ -64,12 +64,17 @@ public struct APIError: Error, Equatable, Sendable {
     public let code: String
     public let message: String
     public let details: [String: JSONValue]
+    /// Whole seconds from the `Retry-After` header of a 429; nil when it is missing or not a sane number.
+    public let retryAfterSeconds: Int?
 
-    public init(status: Int, code: String, message: String, details: [String: JSONValue]) {
+    public init(
+        status: Int, code: String, message: String, details: [String: JSONValue], retryAfterSeconds: Int? = nil
+    ) {
         self.status = status
         self.code = code
         self.message = message
         self.details = details
+        self.retryAfterSeconds = retryAfterSeconds
     }
 
     /// Reads the error shape from a response body, or returns nil when the body is not that shape.

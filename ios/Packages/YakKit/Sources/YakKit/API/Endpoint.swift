@@ -5,6 +5,8 @@ public struct Endpoint<Response>: Sendable {
     public enum Method: String, Sendable {
         case get = "GET"
         case post = "POST"
+        case put = "PUT"
+        case patch = "PATCH"
         case delete = "DELETE"
     }
 
@@ -12,12 +14,27 @@ public struct Endpoint<Response>: Sendable {
     /// Relative to `/api/app/v1/`, without a leading slash.
     public let path: String
     /// Encoded as JSON by `APIClient.send`, where an encoding failure is thrown.
+    public let query: [URLQueryItem]
     public let body: (any Encodable & Sendable)?
+    /// Sent instead of `body` when there is one.
+    public let multipart: MultipartBody?
 
-    public init(method: Method, path: String, body: (any Encodable & Sendable)? = nil) {
+    public init(
+        method: Method, path: String, query: [URLQueryItem] = [], body: (any Encodable & Sendable)? = nil,
+        multipart: MultipartBody? = nil
+    ) {
         self.method = method
         self.path = path
+        self.query = query
         self.body = body
+        self.multipart = multipart
+    }
+
+    /// One path segment with everything but A-Z a-z 0-9 - . _ ~ percent-encoded, so an id never adds a segment.
+    public static func segment(_ value: String) -> String {
+        let unreserved = CharacterSet(
+            charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        return value.addingPercentEncoding(withAllowedCharacters: unreserved) ?? ""
     }
 }
 

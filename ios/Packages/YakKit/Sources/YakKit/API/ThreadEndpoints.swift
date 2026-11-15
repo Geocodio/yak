@@ -1,0 +1,215 @@
+import Foundation
+
+private struct StartThreadBody: Encodable, Sendable {
+    let repo: String
+    let mode: String
+    let description: String
+    let repositories: [NewThreadDraft.ExtraRepository]
+    let claudeAccountId: Int?
+    let model: String?
+    let sendKey: String
+
+    enum CodingKeys: String, CodingKey {
+        case repo, mode, description, repositories, model
+        case claudeAccountId = "claude_account_id"
+        case sendKey = "send_key"
+    }
+}
+
+private struct SendMessageBody: Encodable, Sendable {
+    let message: String
+    let model: String?
+    let sendKey: String
+    let delivery: MessageDelivery
+
+    enum CodingKeys: String, CodingKey {
+        case message, model, delivery
+        case sendKey = "send_key"
+    }
+}
+
+private struct UpdateQueuedMessageBody: Encodable, Sendable {
+    let mode: MessageMode?
+    let text: String?
+}
+
+private struct AnswerQuestionBody: Encodable, Sendable {
+    let answers: [String: QuestionAnswer]
+    let note: String?
+
+    enum CodingKeys: String, CodingKey { case answers, note }
+
+    /// `note` is always present, `null` when there is none.
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(answers, forKey: .answers)
+        try container.encode(note, forKey: .note)
+    }
+}
+
+private struct ChannelAuthorizationBody: Encodable, Sendable {
+    let socketID: String
+    let channelName: String
+
+    enum CodingKeys: String, CodingKey {
+        case socketID = "socket_id"
+        case channelName = "channel_name"
+    }
+}
+
+/// File parts named `attachments[]`, each followed by its `attachment_refs[]` field.
+private func attachmentParts(_ attachments: [MultipartBody.Part], references: [String]) -> [MultipartBody.Part] {
+    var parts: [MultipartBody.Part] = []
+    var fileIndex = 0
+    for attachment in attachments {
+        guard case .file(_, let fileName, let contentType, let data) = attachment else { continue }
+        parts.append(.file(name: "attachments[]", fileName: fileName, contentType: contentType, data: data))
+        if fileIndex < references.count {
+            parts.append(.field(name: "attachment_refs[]", value: references[fileIndex]))
+        }
+        fileIndex += 1
+    }
+    return parts
+}
+
+extension Endpoint where Response == ThreadList {
+    public static func threads(filter: ThreadListFilter, search: String?) -> Endpoint<ThreadList> {
+        var query = [URLQueryItem(name: "filter", value: filter.rawValue)]
+        let trimmed = search?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmed.isEmpty {
+            // The server's ListThreadsRequest allows at most 100 characters.
+            query.append(URLQueryItem(name: "search", value: String(trimmed.prefix(100))))
+        }
+        return Endpoint(method: .get, path: "threads", query: query)
+    }
+}
+
+extension Endpoint where Response == ThreadShow {
+    public static func thread(_ id: String) -> Endpoint<ThreadShow> {
+        Endpoint(method: .get, path: "threads/\(segment(id))")
+    }
+}
+
+extension Endpoint where Response == EmptyResponse {
+    public static func markSeen(_ id: String) -> Endpoint<EmptyResponse> {
+        Endpoint(method: .post, path: "threads/\(segment(id))/seen")
+    }
+
+    public static func withdrawQueuedMessage(_ id: String, uuid: String) -> Endpoint<EmptyResponse> {
+        Endpoint(method: .delete, path: "threads/\(segment(id))/queued-messages/\(segment(uuid))")
+    }
+}
+
+extension Endpoint where Response == NewThreadOptions {
+    public static func newThreadOptions() -> Endpoint<NewThreadOptions> {
+        Endpoint(method: .get, path: "threads/new")
+    }
+}
+
+extension Endpoint where Response == ThreadCreated {
+    public static func startThread(
+        _ draft: NewThreadDraft, description: String, sendKey: UUID, attachments: [MultipartBody.Part],
+        references: [String]
+    ) -> Endpoint<ThreadCreated> {
+        if attachments.isEmpty {
+            let body = StartThreadBody(
+                repo: draft.repo, mode: draft.mode, description: description, repositories: draft.repositories,
+                claudeAccountId: draft.claudeAccountId, model: draft.model, sendKey: sendKey.uuidString)
+            return Endpoint(method: .post, path: "threads", body: body)
+        }
+        var parts: [MultipartBody.Part] = [
+            .field(name: "repo", value: draft.repo),
+            .field(name: "mode", value: draft.mode),
+            .field(name: "description", value: description),
+        ]
+        for (index, extra) in draft.repositories.enumerated() {
+            parts.append(.field(name: "repositories[\(index)][repo]", value: extra.repo))
+            parts.append(.field(name: "repositories[\(index)][role]", value: extra.role))
+        }
+        if let accountID = draft.claudeAccountId {
+            parts.append(.field(name: "claude_account_id", value: String(accountID)))
+        }
+        if let model = draft.model { parts.append(.field(name: "model", value: model)) }
+        parts.append(.field(name: "send_key", value: sendKey.uuidString))
+        parts += attachmentParts(attachments, references: references)
+        return Endpoint(
+            method: .post, path: "threads",
+            multipart: MultipartBody(parts: parts, boundary: "yak-\(sendKey.uuidString)"))
+    }
+}
+
+extension Endpoint where Response == EventsPage {
+    public static func events(_ id: String, after: Int, limit: Int) -> Endpoint<EventsPage> {
+        Endpoint(
+            method: .get, path: "threads/\(segment(id))/events",
+            query: [
+                URLQueryItem(name: "after", value: String(max(after, 0))),
+                URLQueryItem(name: "limit", value: String(min(max(limit, 1), 500))),
+            ])
+    }
+}
+
+extension Endpoint where Response == ThreadEvent {
+    public static func event(_ id: String, sequence: Int) -> Endpoint<ThreadEvent> {
+        Endpoint(method: .get, path: "threads/\(segment(id))/events/\(sequence)")
+    }
+}
+
+extension Endpoint where Response == MessageSendResult {
+    public static func sendMessage(
+        _ id: String, text: String, model: String?, delivery: MessageDelivery, sendKey: UUID,
+        attachments: [MultipartBody.Part], references: [String]
+    ) -> Endpoint<MessageSendResult> {
+        let path = "threads/\(segment(id))/messages"
+        if attachments.isEmpty {
+            let body = SendMessageBody(
+                message: text, model: model, sendKey: sendKey.uuidString, delivery: delivery)
+            return Endpoint(method: .post, path: path, body: body)
+        }
+        var parts: [MultipartBody.Part] = [.field(name: "message", value: text)]
+        if let model { parts.append(.field(name: "model", value: model)) }
+        parts.append(.field(name: "send_key", value: sendKey.uuidString))
+        parts.append(.field(name: "delivery", value: delivery.rawValue))
+        parts += attachmentParts(attachments, references: references)
+        return Endpoint(
+            method: .post, path: path, multipart: MultipartBody(parts: parts, boundary: "yak-\(sendKey.uuidString)"))
+    }
+}
+
+extension Endpoint where Response == StatusResponse {
+    public static func updateQueuedMessage(_ id: String, uuid: String, mode: MessageMode?, text: String?)
+        -> Endpoint<StatusResponse>
+    {
+        Endpoint(
+            method: .patch, path: "threads/\(segment(id))/queued-messages/\(segment(uuid))",
+            body: UpdateQueuedMessageBody(mode: mode, text: text))
+    }
+
+    public static func answerQuestion(_ id: String, answers: [String: QuestionAnswer], note: String?)
+        -> Endpoint<StatusResponse>
+    {
+        Endpoint(
+            method: .post, path: "threads/\(segment(id))/clarification-answers",
+            body: AnswerQuestionBody(answers: answers, note: note))
+    }
+
+    public static func stopTurn(_ id: String) -> Endpoint<StatusResponse> {
+        Endpoint(method: .post, path: "threads/\(segment(id))/stop")
+    }
+
+    public static func continueTurn(_ id: String) -> Endpoint<StatusResponse> {
+        Endpoint(method: .post, path: "threads/\(segment(id))/continue")
+    }
+
+    public static func retryRestore(_ id: String) -> Endpoint<StatusResponse> {
+        Endpoint(method: .post, path: "threads/\(segment(id))/restore/retry")
+    }
+}
+
+extension Endpoint where Response == ChannelAuthorization {
+    public static func authorizeChannel(socketID: String, channelName: String) -> Endpoint<ChannelAuthorization> {
+        Endpoint(
+            method: .post, path: "broadcasting/auth",
+            body: ChannelAuthorizationBody(socketID: socketID, channelName: channelName))
+    }
+}

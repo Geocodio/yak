@@ -88,7 +88,20 @@ public actor APIClient {
     }
 
     private func makeRequest<Response>(_ endpoint: Endpoint<Response>) throws(APIFailure) -> URLRequest {
-        var request = URLRequest(url: baseURL.appendingPathComponent("api/app/v1/\(endpoint.path)"))
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw .encodingFailed
+        }
+        var basePath = components.percentEncodedPath
+        while basePath.hasSuffix("/") { basePath.removeLast() }
+        components.percentEncodedPath = "\(basePath)/api/app/v1/\(endpoint.path)"
+        if !endpoint.query.isEmpty {
+            // Every reserved character is escaped, including "+", which a server reads as a space.
+            components.percentEncodedQuery = endpoint.query.map {
+                "\(Endpoint<Response>.segment($0.name))=\(Endpoint<Response>.segment($0.value ?? ""))"
+            }.joined(separator: "&")
+        }
+        guard let url = components.url else { throw .encodingFailed }
+        var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
         request.timeoutInterval = 15
         request.setValue(String(ClientProtocol.current), forHTTPHeaderField: ClientProtocol.headerName)
@@ -97,7 +110,10 @@ public actor APIClient {
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        if let body = endpoint.body {
+        if let multipart = endpoint.multipart {
+            request.httpBody = multipart.encoded()
+            request.setValue(multipart.contentType, forHTTPHeaderField: "Content-Type")
+        } else if let body = endpoint.body {
             guard let encoded = try? JSONEncoder().encode(body) else { throw .encodingFailed }
             request.httpBody = encoded
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -132,6 +148,15 @@ public actor APIClient {
             throw .appTooOld(minimum: minimum)
         }
         if status == 401 { throw .unauthorized(code: error.code) }
+        if status == 429 {
+            let seconds = response.value(forHTTPHeaderField: "Retry-After").flatMap {
+                Int($0.trimmingCharacters(in: .whitespaces))
+            }
+            throw .server(
+                APIError(
+                    status: error.status, code: error.code, message: error.message, details: error.details,
+                    retryAfterSeconds: seconds.flatMap { (0...3600).contains($0) ? $0 : nil }))
+        }
         throw .server(error)
     }
 }
