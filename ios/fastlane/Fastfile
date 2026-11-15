@@ -1,6 +1,7 @@
 default_platform(:ios)
 
 IOS_ROOT = File.expand_path("..", __dir__)
+require_relative "lib/release_support"
 
 platform :ios do
   desc "Generate the Xcode project from project.yml"
@@ -20,6 +21,7 @@ platform :ios do
   lane :lint do
     sh("cd #{IOS_ROOT.shellescape} && swift format lint --strict --recursive Yak YakTests YakUITests Packages")
     sh("#{File.join(IOS_ROOT, "scripts/check-rules.sh").shellescape}")
+    Bundler.with_unbundled_env { sh("cd #{File.join(IOS_ROOT, "fastlane").shellescape} && ruby -Ilib test/release_support_test.rb") }
   end
 
   desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\" only:testName"
