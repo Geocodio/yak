@@ -95,7 +95,7 @@ public actor RealtimeClient {
         attempt = 0
         backoffTask?.cancel()
         wakeNetworkWaiter()
-        if currentSocketID != nil { publish(.live) }
+        publish(currentSocketID != nil ? .live : .reconnecting)
     }
 
     // MARK: - Run loop
@@ -157,7 +157,7 @@ public actor RealtimeClient {
         }
         backoffTask = task
         await task.value
-        backoffTask = nil
+        if backoffTask == task { backoffTask = nil }
     }
 
     // MARK: - One connection
@@ -191,9 +191,9 @@ public actor RealtimeClient {
             await handle(text, on: opened, generation: generation)
             if sessionOutcome != nil { break }
         }
-        timerTask?.cancel()
         let wasEstablished = currentSocketID != nil
         if generation == self.generation {
+            timerTask?.cancel()
             currentSocketID = nil
             connection = nil
         }

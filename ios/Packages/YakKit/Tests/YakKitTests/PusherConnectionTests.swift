@@ -169,11 +169,45 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
         await realtime.start()
+        _ = await server.waitForConnection(0)
         await realtime.networkPathChanged(isSatisfied: false)
         await realtime.stop()
         await realtime.networkPathChanged(isSatisfied: true)
         await realtime.start()
+        _ = await server.waitForConnection(1)
+        await realtime.stop()
+    }
+
+    @Test func aStartDuringAStopKeepsItsOwnHandshakeTimer() async {
+        let server = FakeWebSocketServer()
+        let clock = ManualClock()
+        let realtime = makeClient(server: server, clock: clock)
+        await realtime.start()
+        let old = await server.waitForConnection(0)
+        await old.holdClose()
+        let stopping = Task { await realtime.stop() }
+        await old.waitUntilClosed()
+        await realtime.start()
+        let fresh = await server.waitForConnection(1)
+        await clock.waitForOnlySleeper(endingAt: .seconds(15))
+        await old.releaseClose()
+        await stopping.value
+        await clock.advance(by: .seconds(15))
+        await fresh.waitUntilClosed()
+        await realtime.stop()
+    }
+
+    @Test func networkReturningMidAttemptShowsReconnecting() async {
+        let server = FakeWebSocketServer()
+        let clock = ManualClock()
+        let realtime = makeClient(server: server, clock: clock)
+        let states = StreamRecorder(await realtime.states())
+        await realtime.start()
         _ = await server.waitForConnection(0)
+        await realtime.networkPathChanged(isSatisfied: false)
+        _ = await states.next { $0 == .offline }
+        await realtime.networkPathChanged(isSatisfied: true)
+        _ = await states.next { $0 == .reconnecting }
         await realtime.stop()
     }
 

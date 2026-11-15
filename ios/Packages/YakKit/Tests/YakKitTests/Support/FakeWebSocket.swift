@@ -103,6 +103,7 @@ actor FakeConnection: WebSocketConnection {
     private var inbox: [String] = []
     private var receiver: CheckedContinuation<String, any Error>?
     private var isDropped = false
+    private var holdsClose = false
     private var waiters = Waiters()
 
     func send(_ text: String) async throws {
@@ -117,8 +118,18 @@ actor FakeConnection: WebSocketConnection {
         return try await withCheckedThrowingContinuation { receiver = $0 }
     }
 
+    /// Makes `close()` suspend, and leave the pending `receive` alone, until `releaseClose()`.
+    func holdClose() { holdsClose = true }
+
+    func releaseClose() {
+        holdsClose = false
+        wake()
+    }
+
     func close() async {
         isClosed = true
+        wake()
+        while holdsClose { await park() }
         failReceiver()
         wake()
     }
