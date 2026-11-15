@@ -117,6 +117,11 @@ public actor InstanceSession {
     public func threadList() -> ThreadListFeed? { feed }
     public func outbox() -> Outbox? { currentOutbox }
     public func connectionStates() -> AsyncStream<ConnectionState> { connectionBroadcast.stream() }
+    /// The signed-in client for a feature's requests. Nil unless the session is active.
+    public func apiClient() -> APIClient? { isActive ? client : nil }
+    /// The instance's cache, erased on unpair and revoke. Nil unless the session is active.
+    public func instanceCache() -> Cache? { isActive ? cache : nil }
+    public nonisolated var clock: any YakClock { environment.clock }
 
     private var isActive: Bool { isStarted && !hasEnded && statusBroadcast.value == .active }
 

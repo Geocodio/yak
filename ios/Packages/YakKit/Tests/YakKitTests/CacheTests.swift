@@ -23,6 +23,15 @@ private func makeCache(
 }
 
 struct CacheTests {
+    @Test func aFeatureFolderGoesWithEraseAll() async throws {
+        let (cache, _, _) = makeCache()
+        let path = "\(await cache.root)/feature-sample/value.json"
+        await cache.store(["one"], at: path, protection: .complete)
+        #expect(await cache.load([String].self, at: path) == ["one"])
+        await cache.eraseAll()
+        #expect(await cache.load([String].self, at: path) == nil)
+    }
+
     @Test func usesTheRightProtectionForEachFile() async throws {
         let (cache, files, id) = makeCache()
         await cache.saveThreadList(try decoded(ThreadList.self, "scenario-thread-list"), filter: .mine)
