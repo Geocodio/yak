@@ -1,5 +1,9 @@
 <?php
 
+use App\Enums\PushTokenKind;
+use App\Models\Device;
+use App\Models\DevicePushToken;
+use App\Models\User;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -64,4 +68,19 @@ function apnsRequests(string $pathFragment): array
     }
 
     return $matching;
+}
+
+/**
+ * A phone device ("Test phone") for the user with its `alert` token.
+ */
+function alertTokenFor(User $user, ?string $token = null): DevicePushToken
+{
+    $device = Device::factory()->phone()->forUser($user)->create(['name' => 'Test phone']);
+
+    return DevicePushToken::factory()->create([
+        'device_id' => $device->id,
+        'kind' => PushTokenKind::Alert,
+        'token' => $token ?? str_repeat('a1', 32),
+        'environment' => 'production',
+    ]);
 }

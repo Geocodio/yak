@@ -84,6 +84,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $pull_request_opening_state
  * @property string|null $pull_request_opening_error
  * @property CarbonImmutable|null $pull_request_opening_at
+ * @property string|null $live_activity_channel
  */
 #[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
