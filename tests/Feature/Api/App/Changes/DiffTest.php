@@ -84,6 +84,7 @@ it('answers 404 for a file of another thread, a replaced file and a huge id', fu
     $otherFile = ThreadDiffFile::factory()->create(['thread_diff_id' => ThreadDiff::factory()->create(['thread_id' => $otherThread->id])->id]);
     $replacedId = $this->modified->id;
     $this->diff->delete();
+    ThreadDiff::factory()->create(['thread_id' => $this->thread->id]);
 
     $bodies = collect([(string) $otherFile->id, (string) $replacedId, '99999999999', '00000000000000000001'])
         ->map(fn (string $id): array => $this->getJson(appThreadPath($this->thread, "/diff/files/{$id}"), $headers)->assertNotFound()->assertJsonPath('error', 'not_found')->json());
