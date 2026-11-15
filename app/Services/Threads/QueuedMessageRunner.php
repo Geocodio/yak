@@ -9,7 +9,6 @@ use App\Enums\TurnState;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
-use App\Models\ThreadTurnMessage;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
@@ -71,7 +70,7 @@ class QueuedMessageRunner
         $oldest = PendingSteeringMessage::query()
             ->where('root_task_id', $thread->messagesRootTask()->id)
             ->where('source', 'thread')
-            ->whereNotIn('id', ThreadTurnMessage::query()->whereNotNull('pending_steering_message_id')->select('pending_steering_message_id'))
+            ->whereNotExists(fn ($delivered) => $delivered->from('thread_turn_messages')->whereColumn('thread_turn_messages.pending_steering_message_id', 'pending_steering_messages.id'))
             ->orderBy('id')
             ->first();
 

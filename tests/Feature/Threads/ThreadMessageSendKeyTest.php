@@ -1,13 +1,17 @@
 <?php
 
+use App\DataTransferObjects\ThreadMessageInput;
+use App\Enums\MessageDelivery;
 use App\Enums\SteeringMode;
 use App\Enums\ThreadLockHolder;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadMessagesData;
 use App\Models\PendingSteeringMessage;
+use App\Models\TaskRun;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadMessageSender;
 use App\Services\Threads\ThreadTurns;
 
 require_once __DIR__ . '/../../Support/ThreadTurnHelpers.php';
@@ -84,4 +88,46 @@ it('still drains a queued message that was never delivered', function () {
 
     expect($run->prompt)->toContain('Then update the docs')
         ->and(PendingSteeringMessage::query()->whereKey($queued->id)->exists())->toBeFalse();
+});
+
+it('keeps one queued row and replays one result when the runner command throws', function () {
+    [$thread, $run] = runningThreadForSteering();
+    fakeTurnCollaborators()['commands']->shouldReceive('steer')->once()->andThrow(new RuntimeException('runner unreachable'));
+    $input = new ThreadMessageInput('Use the staging bucket', null, null, SEND_KEY, MessageDelivery::Steer, null);
+    $user = User::factory()->create();
+
+    $first = app(ThreadMessageSender::class)->send($thread, $user, $input);
+    $second = app(ThreadMessageSender::class)->send($thread, $user, $input);
+
+    expect($first->status)->toBe('queued')
+        ->and($second)->toEqual($first)
+        ->and(PendingSteeringMessage::query()->where('text', 'Use the staging bucket')->count())->toBe(1)
+        ->and(PendingSteeringMessage::query()->first()->mode)->toBe(SteeringMode::Queue)
+        ->and(ThreadTurnMessage::query()->where('send_key', SEND_KEY)->exists())->toBeFalse();
+});
+
+it('sends a message that fell back to the queue after the turn completed', function () {
+    $fakes = fakeTurnCollaborators();
+    $fakes['commands']->shouldReceive('startRunner', 'turn', 'setModel');
+    [$thread, $run] = runningThreadForSteering();
+    $run->forceFill(['turn_state' => TurnState::Completed, 'finished_at' => now()])->save();
+    $thread->forceFill(['lock_holder' => ThreadLockHolder::None, 'lock_turn_id' => null])->save();
+
+    $message = app(ThreadTurns::class)->steer($thread, 'Then update the docs', null, null, null, 'thread');
+
+    $started = TaskRun::query()->where('thread_id', $thread->id)->latest('id')->first();
+    expect($started->id)->not->toBe($run->id)
+        ->and($started->prompt)->toContain('Then update the docs')
+        ->and(PendingSteeringMessage::query()->whereKey($message->id)->exists())->toBeFalse();
+});
+
+it('does not start a turn for a message queued on purpose after the turn completed', function () {
+    fakeTurnCollaborators();
+    [$thread, $run] = runningThreadForSteering();
+    $run->forceFill(['turn_state' => TurnState::Completed, 'finished_at' => now()])->save();
+    $thread->forceFill(['lock_holder' => ThreadLockHolder::None, 'lock_turn_id' => null])->save();
+
+    app(ThreadTurns::class)->steer($thread, 'Then update the docs', null, null, null, 'thread', null, true);
+
+    expect(TaskRun::query()->where('thread_id', $thread->id)->count())->toBe(1);
 });
