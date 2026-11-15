@@ -6,7 +6,7 @@ use Tests\Support\VisibilityRoutes;
 
 return [
     'appThreads' => ['app.threads.diff.show', 'app.threads.diff.files.show', 'app.threads.pull-request.store', 'app.threads.pull-requests.show', 'app.threads.pull-requests.order', 'app.threads.pull-requests.fix'],
-    'classified' => ['app.tasks.index', 'app.tasks.show'],
+    'classified' => ['app.tasks.index', 'app.tasks.show', 'app.media.task-attachments', 'app.media.pr-images'],
     'appThreadProbes' => [
         'app.threads.diff.show' => VisibilityRoutes::probe('GET', '/threads/{thread}/diff', false),
         'app.threads.diff.files.show' => VisibilityRoutes::probe('GET', '/threads/{thread}/diff/files/{file}', false),

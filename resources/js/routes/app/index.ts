@@ -3,6 +3,7 @@ import device from './device'
 import threads from './threads'
 import broadcasting from './broadcasting'
 import tasks from './tasks'
+import media from './media'
 /**
 * @see \App\Http\Controllers\Api\App\InstanceController::__invoke
 * @see app/Http/Controllers/Api/App/InstanceController.php:13
@@ -98,6 +99,7 @@ const app = {
     threads: Object.assign(threads, threads),
     broadcasting: Object.assign(broadcasting, broadcasting),
     tasks: Object.assign(tasks, tasks),
+    media: Object.assign(media, media),
 }
 
 export default app

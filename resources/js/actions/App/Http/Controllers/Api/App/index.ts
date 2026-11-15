@@ -7,6 +7,7 @@ import DeviceController from './DeviceController'
 import Threads from './Threads'
 import BroadcastAuthController from './BroadcastAuthController'
 import Tasks from './Tasks'
+import SignedMediaController from './SignedMediaController'
 
 const App = {
     InstanceController: Object.assign(InstanceController, InstanceController),
@@ -18,6 +19,7 @@ const App = {
     Threads: Object.assign(Threads, Threads),
     BroadcastAuthController: Object.assign(BroadcastAuthController, BroadcastAuthController),
     Tasks: Object.assign(Tasks, Tasks),
+    SignedMediaController: Object.assign(SignedMediaController, SignedMediaController),
 }
 
 export default App

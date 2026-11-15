@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\YakTask;
+use App\Services\Tasks\AppMediaLinks;
 use App\Services\Threads\ThreadAccess;
 use Illuminate\Http\Request;
 
@@ -47,10 +48,10 @@ final class AppTaskData
         $thread = $root->thread;
 
         /** @var AppTask */
-        return [
+        return (new AppMediaLinks($root))->rewriteTree([
             ...$detail,
             'threadId' => $thread?->public_id,
             'canDrive' => $thread === null || app(ThreadAccess::class)->canDrive($request->user(), $thread),
-        ];
+        ]);
     }
 }
