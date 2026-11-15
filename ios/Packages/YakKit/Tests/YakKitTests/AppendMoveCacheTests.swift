@@ -74,4 +74,33 @@ private final class MinimalStore: FileStore, @unchecked Sendable {
         #expect(try store.read("f") == nil)
         #expect(throws: FileStoreError.tooLarge) { try store.read("g", maximumBytes: 1) }
     }
+
+    @Test func movingAFileOntoItselfKeepsIt() throws {
+        let store = MinimalStore()
+        try store.write(Data("a".utf8), to: "f", protection: .untilFirstUnlock)
+        try store.move("f", to: "f")
+        try store.move("f", to: "./f")
+        #expect(try store.read("f") == Data("a".utf8))
+        let memory = InMemoryFileStore()
+        try memory.write(Data("a".utf8), to: "f", protection: .untilFirstUnlock)
+        try memory.move("f", to: "f")
+        #expect(try memory.read("f") == Data("a".utf8))
+    }
+
+    @Test func appendToACompleteFileFailsWhileLocked() throws {
+        let store = InMemoryFileStore()
+        try store.write(Data("a".utf8), to: "f", protection: .complete)
+        store.isLocked = true
+        #expect(throws: FileStoreError.unreadable) { try store.append(Data("b".utf8), to: "f", protection: .complete) }
+        store.isLocked = false
+        #expect(try store.read("f") == Data("a".utf8))
+    }
+
+    @Test func aMoveOfAMissingFileLeavesNoFolderBehind() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = DiskFileStore(root: root)
+        #expect(throws: FileStoreError.unreadable) { try store.move("missing", to: "deep/b") }
+        #expect(try store.list("") == [])
+    }
 }

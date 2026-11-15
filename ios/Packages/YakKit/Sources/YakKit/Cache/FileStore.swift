@@ -37,7 +37,7 @@ public protocol FileStore: Sendable {
     func list(_ folder: String) throws(FileStoreError) -> [String]
     /// Nil when missing; `.tooLarge` when the file holds more than `maximumBytes`. `DiskFileStore` never loads more than the bound plus one byte. The default implementation reads the whole file first, so a conformer that holds large files must override it.
     func read(_ path: String, maximumBytes: Int) throws(FileStoreError) -> Data?
-    /// Adds to the end of the file, creating it with `protection` when missing.
+    /// Adds to the end of the file, creating it with `protection` when missing. Unlike `write`, an append to an existing file is not atomic: a crash can leave a partly written record at the end. Callers write records a reader can recover from, for example a length prefix or lines that end in a newline.
     func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError)
     /// Replaces the destination; `.unreadable` when the source is missing. The default rewrites the destination with `.untilFirstUnlock`, so a conformer that stores `.complete` files must override it to keep their protection.
     func move(_ source: String, to destination: String) throws(FileStoreError)
@@ -56,6 +56,10 @@ extension FileStore {
     }
 
     public func move(_ source: String, to destination: String) throws(FileStoreError) {
+        if try validatedComponents(source) == validatedComponents(destination) {
+            guard try read(source) != nil else { throw .unreadable }
+            return
+        }
         guard let data = try read(source) else { throw .unreadable }
         try write(data, to: destination, protection: .untilFirstUnlock)
         try remove(source)
@@ -64,7 +68,7 @@ extension FileStore {
 
 private func validatedComponents(_ path: String) throws(FileStoreError) -> [String] {
     if path.hasPrefix("/") { throw .invalidPath }
-    let components = path.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+    let components = path.split(separator: "/", omittingEmptySubsequences: true).map(String.init).filter { $0 != "." }
     if components.contains("..") { throw .invalidPath }
     return components
 }
@@ -143,6 +147,7 @@ public struct DiskFileStore: FileStore {
     public func move(_ source: String, to destination: String) throws(FileStoreError) {
         let from = try url(source)
         let to = try url(destination)
+        guard FileManager.default.fileExists(atPath: from.path) else { throw .unreadable }
         do {
             try FileManager.default.createDirectory(
                 at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -229,7 +234,12 @@ public final class InMemoryFileStore: FileStore, @unchecked Sendable {
 
     public func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
         let key = try validatedComponents(path).joined(separator: "/")
-        lock.withLock { files[key] = ((files[key]?.data ?? Data()) + data, files[key]?.protection ?? protection) }
+        let isBlocked = lock.withLock { () -> Bool in
+            if locked, files[key]?.protection == .complete { return true }
+            files[key] = ((files[key]?.data ?? Data()) + data, files[key]?.protection ?? protection)
+            return false
+        }
+        if isBlocked { throw .unreadable }
     }
 
     public func move(_ source: String, to destination: String) throws(FileStoreError) {

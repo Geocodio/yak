@@ -6,7 +6,26 @@ import Testing
 private let address = URL(string: "https://yak.example.com")!
 private let otherAddress = URL(string: "https://other.example.com")!
 
+private final class RecordingKeyValueStore: KeyValueStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var keys: [String] = []
+    private let inner = InMemoryKeyValueStore()
+    var writtenKeys: [String] { lock.withLock { keys } }
+    func data(forKey key: String) -> Data? { inner.data(forKey: key) }
+    func set(_ value: Data?, forKey key: String) {
+        lock.withLock { keys.append(key) }
+        inner.set(value, forKey: key)
+    }
+}
+
 @Suite struct InstanceStoreMoveTests {
+    @Test func theActiveIdIsWrittenBeforeTheList() async throws {
+        let (old, _) = try await seededOld()
+        let new = RecordingKeyValueStore()
+        #expect(InstanceStore.moveStoredList(from: old, to: new))
+        #expect(new.writtenKeys == ["instances.active", "instances.v1"])
+    }
+
     private func seededOld() async throws -> (InMemoryKeyValueStore, UUID) {
         let old = InMemoryKeyValueStore()
         let store = InstanceStore(defaults: old, tokens: InMemoryTokenStore(), now: { Date(timeIntervalSince1970: 1) })

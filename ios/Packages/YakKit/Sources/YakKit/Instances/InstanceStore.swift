@@ -39,7 +39,7 @@ public enum InstanceStoreError: Error, Equatable, Sendable {
 extension InstanceStore {
     /// Moves the stored list and the active instance id from `old` to `new` once. True when something moved.
     /// A list already in `new` wins and `old` is left as it is. A list in `old` that does not decode is left there.
-    /// The new store is written before the old one is cleared, so a crash in between leaves both readable.
+    /// The new store is written before the old one is cleared, so a crash in between leaves both readable. The active id goes first and the list last.
     public static func moveStoredList(from old: any KeyValueStore, to new: any KeyValueStore) -> Bool {
         guard new.data(forKey: instancesKey) == nil, let list = old.data(forKey: instancesKey) else {
             return false
@@ -49,8 +49,9 @@ extension InstanceStore {
             return false
         }
         let active = old.data(forKey: activeKey)
-        new.set(list, forKey: instancesKey)
+        // The list is the commit point: without it in `new`, a retry moves everything again.
         if let active { new.set(active, forKey: activeKey) }
+        new.set(list, forKey: instancesKey)
         old.set(nil, forKey: instancesKey)
         old.set(nil, forKey: activeKey)
         return true
