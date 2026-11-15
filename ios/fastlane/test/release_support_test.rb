@@ -202,4 +202,37 @@ class ReleaseSupportTest < Minitest::Test
     assert_nil ReleaseSupport.release_tag_parts("ios/v0.1.0")
     assert_nil ReleaseSupport.release_tag_parts("v0.1.0-1\nios/v0.1.0-2")
   end
+
+  def test_upload_groups_leaves_out_a_group_the_build_reaches_on_its_own
+    assert_equal [], ReleaseSupport.upload_groups("Example Yak", internal: true, all_builds: true)
+  end
+
+  def test_upload_groups_names_a_group_without_all_build_access
+    assert_equal ["Example Yak"], ReleaseSupport.upload_groups("Example Yak", internal: true, all_builds: false)
+    assert_equal ["Example Yak"], ReleaseSupport.upload_groups("Example Yak", internal: false, all_builds: true)
+  end
+
+  def test_upload_groups_names_a_group_that_does_not_exist_yet
+    assert_equal ["Example Yak"], ReleaseSupport.upload_groups("Example Yak", internal: nil, all_builds: nil)
+  end
+
+  def test_signing_arguments_reference_the_environment_and_hold_no_value
+    text = ReleaseSupport.signing_arguments
+    assert_includes text, '-authenticationKeyID "$ASC_KEY_ID"'
+    assert_includes text, '-authenticationKeyIssuerID "$ASC_ISSUER_ID"'
+    assert_includes text, '-authenticationKeyPath "$YAK_RELEASE_KEY_PATH"'
+  end
+
+  def test_release_version
+    assert_equal "1.2.0", ReleaseSupport.release_version("1.2.0\n")
+    assert_equal "1.2.0", ReleaseSupport.release_version("1.2.0")
+    ["", nil, "1.2", "1.2.0\n2.0.0", "v1.2.0"].each do |text|
+      error = assert_raises(ReleaseSupport::Refusal) { ReleaseSupport.release_version(text) }
+      assert_equal "ios/VERSION must hold a version like 1.2.0.", error.message
+    end
+  end
+
+  def test_manual_rows_are_not_counted_as_pending
+    assert_equal 1, ReleaseSupport.pending_count([["a", "needs a person", ""], ["b", "check by hand", ""], ["c", "created", ""]])
+  end
 end

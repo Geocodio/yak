@@ -117,4 +117,27 @@ module ReleaseSupport
     return "*" if separator.empty? || local.empty? || domain.empty?
     "#{local[0]}***@#{domain}"
   end
+
+  # Groups to pass to the TestFlight upload. An internal group with access to all builds receives every
+  # build on its own, and App Store Connect rejects naming it ("Cannot add internal group to a build").
+  def self.upload_groups(name, internal:, all_builds:)
+    internal && all_builds ? [] : [name]
+  end
+
+  # xcodebuild arguments that read the key id and issuer id from the environment, so the build log's
+  # command line never holds them.
+  def self.signing_arguments
+    "-allowProvisioningUpdates -authenticationKeyPath \"$YAK_RELEASE_KEY_PATH\" " \
+      "-authenticationKeyID \"$ASC_KEY_ID\" -authenticationKeyIssuerID \"$ASC_ISSUER_ID\""
+  end
+
+  def self.release_version(text)
+    raise Refusal, "ios/VERSION must hold a version like 1.2.0." unless text.to_s.match?(/\A\d+\.\d+\.\d+\n?\z/)
+    text.strip
+  end
+
+  # Rows that still need the owner's action and a new bootstrap run. "check by hand" rows are not counted.
+  def self.pending_count(rows)
+    rows.count { |row| row[1] == "needs a person" }
+  end
 end

@@ -20,11 +20,9 @@ platform :ios do
       FileUtils.cp(example, config) unless File.exist?(config)
     end
     ENV["YAK_SENTRY_ENABLED"] = ReleaseSupport.read_config(File.read(config))["YAK_SENTRY_DSN"].to_s.empty? ? "false" : "true"
-    version_path = File.join(IOS_ROOT, "VERSION")
-    version = File.exist?(version_path) ? File.read(version_path) : ""
-    UI.user_error!("ios/VERSION must hold a version like 1.2.0.") unless version.match?(/\A\d+\.\d+\.\d+\n?\z/)
-    ENV["YAK_MARKETING_VERSION"] = version.strip
-    UI.message("Generating the project for version #{version.strip}")
+    version = release_version
+    ENV["YAK_MARKETING_VERSION"] = version
+    UI.message("Generating the project for version #{version}")
     sh("cd #{IOS_ROOT.shellescape} && xcodegen generate")
   end
 

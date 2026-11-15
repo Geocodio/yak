@@ -77,10 +77,10 @@ platform :ios do
             end
           end
         end
-        rows << ["App group #{app_group}", "needs a person",
+        rows << ["App group #{app_group}", "check by hand",
                  "The API cannot register an app group or assign it. Register it and assign it to #{bundle_id}, #{bundle_id}.widgets and #{bundle_id}.share in Certificates, Identifiers and Profiles."]
-        rows << ["Broadcast Capability on #{bundle_id}", "needs a person",
-                 "The API has no setting for it. Turn it on under Push Notifications for #{bundle_id} in Certificates, Identifiers and Profiles. Check #{bundle_id}.widgets too if Live Activity channel pushes fail."]
+        rows << ["Broadcast Capability on #{bundle_id}", "check by hand",
+                 "The API has no setting for it. Turn it on under Push Notifications for #{bundle_id} in Certificates, Identifiers and Profiles. Only #{bundle_id} needs it: Live Activity channel pushes use the app's topic, not #{bundle_id}.widgets."]
 
         app = release_apple_call("Looking up the app record") { Spaceship::ConnectAPI::App.find(bundle_id) }
         if app.nil?
@@ -105,7 +105,7 @@ platform :ios do
     )
     bundle_id = ENV.fetch("YAK_BUNDLE_ID")
     team_group = ENV.fetch("YAK_TESTER_GROUP")
-    version = File.read(File.join(IOS_ROOT, "VERSION")).strip
+    version = release_version
     UI.message("Building #{bundle_id} #{version} for TestFlight group \"#{team_group}\".")
     started = Time.now
     summary = {}
@@ -132,6 +132,7 @@ platform :ios do
       end
       UI.message("Build number #{build} (TestFlight has #{latest || "no build"}).")
 
+      ENV["YAK_RELEASE_KEY_PATH"] = key_path
       archive = release_timed("Archiving (this takes several minutes)") do
         build_app(
           project: File.join(IOS_ROOT, "Yak.xcodeproj"),
@@ -140,13 +141,14 @@ platform :ios do
           export_team_id: ENV.fetch("YAK_TEAM_ID"),
           output_directory: RELEASE_DIRECTORY,
           output_name: "Yak",
-          xcargs: "#{release_signing_arguments(key_path)} CURRENT_PROJECT_VERSION=#{build}",
-          export_xcargs: release_signing_arguments(key_path)
+          xcargs: "#{ReleaseSupport.signing_arguments} CURRENT_PROJECT_VERSION=#{build}",
+          export_xcargs: ReleaseSupport.signing_arguments
         )
       end
 
       release_upload_symbols
       notes = release_notes_text(options[:notes])
+      groups = release_upload_groups(bundle_id, team_group)
 
       release_timed("Uploading and waiting for TestFlight to process the build (at most 30 minutes)") do
         upload_to_testflight(
@@ -154,7 +156,7 @@ platform :ios do
           ipa: archive,
           app_identifier: bundle_id,
           changelog: notes,
-          groups: [team_group],
+          groups: groups,
           distribute_external: false,
           notify_external_testers: false,
           wait_processing_timeout_duration: PROCESSING_TIMEOUT_SECONDS
@@ -251,9 +253,27 @@ platform :ios do
     )
   end
 
-  def release_signing_arguments(key_path)
-    "-allowProvisioningUpdates -authenticationKeyPath #{key_path.shellescape} " \
-      "-authenticationKeyID #{ENV.fetch("ASC_KEY_ID").shellescape} -authenticationKeyIssuerID #{ENV.fetch("ASC_ISSUER_ID").shellescape}"
+  def release_version
+    ReleaseSupport.release_version(File.exist?(File.join(IOS_ROOT, "VERSION")) ? File.read(File.join(IOS_ROOT, "VERSION")) : "")
+  rescue ReleaseSupport::Refusal => refusal
+    UI.user_error!(refusal.message)
+  end
+
+  # An internal group with access to all builds gets every build without being named; naming it makes App
+  # Store Connect fail the upload at its last step. Any other group is named so the build is added to it.
+  def release_upload_groups(bundle_id, group_name)
+    group = release_apple_call("Looking up the tester group") do
+      app = Spaceship::ConnectAPI::App.find(bundle_id)
+      app&.get_beta_groups(filter: { name: group_name })&.find { |candidate| candidate.name == group_name }
+    end
+    UI.user_error!("The tester group \"#{group_name}\" does not exist for #{bundle_id}. Run bootstrap first.") if group.nil?
+    groups = ReleaseSupport.upload_groups(group_name, internal: group.is_internal_group, all_builds: group.has_access_to_all_builds)
+    if groups.empty?
+      UI.message("Tester group \"#{group_name}\" is internal with access to all builds: it receives the build on its own, so the upload does not name it.")
+    else
+      UI.message("Tester group \"#{group_name}\" does not get every build on its own: the upload adds the build to it.")
+    end
+    groups
   end
 
   # Runs one App Store Connect call with a time bound and an error that names the step.
@@ -343,8 +363,10 @@ platform :ios do
     rows.each do |item, status, note|
       UI.message("#{item.ljust(width)}  #{status.ljust(15)}  #{note}".rstrip)
     end
-    needs = rows.count { |row| row[1] == "needs a person" }
+    needs = ReleaseSupport.pending_count(rows)
+    manual = rows.count { |row| row[1] == "check by hand" }
     UI.important("#{needs} item(s) need a person. Do them, then run bootstrap again.") if needs.positive?
+    UI.important("#{manual} item(s) say \"check by hand\": the API cannot see them, so every run lists them. Confirm them in the developer portal once; they do not need another bootstrap run.") if manual.positive?
   end
 
   def release_tags
