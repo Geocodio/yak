@@ -21,6 +21,18 @@ private func draft(_ text: String, attachments: [OutboxAttachment] = []) -> Outb
 
 private func settle() async { for _ in 0..<100 { await Task.yield() } }
 
+/// Fails every write to `items.json` and passes everything else through.
+private struct FailingListStore: FileStore {
+    let base: InMemoryFileStore
+    func read(_ path: String) throws(FileStoreError) -> Data? { try base.read(path) }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        if path.hasSuffix("/items.json") { throw .unreadable }
+        try base.write(data, to: path, protection: protection)
+    }
+    func remove(_ path: String) throws(FileStoreError) { try base.remove(path) }
+    func list(_ folder: String) throws(FileStoreError) -> [String] { try base.list(folder) }
+}
+
 private struct Setup {
     let files: InMemoryFileStore
     let instance: UUID
@@ -28,11 +40,14 @@ private struct Setup {
     let clock = ManualClock()
     let outbox: Outbox
 
-    init(files: InMemoryFileStore = InMemoryFileStore(), instance: UUID = UUID()) {
+    init(
+        files: InMemoryFileStore = InMemoryFileStore(), instance: UUID = UUID(), store: (any FileStore)? = nil
+    ) {
         self.files = files
         self.instance = instance
         outbox = Outbox(
-            instance: instance, client: makeClient(transport), files: files, clock: clock, makeID: IDSequence().next)
+            instance: instance, client: makeClient(transport), files: store ?? files, clock: clock,
+            makeID: IDSequence().next)
     }
 
     var itemsPath: String { "\(InstanceFolders.outbox(instance))/items.json" }
@@ -51,6 +66,11 @@ private struct Setup {
         await second.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
         let deliveries = StreamRecorder(await second.outbox.deliveries())
         await second.outbox.load()
+        let restored = await second.outbox.items()
+        #expect(restored.map(\.id) == [saved.id])
+        let onDisk = try JSONDecoder().decode(
+            [OutboxItem].self, from: try #require(try first.files.read(second.itemsPath)))
+        #expect(onDisk.map(\.state) == [.queued])
         _ = await deliveries.next { _ in true }
         let request = try #require(await second.transport.requests(on: threadRoute).first)
         let body = try #require(
@@ -180,6 +200,60 @@ private struct Setup {
         try OutboxInbox.add(draft("Shared"), instance: setup.instance, files: setup.files, id: id, now: Date())
         #expect(setup.files.protection(of: setup.itemsPath) == .untilFirstUnlock)
         #expect(setup.files.protection(of: "\(setup.incomingFolder)/\(id.uuidString).json") == .untilFirstUnlock)
+        let attachmentPath = OutboxInbox.attachmentPath(instance: setup.instance, item: id, fileName: "a.png")
+        try setup.files.write(Data("A".utf8), to: attachmentPath, protection: .untilFirstUnlock)
+        #expect(setup.files.protection(of: attachmentPath) == .untilFirstUnlock)
+        await setup.transport.release(threadRoute)
+    }
+
+    @Test func aFailedSaveKeepsTheInboxFile() async throws {
+        let base = InMemoryFileStore()
+        let setup = Setup(files: base, store: FailingListStore(base: base))
+        let id = UUID()
+        try OutboxInbox.add(draft("Shared"), instance: setup.instance, files: base, id: id, now: Date())
+        await setup.outbox.importIncoming()
+        #expect(try base.list(setup.incomingFolder) == ["\(id.uuidString).json"])
+    }
+
+    @Test func aChangeBeforeLoadKeepsTheSavedItems() async throws {
+        let first = Setup()
+        await first.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
+        await first.transport.hold(threadRoute)
+        let saved = try await first.outbox.enqueue(draft("Saved"))
+        await first.transport.waitForRequests(1, on: threadRoute)
+        let second = Setup(files: first.files, instance: first.instance)
+        await second.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
+        await second.transport.hold(threadRoute)
+        let added = try await second.outbox.enqueue(draft("Added"))
+        await second.outbox.load()
+        let ids = Set(await second.outbox.items().map(\.id))
+        #expect(ids == [saved.id, added.id])
+        let data = try #require(try first.files.read(second.itemsPath))
+        #expect(Set(try JSONDecoder().decode([OutboxItem].self, from: data).map(\.id)) == ids)
+        await first.transport.release(threadRoute)
+        await second.transport.release(threadRoute)
+    }
+
+    @Test func anUndecodableListIsKeptAside() async throws {
+        let setup = Setup()
+        let broken = Data("[{\"unknown\": 1}]".utf8)
+        try setup.files.write(broken, to: setup.itemsPath, protection: .untilFirstUnlock)
+        await setup.outbox.load()
+        _ = try await setup.outbox.enqueue(draft("New"))
+        let aside = "\(InstanceFolders.outbox(setup.instance))/items.unreadable.json"
+        #expect(try setup.files.read(aside) == broken)
+    }
+
+    @Test func loadingTwiceDuringASendSendsOnce() async throws {
+        let setup = Setup()
+        await setup.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
+        await setup.transport.hold(threadRoute)
+        _ = try await setup.outbox.enqueue(draft("Once"))
+        await setup.transport.waitForRequests(1, on: threadRoute)
+        await setup.outbox.load()
+        await setup.outbox.load()
+        await settle()
+        #expect(await setup.transport.requests(on: threadRoute).count == 1)
         await setup.transport.release(threadRoute)
     }
 }

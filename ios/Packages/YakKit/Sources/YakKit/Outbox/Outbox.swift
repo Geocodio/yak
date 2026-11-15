@@ -21,6 +21,7 @@ public actor Outbox {
     private let makeID: @Sendable () -> UUID
 
     private var stored: [OutboxItem] = []
+    private var hasLoadedList = false
     private var pauseState: OutboxPause?
     private var slowTimers: [UUID: Task<Void, Never>] = [:]
     private var retryTimers: [UUID: Task<Void, Never>] = [:]
@@ -82,23 +83,38 @@ public actor Outbox {
     /// Reads `items.json`, takes in what other processes left, and starts sending. An item that was
     /// in flight when the app stopped is queued again and goes out with the same `send_key`.
     public func load() {
+        loadSavedList()
+        importIncoming()
+    }
+
+    /// Merges the saved list into memory once. Nothing is written until this has succeeded, so a change
+    /// made before `load()` cannot overwrite what the last run saved. A list that does not decode is
+    /// kept as `items.unreadable.json` before anything new is written over it.
+    private func loadSavedList() {
+        guard !hasLoadedList else { return }
         do {
             if let data = try files.read(OutboxInbox.itemsPath(instance)) {
-                let saved = try JSONDecoder().decode([OutboxItem].self, from: data)
-                let known = Set(stored.map(\.id))
-                stored += saved.filter { !known.contains($0.id) }
+                do {
+                    var saved = try JSONDecoder().decode([OutboxItem].self, from: data)
+                    for index in saved.indices {
+                        switch saved[index].state {
+                        case .sending, .slow, .waiting: saved[index].state = .queued
+                        default: break
+                        }
+                    }
+                    let known = Set(stored.map(\.id))
+                    stored += saved.filter { !known.contains($0.id) }
+                    sortByCreation()
+                } catch {
+                    logFailure("outbox list does not decode: \(type(of: error))")
+                    try files.write(
+                        data, to: OutboxInbox.unreadableItemsPath(instance), protection: .untilFirstUnlock)
+                }
             }
+            hasLoadedList = true
         } catch {
             logFailure("outbox list unreadable: \(type(of: error))")
         }
-        for index in stored.indices {
-            switch stored[index].state {
-            case .sending, .slow, .waiting: stored[index].state = .queued
-            default: break
-            }
-        }
-        sortByCreation()
-        importIncoming()
     }
 
     /// Moves every inbox file into the list, in `createdAt` order, then removes the files.
@@ -129,8 +145,14 @@ public actor Outbox {
         }
         sortByCreation()
         // The list is saved before the inbox files go, so a crash in between imports them once.
-        publish()
-        taken.forEach(removeFile)
+        // When saving fails the files stay for the next import.
+        do {
+            try persist()
+            taken.forEach(removeFile)
+        } catch {
+            logFailure("outbox list not saved, inbox kept: \(type(of: error))")
+        }
+        changeBroadcast.send(stored)
         pump()
     }
 
@@ -152,6 +174,8 @@ public actor Outbox {
     }
 
     private func persist() throws(FileStoreError) {
+        loadSavedList()
+        guard hasLoadedList else { throw .unreadable }
         let saved = stored.map { item -> OutboxItem in
             var copy = item
             if copy.state == .sending || copy.state == .slow { copy.state = .queued }

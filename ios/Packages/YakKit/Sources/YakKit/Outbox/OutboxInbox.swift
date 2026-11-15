@@ -4,12 +4,16 @@ import Foundation
 public enum OutboxInbox {
     static func folder(_ instance: UUID) -> String { "\(InstanceFolders.outbox(instance))/incoming" }
     static func itemsPath(_ instance: UUID) -> String { "\(InstanceFolders.outbox(instance))/items.json" }
+    static func unreadableItemsPath(_ instance: UUID) -> String {
+        "\(InstanceFolders.outbox(instance))/items.unreadable.json"
+    }
     static func attachmentFolder(instance: UUID, item: UUID) -> String {
         "\(InstanceFolders.outbox(instance))/files/\(item.uuidString)"
     }
 
     /// Writes one item where the app's outbox picks it up. The caller writes each attachment's bytes to
-    /// the `path` of its `OutboxAttachment`, which comes from `attachmentPath`, before calling this.
+    /// the `path` of its `OutboxAttachment`, which comes from `attachmentPath`, before calling this,
+    /// with `.untilFirstUnlock` protection so the app can read them while the device is locked.
     public static func add(
         _ draft: OutboxDraft, instance: UUID, files: any FileStore, id: UUID, now: Date
     ) throws(FileStoreError) {
