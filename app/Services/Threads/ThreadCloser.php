@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadStatus;
 use App\Models\Thread;
+use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Stacks\StackBranchCleanup;
 use App\Services\Stacks\StackThreadCloser;
 use App\Services\Threads\Contracts\BrokerStreams;
@@ -44,6 +45,12 @@ class ThreadCloser
             'closed_at' => now(),
             'close_reason' => $reason,
         ])->save();
+
+        try {
+            app(LiveActivities::class)->threadClosed($thread);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
 
         $channel = "threads:{$thread->id}";
         $this->streams->unregister($channel);

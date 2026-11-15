@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Ssh\SandboxAuthorizedKeys;
 use App\Services\Ssh\SandboxSshAddress;
 use App\Services\Threads\Contracts\SandboxManager;
+use Illuminate\Support\Facades\Http;
 
 const TERMINAL_ORIGIN = 'https://yak.example.test';
 
@@ -65,7 +66,7 @@ it('answers 202 waiting when no sandbox slot is free', function () {
     Thread::factory()->paused()->create(['sandbox_state' => ThreadSandboxState::Running]);
     $thread = Thread::factory()->stopped()->create();
 
-    openTerminal(User::factory()->create(), $thread->public_id)->assertStatus(202)->assertExactJson(['state' => 'waiting', 'limit' => 'global_cap']);
+    openTerminal(User::factory()->create(), $thread->public_id)->assertStatus(202)->assertExactJson(['state' => 'waiting', 'limit' => 'global_cap', 'restoring' => false]);
 });
 
 it('names the per person share as the limit when the owner is at their share', function () {
@@ -74,7 +75,7 @@ it('names the per person share as the limit when the owner is at their share', f
     Thread::factory()->paused()->create(['owner_user_id' => $user->id, 'sandbox_state' => ThreadSandboxState::Running]);
     $thread = Thread::factory()->stopped()->create(['owner_user_id' => $user->id]);
 
-    openTerminal($user, $thread->public_id)->assertStatus(202)->assertExactJson(['state' => 'waiting', 'limit' => 'person_share']);
+    openTerminal($user, $thread->public_id)->assertStatus(202)->assertExactJson(['state' => 'waiting', 'limit' => 'person_share', 'restoring' => false]);
 });
 
 it('refuses a viewer who cannot drive with 403', function () {
@@ -231,4 +232,21 @@ it('rejects the check without the internal token', function () {
 
     checkTerminal($thread->id, 1, 'wrong')->assertUnauthorized();
     test()->postJson('/internal/ssh/terminal/check', ['thread_id' => $thread->id, 'user_id' => 1])->assertUnauthorized();
+});
+
+it('tells the web a queued restore is running', function () {
+    $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Destroyed, 'restore_requested_at' => now()]);
+
+    openTerminal(User::factory()->create(), $thread->public_id)->assertStatus(202)->assertExactJson(['limit' => null, 'restoring' => true, 'state' => 'waiting']);
+});
+
+it('sends no GitHub request when the person may not drive the thread', function () {
+    Http::fake();
+    $thread = Thread::factory()->paused()->private()->create();
+    $viewer = User::factory()->create(['github_id' => 12345]);
+    ThreadShare::factory()->create(['thread_id' => $thread->id, 'user_id' => $viewer->id]);
+
+    openTerminal($viewer, $thread->public_id)->assertForbidden();
+
+    Http::assertNothingSent();
 });

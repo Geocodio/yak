@@ -138,7 +138,7 @@ export type SharedFile = {
 export type ThreadPageData = {
     thread: ThreadData;
     canDrive: boolean;
-    diffTotals: { additions: number; deletions: number } | null;
+    diffTotals: { additions: number; deletions: number; filesCount: number } | null;
     pullRequest: { number: number; url: string } | null;
     brief: { text: string; kind: string; model: string | null; startedAt: string; branch: string | null } | null;
     teleport: TeleportData;

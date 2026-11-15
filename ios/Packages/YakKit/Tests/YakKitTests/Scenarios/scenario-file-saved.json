@@ -1,0 +1,14 @@
+{
+  "state": "saved",
+  "file": {
+    "path": "src/Importer.php",
+    "sha256": "4d5e6f704d5e6f704d5e6f704d5e6f704d5e6f704d5e6f704d5e6f704d5e6f70",
+    "size": 158,
+    "isBinary": false,
+    "isTooLarge": false,
+    "content": "<?php\nnamespace Example\\Api;\n\nclass Importer\n{\n    public function run(array $rows): int\n    {\n        $count = count($rows);\n\n        return $count;\n    }\n}\n",
+    "headContent": "<?php\nnamespace Example\\Api;\n\nclass Importer\n{\n    public function run(array $rows): int\n    {\n        $count = 0;\n\n        return $count;\n    }\n}\n",
+    "language": "php"
+  },
+  "working": true
+}

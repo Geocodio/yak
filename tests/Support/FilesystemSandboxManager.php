@@ -21,7 +21,7 @@ class FilesystemSandboxManager extends FakeSandboxManager
     /** @var array<string, string> command substring => error output */
     public array $failures = [];
 
-    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
+    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult
     {
         $shell = (string) end($command);
         $this->commands[] = $shell;

@@ -31,7 +31,7 @@ class ScriptedSandboxManager extends FakeSandboxManager
     /** @var (Closure(string): ?ProcessResult)|null */
     public ?Closure $script = null;
 
-    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
+    public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = [], ?int $timeout = null): ProcessResult
     {
         $default = parent::exec($thread, $command, $stdin, $env);
 

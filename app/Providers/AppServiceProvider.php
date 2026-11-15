@@ -5,9 +5,7 @@ namespace App\Providers;
 use App\Agents\BrokerAgentRunner;
 use App\Contracts\AgentRunner;
 use App\Models\Device;
-use App\Models\Thread;
 use App\Models\User;
-use App\Observers\ThreadBlockedPushObserver;
 use App\Services\AppDiskUsage;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxPoolUsage;
@@ -35,6 +33,19 @@ use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /**
+     * App API paths that skip the `app-device` limit because they have their own limiter.
+     *
+     * @var list<string>
+     */
+    private const APP_DEVICE_UNTHROTTLED_PATHS = [
+        'api/app/v1/threads/*/events',
+        'api/app/v1/threads/*/events/*',
+        'api/app/v1/threads/*/files',
+        'api/app/v1/threads/*/files/*',
+        'api/app/v1/threads/*/diff/files/*',
+    ];
+
     /**
      * Register any application services.
      */
@@ -92,8 +103,6 @@ class AppServiceProvider extends ServiceProvider
         // Flux previously registered this namespace so `<x-layouts::auth.simple>`
         // resolves to resources/views/layouts/auth/simple.blade.php.
         Blade::anonymousComponentNamespace('layouts', 'layouts');
-
-        Thread::observe(ThreadBlockedPushObserver::class);
 
         // Listeners in app/Listeners are auto-discovered. Registering
         // RecordAiUsage here as well made every AI SDK call write two
@@ -177,7 +186,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('app-device-code', fn (Request $request): Limit => Limit::perMinute(10)->by('ip:' . $request->ip()));
 
         RateLimiter::for('app-device', function (Request $request): Limit {
-            if ($request->is('api/app/v1/threads/*/events', 'api/app/v1/threads/*/events/*')) {
+            if ($request->is(...self::APP_DEVICE_UNTHROTTLED_PATHS)) {
                 return Limit::none();
             }
 
@@ -190,6 +199,12 @@ class AppServiceProvider extends ServiceProvider
             $device = $request->attributes->get('device');
 
             return Limit::perMinute(1200)->by($device instanceof Device ? 'events:' . $device->id : 'events-ip:' . $request->ip());
+        });
+
+        RateLimiter::for('app-files', function (Request $request): Limit {
+            $device = $request->attributes->get('device');
+
+            return Limit::perMinute(1200)->by($device instanceof Device ? 'files:' . $device->id : 'files-ip:' . $request->ip());
         });
     }
 }

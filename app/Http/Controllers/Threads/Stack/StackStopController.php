@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Threads\Stack;
 
 use App\Http\Controllers\Controller;
 use App\Models\Thread;
-use App\Services\Stacks\StopStack;
+use App\Services\Stacks\StackActions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 
@@ -13,14 +13,13 @@ use Illuminate\Support\Facades\Gate;
  */
 class StackStopController extends Controller
 {
-    public function __invoke(Thread $thread, StopStack $stopStack): RedirectResponse
+    public function __invoke(Thread $thread, StackActions $actions): RedirectResponse
     {
         // A hidden thread answers exactly like a missing one.
         abort_unless(Gate::allows('view', $thread), 404);
-        $root = $thread->rootThread();
-        Gate::authorize('drive', $root);
+        Gate::authorize('drive', $thread->rootThread());
 
-        $stopStack->stop($root);
+        $actions->stop($thread);
 
         return back();
     }

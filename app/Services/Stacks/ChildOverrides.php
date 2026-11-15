@@ -31,6 +31,7 @@ class ChildOverrides
         StackThreadMessage::query()
             ->where('from_thread_id', $child->id)
             ->whereNull('delivered_at')
+            ->whereNull('from_user_id')
             ->update(['delivered_at' => now()]);
 
         $this->cards->publish($child);
@@ -38,7 +39,7 @@ class ChildOverrides
 
     public function split(Thread $child, User $user): void
     {
-        $this->messenger->send($child, $this->parentOf($child), "The person asked you to split the work of sub-thread \"{$child->name}\" into smaller sub-threads or steps.");
+        $this->messenger->sendFromPerson($child, $this->parentOf($child), "The person asked you to split the work of sub-thread \"{$child->name}\" into smaller sub-threads or steps.", $user);
     }
 
     public function drop(Thread $child, User $user): void
@@ -47,7 +48,7 @@ class ChildOverrides
         $this->cards->publish($child);
 
         try {
-            $this->messenger->send($child, $this->parentOf($child), "The person dropped sub-thread \"{$child->name}\". Do not wait for its result.");
+            $this->messenger->sendFromPerson($child, $this->parentOf($child), "The person dropped sub-thread \"{$child->name}\". Do not wait for its result.", $user);
         } catch (StackRuleViolation) {
             // A closed parent needs no note.
         }

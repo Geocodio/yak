@@ -5,6 +5,8 @@ namespace App\Http\Resources;
 use App\Enums\ThreadSandboxState;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Push\LiveActivities\LiveActivityChannels;
+use App\Services\Threads\PullRequests\OpenPullRequest;
 
 /**
  * Thread show for the app: the web page props plus the panes it offers, the open question and the latest event sequence.
@@ -14,7 +16,7 @@ use App\Models\User;
 final class AppThreadData
 {
     /**
-     * Panes, question and latestSequence extend the ThreadShow shape.
+     * Panes, question, latestSequence, canOpenPullRequest and liveActivityChannel extend the ThreadShow shape.
      *
      * @return ThreadShow
      */
@@ -35,6 +37,8 @@ final class AppThreadData
             ],
             'question' => ThreadQuestionData::for($thread),
             'latestSequence' => $latestSequence,
+            'canOpenPullRequest' => app(OpenPullRequest::class)->canOpen($thread, $viewer),
+            'liveActivityChannel' => app(LiveActivityChannels::class)->visibleFor($thread),
         ];
     }
 }

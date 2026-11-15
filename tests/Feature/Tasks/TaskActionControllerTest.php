@@ -357,6 +357,19 @@ test('reroute validates the target repo exists', function () {
         ->assertSessionHasErrors(['repo']);
 });
 
+test('reroute to an inactive repository flashes the reason on the task page', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'old', 'is_active' => false]);
+    $task = YakTask::factory()->create(['mode' => TaskMode::Fix, 'repo' => 'web', 'pr_url' => null]);
+
+    $this->post(route('tasks.reroute', $task), ['repo' => 'old'])
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('error', 'Repository not found or inactive.');
+
+    Queue::assertNothingPushed();
+    expect($task->fresh()->repo)->toBe('web');
+});
+
 function ciTimedOutTask(): YakTask
 {
     config()->set('yak.channels.github.installation_id', 99999);
@@ -472,4 +485,46 @@ test('cancel moves a Linear issue to the cancelled state once', function () {
 
     $issueUpdates = Http::recorded()->filter(fn (array $pair): bool => str_contains($pair[0]['query'] ?? '', 'issueUpdate'));
     expect($issueUpdates)->toHaveCount(1);
+});
+
+test('two retries push one job', function () {
+    Queue::fake();
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed]);
+
+    $this->post(route('tasks.retry', $task));
+    $this->post(route('tasks.retry', $task));
+
+    Queue::assertPushed(RunYakJob::class, 1);
+});
+
+test('two retry renders push one render', function () {
+    Queue::fake();
+    $task = YakTask::factory()->create();
+    Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video']);
+
+    $this->post(route('tasks.retry-render', $task));
+    $this->post(route('tasks.retry-render', $task));
+
+    Queue::assertPushed(RenderVideoJob::class, 1);
+});
+
+test('retry shows an error flash instead of an error page when the queue refuses the job', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/slow',
+        'branch_name' => 'yak/FIX-QUEUE',
+        'attempts' => 1,
+        'error_log' => 'CI failed',
+        'completed_at' => now(),
+    ]);
+    TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
+    Queue::shouldReceive('push')->andThrow(new RuntimeException('redis down'));
+    Queue::shouldReceive('connection')->andReturnSelf();
+
+    $this->post(route('tasks.retry', $task))
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('error', 'Yak could not restart this task. Try again in a moment.');
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
 });

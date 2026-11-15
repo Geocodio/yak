@@ -1,0 +1,7 @@
+{
+    "details": {
+        "reason": "BadDeviceToken"
+    },
+    "error": "push_rejected",
+    "message": "Apple does not recognize this device. Turn notifications off and on again in the app, then retry."
+}

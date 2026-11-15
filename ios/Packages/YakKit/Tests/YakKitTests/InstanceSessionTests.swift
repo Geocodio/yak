@@ -136,6 +136,26 @@ private func nextSnapshot(
         #expect(await rig.session.outbox() == nil)
     }
 
+    @Test func featureAccessorsFollowTheSession() async throws {
+        let rig = try await makeRig { await $0.on(showRoute, revokedAnswer) }
+        #expect(await rig.session.apiClient() == nil)
+        #expect(await rig.session.instanceCache() == nil)
+        await rig.session.start()
+        #expect(await rig.session.apiClient() != nil)
+        #expect(await rig.session.instanceCache() != nil)
+        #expect(rig.session.clock.now() == rig.clock.now())
+        await rig.session.stop()
+        #expect(await rig.session.apiClient() == nil)
+        #expect(await rig.session.instanceCache() == nil)
+
+        let revoked = try await startedRig { await $0.on(showRoute, revokedAnswer) }
+        let statuses = StreamRecorder(await revoked.session.statuses())
+        _ = await revoked.session.openThread(threadID)
+        _ = try await statuses.next { $0 == .needsPairing }
+        #expect(await revoked.session.apiClient() == nil)
+        #expect(await revoked.session.instanceCache() == nil)
+    }
+
     @Test func startWithoutATokenNeedsPairing() async throws {
         let rig = try await makeRig(keepsToken: false)
         await rig.session.start()
@@ -219,6 +239,37 @@ private func nextSnapshot(
         await rig.session.closeThread(threadID)
         await rig.session.closeThread(threadID)
         #expect(await connection.sent.suffix(2).allSatisfy { $0.contains("pusher:unsubscribe") })
+        await rig.session.stop()
+    }
+
+    @Test func oneOverviewFeedServesEveryScene() async throws {
+        let rig = try await startedRig { await $0.on(showRoute, try showAnswer()) }
+        #expect(await rig.session.openOverview(threadID) == nil)
+        _ = try #require(await rig.session.openThread(threadID))
+        let first = try #require(await rig.session.openOverview(threadID))
+        #expect(await rig.session.openOverview(threadID) === first)
+        await rig.session.closeOverview(threadID)
+        #expect(await rig.session.openOverview(threadID) === first)
+        await rig.session.closeOverview(threadID)
+        await rig.session.closeOverview(threadID)
+        // The last caller left, so the feed is closed and its states have ended.
+        for await _ in await first.states() {}
+        let second = try #require(await rig.session.openOverview(threadID))
+        #expect(second !== first)
+        await rig.session.stop()
+        for await _ in await second.states() {}
+        #expect(await rig.session.openOverview(threadID) == nil)
+    }
+
+    @Test func closingTheThreadClosesItsOverviewFeed() async throws {
+        let rig = try await startedRig { await $0.on(showRoute, try showAnswer()) }
+        _ = try #require(await rig.session.openThread(threadID))
+        let first = try #require(await rig.session.openOverview(threadID))
+        await rig.session.closeThread(threadID)
+        for await _ in await first.states() {}
+        _ = try #require(await rig.session.openThread(threadID))
+        let second = try #require(await rig.session.openOverview(threadID))
+        #expect(second !== first)
         await rig.session.stop()
     }
 

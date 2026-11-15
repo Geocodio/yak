@@ -43,10 +43,15 @@ public actor InstanceStore {
     private let defaults: KeyValueStore
     private let tokens: TokenStore
     private let now: @Sendable () -> Date
+    public nonisolated let build: PushBuild?
     private var instances: [Instance]
     private var activeID: UUID?
 
-    public init(defaults: KeyValueStore, tokens: TokenStore, now: @escaping @Sendable () -> Date) {
+    public init(
+        defaults: KeyValueStore, tokens: TokenStore, now: @escaping @Sendable () -> Date,
+        build: PushBuild? = nil
+    ) {
+        self.build = build
         self.defaults = defaults
         self.tokens = tokens
         self.now = now
@@ -120,7 +125,10 @@ public actor InstanceStore {
         instances[index].name = me.instance.name
         instances[index].userName = me.user.name
         instances[index].needsYouCount = me.needsYouCount
-        instances[index].pushAvailable = me.push.apns
+        let push = PushAvailability.make(me.push, build: build)
+        instances[index].push = push
+        instances[index].pushAvailable = (push == .available)
+        instances[index].canonicalURL = InstanceAddress.normalize(me.instance.url)
         try persist()
     }
 

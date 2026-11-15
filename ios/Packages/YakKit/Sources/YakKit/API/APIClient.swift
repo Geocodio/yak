@@ -8,13 +8,14 @@ public protocol HTTPTransport: Sendable {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse)
 }
 
-/// Sends requests with a 15 second timeout and no cookie storage.
+/// Sends requests with no cookie storage. Each request's own `timeoutInterval` decides how long it waits
+/// for data; there is no total limit, so a slow upload that keeps moving bytes is not cut off.
 public struct URLSessionTransport: HTTPTransport {
     private let session: URLSession
 
     public init() {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForRequest = 60
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
         session = URLSession(configuration: configuration)
@@ -39,6 +40,9 @@ public actor APIClient {
     /// Delays before the retries of a GET: three retries, four attempts in all.
     private static let retryDelays: [Duration] = [.milliseconds(500), .seconds(1), .seconds(2)]
     private static let retryableStatuses: Set<Int> = [502, 503, 504]
+    private static let reservedHeaders: Set<String> = [
+        "authorization", ClientProtocol.headerName.lowercased(), "user-agent", "accept", "content-type",
+    ]
 
     public init(
         baseURL: URL, token: String?, transport: any HTTPTransport, appVersion: String,
@@ -65,7 +69,7 @@ public actor APIClient {
         -> Response
     {
         let request = try makeRequest(endpoint)
-        let maximumRetries = endpoint.method == .get ? Self.retryDelays.count : 0
+        let maximumRetries = endpoint.method == .get && endpoint.retriesTransientFailures ? Self.retryDelays.count : 0
         var attempt = 0
         while true {
             do {
@@ -103,7 +107,11 @@ public actor APIClient {
         guard let url = components.url else { throw .encodingFailed }
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
-        request.timeoutInterval = 15
+        let (seconds, attoseconds) = endpoint.timeout.components
+        request.timeoutInterval = Double(seconds) + Double(attoseconds) / 1e18
+        for (name, value) in endpoint.headers where !Self.reservedHeaders.contains(name.lowercased()) {
+            request.setValue(value, forHTTPHeaderField: name)
+        }
         request.setValue(String(ClientProtocol.current), forHTTPHeaderField: ClientProtocol.headerName)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")

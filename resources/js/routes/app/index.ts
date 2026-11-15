@@ -2,6 +2,12 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../
 import device from './device'
 import threads from './threads'
 import broadcasting from './broadcasting'
+import observations from './observations'
+import tasks from './tasks'
+import pushTokens from './push-tokens'
+import notifications from './notifications'
+import liveActivities from './live-activities'
+import media from './media'
 /**
 * @see \App\Http\Controllers\Api\App\InstanceController::__invoke
 * @see app/Http/Controllers/Api/App/InstanceController.php:13
@@ -96,6 +102,12 @@ const app = {
     me: Object.assign(me, me),
     threads: Object.assign(threads, threads),
     broadcasting: Object.assign(broadcasting, broadcasting),
+    observations: Object.assign(observations, observations),
+    tasks: Object.assign(tasks, tasks),
+    pushTokens: Object.assign(pushTokens, pushTokens),
+    notifications: Object.assign(notifications, notifications),
+    liveActivities: Object.assign(liveActivities, liveActivities),
+    media: Object.assign(media, media),
 }
 
 export default app

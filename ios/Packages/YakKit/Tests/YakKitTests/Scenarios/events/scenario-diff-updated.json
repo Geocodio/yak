@@ -1,0 +1,155 @@
+{
+  "scenario": "diff-updated",
+  "source": "synthetic",
+  "broadcasts": [
+    {
+      "sequence": 1,
+      "type": "thread",
+      "data": {
+        "status": "open",
+        "sandboxState": "running",
+        "runnerState": "busy",
+        "blockedReason": null
+      },
+      "createdAt": "2026-11-15T09:00:01Z"
+    },
+    {
+      "sequence": 2,
+      "type": "entry",
+      "data": {
+        "role": "user",
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "text": "Retry failed uploads",
+        "kind": "prompt"
+      },
+      "createdAt": "2026-11-15T09:00:02Z"
+    },
+    {
+      "sequence": 3,
+      "type": "turn",
+      "data": {
+        "turnId": 41,
+        "state": "running"
+      },
+      "createdAt": "2026-11-15T09:00:03Z"
+    },
+    {
+      "sequence": 4,
+      "type": "delta",
+      "data": {
+        "blockKey": "msg_1:0",
+        "kind": "text",
+        "text": "Updated the "
+      },
+      "createdAt": "2026-11-15T09:00:04Z"
+    },
+    {
+      "sequence": 5,
+      "type": "delta",
+      "data": {
+        "blockKey": "msg_1:0",
+        "kind": "text",
+        "text": "retry logic."
+      },
+      "createdAt": "2026-11-15T09:00:05Z"
+    },
+    {
+      "sequence": 6,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_1",
+        "blocks": [
+          {
+            "type": "text",
+            "text": "Updated the retry logic."
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:06Z"
+    },
+    {
+      "sequence": 7,
+      "type": "turn",
+      "data": {
+        "turnId": 41,
+        "state": "completed"
+      },
+      "createdAt": "2026-11-15T09:00:07Z"
+    },
+    {
+      "sequence": 8,
+      "type": "diff.updated",
+      "data": {},
+      "createdAt": "2026-11-15T09:00:08Z"
+    }
+  ],
+  "catchUp": {
+    "events": [
+      {
+        "sequence": 1,
+        "type": "thread",
+        "data": {
+          "status": "open",
+          "sandboxState": "running",
+          "runnerState": "busy",
+          "blockedReason": null
+        },
+        "createdAt": "2026-11-15T09:00:01Z"
+      },
+      {
+        "sequence": 2,
+        "type": "entry",
+        "data": {
+          "role": "user",
+          "uuid": "00000000-0000-4000-8000-000000000001",
+          "text": "Retry failed uploads",
+          "kind": "prompt"
+        },
+        "createdAt": "2026-11-15T09:00:02Z"
+      },
+      {
+        "sequence": 3,
+        "type": "turn",
+        "data": {
+          "turnId": 41,
+          "state": "running"
+        },
+        "createdAt": "2026-11-15T09:00:03Z"
+      },
+      {
+        "sequence": 6,
+        "type": "entry",
+        "data": {
+          "role": "assistant",
+          "messageId": "msg_1",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Updated the retry logic."
+            }
+          ]
+        },
+        "createdAt": "2026-11-15T09:00:06Z"
+      },
+      {
+        "sequence": 7,
+        "type": "turn",
+        "data": {
+          "turnId": 41,
+          "state": "completed"
+        },
+        "createdAt": "2026-11-15T09:00:07Z"
+      },
+      {
+        "sequence": 8,
+        "type": "diff.updated",
+        "data": {},
+        "createdAt": "2026-11-15T09:00:08Z"
+      }
+    ],
+    "latestSequence": 8,
+    "source": "database"
+  },
+  "pointers": []
+}

@@ -4,6 +4,7 @@ export type ThreadListRow = {
     id: string;
     title: string;
     repo: string;
+    step: string | null;
     status: 'running' | 'blocked' | 'paused' | 'stopped' | 'closed' | 'waiting_for_repository';
     needsYouReason: 'question' | 'blocked' | 'unseen' | null;
     needsYouLabel: string | null;

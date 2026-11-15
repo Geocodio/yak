@@ -5,6 +5,15 @@ import share from './share'
 import restore from './restore'
 import queuedMessages from './queued-messages'
 import events from './events'
+import diff from './diff'
+import pullRequest from './pull-request'
+import pullRequests from './pull-requests'
+import stack from './stack'
+import environment from './environment'
+import repositories from './repositories'
+import preview from './preview'
+import terminalSessions from './terminal-sessions'
+import files from './files'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadListController::__invoke
 * @see app/Http/Controllers/Api/App/Threads/ThreadListController.php:12
@@ -413,6 +422,64 @@ continueMethod.post = (args: { thread: string | { public_id: string } } | [threa
     method: 'post',
 })
 
+/**
+* @see \App\Http\Controllers\Api\App\Push\LiveActivityChannelController::__invoke
+* @see app/Http/Controllers/Api/App/Push/LiveActivityChannelController.php:20
+* @route '/api/app/v1/threads/{thread}/live-activity-channel'
+*/
+export const liveActivityChannel = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: liveActivityChannel.url(args, options),
+    method: 'post',
+})
+
+liveActivityChannel.definition = {
+    methods: ["post"],
+    url: '/api/app/v1/threads/{thread}/live-activity-channel',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\App\Push\LiveActivityChannelController::__invoke
+* @see app/Http/Controllers/Api/App/Push/LiveActivityChannelController.php:20
+* @route '/api/app/v1/threads/{thread}/live-activity-channel'
+*/
+liveActivityChannel.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return liveActivityChannel.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\App\Push\LiveActivityChannelController::__invoke
+* @see app/Http/Controllers/Api/App/Push/LiveActivityChannelController.php:20
+* @route '/api/app/v1/threads/{thread}/live-activity-channel'
+*/
+liveActivityChannel.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: liveActivityChannel.url(args, options),
+    method: 'post',
+})
+
 const threads = {
     index: Object.assign(index, index),
     new: Object.assign(newMethod, newMethod),
@@ -428,6 +495,16 @@ const threads = {
     restore: Object.assign(restore, restore),
     queuedMessages: Object.assign(queuedMessages, queuedMessages),
     events: Object.assign(events, events),
+    diff: Object.assign(diff, diff),
+    pullRequest: Object.assign(pullRequest, pullRequest),
+    pullRequests: Object.assign(pullRequests, pullRequests),
+    stack: Object.assign(stack, stack),
+    environment: Object.assign(environment, environment),
+    repositories: Object.assign(repositories, repositories),
+    preview: Object.assign(preview, preview),
+    liveActivityChannel: Object.assign(liveActivityChannel, liveActivityChannel),
+    terminalSessions: Object.assign(terminalSessions, terminalSessions),
+    files: Object.assign(files, files),
 }
 
 export default threads

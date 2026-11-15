@@ -68,7 +68,7 @@ class ThreadPreviewPanelState
      *
      * @return array{intent: ?string, isRunning: bool, endedWithoutManifest: bool}
      */
-    private function setupFor(Thread $thread, string $state): array
+    public function setupFor(Thread $thread, string $state): array
     {
         $message = ThreadTurnMessage::query()
             ->whereIn('intent', ['add_preview_manifest', 'fix_preview'])

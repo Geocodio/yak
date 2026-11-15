@@ -1,0 +1,10 @@
+{
+  "error": "sandbox_unavailable",
+  "message": "The sandbox is asleep. It wakes when someone who can drive this thread opens it.",
+  "details": {
+    "state": "asleep",
+    "canRestore": false,
+    "waitingForSlot": false,
+    "restoring": false
+  }
+}

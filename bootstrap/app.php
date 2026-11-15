@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\Drone\PollCommand;
+use App\Exceptions\SandboxCommandFailed;
 use App\Exceptions\TeleportError;
 use App\Exceptions\ThreadActionRefused;
 use App\Http\Middleware\AuthenticateDevice;
@@ -14,6 +15,7 @@ use App\Http\Middleware\VerifySessionStoreToken;
 use App\Http\Middleware\VerifySshInternalToken;
 use App\Http\Responses\CliError;
 use App\Services\PreviewAccess;
+use App\Services\Threads\Files\InvalidFilePath;
 use App\Support\ClientApi;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -44,6 +46,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(StampClientProtocol::class);
+        // A saved file keeps its trailing newline and edge whitespace byte for byte.
+        $middleware->trimStrings(except: [fn (Request $request): bool => $request->isMethod('PUT') && $request->is('threads/*/files/content', 'api/app/v1/threads/*/files/content')]);
         $middleware->trustProxies(at: ['127.0.0.1', '172.16.0.0/12']);
         $middleware->alias([
             'restrict-to-ingress' => RestrictToIngress::class,
@@ -92,6 +96,24 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => 'The request is not valid.',
                 'details' => ['errors' => $e->errors()],
             ], 422);
+        });
+        $exceptions->render(function (InvalidFilePath $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json([
+                'error' => 'validation_failed',
+                'message' => 'The request is not valid.',
+                'details' => ['errors' => ['path' => [$e->getMessage()]]],
+            ], 422);
+        });
+        $exceptions->render(function (SandboxCommandFailed $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json(['error' => 'unavailable', 'message' => 'The sandbox did not answer. Try again in a moment.'], 503);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if (ClientApi::for($request) === null) {

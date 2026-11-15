@@ -17,22 +17,27 @@ class ChildAwakeLimit
 {
     private const AWAKE_STATES = [ThreadSandboxState::Starting, ThreadSandboxState::Running, ThreadSandboxState::Paused];
 
-    public function hasFreeSlot(Thread $parent): bool
+    /**
+     * Open, non-research children of `$parent` that hold a sandbox.
+     */
+    public function awakeCount(Thread $parent): int
     {
-        $awake = Thread::query()->withoutGlobalScopes()
+        return Thread::query()->withoutGlobalScopes()
             ->where('parent_thread_id', $parent->id)
             ->where('kind', '!=', ThreadKind::Research->value)
             ->where('status', ThreadStatus::Open->value)
             ->whereIn('sandbox_state', array_map(fn (ThreadSandboxState $state): string => $state->value, self::AWAKE_STATES))
             ->count();
+    }
 
-        return $awake < $parent->child_awake_limit;
+    public function hasFreeSlot(Thread $parent): bool
+    {
+        return $this->awakeCount($parent) < $parent->child_awake_limit;
     }
 
     public function set(Thread $parent, int $limit): void
     {
         $parent->forceFill(['child_awake_limit' => max(1, min($limit, (int) config('yak.threads.person_awake_cap')))])->save();
-        $this->startNextQueued($parent);
     }
 
     /**

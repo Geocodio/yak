@@ -38,7 +38,7 @@ it('stack show includes limit awake and waiting counts', function () {
     Thread::factory()->child($root)->create(['queued_for_slot_at' => now()]);
 
     $this->actingAs(User::factory()->create())->getJson(route('threads.stack.show', $root))
-        ->assertJsonPath('limit.awake', 1)
+        ->assertJsonPath('limit.awake', 0)
         ->assertJsonPath('limit.waiting', 1);
 });
 

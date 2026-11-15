@@ -1,0 +1,16 @@
+{
+  "state": "waiting_for_slot",
+  "steps": [
+    "Waiting for a free slot"
+  ],
+  "log": [],
+  "error": null,
+  "url": null,
+  "port": 5173,
+  "coldStartCommand": "npm run dev",
+  "setup": {
+    "intent": null,
+    "isRunning": false,
+    "endedWithoutManifest": false
+  }
+}

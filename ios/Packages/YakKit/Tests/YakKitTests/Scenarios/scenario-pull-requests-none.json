@@ -1,0 +1,6 @@
+{
+  "state": "none", "banner": null, "openCount": 0, "totalCount": 0, "canDrive": true,
+  "pullRequests": [],
+  "withoutPullRequest": [{"repo": "example/docs", "role": "context", "reason": "context_only", "note": "Read only, no pull request"}],
+  "expectations": []
+}

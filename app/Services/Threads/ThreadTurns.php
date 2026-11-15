@@ -40,7 +40,7 @@ use Throwable;
  */
 class ThreadTurns
 {
-    private const WAITING_STATES = [TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox];
+    public const WAITING_STATES = [TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox];
 
     private const MAX_ADVANCE_FAILURES = 5;
 

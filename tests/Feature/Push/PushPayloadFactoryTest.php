@@ -41,6 +41,6 @@ it('builds an account payload without any thread', function () {
 
     $payload = app(PushPayloadFactory::class)->forAccount($account, 'Needs sign-in');
 
-    expect($payload)->toBe(['title' => 'Work Max', 'body' => 'Needs sign-in', 'url' => '/settings/claude-accounts', 'tag' => "account-{$account->id}"])
+    expect($payload)->toBe(['title' => 'Work Max', 'body' => 'Needs sign-in', 'url' => '/settings/claude-accounts', 'tag' => "account-{$account->id}", 'event' => 'account', 'kind' => 'account', 'id' => null])
         ->and(json_encode($payload))->not->toContain('Blocked thread');
 });

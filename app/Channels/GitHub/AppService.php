@@ -6,6 +6,7 @@ use App\Models\GitHubInstallationToken;
 use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -77,9 +78,10 @@ class AppService
      * the auth+header setup that the four channel/health/notification
      * sites used to repeat verbatim.
      */
-    public function installationClient(int $installationId): PendingRequest
+    public function installationClient(int $installationId, bool $isTimeBounded = false): PendingRequest
     {
-        return Http::withToken($this->getInstallationToken($installationId))
+        return Http::withToken($this->getInstallationToken($installationId, $isTimeBounded))
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             // GitHub 301s requests for a renamed repository to its new path.
             // Guzzle's default (non-strict) handling replays a redirected
@@ -207,11 +209,12 @@ class AppService
      * `private-user-images` URLs that load without a GitHub session for
      * about five minutes, including uploads no longer in the live PR body.
      */
-    public function renderMarkdown(int $installationId, string $repoSlug, string $markdown): ?string
+    public function renderMarkdown(int $installationId, string $repoSlug, string $markdown, bool $isTimeBounded = false): ?string
     {
-        $token = $this->getInstallationToken($installationId);
+        $token = $this->getInstallationToken($installationId, $isTimeBounded);
 
         $response = Http::withToken($token)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->post('https://api.github.com/markdown', [
                 'text' => $markdown,
                 'mode' => 'gfm',
@@ -577,12 +580,13 @@ class AppService
      * GitHub cannot be reached or refuses the request, so the caller can
      * tell "no runs" apart from "could not find out".
      *
+     * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total), for callers that answer a waiting user
      * @return list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>
      */
-    public function latestCommitWorkflowRunsForBranch(int $installationId, string $repoSlug, string $branch): array
+    public function latestCommitWorkflowRunsForBranch(int $installationId, string $repoSlug, string $branch, bool $isTimeBounded = false): array
     {
         /** @var array<int, array{id?: int, head_sha?: string, status?: string|null, conclusion?: string|null}> $runs */
-        $runs = $this->installationClient($installationId)
+        $runs = $this->installationClient($installationId, $isTimeBounded)
             ->get("https://api.github.com/repos/{$repoSlug}/actions/runs", [
                 'branch' => $branch,
                 'per_page' => 30,
@@ -826,12 +830,36 @@ class AppService
 
     /**
      * Re-run only the failed jobs of a workflow run, as a new attempt of the same run.
+     *
+     * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total), for callers that answer a waiting user
      */
-    public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId): bool
+    public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId, bool $isTimeBounded = false): bool
     {
-        return $this->installationClient($installationId)
-            ->post("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}/rerun-failed-jobs")
-            ->successful();
+        return $this->rerunFailedJobsResponse($installationId, $repoSlug, $runId, $isTimeBounded)->successful();
+    }
+
+    /**
+     * The raw answer to a rerun of the failed jobs, for callers that tell a refusal GitHub keeps giving apart from a passing failure.
+     */
+    public function rerunFailedJobsResponse(int $installationId, string $repoSlug, int $runId, bool $isTimeBounded = false): Response
+    {
+        return $this->installationClient($installationId, $isTimeBounded)
+            ->post("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}/rerun-failed-jobs");
+    }
+
+    /**
+     * A client error other than a timeout or a rate limit (a run older than a month, a disabled workflow, a missing permission) is given again on every repeat.
+     */
+    public static function isLastingRefusal(Response $response): bool
+    {
+        if (in_array($response->status(), [408, 429], true)) {
+            return false;
+        }
+
+        $isSecondaryRateLimit = $response->status() === 403
+            && ($response->header('retry-after') !== '' || $response->header('x-ratelimit-remaining') === '0');
+
+        return $response->clientError() && ! $isSecondaryRateLimit;
     }
 
     /**
@@ -1227,11 +1255,12 @@ GRAPHQL;
     /**
      * @return array<string, mixed>
      */
-    public function getPullRequest(int $installationId, string $repoSlug, int $prNumber): array
+    public function getPullRequest(int $installationId, string $repoSlug, int $prNumber, bool $isTimeBounded = false): array
     {
-        $token = $this->getInstallationToken($installationId);
+        $token = $this->getInstallationToken($installationId, $isTimeBounded);
 
         $response = Http::withToken($token)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}");
 
@@ -1293,9 +1322,9 @@ GRAPHQL;
      *
      * @return array<string, mixed>|null
      */
-    public function collaboratorPermission(int $installationId, string $repoSlug, string $login): ?array
+    public function collaboratorPermission(int $installationId, string $repoSlug, string $login, bool $isTimeBounded = false): ?array
     {
-        $response = $this->installationClient($installationId)
+        $response = $this->installationClient($installationId, $isTimeBounded)
             ->get('https://api.github.com/repos/' . $repoSlug . '/collaborators/' . rawurlencode($login) . '/permission');
 
         if ($response->status() === 404) {
@@ -1306,9 +1335,9 @@ GRAPHQL;
     }
 
     /** The current login for a GitHub user id, or null when the account is gone. */
-    public function loginForUserId(int $installationId, int $githubId): ?string
+    public function loginForUserId(int $installationId, int $githubId, bool $isTimeBounded = false): ?string
     {
-        $response = $this->installationClient($installationId)->get('https://api.github.com/user/' . $githubId);
+        $response = $this->installationClient($installationId, $isTimeBounded)->get('https://api.github.com/user/' . $githubId);
 
         if ($response->status() === 404) {
             return null;

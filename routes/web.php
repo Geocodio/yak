@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\App\DevicePairController as AppDevicePairController
 use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenController;
 use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
 use App\Http\Controllers\Api\App\MeController as AppMeController;
+use App\Http\Controllers\Api\App\SignedMediaController;
 use App\Http\Controllers\Api\App\Threads\ClarificationAnswerController as AppClarificationAnswerController;
 use App\Http\Controllers\Api\App\Threads\NewThreadController as AppNewThreadController;
 use App\Http\Controllers\Api\App\Threads\QueuedMessageController as AppQueuedMessageController;
@@ -498,6 +499,11 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::post('broadcasting/auth', AppBroadcastAuthController::class)->name('app.broadcasting.auth');
         Route::get('threads/{thread}/events', [AppThreadEventController::class, 'index'])->middleware('throttle:app-events')->name('app.threads.events.index');
         Route::get('threads/{thread}/events/{sequence}', [AppThreadEventController::class, 'show'])->middleware('throttle:app-events')->where('sequence', '[0-9]{1,10}')->name('app.threads.events.show');
+
+        /** Each feature's app routes live in routes/app/<feature>.php and inherit the protocol check and the phone token above. */
+        foreach (glob(__DIR__ . '/app/*.php') ?: [] as $featureRoutes) {
+            require $featureRoutes;
+        }
     });
 });
 
@@ -611,3 +617,13 @@ Route::middleware(['restrict-to-ingress', 'auth'])
     ->name('deployments.status');
 
 require __DIR__ . '/settings.php';
+
+// Images and files in the app's task detail: signed links with no session and no phone token.
+Route::middleware('signed')->group(function (): void {
+    Route::get('app-media/task-attachments/{attachment}', [SignedMediaController::class, 'attachment'])
+        ->whereNumber('attachment')
+        ->name('app.media.task-attachments');
+    Route::get('app-media/tasks/{task}/pr-images/{asset}', [SignedMediaController::class, 'pullRequestImage'])
+        ->whereUuid('asset')
+        ->name('app.media.pr-images');
+});

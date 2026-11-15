@@ -8,6 +8,14 @@ import ThreadSeenController from './ThreadSeenController'
 import ThreadActionController from './ThreadActionController'
 import QueuedMessageController from './QueuedMessageController'
 import ThreadEventController from './ThreadEventController'
+import ThreadDiffController from './ThreadDiffController'
+import PullRequestController from './PullRequestController'
+import StackController from './StackController'
+import ThreadEnvironmentController from './ThreadEnvironmentController'
+import ThreadRepositoryController from './ThreadRepositoryController'
+import Preview from './Preview'
+import TerminalSessionController from './TerminalSessionController'
+import ThreadFileController from './ThreadFileController'
 
 const Threads = {
     ThreadListController: Object.assign(ThreadListController, ThreadListController),
@@ -20,6 +28,14 @@ const Threads = {
     ThreadActionController: Object.assign(ThreadActionController, ThreadActionController),
     QueuedMessageController: Object.assign(QueuedMessageController, QueuedMessageController),
     ThreadEventController: Object.assign(ThreadEventController, ThreadEventController),
+    ThreadDiffController: Object.assign(ThreadDiffController, ThreadDiffController),
+    PullRequestController: Object.assign(PullRequestController, PullRequestController),
+    StackController: Object.assign(StackController, StackController),
+    ThreadEnvironmentController: Object.assign(ThreadEnvironmentController, ThreadEnvironmentController),
+    ThreadRepositoryController: Object.assign(ThreadRepositoryController, ThreadRepositoryController),
+    Preview: Object.assign(Preview, Preview),
+    TerminalSessionController: Object.assign(TerminalSessionController, TerminalSessionController),
+    ThreadFileController: Object.assign(ThreadFileController, ThreadFileController),
 }
 
 export default Threads

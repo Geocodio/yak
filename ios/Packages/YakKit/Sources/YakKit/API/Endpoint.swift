@@ -18,16 +18,27 @@ public struct Endpoint<Response>: Sendable {
     public let body: (any Encodable & Sendable)?
     /// Sent instead of `body` when there is one.
     public let multipart: MultipartBody?
+    /// Extra request headers. `Authorization`, `X-Yak-Protocol`, `User-Agent`, `Accept` and `Content-Type`
+    /// are the client's own and are never taken from here.
+    public let headers: [String: String]
+    /// The request's timeout, kept between 1 and 60 seconds. 15 seconds unless the endpoint can wake a sandbox or is a written exception.
+    public let timeout: Duration
+    /// True: a GET is retried on 502, 503, 504 and network errors. False: sent once; the caller owns its polling.
+    public let retriesTransientFailures: Bool
 
     public init(
         method: Method, path: String, query: [URLQueryItem] = [], body: (any Encodable & Sendable)? = nil,
-        multipart: MultipartBody? = nil
+        multipart: MultipartBody? = nil, headers: [String: String] = [:], timeout: Duration = .seconds(15),
+        retriesTransientFailures: Bool = true
     ) {
         self.method = method
         self.path = path
         self.query = query
         self.body = body
         self.multipart = multipart
+        self.headers = headers
+        self.timeout = min(max(timeout, .seconds(1)), .seconds(60))
+        self.retriesTransientFailures = retriesTransientFailures
     }
 
     /// One path segment with everything but A-Z a-z 0-9 - . _ ~ percent-encoded, so an id never adds a segment.

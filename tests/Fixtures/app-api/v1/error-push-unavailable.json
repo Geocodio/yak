@@ -1,0 +1,4 @@
+{
+    "error": "push_unavailable",
+    "message": "Notifications are not set up on this Yak. Ask your admin to add an APNs key."
+}

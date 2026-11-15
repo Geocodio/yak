@@ -1,0 +1,44 @@
+{
+    "nextPage": null,
+    "observations": [
+        {
+            "createdAgo": "5m ago",
+            "createdAt": "2026-11-15T11:55:00+00:00",
+            "createdTooltip": "Sun, Nov 15, 2026 11:55 AM",
+            "id": "<volatile:int>",
+            "kind": "flaky_test.existing_pr",
+            "kindLabel": "PR already out",
+            "outcome": "declined",
+            "referenceUrl": "https://github.com/example/api/pull/41",
+            "repo": "example/api",
+            "source": "flaky-test",
+            "sourceLabel": "CI",
+            "subject": "UploadRetryTest",
+            "summary": "The failing test already has an open pull request.",
+            "taskId": null,
+            "taskUrl": null
+        },
+        {
+            "createdAgo": "1h ago",
+            "createdAt": "2026-11-15T11:00:00+00:00",
+            "createdTooltip": "Sun, Nov 15, 2026 11:00 AM",
+            "id": "<volatile:int>",
+            "kind": "flaky_test.task_created",
+            "kindLabel": "Task opened",
+            "outcome": "acted",
+            "referenceUrl": null,
+            "repo": "example/api",
+            "source": "flaky-test",
+            "sourceLabel": "CI",
+            "subject": "UploadRetryTest",
+            "summary": "A test in the upload suite fails one run in ten.",
+            "taskId": "k7m2q9rt",
+            "taskUrl": "https://yak.example.com/tasks/k7m2q9rt"
+        }
+    ],
+    "options": {
+        "repos": [
+            "example/api"
+        ]
+    }
+}

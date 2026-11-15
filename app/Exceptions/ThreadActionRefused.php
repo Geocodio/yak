@@ -28,6 +28,46 @@ final class ThreadActionRefused extends RuntimeException
 
     public const QUESTION_CLOSED = 'question_closed';
 
+    public const SANDBOX_DESTROYED = 'sandbox_destroyed';
+
+    public const NO_SANDBOX = 'no_sandbox';
+
+    public const ORIGIN_NOT_ALLOWED = 'origin_not_allowed';
+
+    public const SANDBOX_UNAVAILABLE = 'sandbox_unavailable';
+
+    public const FILE_CONFLICT = 'file_conflict';
+
+    public const SUB_THREAD_CANNOT_SPAWN = 'sub_thread_cannot_spawn';
+
+    public const STACK_STOPPED = 'stack_stopped';
+
+    public const STACK_FULL = 'stack_full';
+
+    public const CHILD_NOT_FAILED = 'child_not_failed';
+
+    public const NOTHING_TO_RETRY = 'nothing_to_retry';
+
+    public const NOTHING_TO_PUBLISH = 'nothing_to_publish';
+
+    public const CI_NOT_FAILING = 'ci_not_failing';
+
+    public const TASK_NOT_RETRYABLE = 'task_not_retryable';
+
+    public const TASK_NOT_CANCELLABLE = 'task_not_cancellable';
+
+    public const NOT_A_REVIEW = 'not_a_review';
+
+    public const REVIEW_ALREADY_QUEUED = 'review_already_queued';
+
+    public const PULL_REQUEST_UNKNOWN = 'pull_request_unknown';
+
+    public const GITHUB_UNAVAILABLE = 'github_unavailable';
+
+    public const NOTHING_TO_RENDER = 'nothing_to_render';
+
+    public const TASK_NOT_REROUTABLE = 'task_not_reroutable';
+
     /**
      * @param  array<string, mixed>  $details
      */

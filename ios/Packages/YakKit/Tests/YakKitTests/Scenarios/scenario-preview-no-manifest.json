@@ -1,0 +1,14 @@
+{
+  "state": "no_manifest",
+  "steps": [],
+  "log": [],
+  "error": null,
+  "url": null,
+  "port": null,
+  "coldStartCommand": null,
+  "setup": {
+    "intent": null,
+    "isRunning": false,
+    "endedWithoutManifest": false
+  }
+}

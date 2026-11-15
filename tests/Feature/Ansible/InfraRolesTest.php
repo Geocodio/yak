@@ -145,9 +145,12 @@ it('configures Reverb behind Caddy on the in-container port', function () {
 });
 
 it('mounts the credential socket directory into the container', function () use ($roleTask) {
-    $container = $roleTask('yak-container', 'Run Yak container')['community.docker.docker_container'];
+    $task = $roleTask('yak-container', 'Run Yak container');
 
-    expect($container['volumes'])->toContain('{{ yak_credentials_path }}:{{ yak_credentials_path }}');
+    expect($task['community.docker.docker_container']['volumes'])->toBe('{{ yak_container_base_volumes + yak_container_apns_volumes }}')
+        ->and($task['vars']['yak_container_base_volumes'])->toContain('{{ yak_credentials_path }}:{{ yak_credentials_path }}')
+        ->and($task['vars']['yak_container_apns_volumes'])->toContain('/etc/yak/apns.p8:/etc/yak/apns.p8:ro')
+        ->and($task['vars']['yak_container_apns_volumes'])->toContain("apns_private_key | default('') | length > 0");
 });
 
 it('runs the broker as an unprivileged user in incus-admin', function () use ($roleTask) {

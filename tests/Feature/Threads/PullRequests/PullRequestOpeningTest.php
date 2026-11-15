@@ -36,7 +36,7 @@ it('marks the pull request as opening when the person asks for it', function () 
 
 it('clears the opening once the job is done', function () {
     $opening = app(PullRequestOpening::class);
-    $opening->start($this->thread);
+    $opening->claim($this->thread);
 
     $opening->finish($this->task);
 
@@ -45,7 +45,7 @@ it('clears the opening once the job is done', function () {
 });
 
 it('keeps GitHub\'s reason when the job gives up', function () {
-    app(PullRequestOpening::class)->start($this->thread);
+    app(PullRequestOpening::class)->claim($this->thread);
 
     (new CreatePullRequestJob($this->task))->failed(new RuntimeException('GitHub PR creation failed: Validation Failed'));
 
@@ -54,7 +54,7 @@ it('keeps GitHub\'s reason when the job gives up', function () {
 });
 
 it('hides other errors behind a plain reason', function () {
-    app(PullRequestOpening::class)->start($this->thread);
+    app(PullRequestOpening::class)->claim($this->thread);
 
     app(PullRequestOpening::class)->finish($this->task, new RuntimeException('cURL error 28: timed out'));
 

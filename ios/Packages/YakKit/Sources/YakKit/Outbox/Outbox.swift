@@ -89,7 +89,7 @@ public actor Outbox {
         guard !isShutDown else { throw .unreadable }
         let item = OutboxItem(
             id: makeID(), target: draft.target, text: draft.text, model: draft.model, delivery: draft.delivery,
-            attachments: draft.attachments, createdAt: clock.now())
+            attachments: draft.attachments, createdAt: clock.now(), intent: draft.intent)
         stored.append(item)
         do {
             try persist()
@@ -441,7 +441,7 @@ public actor Outbox {
             let result = try await client.send(
                 .sendMessage(
                     threadID, text: item.text, model: item.model, delivery: item.delivery, sendKey: item.id,
-                    attachments: attachments, references: references))
+                    attachments: attachments, references: references, intent: item.intent))
             return OutboxDelivery(
                 sendKey: item.id, target: item.target, status: result.status, messageUUID: result.uuid,
                 threadID: result.threadId ?? threadID, text: item.text, sentAt: clock.now())

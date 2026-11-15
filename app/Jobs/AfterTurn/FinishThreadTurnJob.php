@@ -11,6 +11,7 @@ use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\IncusThreadSandboxManager;
@@ -130,6 +131,12 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             // A released job has not done its sandbox work yet, so its retry starts the queued turn instead.
             if (! $isReleased) {
                 try {
+                    app(LiveActivities::class)->turnSettled($run);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+
+                try {
                     app(QueuedMessageRunner::class)->afterTurn($run->refresh());
                 } catch (\Throwable $e) {
                     report($e);
@@ -143,14 +150,22 @@ abstract class FinishThreadTurnJob implements ShouldQueue
 
     public function failed(?\Throwable $e): void
     {
-        $task = TaskRun::query()->find($this->taskRunId)?->task;
+        $run = TaskRun::query()->find($this->taskRunId);
+        $task = $run?->task;
 
-        if ($task === null) {
+        if ($run === null || $task === null) {
             return;
         }
 
         $this->task = $task;
         $this->reportFailure($e?->getMessage() ?? 'Job failed without exception');
+
+        // The finisher's own finally block never ran, so the activity ends here.
+        try {
+            app(LiveActivities::class)->turnSettled($run);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     private function captureDiff(Thread $thread): void

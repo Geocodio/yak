@@ -122,7 +122,7 @@ install.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:136
+* @see routes/web.php:137
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -136,7 +136,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:136
+* @see routes/web.php:137
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -144,7 +144,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:136
+* @see routes/web.php:137
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -153,7 +153,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:136
+* @see routes/web.php:137
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -207,7 +207,7 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:32
+* @see app/Http/Controllers/Tasks/TaskListController.php:15
 * @route '/tasks'
 */
 export const tasks = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -222,7 +222,7 @@ tasks.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:32
+* @see app/Http/Controllers/Tasks/TaskListController.php:15
 * @route '/tasks'
 */
 tasks.url = (options?: RouteQueryOptions) => {
@@ -231,7 +231,7 @@ tasks.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:32
+* @see app/Http/Controllers/Tasks/TaskListController.php:15
 * @route '/tasks'
 */
 tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -241,7 +241,7 @@ tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:32
+* @see app/Http/Controllers/Tasks/TaskListController.php:15
 * @route '/tasks'
 */
 tasks.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -383,7 +383,7 @@ repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:16
+* @see app/Http/Controllers/ObservationController.php:15
 * @route '/observations'
 */
 export const observations = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -398,7 +398,7 @@ observations.definition = {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:16
+* @see app/Http/Controllers/ObservationController.php:15
 * @route '/observations'
 */
 observations.url = (options?: RouteQueryOptions) => {
@@ -407,7 +407,7 @@ observations.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:16
+* @see app/Http/Controllers/ObservationController.php:15
 * @route '/observations'
 */
 observations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -417,7 +417,7 @@ observations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:16
+* @see app/Http/Controllers/ObservationController.php:15
 * @route '/observations'
 */
 observations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

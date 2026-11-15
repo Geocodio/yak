@@ -38,7 +38,8 @@ public actor Cache {
     public static let maximumEventsPerThread = 2000
     public static let maximumThreads = 50
 
-    private let root: String
+    /// The instance's cache folder. A feature's `Cache+<Feature>.swift` stores under it, so `eraseAll()` removes it.
+    let root: String
     private let files: any FileStore
     private let clock: any YakClock
     private let encoder = JSONEncoder()
@@ -55,12 +56,12 @@ public actor Cache {
     private var indexPath: String { "\(root)/index.json" }
     private var widgetPath: String { "\(root)/widget.json" }
     private func listPath(_ filter: ThreadListFilter) -> String { "\(root)/lists/\(filter.rawValue).json" }
-    private func folder(_ id: String) -> String { "\(root)/threads/\(Endpoint<ThreadShow>.segment(id))" }
+    func folder(_ id: String) -> String { "\(root)/threads/\(Endpoint<ThreadShow>.segment(id))" }
 
     // MARK: Reading and writing one file
 
     /// Nil when missing, unreadable or not decodable. A file that does not decode is removed.
-    private func load<Value: Decodable>(_ type: Value.Type, at path: String) -> Value? {
+    func load<Value: Decodable>(_ type: Value.Type, at path: String) -> Value? {
         let data: Data
         do {
             guard let found = try files.read(path) else { return nil }
@@ -78,7 +79,7 @@ public actor Cache {
         }
     }
 
-    private func store<Value: Encodable>(_ value: Value, at path: String, protection: FileProtection) {
+    func store<Value: Encodable>(_ value: Value, at path: String, protection: FileProtection) {
         do {
             try files.write(try encoder.encode(value), to: path, protection: protection)
         } catch {
@@ -86,7 +87,7 @@ public actor Cache {
         }
     }
 
-    private func delete(_ path: String) {
+    func delete(_ path: String) {
         do { try files.remove(path) } catch { logFailure("cache remove failed: \(Swift.type(of: error))") }
     }
 
@@ -184,7 +185,7 @@ public actor Cache {
         store(index, at: indexPath, protection: .untilFirstUnlock)
     }
 
-    private func touch(_ id: String, addingIfMissing: Bool) {
+    func touch(_ id: String, addingIfMissing: Bool) {
         var index = loadIndex()
         guard addingIfMissing || index[id] != nil else { return }
         index[id] = clock.now()

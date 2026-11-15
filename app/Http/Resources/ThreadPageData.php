@@ -56,7 +56,7 @@ final class ThreadPageData
      *         pullRequestOpening: ?array{state: 'opening'|'held'|'failed', error: ?string, at: ?string},
      *     },
      *     canDrive: bool,
-     *     diffTotals: ?array{additions: int, deletions: int},
+     *     diffTotals: ?array{additions: int, deletions: int, filesCount: int},
      *     pullRequest: ?array{number: int, url: string},
      *     brief: ?array{text: string, kind: string, model: ?string, startedAt: string, branch: ?string},
      *     publishWarning: bool,
@@ -140,19 +140,19 @@ final class ThreadPageData
     }
 
     /**
-     * @return ?array{additions: int, deletions: int}
+     * @return ?array{additions: int, deletions: int, filesCount: int}
      */
     private static function diffTotals(Thread $thread): ?array
     {
-        $diff = $thread->diff;
+        $totals = ThreadDiffData::totals($thread);
 
-        return $diff === null ? null : ['additions' => $diff->additions, 'deletions' => $diff->deletions];
+        return $totals === null ? null : ['additions' => $totals['additions'], 'deletions' => $totals['deletions'], 'filesCount' => $totals['filesCount']];
     }
 
     /**
      * @return ?array{number: int, url: string}
      */
-    private static function pullRequest(Thread $thread): ?array
+    public static function pullRequest(Thread $thread): ?array
     {
         foreach ($thread->repositories as $repository) {
             if ($repository->role !== RepositoryRole::Context && $repository->pull_request_url !== null && $repository->pull_request_number !== null) {

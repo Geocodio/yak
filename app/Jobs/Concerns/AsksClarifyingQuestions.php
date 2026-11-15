@@ -11,6 +11,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\DailyCost;
 use App\Models\YakTask;
 use App\Services\ClarificationMessage;
+use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Push\PushEvent;
 use App\Services\Push\PushRecipients;
 use App\Services\Push\ThreadPush;
@@ -18,6 +19,7 @@ use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Threads\ThreadQuestionEvents;
 use App\YakPromptBuilder;
+use Throwable;
 
 /**
  * Lets an agent job stop and ask structured questions. The job calls
@@ -97,6 +99,14 @@ trait AsksClarifyingQuestions
         ], task: $this->task);
 
         app(ThreadQuestionEvents::class)->opened($this->task);
+
+        if ($this->task->thread !== null) {
+            try {
+                app(LiveActivities::class)->questionOpened($this->task->thread);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
 
         $this->pushClarification($questionCount);
 

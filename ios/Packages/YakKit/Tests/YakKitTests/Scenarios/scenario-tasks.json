@@ -1,0 +1,20 @@
+{
+  "tasks": [
+    {"id": "k3m9p2qa", "status": "awaiting_co_owner", "source": "linear", "sourceLabel": "Linear", "by": "Test person", "repo": "example/api",
+     "description": "Upgrade the payments SDK", "externalId": "ENG-12", "externalUrl": "https://linear.example.com/issue/ENG-12",
+     "pr": {"number": 41, "state": "open", "url": "https://github.com/example/api/pull/41"}, "previewUrl": null, "cost": "$1.20",
+     "createdAgo": "11m ago", "createdAt": "2026-11-15T11:49:00+00:00", "followUps": [], "askedFirstName": "Second"},
+    {"id": "m4n8r2tw", "status": "running", "source": "linear", "sourceLabel": "Linear", "by": "Test person", "repo": "example/api",
+     "description": "Fix the flaky upload test", "externalId": "ENG-15", "externalUrl": "https://linear.example.com/issue/ENG-15",
+     "pr": null, "previewUrl": null, "cost": null, "createdAgo": "1h ago", "createdAt": "2026-11-15T10:50:00+00:00",
+     "followUps": [{"id": "n5p9s3vx", "status": "pending", "description": "Also cover the retry path", "externalId": null, "createdAgo": "5m ago"}],
+     "askedFirstName": null},
+    {"id": "p6s2v8xa", "status": "failed", "source": "dashboard", "sourceLabel": "Dashboard", "by": null, "repo": "example/web",
+     "description": "Rename the usage endpoint", "externalId": null, "externalUrl": null,
+     "pr": null, "previewUrl": null, "cost": "$0.40", "createdAgo": "3h ago", "createdAt": "2026-11-15T08:50:00+00:00",
+     "followUps": [], "askedFirstName": null}
+  ],
+  "nextPage": 2,
+  "counts": {"tasks": 14, "reviews": 3, "setup": 0, "needsCoOwner": 1},
+  "options": {"repos": ["example/api", "example/web"], "sources": ["dashboard", "linear", "slack"]}
+}

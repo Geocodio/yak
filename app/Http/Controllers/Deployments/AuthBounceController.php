@@ -58,10 +58,7 @@ class AuthBounceController
 
             $path = ($parts['path'] ?? '/') . (isset($parts['query']) ? '?' . $parts['query'] : '');
 
-            return redirect()->to('https://' . $host . '/_yak/auth?' . http_build_query([
-                'ticket' => $this->previewAccess->mintTicket($host, $user),
-                'to' => $path,
-            ]));
+            return redirect()->to($this->previewAccess->ticketUrl($host, $user, $path));
         }
 
         $request->session()->put('url.intended', $to);

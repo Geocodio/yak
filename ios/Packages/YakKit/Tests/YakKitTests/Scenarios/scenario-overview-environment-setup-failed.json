@@ -1,0 +1,53 @@
+{
+  "sandbox": {
+    "state": "running",
+    "stateChangedAt": "2026-11-15T11:00:00+00:00"
+  },
+  "branch": "yak/rebuild-search-index",
+  "pullRequest": {
+    "number": 41,
+    "url": "https://github.example.com/example/api/pull/41",
+    "state": "open"
+  },
+  "deployment": null,
+  "account": {
+    "name": "Shared account",
+    "kind": "setup_token",
+    "isYours": false
+  },
+  "model": "sonnet",
+  "startedBy": {
+    "name": "Test Person",
+    "at": "2026-11-15T11:00:00+00:00"
+  },
+  "stoppedAfterMinutes": 30,
+  "repositories": [
+    {
+      "id": 21,
+      "repo": "example/api",
+      "role": "primary",
+      "path": "/workspace",
+      "setupStatus": "ready",
+      "setupError": null,
+      "setupOutput": null,
+      "addedBy": null,
+      "addedAt": "2026-11-15T11:00:00+00:00",
+      "isDatasetAttached": true,
+      "canMakeContextOnly": false
+    },
+    {
+      "id": 22,
+      "repo": "example/web",
+      "role": "changes",
+      "path": "/workspace/example-web",
+      "setupStatus": "failed",
+      "setupError": "npm install exited with 1.",
+      "setupOutput": "npm ERR! missing script: build",
+      "addedBy": "Test Person",
+      "addedAt": "2026-11-15T11:05:00+00:00",
+      "isDatasetAttached": false,
+      "canMakeContextOnly": true
+    }
+  ],
+  "notUploadedDirectories": []
+}

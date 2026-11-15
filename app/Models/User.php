@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\PushTokenKind;
+use App\Services\Devices\ShortLockWait;
+use App\Services\Push\Apns\ApnsConfig;
 use App\Services\Push\PushEvent;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -17,6 +20,8 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use NotificationChannels\WebPush\HasPushSubscriptions;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Throwable;
 
 /**
  * @property array<string, bool>|null $push_event_preferences
@@ -163,6 +168,24 @@ class User extends Authenticatable
     }
 
     /**
+     * The alert tokens of this person's phones that are not revoked. Empty while APNs is not configured, so a person with only a phone is skipped exactly as before APNs existed.
+     *
+     * @return Collection<int, DevicePushToken>
+     */
+    public function routeNotificationForApns(): Collection
+    {
+        if (! app(ApnsConfig::class)->isConfigured()) {
+            return new Collection;
+        }
+
+        return DevicePushToken::query()
+            ->deliverable()
+            ->where('kind', PushTokenKind::Alert->value)
+            ->whereHas('device', fn (Builder $device) => $device->where('user_id', $this->id))
+            ->get();
+    }
+
+    /**
      * Whether this person wants pushes for the event. A missing key means on.
      */
     public function wantsPush(PushEvent $event): bool
@@ -171,15 +194,23 @@ class User extends Authenticatable
     }
 
     /**
+     * Merges the known switches into the stored value under a row lock, so two quick changes from two phones (or a phone and the web) both stick.
+     *
      * @param  array<string, bool>  $preferences
      */
     public function setPushPreferences(array $preferences): void
     {
-        $known = array_map(fn (PushEvent $event): string => $event->value, PushEvent::cases());
+        $known = array_flip(array_map(fn (PushEvent $event): string => $event->value, PushEvent::cases()));
 
-        $this->forceFill([
-            'push_event_preferences' => array_map('boolval', array_merge($this->push_event_preferences ?? [], array_intersect_key($preferences, array_flip($known)))),
-        ])->save();
+        $merged = ShortLockWait::transaction(function () use ($preferences, $known): array {
+            $locked = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
+            $merged = array_map('boolval', array_merge($locked->push_event_preferences ?? [], array_intersect_key($preferences, $known)));
+            $locked->forceFill(['push_event_preferences' => $merged])->save();
+
+            return $merged;
+        }, fn (): Throwable => new HttpException(503, 'Yak is still saving another change to your notifications. Try again in a moment.'));
+
+        $this->forceFill(['push_event_preferences' => $merged])->syncOriginalAttribute('push_event_preferences');
     }
 
     /**

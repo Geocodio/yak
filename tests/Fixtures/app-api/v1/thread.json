@@ -1,6 +1,7 @@
 {
     "brief": null,
     "canDrive": true,
+    "canOpenPullRequest": false,
     "capacity": null,
     "composer": {
         "accountName": null,
@@ -60,6 +61,7 @@
     },
     "diffTotals": null,
     "latestSequence": 12,
+    "liveActivityChannel": "dGVzdC1jaGFubmVs",
     "localTurnStints": [],
     "localTurns": null,
     "messages": [
