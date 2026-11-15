@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\App\DevicePairController as AppDevicePairController
 use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenController;
 use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
 use App\Http\Controllers\Api\App\MeController as AppMeController;
+use App\Http\Controllers\Api\App\Threads\QueuedMessageController as AppQueuedMessageController;
 use App\Http\Controllers\Api\App\Threads\ThreadController as AppThreadController;
 use App\Http\Controllers\Api\App\Threads\ThreadEventController as AppThreadEventController;
 use App\Http\Controllers\Api\App\Threads\ThreadListController as AppThreadListController;
@@ -477,6 +478,8 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::get('threads/{thread}', [AppThreadController::class, 'show'])->name('app.threads.show');
         Route::post('threads/{thread}/messages', [AppThreadMessageController::class, 'store'])->name('app.threads.messages.store');
         Route::post('threads/{thread}/seen', AppThreadSeenController::class)->name('app.threads.seen');
+        Route::patch('threads/{thread}/queued-messages/{message}', [AppQueuedMessageController::class, 'update'])->middleware('thread.drive')->whereUuid('message')->name('app.threads.queued-messages.update');
+        Route::delete('threads/{thread}/queued-messages/{message}', [AppQueuedMessageController::class, 'destroy'])->middleware('thread.drive')->whereUuid('message')->name('app.threads.queued-messages.destroy');
         Route::get('threads/{thread}/events', [AppThreadEventController::class, 'index'])->middleware('throttle:app-events')->name('app.threads.events.index');
         Route::get('threads/{thread}/events/{sequence}', [AppThreadEventController::class, 'show'])->middleware('throttle:app-events')->where('sequence', '[0-9]{1,10}')->name('app.threads.events.show');
     });

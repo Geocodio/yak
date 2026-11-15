@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 import messages from './messages'
+import queuedMessages from './queued-messages'
 import events from './events'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadListController::__invoke
@@ -176,6 +177,7 @@ const threads = {
     show: Object.assign(show, show),
     messages: Object.assign(messages, messages),
     seen: Object.assign(seen, seen),
+    queuedMessages: Object.assign(queuedMessages, queuedMessages),
     events: Object.assign(events, events),
 }
 

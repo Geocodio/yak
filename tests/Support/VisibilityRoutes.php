@@ -226,7 +226,7 @@ class VisibilityRoutes
      */
     public static function appThreads(): array
     {
-        return ['app.threads.index', 'app.threads.show', 'app.threads.seen', 'app.threads.events.index', 'app.threads.events.show', 'app.threads.messages.store'];
+        return ['app.threads.index', 'app.threads.show', 'app.threads.seen', 'app.threads.events.index', 'app.threads.events.show', 'app.threads.messages.store', 'app.threads.queued-messages.update', 'app.threads.queued-messages.destroy'];
     }
 
     /**
