@@ -165,7 +165,8 @@ private struct Harness {
         let harness = Harness()
         let (transport, clock, outbox) = (harness.transport, harness.clock, harness.outbox)
         let offline = FakeTransport.Result.failure(.notConnectedToInternet)
-        await transport.on(threadRoute, offline, offline, offline, offline, offline, try .scenario(200, "scenario-message-sent"))
+        let sent = try FakeTransport.Result.scenario(200, "scenario-message-sent")
+        await transport.on(threadRoute, offline, offline, offline, offline, offline, sent)
         let deliveries = StreamRecorder(await outbox.deliveries())
         _ = try await outbox.enqueue(draft("Hello"))
         var elapsed = Duration.zero
