@@ -192,3 +192,16 @@ it('refuses a web save into a closed thread', function () {
 
     expect($this->sandboxes->calls)->toBeEmpty();
 });
+
+it('writes the content byte for byte, keeping a trailing newline and leading spaces', function () {
+    [$thread, $owner] = saveThread();
+    $content = "  indented\nlast line\n";
+    queueRead($this, 'old');
+    $this->sandboxes->queueExecResult(Process::result());
+    queueRead($this, $content);
+
+    $this->actingAs($owner)->putJson(route('threads.files.update', $thread), savePayload(['content' => $content]))
+        ->assertOk()->assertJsonPath('file.sha256', hash('sha256', $content));
+
+    expect($this->sandboxes->calls[1]['arguments']['stdin'])->toBe(base64_encode($content));
+});

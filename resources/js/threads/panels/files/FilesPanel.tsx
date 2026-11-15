@@ -61,6 +61,8 @@ export default function FilesPanel({ thread, canDrive, diff = null, focusRequest
                 setComparing((current) => ({ ...current, [path]: false }));
             } else if (response.status === 409 && body.state === 'conflict' && body.file) {
                 setConflicts((current) => ({ ...current, [path]: body.file as FileContentData }));
+            } else if (response.status === 409 && body.state === 'conflict') {
+                setSaveError('This file no longer exists in the sandbox, so there is nothing to compare. Copy your changes elsewhere if you need them.');
             } else {
                 setSaveError(body.message ?? 'The file was not saved. Try again.');
             }
