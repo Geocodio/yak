@@ -27,8 +27,16 @@ class VisibleTaskScope implements Scope
             return;
         }
 
-        $table = $model->getTable();
+        self::constrain($builder, $model->getTable(), $user->getAuthIdentifier());
+    }
 
+    /**
+     * Applies the visibility rule for one user, whoever is signed in.
+     *
+     * @param  Builder<covariant YakTask>  $builder
+     */
+    public static function constrain(Builder $builder, string $table, int|string $userId): void
+    {
         $builder->whereNotExists(fn ($hidden) => $hidden
             ->selectRaw('1')
             ->from('threads as task_thread')
@@ -37,11 +45,11 @@ class VisibleTaskScope implements Scope
             ->where('visibility_root.visibility', ThreadVisibility::Private->value)
             ->where(fn ($owner) => $owner
                 ->whereNull('visibility_root.owner_user_id')
-                ->orWhere('visibility_root.owner_user_id', '!=', $user->getAuthIdentifier()))
+                ->orWhere('visibility_root.owner_user_id', '!=', $userId))
             ->whereNotExists(fn ($shared) => $shared
                 ->selectRaw('1')
                 ->from('thread_shares')
                 ->whereColumn('thread_shares.thread_id', 'visibility_root.id')
-                ->where('thread_shares.user_id', $user->getAuthIdentifier())));
+                ->where('thread_shares.user_id', $userId)));
     }
 }

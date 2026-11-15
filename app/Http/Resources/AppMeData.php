@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use App\Http\Controllers\Threads\TerminalSessionController;
 use App\Models\Device;
 use App\Models\User;
-use App\Services\Threads\ThreadList;
+use App\Services\Threads\NeedsYouCount;
 
 /**
  * What the app needs at launch and when it switches instance. The push block carries the bundle id and environment, never the key.
@@ -49,7 +49,7 @@ final class AppMeData
                 'url' => rtrim((string) config('app.url'), '/'),
                 'version' => config('app.version'),
             ],
-            'needsYouCount' => ThreadList::for($user)['needsYouCount'],
+            'needsYouCount' => NeedsYouCount::for($user),
             'realtime' => self::realtime(),
             'terminal' => ['wsUrl' => TerminalSessionController::socketUrl()],
             'attachments' => [

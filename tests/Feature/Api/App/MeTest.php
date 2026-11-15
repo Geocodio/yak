@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\CoOwnerRequest;
+use App\Models\YakTask;
 use Tests\Support\ContractFixture;
 
 it('reports what the app needs at runtime', function () {
@@ -72,4 +74,12 @@ it('answers 426 for an app protocol that is too old', function () {
     [, $headers] = phoneWithHeaders();
 
     $this->getJson('/api/app/v1/me', ['X-Yak-Protocol' => '0'] + $headers)->assertStatus(426)->assertJsonPath('error', 'protocol_too_old');
+});
+
+it('counts needs-you tasks in me', function () {
+    [$device, $headers] = phoneWithHeaders();
+    $task = YakTask::factory()->awaitingCoOwner()->create(['description' => 'Rotate the signing key']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$device->user_id]]);
+
+    $this->getJson('/api/app/v1/me', $headers)->assertOk()->assertJsonPath('needsYouCount', 1);
 });
