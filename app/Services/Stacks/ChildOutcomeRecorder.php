@@ -97,6 +97,16 @@ class ChildOutcomeRecorder
         }
     }
 
+    /** A child whose sandbox or first turn could not start shows as failed, with the reason, instead of queued. */
+    public function recordStartFailed(Thread $child, string $reason): void
+    {
+        if ($this->isIgnored($child, null)) {
+            return;
+        }
+
+        $this->queueFailure($child, "Sub-thread {$child->name} could not start: " . SecretRedactor::redact($reason));
+    }
+
     /** A child in another repo opens its own pull request; its branch is never merged into the parent. */
     private function isRepoChild(Thread $child): bool
     {
@@ -115,11 +125,11 @@ class ChildOutcomeRecorder
             : "Its own pull request in {$child->repo}: {$url}. Do not merge it into your branch.";
     }
 
-    private function isIgnored(Thread $child, TaskRun $run): bool
+    private function isIgnored(Thread $child, ?TaskRun $run): bool
     {
         return ! $child->isChild()
             || $child->taken_over_at !== null
-            || $run->turn_state === TurnState::Interrupted
+            || $run?->turn_state === TurnState::Interrupted
             || $child->rootThread()->stack_stopped_at !== null;
     }
 

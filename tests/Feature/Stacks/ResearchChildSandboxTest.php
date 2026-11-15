@@ -57,7 +57,7 @@ it('gives the child its own config dir and worktree path', function () {
         ->and($child->sharesParentSandbox())->toBeTrue()
         ->and(array_column($commands, 'command')[0])->toBe(['mkdir', '-p', "/home/yak/.claude-{$child->id}"])
         ->and(array_column($commands, 'command')[1][2])->toContain('git worktree add --detach')
-        ->and(array_column($commands, 'command')[1][4])->toBe('/workspace-research/scout');
+        ->and(array_column($commands, 'command')[1][4])->toBe('/home/yak/research/scout');
 });
 
 it('resolves the research child placeholder against the parent container', function () {
@@ -66,8 +66,8 @@ it('resolves the research child placeholder against the parent container', funct
     $start = collect(app(BrokerStreams::class)->commands("threads:{$this->child->id}"))->firstWhere('type', 'start_runner');
     $placeholder = $start['start']['placeholder'];
 
-    expect($start['cwd'])->toBe('/workspace-research/scout')
-        ->and($start['start']['cwd'])->toBe('/workspace-research/scout')
+    expect($start['cwd'])->toBe('/home/yak/research/scout')
+        ->and($start['start']['cwd'])->toBe('/home/yak/research/scout')
         ->and($start['container'])->toBe('yak-thread-parent')
         ->and($start['start']['claudeConfigDir'])->toBe("/home/yak/.claude-{$this->child->id}")
         ->and(app(AuthProxyPlaceholders::class)->resolve($placeholder, '10.0.0.7')?->is($this->account))->toBeTrue();
@@ -103,7 +103,7 @@ it('closing a research child leaves the parent container running', function () {
 
     expect($operations)->not->toContain('destroy', 'stop', 'pause')
         ->and($cleanup[2])->toContain('git worktree remove')
-        ->and($cleanup[4])->toBe('/workspace-research/scout')
+        ->and($cleanup[4])->toBe('/home/yak/research/scout')
         ->and($cleanup[5])->toBe("/home/yak/.claude-{$this->child->id}")
         ->and($this->parent->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running)
         ->and($this->parent->fresh()->status)->toBe(ThreadStatus::Open)
@@ -156,4 +156,15 @@ it('restores the child session into a recreated config dir on refreshWorktree', 
 
     expect($commands->contains("mkdir -p /home/yak/.claude-{$this->child->id}"))->toBeTrue()
         ->and(app(SessionFileSync::class)->restored)->toBe([$this->child->id]);
+});
+
+it('builds the worktree under the sandbox home, where the runner user can create directories', function () {
+    expect(ResearchChildRunner::worktreePath($this->child))->toStartWith('/home/yak/');
+});
+
+it('reports the sandbox error when the worktree cannot be built', function () {
+    $this->sandbox->queueExecResult(Process::result());
+    $this->sandbox->queueExecResult(Process::result(errorOutput: 'mkdir: cannot create directory: Permission denied', exitCode: 1));
+
+    expect(fn () => $this->runner->prepare($this->child))->toThrow(RuntimeException::class, 'Permission denied');
 });

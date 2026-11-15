@@ -5,11 +5,13 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Jobs\StartChildThreadJob;
 use App\Models\ClaudeAccount;
+use App\Models\StackThreadMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Services\Stacks\ChildSpawner;
+use App\Services\Stacks\StackListing;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
@@ -65,7 +67,7 @@ it('start of a research child uses the research runner', function () {
     $child->refresh();
 
     expect($child->sharesParentSandbox())->toBeTrue()
-        ->and($commands[0]['cwd'])->toBe('/workspace-research/helper')
+        ->and($commands[0]['cwd'])->toBe('/home/yak/research/helper')
         ->and($commands[0]['container'])->toBe('yak-thread-parent')
         ->and(array_column($commands, 'type'))->toBe(['start_runner', 'turn']);
 });
@@ -139,4 +141,13 @@ it('clears the start claim when the job fails for good', function () {
     (new StartChildThreadJob($child->id))->failed(new RuntimeException('gone'));
 
     expect($child->fresh()->start_requested_at)->toBeNull();
+});
+
+it('shows a child whose start failed for good as failed, with the reason', function () {
+    $child = spawnedChild($this->parent, ThreadKind::Research);
+
+    (new StartChildThreadJob($child->id))->failed(new RuntimeException('mkdir failed: Permission denied'));
+
+    expect(StackListing::state($child->fresh()))->toBe('failed')
+        ->and(StackThreadMessage::query()->where('from_thread_id', $child->id)->value('text'))->toContain('could not start')->toContain('Permission denied');
 });
