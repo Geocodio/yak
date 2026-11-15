@@ -142,9 +142,24 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $metadata = $this->metadata();
+
+        // The diff since the last reviewed commit is empty, so there is nothing to review or post.
+        if (($metadata['review_scope'] ?? 'full') === 'incremental'
+            && ($metadata['incremental_base_sha'] ?? null) !== null
+            && $metadata['incremental_base_sha'] === ($metadata['head_sha'] ?? null)) {
+            $this->task->update([
+                'status' => TaskStatus::Success,
+                'completed_at' => now(),
+                'result_summary' => 'No new commits since the last review',
+            ]);
+            TaskLogger::info($this->task, 'No new commits since the last review; skipping the review', ['head_sha' => $metadata['head_sha']]);
+
+            return;
+        }
+
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
-        $metadata = $this->metadata();
         $recorder = RunRecorder::start($this->task, TaskRunKind::Review, self::class, $this->task->dispatched_at ?? $this->queuedAt);
 
         TaskLogger::info($this->task, 'Picked up review task', ['pr' => $this->task->pr_url]);
