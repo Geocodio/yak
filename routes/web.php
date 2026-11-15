@@ -128,6 +128,7 @@ use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Http\Middleware\ClientProtocol;
 use App\Models\User;
+use App\Services\E2e\E2eMode;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -135,7 +136,7 @@ Route::get('/', HomeController::class)->name('home');
 Route::get('install', InstallScriptController::class)->name('install');
 
 Route::get('letmein', function () {
-    abort_unless(app()->environment('local'), 404);
+    abort_unless(app()->environment('local') || E2eMode::isActive(), 404);
 
     $user = User::query()->first() ?? User::factory()->create();
     auth()->login($user);

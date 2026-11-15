@@ -72,6 +72,8 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Contract');
 
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('E2e');
+
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function (): void {
