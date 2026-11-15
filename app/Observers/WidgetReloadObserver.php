@@ -4,13 +4,14 @@ namespace App\Observers;
 
 use App\Models\Thread;
 use App\Services\Push\Widgets\WidgetReloads;
+use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
 
 /**
  * Tells the widget reloads that something the widgets read has changed. A failure is reported and never breaks the save.
  */
-class WidgetReloadObserver
+class WidgetReloadObserver implements ShouldHandleEventsAfterCommit
 {
     /** Saved on every step of a running turn; none of them is in the fingerprint. */
     private const array QUIET_THREAD_ATTRIBUTES = ['current_step', 'last_activity_at', 'updated_at'];
@@ -21,8 +22,8 @@ class WidgetReloadObserver
     {
         $changed = array_keys($model->getChanges());
 
-        // A new row has no recorded changes, so only a real update of quiet attributes is skipped.
-        if ($model instanceof Thread && $changed !== [] && array_diff($changed, self::QUIET_THREAD_ATTRIBUTES) === []) {
+        // An insert records no changes. A save that wrote nothing is skipped, and so is a Thread save of only step attributes.
+        if ($changed === [] ? ! $model->wasRecentlyCreated : ($model instanceof Thread && array_diff($changed, self::QUIET_THREAD_ATTRIBUTES) === [])) {
             return;
         }
 

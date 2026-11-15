@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\PushTokenKind;
+use App\Enums\TurnState;
 use App\Jobs\Push\CheckWidgetReloadsJob;
 use App\Jobs\Push\SendWidgetReloadJob;
 use App\Models\Device;
 use App\Models\DevicePushToken;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\Devices\DeviceRevoker;
@@ -14,8 +16,10 @@ use App\Services\Push\Apns\ApnsPayloads;
 use App\Services\Push\Apns\ApnsTokenFailures;
 use App\Services\Push\Widgets\WidgetFingerprint;
 use App\Services\Push\Widgets\WidgetReloads;
+use App\Services\Threads\TurnFinisher;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -176,21 +180,19 @@ it('checks only people with a widget token', function () {
     expect($threadQueries)->toBe($oneFingerprint);
 });
 
-it('deletes a token that Apple says is gone', function () {
-    fakeApns(['api.push.apple.com/*' => Http::response(['reason' => 'Unregistered'], 410)]);
-    app(WidgetReloads::class)->check();
-
-    expect(DevicePushToken::query()->whereKey($this->token->id)->exists())->toBeFalse();
-});
-
-it('sends the payload to the widget topic', function () {
-    fakeApns();
+it('sends the payload to the widget topic and deletes a gone token', function () {
+    fakeApns(['api.push.apple.com/*' => Http::sequence()->push([], 200)->push(['reason' => 'Unregistered'], 410)]);
     app(WidgetReloads::class)->check();
 
     $request = apnsRequests('/3/device/')[0];
     expect($request->header('apns-push-type'))->toBe(['widgets'])
         ->and($request->header('apns-topic'))->toBe(['com.example.yak.push-type.widgets'])
         ->and($this->token->fresh()->last_sent_at)->not->toBeNull();
+
+    Cache::flush();
+    app(WidgetReloads::class)->check();
+
+    expect(DevicePushToken::query()->whereKey($this->token->id)->exists())->toBeFalse();
 });
 
 it('never breaks a model save when the cache fails', function () {
@@ -212,4 +214,49 @@ it('never sends thread data', function () {
 
     ContractFixture::assertMatches('app', 'push/widget-reload', $body);
     expect($body)->toBe(['aps' => ['content-changed' => true]]);
+});
+
+it('queues no check for a change that rolls back and queues it only after a commit', function () {
+    Queue::fake();
+    $thread = Thread::factory()->create(['created_by_user_id' => $this->user->id]);
+    Cache::forget('widget-reloads:check');
+    Queue::fake();
+
+    DB::beginTransaction();
+    $thread->update(['blocked_reason' => 'usage_limit']);
+    expect(Cache::has('widget-reloads:check'))->toBeFalse();
+    DB::rollBack();
+    expect(Cache::has('widget-reloads:check'))->toBeFalse();
+    Queue::assertNothingPushed();
+
+    DB::beginTransaction();
+    $thread->update(['blocked_reason' => 'usage_limit']);
+    expect(Cache::has('widget-reloads:check'))->toBeFalse();
+    DB::commit();
+    expect(Cache::has('widget-reloads:check'))->toBeTrue();
+    Queue::assertPushed(CheckWidgetReloadsJob::class, 1);
+});
+
+it('does not check for a save that writes nothing', function () {
+    Queue::fake();
+    $thread = Thread::factory()->create(['created_by_user_id' => $this->user->id]);
+    Cache::forget('widget-reloads:check');
+
+    Thread::query()->find($thread->id)->save();
+
+    expect(Cache::has('widget-reloads:check'))->toBeFalse();
+});
+
+it('checks when a turn ends', function () {
+    Queue::fake();
+    $thread = Thread::factory()->create(['created_by_user_id' => $this->user->id]);
+    $run = TaskRun::factory()->create(['thread_id' => $thread->id, 'turn_state' => TurnState::Running, 'started_at' => now()]);
+    Cache::forget('widget-reloads:check');
+    Queue::fake();
+
+    $events = [];
+    app(TurnFinisher::class)->finish($thread, $run, TurnState::Completed, $events);
+    $thread->save();
+
+    Queue::assertPushed(CheckWidgetReloadsJob::class, 1);
 });
