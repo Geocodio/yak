@@ -11,12 +11,12 @@ import Testing
             Bearer \(bearerValue) Authorization: Basic abc123secret \
             https://yak.example.com/api/app/v1/threads?token=abc \
             wss://yak.example.com/app/key?auth=x person@example.com \
-            "A private thread title" \u{201C}Curly title\u{201D} 'single title' \(base64Run)
+            "A private thread title" \u{201C}Curly title\u{201D} \u{2018}Smart single\u{2019} 'single title' \(base64Run)
             """
         let result = CrashScrubbing.scrub(input)
         for secret in [
             bearerValue, "abc123secret", "token=abc", "auth=x", "person@example.com", "private",
-            "Curly", "single", base64Run,
+            "Curly", "single", "Smart", base64Run,
         ] {
             #expect(!result.contains(secret), "leaked \(secret)")
         }
@@ -43,7 +43,7 @@ import Testing
     @Test func cutsOnACharacterBoundary() {
         let result = CrashScrubbing.scrub(String(repeating: "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467} ", count: 600))
         #expect(result.count <= CrashScrubbing.maximumOutputLength)
-        #expect(result.hasPrefix("\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}"))
+        #expect(result.hasPrefix("\u{1F468}\u{1F469}\u{1F467}"))
         #expect(!result.unicodeScalars.contains("\u{FFFD}"))
     }
 
@@ -52,8 +52,10 @@ import Testing
         let input = String(repeating: "ab ", count: 1362) + token
         #expect(input.utf8.count - token.utf8.count == 4086)
         let result = CrashScrubbing.scrub(input)
-        #expect(!result.contains("ZXCV"))
-        #expect(!result.contains("ZXC"))
+        #expect(result.hasSuffix("ab"))
+        for pair in zip(token, token.dropFirst()) {
+            #expect(!result.contains(String(pair.0) + String(pair.1)), "kept \(pair)")
+        }
     }
 
     @Test func inputCutKeepsMultibyteValid() {
@@ -81,14 +83,28 @@ import Testing
     @Test func allowedContextHasNoNameOrUserKeys() {
         let forbidden: Set<String> = ["name", "user", "email", "ip_address", "username", "device_name"]
         for (context, keys) in CrashScrubbing.allowedContext {
-            if context == "os" {
-                // The operating system name ("iOS") is public; the others are person-level keys.
-                #expect(keys.isDisjoint(with: forbidden.subtracting(["name"])))
-            } else {
-                #expect(keys.isDisjoint(with: forbidden), "context \(context)")
-            }
+            #expect(keys.isDisjoint(with: forbidden), "context \(context)")
         }
         #expect(!CrashScrubbing.allowedTags.isEmpty)
+    }
+
+    @Test(
+        arguments: [
+            #"{"Authorization": "Basic dXNlcjpwYXNz"}"#, #"Authorization: "Bearer dXNlcjpwYXNz""#,
+            #"'Authorization'='Token dXNlcjpwYXNz'"#, "Authorization=dXNlcjpwYXNz",
+            "authorization: Basic dXNlcjpwYXNz",
+        ])
+    func redactsAuthorizationInEveryForm(input: String) {
+        let result = CrashScrubbing.scrub(input)
+        #expect(!result.contains("dXNlcjpwYXNz"), "leaked in \(result)")
+    }
+
+    @Test func removesInvisibleControlsBeforeMatching() {
+        let hostile = "a\u{0}b\u{80}c\u{202E}evil\u{200B}text"
+        #expect(CrashScrubbing.scrub(hostile) == "abceviltext")
+        #expect(CrashScrubbing.scrub("x\ty\nz") == "x y z")
+        let split = "abcdefghijkl\u{200B}mnopqrstuvwxyz0123"
+        #expect(CrashScrubbing.scrub(split) == "<redacted>")
     }
 }
 
@@ -104,6 +120,7 @@ import Testing
             nil, "", "   ", "$(YAK_SENTRY_DSN)", "https:/$()/public@sentry.example.invalid/1",
             "http://public@sentry.example.invalid/1", "https://sentry.example.invalid/1",
             "https://public@/1", "https://public@sentry.example.invalid/ 1",
+            "  https://public@sentry.example.invalid/1  ", "https://public@sentry.example.invalid/1\n",
             "https://public@sentry.example.invalid/" + String(repeating: "1", count: 600),
         ] as [String?])
     func refusesEach(infoValue: String?) {
