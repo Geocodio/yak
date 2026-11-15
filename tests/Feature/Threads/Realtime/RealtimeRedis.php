@@ -36,7 +36,8 @@ function useThrowawayRedis(): void
     }
 
     $GLOBALS['realtimeRedis'] = ['process' => $process, 'directory' => $directory];
-    config(['database.redis.threads' => ['host' => '127.0.0.1', 'port' => $port, 'database' => 0, 'options' => ['prefix' => '']]]);
+    $connection = ['host' => '127.0.0.1', 'port' => $port, 'database' => 0, 'options' => ['prefix' => '']];
+    config(['database.redis.threads' => $connection, 'database.redis.thread-window' => $connection]);
     app()->forgetInstance('redis');
     Redis::clearResolvedInstance('redis');
 }
@@ -57,4 +58,5 @@ function stopThrowawayRedis(): void
     }
 
     Redis::purge('threads');
+    Redis::purge('thread-window');
 }

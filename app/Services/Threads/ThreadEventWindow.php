@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Redis;
 class ThreadEventWindow
 {
     public function __construct(
-        private readonly string $connection = 'threads',
+        private readonly string $connection = 'thread-window',
         private readonly ?int $windowSeconds = null,
     ) {}
 
@@ -51,7 +51,7 @@ class ThreadEventWindow
     /**
      * Events with a sequence after `$after`, or null when the window no longer covers it.
      *
-     * @return list<array<string, mixed>>|null
+     * @return list<array{sequence: int, type: string, data: array<string, mixed>, createdAt: string}>|null
      */
     public function since(int $threadId, int $after, int $limit): ?array
     {
@@ -66,6 +66,7 @@ class ThreadEventWindow
 
         $members = $client->zRangeByScore($key, '(' . $after, '+inf', ['limit' => [0, $limit]]);
 
+        /** @var list<array{sequence: int, type: string, data: array<string, mixed>, createdAt: string}> */
         return array_map(
             fn (string $member): array => json_decode($member, true, 512, JSON_THROW_ON_ERROR),
             array_values((array) $members),

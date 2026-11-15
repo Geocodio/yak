@@ -15,7 +15,7 @@ class ThreadEventFeed
     public function __construct(private readonly ThreadEventWindow $window, private readonly ThreadEventProjector $projector) {}
 
     /**
-     * @return array{events: list<array<string, mixed>>, latestSequence: int, source: 'window'|'database'}
+     * @return array{events: list<array{sequence: int, type: string, data: array<string, mixed>, createdAt: string}>, latestSequence: int, source: 'window'|'database'}
      */
     public function since(Thread $thread, int $after, int $limit): array
     {

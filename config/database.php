@@ -178,6 +178,20 @@ return [
             'options' => ['prefix' => ''],
         ],
 
+        // The event window answers catch-up requests, so a hung Redis must fail within seconds.
+        // The pipe broker blocks on 'threads', so the limits live on this separate connection.
+        'thread-window' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_DB', '0'),
+            'timeout' => 2.0,
+            'read_timeout' => 2.0,
+            'options' => ['prefix' => ''],
+        ],
+
         'cache' => [
             'url' => env('REDIS_URL'),
             'host' => env('REDIS_HOST', '127.0.0.1'),

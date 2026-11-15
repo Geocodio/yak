@@ -1,11 +1,14 @@
 <?php
 
+use App\Enums\ThreadShareMode;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
 use App\Models\User;
 use App\Services\Threads\ThreadEventWindow;
+use App\Services\Threads\ThreadSharing;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\RateLimiter;
 use Tests\Support\ContractFixture;
 use Tests\Support\InMemoryThreadEventWindow;
 
@@ -92,7 +95,7 @@ it('returns one event for a pointer', function () {
     ContractFixture::assertMatches('app', 'thread-event', $response->json(), []);
 
     $this->getJson(appThreadPath($thread, '/events/9'), $headers)->assertNotFound()->assertJsonPath('error', 'not_found');
-    $this->getJson(appThreadPath($thread, '/events/99999999999'), $headers)->assertNotFound();
+    $this->getJson(appThreadPath($thread, '/events/99999999999'), $headers)->assertNotFound()->assertJsonPath('error', 'not_found');
 });
 
 it('validates after and limit', function (string $query, string $field) {
@@ -115,6 +118,31 @@ it('allows 1200 event requests a minute and keeps the 240 limit elsewhere', func
     foreach (range(1, 241) as $attempt) {
         $this->getJson(appThreadPath($thread, '/events'), $headers)->assertOk();
     }
+});
+
+it('answers too many event requests with a designed 429', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    [$device, $headers] = phoneWithHeaders(['user_id' => $user->id]);
+
+    foreach (range(1, 1200) as $attempt) {
+        RateLimiter::hit(md5('app-events' . 'events:' . $device->id));
+    }
+
+    $this->getJson(appThreadPath($thread, '/events'), $headers)->assertStatus(429)->assertJsonPath('error', 'rate_limited');
+    $this->getJson(appThreadPath($thread, '/events/1'), $headers)->assertStatus(429)->assertJsonPath('error', 'rate_limited');
+});
+
+it('lets a share recipient read events and pointers', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
+    $owner = User::factory()->create();
+    $thread = threadWithStoredEvents($owner);
+    $recipient = User::factory()->create();
+    app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$recipient->id]);
+    $headers = phoneHeadersFor($recipient);
+
+    $this->getJson(appThreadPath($thread, '/events'), $headers)->assertOk()->assertJsonCount(2, 'events');
+    $this->getJson(appThreadPath($thread, '/events/1'), $headers)->assertOk()->assertJsonPath('sequence', 1);
 });
 
 it('answers a hidden thread like a missing one', function () {
