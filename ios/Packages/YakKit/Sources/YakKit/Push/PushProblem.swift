@@ -1,7 +1,7 @@
 import Foundation
 
 /// Every way a push request can fail, each one a state the screens show.
-public enum PushProblem: Error, Equatable, Sendable {
+public enum PushProblem: Error, Equatable, Codable, Sendable {
     case pushUnavailable
     case environmentMismatch(expected: String, given: String)
     case rejected(reason: String, message: String)
