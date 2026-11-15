@@ -37,6 +37,7 @@ class ThreadEventFeed
                 ->limit($limit)
                 ->get()
                 ->map(fn (ThreadEvent $event): array => $this->shape($event))
+                ->values()
                 ->all();
         }
 
