@@ -69,6 +69,8 @@ public actor ThreadEngine {
     private var slowTask: Task<Void, Never>?
     private var olderTask: Task<Void, Never>?
     private var isLoadingOlder = false
+    /// Counts the times the loaded window was replaced, so a page fetched for an earlier window is dropped.
+    private var windowGeneration = 0
 
     public init(
         threadID: String, client: APIClient, cache: Cache, clock: any YakClock,
@@ -205,7 +207,8 @@ public actor ThreadEngine {
     }
 
     private var shouldPoll: Bool {
-        isVisible && isOpenFinished && !isClosed && !(connection == .live && isSubscribed)
+        if case .failed(let failure) = load, !failure.isRetryable { return false }
+        return isVisible && isOpenFinished && !isClosed && !(connection == .live && isSubscribed)
     }
 
     private func updatePolling() {
@@ -225,8 +228,10 @@ public actor ThreadEngine {
     }
 
     private func startSlowTimer() {
+        guard slowTask == nil else { return }
         slowTask = Task {
             do { try await self.clock.sleep(for: Self.slowAfter) } catch { return }
+            self.slowTask = nil
             guard !self.isClosed, self.load == .loading else { return }
             self.load = .slow
             self.changed(isStored: false)
@@ -272,7 +277,7 @@ public actor ThreadEngine {
         do {
             fetched = try await client.send(.thread(threadID))
         } catch {
-            guard !isClosed, !Task.isCancelled else { return nil }
+            guard !isClosed, !Task.isCancelled, generation == refreshGeneration else { return nil }
             let failure = ThreadProblem(error)
             logFailure("show refresh failed: \(failure.logName)")
             if failure == .offline { isOffline = true } else { problem = failure }
@@ -289,6 +294,7 @@ public actor ThreadEngine {
 
     private func runLoadOlder() async {
         let bound = firstLoadedAfter
+        let generation = windowGeneration
         let after = max(0, bound - Self.historyPage)
         let page: EventsPage
         do {
@@ -301,6 +307,10 @@ public actor ThreadEngine {
         }
         isLoadingOlder = false
         guard !isClosed, !Task.isCancelled else { return }
+        guard generation == windowGeneration else {
+            changed(isStored: false)
+            return
+        }
         state.prependOlder(page.events.filter { $0.sequence <= bound })
         firstLoadedAfter = after
         isOffline = false
@@ -318,7 +328,7 @@ public actor ThreadEngine {
             case .turn, .thread:
                 if event.sequence > pageSequence { needsRefresh = true }
             case .question(let change):
-                if !change.open { show?.question = nil }
+                if !change.open, event.sequence > pageSequence { show?.question = nil }
                 if event.sequence > pageSequence { needsRefresh = true }
             default:
                 break
@@ -413,6 +423,8 @@ public actor ThreadEngine {
             problem = nil
             isShowingCachedCopy = false
             load = .ready
+            slowTask?.cancel()
+            slowTask = nil
             changed(isStored: true)
             if isLastPage || state.lastSequence <= after { return }
         }
@@ -439,8 +451,12 @@ public actor ThreadEngine {
             let start = max(0, fetched.latestSequence - Self.historyPage)
             state = ThreadEventState(lastSequence: start)
             firstLoadedAfter = start
+            windowGeneration += 1
             isShowingCachedCopy = false
-            if load == .ready { load = .loading }
+            if load == .ready {
+                load = .loading
+                startSlowTimer()
+            }
         }
         markSeenOnce()
         changed(isStored: true)
