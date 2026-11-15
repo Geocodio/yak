@@ -343,7 +343,7 @@ public actor FileTree {
         publish()
     }
 
-    private static func availability(for unavailable: SandboxUnavailable) -> WorkspaceAvailability {
+    static func availability(for unavailable: SandboxUnavailable) -> WorkspaceAvailability {
         switch unavailable.state {
         case .asleep: .asleep(message: unavailable.message)
         case .destroyed: .removed(canRestore: unavailable.canRestore, message: unavailable.message)

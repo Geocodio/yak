@@ -25,6 +25,10 @@ actor ScriptedTransport: HTTPTransport {
         answers[route] = results
     }
 
+    func on(_ route: String, results: [FakeTransport.Result]) {
+        answers[route] = results
+    }
+
     func on(prefix: String, respond: @escaping @Sendable (URLRequest) async -> FakeTransport.Result) {
         prefixHandlers.append((prefix, respond))
     }
