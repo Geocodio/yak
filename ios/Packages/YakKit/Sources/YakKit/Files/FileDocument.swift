@@ -259,7 +259,10 @@ public actor FileDocument {
                     continue
                 }
                 if error.status == 404 { return .notFound }
+                if error.status == 503 { return .failed(.server(code: error.code, message: error.message)) }
                 return .failed(ThreadProblem(failure))
+            case .network(.timedOut):
+                return .failed(.server(code: "unavailable", message: FileTree.unavailableSentence))
             default:
                 return .failed(ThreadProblem(failure))
             }
@@ -443,13 +446,18 @@ public actor FileDocument {
         restoredDraft = false
         changedOnServer = false
         await cache.removeFileEditDraft(thread: threadID, scope: scope, path: path)
-        if let typedSince = text, typedSince != sent {
+        if let typedSince = text, !Self.sameBytes(typedSince, sent) {
             edit = .editing
             await writeDraft()
         } else {
             text = file.content ?? text
             edit = .saved(working: working)
         }
+    }
+
+    /// Byte-for-byte equality, like the server's hash: Swift's `==` also equates canonically equal text.
+    private static func sameBytes(_ first: String?, _ second: String) -> Bool {
+        first.map { $0.utf8.elementsEqual(second.utf8) } ?? false
     }
 
     private func handleSaveFailure(_ failure: APIFailure, sent: String) async {
@@ -463,7 +471,7 @@ public actor FileDocument {
         }
         if let conflict = FileConflict(error) {
             // A save whose answer was lost and is sent again meets its own text: it is saved.
-            if let file = conflict.file, file.content == sent {
+            if let file = conflict.file, Self.sameBytes(file.content, sent) {
                 await applySaved(file, working: false, sent: sent)
             } else {
                 edit = .conflict(theirs: conflict.file)
@@ -508,7 +516,7 @@ public actor FileDocument {
     private func writeDraft() async {
         guard let text, edit != .notEditing else { return }
         if case .saved = edit { return }
-        if text == (loaded?.content ?? "") {
+        if Self.sameBytes(text, loaded?.content ?? "") {
             await cache.removeFileEditDraft(thread: threadID, scope: scope, path: path)
         } else {
             await cache.saveFileEditDraft(

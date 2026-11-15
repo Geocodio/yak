@@ -379,6 +379,38 @@ private func makeRig(
         #expect(await rig.draft()?.text == mine + "more")
     }
 
+    @Test func canonicallyEqualButDifferentBytesAreAConflictNotMySave() async {
+        let precomposed = "caf\u{E9}\n"
+        let decomposed = "cafe\u{301}\n"
+        let theirs = scenario(
+            409, "scenario-file-conflict", setting: ["details", "file", "content"], to: jsonString(decomposed))
+        let rig = await makeRig(put: [theirs])
+        await rig.startEditing(with: precomposed)
+        await rig.document.save()
+        guard case .conflict(let file?) = await rig.current().edit else {
+            Issue.record("a different byte sequence was taken for the person's own save")
+            return
+        }
+        #expect(Array(file.content?.utf8 ?? "".utf8) == Array(decomposed.utf8))
+        #expect(await rig.draft()?.text == precomposed)
+    }
+
+    @Test func aFileThatFailsToOpenShowsTheSandboxSentenceNotOffline() async {
+        let sentence = "The sandbox did not answer. Try again in a moment."
+        let expected = FileDocumentPhase.failed(.server(code: "unavailable", message: sentence))
+        let unavailable = await makeRig(get: [.json(503, #"{"error":"unavailable","message":"\#(sentence)"}"#)])
+        await unavailable.document.load()
+        #expect(await unavailable.current().phase == expected)
+
+        let timedOut = await makeRig(get: [.failure(.timedOut)])
+        await timedOut.document.load()
+        #expect(await timedOut.current().phase == expected)
+
+        let offline = await makeRig(get: [.failure(.notConnectedToInternet)])
+        await offline.document.load()
+        #expect(await offline.current().phase == .failed(.offline))
+    }
+
     @Test func anUnexpectedFailureHasNoEnglishMessage() async {
         let rig = await makeRig(put: [.json(401, #"{"error":"unauthenticated","message":"No."}"#)])
         await rig.startEditing()

@@ -117,7 +117,7 @@ public actor FileTree {
         var entries: [FileTreeEntry] = []
     }
 
-    private static let unavailableSentence = "The sandbox did not answer. Try again in a moment."
+    static let unavailableSentence = "The sandbox did not answer. Try again in a moment."
 
     private let threadID: String
     private let scope: FileScope

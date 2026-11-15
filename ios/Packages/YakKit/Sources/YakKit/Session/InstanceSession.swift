@@ -30,7 +30,7 @@ public struct SessionEnvironment: Sendable {
     public let makeID: @Sendable () -> UUID
     public let appVersion: String
     public let systemDescription: String
-    /// True only in the app's Debug test mode: the realtime socket may then use `ws`.
+    /// True only in the app's Debug test mode: the realtime socket and the terminal socket may then use `ws`.
     public let allowsInsecureRealtime: Bool
 
     public init(
