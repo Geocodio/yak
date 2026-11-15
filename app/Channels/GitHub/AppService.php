@@ -6,6 +6,7 @@ use App\Models\GitHubInstallationToken;
 use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -834,9 +835,24 @@ class AppService
      */
     public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId, bool $isTimeBounded = false): bool
     {
+        return $this->rerunFailedJobsResponse($installationId, $repoSlug, $runId, $isTimeBounded)->successful();
+    }
+
+    /**
+     * The raw answer to a rerun of the failed jobs, for callers that tell a refusal GitHub keeps giving apart from a passing failure.
+     */
+    public function rerunFailedJobsResponse(int $installationId, string $repoSlug, int $runId, bool $isTimeBounded = false): Response
+    {
         return $this->installationClient($installationId, $isTimeBounded)
-            ->post("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}/rerun-failed-jobs")
-            ->successful();
+            ->post("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}/rerun-failed-jobs");
+    }
+
+    /**
+     * A client error other than a timeout or a rate limit (a run older than a month, a disabled workflow, a missing permission) is given again on every repeat.
+     */
+    public static function isLastingRefusal(Response $response): bool
+    {
+        return $response->clientError() && ! in_array($response->status(), [408, 429], true);
     }
 
     /**

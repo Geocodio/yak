@@ -456,19 +456,51 @@ class TaskActions
             'after' => function () use ($task, $ciResume, $original, $isTimeBounded): void {
                 Telemetry::feature('dashboard.retry', ['mode' => TaskMode::Fix->value, 'resumed_ci' => true], task: $task);
 
-                $this->runOrReleaseClaim($task, $original, function () use ($task, $ciResume, $isTimeBounded): void {
+                $this->runOrReleaseClaim($task, $original, function () use ($task, $ciResume, $original, $isTimeBounded): void {
                     if ($ciResume['pending'] === 0 && $ciResume['failed'] === 0) {
                         ProcessCIResultJob::dispatch($task, true, null, $ciResume['runs'][0]['head_sha']);
 
                         return;
                     }
 
-                    if ($ciResume['pending'] === 0) {
-                        $this->rerunFailedRuns($task, $ciResume['runs'], $isTimeBounded);
+                    if ($ciResume['pending'] === 0 && ! $this->rerunFailedRuns($task, $ciResume['runs'], $isTimeBounded)) {
+                        $this->fallBackToBranchRetry($task, $original);
                     }
                 });
             },
         ];
+    }
+
+    /**
+     * GitHub will not rerun these runs, so the agent continues on the branch
+     * instead. The task is still claimed as AwaitingCi, so only the request
+     * that holds the claim gets here, and it changes the state under the lock.
+     *
+     * @param  array<string, mixed>  $original
+     */
+    private function fallBackToBranchRetry(YakTask $task, array $original): void
+    {
+        $failureOutput = $original['error_log'] ?? null;
+
+        $this->locked($task, function (YakTask $locked) use ($original): void {
+            if ($locked->status !== TaskStatus::AwaitingCi) {
+                throw new RuntimeException('The task is no longer waiting for CI.');
+            }
+
+            $attempts = (int) $original['attempts'];
+            $locked->update([
+                'status' => TaskStatus::Retrying,
+                'attempts' => $attempts + 1,
+                'attempts_at_manual_retry' => $attempts,
+                'error_log' => null,
+                'started_at' => null,
+                'completed_at' => null,
+            ]);
+
+            TaskLogger::info($locked, 'GitHub cannot rerun the failed jobs, continuing on the existing branch', ['branch' => $locked->branch_name]);
+        });
+
+        RetryYakJob::dispatch($task, $failureOutput);
     }
 
     /**
@@ -493,8 +525,9 @@ class TaskActions
 
     /**
      * @param  list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>  $runs
+     * @return bool false when GitHub refuses in a way that repeats; a passing failure throws
      */
-    private function rerunFailedRuns(YakTask $task, array $runs, bool $isTimeBounded): void
+    private function rerunFailedRuns(YakTask $task, array $runs, bool $isTimeBounded): bool
     {
         $repository = Repository::where('slug', $task->repo)->firstOrFail();
         $installationId = (int) config('yak.channels.github.installation_id');
@@ -503,10 +536,22 @@ class TaskActions
         foreach ($runs as $run) {
             $isFailed = ! GitHubAppService::isUnfinishedWorkflowRun($run) && ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true);
 
-            if ($isFailed && ! $gitHub->rerunFailedJobs($installationId, $repository->github_full_name, $run['id'], $isTimeBounded)) {
-                throw new RuntimeException('GitHub refused to rerun the failed jobs of run ' . $run['id']);
+            if (! $isFailed) {
+                continue;
+            }
+
+            $response = $gitHub->rerunFailedJobsResponse($installationId, $repository->github_full_name, $run['id'], $isTimeBounded);
+
+            if (GitHubAppService::isLastingRefusal($response)) {
+                return false;
+            }
+
+            if (! $response->successful()) {
+                throw new RuntimeException('GitHub could not rerun the failed jobs of run ' . $run['id'] . ' (' . $response->status() . ')');
             }
         }
+
+        return true;
     }
 
     /**
