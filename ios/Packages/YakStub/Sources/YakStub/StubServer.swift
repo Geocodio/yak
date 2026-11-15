@@ -4,13 +4,15 @@ import Network
 /// An HTTP/1.1 server on the loopback interface that plays one `Scenario` at a time. The scenario is
 /// switched by `POST /__stub/scenario` with the scenario name as the body, so one running server serves
 /// every UI test. `GET /__stub/online` answers `yes` or `no`; `POST /__stub/online` with that body sets it, and
-/// the app in test mode reads it as its network state. A new scenario puts it back to `yes`.
+/// the app in test mode reads it as its network state. A new scenario puts it back to `yes`. While offline every
+/// API request is dropped.
 final class StubServer: Sendable {
     private let fixtures: StubFixtures
     private let current: Locked<Scenario>
     private let online = Locked(true)
     private let attachments: StubAttachments
     private let attachmentScenario = Locked<String?>(nil)
+    private let threads = StubThreads()
     private let listener: NWListener
 
     /// `scenarios` is the folder of hand-written scenario files that the attachment scenarios read.
@@ -86,6 +88,7 @@ final class StubServer: Sendable {
                 }
                 online.set(true)
                 attachments.setOnline(true)
+                threads.reset()
             }
             let body = Data((attachmentScenario.get() ?? current.get().rawValue).utf8)
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: body))
@@ -104,13 +107,18 @@ final class StubServer: Sendable {
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data((online.get() ? "yes" : "no").utf8)))
         }
+        if request.path == "/__stub/last-message" {
+            return StubReply(
+                answer: .reply(status: 200, contentType: "text/plain", body: Data(threads.lastMessage.utf8)))
+        }
+        if !online.get(), request.path.hasPrefix(Scenario.apiPrefix) { return StubReply(answer: .drop) }
         let host = request.headers["host"] ?? "127.0.0.1"
         if let name = attachmentScenario.get(),
             let reply = attachments.reply(to: request, scenario: name, baseURL: "http://\(host)")
         {
             return reply
         }
-        return current.get().reply(to: request, baseURL: "http://\(host)", fixtures: fixtures)
+        return current.get().reply(to: request, baseURL: "http://\(host)", fixtures: fixtures, threads: threads)
     }
 
     private static func write(_ reply: StubReply, for request: StubRequest, to connection: NWConnection) {

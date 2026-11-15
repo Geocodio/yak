@@ -93,7 +93,8 @@ platform :ios do
     # Port 0 lets the stub pick a free port; it prints the port it got on its first line.
     output_path = File.join(build_directory, "yak-stub.out")
     stub_pid = Process.spawn(
-      stub_binary, "--port", "0", "--fixtures", File.join(IOS_ROOT, "fixtures"), "--scenario", "paired",
+      stub_binary, "--port", "0", "--fixtures", File.join(IOS_ROOT, "fixtures"),
+      "--scenarios", File.join(IOS_ROOT, "Packages/YakKit/Tests/YakKitTests/Scenarios"), "--scenario", "paired",
       out: output_path, err: log_path
     )
     begin

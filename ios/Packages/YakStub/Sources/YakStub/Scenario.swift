@@ -26,14 +26,71 @@ struct StubReply: Sendable {
 
 /// The fixture files, read once, with the values that change per run filled in.
 struct StubFixtures: Sendable {
-    let files: [String: Data]
+    /// Server fixture name and scenario data name of every thread file the stub serves. A renamed file is a
+    /// one-line change here. `thread-events`, `thread-event` and `thread-share` are not served: catch-up pages
+    /// are computed from the event lists.
+    static let names: [(server: String, scenario: String)] = [
+        ("threads", "scenario-thread-list"),
+        ("thread", "scenario-thread-show"),
+        ("thread-question", "scenario-thread-question"),
+        ("thread-new", "scenario-thread-new"),
+        ("thread-store", "scenario-thread-store"),
+        ("thread-message-sent", "scenario-message-sent"),
+        ("thread-message-queued", "scenario-message-queued"),
+        ("thread-message-clear", "scenario-message-clear"),
+        ("thread-repository-access", "scenario-thread-repository-access"),
+        ("events/simple-turn", "events/simple-turn"),
+        ("events/steer", "events/steer"),
+        ("events/question", "events/question"),
+        ("events/failed-turn", "events/failed-turn"),
+        ("events/stream-reset", "events/stream-reset"),
+        ("events/pointer", "events/pointer"),
+    ]
+    private static let authorizationScenarioNames = [
+        "scenario-broadcasting-auth-presence", "scenario-broadcasting-auth-private",
+    ]
 
-    init(directory: URL) throws {
+    /// Server fixtures by name. The thread fixtures are present only when the file exists.
+    let files: [String: Data]
+    /// Hand-written scenario data by name, from the `--scenarios` directory only.
+    let scenarioFiles: [String: Data]
+
+    init(directory: URL, scenariosDirectory: URL? = nil) throws {
         var files: [String: Data] = [:]
         for name in ["instance", "me", "device-code", "device-pair", "device-token"] {
             files[name] = try Data(contentsOf: directory.appendingPathComponent("\(name).json"))
         }
+        for pair in Self.names {
+            files[pair.server] = try? Data(contentsOf: directory.appendingPathComponent("\(pair.server).json"))
+        }
         self.files = files
+        var scenarioFiles: [String: Data] = [:]
+        if let scenariosDirectory {
+            for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames {
+                scenarioFiles[name] = try Data(contentsOf: scenariosDirectory.appendingPathComponent("\(name).json"))
+            }
+        }
+        self.scenarioFiles = scenarioFiles
+    }
+
+    /// The scenario data file `name`, filled like a fixture. Empty when the file is not loaded.
+    func scenario(_ name: String, baseURL: String = "http://127.0.0.1") -> [String: Any] {
+        object(scenarioFiles[name], baseURL: baseURL)
+    }
+
+    /// The server fixture paired with `name` (a server or a scenario name) when its file exists, the
+    /// scenario data file otherwise.
+    func serverFirst(_ name: String, baseURL: String = "http://127.0.0.1") -> [String: Any] {
+        guard let pair = Self.names.first(where: { $0.server == name || $0.scenario == name }) else {
+            return scenario(name, baseURL: baseURL)
+        }
+        if let data = files[pair.server] { return object(data, baseURL: baseURL) }
+        return scenario(pair.scenario, baseURL: baseURL)
+    }
+
+    private func object(_ data: Data?, baseURL: String) -> [String: Any] {
+        guard let data, let parsed = try? JSONSerialization.jsonObject(with: data) else { return [:] }
+        return fill(parsed, key: nil, baseURL: baseURL) as? [String: Any] ?? [:]
     }
 
     /// The fixture with typed markers (`"<volatile:string>"`, `"<volatile:int>"`, ...) swapped for values of
@@ -112,11 +169,38 @@ enum Scenario: String, CaseIterable, Sendable {
     /// The server asks the app to poll less often: `device/token` answers 400 `slow_down`.
     case approvalSlowDown = "approval-slow-down"
 
+    /// One needy thread and one needy task, so a cold start opens the drawer. The thread routes are the same in
+    /// every scenario that does not override them; the scenarios below do.
+    /// A thread with an open question: needsYou holds only `d0e515ef`, its show carries the question until answered.
+    case questionOpen = "question-open"
+    /// One running thread whose events play over the socket, one every 400 ms from the first subscription.
+    case oneThreadWorking = "one-thread-working"
+    /// The person has no threads of their own, the team has: `mine` is empty, `everyone` is the scenario list.
+    case teamOnly = "team-only"
+    /// Nobody has a thread.
+    case empty
+    /// One thread per state a thread can be in (closed, read only, on a computer, notices).
+    case threadStates = "thread-states"
+    /// `d0e515ef` is gone: its show answers 404.
+    case threadMissing = "thread-missing"
+    /// A thread's show answers after 14 seconds.
+    case slowThread = "slow-thread"
+    /// `d0e515ef` has 1200 events.
+    case longHistory = "long-history"
+    /// A message is refused: 409 `thread_closed`.
+    case messageRefused = "message-refused"
+    /// Starting a thread is refused: 422 `validation_failed`.
+    case newThreadRefused = "new-thread-refused"
+    /// The thread routes answer with the server's own fixtures.
+    case serverFixtures = "server-fixtures"
+
     static let apiPrefix = "/api/app/v1/"
     static let slowDelay = Duration.seconds(10)
     static let slowerDelay = Duration.seconds(14)
 
-    func reply(to request: StubRequest, baseURL: String, fixtures: StubFixtures) -> StubReply {
+    func reply(to request: StubRequest, baseURL: String, fixtures: StubFixtures, threads: StubThreads = StubThreads())
+        -> StubReply
+    {
         switch self {
         case .notYak:
             return StubReply(answer: Self.html)
@@ -131,7 +215,9 @@ enum Scenario: String, CaseIterable, Sendable {
             return StubReply(answer: Self.error(404, "not_found", "Not found."))
         }
         let route = "\(request.method) \(request.path.dropFirst(Self.apiPrefix.count))"
-        var reply = StubReply(answer: answer(route: route, request: request, baseURL: baseURL, fixtures: fixtures))
+        var reply =
+            threadReply(route: route, request: request, baseURL: baseURL, fixtures: fixtures, threads: threads)
+            ?? StubReply(answer: answer(route: route, request: request, baseURL: baseURL, fixtures: fixtures))
         if self == .slow { reply.delay = Self.slowDelay }
         if self == .slower { reply.delay = Self.slowerDelay }
         if self == .serverTooOld { reply.protocolHeader = 0 }
