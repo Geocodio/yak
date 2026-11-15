@@ -4,6 +4,7 @@ use App\Enums\ThreadShareMode;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\PreviewAccess;
+use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadSharing;
 use Carbon\CarbonImmutable;
 use Tests\Support\ContractFixture;
@@ -60,7 +61,7 @@ it('refuses a path that could leave the host', function (mixed $path) {
     $response = $this->postJson(previewTicketPath($this->thread), ['path' => $path], phoneHeadersFor($this->owner))
         ->assertUnprocessable()->assertJsonPath('error', 'validation_failed')->assertJsonStructure(['details' => ['errors' => ['path']]]);
 
-    if (is_string($path) && strlen($path) <= 2048) {
+    if ($path !== '/' . str_repeat('a', 2048)) {
         expect($response->json('details.errors.path.0'))->toBe('The path must start with a single slash and have no spaces.');
     }
 })->with([
@@ -98,6 +99,8 @@ it('does not look at the dev server', function () {
     cachePreviewState($this->thread, 'failing', ['boom'], 'Command failed');
 
     $this->postJson(previewTicketPath($this->thread), [], phoneHeadersFor($this->owner))->assertOk();
+
+    expect(app(SandboxManager::class)->calls)->toBe([]);
 });
 
 it('refuses a closed thread and a thread on a local machine', function () {
@@ -122,14 +125,15 @@ it('answers unavailable when previews are switched off', function () {
 });
 
 it('mints for a share recipient, bound to that recipient', function () {
-    $thread = privateThreadOf($this->owner, ['preview_hostname' => $this->host . 'x']);
+    $thread = privateThreadOf($this->owner, ['preview_hostname' => 't-r7w2n5qb3z.yak.example.com']);
     $recipient = User::factory()->create();
     app(ThreadSharing::class)->apply($thread, $this->owner, ThreadShareMode::People, [$recipient->id]);
 
     $response = $this->postJson(previewTicketPath($thread), [], phoneHeadersFor($recipient))->assertOk();
     $parts = ticketParts($response->json('url'));
 
-    expect(app(PreviewAccess::class)->redeemTicket($parts['host'], $parts['ticket']))->toBe($recipient->id);
+    expect($parts['host'])->toBe($thread->preview_hostname)
+        ->and(app(PreviewAccess::class)->redeemTicket($parts['host'], $parts['ticket']))->toBe($recipient->id);
 });
 
 it('answers a hidden thread exactly like a missing one', function () {
