@@ -2,6 +2,7 @@
 
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\SandboxWake;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
@@ -156,7 +157,6 @@ it('starts nothing when the lock is held', function () {
 });
 
 it('starts the queued turn from the after-turn job', function () {
-    fakeAfterTurnCollaborators();
     $fakes = fakeTurnCollaborators();
     $fakes['commands']->shouldReceive('startRunner', 'turn', 'setModel');
     fakeAfterTurnCollaborators();
@@ -170,6 +170,19 @@ it('starts the queued turn from the after-turn job', function () {
     $new = TaskRun::query()->where('thread_id', $thread->id)->where('id', '>', $run->id)->get();
     expect($new)->toHaveCount(1)
         ->and($new->first()->prompt)->toContain('Then update the docs');
+});
+
+it('starts nothing while the after-turn job waits for the sandbox', function () {
+    fakeAfterTurnCollaborators(new SandboxWake(false, false, false));
+    [$task, $run, $thread] = endedTurn();
+    $account = ClaudeAccount::factory()->create();
+    $thread->forceFill(['claude_account_id' => $account->id, 'model' => 'sonnet'])->save();
+    app(ThreadTurns::class)->steer($thread, 'Then update the docs', null, null, null, 'thread', null, true);
+
+    runFinisher($run, IdleFinishJob::class);
+
+    expect(newRunsOf($thread, $run))->toBe(0)
+        ->and(PendingSteeringMessage::query()->count())->toBe(1);
 });
 
 it('starts the queued turn for a run without a finisher', function () {

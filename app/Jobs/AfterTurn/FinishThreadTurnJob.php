@@ -74,6 +74,7 @@ abstract class FinishThreadTurnJob implements ShouldQueue
         $this->task = $run->task;
         TaskContext::set($this->task);
         $recorder = RunRecorder::forTurn($run);
+        $isReleased = false;
 
         try {
             if ($this->taskIsTerminal($this->task) && ! $this->runsOnTerminalTask()) {
@@ -94,6 +95,7 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             // A destroyed or paused sandbox is woken for the work; when it cannot be, the job waits instead of failing the task.
             if (! $threadSandbox->ensureAwake($thread)->ready) {
                 $this->release(60);
+                $isReleased = true;
 
                 return;
             }
@@ -125,8 +127,15 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             }
 
             $this->afterTurn();
-            // The sandbox work is done, so a queued message starts its turn without racing it.
-            app(QueuedMessageRunner::class)->afterTurn($run->refresh());
+            // A released job has not done its sandbox work yet, so its retry starts the queued turn instead.
+            if (! $isReleased) {
+                try {
+                    app(QueuedMessageRunner::class)->afterTurn($run->refresh());
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+
             $recorder->finish();
             TaskContext::clear();
         }
