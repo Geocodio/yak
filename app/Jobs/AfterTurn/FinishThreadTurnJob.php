@@ -5,6 +5,7 @@ namespace App\Jobs\AfterTurn;
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\ThreadSandboxState;
+use App\Enums\TurnState;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Models\Repository;
@@ -13,6 +14,7 @@ use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Telemetry\RunRecorder;
+use App\Services\Teleport\EnsurePushedBranch;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\IncusThreadSandboxManager;
 use App\Services\Threads\Preview\ThreadPreviewDevServer;
@@ -125,6 +127,10 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             // The turn may have added or changed .yak/preview.yml, so the cached dev server state is stale.
             app(ThreadPreviewDevServer::class)->forgetState($thread);
 
+            if (! $isReleased && ! $this->task->targets_external_pr && $run->refresh()->getAttribute('turn_state') === TurnState::Completed) {
+                $this->pushUnpushedCommits($thread);
+            }
+
             try {
                 $threadSandbox->pauseIfIdle($thread->refresh());
             } catch (\Throwable $e) {
@@ -169,6 +175,18 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             app(LiveActivities::class)->turnSettled($run);
         } catch (\Throwable $exception) {
             report($exception);
+        }
+    }
+
+    /**
+     * Whatever finisher ran, commits the turn left on the thread's branch go to the remote, so a later Open PR finds the branch.
+     */
+    private function pushUnpushedCommits(Thread $thread): void
+    {
+        try {
+            app(EnsurePushedBranch::class)->pushPrimaryIfBehind($thread);
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('Could not push the thread branch after the turn', ['thread_id' => $thread->id, 'error' => $e->getMessage()]);
         }
     }
 
