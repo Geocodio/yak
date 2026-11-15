@@ -58,7 +58,7 @@ function fireTool(Thread $thread, string $tool, string $command = 'ls'): void
 /**
  * @return list<array<string, mixed>>
  */
-function broadcasts(): array
+function sentLiveActivityBroadcasts(): array
 {
     return array_map(fn ($request) => json_decode($request->body(), true), apnsRequests('/4/broadcasts/'));
 }
@@ -104,7 +104,7 @@ it('sends a step update with a fixed label', function () {
         ->and($requests[0]->header('apns-priority')[0])->toBe('5')
         ->and($requests[0]->body())->not->toContain('secret-path');
 
-    $body = broadcasts()[0];
+    $body = sentLiveActivityBroadcasts()[0];
     expect($body['aps']['timestamp'])->toBe(1794830400)
         ->and($body['aps']['stale-date'])->toBe(1794832200)
         ->and($body['aps']['content-state']['step'])->toBe('Running a command');
@@ -188,12 +188,12 @@ it('lets a waiting update replace a held-back step and the next tool label throu
     $this->travel(12)->seconds();
     (new SendPendingStepUpdateJob($this->thread->id))->handle(app(LiveActivities::class));
 
-    expect(broadcasts())->toHaveCount(2)->and(broadcasts()[1]['aps']['content-state']['step'])->toBe('Waiting for a sandbox');
+    expect(sentLiveActivityBroadcasts())->toHaveCount(2)->and(sentLiveActivityBroadcasts()[1]['aps']['content-state']['step'])->toBe('Waiting for a sandbox');
 
     $this->travel(16)->seconds();
     fireTool($this->thread, 'Read');
 
-    expect(broadcasts()[2]['aps']['content-state']['step'])->toBe('Reading files');
+    expect(sentLiveActivityBroadcasts()[2]['aps']['content-state']['step'])->toBe('Reading files');
 });
 
 it('sends the latest step at the window end', function () {
@@ -203,12 +203,12 @@ it('sends the latest step at the window end', function () {
     fireTool($this->thread, 'Read');
     $this->travel(3)->seconds();
     fireTool($this->thread, 'Edit');
-    expect(broadcasts())->toHaveCount(1);
+    expect(sentLiveActivityBroadcasts())->toHaveCount(1);
 
     $this->travel(9)->seconds();
     (new SendPendingStepUpdateJob($this->thread->id))->handle(app(LiveActivities::class));
 
-    $sent = broadcasts();
+    $sent = sentLiveActivityBroadcasts();
     expect($sent)->toHaveCount(2)
         ->and($sent[1]['aps']['content-state']['step'])->toBe('Editing files')
         ->and($sent[1]['aps']['timestamp'])->toBe(1794830415);
@@ -234,13 +234,13 @@ it('shows waiting and ends for a block that needs a person', function () {
     $requests = apnsRequests('/4/broadcasts/');
     expect($requests)->toHaveCount(1)
         ->and($requests[0]->header('apns-priority')[0])->toBe('10')
-        ->and(broadcasts()[0]['aps']['event'])->toBe('update')
-        ->and(broadcasts()[0]['aps']['content-state'])->toMatchArray(['state' => 'working', 'step' => 'Waiting for a sandbox'])
+        ->and(sentLiveActivityBroadcasts()[0]['aps']['event'])->toBe('update')
+        ->and(sentLiveActivityBroadcasts()[0]['aps']['content-state'])->toMatchArray(['state' => 'working', 'step' => 'Waiting for a sandbox'])
         ->and(DeviceLiveActivity::query()->count())->toBe(1);
 
     $this->thread->update(['blocked_reason' => ThreadBlockReason::UsageLimit]);
 
-    $sent = broadcasts();
+    $sent = sentLiveActivityBroadcasts();
     expect($sent)->toHaveCount(2)
         ->and($sent[1]['aps']['event'])->toBe('end')
         ->and($sent[1]['aps']['content-state']['state'])->toBe('needs_you')
@@ -261,7 +261,7 @@ it('ends with needs you when a question opens', function () {
 
     parkForQuestions($task);
 
-    $sent = broadcasts();
+    $sent = sentLiveActivityBroadcasts();
     expect($sent)->toHaveCount(1)->and($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification);
     ContractFixture::assertMatches('app', 'push/live-activity-end', $sent[0]);
 });
@@ -283,13 +283,13 @@ it('hides the step of a private thread and of a thread made private mid-turn', f
     expect(LiveActivityContent::for($private, LiveActivityState::Working, 'Running a command'))->toMatchArray(['step' => '', 'isPrivate' => true]);
 
     fireTool($this->thread, 'Bash');
-    expect(broadcasts()[0]['aps']['content-state'])->toMatchArray(['step' => 'Running a command', 'isPrivate' => false]);
+    expect(sentLiveActivityBroadcasts()[0]['aps']['content-state'])->toMatchArray(['step' => 'Running a command', 'isPrivate' => false]);
 
     Thread::withoutGlobalScopes()->whereKey($this->thread->id)->update(['visibility' => 'private']);
     $this->travel(16)->seconds();
     fireTool($this->thread, 'Read');
 
-    expect(broadcasts()[1]['aps']['content-state'])->toMatchArray(['step' => '', 'isPrivate' => true]);
+    expect(sentLiveActivityBroadcasts()[1]['aps']['content-state'])->toMatchArray(['step' => '', 'isPrivate' => true]);
 });
 
 it('does nothing without a key', function () {
