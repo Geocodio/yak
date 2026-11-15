@@ -22,8 +22,8 @@ private func wakeEndpoint(headers: [String: String] = [:]) -> Endpoint<InstanceI
 
 @Suite struct EndpointOptionsTests {
     @Test func anEndpointWithoutOptionsKeepsFifteenSeconds() async throws {
-        let transport = FakeTransport(.json(200, ""))
-        _ = try? await makeClient(transport).send(.me())
+        let transport = FakeTransport(.json(200, instanceBody))
+        _ = try await makeClient(transport).send(.instance())
         let request = await transport.requests[0]
         #expect(request.timeoutInterval == 15)
         #expect(request.value(forHTTPHeaderField: "Origin") == nil)
@@ -55,6 +55,16 @@ private func wakeEndpoint(headers: [String: String] = [:]) -> Endpoint<InstanceI
         let transport = FakeTransport(.json(200, instanceBody))
         _ = try await makeClient(transport).send(wakeEndpoint())
         #expect(await transport.requests[0].timeoutInterval == 60)
+    }
+
+    @Test func aTimeoutIsKeptBetweenOneAndSixtySeconds() async throws {
+        let transport = FakeTransport(.json(200, instanceBody), .json(200, instanceBody))
+        let client = makeClient(transport)
+        _ = try await client.send(Endpoint<InstanceInfo>(method: .get, path: "a", timeout: .zero))
+        _ = try await client.send(Endpoint<InstanceInfo>(method: .get, path: "b", timeout: .seconds(300)))
+        let requests = await transport.requests
+        #expect(requests[0].timeoutInterval == 1)
+        #expect(requests[1].timeoutInterval == 60)
     }
 
     @Test func aWakeCapableGetIsSentOnce() async {

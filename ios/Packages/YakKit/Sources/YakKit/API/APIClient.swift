@@ -8,15 +8,14 @@ public protocol HTTPTransport: Sendable {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse)
 }
 
-/// Sends requests with no cookie storage. Each request's own `timeoutInterval` decides how long it waits;
-/// the session's 60 second interval is the ceiling for an endpoint that asks for a long one.
+/// Sends requests with no cookie storage. Each request's own `timeoutInterval` decides how long it waits
+/// for data; there is no total limit, so a slow upload that keeps moving bytes is not cut off.
 public struct URLSessionTransport: HTTPTransport {
     private let session: URLSession
 
     public init() {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 60
-        configuration.timeoutIntervalForResource = 120
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
         session = URLSession(configuration: configuration)

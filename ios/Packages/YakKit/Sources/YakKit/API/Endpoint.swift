@@ -21,7 +21,7 @@ public struct Endpoint<Response>: Sendable {
     /// Extra request headers. `Authorization`, `X-Yak-Protocol`, `User-Agent`, `Accept` and `Content-Type`
     /// are the client's own and are never taken from here.
     public let headers: [String: String]
-    /// The request's timeout. 15 seconds unless the endpoint can wake a sandbox or is a written exception.
+    /// The request's timeout, kept between 1 and 60 seconds. 15 seconds unless the endpoint can wake a sandbox or is a written exception.
     public let timeout: Duration
     /// True: a GET is retried on 502, 503, 504 and network errors. False: sent once; the caller owns its polling.
     public let retriesTransientFailures: Bool
@@ -37,7 +37,7 @@ public struct Endpoint<Response>: Sendable {
         self.body = body
         self.multipart = multipart
         self.headers = headers
-        self.timeout = timeout
+        self.timeout = min(max(timeout, .seconds(1)), .seconds(60))
         self.retriesTransientFailures = retriesTransientFailures
     }
 
