@@ -46,7 +46,7 @@ type teleportFlags struct {
 	addDirs                                         stringList
 	includeSecrets                                  bool
 	wait, stop, keep, private, stash, worktree, yes bool
-	fromLink                                        bool
+	fromLink, inSession                             bool
 	thread                                          string
 }
 
@@ -85,6 +85,7 @@ func parseTeleportArgs(args []string) (teleportFlags, []string, error) {
 	fs.BoolVar(&f.worktree, "worktree", false, "")
 	fs.BoolVar(&f.yes, "yes", false, "")
 	fs.BoolVar(&f.fromLink, "from-link", false, "")
+	fs.BoolVar(&f.inSession, "in-session", false, "")
 	var positional []string
 	for {
 		if err := fs.Parse(args); err != nil {
@@ -181,7 +182,7 @@ func teleportUp(bg context.Context, ctx *Context, deps teleport.Deps, f teleport
 }
 
 func teleportDown(bg context.Context, ctx *Context, deps teleport.Deps, f teleportFlags, thread string) int {
-	opts := teleport.DownOptions{FromLink: f.fromLink}
+	opts := teleport.DownOptions{FromLink: f.fromLink, InSession: f.inSession}
 	switch {
 	case f.wait:
 		opts.RunningTurn = "wait"

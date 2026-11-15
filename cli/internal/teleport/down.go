@@ -28,6 +28,9 @@ type DownOptions struct {
 	Visibility  string
 	Resolution  string
 	FromLink    bool
+	// InSession is set when the thread comes down through the slash command inside the running claude: that
+	// process cannot be given the resume epoch, so the marker carries none and nothing blocks it.
+	InSession bool
 }
 
 // DownInput names the thread and the checkout to bring it to.
@@ -221,8 +224,12 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	done = true
 
 	sid := manifest.Session.SessionID
+	epoch := started.TeleportID
+	if in.Options.InSession {
+		epoch = ""
+	}
 	marker := config.Marker{
-		ThreadID: thread.ID, ThreadPublicID: thread.PublicID, TeleportID: started.TeleportID, ResumeEpoch: started.TeleportID, Owner: "device", ThreadURL: thread.URL,
+		ThreadID: thread.ID, ThreadPublicID: thread.PublicID, TeleportID: started.TeleportID, ResumeEpoch: epoch, Owner: "device", ThreadURL: thread.URL,
 		StackMessagesURL: completed.Marker.StackMessagesURL, BaseURL: d.Config.BaseURL, WrittenAt: d.Now(),
 	}
 	if err := config.WriteMarker(d.ConfigDir, sid, marker); err != nil {

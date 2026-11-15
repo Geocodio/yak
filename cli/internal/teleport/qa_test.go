@@ -1,13 +1,40 @@
 package teleport
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/geocodio/yak/cli/internal/config"
+	"github.com/geocodio/yak/cli/internal/hook"
 )
+
+func TestSlashCommandDownLeavesTheSessionUsableAndAnEpochTerminalStaysBlocked(t *testing.T) {
+	h := newHarness(t)
+	h.setupDown(true)
+	if _, err := h.down(DownOptions{InSession: true}); err != nil {
+		t.Fatal(err)
+	}
+	m, ok := config.ReadMarker(h.deps.ConfigDir, testSession)
+	if !ok || m.Owner != "device" || m.ResumeEpoch != "" {
+		t.Fatalf("marker %+v", m)
+	}
+	deps := h.hookDeps(&bytes.Buffer{})
+	deps.Env = func(string) string { return "" }
+	if out := hook.UserPromptSubmit(deps, hook.Input{SessionID: testSession, Prompt: "go on"}); strings.Contains(out, `"decision"`) {
+		t.Fatalf("the session that pulled the thread down was blocked: %q", out)
+	}
+
+	m.ResumeEpoch = "later-teleport"
+	if err := config.WriteMarker(h.deps.ConfigDir, testSession, m); err != nil {
+		t.Fatal(err)
+	}
+	if out := hook.UserPromptSubmit(deps, hook.Input{SessionID: testSession, Prompt: "go on"}); !strings.Contains(out, `"decision":"block"`) {
+		t.Fatalf("stale process not blocked: %q", out)
+	}
+}
 
 func TestDownWorktreeRoundTripPushesTheWorktreeBranchToTheThreadBranch(t *testing.T) {
 	h := newHarness(t)

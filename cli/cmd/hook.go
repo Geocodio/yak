@@ -40,11 +40,11 @@ func runHook(ctx *Context, args []string) int {
 		var buf bytes.Buffer
 		inner := *ctx
 		inner.Stdout, inner.Stderr, inner.Interactive = &buf, &buf, false
-		inner.Stdin = strings.NewReader("")
+		inner.Stdin, inner.Exec = strings.NewReader(""), nil
 		if in.Cwd != "" {
 			inner.Cwd = in.Cwd
 		}
-		code := runTeleport(&inner, append([]string{"--session", in.SessionID}, args...))
+		code := runTeleport(&inner, append([]string{"--session", in.SessionID, "--in-session"}, args...))
 		return buf.String(), code
 	}
 	var out string
