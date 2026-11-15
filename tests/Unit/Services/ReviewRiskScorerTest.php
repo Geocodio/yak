@@ -49,3 +49,16 @@ it('escalates uncertainty independently of score', function () {
     $signals['uncertainties'] = ['Production caller is unavailable.'];
     expect((new ReviewRiskScorer)->assess($signals)['reasons'])->not->toBeEmpty();
 });
+
+it('scores weak verification that has nothing to cite', function () {
+    $signals = riskSignals();
+    $signals['verification_strength'] = ['value' => 1, 'explanation' => 'No test covers the new routes.', 'references' => []];
+    $result = (new ReviewRiskScorer)->assess($signals);
+    expect($result['score'])->toBe(60)->and($result['components']['verification_gap'])->toBe(60);
+});
+
+it('still needs a citation for strong verification', function () {
+    $signals = riskSignals();
+    $signals['verification_strength']['references'] = [];
+    expect((new ReviewRiskScorer)->assess($signals)['score'])->toBeNull();
+});
