@@ -24,7 +24,7 @@ public struct QuestionFlow: Equatable, Sendable {
         guard let draft, draft.roundKey == question.roundKey else { return }
         let known = Set(question.questions.map(\.id))
         answers = draft.answers.filter { known.contains($0.key) }
-        note = String((draft.note ?? "").prefix(Self.maximumNoteLength))
+        note = (draft.note ?? "").cutToServerLimit
         if let gap = questions.firstIndex(where: { !isAnswered($0.id) }) {
             step = .question(gap)
         } else {
@@ -34,15 +34,15 @@ public struct QuestionFlow: Equatable, Sendable {
 
     /// The draft to save; a blank note is written as nil.
     public var draft: QuestionDraft {
-        QuestionDraft(roundKey: roundKey, answers: answers, note: note.isEmpty ? nil : note)
+        QuestionDraft(roundKey: roundKey, answers: answers, note: note.trimmedForAnswer.isEmpty ? nil : note)
     }
 
     public var canGoNext: Bool {
-        guard let index = currentIndex else { return false }
+        guard let index = currentIndex, questions.indices.contains(index) else { return false }
         return isAnswered(questions[index].id)
     }
 
-    public var canSend: Bool { questions.allSatisfy { isAnswered($0.id) } }
+    public var canSend: Bool { !questions.isEmpty && questions.allSatisfy { isAnswered($0.id) } }
 
     public func isAnswered(_ questionID: String) -> Bool {
         guard let answer = answers[questionID] else { return false }
@@ -61,7 +61,7 @@ public struct QuestionFlow: Equatable, Sendable {
     }
 
     public mutating func pick(_ label: String) {
-        guard let index = currentIndex else { return }
+        guard let index = currentIndex, questions.indices.contains(index) else { return }
         let question = questions[index]
         guard question.options.contains(where: { $0.label == label }) else { return }
         if question.multiSelect {
@@ -84,7 +84,7 @@ public struct QuestionFlow: Equatable, Sendable {
         returnsToReview = false
         switch step {
         case .question(let index) where index > 0: step = .question(index - 1)
-        case .review: step = .question(questions.count - 1)
+        case .review where !questions.isEmpty: step = .question(questions.count - 1)
         default: break
         }
     }
@@ -94,8 +94,8 @@ public struct QuestionFlow: Equatable, Sendable {
     }
 
     public mutating func submitTyped(_ text: String) {
-        guard case .typing(let index) = step else { return }
-        let trimmed = text.trimmedForAnswer
+        guard case .typing(let index) = step, questions.indices.contains(index) else { return }
+        let trimmed = text.trimmedForAnswer.cutToServerLimit
         guard !trimmed.isEmpty else {
             step = .question(index)
             return
@@ -117,7 +117,7 @@ public struct QuestionFlow: Equatable, Sendable {
     }
 
     public mutating func setNote(_ text: String) {
-        note = String(text.prefix(Self.maximumNoteLength))
+        note = text.cutToServerLimit
     }
 
     private var currentIndex: Int? {
@@ -138,6 +138,11 @@ public struct QuestionFlow: Equatable, Sendable {
 }
 
 extension String {
+    /// The server counts code points (max:2000), so the cut is by unicode scalars.
+    fileprivate var cutToServerLimit: String {
+        String(String.UnicodeScalarView(unicodeScalars.prefix(QuestionFlow.maximumNoteLength)))
+    }
+
     fileprivate var trimmedForAnswer: String {
         var scalars = Substring(self)
         while let first = scalars.first, first.isWhitespace || first.isNewline { scalars.removeFirst() }

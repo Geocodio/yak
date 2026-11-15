@@ -87,5 +87,32 @@ struct QuestionFlowTests {
         #expect(flow.note.count == 2000 && flow.draft.note?.count == 2000)
         flow.setNote("")
         #expect(flow.draft.note == nil)
+        flow.setNote("  \n ")
+        #expect(flow.draft.note == nil)
+    }
+
+    @Test func theNoteIsCutByUnicodeScalars() throws {
+        var flow = QuestionFlow(question: try round(), draft: nil)
+        flow.setNote(String(repeating: "👨‍👩‍👧", count: 1000))
+        #expect(flow.note.unicodeScalars.count <= 2000)
+    }
+
+    @Test func aTypedAnswerIsCutToTheServerLimit() throws {
+        var flow = QuestionFlow(question: try round(), draft: nil)
+        flow.startTyping()
+        flow.submitTyped("  " + String(repeating: "👨‍👩‍👧", count: 1000))
+        let other = flow.answers.values.first?.other ?? ""
+        #expect(other.unicodeScalars.count <= 2000 && !other.isEmpty)
+    }
+
+    @Test func anEmptyRoundDoesNotCrash() throws {
+        var flow = QuestionFlow(question: ThreadQuestion(taskId: LenientID("t"), questions: []), draft: nil)
+        #expect(!flow.canGoNext)
+        flow.pick("x")
+        flow.startTyping()
+        flow.submitTyped("x")
+        flow.next()
+        flow.back()
+        #expect(!flow.canSend)
     }
 }
