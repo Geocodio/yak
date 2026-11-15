@@ -38,6 +38,16 @@ final class ThreadActionRefused extends RuntimeException
 
     public const FILE_CONFLICT = 'file_conflict';
 
+    public const SUB_THREAD_CANNOT_SPAWN = 'sub_thread_cannot_spawn';
+
+    public const STACK_STOPPED = 'stack_stopped';
+
+    public const STACK_FULL = 'stack_full';
+
+    public const CHILD_NOT_FAILED = 'child_not_failed';
+
+    public const NOTHING_TO_RETRY = 'nothing_to_retry';
+
     /**
      * @param  array<string, mixed>  $details
      */
