@@ -185,7 +185,7 @@ warm.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
+* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:15
 * @route '/threads/{thread}/preview/restore'
 */
 export const restore = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -200,7 +200,7 @@ restore.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
+* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:15
 * @route '/threads/{thread}/preview/restore'
 */
 restore.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -233,7 +233,7 @@ restore.url = (args: { thread: string | { public_id: string } } | [thread: strin
 
 /**
 * @see \App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController::__invoke
-* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:16
+* @see app/Http/Controllers/Threads/Preview/ThreadPreviewRestoreController.php:15
 * @route '/threads/{thread}/preview/restore'
 */
 restore.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
