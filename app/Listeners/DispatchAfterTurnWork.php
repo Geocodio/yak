@@ -14,6 +14,7 @@ use App\Jobs\AfterTurn\FinishRetryTurnJob;
 use App\Jobs\AfterTurn\FinishRunYakTurnJob;
 use App\Jobs\AfterTurn\FinishThreadTurnJob;
 use App\Models\TaskRun;
+use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Threads\QueuedMessageRunner;
 
 /**
@@ -45,6 +46,12 @@ class DispatchAfterTurnWork
 
         // A run without a finisher has no sandbox work to wait for, so its queued messages go out now.
         if ($finisher === null) {
+            try {
+                app(LiveActivities::class)->turnSettled($run);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+
             app(QueuedMessageRunner::class)->afterTurn($run);
 
             return;

@@ -3,12 +3,21 @@
 namespace App\Services\Push\LiveActivities;
 
 use App\Enums\LiveActivityState;
+use App\Enums\PushTokenKind;
+use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadOwnerSide;
+use App\Enums\TurnState;
 use App\Jobs\Push\BroadcastLiveActivityJob;
 use App\Jobs\Push\SendPendingStepUpdateJob;
+use App\Jobs\Push\StartLiveActivityJob;
 use App\Models\DeviceLiveActivity;
+use App\Models\DevicePushToken;
+use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\User;
 use App\Services\Push\Apns\ApnsConfig;
+use App\Services\Threads\ThreadAccess;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
@@ -19,7 +28,125 @@ class LiveActivities
 {
     public const WINDOW_SECONDS = 15;
 
-    public function __construct(private readonly ApnsConfig $config) {}
+    /** A phone shows at most this many activities, counted over the last {@see self::ACTIVITY_WINDOW_HOURS} hours. */
+    public const MAX_ACTIVITIES_PER_PHONE = 3;
+
+    public const ACTIVITY_WINDOW_HOURS = 8;
+
+    public function __construct(private readonly ApnsConfig $config, private readonly LiveActivityChannels $channels) {}
+
+    /**
+     * Starts an activity on each phone of the person driving a turn that began elsewhere (the web).
+     * A person who sends from the phone may get this remote start and the app's own start for the same thread, because the app has not reported its activity yet; the app ends the duplicate (`LiveActivityPlanner.reconcile` in app plan 3, which also keeps a phone at three when several instances start at once), and the server does not try to detect it.
+     * Only root threads on Yak start one: a stack's sub-threads have drivers too and would use up the three slots.
+     */
+    public function turnStarted(TaskRun $run): void
+    {
+        if (! $this->config->isConfigured() || $run->driver_user_id === null || $run->thread_id === null) {
+            return;
+        }
+
+        $thread = Thread::withoutGlobalScopes()->find($run->thread_id);
+        $driver = User::query()->find($run->driver_user_id);
+
+        if ($thread === null || $driver === null || ! $thread->isOpen() || $thread->owner_side === ThreadOwnerSide::Device || ! $thread->isRoot()) {
+            return;
+        }
+
+        if (! app(ThreadAccess::class)->canSee($driver, $thread)) {
+            return;
+        }
+
+        $hadChannel = filled($thread->live_activity_channel);
+        $cutoff = now()->subHours(self::ACTIVITY_WINDOW_HOURS);
+
+        $tokens = DevicePushToken::query()
+            ->deliverable()
+            ->where('kind', PushTokenKind::LiveActivityStart->value)
+            ->whereHas('device', fn ($device) => $device->where('user_id', $driver->id))
+            ->get();
+
+        foreach ($tokens as $token) {
+            $recent = DeviceLiveActivity::query()->where('device_id', $token->device_id)->where('started_at', '>=', $cutoff);
+
+            if ((clone $recent)->where('thread_id', $thread->id)->exists() || (clone $recent)->count() >= self::MAX_ACTIVITIES_PER_PHONE) {
+                continue;
+            }
+
+            DeviceLiveActivity::query()->where('device_id', $token->device_id)->where('thread_id', $thread->id)->delete();
+
+            $written = DeviceLiveActivity::query()->insertOrIgnore([
+                'device_id' => $token->device_id,
+                'thread_id' => $thread->id,
+                'source' => 'server',
+                'started_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            if ($written === 1) {
+                $row = DeviceLiveActivity::query()->where('device_id', $token->device_id)->where('thread_id', $thread->id)->firstOrFail();
+                StartLiveActivityJob::dispatch($row->id, $token->id, $run->id);
+            }
+        }
+
+        if ($hadChannel) {
+            $this->update($thread, LiveActivityState::Working, LiveActivitySteps::STARTING, 10);
+        }
+    }
+
+    /**
+     * Ends the activity of a turn that completed, after the finisher has parked any question. A turn that failed already sent its own end, so a later "finished" never overwrites it.
+     */
+    public function turnSettled(TaskRun $run): void
+    {
+        if ($run->refresh()->turn_state !== TurnState::Completed || $run->thread_id === null) {
+            return;
+        }
+
+        $thread = Thread::withoutGlobalScopes()->find($run->thread_id);
+
+        if ($thread !== null) {
+            $this->end($thread, $this->settledState($thread));
+        }
+    }
+
+    public function turnFailed(TaskRun $run): void
+    {
+        $thread = $run->thread_id === null ? null : Thread::withoutGlobalScopes()->find($run->thread_id);
+
+        if ($thread === null) {
+            return;
+        }
+
+        $this->end($thread, in_array($run->turn_state, [TurnState::StoppedByGuard, TurnState::Interrupted], true) ? LiveActivityState::Stopped : LiveActivityState::Failed);
+    }
+
+    /**
+     * Ends the activity with the state of the latest turn, then deletes the channel at Apple.
+     */
+    public function threadClosed(Thread $thread): void
+    {
+        $run = $thread->runs()->latest('id')->first();
+
+        $state = match ($run?->turn_state) {
+            null => LiveActivityState::Finished,
+            TurnState::Completed => $this->settledState($thread),
+            TurnState::Failed => LiveActivityState::Failed,
+            default => LiveActivityState::Stopped,
+        };
+
+        $this->end($thread, $state);
+        $this->channels->deleteLater($thread);
+    }
+
+    private function settledState(Thread $thread): LiveActivityState
+    {
+        $needsPerson = $thread->headTask()?->status === TaskStatus::AwaitingClarification
+            || ($thread->blocked_reason !== null && LiveActivitySteps::needsPerson($thread->blocked_reason));
+
+        return $needsPerson ? LiveActivityState::NeedsYou : LiveActivityState::Finished;
+    }
 
     /**
      * A step update goes out at once, or once at the end of the current 15-second window with the latest label.
