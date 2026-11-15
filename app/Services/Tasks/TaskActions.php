@@ -482,9 +482,9 @@ class TaskActions
     {
         $failureOutput = $original['error_log'] ?? null;
 
-        $this->locked($task, function (YakTask $locked) use ($original): void {
+        $isStillWaiting = $this->locked($task, function (YakTask $locked) use ($original): bool {
             if ($locked->status !== TaskStatus::AwaitingCi) {
-                throw new RuntimeException('The task is no longer waiting for CI.');
+                return false;
             }
 
             $attempts = (int) $original['attempts'];
@@ -498,9 +498,13 @@ class TaskActions
             ]);
 
             TaskLogger::info($locked, 'GitHub cannot rerun the failed jobs, continuing on the existing branch', ['branch' => $locked->branch_name]);
+
+            return true;
         });
 
-        RetryYakJob::dispatch($task, $failureOutput);
+        if ($isStillWaiting) {
+            RetryYakJob::dispatch($task, $failureOutput);
+        }
     }
 
     /**
@@ -517,7 +521,10 @@ class TaskActions
             $step();
         } catch (Throwable $e) {
             report($e);
-            DB::table('tasks')->where('id', $task->id)->update($original + ['updated_at' => now()]);
+            DB::table('tasks')
+                ->where('id', $task->id)
+                ->whereIn('status', [TaskStatus::AwaitingCi->value, TaskStatus::Retrying->value])
+                ->update($original + ['updated_at' => now()]);
 
             throw new HttpException(503, 'Yak could not restart this task. Try again in a moment.');
         }
@@ -525,13 +532,16 @@ class TaskActions
 
     /**
      * @param  list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>  $runs
-     * @return bool false when GitHub refuses in a way that repeats; a passing failure throws
+     * @return bool false when GitHub refuses every rerun in a way that repeats; once one rerun is accepted the
+     *              refused runs are skipped, because the accepted run reports back through the webhook; a passing failure throws
      */
     private function rerunFailedRuns(YakTask $task, array $runs, bool $isTimeBounded): bool
     {
         $repository = Repository::where('slug', $task->repo)->firstOrFail();
         $installationId = (int) config('yak.channels.github.installation_id');
         $gitHub = app(GitHubAppService::class);
+        $isAccepted = false;
+        $isRefused = false;
 
         foreach ($runs as $run) {
             $isFailed = ! GitHubAppService::isUnfinishedWorkflowRun($run) && ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true);
@@ -543,15 +553,19 @@ class TaskActions
             $response = $gitHub->rerunFailedJobsResponse($installationId, $repository->github_full_name, $run['id'], $isTimeBounded);
 
             if (GitHubAppService::isLastingRefusal($response)) {
-                return false;
+                $isRefused = true;
+
+                continue;
             }
 
             if (! $response->successful()) {
                 throw new RuntimeException('GitHub could not rerun the failed jobs of run ' . $run['id'] . ' (' . $response->status() . ')');
             }
+
+            $isAccepted = true;
         }
 
-        return true;
+        return $isAccepted || ! $isRefused;
     }
 
     /**

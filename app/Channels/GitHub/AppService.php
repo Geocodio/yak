@@ -852,7 +852,14 @@ class AppService
      */
     public static function isLastingRefusal(Response $response): bool
     {
-        return $response->clientError() && ! in_array($response->status(), [408, 429], true);
+        if (in_array($response->status(), [408, 429], true)) {
+            return false;
+        }
+
+        $isSecondaryRateLimit = $response->status() === 403
+            && ($response->hasHeader('retry-after') || $response->header('x-ratelimit-remaining') === '0');
+
+        return $response->clientError() && ! $isSecondaryRateLimit;
     }
 
     /**

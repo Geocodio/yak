@@ -398,6 +398,36 @@ it('falls back to the agent retry once when two retries start together and GitHu
     Queue::assertPushed(RetryYakJob::class, 1);
 });
 
+it('keeps waiting for CI when GitHub accepts one rerun and refuses another for good', function () {
+    $task = timeoutCiTask($this->user);
+    Http::fake([
+        'api.github.com/repos/example/api/actions/runs/2/rerun-failed-jobs' => Http::response([], 201),
+        'api.github.com/repos/example/api/actions/runs/3/rerun-failed-jobs' => Http::response(['message' => 'disabled'], 403),
+        'api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [
+            ['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure'],
+            ['id' => 3, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure'],
+        ]]),
+    ]);
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+    Queue::assertNothingPushed();
+});
+
+it('treats a GitHub rate limit refusal as passing and puts the task back', function (array $headers) {
+    $task = timeoutCiTask($this->user);
+    Http::fake([
+        'api.github.com/repos/example/api/actions/runs/*/rerun-failed-jobs' => Http::response(['message' => 'rate limit'], 403, $headers),
+        'api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure']]]),
+    ]);
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertStatus(503);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
+    Queue::assertNothingPushed();
+})->with([[['retry-after' => '30']], [['x-ratelimit-remaining' => '0']]]);
+
 it('puts the task back and answers 503 when the rerun fails in passing', function (int $status) {
     $task = timeoutCiTask($this->user);
     Http::fake([
