@@ -17,45 +17,45 @@ beforeEach(function () {
 
 dataset('spawn refusals', [
     'a child' => [
-        fn () => Thread::factory()->child()->create(),
+        fn () => Thread::factory()->child(Thread::factory()->private()->create())->create(),
         'sub_thread_cannot_spawn',
         'A sub-thread cannot start sub-threads of its own. Add it to the parent thread instead.',
         'Sub-threads cannot spawn their own sub-threads.',
     ],
     'a closed root' => [
-        fn () => Thread::factory()->closed()->create(),
+        fn () => Thread::factory()->private()->closed()->create(),
         'thread_closed',
         'This thread is closed, so it cannot start sub-threads.',
         'This thread is closed, so it cannot spawn sub-threads.',
     ],
     'a device-owned root' => [
-        fn () => Thread::factory()->ownedByDevice()->create(),
+        fn () => Thread::factory()->private()->ownedByDevice()->create(),
         'thread_owned_by_device',
         'Your computer is working on this thread. Hand it back to Yak before adding a sub-thread.',
         'Teleport this session to Yak first.',
     ],
     'a stopped stack' => [
-        fn () => Thread::factory()->create(['stack_stopped_at' => now()]),
+        fn () => Thread::factory()->private()->create(['stack_stopped_at' => now()]),
         'stack_stopped',
         'This stack was stopped, so it cannot start sub-threads.',
         'This stack was stopped, so it cannot spawn sub-threads.',
     ],
     'a full stack' => [
         function () {
-            $root = Thread::factory()->create();
+            $root = Thread::factory()->private()->create();
             Thread::factory()->child($root)->count(12)->create();
 
             return $root;
         },
         'stack_full',
-        'This thread has 12 of 12 sub-threads. Close one to add another.',
+        'This thread has started 12 of 12 sub-threads, the most one thread can have.',
         'A thread can have at most 12 sub-threads.',
     ],
 ]);
 
 it('gives each spawn refusal a code and a sentence for a person', function (Closure $makeParent, string $code, string $message, string $claudeMessage) {
     $parent = $makeParent();
-    $refusal = $this->rules->refusalForSpawn($parent, User::factory()->create());
+    $refusal = $this->rules->refusalForSpawn($parent, $parent->rootThread()->owner);
 
     expect($refusal)->toBeInstanceOf(ThreadActionRefused::class)
         ->and($refusal->errorCode)->toBe($code)
@@ -63,7 +63,7 @@ it('gives each spawn refusal a code and a sentence for a person', function (Clos
         ->and($refusal->status)->toBe(409);
 
     if ($code === 'sub_thread_cannot_spawn') {
-        expect($refusal->details)->toBe(['parentId' => $parent->public_id]);
+        expect($refusal->details)->toBe(['parentId' => $parent->rootThread()->public_id]);
     } elseif ($code === 'stack_full') {
         expect($refusal->details)->toBe(['count' => 12, 'max' => 12]);
     } else {
@@ -96,11 +96,14 @@ it('allows an open root with room', function () {
 });
 
 it('counts every child toward the cap', function () {
-    $root = Thread::factory()->create();
+    $root = Thread::factory()->private()->create();
     Thread::factory()->child($root)->count(11)->create();
     Thread::factory()->child($root)->closed()->create();
 
-    expect($this->rules->refusalForSpawn($root, User::factory()->create())->errorCode)->toBe('stack_full');
+    $refusal = $this->rules->refusalForSpawn($root, $root->owner);
+
+    expect($refusal->errorCode)->toBe('stack_full')
+        ->and($refusal->details)->toBe(['count' => 12, 'max' => 12]);
 });
 
 it('converts a violation without a code only by mistake', function () {

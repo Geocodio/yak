@@ -46,7 +46,7 @@ class StackRules
                 'Sub-threads cannot spawn their own sub-threads.',
                 ThreadActionRefused::SUB_THREAD_CANNOT_SPAWN,
                 'A sub-thread cannot start sub-threads of its own. Add it to the parent thread instead.',
-                ['parentId' => $parent->public_id],
+                ['parentId' => $parent->rootThread()->public_id],
             );
         }
 
@@ -81,7 +81,7 @@ class StackRules
             return new StackRuleViolation(
                 "A thread can have at most {$maxChildren} sub-threads.",
                 ThreadActionRefused::STACK_FULL,
-                "This thread has {$count} of {$maxChildren} sub-threads. Close one to add another.",
+                "This thread has started {$count} of {$maxChildren} sub-threads, the most one thread can have.",
                 ['count' => $count, 'max' => $maxChildren],
             );
         }
