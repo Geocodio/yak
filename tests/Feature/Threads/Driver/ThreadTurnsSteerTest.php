@@ -2,8 +2,10 @@
 
 use App\Enums\RunnerState;
 use App\Enums\SteeringMode;
+use App\Enums\ThreadLockHolder;
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
+use App\Enums\TurnState;
 use App\Http\Resources\ThreadMessagesData;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
@@ -110,4 +112,54 @@ it('dates a delivered steer by when the person sent it', function () {
     $shown = collect(ThreadMessagesData::for($thread))->firstWhere('uuid', $message->uuid);
 
     expect($shown['sentAt'])->toBe($message->created_at->toIso8601String());
+});
+
+it('does not send a steer the running turn already received in the next prompt', function () {
+    [$thread, $run, $task] = runningThreadWithTask();
+    $fakes = fakeTurnCollaborators();
+    $fakes['commands']->shouldReceive('steer')->twice();
+
+    $messages = [
+        app(ThreadTurns::class)->steer($thread, 'Order test B', null, null, null, 'thread'),
+        app(ThreadTurns::class)->steer($thread, 'Order test C', null, null, null, 'thread'),
+    ];
+    ThreadTurnMessage::query()->whereIn('uuid', collect($messages)->pluck('uuid'))->update(['state' => TurnMessageState::Started]);
+    $run->forceFill(['turn_state' => TurnState::Completed])->save();
+    $thread->forceFill(['runner_state' => RunnerState::Idle, 'lock_holder' => ThreadLockHolder::None])->save();
+
+    $fakes['commands']->shouldReceive('startRunner');
+    $fakes['commands']->shouldReceive('turn')->once()->with(Mockery::any(), Mockery::any(), 'QA test 6');
+
+    app(ThreadTurns::class)->start($task, 'QA test 6', null, null);
+});
+
+it('sends a queued steer that was never delivered exactly once in the next prompt', function () {
+    [$thread, $run, $task] = runningThreadWithTask();
+    $fakes = fakeTurnCollaborators();
+    $thread->forceFill(['runner_state' => RunnerState::Starting])->save();
+    $fakes['commands']->shouldNotReceive('steer');
+
+    app(ThreadTurns::class)->steer($thread, 'Order test D', null, null, null, 'thread');
+    $run->forceFill(['turn_state' => TurnState::Completed])->save();
+    $thread->forceFill(['runner_state' => RunnerState::Idle, 'lock_holder' => ThreadLockHolder::None])->save();
+
+    $fakes['commands']->shouldReceive('startRunner');
+    $fakes['commands']->shouldReceive('turn')->once()->with(Mockery::any(), Mockery::any(), "- Order test D\n\nQA test 6");
+
+    app(ThreadTurns::class)->start($task, 'QA test 6', null, null);
+});
+
+it('carries a steer the turn ended without reading into the next prompt once', function () {
+    [$thread, $run, $task] = runningThreadWithTask();
+    $fakes = fakeTurnCollaborators();
+    $fakes['commands']->shouldReceive('steer')->once();
+
+    app(ThreadTurns::class)->steer($thread, 'Order test E', null, null, null, 'thread');
+    $run->forceFill(['turn_state' => TurnState::Completed])->save();
+    $thread->forceFill(['runner_state' => RunnerState::Idle, 'lock_holder' => ThreadLockHolder::None])->save();
+
+    $fakes['commands']->shouldReceive('startRunner');
+    $fakes['commands']->shouldReceive('turn')->once()->with(Mockery::any(), Mockery::any(), "- Order test E\n\nQA test 6");
+
+    app(ThreadTurns::class)->start($task, 'QA test 6', null, null);
 });

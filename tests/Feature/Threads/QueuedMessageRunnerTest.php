@@ -102,7 +102,7 @@ it('starts nothing for a message that is already delivered', function () {
         'task_run_id' => $run->id,
         'uuid' => $message->uuid,
         'kind' => TurnMessageKind::Steer,
-        'state' => TurnMessageState::Sent,
+        'state' => TurnMessageState::Started,
         'pending_steering_message_id' => $message->id,
     ]);
 
