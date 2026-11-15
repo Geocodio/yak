@@ -4,8 +4,8 @@ namespace App\Http\Resources;
 
 use App\Models\Device;
 use App\Models\User;
-use App\Services\Ssh\TerminalSessions;
 use App\Services\Push\Apns\ApnsConfig;
+use App\Services\Ssh\TerminalSessions;
 use App\Services\Threads\NeedsYouCount;
 
 /**

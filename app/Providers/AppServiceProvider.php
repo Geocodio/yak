@@ -206,11 +206,5 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(1200)->by($device instanceof Device ? 'files:' . $device->id : 'files-ip:' . $request->ip());
         });
-
-        RateLimiter::for('app-push-test', function (Request $request): Limit {
-            $device = $request->attributes->get('device');
-
-            return Limit::perMinute(6)->by($device instanceof Device ? 'push-test:' . $device->id : 'push-test-ip:' . $request->ip());
-        });
     }
 }
