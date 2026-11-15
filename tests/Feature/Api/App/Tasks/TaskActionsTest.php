@@ -477,6 +477,17 @@ it('answers 503 and puts the task back when the resume job cannot be queued', fu
     expect($task->status)->toBe(TaskStatus::Failed)->and($task->attempts)->toBe(2)->and($task->error_log)->toBe('CI failed');
 });
 
+it('logs that the restart failed when the resume job cannot be queued', function () {
+    $task = actionTask($this->user, ['branch_name' => 'yak/upgrade-payments-sdk', 'attempts' => 2, 'error_log' => 'CI failed']);
+    TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
+    Queue::shouldReceive('push')->andThrow(new RuntimeException('redis down'));
+    Queue::shouldReceive('connection')->andReturnSelf();
+
+    $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertStatus(503);
+
+    expect($task->logs()->where('message', 'Could not restart the task, it stays failed')->exists())->toBeTrue();
+});
+
 it('answers 503 and releases the render claim when the render cannot be queued', function () {
     $task = actionTask($this->user, ['status' => TaskStatus::Success]);
     $raw = Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video']);

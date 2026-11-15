@@ -13,6 +13,7 @@ use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class TaskActionController extends Controller
 {
@@ -53,6 +54,12 @@ class TaskActionController extends Controller
             $outcome = $action();
         } catch (ThreadActionRefused $refused) {
             return redirect()->route('tasks.show', $task)->with('error', $refused->getMessage());
+        } catch (HttpException $unavailable) {
+            if ($unavailable->getStatusCode() !== 503) {
+                throw $unavailable;
+            }
+
+            return redirect()->route('tasks.show', $task)->with('error', $unavailable->getMessage());
         } catch (ValidationException $invalid) {
             return redirect()->route('tasks.show', $task)->with('error', (string) collect($invalid->errors())->flatten()->first());
         }

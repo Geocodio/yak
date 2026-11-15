@@ -526,6 +526,8 @@ class TaskActions
                 ->whereIn('status', [TaskStatus::AwaitingCi->value, TaskStatus::Retrying->value])
                 ->update($original + ['updated_at' => now()]);
 
+            TaskLogger::warning($task, 'Could not restart the task, it stays failed');
+
             throw new HttpException(503, 'Yak could not restart this task. Try again in a moment.');
         }
     }

@@ -507,3 +507,24 @@ test('two retry renders push one render', function () {
 
     Queue::assertPushed(RenderVideoJob::class, 1);
 });
+
+test('retry shows an error flash instead of an error page when the queue refuses the job', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/slow',
+        'branch_name' => 'yak/FIX-QUEUE',
+        'attempts' => 1,
+        'error_log' => 'CI failed',
+        'completed_at' => now(),
+    ]);
+    TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
+    Queue::shouldReceive('push')->andThrow(new RuntimeException('redis down'));
+    Queue::shouldReceive('connection')->andReturnSelf();
+
+    $this->post(route('tasks.retry', $task))
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('error', 'Yak could not restart this task. Try again in a moment.');
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
+});

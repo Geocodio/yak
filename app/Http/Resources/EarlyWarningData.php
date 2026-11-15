@@ -26,8 +26,8 @@ final class EarlyWarningData
 {
     private const int CANDIDATE_SCAN_LIMIT = 25;
 
-    /** One check is a user lookup and a permission lookup, each bounded to 3 seconds. */
-    private const int CHECK_WORST_CASE_SECONDS = 6;
+    /** One check is a user lookup and a permission lookup, each bounded to 3 seconds, plus a token refresh bounded to 3 seconds on the first check. */
+    private const int CHECK_WORST_CASE_SECONDS = 9;
 
     /**
      * Present while the conversation has an early warning and no co-owner request yet.
