@@ -11,10 +11,9 @@ struct ThreadsButton: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .overlay(alignment: .topTrailing) {
                     if needsYouCount > 0 {
-                        Text(needsYouCount, format: .number).font(.caption2.weight(.bold)).foregroundStyle(.white)
-                            .padding(.horizontal, 5).frame(minWidth: 16, minHeight: 16)
-                            .background(Color.red, in: .capsule).offset(x: -2, y: 4)
-                            .accessibilityHidden(true)
+                        // The system strip of a folding phone drops a button with a text badge, so the badge is a plain dot.
+                        // The label carries the count.
+                        Circle().fill(Color.red).frame(width: 10, height: 10).padding(6).accessibilityHidden(true)
                     }
                 }
                 .contentShape(.rect)

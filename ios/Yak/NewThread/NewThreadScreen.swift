@@ -241,6 +241,7 @@ private struct NewThreadContent: View {
             if let failure = model.sendFailure { problemLine(Self.sendFailureText(failure)) }
         }
         .padding(.horizontal, 8).padding(.bottom, 4)
+        .frame(maxWidth: 560).frame(maxWidth: .infinity)
         .animation(.smooth(duration: 0.25), value: model.pending == nil)
     }
 
@@ -430,7 +431,7 @@ private struct NewThreadContent: View {
                 if model.isSending {
                     ProgressView().controlSize(.small)
                 } else {
-                    Image(systemName: "arrow.up").font(.body.weight(.bold))
+                    Image(systemName: "arrow.up").font(.system(size: 17, weight: .bold))
                 }
             }
             .frame(width: 36, height: 36)
@@ -442,6 +443,7 @@ private struct NewThreadContent: View {
         .opacity(model.isLocked ? 0.4 : 1)
         .keyboardShortcut(.return, modifiers: .command)
         .accessibilityLabel("newThread.send").accessibilityIdentifier("newThread.send")
+        .accessibilityShowsLargeContentViewer { Label("newThread.send", systemImage: "arrow.up") }
     }
 
     private func importPhotos() {

@@ -214,6 +214,7 @@ import XCTest
         app.buttons["newThread.send"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["newThread.refused"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.buttons["newThread.edit"].exists)
+        XCTAssertTrue(app.buttons["threads.button"].exists)
         try shootNewThread("new-thread-refused")
     }
 
@@ -231,6 +232,7 @@ import XCTest
         try stub.setOnline(true)
         let waiting = app.descendants(matching: .any)["newThread.waiting"]
         XCTAssertTrue(waiting.waitForNonExistence(timeout: 40))
+        XCTAssertTrue(app.descendants(matching: .any)["thread.bar"].waitForExistence(timeout: 30))
     }
 
     func testNewThreadNoRepositories() throws {
