@@ -1,0 +1,12 @@
+{
+    "canEdit": false,
+    "content": null,
+    "headContent": null,
+    "isBinary": true,
+    "isTooLarge": false,
+    "language": "text",
+    "path": "public/logo.png",
+    "sha256": "d4d6cdf530e136a2e717ae06e847f497df5cf94007feba3e8f41dbd092e1ac17",
+    "size": 8,
+    "state": "ready"
+}

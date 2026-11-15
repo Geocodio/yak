@@ -7,6 +7,7 @@ use App\Enums\FileScope;
 use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\App\ListThreadFilesRequest;
+use App\Http\Requests\Api\App\ShowThreadFileRequest;
 use App\Http\Resources\ThreadDiffData;
 use App\Models\Thread;
 use App\Services\Threads\Files\SandboxFileAvailability;
@@ -14,6 +15,7 @@ use App\Services\Threads\Files\SandboxFiles;
 use App\Services\Threads\Files\SandboxPath;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 class ThreadFileController extends Controller
 {
@@ -46,6 +48,26 @@ class ThreadFileController extends Controller
             'addedPaths' => $paths['added'],
             'truncated' => $listing->truncated,
         ]);
+    }
+
+    /**
+     * One file with its hash and committed version, in the web's shape plus `state` and `canEdit`.
+     */
+    public function show(ShowThreadFileRequest $request, Thread $thread): JsonResponse
+    {
+        $this->ensureAvailable($request, $thread);
+
+        $scope = $request->fileScope();
+        $path = $request->folderPath();
+        $file = $this->files->read($thread, $scope, $path);
+        $this->sandbox->markSessionOpen($thread);
+
+        $canEdit = Gate::allows('drive', $thread)
+            && ! $file->isTooLarge
+            && ! $file->isBinary
+            && SandboxPath::isWritable(SandboxPath::resolve($thread, $scope, $path));
+
+        return response()->json([...$file->toArray(), 'state' => 'ready', 'canEdit' => $canEdit]);
     }
 
     private function ensureAvailable(ListThreadFilesRequest $request, Thread $thread): void
