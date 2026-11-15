@@ -70,11 +70,28 @@ struct MarkdownBlocksTests {
             for text in texts {
                 let joined = MarkdownBlocks.parse(text).map(flatten).joined(separator: " ")
                 let words = text.split(whereSeparator: \.isWhitespace)
-                for word in words where word.allSatisfy({ $0.isLetter || $0.isNumber }) {
-                    #expect(joined.contains(word), "\(name) lost \(word)")
+                for word in words {
+                    let core = word.trimmingCharacters(in: .punctuationCharacters.union(.symbols))
+                    if core.isEmpty { continue }
+                    #expect(joined.contains(core), "\(name) lost \(core)")
                 }
             }
         }
+    }
+
+    @Test func deeplyNestedQuotesDoNotOverflowTheStack() async {
+        let blocks = await Task.detached {
+            MarkdownBlocks.parse(String(repeating: ">", count: 10_000) + " x")
+        }.value
+        var current = blocks
+        var text = ""
+        while let first = current.first {
+            if case .quote(let inner) = first { current = inner } else {
+                if case .paragraph(let value) = first { text = value }
+                break
+            }
+        }
+        #expect(text.contains("x"))
     }
 
     private func flatten(_ block: MarkdownBlock) -> String {

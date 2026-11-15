@@ -20,10 +20,13 @@ public enum MarkdownBlocks {
     public static func parse(_ markdown: String) -> [MarkdownBlock] {
         let lines = markdown.replacingOccurrences(of: "\r\n", with: "\n")
             .split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        return parse(lines: lines)
+        return parse(lines: lines, depth: 0)
     }
 
-    private static func parse(lines: [String]) -> [MarkdownBlock] {
+    /// Quotes nest at most this deep, so hostile input cannot exhaust a small thread stack.
+    private static let maximumQuoteDepth = 8
+
+    private static func parse(lines: [String], depth: Int) -> [MarkdownBlock] {
         var blocks: [MarkdownBlock] = []
         var index = 0
         while index < lines.count {
@@ -51,7 +54,11 @@ public enum MarkdownBlocks {
                     inner.append(content)
                     index += 1
                 }
-                blocks.append(.quote(parse(lines: inner)))
+                if depth >= maximumQuoteDepth {
+                    blocks.append(.paragraph(inner.joined(separator: "\n")))
+                } else {
+                    blocks.append(.quote(parse(lines: inner, depth: depth + 1)))
+                }
             } else if let table = table(lines, at: index) {
                 blocks.append(table.block)
                 index = table.next
