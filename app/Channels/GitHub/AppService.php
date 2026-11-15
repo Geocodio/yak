@@ -857,7 +857,7 @@ class AppService
         }
 
         $isSecondaryRateLimit = $response->status() === 403
-            && ($response->hasHeader('retry-after') || $response->header('x-ratelimit-remaining') === '0');
+            && ($response->header('retry-after') !== '' || $response->header('x-ratelimit-remaining') === '0');
 
         return $response->clientError() && ! $isSecondaryRateLimit;
     }
