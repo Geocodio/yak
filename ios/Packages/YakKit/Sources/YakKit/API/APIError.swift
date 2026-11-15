@@ -15,6 +15,7 @@ public enum JSONValue: Codable, Sendable, Equatable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
+        // Decode probes: JSONValue tries each shape in turn.
         if container.decodeNil() {
             self = .null
         } else if let value = try? container.decode(Bool.self) {
@@ -43,6 +44,20 @@ public enum JSONValue: Codable, Sendable, Equatable {
     }
 }
 
+extension JSONValue {
+    /// The member named `key` when this value is an object that has one.
+    public subscript(key: String) -> JSONValue? {
+        if case .object(let members) = self { return members[key] }
+        return nil
+    }
+
+    /// The text when this value is a string.
+    public var stringValue: String? {
+        if case .string(let text) = self { return text }
+        return nil
+    }
+}
+
 /// The server's error body: `{"error": code, "message": text, "details": {...}}`.
 public struct APIError: Error, Equatable, Sendable {
     public let status: Int
@@ -50,12 +65,17 @@ public struct APIError: Error, Equatable, Sendable {
     public let code: String
     public let message: String
     public let details: [String: JSONValue]
+    /// Whole seconds from the `Retry-After` header of a 429; nil when it is missing or not a sane number.
+    public let retryAfterSeconds: Int?
 
-    public init(status: Int, code: String, message: String, details: [String: JSONValue]) {
+    public init(
+        status: Int, code: String, message: String, details: [String: JSONValue], retryAfterSeconds: Int? = nil
+    ) {
         self.status = status
         self.code = code
         self.message = message
         self.details = details
+        self.retryAfterSeconds = retryAfterSeconds
     }
 
     /// Reads the error shape from a response body, or returns nil when the body is not that shape.
@@ -65,6 +85,7 @@ public struct APIError: Error, Equatable, Sendable {
             let message: String?
             let details: [String: JSONValue]?
         }
+        // Decode probe: a body that is not the error envelope gives nil, and the caller falls back to the status.
         guard let decoded = try? JSONDecoder().decode(Body.self, from: body) else { return nil }
         return APIError(
             status: status, code: decoded.error, message: decoded.message ?? "",

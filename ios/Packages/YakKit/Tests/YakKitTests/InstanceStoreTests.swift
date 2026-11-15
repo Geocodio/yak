@@ -121,4 +121,27 @@ private struct LockedTokenStore: TokenStore {
         defaults.set(Data("not json".utf8), forKey: "instances.v1")
         #expect(await makeStore(defaults: defaults).all().isEmpty)
     }
+
+    @Test func badgeCountSumsReadyInstancesOnly() async throws {
+        let tokens = InMemoryTokenStore()
+        let store = makeStore(tokens: tokens)
+        let first = try await store.add(url: address, name: "A", userName: "U", token: "t1")
+        let second = try await store.add(url: otherAddress, name: "B", userName: "U", token: "t2")
+        try await store.setNeedsYouCount(first.id, 2)
+        try await store.setNeedsYouCount(second.id, 3)
+        #expect(await store.badgeCount() == 5)
+        try tokens.removeToken(for: second.id)
+        #expect(await store.badgeCount() == 2)
+    }
+
+    @Test func needsYouCountIsStored() async throws {
+        let defaults = InMemoryKeyValueStore()
+        let store = makeStore(defaults: defaults)
+        let instance = try await store.add(url: address, name: "A", userName: "U", token: "t")
+        try await store.setNeedsYouCount(instance.id, 4)
+        #expect(await makeStore(defaults: defaults).all().first?.needsYouCount == 4)
+        await #expect(throws: InstanceStoreError.unknownInstance) {
+            try await store.setNeedsYouCount(UUID(), 1)
+        }
+    }
 }

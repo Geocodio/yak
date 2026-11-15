@@ -1,0 +1,145 @@
+{
+  "scenario": "question",
+  "source": "synthetic",
+  "broadcasts": [
+    {
+      "sequence": 1,
+      "type": "turn",
+      "data": {
+        "turnId": 43,
+        "state": "running"
+      },
+      "createdAt": "2026-11-15T09:00:01Z"
+    },
+    {
+      "sequence": 2,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_6",
+        "blocks": [
+          {
+            "type": "text",
+            "text": "Which behavior do you want when all retries fail?"
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:02Z"
+    },
+    {
+      "sequence": 3,
+      "type": "entry",
+      "data": {
+        "role": "result",
+        "subtype": "success",
+        "isError": false,
+        "text": "Which behavior do you want when all retries fail?",
+        "costUsd": 0.02,
+        "durationMs": 900,
+        "numTurns": 1
+      },
+      "createdAt": "2026-11-15T09:00:03Z"
+    },
+    {
+      "sequence": 4,
+      "type": "turn",
+      "data": {
+        "turnId": 43,
+        "state": "completed"
+      },
+      "createdAt": "2026-11-15T09:00:04Z"
+    },
+    {
+      "sequence": 5,
+      "type": "thread",
+      "data": {
+        "status": "open",
+        "sandboxState": "running",
+        "runnerState": "idle",
+        "blockedReason": null
+      },
+      "createdAt": "2026-11-15T09:00:05Z"
+    },
+    {
+      "sequence": 6,
+      "type": "question",
+      "data": {
+        "open": true
+      },
+      "createdAt": "2026-11-15T09:00:06Z"
+    }
+  ],
+  "catchUp": {
+    "events": [
+      {
+        "sequence": 1,
+        "type": "turn",
+        "data": {
+          "turnId": 43,
+          "state": "running"
+        },
+        "createdAt": "2026-11-15T09:00:01Z"
+      },
+      {
+        "sequence": 2,
+        "type": "entry",
+        "data": {
+          "role": "assistant",
+          "messageId": "msg_6",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Which behavior do you want when all retries fail?"
+            }
+          ]
+        },
+        "createdAt": "2026-11-15T09:00:02Z"
+      },
+      {
+        "sequence": 3,
+        "type": "entry",
+        "data": {
+          "role": "result",
+          "subtype": "success",
+          "isError": false,
+          "text": "Which behavior do you want when all retries fail?",
+          "costUsd": 0.02,
+          "durationMs": 900,
+          "numTurns": 1
+        },
+        "createdAt": "2026-11-15T09:00:03Z"
+      },
+      {
+        "sequence": 4,
+        "type": "turn",
+        "data": {
+          "turnId": 43,
+          "state": "completed"
+        },
+        "createdAt": "2026-11-15T09:00:04Z"
+      },
+      {
+        "sequence": 5,
+        "type": "thread",
+        "data": {
+          "status": "open",
+          "sandboxState": "running",
+          "runnerState": "idle",
+          "blockedReason": null
+        },
+        "createdAt": "2026-11-15T09:00:05Z"
+      },
+      {
+        "sequence": 6,
+        "type": "question",
+        "data": {
+          "open": true
+        },
+        "createdAt": "2026-11-15T09:00:06Z"
+      }
+    ],
+    "latestSequence": 6,
+    "source": "database"
+  },
+  "pointers": []
+}

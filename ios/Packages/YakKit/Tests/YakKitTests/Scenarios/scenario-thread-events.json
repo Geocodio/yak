@@ -1,0 +1,45 @@
+{
+  "events": [
+    {
+      "sequence": 12,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_2",
+        "blocks": [
+          {
+            "type": "text",
+            "text": "Done. Failed rows now retry three times.",
+            "html": "<p>Done. Failed rows now retry three times.</p>"
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:12Z"
+    },
+    {
+      "sequence": 13,
+      "type": "entry",
+      "data": {
+        "role": "result",
+        "subtype": "success",
+        "isError": false,
+        "text": "Done. Failed rows now retry three times.",
+        "costUsd": 0.12,
+        "durationMs": 4200,
+        "numTurns": 2
+      },
+      "createdAt": "2026-11-15T09:00:13Z"
+    },
+    {
+      "sequence": 14,
+      "type": "turn",
+      "data": {
+        "turnId": 41,
+        "state": "completed"
+      },
+      "createdAt": "2026-11-15T09:00:14Z"
+    }
+  ],
+  "latestSequence": 14,
+  "source": "database"
+}

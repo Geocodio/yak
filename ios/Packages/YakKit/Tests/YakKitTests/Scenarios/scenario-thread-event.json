@@ -1,0 +1,32 @@
+{
+  "sequence": 8,
+  "type": "entry",
+  "data": {
+    "role": "assistant",
+    "messageId": "msg_1",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Looking at the importer.",
+        "html": "<p>Looking at the importer.</p>"
+      },
+      {
+        "type": "tool_use",
+        "id": "toolu_1",
+        "name": "Read",
+        "input": {
+          "file_path": "app/Importer.php"
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "toolu_2",
+        "name": "Bash",
+        "input": {
+          "command": "php artisan test --filter=Import"
+        }
+      }
+    ]
+  },
+  "createdAt": "2026-11-15T09:00:08Z"
+}

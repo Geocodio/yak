@@ -1,0 +1,52 @@
+{
+  "repos": [
+    {
+      "slug": "example/api",
+      "name": "api",
+      "setupStatus": "ready",
+      "setupStep": null
+    },
+    {
+      "slug": "example/web",
+      "name": "web",
+      "setupStatus": "running",
+      "setupStep": "Installing dependencies"
+    }
+  ],
+  "picker": {
+    "accounts": [
+      {
+        "id": 3,
+        "name": "Test account",
+        "kind": "team",
+        "icon": "users",
+        "color": "slate",
+        "isSystem": false,
+        "isDefault": true,
+        "defaultModel": "sonnet",
+        "usable": true,
+        "status": "ok"
+      }
+    ],
+    "defaultsByRepo": {
+      "example/api": {
+        "accountId": 3,
+        "brokenDefaultAccountId": null,
+        "model": null
+      }
+    },
+    "models": []
+  },
+  "defaultRepo": "example/api",
+  "models": [
+    {
+      "family": "sonnet",
+      "latest": {
+        "value": "sonnet",
+        "label": "Sonnet 5.5",
+        "description": "Fast and capable"
+      },
+      "older": []
+    }
+  ]
+}

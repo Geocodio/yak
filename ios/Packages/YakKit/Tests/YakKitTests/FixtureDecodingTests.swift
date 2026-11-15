@@ -12,6 +12,16 @@ enum Fixtures {
     }
 
     static func object(_ name: String) throws -> Any {
+        try JSONSerialization.jsonObject(with: Data(contentsOf: url(name)))
+    }
+
+    /// True when `ios/fixtures/<name>.json` is there.
+    static func exists(_ name: String) -> Bool {
+        guard let url = try? url(name) else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    private static func url(_ name: String) throws -> URL {
         // The fixtures are read from disk through `#filePath`, not bundled as a SwiftPM resource:
         // `ios/fixtures` is a symlink to the shared fixtures, and SwiftPM copies a symlinked resource
         // as a dangling link, so a bundled copy would be empty. Walk up from this file to the `ios`
@@ -22,8 +32,7 @@ enum Fixtures {
             try #require(parent != directory, "FixtureDecodingTests.swift must live under the ios directory")
             directory = parent
         }
-        let url = directory.appendingPathComponent("fixtures/\(name).json")
-        return try JSONSerialization.jsonObject(with: Data(contentsOf: url))
+        return directory.appendingPathComponent("fixtures/\(name).json")
     }
 
     static func replacingMarkers(_ value: Any) -> Any {
@@ -60,6 +69,75 @@ func decodesEveryFixture(name: String) throws {
         #expect(me.device.kind == "phone" && me.device.pairedAt == "volatile")
     case "device-code": #expect(try JSONDecoder().decode(DeviceCode.self, from: data).interval == 5)
     default: #expect(try JSONDecoder().decode(PairingResponse.self, from: data).device.kind == "phone")
+    }
+}
+
+@Test(arguments: [
+    "threads", "thread", "thread-question", "thread-new", "thread-store",
+    "thread-message-sent", "thread-message-queued", "thread-message-clear",
+])
+func decodesEveryThreadFixture(name: String) throws {
+    guard Fixtures.exists(name) else { return }  // Runs once the server's fixture exists.
+    let data = try Fixtures.data(name)
+    switch name {
+    case "threads": _ = try JSONDecoder().decode(ThreadList.self, from: data)
+    case "thread": #expect(try JSONDecoder().decode(ThreadShow.self, from: data).question == nil)
+    case "thread-question":
+        #expect(try JSONDecoder().decode(ThreadShow.self, from: data).question?.questions.isEmpty == false)
+    case "thread-new": _ = try JSONDecoder().decode(NewThreadOptions.self, from: data)
+    case "thread-store": _ = try JSONDecoder().decode(ThreadCreated.self, from: data)
+    case "thread-message-sent": #expect(try JSONDecoder().decode(MessageSendResult.self, from: data).status == .sent)
+    case "thread-message-queued":
+        #expect(try JSONDecoder().decode(MessageSendResult.self, from: data).status == .queued)
+    default:
+        let clear = try JSONDecoder().decode(MessageSendResult.self, from: data)
+        #expect(clear.status == .sent && clear.uuid == nil && clear.threadId != nil)
+    }
+}
+
+@Test(arguments: ["thread-events", "thread-event", "broadcasting-auth-private", "broadcasting-auth-presence"])
+func decodesEveryEventFixture(name: String) throws {
+    guard Fixtures.exists(name) else { return }  // Runs once the server's fixture exists.
+    let data = try Fixtures.data(name)
+    switch name {
+    case "thread-events":
+        #expect(try JSONDecoder().decode(EventsPage.self, from: data).events.allSatisfy { $0.payload != .unknown })
+    case "thread-event": #expect(try JSONDecoder().decode(ThreadEvent.self, from: data).payload != .unknown)
+    case "broadcasting-auth-private":
+        #expect(try JSONDecoder().decode(ChannelAuthorization.self, from: data).channelData == nil)
+    default: #expect(try JSONDecoder().decode(ChannelAuthorization.self, from: data).channelData != nil)
+    }
+}
+
+@Test(arguments: ["simple-turn", "steer", "question", "failed-turn", "stream-reset", "pointer"])
+func decodesEveryServerEventList(name: String) throws {
+    guard Fixtures.exists("events/\(name)") else { return }  // Runs once the server's fixture exists.
+    let list = try EventList.loadFixture("events/\(name)")
+    let sequences = list.broadcasts.map { item -> Int in
+        switch item {
+        case .event(let event): return event.sequence
+        case .pointer(let sequence): return sequence
+        }
+    }
+    #expect(sequences == Array(1...(sequences.count + 1)).dropLast())
+    #expect(list.events.allSatisfy { $0.payload != .unknown })
+    // A catch-up served from the live window still carries deltas and stream resets; one served from the
+    // database does not. Either way, replaying it must leave the same stored events as the socket did.
+    var fromSocket = ThreadEventState()
+    fromSocket.apply(list.events)
+    var fromCatchUp = ThreadEventState()
+    fromCatchUp.apply(list.catchUp.events, latestSequence: list.catchUp.latestSequence)
+    #expect(fromCatchUp.storedEvents.map(\.sequence) == fromSocket.storedEvents.map(\.sequence))
+    #expect(fromCatchUp.lastSequence == list.catchUp.latestSequence)
+    let pointerCount = list.broadcasts.filter { if case .pointer = $0 { true } else { false } }.count
+    #expect(list.pointers.count == pointerCount)
+    switch name {
+    case "stream-reset": #expect(list.events.contains { $0.payload == .streamReset })
+    case "question":
+        let last = list.events.suffix(2).map { $0.payload }
+        #expect(last == [.question(QuestionChange(open: true)), .question(QuestionChange(open: false))])
+    case "pointer": #expect(pointerCount == 1)
+    default: break
     }
 }
 
