@@ -159,7 +159,7 @@ it('answers a repeat that arrives mid-send with a 503 sentence, then succeeds on
 
     $this->postJson(appThreadPath($thread, '/messages'), $body, $headers)->assertStatus(503)
         ->assertJsonPath('error', 'unavailable')
-        ->assertJsonPath('message', 'Yak is still handling this message. Try again in a moment.');
+        ->assertJsonPath('message', 'Yak is still handling this request. Try again in a moment.');
 
     $lock->release();
     $this->postJson(appThreadPath($thread, '/messages'), $body, $headers)->assertOk();

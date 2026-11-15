@@ -21,6 +21,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Creates a thread from the start screen: the thread, its primary repository,
@@ -28,8 +29,12 @@ use Illuminate\Validation\ValidationException;
  */
 class ThreadStarter
 {
-    /** Total time the extra repository checks may take, so a slow GitHub stays inside the send key lock. */
-    private const ACCESS_CHECK_BUDGET_SECONDS = 8;
+    /**
+     * Time after which no further extra repository check starts. One time-bounded check
+     * takes at most 6 s (3 s token request plus 3 s repository request), so the worst case
+     * is 3 + 6 = 9 s before the resolver and the transaction, inside the 10 s answer limit.
+     */
+    private const ACCESS_CHECK_BUDGET_SECONDS = 3;
 
     public function __construct(
         private readonly ClaudeAccountResolver $resolver,
@@ -130,7 +135,14 @@ class ThreadStarter
         }
 
         // The before-turn job prepares the branch in the thread's sandbox and writes the first turn.
-        $this->dispatcher->dispatch($task, RunYakJob::class);
+        // The thread and task are committed. A queue failure must not fail the request (a repeat would
+        // start a second thread). Stamping dispatched_at lets yak:reap-lost-pending re-dispatch the task.
+        try {
+            $this->dispatcher->dispatch($task, RunYakJob::class);
+        } catch (Throwable $exception) {
+            report($exception);
+            $task->update(['dispatched_at' => now()]);
+        }
 
         return $thread;
     }

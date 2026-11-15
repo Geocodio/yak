@@ -148,7 +148,11 @@ class TaskAttachment extends Model
      */
     public static function discard(Collection $attachments): void
     {
-        $attachments->each(fn (self $attachment) => $attachment->delete());
+        $attachments->each(function (self $attachment): void {
+            if ($attachment->fresh()?->yak_task_id === null) {
+                $attachment->delete();
+            }
+        });
     }
 
     /**

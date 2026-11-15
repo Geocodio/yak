@@ -39,7 +39,7 @@ class SendKeys
                 return $result;
             });
         } catch (LockTimeoutException) {
-            throw new HttpException(503, 'Yak is still handling this message. Try again in a moment.');
+            throw new HttpException(503, 'Yak is still handling this request. Try again in a moment.');
         }
     }
 }
