@@ -96,12 +96,14 @@ public actor InstanceSession {
     private var meRequester: APIClient?
     private var currentMe: Me?
     private var cache: Cache?
+    private var overview: OverviewActions?
     private var currentOutbox: Outbox?
     private var feed: ThreadListFeed?
     private var realtime: RealtimeClient?
     private var connectionForwarder: Task<Void, Never>?
     private var meRetryTask: Task<Void, Never>?
     private var threads: [String: OpenThread] = [:]
+    private var overviewFeeds: [String: (feed: OverviewFeed, callers: Int)] = [:]
 
     public init(instance: Instance, instances: InstanceStore, tokens: any TokenStore, environment: SessionEnvironment) {
         self.instance = instance
@@ -122,6 +124,8 @@ public actor InstanceSession {
     public func apiClient() -> APIClient? { isActive ? client : nil }
     /// The instance's cache, erased on unpair and revoke. Nil unless the session is active.
     public func instanceCache() -> Cache? { isActive ? cache : nil }
+    /// The Overview's actions, made with the client and cache at start. Nil unless the session is active.
+    public func overviewActions() -> OverviewActions? { isActive ? overview : nil }
     public nonisolated var clock: any YakClock { environment.clock }
 
     private var isActive: Bool { isStarted && !hasEnded && statusBroadcast.value == .active }
@@ -201,6 +205,8 @@ public actor InstanceSession {
         guard let client, cache == nil else { return }
         let newCache = Cache(instance: instance.id, files: environment.files, clock: environment.clock)
         cache = newCache
+        overview = OverviewActions(
+            client: client, cache: newCache, clock: environment.clock, makeID: environment.makeID)
         let newOutbox = Outbox(
             instance: instance.id, client: client, files: environment.files, clock: environment.clock,
             makeID: environment.makeID)
@@ -302,6 +308,7 @@ public actor InstanceSession {
     private func releaseParts(keepingOutbox: Bool = false) async {
         await currentOutbox?.shutDown()
         cache = nil
+        overview = nil
         if !keepingOutbox { currentOutbox = nil }
         feed = nil
         realtime = nil
@@ -319,6 +326,9 @@ public actor InstanceSession {
         connectionBroadcast.send(.offline)
         await feed?.setVisible(false)
         guard closingThreads else { return }
+        let openFeeds = overviewFeeds
+        overviewFeeds = [:]
+        for entry in openFeeds.values { await entry.feed.close() }
         let open = threads
         threads = [:]
         for entry in open.values {
@@ -420,10 +430,49 @@ public actor InstanceSession {
             return
         }
         threads[id] = nil
+        if let feed = overviewFeeds.removeValue(forKey: id) { await feed.feed.close() }
         for task in entry.forwarders { task.cancel() }
         entry.realtimeForwarder?.cancel()
         await realtime?.unsubscribe(thread: id)
         await entry.engine.close()
+    }
+
+    /// One Overview feed per open thread, however many scenes show it. Nil unless the session is active and the thread is open.
+    public func openOverview(_ threadID: String) async -> OverviewFeed? {
+        if var existing = overviewFeeds[threadID] {
+            existing.callers += 1
+            overviewFeeds[threadID] = existing
+            return existing.feed
+        }
+        guard isActive, let client, let overview, let engine = threads[threadID]?.engine else { return nil }
+        let feed = OverviewFeed(
+            threadID: threadID, client: client, clock: environment.clock, snapshots: await engine.snapshots(),
+            changes: await overview.changes())
+        // Another scene may have opened the feed, or the thread may have closed, during the awaits above.
+        if var existing = overviewFeeds[threadID] {
+            await feed.close()
+            existing.callers += 1
+            overviewFeeds[threadID] = existing
+            return existing.feed
+        }
+        guard isActive, threads[threadID] != nil else {
+            await feed.close()
+            return nil
+        }
+        overviewFeeds[threadID] = (feed, 1)
+        return feed
+    }
+
+    /// Closes the feed when the last caller leaves.
+    public func closeOverview(_ threadID: String) async {
+        guard var entry = overviewFeeds[threadID] else { return }
+        entry.callers -= 1
+        guard entry.callers <= 0 else {
+            overviewFeeds[threadID] = entry
+            return
+        }
+        overviewFeeds[threadID] = nil
+        await entry.feed.close()
     }
 
     private func realtimeForwarder(thread id: String, realtime: RealtimeClient) async -> Task<Void, Never> {

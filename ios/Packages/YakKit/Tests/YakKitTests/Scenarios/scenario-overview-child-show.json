@@ -1,0 +1,93 @@
+{
+  "thread": {
+    "id": "b4ckf111",
+    "name": "backfill-new-rows",
+    "title": "Backfill the new rows",
+    "repo": "example/api",
+    "kind": "child",
+    "status": "open",
+    "visibility": "team",
+    "branch": "yak/rebuild-search-index/backfill-new-rows",
+    "sandboxState": "running",
+    "runnerState": "idle",
+    "ownerSide": "yak",
+    "blockedReason": null,
+    "parentThreadId": "s7ackr00",
+    "rootThreadId": "s7ackr00",
+    "lastActivityAt": "2026-11-15T09:30:00Z",
+    "pullRequestCount": 0,
+    "isOwner": true,
+    "isStarred": false,
+    "sharedWithCount": 0,
+    "startedOnDevice": false
+  },
+  "canDrive": true,
+  "messages": [
+    {
+      "id": "turn-message-1",
+      "uuid": "00000000-0000-4000-8000-000000000001",
+      "sendKey": null,
+      "text": "Retry failed rows when the import times out",
+      "authorName": "Test Person",
+      "authorInitials": "TP",
+      "model": null,
+      "state": "read",
+      "mode": null,
+      "intent": null,
+      "sentAt": "2026-11-15T09:00:00Z",
+      "readAfterSequence": 2,
+      "bodyHtml": "<p>Retry failed rows when the import times out</p>"
+    }
+  ],
+  "composer": {
+    "state": "idle",
+    "model": "sonnet",
+    "accountName": "Test account",
+    "nextAttachmentNumber": 1,
+    "models": [
+      {
+        "family": "sonnet",
+        "latest": {
+          "value": "sonnet",
+          "label": "Sonnet 5.5",
+          "description": "Fast and capable"
+        },
+        "older": [
+          {
+            "value": "claude-sonnet-5-0",
+            "label": "Sonnet 5"
+          }
+        ]
+      }
+    ]
+  },
+  "notice": null,
+  "panes": {
+    "chat": true,
+    "preview": false,
+    "terminal": true,
+    "changes": true,
+    "files": true
+  },
+  "question": null,
+  "latestSequence": 14,
+  "capacity": {
+    "turns": {
+      "used": 1,
+      "limit": 3
+    },
+    "sandboxes": {
+      "used": 1,
+      "limit": 2
+    },
+    "share": {
+      "used": 2,
+      "limit": 4
+    }
+  },
+  "stackParent": {
+    "id": "s7ackr00",
+    "name": "rebuild-search-index",
+    "title": "Rebuild the search index"
+  }
+}
