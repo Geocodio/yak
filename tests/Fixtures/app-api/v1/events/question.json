@@ -1,0 +1,165 @@
+{
+    "broadcasts": [
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "running",
+                "turnId": "<volatile:int>"
+            },
+            "sequence": 1,
+            "type": "turn"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "model": "claude-haiku-5-5",
+                "role": "system",
+                "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
+                "subtype": "init"
+            },
+            "sequence": 2,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "html": "<p>scrubbed text 1</p>\n",
+                        "text": "scrubbed text 1",
+                        "type": "text"
+                    }
+                ],
+                "messageId": "id_0000",
+                "role": "assistant"
+            },
+            "sequence": 3,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "costUsd": 0.00030308000000000006,
+                "durationMs": 1167,
+                "html": "<p>scrubbed result 2</p>\n",
+                "isError": false,
+                "numTurns": 1,
+                "role": "result",
+                "subtype": "success",
+                "text": "scrubbed result 2"
+            },
+            "sequence": 4,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "completed",
+                "turnId": "<volatile:int>"
+            },
+            "sequence": 5,
+            "type": "turn"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "open": true
+            },
+            "sequence": 6,
+            "type": "question"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "open": false
+            },
+            "sequence": 7,
+            "type": "question"
+        }
+    ],
+    "catchUp": {
+        "events": [
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "running",
+                    "turnId": "<volatile:int>"
+                },
+                "sequence": 1,
+                "type": "turn"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "model": "claude-haiku-5-5",
+                    "role": "system",
+                    "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
+                    "subtype": "init"
+                },
+                "sequence": 2,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "html": "<p>scrubbed text 1</p>\n",
+                            "text": "scrubbed text 1",
+                            "type": "text"
+                        }
+                    ],
+                    "messageId": "id_0000",
+                    "role": "assistant"
+                },
+                "sequence": 3,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "costUsd": 0.00030308000000000006,
+                    "durationMs": 1167,
+                    "html": "<p>scrubbed result 2</p>\n",
+                    "isError": false,
+                    "numTurns": 1,
+                    "role": "result",
+                    "subtype": "success",
+                    "text": "scrubbed result 2"
+                },
+                "sequence": 4,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "completed",
+                    "turnId": "<volatile:int>"
+                },
+                "sequence": 5,
+                "type": "turn"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "open": true
+                },
+                "sequence": 6,
+                "type": "question"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "open": false
+                },
+                "sequence": 7,
+                "type": "question"
+            }
+        ],
+        "latestSequence": 7,
+        "source": "window"
+    },
+    "pointers": [],
+    "scenario": "question",
+    "source": "natural-turn-end"
+}
