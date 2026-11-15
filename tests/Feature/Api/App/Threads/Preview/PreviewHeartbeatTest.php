@@ -24,7 +24,7 @@ function previewHeartbeatPath(Thread $thread): string
 it('records preview activity and answers 204', function () {
     $headers = phoneHeadersFor($this->owner);
 
-    $this->postJson(previewHeartbeatPath($this->thread), [], $headers)->assertNoContent()->assertNoContent();
+    $this->postJson(previewHeartbeatPath($this->thread), [], $headers)->assertNoContent();
 
     $thread = $this->thread->fresh();
     expect($thread->preview_last_request_at->equalTo(now()))->toBeTrue()

@@ -9,6 +9,7 @@ use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Preview\ThreadPreviewWaker;
 use App\Services\Threads\ThreadSharing;
 use Carbon\CarbonImmutable;
+use Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks;
 use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Exceptions;
@@ -26,21 +27,25 @@ function previewWarmPath(Thread $thread): string
     return appThreadPath($thread, '/preview/warm');
 }
 
-/** Runs the callbacks that Laravel defers until after the response. */
+/** Runs the callbacks that Laravel defers until after the response (the test kernel normally runs them in terminate). */
 function runDeferredCallbacks(): void
 {
     app(DeferredCallbackCollection::class)->invoke();
 }
 
 it('answers 204 at once and wakes after the response', function () {
+    $this->withoutMiddleware(InvokeDeferredCallbacks::class);
     $this->mock(ThreadPreviewWaker::class)->shouldReceive('wake')->once()
         ->withArgs(fn (Thread $thread, int $hold) => $thread->is($this->thread) && $hold === 0)
         ->andReturn(PreviewWakeOutcome::waking([]));
 
     $this->postJson(previewWarmPath($this->thread), [], phoneHeadersFor($this->owner))->assertNoContent();
-    runDeferredCallbacks();
 
-    expect($this->thread->fresh()->preview_last_request_at->equalTo(now()))->toBeTrue();
+    // Nothing has woken yet: the wake is queued behind the response, not run inline.
+    expect(app(DeferredCallbackCollection::class))->toHaveCount(1)
+        ->and($this->thread->fresh()->preview_last_request_at->equalTo(now()))->toBeTrue();
+
+    runDeferredCallbacks();
 });
 
 it('answers 204 when the wake fails', function () {
@@ -77,6 +82,7 @@ it('wakes nothing for a closed, local machine or destroyed thread', function (Cl
 })->with([
     'closed' => [fn (User $owner) => tap(appPreviewThread($owner, ['preview_hostname' => null]), fn (Thread $thread) => $thread->forceFill(['status' => Thread::factory()->closed()->make()->status])->save())],
     'on a computer' => [fn (User $owner) => Thread::factory()->ownedByDevice()->create(['owner_user_id' => $owner->id, 'created_by_user_id' => $owner->id])],
+    'never had a sandbox' => [fn (User $owner) => appPreviewThread($owner, ['preview_hostname' => null, 'sandbox_state' => ThreadSandboxState::None, 'sandbox_container' => null])],
     'destroyed' => [fn (User $owner) => appPreviewThread($owner, ['preview_hostname' => null, 'sandbox_state' => ThreadSandboxState::Destroyed, 'sandbox_container' => null])],
 ]);
 
