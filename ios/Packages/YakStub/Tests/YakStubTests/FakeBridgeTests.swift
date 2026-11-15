@@ -1,6 +1,6 @@
 #if canImport(Darwin)
     import Foundation
-import Synchronization
+    import Synchronization
     import Testing
 
     @testable import YakStub
