@@ -1,0 +1,108 @@
+default_platform(:ios)
+
+IOS_ROOT = File.expand_path("..", __dir__)
+
+platform :ios do
+  desc "Generate the Xcode project from project.yml"
+  lane :generate do
+    config = File.join(IOS_ROOT, "Config.xcconfig")
+    example = File.join(IOS_ROOT, "Config.example.xcconfig")
+    FileUtils.cp(example, config) unless File.exist?(config)
+    sh("cd #{IOS_ROOT.shellescape} && xcodegen generate")
+  end
+
+  desc "Format check and project rules"
+  lane :lint do
+    sh("cd #{IOS_ROOT.shellescape} && swift format lint --strict --recursive Yak YakTests YakUITests Packages")
+    sh("#{File.join(IOS_ROOT, "scripts/check-rules.sh").shellescape}")
+  end
+
+  desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\" only:testName"
+  lane :ui_smoke do |options|
+    device = options[:device] || "iPhone 18 Pro"
+    with_stub do |port, build_directory|
+      result_path = File.join(build_directory, "ui-smoke-#{device.gsub(/\W+/, "-").gsub(/\A-+|-+\z/, "")}.xcresult")
+      FileUtils.rm_rf(result_path)
+      selection = "-only-testing:YakUITests#{options[:only] ? "/PairingSmokeTests/#{options[:only]}" : ""} -skip-testing:YakUITests/WalkthroughTests"
+      run_ui_tests(device, port, result_path, selection, {})
+    end
+  end
+
+  desc "Quality-bar walkthrough, screenshots in build/screenshots/<device>/<appearance>/<orientation>: " \
+       "fastlane walkthrough device:\"iPhone 18 Pro\" appearance:dark|light|largest-text orientation:landscape only:testName"
+  lane :walkthrough do |options|
+    device = options[:device] || "iPhone 18 Pro"
+    appearance = options[:appearance] || "light"
+    orientation = options[:orientation] || "portrait"
+    device_folder = device.gsub(/\W+/, "-").gsub(/\A-+|-+\z/, "")
+    environment = {
+      "YAK_SHOT_DIR" => File.join(IOS_ROOT, "build/screenshots", device_folder, appearance, orientation),
+      "YAK_APPEARANCE" => appearance == "dark" ? "dark" : "light",
+      "YAK_TEXT_SIZE" => appearance == "largest-text" ? "largest" : "normal",
+      "YAK_ORIENTATION" => orientation
+    }
+    # A filtered run adds to the set already on disk; only a full run starts clean.
+    FileUtils.rm_rf(environment["YAK_SHOT_DIR"]) unless options[:only]
+    with_stub do |port, build_directory|
+      result_path = File.join(build_directory, "walkthrough-#{device_folder}-#{appearance}-#{orientation}.xcresult")
+      FileUtils.rm_rf(result_path)
+      selection = "-only-testing:YakUITests/WalkthroughTests#{options[:only] ? "/#{options[:only]}" : ""}"
+      run_ui_tests(device, port, result_path, selection, environment)
+    end
+  end
+
+  desc "YakKit package tests and app unit tests"
+  lane :test do
+    generate
+    sh("cd #{File.join(IOS_ROOT, "Packages/YakKit").shellescape} && swift test -Xswiftc -warnings-as-errors")
+    sh("cd #{File.join(IOS_ROOT, "Packages/YakStub").shellescape} && swift test -Xswiftc -warnings-as-errors")
+    sh(
+      "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+      "-destination 'platform=iOS Simulator,name=iPhone 18 Pro' -only-testing:YakTests " \
+      "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+    )
+  end
+
+  # Builds and starts yak-stub on a free port, yields the port and the build directory, stops it afterwards.
+  def with_stub
+    generate
+    stub_package = File.join(IOS_ROOT, "Packages/YakStub")
+    sh("cd #{stub_package.shellescape} && swift build -c release -Xswiftc -warnings-as-errors")
+    stub_binary = File.join(`cd #{stub_package.shellescape} && swift build -c release --show-bin-path`.strip, "yak-stub")
+    build_directory = File.join(IOS_ROOT, "build")
+    FileUtils.mkdir_p(build_directory)
+    log_path = File.join(build_directory, "yak-stub.log")
+    # Port 0 lets the stub pick a free port; it prints the port it got on its first line.
+    output_path = File.join(build_directory, "yak-stub.out")
+    stub_pid = Process.spawn(
+      stub_binary, "--port", "0", "--fixtures", File.join(IOS_ROOT, "fixtures"), "--scenario", "paired",
+      out: output_path, err: log_path
+    )
+    begin
+      port = nil
+      50.times do
+        port = File.read(output_path)[/listening on 127\.0\.0\.1:(\d+)/, 1]
+        break if port
+        sleep 0.2
+      end
+      UI.user_error!("yak-stub did not start, see #{log_path}") unless port
+      yield port, build_directory
+    ensure
+      Process.kill("TERM", stub_pid)
+      Process.wait(stub_pid)
+    end
+  end
+
+  def run_ui_tests(device, port, result_path, selection, environment)
+    variables = environment.merge("YAK_STUB_PORT" => port).map { |name, value| "TEST_RUNNER_#{name}=#{value.shellescape}" }.join(" ")
+    # A simulator that is still booting times out the first app launch, so the tests start on a booted one.
+    sh("xcrun simctl bootstatus #{device.shellescape} -b")
+    # A hosted simulator sometimes fails to launch the app at all, so a failed test gets one more try.
+    sh(
+      "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+      "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} #{selection} " \
+      "-retry-tests-on-failure -test-iterations 2 " \
+      "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+    )
+  end
+end

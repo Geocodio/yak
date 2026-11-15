@@ -64,3 +64,12 @@ runner/dist/
 /ansible/vault/next.yml
 /ansible/inventory/next.yml
 /storage/artifacts/
+
+ios/Config.xcconfig
+ios/*.xcodeproj
+ios/fastlane/report.xml
+ios/build
+ios/.build
+ios/Packages/*/.build
+ios/.bundle
+ios/vendor
