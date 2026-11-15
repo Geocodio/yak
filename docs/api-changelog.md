@@ -36,6 +36,8 @@ New 409 codes: `nothing_to_continue`, `nothing_to_restore`, `question_closed`. N
 
 A `stream.reset` event carries `data` as an empty JSON object (`{}`), in broadcasts and in catch-up. A 403 on every client endpoint answers "You do not have access to this.".
 
+New field on task show, so the protocol stays 1: `task.isFollowUp`, true when the conversation's latest task is a follow-up (a review follow-up then cannot re-run the review).
+
 New fields on thread show, so the protocol stays 1: `localTurnStints`, every stretch of turns run on a computer (`localTurns` keeps the first one), and `teleport.environmentSwitches`, every move between Yak and a computer (`teleport.environmentSwitch` keeps the latest one).
 
 Queued messages go out when a turn completes, without the person sending anything else. A switch to Steer during a running turn hands the message to that turn at once.

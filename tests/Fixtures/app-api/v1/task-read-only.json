@@ -79,6 +79,7 @@
         "externalId": "ENG-12",
         "headline": "Upgrade the payments SDK",
         "id": "k3m9p2qa",
+        "isFollowUp": false,
         "mode": "fix",
         "model": null,
         "nextSteps": null,
