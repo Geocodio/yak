@@ -1,0 +1,85 @@
+import Foundation
+import Observation
+import YakKit
+
+/// One open thread on screen: reads the engine's snapshots and hands the screen finished values.
+@MainActor @Observable
+final class ThreadModel {
+    let threadID: String
+    private(set) var snapshot: ConversationSnapshot?
+    private(set) var engine: ThreadEngine?
+
+    private let session: InstanceSession
+    /// The drawer row's title, shown until the thread's own arrives.
+    private var initialTitle: String?
+    private var isStarted = false
+    private var isVisible = false
+    private var readingTask: Task<Void, Never>?
+    /// Counts opens and closes, so an open that finishes after a stop closes its own engine again.
+    private var generation = 0
+
+    init(threadID: String, session: InstanceSession) {
+        self.threadID = threadID
+        self.session = session
+    }
+
+    var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }
+    var panes: [PaneID] { Panes.available(server: snapshot?.show?.panes) }
+    var connectionLine: ConnectionLine? { snapshot.flatMap(ConnectionLine.make) }
+    var statusDot: ThreadStatusDot { ThreadStatusDot.make(snapshot) }
+    var loadPresentation: ThreadLoadPresentation { ThreadLoadPresentation.make(snapshot?.load ?? .loading) }
+    var hasOpenQuestion: Bool { snapshot?.hasOpenQuestion ?? false }
+
+    /// Opens the engine and reads its snapshots until `stop()`. A second call changes nothing.
+    func start(initialTitle: String?) async {
+        if let initialTitle, snapshot?.show == nil { self.initialTitle = initialTitle }
+        guard !isStarted else { return }
+        isStarted = true
+        await open()
+    }
+
+    func stop() async {
+        guard isStarted else { return }
+        isStarted = false
+        await close()
+    }
+
+    func setVisible(_ visible: Bool) async {
+        isVisible = visible
+        await engine?.setVisible(visible)
+    }
+
+    /// Closes the engine and opens a new one, which asks the server again.
+    func retry() async {
+        guard isStarted else { return }
+        await close()
+        await open()
+    }
+
+    private func open() async {
+        generation += 1
+        let mine = generation
+        guard let opened = await session.openThread(threadID) else { return }
+        guard generation == mine, isStarted else {
+            await session.closeThread(threadID)
+            return
+        }
+        engine = opened
+        await opened.setVisible(isVisible)
+        readingTask = Task { [weak self] in
+            for await next in await opened.snapshots() {
+                guard let self, !Task.isCancelled else { return }
+                self.snapshot = next
+            }
+        }
+    }
+
+    private func close() async {
+        generation += 1
+        readingTask?.cancel()
+        readingTask = nil
+        guard engine != nil else { return }
+        engine = nil
+        await session.closeThread(threadID)
+    }
+}

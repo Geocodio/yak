@@ -94,7 +94,85 @@ import XCTest
         try shoot("drawer-everyone")
     }
 
+    // MARK: Thread screen
+
+    func testThreadFrame() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        XCTAssertTrue(app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["thread.bar"].waitForExistence(timeout: 10))
+        try shootThread("thread")
+    }
+
+    func testThreadLoading() throws {
+        try start("slow-thread", paired: true)
+        try openThread("d0e515ef")
+        XCTAssertTrue(app.descendants(matching: .any)["thread.loading"].waitForExistence(timeout: 10))
+        try shootThread("thread-loading")
+        XCTAssertTrue(app.descendants(matching: .any)["thread.slow"].waitForExistence(timeout: 15))
+        try shootThread("thread-slow")
+    }
+
+    func testThreadMissing() throws {
+        try start("thread-missing", paired: true)
+        try openThread("d0e515ef")
+        XCTAssertTrue(label("This thread is not here anymore").waitForExistence(timeout: 15))
+        try shootThread("thread-missing")
+    }
+
+    func testThreadOfflineNoCopy() throws {
+        try start("paired", paired: true)
+        try waitForDrawer()
+        XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:d0e515ef"].waitForExistence(timeout: 10))
+        try stub.setOnline(false)
+        try openThread("d0e515ef")
+        XCTAssertTrue(label("You are offline").waitForExistence(timeout: 60))
+        try shootThread("thread-offline")
+    }
+
+    func testPaneMenu() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        let button = app.buttons["pane.button"]
+        // Only a bar that holds the pane button has a menu; the other placements show the panes themselves.
+        guard button.waitForExistence(timeout: 15) else {
+            XCTAssertTrue(app.descendants(matching: .any)["thread.bar"].exists)
+            try shootThread("pane-menu")
+            return
+        }
+        button.tap()
+        XCTAssertTrue(app.buttons["Chat"].waitForExistence(timeout: 5))
+        // The menu is the system's own surface; the audit cannot judge text on it.
+        try shoot("pane-menu", audits: false)
+    }
+
     // MARK: Helpers
+
+    /// A screenshot of a thread screen, then the audit without the findings about text in the navigation bar,
+    /// whose size the system caps.
+    private func shootThread(_ name: String) throws {
+        try shoot(name, audits: false)
+        try app.performAccessibilityAudit { [app] issue in
+            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                // The system caps the size of text in its bars, and draws its glass under the threads badge.
+                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
+            if issue.auditType == .contrast, issue.element == nil { return true }
+            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
+            return true
+        }
+    }
+
+    /// Opens a thread from the drawer's row, scrolling to it at the largest text size.
+    private func openThread(_ id: String) throws {
+        try waitForDrawer()
+        let row = app.descendants(matching: .any)["drawer.row.thread:\(id)"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10) || scrollToFind(row, in: "drawer.list"))
+        row.tap()
+    }
 
     /// At the largest text size rows and buttons sit below the fold; the container scrolls down and then back up
     /// until the middle of the element is on screen above the bottom bar, where a tap lands on it.

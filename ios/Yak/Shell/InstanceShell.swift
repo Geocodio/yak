@@ -113,13 +113,21 @@ struct InstanceShell: View {
             retry: { Task { await retryList() } })
     }
 
-    private var threadScreen: some View {
-        ThreadPlaceholder(
-            title: scene.state.threadID.map {
-                listState?.list?.title(ofThread: $0) ?? String(localized: "shell.thread")
-            },
-            isNewThread: scene.state.isNewThreadOpen, showsThreadsButton: isCompactWidth,
-            openDrawer: { scene.setDrawerOpen(true) })
+    @ViewBuilder private var threadScreen: some View {
+        if let threadID = scene.state.threadID, !scene.state.isNewThreadOpen {
+            ThreadScreen(
+                session: session, scene: scene, threadID: threadID,
+                initialTitle: listState?.list?.title(ofThread: threadID), instanceURL: instance.url,
+                needsYouCount: drawerModel?.needsYouCount ?? 0, isSessionActive: status == .active,
+                isCoveredByDrawer: isCompactWidth && drawerBinding.wrappedValue, isCompactWidth: isCompactWidth,
+                openWeb: { model.browserURL = $0 }
+            )
+            .id(threadID)
+        } else {
+            ThreadPlaceholder(
+                title: nil, isNewThread: scene.state.isNewThreadOpen, showsThreadsButton: isCompactWidth,
+                openDrawer: { scene.setDrawerOpen(true) })
+        }
     }
 
     private func problem(_ message: LocalizedStringKey) -> some View {

@@ -1,0 +1,161 @@
+import SwiftUI
+import YakKit
+
+/// The pane button of the bar and of the trailing strip. A tap opens the menu of panes; press, slide and release
+/// picks one in a single motion, which is how the system's menu works.
+struct PaneMenuButton: View {
+    let panes: [PaneID]
+    @Binding var focused: PaneID
+
+    var body: some View {
+        Menu {
+            Picker(selection: $focused) {
+                ForEach(panes, id: \.self) { id in
+                    if let descriptor = PaneCatalog.descriptor(for: id) {
+                        Label(descriptor.name, systemImage: descriptor.symbol).tag(id)
+                    }
+                }
+            } label: {
+                Text("pane.menu")
+            }
+            .pickerStyle(.inline)
+            .accessibilityIdentifier("pane.menu")
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: PaneCatalog.descriptor(for: focused)?.symbol ?? "bubble.left")
+                Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold))
+            }
+            .font(.body)
+            .foregroundStyle(.primary)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(.rect)
+        }
+        .menuOrder(.fixed)
+        .accessibilityLabel(Text(label))
+        .accessibilityIdentifier("pane.button")
+    }
+
+    private var label: String {
+        let name = PaneCatalog.descriptor(for: focused).map { String(localized: $0.name) } ?? ""
+        return String(localized: "pane.button.label \(name)")
+    }
+}
+
+/// The panes as a row of icon-over-name buttons, the selected one with a neutral fill.
+struct PaneRow: View {
+    let panes: [PaneID]
+    @Binding var focused: PaneID
+    let hasOpenQuestion: Bool
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            row
+            ScrollView(.horizontal, showsIndicators: false) { row }
+        }
+    }
+
+    private var row: some View {
+        HStack(spacing: 4) {
+            ForEach(panes, id: \.self) { id in
+                if let descriptor = PaneCatalog.descriptor(for: id) {
+                    PaneRowButton(
+                        descriptor: descriptor, isSelected: id == focused,
+                        hasBadge: id == .chat && hasOpenQuestion
+                    ) { focused = id }
+                }
+            }
+        }
+    }
+}
+
+private struct PaneRowButton: View {
+    let descriptor: PaneDescriptor
+    let isSelected: Bool
+    let hasBadge: Bool
+    let select: () -> Void
+
+    var body: some View {
+        Button(action: select) {
+            VStack(spacing: 2) {
+                Image(systemName: descriptor.symbol).font(.body)
+                    .overlay(alignment: .topTrailing) { if hasBadge { QuestionBadge().offset(x: 6, y: -3) } }
+                Text(descriptor.name).font(.caption2).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 12).padding(.vertical, 4)
+            .frame(minWidth: 56, minHeight: 44)
+            .background(isSelected ? Color.primary.opacity(0.12) : .clear, in: .rect(cornerRadius: 12))
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(descriptor.name))
+        .accessibilityValue(hasBadge ? Text("pane.badge.question") : Text(""))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("pane.row.\(descriptor.id.rawValue)")
+    }
+}
+
+/// The dot on Chat while a question is open. A system color, never the rust accent.
+struct QuestionBadge: View {
+    var body: some View {
+        Circle().fill(Color.blue).frame(width: 9, height: 9)
+            .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 1.5))
+            .accessibilityHidden(true)
+    }
+}
+
+/// The panes as bottom-bar toolbar items for the system's vertical strip. Only the placement that gets a strip
+/// declares them, so the system's pill never covers the app's own bar.
+@available(iOS 27.1, *)
+struct PaneStripToolbar: ToolbarContent {
+    let panes: [PaneID]
+    @Binding var focused: PaneID
+    let hasOpenQuestion: Bool
+
+    var body: some ToolbarContent {
+        ToolbarItemGroup(placement: .bottomBar) {
+            ForEach(panes, id: \.self) { id in
+                if let descriptor = PaneCatalog.descriptor(for: id) {
+                    Button {
+                        focused = id
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: descriptor.symbol)
+                                .overlay(alignment: .topTrailing) {
+                                    if id == .chat && hasOpenQuestion { QuestionBadge().offset(x: 6, y: -3) }
+                                }
+                            Text(descriptor.name).font(.caption).lineLimit(1).minimumScaleFactor(0.7)
+                        }
+                    }
+                    .accessibilityLabel(Text(descriptor.name))
+                    .accessibilityValue(id == .chat && hasOpenQuestion ? Text("pane.badge.question") : Text(""))
+                    .accessibilityAddTraits(id == focused ? .isSelected : [])
+                    .accessibilityIdentifier("pane.strip.\(id.rawValue)")
+                }
+            }
+        }
+        .axisBehavior(.verticalPreferred)
+    }
+}
+
+/// Whether the system offers a vertical toolbar strip here. It reads `toolbarVerticalEdge`, which exists from
+/// iOS 27.1, and gives its content the answer.
+struct ToolbarStripReader<Content: View>: View {
+    @ViewBuilder let content: (Bool) -> Content
+
+    var body: some View {
+        if #available(iOS 27.1, *) {
+            Probe(content: content)
+        } else {
+            content(false)
+        }
+    }
+
+    @available(iOS 27.1, *)
+    private struct Probe: View {
+        let content: (Bool) -> Content
+        @Environment(\.toolbarVerticalEdge) private var edge
+
+        var body: some View { content(edge != nil) }
+    }
+}

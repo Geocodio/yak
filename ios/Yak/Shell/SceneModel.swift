@@ -83,6 +83,7 @@ final class SceneModel {
     }
 
     func setDrawerOpen(_ open: Bool) { state.isDrawerOpen = open }
+    func focus(pane: PaneID) { state.focusedPane = pane }
     func requestSearchFocus() {
         state.isDrawerOpen = true
         searchFocusRequest += 1
