@@ -4,7 +4,7 @@ package version
 import "fmt"
 
 // Version is overridden at release time with -ldflags -X.
-var Version = "0.1.3"
+var Version = "0.1.4"
 
 // ProtocolVersion is sent as X-Yak-Protocol on every request.
 const ProtocolVersion = 1
