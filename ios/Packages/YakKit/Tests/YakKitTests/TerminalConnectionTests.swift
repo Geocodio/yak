@@ -440,7 +440,7 @@ private func everyEndingHasItsPhase(ending: Ending) async throws {
     await rig.connection.close()
 }
 
-@Test func closeStopsEverything() async throws {
+@Test func closeStopsTheTerminalConnection() async throws {
     let rig = await makeRig()
     await rig.transport.on(route, try scenarioResult(202, "scenario-terminal-waiting"))
     await rig.connection.start(columns: 80, rows: 24)

@@ -9,7 +9,7 @@ import Testing
     "error-sandbox-unavailable",
 ])
 func decodesEveryWorkspaceFixture(name: String) throws {
-    guard Fixtures.exists(name) else { return }  // Runs once the server's fixture exists.
+    try #require(Fixtures.exists(name), "The server fixture \(name) is missing.")
     let data = try Fixtures.data(name)
     switch name {
     case "thread-terminal-session":
@@ -35,6 +35,6 @@ func decodesEveryWorkspaceFixture(name: String) throws {
 }
 
 @Test func theThreadFixtureCarriesOwnerSide() throws {
-    guard Fixtures.exists("thread") else { return }
+    try #require(Fixtures.exists("thread"), "The server fixture thread is missing.")
     #expect(try JSONDecoder().decode(ThreadShow.self, from: Fixtures.data("thread")).thread.ownerSide != nil)
 }

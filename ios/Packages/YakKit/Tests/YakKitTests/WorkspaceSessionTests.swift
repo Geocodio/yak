@@ -187,7 +187,7 @@ private func queryValue(_ request: URLRequest, _ name: String) -> String? {
     }
 
     @Test func theSearchFixtureDecodes() throws {
-        guard Fixtures.exists("thread-files-search") else { return }  // Runs once the server's fixture exists.
+        try #require(Fixtures.exists("thread-files-search"), "The server fixture thread-files-search is missing.")
         _ = try JSONDecoder().decode(FileSearchResult.self, from: Fixtures.data("thread-files-search"))
     }
 }
