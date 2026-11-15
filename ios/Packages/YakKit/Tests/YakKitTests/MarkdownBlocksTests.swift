@@ -86,7 +86,9 @@ struct MarkdownBlocksTests {
         var current = blocks
         var text = ""
         while let first = current.first {
-            if case .quote(let inner) = first { current = inner } else {
+            if case .quote(let inner) = first {
+                current = inner
+            } else {
                 if case .paragraph(let value) = first { text = value }
                 break
             }
