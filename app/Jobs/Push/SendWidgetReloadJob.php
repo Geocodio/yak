@@ -15,7 +15,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * One widget reload to one token. A delayed send opens a new one-minute window when it starts.
+ * One widget reload to one token. A delayed send opens a new one-minute window when it starts, and is dropped when a send went out after it was queued.
  */
 class SendWidgetReloadJob implements ShouldQueueAfterCommit
 {
@@ -23,7 +23,7 @@ class SendWidgetReloadJob implements ShouldQueueAfterCommit
 
     public int $tries = 3;
 
-    public function __construct(public readonly int $tokenId, public readonly bool $isDelayed)
+    public function __construct(public readonly int $tokenId, public readonly bool $isDelayed, public readonly int $queuedAt = 0)
     {
         $this->onQueue('default');
     }
@@ -48,6 +48,12 @@ class SendWidgetReloadJob implements ShouldQueueAfterCommit
                     Cache::forget("widget-reloads:pending:{$deviceId}");
                 }
             }
+
+            return;
+        }
+
+        if ($this->isDelayed && $this->attempts() === 1 && $reloads->isDelayedSendStale($token, $this->queuedAt)) {
+            Cache::forget("widget-reloads:pending:{$token->device_id}");
 
             return;
         }

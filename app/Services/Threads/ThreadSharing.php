@@ -38,7 +38,7 @@ class ThreadSharing
                 ? array_values(User::query()->whereKey($userIds)->whereKeyNot($actor->id)->pluck('id')->all())
                 : [];
 
-            ThreadShare::query()->where('thread_id', $root->id)->whereNotIn('user_id', $wanted)->delete();
+            ThreadShare::query()->where('thread_id', $root->id)->whereNotIn('user_id', $wanted)->get()->each->delete();
 
             foreach ($wanted as $userId) {
                 ThreadShare::query()->firstOrCreate(['thread_id' => $root->id, 'user_id' => $userId]);

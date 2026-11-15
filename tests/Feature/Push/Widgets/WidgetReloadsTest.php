@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PushTokenKind;
+use App\Enums\ThreadShareMode;
 use App\Enums\TurnState;
 use App\Jobs\Push\CheckWidgetReloadsJob;
 use App\Jobs\Push\SendWidgetReloadJob;
@@ -16,6 +17,8 @@ use App\Services\Push\Apns\ApnsPayloads;
 use App\Services\Push\Apns\ApnsTokenFailures;
 use App\Services\Push\Widgets\WidgetFingerprint;
 use App\Services\Push\Widgets\WidgetReloads;
+use App\Services\Threads\ThreadDeleter;
+use App\Services\Threads\ThreadSharing;
 use App\Services\Threads\TurnFinisher;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
@@ -259,4 +262,44 @@ it('checks when a turn ends', function () {
     $thread->save();
 
     Queue::assertPushed(CheckWidgetReloadsJob::class, 1);
+});
+
+it('checks when a share recipient is removed from a private thread', function () {
+    $thread = Thread::factory()->create(['created_by_user_id' => $this->user->id, 'owner_user_id' => $this->user->id]);
+    $recipient = User::factory()->create();
+    app(ThreadSharing::class)->apply($thread, $this->user, ThreadShareMode::People, [$recipient->id]);
+    Cache::forget('widget-reloads:check');
+    Queue::fake();
+
+    app(ThreadSharing::class)->apply($thread, $this->user, ThreadShareMode::People, []);
+
+    Queue::assertPushed(CheckWidgetReloadsJob::class, 1);
+});
+
+it('checks when threads are deleted', function () {
+    $thread = Thread::factory()->create(['created_by_user_id' => $this->user->id]);
+    Cache::forget('widget-reloads:check');
+    Queue::fake();
+
+    app(ThreadDeleter::class)->delete($thread);
+
+    Queue::assertPushed(CheckWidgetReloadsJob::class, 1);
+});
+
+it('skips a delayed send when a send already went out after it was queued', function () {
+    fakeApns();
+    Queue::fake();
+    app(WidgetReloads::class)->check();
+    $this->travel(10)->seconds();
+    changeAndCheck($this->user);
+    $delayed = sendJobs()[1];
+
+    // The queue backlog holds the delayed job past the window; a change then sends at once.
+    $this->travel(90)->seconds();
+    changeAndCheck($this->user);
+    expect(sendJobs())->toHaveCount(3);
+
+    $delayed->handle(app(WidgetReloads::class), app(ApnsClient::class), app(ApnsConfig::class), app(ApnsPayloads::class), app(ApnsTokenFailures::class));
+
+    expect(apnsRequests('/3/device/'))->toHaveCount(0);
 });

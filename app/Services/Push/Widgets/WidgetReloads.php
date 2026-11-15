@@ -77,6 +77,7 @@ final class WidgetReloads
         $now = now()->getTimestamp();
 
         if (Cache::add("widget-reloads:window:{$device}", $now, self::WINDOW_SECONDS)) {
+            Cache::put("widget-reloads:sent:{$device}", $now, now()->addDay());
             SendWidgetReloadJob::dispatch($token->id, false);
 
             return;
@@ -85,12 +86,21 @@ final class WidgetReloads
         $secondsLeft = max(1, self::WINDOW_SECONDS - ($now - (int) Cache::get("widget-reloads:window:{$device}", $now)));
 
         if (Cache::add("widget-reloads:pending:{$device}", true, $secondsLeft)) {
-            SendWidgetReloadJob::dispatch($token->id, true)->delay(now()->addSeconds($secondsLeft));
+            SendWidgetReloadJob::dispatch($token->id, true, $now)->delay(now()->addSeconds($secondsLeft));
         }
+    }
+
+    /**
+     * A delayed send that ran late, after a newer send already went out, has nothing left to say.
+     */
+    public function isDelayedSendStale(DevicePushToken $token, int $queuedAt): bool
+    {
+        return (int) Cache::get("widget-reloads:sent:{$token->device_id}", 0) > $queuedAt;
     }
 
     public function openWindowForDelayedSend(DevicePushToken $token): void
     {
+        Cache::put("widget-reloads:sent:{$token->device_id}", now()->getTimestamp(), now()->addDay());
         Cache::put("widget-reloads:window:{$token->device_id}", now()->getTimestamp(), self::WINDOW_SECONDS);
         Cache::forget("widget-reloads:pending:{$token->device_id}");
     }

@@ -8,6 +8,7 @@ use App\Exceptions\TeleportError;
 use App\Models\Device;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Services\Push\Widgets\WidgetReloads;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Support\Facades\DB;
 
@@ -57,6 +58,9 @@ class TeleportDownCompleter
 
             $this->mover->toDevice($thread, $device, $teleport);
         });
+
+        // The visibility update above is a query-builder write and fires no model event.
+        app(WidgetReloads::class)->somethingChanged();
 
         $this->sandbox->endRunner($thread->refresh());
         $this->sandbox->touch($thread->refresh());
