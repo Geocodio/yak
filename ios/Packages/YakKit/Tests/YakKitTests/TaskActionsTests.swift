@@ -5,6 +5,7 @@ import Testing
 
 private let approveRoute = "POST tasks/k3m9p2qa/co-owner/approve"
 private let feedbackRoute = "POST tasks/k3m9p2qa/co-owner/request-changes"
+private let rejectRoute = "POST tasks/k3m9p2qa/co-owner/reject"
 private let showRoute = "GET tasks/k3m9p2qa"
 
 private func makeFeed(_ transport: ScriptedTransport) async throws -> TaskDetailFeed {
@@ -41,7 +42,12 @@ private func makeFeed(_ transport: ScriptedTransport) async throws -> TaskDetail
         async let first = feed.perform(.approve)
         await transport.waitForRequests(1, on: approveRoute)
         async let second = feed.perform(.approve)
-        while await feed.joinedCallCount < 1 { await Task.yield() }
+        var attempts = 0
+        while await feed.joinedCallCount < 1 && attempts < 10_000 {
+            attempts += 1
+            await Task.yield()
+        }
+        if attempts == 10_000 { Issue.record("the second tap never joined the request in flight") }
         await transport.release(approveRoute)
         #expect(await first == .done("approved"))
         #expect(await second == .done("approved"))
@@ -68,17 +74,41 @@ private func makeFeed(_ transport: ScriptedTransport) async throws -> TaskDetail
         #expect(await transport.requests(on: showRoute).count == 1)
     }
 
+    @Test func aRefusalAfterTheViewersOwnDecisionShowsTheDecidedState() async throws {
+        let transport = ScriptedTransport()
+        let feed = try await makeFeed(transport)
+        await transport.on(rejectRoute, .json(409, #"{"error":"already_resolved","message":"Done."}"#))
+        var object = try #require(
+            try JSONSerialization.jsonObject(with: Scenarios.data("scenario-task")) as? [String: Any])
+        var panel = object["coOwner"] as? [String: Any] ?? [:]
+        panel["status"] = "rejected"
+        panel["decidedBy"] = "Test person"
+        object["coOwner"] = panel
+        let decided = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+        await transport.on(showRoute, .json(200, decided))
+        guard case .refused(let code, _, _, _) = await feed.perform(.reject) else {
+            Issue.record("expected a refusal")
+            return
+        }
+        #expect(code == "already_resolved")
+        #expect(await transport.requests(on: rejectRoute).count == 1)
+        #expect(await transport.requests(on: showRoute).count == 1)
+        let snapshot = try await StreamRecorder(await feed.snapshots()).next { _ in true }
+        let task = try #require(snapshot.task)
+        #expect(TaskDecisionState.make(task) == .decided(status: "rejected", by: "Test person"))
+    }
+
     @Test func aDifferentActionWaitsForTheOneInFlight() async throws {
         let transport = ScriptedTransport()
         let feed = try await makeFeed(transport)
         await transport.on(approveRoute, .json(200, #"{"status":"approved"}"#))
-        await transport.on("POST tasks/k3m9p2qa/co-owner/reject", .json(409, #"{"error":"already_resolved","message":"Done."}"#))
+        await transport.on(rejectRoute, .json(409, #"{"error":"already_resolved","message":"Done."}"#))
         await transport.hold(approveRoute)
         async let approve = feed.perform(.approve)
         await transport.waitForRequests(1, on: approveRoute)
         async let reject = feed.perform(.reject)
         for _ in 0..<50 { await Task.yield() }
-        #expect(await transport.requests(on: "POST tasks/k3m9p2qa/co-owner/reject").isEmpty)
+        #expect(await transport.requests(on: rejectRoute).isEmpty)
         await transport.release(approveRoute)
         #expect(await approve == .done("approved"))
         guard case .refused(let code, _, _, _) = await reject else {

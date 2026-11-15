@@ -126,11 +126,14 @@ private func makeRig(
         #expect(await rig.feed.questionDraft() == nil)
         let draft = QuestionDraft(
             roundKey: round.roundKey,
-            answers: ["scope": QuestionAnswer(choices: ["All exports"]), "window": QuestionAnswer(choices: ["One hour"])])
+            answers: [
+                "scope": QuestionAnswer(choices: ["All exports"]), "window": QuestionAnswer(choices: ["One hour"]),
+            ])
         await rig.feed.saveQuestionDraft(draft)
         #expect(await rig.feed.questionDraft() == draft)
         #expect(await rig.feed.answerQuestions() == .done("answered"))
-        let body = String(decoding: try #require(await rig.transport.requests(on: answersRoute).first?.httpBody), as: UTF8.self)
+        let body = String(
+            decoding: try #require(await rig.transport.requests(on: answersRoute).first?.httpBody), as: UTF8.self)
         #expect(body.contains(#""note":null"#) && body.contains("One hour"))
         #expect(await rig.feed.questionDraft() == nil)
     }

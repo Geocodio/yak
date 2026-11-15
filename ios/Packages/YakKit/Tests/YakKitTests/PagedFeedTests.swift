@@ -13,7 +13,8 @@ private struct Rig {
 }
 
 private func pageTwo() throws -> FakeTransport.Result {
-    var object = try #require(try JSONSerialization.jsonObject(with: Scenarios.data("scenario-tasks")) as? [String: Any])
+    var object = try #require(
+        try JSONSerialization.jsonObject(with: Scenarios.data("scenario-tasks")) as? [String: Any])
     var rows = try #require(object["tasks"] as? [[String: Any]])
     var fresh = rows[2]
     fresh["id"] = "r7t3w9bc"

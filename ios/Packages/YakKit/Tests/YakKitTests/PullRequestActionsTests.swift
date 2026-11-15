@@ -3,6 +3,10 @@ import Testing
 
 @testable import YakKit
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 private let threadID = "d0e515ef"
 private let openRoute = "POST threads/\(threadID)/pull-request"
 

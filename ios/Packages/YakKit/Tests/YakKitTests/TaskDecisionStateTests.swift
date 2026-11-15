@@ -23,8 +23,8 @@ private func withViewer(_ changes: [String: Any]) -> (inout [String: Any]) -> Vo
 
 private func notice() -> [String: Any] {
     [
-    "state": "shown", "canPick": true, "taggedName": NSNull(), "fallbackName": "Second person",
-    "repoName": "example/api", "areas": [["name": "Billing", "risk": "high"]],
+        "state": "shown", "canPick": true, "taggedName": NSNull(), "fallbackName": "Second person",
+        "repoName": "example/api", "areas": [["name": "Billing", "risk": "high"]],
     ]
 }
 
@@ -80,7 +80,8 @@ private func withNotice(_ changes: [String: Any]) -> (inout [String: Any]) -> Vo
         #expect(EarlyWarningRow.make(try scenarioTask(edit: withNotice(["canPick": false]))) == .none)
         #expect(
             EarlyWarningRow.make(
-                try scenarioTask(edit: withNotice(["state": "tagged", "taggedName": "Second person", "canPick": false])))
+                try scenarioTask(
+                    edit: withNotice(["state": "tagged", "taggedName": "Second person", "canPick": false])))
                 == .asked(name: "Second person"))
         #expect(
             EarlyWarningRow.make(try scenarioTask(edit: withNotice(["state": "declined", "canPick": false]))) == .none)
