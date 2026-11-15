@@ -1,0 +1,20 @@
+{
+  "state": "starting_dev_server",
+  "steps": [
+    "Waking the sandbox",
+    "Starting the dev server"
+  ],
+  "log": [
+    "> example-web@1.0.0 dev",
+    "> vite --port 5173"
+  ],
+  "error": null,
+  "url": null,
+  "port": 5173,
+  "coldStartCommand": "npm run dev",
+  "setup": {
+    "intent": null,
+    "isRunning": false,
+    "endedWithoutManifest": false
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "state": "invalid_manifest",
+  "steps": [],
+  "log": [],
+  "error": "port must be a number",
+  "url": null,
+  "port": 5173,
+  "coldStartCommand": "npm run dev",
+  "setup": {
+    "intent": null,
+    "isRunning": false,
+    "endedWithoutManifest": false
+  }
+}

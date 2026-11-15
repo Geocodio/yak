@@ -1,0 +1,17 @@
+{
+  "state": "failing",
+  "steps": [],
+  "log": [
+    "vite v7.1.2 building for dev",
+    "Error: Cannot find module '@example/plugin'"
+  ],
+  "error": "The app did not answer on port 5173.",
+  "url": null,
+  "port": 5173,
+  "coldStartCommand": "npm run dev",
+  "setup": {
+    "intent": "fix_preview",
+    "isRunning": true,
+    "endedWithoutManifest": false
+  }
+}
