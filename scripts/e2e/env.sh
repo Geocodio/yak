@@ -34,3 +34,5 @@ export BCRYPT_ROUNDS=4
 # The seeded threads keep sandboxes awake; a journey's new thread must never wait for a slot.
 export YAK_THREADS_AWAKE_CAP=40
 export YAK_THREADS_PERSON_AWAKE_CAP=20
+# A turn ends only this long after its last activity; the production 30 s would keep every journey turn running for about 40 s.
+export YAK_THREADS_TURN_GRACE_SECONDS=2

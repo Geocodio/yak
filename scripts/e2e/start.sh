@@ -38,6 +38,8 @@ if redis-cli -p 16379 ping >/dev/null 2>&1; then
     fail "something already answers on Redis port 16379; run scripts/e2e/stop.sh first."
 fi
 
+trap '"$scriptDir/stop.sh" >/dev/null 2>&1' ERR INT TERM
+
 redis-server --port 16379 --save "" --appendonly no --dir "$YAK_E2E_DIR" --daemonize yes \
     --pidfile "$YAK_E2E_DIR/redis.pid" --logfile "$YAK_E2E_DIR/logs/redis.log" >/dev/null
 redisReady=0
@@ -78,9 +80,10 @@ ready=0
 deadline=$((SECONDS + 60))
 while [ "$SECONDS" -lt "$deadline" ]; do
     if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "$APP_URL/api/app/v1/instance" || true)" = "200" ]; then ready=1; break; fi
+    kill -0 "$(cat "$YAK_E2E_DIR/pids/serve.pid")" 2>/dev/null || break
     sleep 0.5
 done
-[ "$ready" = 1 ] || failWith "instance check failed: GET /api/app/v1/instance did not answer 200 within 60 s." serve
+[ "$ready" = 1 ] || failWith "instance check failed: GET /api/app/v1/instance did not answer 200 (the server exited or took over 60 s)." serve
 
 ready=0
 for _ in $(seq 1 60); do
@@ -101,4 +104,5 @@ for name in "${processNames[@]}"; do
     kill -0 "$(cat "$YAK_E2E_DIR/pids/$name.pid")" 2>/dev/null || failWith "process $name exited during startup." "$name"
 done
 
+trap - ERR INT TERM
 echo "e2e: Yak ready in $((SECONDS - startedAt)) s, seed at $YAK_E2E_DIR/seed.json"

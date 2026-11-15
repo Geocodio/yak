@@ -74,6 +74,7 @@ it('runs with the environment the start script sets', function (): void {
     }
 
     $phpunit = simplexml_load_file(base_path('phpunit.xml'));
+    expect($phpunit)->toBeInstanceOf(SimpleXMLElement::class);
     $mirrored = 0;
     foreach ($phpunit->php->env as $env) {
         $name = (string) $env['name'];
@@ -88,4 +89,5 @@ it('runs with the environment the start script sets', function (): void {
     expect($mirrored)->toBeGreaterThan(5);
     expect($exported['APP_ENV'])->toBe('testing');
     expect($exported['YAK_E2E'])->toBe('true');
+    expect((int) $exported['YAK_THREADS_TURN_GRACE_SECONDS'])->toBeLessThanOrEqual(5);
 });
