@@ -58,20 +58,21 @@ class StackActions
 
     /**
      * Stamps the stack as stopped and queues the stop. A repeat queues it again only while a turn still runs.
-     * The job is pushed inside the lock so a failed push rolls the stamp back.
+     * The job is pushed after the stamp commits, so it never runs before the stamp is visible. A failed push
+     * leaves the stamp, and a repeat queues the stop again while a turn still runs.
      */
     public function stop(Thread $thread): void
     {
         $this->withRootLock($thread, function (Thread $root): void {
             if ($root->stack_stopped_at === null) {
                 $root->forceFill(['stack_stopped_at' => now()])->save();
-                dispatch(new StopStackJob($root->id));
+                StopStackJob::dispatch($root->id)->afterCommit();
 
                 return;
             }
 
             if ($this->stopStack->hasActiveTurn($root)) {
-                dispatch(new StopStackJob($root->id));
+                StopStackJob::dispatch($root->id)->afterCommit();
             }
         });
     }

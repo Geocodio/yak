@@ -175,6 +175,8 @@ class ChildSpawner
      */
     public function start(Thread $child): void
     {
+        // ponytail: a hard-killed worker blocks this child's start until the 900 s lock expires. That is
+        // shorter than the queue's retry_after (7800 s), so the job is retried after the lock is gone.
         $lock = Cache::lock("child-start:{$child->id}", 900);
 
         // Another worker is building this child's sandbox now; it starts the turn.

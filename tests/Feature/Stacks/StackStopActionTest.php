@@ -41,6 +41,15 @@ it('stamps the stack and stops nothing in the request', function () {
     Queue::assertPushed(StopStackJob::class, fn (StopStackJob $job): bool => $job->rootThreadId === $world->root->id);
 });
 
+it('queues the stop only after the stamp has committed', function () {
+    Queue::fake();
+    $world = StackWorld::build();
+
+    app(StackActions::class)->stop($world->working);
+
+    Queue::assertPushed(StopStackJob::class, fn (StopStackJob $job): bool => $job->afterCommit === true);
+});
+
 it('dispatches nothing on a repeat once nothing runs', function () {
     $world = StackWorld::build();
     app(StackActions::class)->stop($world->root);

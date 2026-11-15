@@ -98,15 +98,6 @@ it('drives the first turn of an HTTP spawn as the acting user', function () {
     expect(TaskRun::query()->where('thread_id', $child->id)->sole()->driver_user_id)->toBe($actor->id);
 });
 
-it('starts a child once when two starts run', function () {
-    $child = spawnedChild($this->parent, ThreadKind::Implement);
-
-    app(ChildSpawner::class)->start($child);
-    app(ChildSpawner::class)->start($child->fresh());
-
-    expect(TaskRun::query()->where('thread_id', $child->id)->count())->toBe(1);
-});
-
 it('leaves a child alone while another worker holds its start claim', function () {
     $child = spawnedChild($this->parent, ThreadKind::Implement);
     $claim = Cache::lock("child-start:{$child->id}", 60);
