@@ -27,8 +27,8 @@ public actor ThreadEngine {
 
     public nonisolated let threadID: String
 
-    private let client: APIClient
-    private let cache: Cache
+    let client: APIClient
+    let cache: Cache
     private let clock: any YakClock
     private let frameInterval: Duration
     private let cacheSaveDelay: Duration
@@ -36,7 +36,7 @@ public actor ThreadEngine {
 
     private var state = ThreadEventState()
     private var tracker = ReadTracker()
-    private var show: ThreadShow?
+    private(set) var show: ThreadShow?
     private var load: ThreadLoadState = .loading
     private var connection: ConnectionState = .offline
     private var isShowingCachedCopy = false
@@ -52,7 +52,8 @@ public actor ThreadEngine {
     /// True once `open()` has restored the cache; until then live input waits so it cannot be overwritten.
     private var isOpenFinished = false
     private var problem: ThreadProblem?
-    private var isClosed = false
+    private(set) var isClosed = false
+    var actionTasks: [String: Task<ThreadActionOutcome, Never>] = [:]
     private var catchUpTask: Task<Void, Never>?
     private var isRerunRequested = false
     private var frameTask: Task<Void, Never>?
@@ -113,6 +114,8 @@ public actor ThreadEngine {
         cacheTask?.cancel()
         for task in sideTasks.values { task.cancel() }
         for task in [pollTask, refreshTask, slowTask, olderTask] { task?.cancel() }
+        for task in actionTasks.values { task.cancel() }
+        actionTasks = [:]
         pollTask = nil
         refreshTask = nil
         slowTask = nil
@@ -289,6 +292,7 @@ public actor ThreadEngine {
         isOffline = false
         problem = nil
         changed(isStored: true)
+        await dropStaleQuestionDraft()
         return nil
     }
 
@@ -460,6 +464,7 @@ public actor ThreadEngine {
         }
         markSeenOnce()
         changed(isStored: true)
+        await dropStaleQuestionDraft()
         return true
     }
 
