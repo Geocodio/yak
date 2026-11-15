@@ -84,6 +84,40 @@ final class EarlyWarningData
         return array_values($candidates);
     }
 
+    /**
+     * The candidates of `candidates()` with every GitHub check time bounded. No new check starts once the budget has run out; the people found so far are returned with `isComplete: false`.
+     *
+     * @return array{candidates: list<array{id: int, name: string}>, isComplete: bool}
+     */
+    public static function candidatesWithin(YakTask $root, ?User $viewer, int $budgetSeconds = 8): array
+    {
+        $repository = $root->repository;
+
+        if ($viewer === null || $repository === null || ! (self::forTask($root, CoOwnerPanelData::latestRequest($root), $viewer)['canPick'] ?? false)) {
+            return ['candidates' => [], 'isComplete' => true];
+        }
+
+        $writeAccess = app(GitHubWriteAccess::class);
+        $deadline = now()->addSeconds($budgetSeconds);
+        $candidates = [];
+        $isComplete = true;
+
+        $users = User::whereNotNull('github_id')->whereKeyNot($viewer->id)->orderBy('name')->limit(self::CANDIDATE_SCAN_LIMIT)->get();
+
+        foreach ($users as $user) {
+            if (now()->greaterThan($deadline)) {
+                $isComplete = false;
+                break;
+            }
+
+            if ($writeAccess->check($repository, $user, isTimeBounded: true) === 'write') {
+                $candidates[] = ['id' => $user->id, 'name' => $user->name];
+            }
+        }
+
+        return ['candidates' => $candidates, 'isComplete' => $isComplete];
+    }
+
     public static function isRequester(YakTask $root, ?User $viewer): bool
     {
         return $viewer !== null && app(TaskRequester::class)->isRequester($root, $viewer, $viewer->slack_user_id);

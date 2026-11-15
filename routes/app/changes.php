@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\App\Tasks\ClarificationAnswerController;
 use App\Http\Controllers\Api\App\Tasks\CoOwnerDecisionController;
+use App\Http\Controllers\Api\App\Tasks\EarlyWarningController;
 use App\Http\Controllers\Api\App\Tasks\TaskActionController;
 use App\Http\Controllers\Api\App\Tasks\TaskController;
 use App\Http\Controllers\Api\App\Tasks\TaskListController;
@@ -18,6 +19,7 @@ Route::post('threads/{thread}/pull-requests/{repository}/fix', [PullRequestContr
 
 Route::get('tasks', TaskListController::class)->name('app.tasks.index');
 Route::get('tasks/{task}', [TaskController::class, 'show'])->name('app.tasks.show');
+Route::get('tasks/{task}/co-owner/candidates', [EarlyWarningController::class, 'candidates'])->name('app.tasks.co-owner.candidates');
 Route::middleware('task.drive')->group(function (): void {
     Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('app.tasks.retry');
     Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('app.tasks.cancel');
@@ -28,5 +30,7 @@ Route::middleware('task.drive')->group(function (): void {
     Route::post('tasks/{task}/co-owner/request-changes', [CoOwnerDecisionController::class, 'requestChanges'])->name('app.tasks.co-owner.request-changes');
     Route::post('tasks/{task}/co-owner/reject', [CoOwnerDecisionController::class, 'reject'])->name('app.tasks.co-owner.reject');
     Route::post('tasks/{task}/co-owner/withdraw', [CoOwnerDecisionController::class, 'withdraw'])->name('app.tasks.co-owner.withdraw');
+    Route::post('tasks/{task}/co-owner/tag', [EarlyWarningController::class, 'tag'])->name('app.tasks.co-owner.tag');
+    Route::post('tasks/{task}/co-owner/decline', [EarlyWarningController::class, 'decline'])->name('app.tasks.co-owner.decline');
     Route::post('tasks/{task}/clarification-answers', ClarificationAnswerController::class)->name('app.tasks.clarification-answers.store');
 });

@@ -1,0 +1,13 @@
+{
+    "candidates": [
+        {
+            "id": "<volatile:int>",
+            "name": "Second person"
+        },
+        {
+            "id": "<volatile:int>",
+            "name": "Third person"
+        }
+    ],
+    "isComplete": true
+}
