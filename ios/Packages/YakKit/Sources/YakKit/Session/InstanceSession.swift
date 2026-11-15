@@ -103,6 +103,7 @@ public actor InstanceSession {
     private var connectionForwarder: Task<Void, Never>?
     private var meRetryTask: Task<Void, Never>?
     private var threads: [String: OpenThread] = [:]
+    private var overviewFeeds: [String: (feed: OverviewFeed, callers: Int)] = [:]
 
     public init(instance: Instance, instances: InstanceStore, tokens: any TokenStore, environment: SessionEnvironment) {
         self.instance = instance
@@ -325,6 +326,9 @@ public actor InstanceSession {
         connectionBroadcast.send(.offline)
         await feed?.setVisible(false)
         guard closingThreads else { return }
+        let openFeeds = overviewFeeds
+        overviewFeeds = [:]
+        for entry in openFeeds.values { await entry.feed.close() }
         let open = threads
         threads = [:]
         for entry in open.values {
@@ -430,6 +434,44 @@ public actor InstanceSession {
         entry.realtimeForwarder?.cancel()
         await realtime?.unsubscribe(thread: id)
         await entry.engine.close()
+    }
+
+    /// One Overview feed per open thread, however many scenes show it. Nil unless the session is active and the thread is open.
+    public func openOverview(_ threadID: String) async -> OverviewFeed? {
+        if var existing = overviewFeeds[threadID] {
+            existing.callers += 1
+            overviewFeeds[threadID] = existing
+            return existing.feed
+        }
+        guard isActive, let client, let overview, let engine = threads[threadID]?.engine else { return nil }
+        let feed = OverviewFeed(
+            threadID: threadID, client: client, clock: environment.clock, snapshots: await engine.snapshots(),
+            changes: await overview.changes())
+        // Another scene may have opened the feed, or the thread may have closed, during the awaits above.
+        if var existing = overviewFeeds[threadID] {
+            await feed.close()
+            existing.callers += 1
+            overviewFeeds[threadID] = existing
+            return existing.feed
+        }
+        guard isActive, threads[threadID] != nil else {
+            await feed.close()
+            return nil
+        }
+        overviewFeeds[threadID] = (feed, 1)
+        return feed
+    }
+
+    /// Closes the feed when the last caller leaves.
+    public func closeOverview(_ threadID: String) async {
+        guard var entry = overviewFeeds[threadID] else { return }
+        entry.callers -= 1
+        guard entry.callers <= 0 else {
+            overviewFeeds[threadID] = entry
+            return
+        }
+        overviewFeeds[threadID] = nil
+        await entry.feed.close()
     }
 
     private func realtimeForwarder(thread id: String, realtime: RealtimeClient) async -> Task<Void, Never> {
