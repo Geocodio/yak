@@ -132,6 +132,26 @@ it('maps every refusal to its code and status', function (string $case, int $sta
     'github failure' => ['github failure', 503, 'github_failed'],
 ]);
 
+it('never shows internal error text when opening the pull request fails', function (Throwable $failure) {
+    coOwnerGitHubFakes('write', ['api.github.com/repos/example/api/pulls' => fn () => throw $failure]);
+
+    $response = $this->postJson(decisionPath($this->task, 'approve'), [], $this->headers)->assertStatus(503)->assertJsonPath('error', 'github_failed')
+        ->assertJsonPath('message', 'Yak could not open the pull request. Try again in a moment.');
+
+    expect($response->json('details'))->toBeEmpty()
+        ->and($this->coOwnerRequest->fresh()->status)->toBe(CoOwnerRequestStatus::Pending);
+})->with([
+    'runtime exception' => [fn () => new RuntimeException('{"secret":"body"}')],
+    'connection exception' => [fn () => new ConnectionException('cURL error 28 for https://api.github.com/repos/example/api/pulls')],
+]);
+
+it('wraps the GitHub message when GitHub refuses the pull request', function () {
+    coOwnerGitHubFakes('write', ['api.github.com/repos/example/api/pulls' => Http::response(['message' => 'Validation Failed'], 422)]);
+
+    $this->postJson(decisionPath($this->task, 'approve'), [], $this->headers)->assertStatus(503)
+        ->assertJsonPath('message', 'GitHub refused the pull request: Validation Failed');
+});
+
 it('answers 404 for a task with no co-owner request', function () {
     $plain = YakTask::factory()->create(['public_id' => 'plain000', 'started_by_user_id' => $this->user->id, 'thread_id' => null]);
 
@@ -197,7 +217,11 @@ describe('who may decide', function () {
             $this->postJson(decisionPath($this->task, $route), $body, phoneHeadersFor($recipient))->assertForbidden()->assertJsonPath('error', 'forbidden');
         }
 
-        expect($this->coOwnerRequest->fresh()->status)->toBe(CoOwnerRequestStatus::Pending);
+        expect($this->coOwnerRequest->fresh()->status)->toBe(CoOwnerRequestStatus::Pending)
+            ->and($this->task->fresh()->status)->toBe(TaskStatus::AwaitingCoOwner);
+        Bus::assertNotDispatched(SendCoOwnerMessagesJob::class);
+        Bus::assertNotDispatched(RunFollowUpJob::class);
+        Http::assertNotSent(fn (HttpRequest $request): bool => str_ends_with($request->url(), '/pulls'));
     });
 
     it('answers a hidden task exactly like a missing one', function () {
@@ -208,6 +232,8 @@ describe('who may decide', function () {
             $hidden = $this->postJson(decisionPath($this->task, $route), $body, $stranger)->assertNotFound();
             $unknown = $this->postJson(decisionPath($missing, $route), $body, $stranger)->assertNotFound();
             expect($hidden->json())->toBe($unknown->json());
+            $numeric = $this->postJson(str_replace($this->task->public_id, (string) $this->task->id, decisionPath($this->task, $route)), $body, $stranger)->assertNotFound();
+            expect($numeric->json())->toBe($unknown->json());
         }
     });
 

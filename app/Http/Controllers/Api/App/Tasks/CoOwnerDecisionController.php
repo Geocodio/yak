@@ -64,17 +64,31 @@ class CoOwnerDecisionController extends Controller
         $user = $request->user();
         $coOwnerRequest = CoOwnerPanelData::latestRequest($task) ?? abort(404);
 
-        if ($coOwnerRequest->status === $status && $coOwnerRequest->decided_by_user_id === $user->id) {
+        if ($this->isDecidedBy($coOwnerRequest, $status, $user)) {
             return response()->json(['status' => $status->value]);
         }
 
         try {
             $decision($coOwnerRequest, $user);
         } catch (CoOwnerDecisionException $exception) {
+            if ($exception->reason === CoOwnerDecisionException::ALREADY_RESOLVED && $this->isDecidedBy($coOwnerRequest, $status, $user)) {
+                return response()->json(['status' => $status->value]);
+            }
+
             throw $this->refusal($exception);
         }
 
         return response()->json(['status' => $status->value]);
+    }
+
+    /**
+     * Reads the request again, so a double tap that lost the race answers like the tap that won.
+     */
+    private function isDecidedBy(CoOwnerRequest $coOwnerRequest, CoOwnerRequestStatus $status, User $user): bool
+    {
+        $coOwnerRequest->refresh();
+
+        return $coOwnerRequest->status === $status && $coOwnerRequest->decided_by_user_id === $user->id;
     }
 
     private function refusal(CoOwnerDecisionException $exception): ThreadActionRefused
@@ -91,6 +105,16 @@ class CoOwnerDecisionController extends Controller
             default => [],
         };
 
-        return new ThreadActionRefused($exception->reason, $exception->getMessage(), $details, $status);
+        $message = match (true) {
+            $exception->reason !== CoOwnerDecisionException::GITHUB_FAILED => $exception->getMessage(),
+            $exception->status === null => 'Yak could not open the pull request. Try again in a moment.',
+            default => "GitHub refused the pull request: {$exception->getMessage()}",
+        };
+
+        if ($exception->reason === CoOwnerDecisionException::GITHUB_FAILED && $exception->status === null) {
+            report($exception);
+        }
+
+        return new ThreadActionRefused($exception->reason, $message, $details, $status);
     }
 }
