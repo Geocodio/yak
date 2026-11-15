@@ -111,7 +111,7 @@ it('stops every turn and updates the touched cards in the job', function () {
 
     $cardCounts = fn (): array => DB::table('thread_events')->where('thread_id', $world->root->id)->where('type', 'child')->pluck('payload')
         ->map(fn (string $payload): string => json_decode($payload, true)['childThreadId'])->countBy()->sortKeys()->all();
-    expect(array_keys($cardCounts()))->toEqualCanonicalizing([$world->working->public_id, $queued->public_id]);
+    expect(array_keys($cardCounts()))->toEqualCanonicalizing([$world->working->public_id, $world->research->public_id, $queued->public_id]);
     $before = $cardCounts();
 
     runStopJob($world->root);
