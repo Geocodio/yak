@@ -77,7 +77,7 @@ func decodesEveryFixture(name: String) throws {
     "thread-message-sent", "thread-message-queued", "thread-message-clear",
 ])
 func decodesEveryThreadFixture(name: String) throws {
-    guard Fixtures.exists(name) else { return }  // Runs once the server's fixture exists.
+    try #require(Fixtures.exists(name), "The server fixture \(name) is missing.")
     let data = try Fixtures.data(name)
     switch name {
     case "threads": _ = try JSONDecoder().decode(ThreadList.self, from: data)
@@ -97,7 +97,7 @@ func decodesEveryThreadFixture(name: String) throws {
 
 @Test(arguments: ["thread-events", "thread-event", "broadcasting-auth-private", "broadcasting-auth-presence"])
 func decodesEveryEventFixture(name: String) throws {
-    guard Fixtures.exists(name) else { return }  // Runs once the server's fixture exists.
+    try #require(Fixtures.exists(name), "The server fixture \(name) is missing.")
     let data = try Fixtures.data(name)
     switch name {
     case "thread-events":
@@ -111,7 +111,7 @@ func decodesEveryEventFixture(name: String) throws {
 
 @Test(arguments: ["simple-turn", "steer", "question", "failed-turn", "stream-reset", "pointer"])
 func decodesEveryServerEventList(name: String) throws {
-    guard Fixtures.exists("events/\(name)") else { return }  // Runs once the server's fixture exists.
+    try #require(Fixtures.exists("events/\(name)"), "The server fixture events/\(name) is missing.")
     let list = try EventList.loadFixture("events/\(name)")
     let sequences = list.broadcasts.map { item -> Int in
         switch item {

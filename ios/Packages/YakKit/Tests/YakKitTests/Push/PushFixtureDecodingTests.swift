@@ -3,35 +3,44 @@ import Testing
 
 @testable import YakKit
 
-/// One decode test per push fixture. A fixture that is not on the branch yet skips its test visibly.
+/// One decode test per push fixture. A missing fixture fails its test.
+private func requireFixture(_ name: String) throws {
+    try #require(Fixtures.exists(name), "The server fixture \(name) is missing.")
+}
+
 private func decodeFixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
     try JSONDecoder().decode(type, from: Fixtures.data(name))
 }
 
-@Test(.enabled(if: Fixtures.exists("notifications")))
+@Test
 func decodesNotifications() throws {
+    try requireFixture("notifications")
     let preferences = try decodeFixture(NotificationPreferences.self, "notifications")
     for event in PushEvent.switches { #expect(preferences.events[event.rawValue] != nil) }
 }
 
-@Test(.enabled(if: Fixtures.exists("notifications-updated")))
+@Test
 func decodesNotificationsUpdated() throws {
+    try requireFixture("notifications-updated")
     let preferences = try decodeFixture(NotificationPreferences.self, "notifications-updated")
     for event in PushEvent.switches { #expect(preferences.events[event.rawValue] != nil) }
     #expect(preferences.events.count == 4)
 }
 
-@Test(.enabled(if: Fixtures.exists("push-test")))
+@Test
 func decodesPushTest() throws {
+    try requireFixture("push-test")
     #expect(!(try decodeFixture(PushTestResult.self, "push-test").status.isEmpty))
 }
 
-@Test(.enabled(if: Fixtures.exists("thread-live-activity-channel")))
+@Test
 func decodesTheChannel() throws {
+    try requireFixture("thread-live-activity-channel")
     #expect(!(try decodeFixture(LiveActivityChannel.self, "thread-live-activity-channel").channel.isEmpty))
 }
 
 private func checkPushError(_ name: String, code: String) throws {
+    try requireFixture(name)
     let object = try #require(try Fixtures.object(name) as? [String: Any])
     #expect(object["error"] as? String == code)
     let details = object["details"] as? [String: Any] ?? [:]
@@ -45,65 +54,66 @@ private func checkPushError(_ name: String, code: String) throws {
     if case .other = PushProblem(.server(error)) { Issue.record("\(name) maps to .other") }
 }
 
-@Test(.enabled(if: Fixtures.exists("error-push-unavailable")))
+@Test
 func decodesThePushUnavailableError() throws {
+    try requireFixture("error-push-unavailable")
     try checkPushError("error-push-unavailable", code: "push_unavailable")
 }
 
-@Test(.enabled(if: Fixtures.exists("error-push-environment-mismatch")))
+@Test
 func decodesThePushEnvironmentMismatchError() throws {
+    try requireFixture("error-push-environment-mismatch")
     try checkPushError("error-push-environment-mismatch", code: "push_environment_mismatch")
 }
 
-@Test(.enabled(if: Fixtures.exists("error-push-rejected")))
+@Test
 func decodesThePushRejectedError() throws {
+    try requireFixture("error-push-rejected")
     try checkPushError("error-push-rejected", code: "push_rejected")
 }
 
-@Test(.enabled(if: Fixtures.exists("error-no-push-token")))
+@Test
 func decodesTheNoPushTokenError() throws {
+    try requireFixture("error-no-push-token")
     try checkPushError("error-no-push-token", code: "no_push_token")
 }
 
-private func threadFixtureHasAChannel() -> Bool {
-    guard Fixtures.exists("thread"), let object = try? Fixtures.object("thread") as? [String: Any] else {
-        return false
-    }
-    return object["liveActivityChannel"] != nil
-}
-
-@Test(.enabled(if: threadFixtureHasAChannel()))
+@Test
 func theThreadFixtureCarriesAChannel() throws {
+    try requireFixture("thread")
     let object = try #require(try Fixtures.object("thread") as? [String: Any])
     #expect(object["liveActivityChannel"] is String)
     #expect(try decodeFixture(ThreadShow.self, "thread").liveActivityChannel != nil)
 }
 
-@Test(.enabled(if: Fixtures.exists("thread-question")))
+@Test
 func theQuestionFixtureHasNoChannel() throws {
+    try requireFixture("thread-question")
     #expect(try decodeFixture(ThreadShow.self, "thread-question").liveActivityChannel == nil)
 }
 
 private func checkAlert(_ name: String) throws -> PushPayload.Yak {
-    try #require(try decodeFixture(PushPayload.self, name).yak)
+    try requireFixture(name)
+    return try #require(try decodeFixture(PushPayload.self, name).yak)
 }
 
-@Test(.enabled(if: Fixtures.exists("push/alert-needs-you")))
+@Test
 func decodesTheNeedsYouAlert() throws { _ = try checkAlert("push/alert-needs-you") }
 
-@Test(.enabled(if: Fixtures.exists("push/alert-turn-finished")))
+@Test
 func decodesTheTurnFinishedAlert() throws { _ = try checkAlert("push/alert-turn-finished") }
 
-@Test(.enabled(if: Fixtures.exists("push/alert-pull-request")))
+@Test
 func decodesThePullRequestAlert() throws { _ = try checkAlert("push/alert-pull-request") }
 
-@Test(.enabled(if: Fixtures.exists("push/alert-private")))
+@Test
 func decodesThePrivateAlert() throws { _ = try checkAlert("push/alert-private") }
 
-@Test(.enabled(if: Fixtures.exists("push/alert-account")))
+@Test
 func decodesTheAccountAlert() throws { #expect(try checkAlert("push/alert-account").id == nil) }
 
 private func checkLiveActivity(_ name: String) throws {
+    try requireFixture(name)
     let object = try #require(try Fixtures.object(name) as? [String: Any])
     let aps = try #require(object["aps"] as? [String: Any])
     let state = try JSONDecoder().decode(
@@ -115,14 +125,14 @@ private func checkLiveActivity(_ name: String) throws {
     if name.hasSuffix("-private") { #expect(state.isPrivate && state.step.isEmpty) }
 }
 
-@Test(.enabled(if: Fixtures.exists("push/live-activity-start")))
+@Test
 func decodesTheLiveActivityStart() throws { try checkLiveActivity("push/live-activity-start") }
 
-@Test(.enabled(if: Fixtures.exists("push/live-activity-start-private")))
+@Test
 func decodesThePrivateLiveActivityStart() throws { try checkLiveActivity("push/live-activity-start-private") }
 
-@Test(.enabled(if: Fixtures.exists("push/live-activity-update")))
+@Test
 func decodesTheLiveActivityUpdate() throws { try checkLiveActivity("push/live-activity-update") }
 
-@Test(.enabled(if: Fixtures.exists("push/live-activity-end")))
+@Test
 func decodesTheLiveActivityEnd() throws { try checkLiveActivity("push/live-activity-end") }
