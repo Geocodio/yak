@@ -460,7 +460,7 @@ func (s *Server) upResponse(w http.ResponseWriter, row *teleportRow, thread *Thr
 		repo, _ := s.repoBySlug(rr.Repo)
 		out := api.BeginUpRepo{Repo: rr.Repo, Role: rr.Role, CloneURL: repo.CloneURL, SandboxPath: "/workspace"}
 		if rr.Role != "primary" {
-			out.SandboxPath = "/extras/" + rr.Repo[strings.LastIndex(rr.Repo, "/")+1:]
+			out.SandboxPath = "/home/yak/extras/" + rr.Repo[strings.LastIndex(rr.Repo, "/")+1:]
 		}
 		switch {
 		case rr.Role == "context":

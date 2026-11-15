@@ -35,7 +35,7 @@ type NoteInput struct {
 	SandboxOS, SandboxArch string
 	LocalOS, LocalArch     string // Go values: darwin, linux, arm64, amd64
 	Primary                CheckoutMapping
-	Extras                 []CheckoutMapping // /extras/<repo> mapped to the cloned folder
+	Extras                 []CheckoutMapping // /home/yak/extras/<repo> mapped to the cloned folder
 	Refresh                []RefreshRule
 	ContextRepos           []string // slugs that stayed on Yak
 	NotBroughtDown         []NotBroughtDown
