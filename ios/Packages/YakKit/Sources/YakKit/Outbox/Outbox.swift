@@ -225,7 +225,7 @@ public actor Outbox {
         guard !isShutDown, let index = stored.firstIndex(where: { $0.id == id }) else { throw .notFound }
         switch stored[index].state {
         case .sending, .slow: throw .alreadySending
-        case .queued, .waiting: if stored[index].attemptCount > 0 { throw .mayAlreadyBeSent }
+        case .queued, .waiting: if stored[index].mayHaveReachedServer { throw .mayAlreadyBeSent }
         case .refused: break
         }
         stored[index].text = text
@@ -271,6 +271,11 @@ public actor Outbox {
     /// again, with the same `send_key`, from the next `Outbox` that loads them.
     func shutDown() {
         isShutDown = true
+        // An item in flight may already be on the server, so it reads as waiting, never as still sending.
+        for index in stored.indices where stored[index].state == .sending || stored[index].state == .slow {
+            stored[index].state = .waiting
+        }
+        announceItems()
         for timer in slowTimers.values { timer.cancel() }
         for timer in retryTimers.values { timer.cancel() }
         for task in sendTasks.values { task.cancel() }
@@ -344,6 +349,10 @@ public actor Outbox {
             pump()
             return
         }
+        if !Task.isCancelled, let index = stored.firstIndex(where: { $0.id == id }) {
+            stored[index].mayHaveReachedServer = true
+            do { try persist() } catch { logFailure("outbox list not saved: \(type(of: error))") }
+        }
         do throws(APIFailure) {
             outcome = .success(try await deliver(item, attachments: parts))
         } catch {
@@ -386,7 +395,7 @@ public actor Outbox {
             stored[index].state = .queued
             pause(reason)
         case .stayQueued:
-            // The request may have reached the server, so the attempt still counts.
+            // A request may have reached the server; `mayHaveReachedServer` keeps the item from being edited.
             stored[index].state = .queued
         }
         publish()

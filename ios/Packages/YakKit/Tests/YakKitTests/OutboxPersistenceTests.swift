@@ -33,6 +33,20 @@ private struct FailingListStore: FileStore {
     func list(_ folder: String) throws(FileStoreError) -> [String] { try base.list(folder) }
 }
 
+/// Cannot read any attachment file, as on a locked device, and passes everything else through.
+private struct LockedAttachmentStore: FileStore {
+    let base: InMemoryFileStore
+    func read(_ path: String) throws(FileStoreError) -> Data? {
+        if path.contains("/files/") { throw .unreadable }
+        return try base.read(path)
+    }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        try base.write(data, to: path, protection: protection)
+    }
+    func remove(_ path: String) throws(FileStoreError) { try base.remove(path) }
+    func list(_ folder: String) throws(FileStoreError) -> [String] { try base.list(folder) }
+}
+
 private struct Setup {
     let files: InMemoryFileStore
     let instance: UUID
@@ -175,6 +189,63 @@ private struct Setup {
         }
         #expect(refused.first?.text == "Lost file")
         #expect(await setup.transport.requests(on: threadRoute).isEmpty)
+    }
+
+    @Test func aFailureBeforeAnyRequestLeavesTheItemEditable() async throws {
+        let files = InMemoryFileStore()
+        let setup = Setup(files: files, store: LockedAttachmentStore(base: files))
+        let attachment = OutboxAttachment(
+            reference: "Image #1", fileName: "a.png", contentType: "image/png",
+            path: OutboxInbox.attachmentPath(instance: setup.instance, item: UUID(), fileName: "a.png"))
+        let item = try await setup.outbox.enqueue(draft("Locked", attachments: [attachment]))
+        await settle()
+        let held = try #require(await setup.outbox.items().first)
+        #expect(held.state == .waiting)
+        #expect(held.attemptCount == 1)
+        #expect(held.isEditable)
+        #expect(await setup.transport.requests(on: threadRoute).isEmpty)
+        try await setup.outbox.edit(item.id, text: "Changed")
+        let data = try #require(try files.read(setup.itemsPath))
+        let saved = try JSONDecoder().decode([OutboxItem].self, from: data)
+        #expect(saved.first?.mayHaveReachedServer == false)
+    }
+
+    @Test func aStartedRequestIsSavedAsMaybeSent() async throws {
+        let setup = Setup()
+        await setup.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
+        await setup.transport.hold(threadRoute)
+        _ = try await setup.outbox.enqueue(draft("Hold"))
+        await setup.transport.waitForRequests(1, on: threadRoute)
+        let data = try #require(try setup.files.read(setup.itemsPath))
+        let saved = try JSONDecoder().decode([OutboxItem].self, from: data)
+        #expect(saved.first?.mayHaveReachedServer == true)
+        await setup.transport.release(threadRoute)
+    }
+
+    @Test func aListSavedBeforeTheFlagTreatsAnAttemptedItemAsMaybeSent() throws {
+        let item = OutboxItem(
+            id: UUID(), target: .thread("d0e515ef"), text: "Old", model: nil, delivery: .steer, attachments: [],
+            attemptCount: 2, createdAt: Date(timeIntervalSince1970: 0))
+        var object = try #require(
+            try JSONSerialization.jsonObject(with: JSONEncoder().encode(item)) as? [String: Any])
+        object.removeValue(forKey: "mayHaveReachedServer")
+        let decoded = try JSONDecoder().decode(OutboxItem.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(decoded.mayHaveReachedServer)
+        #expect(!decoded.isEditable)
+    }
+
+    @Test func aShutDownOutboxReportsAnInFlightItemAsWaiting() async throws {
+        let setup = Setup()
+        await setup.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
+        await setup.transport.hold(threadRoute)
+        _ = try await setup.outbox.enqueue(draft("Hold"))
+        await setup.transport.waitForRequests(1, on: threadRoute)
+        #expect(await setup.outbox.items().first?.state == .sending)
+        await setup.outbox.shutDown()
+        let held = try #require(await setup.outbox.items().first)
+        #expect(held.state == .waiting)
+        #expect(!held.isEditable)
+        await setup.transport.release(threadRoute)
     }
 
     @Test func deliveryRemovesTheAttachmentFiles() async throws {

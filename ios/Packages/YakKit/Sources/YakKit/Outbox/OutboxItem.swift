@@ -54,11 +54,15 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
     public var attachments: [OutboxAttachment]
     public var state: OutboxState
     public var attemptCount: Int
+    /// True once a request for this item has been started, so the server may hold its `send_key`. A failure
+    /// before that (an unreadable attachment, a cancel before the request) leaves it false and the item editable.
+    public var mayHaveReachedServer: Bool
     public let createdAt: Date
 
     public init(
         id: UUID, target: OutboxTarget, text: String, model: String?, delivery: MessageDelivery,
-        attachments: [OutboxAttachment], state: OutboxState = .queued, attemptCount: Int = 0, createdAt: Date
+        attachments: [OutboxAttachment], state: OutboxState = .queued, attemptCount: Int = 0,
+        mayHaveReachedServer: Bool = false, createdAt: Date
     ) {
         self.id = id
         self.target = target
@@ -68,7 +72,24 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
         self.attachments = attachments
         self.state = state
         self.attemptCount = attemptCount
+        self.mayHaveReachedServer = mayHaveReachedServer
         self.createdAt = createdAt
+    }
+
+    /// A list saved before `mayHaveReachedServer` existed treats every attempted item as possibly sent.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        target = try container.decode(OutboxTarget.self, forKey: .target)
+        text = try container.decode(String.self, forKey: .text)
+        model = try container.decodeIfPresent(String.self, forKey: .model)
+        delivery = try container.decode(MessageDelivery.self, forKey: .delivery)
+        attachments = try container.decode([OutboxAttachment].self, forKey: .attachments)
+        state = try container.decode(OutboxState.self, forKey: .state)
+        attemptCount = try container.decode(Int.self, forKey: .attemptCount)
+        mayHaveReachedServer =
+            try container.decodeIfPresent(Bool.self, forKey: .mayHaveReachedServer) ?? (attemptCount > 0)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
     }
 
     /// Items of one queue are sent one at a time, in order: per thread, and one queue per new thread.
@@ -80,11 +101,11 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
     }
 
     /// True when the text may change without the server holding the old text under this key: an item that
-    /// was ever attempted may already be there.
+    /// was ever sent may already be there.
     public var isEditable: Bool {
         switch state {
         case .refused: true
-        case .queued, .waiting: attemptCount == 0
+        case .queued, .waiting: !mayHaveReachedServer
         case .sending, .slow: false
         }
     }
