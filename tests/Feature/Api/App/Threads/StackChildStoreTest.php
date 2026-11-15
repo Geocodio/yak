@@ -78,8 +78,8 @@ it('answers the same body for a repeated send key', function () {
     expect($second->json())->toBe($first->json())
         ->and(Thread::query()->where('spawn_key', ADD_KEY)->count())->toBe(1)
         ->and(Thread::query()->where('parent_thread_id', $world->root->id)->count())->toBe(4);
-    // Nothing ran between the two requests, so the repeat asks again for a start that is safe to repeat.
-    Queue::assertPushed(StartChildThreadJob::class, 2);
+    // The first start job is still pending, so the repeat adds no second one.
+    Queue::assertPushed(StartChildThreadJob::class, 1);
 });
 
 it('refuses at the cap with the count', function () {
