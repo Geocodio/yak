@@ -67,7 +67,7 @@ it('hides the token when serialized', function () {
 });
 
 it('migrates down and up again', function () {
-    $this->artisan('migrate:rollback', ['--step' => 3])->assertExitCode(0);
+    $this->artisan('migrate:rollback', ['--step' => 4])->assertExitCode(0);
     expect(Schema::hasTable('device_push_tokens'))->toBeFalse()
         ->and(Schema::hasColumn('threads', 'live_activity_channel'))->toBeFalse();
 
