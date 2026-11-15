@@ -59,3 +59,5 @@ public struct OpenPerformanceIntervals<Token> {
         return token
     }
 }
+
+extension OpenPerformanceIntervals: Sendable where Token: Sendable {}

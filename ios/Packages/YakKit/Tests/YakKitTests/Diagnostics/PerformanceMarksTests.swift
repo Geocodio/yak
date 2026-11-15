@@ -71,8 +71,14 @@ import Testing
             }
         }
         for mark in intervals {
-            #expect(open.end(mark) != nil)
+            let expected = mark.restartsOnBegin ? 9_999 : 0
+            #expect(open.end(mark) == expected)
             #expect(open.end(mark) == nil)
+        }
+        for token in 0..<10_000 {
+            let result = open.begin(.allPanesOpen, token: token)
+            #expect(!result.shouldBegin)
+            #expect(result.endPrevious == nil)
         }
     }
 }
