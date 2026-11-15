@@ -142,6 +142,16 @@ class TaskAttachment extends Model
     }
 
     /**
+     * Delete stored attachments (files and rows) that no task took over.
+     *
+     * @param  Collection<int, self>  $attachments
+     */
+    public static function discard(Collection $attachments): void
+    {
+        $attachments->each(fn (self $attachment) => $attachment->delete());
+    }
+
+    /**
      * Write an upload to the artifacts disk and record it. Each file gets
      * its own directory so two uploads with the same name never collide.
      *

@@ -176,7 +176,7 @@ newMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
-* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @see app/Http/Controllers/Threads/StoreThreadController.php:17
 * @route '/threads'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -191,7 +191,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
-* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @see app/Http/Controllers/Threads/StoreThreadController.php:17
 * @route '/threads'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -200,7 +200,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
-* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @see app/Http/Controllers/Threads/StoreThreadController.php:17
 * @route '/threads'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

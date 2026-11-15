@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenControll
 use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
 use App\Http\Controllers\Api\App\MeController as AppMeController;
 use App\Http\Controllers\Api\App\Threads\ClarificationAnswerController as AppClarificationAnswerController;
+use App\Http\Controllers\Api\App\Threads\NewThreadController as AppNewThreadController;
 use App\Http\Controllers\Api\App\Threads\QueuedMessageController as AppQueuedMessageController;
 use App\Http\Controllers\Api\App\Threads\ThreadActionController as AppThreadActionController;
 use App\Http\Controllers\Api\App\Threads\ThreadController as AppThreadController;
@@ -478,6 +479,9 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::get('me', AppMeController::class)->name('app.me');
         Route::delete('device', [AppDeviceController::class, 'destroy'])->name('app.device.destroy');
         Route::get('threads', AppThreadListController::class)->name('app.threads.index');
+        Route::get('threads/new', [AppNewThreadController::class, 'create'])->name('app.threads.new');
+        Route::get('threads/new/repository-access', RepositoryAccessController::class)->middleware('throttle:30,1')->name('app.threads.repository-access');
+        Route::post('threads', [AppNewThreadController::class, 'store'])->name('app.threads.store');
         Route::get('threads/{thread}', [AppThreadController::class, 'show'])->name('app.threads.show');
         Route::post('threads/{thread}/messages', [AppThreadMessageController::class, 'store'])->name('app.threads.messages.store');
         Route::post('threads/{thread}/clarification-answers', AppClarificationAnswerController::class)->name('app.threads.clarification-answers.store');

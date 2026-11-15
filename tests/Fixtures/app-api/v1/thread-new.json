@@ -1,0 +1,97 @@
+{
+    "defaultRepo": "example/api",
+    "models": [
+        {
+            "family": "opus",
+            "latest": {
+                "description": "For complex work and everyday tasks",
+                "label": "Opus 5.5",
+                "value": "opus"
+            },
+            "older": []
+        },
+        {
+            "family": "fable",
+            "latest": {
+                "description": "For your toughest challenges",
+                "label": "Fable 5.2",
+                "value": "fable"
+            },
+            "older": []
+        },
+        {
+            "family": "sonnet",
+            "latest": {
+                "description": "Most efficient for simpler tasks",
+                "label": "Sonnet 5.5",
+                "value": "sonnet"
+            },
+            "older": []
+        },
+        {
+            "family": "haiku",
+            "latest": {
+                "description": "Fastest for quick answers",
+                "label": "Haiku 5.5",
+                "value": "haiku"
+            },
+            "older": []
+        }
+    ],
+    "picker": {
+        "accounts": [],
+        "defaultsByRepo": {
+            "example/api": {
+                "accountId": null,
+                "brokenDefaultAccountId": null,
+                "model": "opus"
+            }
+        },
+        "models": [
+            {
+                "family": "opus",
+                "latest": {
+                    "description": "For complex work and everyday tasks",
+                    "label": "Opus 5.5",
+                    "value": "opus"
+                },
+                "older": []
+            },
+            {
+                "family": "fable",
+                "latest": {
+                    "description": "For your toughest challenges",
+                    "label": "Fable 5.2",
+                    "value": "fable"
+                },
+                "older": []
+            },
+            {
+                "family": "sonnet",
+                "latest": {
+                    "description": "Most efficient for simpler tasks",
+                    "label": "Sonnet 5.5",
+                    "value": "sonnet"
+                },
+                "older": []
+            },
+            {
+                "family": "haiku",
+                "latest": {
+                    "description": "Fastest for quick answers",
+                    "label": "Haiku 5.5",
+                    "value": "haiku"
+                },
+                "older": []
+            }
+        ]
+    },
+    "repos": [
+        {
+            "name": "API",
+            "setupStatus": "ready",
+            "setupStep": null,
+            "slug": "example/api"
+        }
+    ]
+}

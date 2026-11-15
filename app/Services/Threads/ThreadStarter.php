@@ -21,7 +21,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 
 /**
  * Creates a thread from the start screen: the thread, its primary repository,
@@ -40,7 +39,7 @@ class ThreadStarter
      * @param  list<array{repo: string, role: string}>  $extraRepositories  research mode treats every extra as context
      *
      * @throws ValidationException when an extra is the primary, repeated, or not reachable by the GitHub App
-     * @throws RuntimeException when no usable account exists, or the chosen one is not the starter's to use
+     * @throws ThreadAccountUnavailable when no usable account exists, or the chosen one is not the starter's to use
      */
     public function start(
         User $starter,
@@ -57,11 +56,11 @@ class ThreadStarter
         $resolved = $this->resolver->forNewThread($starter, $repo, $accountId, $model);
 
         if ($resolved->account === null) {
-            throw new RuntimeException('No usable Claude account. Connect one in Settings, Claude accounts, or ask an admin to set up a shared account.');
+            throw new ThreadAccountUnavailable('No usable Claude account. Connect one in Settings, Claude accounts, or ask an admin to set up a shared account.');
         }
 
         if ($accountId !== null && $resolved->account->id !== $accountId) {
-            throw new RuntimeException('That Claude account is not available to you. Pick one of your own or a shared account.');
+            throw new ThreadAccountUnavailable('That Claude account is not available to you. Pick one of your own or a shared account.');
         }
 
         $setupStatus = Repository::query()->where('slug', $repo)->value('setup_status');

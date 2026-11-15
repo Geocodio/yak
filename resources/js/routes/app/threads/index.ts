@@ -49,6 +49,128 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
+* @see \App\Http\Controllers\Api\App\Threads\NewThreadController::newMethod
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:21
+* @route '/api/app/v1/threads/new'
+*/
+export const newMethod = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: newMethod.url(options),
+    method: 'get',
+})
+
+newMethod.definition = {
+    methods: ["get","head"],
+    url: '/api/app/v1/threads/new',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\App\Threads\NewThreadController::newMethod
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:21
+* @route '/api/app/v1/threads/new'
+*/
+newMethod.url = (options?: RouteQueryOptions) => {
+    return newMethod.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\App\Threads\NewThreadController::newMethod
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:21
+* @route '/api/app/v1/threads/new'
+*/
+newMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: newMethod.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Api\App\Threads\NewThreadController::newMethod
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:21
+* @route '/api/app/v1/threads/new'
+*/
+newMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: newMethod.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
+* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @route '/api/app/v1/threads/new/repository-access'
+*/
+export const repositoryAccess = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: repositoryAccess.url(options),
+    method: 'get',
+})
+
+repositoryAccess.definition = {
+    methods: ["get","head"],
+    url: '/api/app/v1/threads/new/repository-access',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
+* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @route '/api/app/v1/threads/new/repository-access'
+*/
+repositoryAccess.url = (options?: RouteQueryOptions) => {
+    return repositoryAccess.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
+* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @route '/api/app/v1/threads/new/repository-access'
+*/
+repositoryAccess.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: repositoryAccess.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\RepositoryAccessController::__invoke
+* @see app/Http/Controllers/Threads/RepositoryAccessController.php:15
+* @route '/api/app/v1/threads/new/repository-access'
+*/
+repositoryAccess.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: repositoryAccess.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\Api\App\Threads\NewThreadController::store
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:29
+* @route '/api/app/v1/threads'
+*/
+export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(options),
+    method: 'post',
+})
+
+store.definition = {
+    methods: ["post"],
+    url: '/api/app/v1/threads',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\App\Threads\NewThreadController::store
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:29
+* @route '/api/app/v1/threads'
+*/
+store.url = (options?: RouteQueryOptions) => {
+    return store.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\App\Threads\NewThreadController::store
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:29
+* @route '/api/app/v1/threads'
+*/
+store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(options),
+    method: 'post',
+})
+
+/**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadController::show
 * @see app/Http/Controllers/Api/App/Threads/ThreadController.php:14
 * @route '/api/app/v1/threads/{thread}'
@@ -292,6 +414,9 @@ continueMethod.post = (args: { thread: string | { public_id: string } } | [threa
 
 const threads = {
     index: Object.assign(index, index),
+    new: Object.assign(newMethod, newMethod),
+    repositoryAccess: Object.assign(repositoryAccess, repositoryAccess),
+    store: Object.assign(store, store),
     show: Object.assign(show, show),
     messages: Object.assign(messages, messages),
     clarificationAnswers: Object.assign(clarificationAnswers, clarificationAnswers),
