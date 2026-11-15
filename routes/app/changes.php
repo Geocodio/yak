@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\App\Tasks\ClarificationAnswerController;
+use App\Http\Controllers\Api\App\Tasks\CoOwnerDecisionController;
 use App\Http\Controllers\Api\App\Tasks\TaskActionController;
 use App\Http\Controllers\Api\App\Tasks\TaskController;
 use App\Http\Controllers\Api\App\Tasks\TaskListController;
@@ -22,4 +24,9 @@ Route::middleware('task.drive')->group(function (): void {
     Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('app.tasks.rerun-review');
     Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('app.tasks.retry-render');
     Route::post('tasks/{task}/reroute', [TaskActionController::class, 'reroute'])->name('app.tasks.reroute');
+    Route::post('tasks/{task}/co-owner/approve', [CoOwnerDecisionController::class, 'approve'])->name('app.tasks.co-owner.approve');
+    Route::post('tasks/{task}/co-owner/request-changes', [CoOwnerDecisionController::class, 'requestChanges'])->name('app.tasks.co-owner.request-changes');
+    Route::post('tasks/{task}/co-owner/reject', [CoOwnerDecisionController::class, 'reject'])->name('app.tasks.co-owner.reject');
+    Route::post('tasks/{task}/co-owner/withdraw', [CoOwnerDecisionController::class, 'withdraw'])->name('app.tasks.co-owner.withdraw');
+    Route::post('tasks/{task}/clarification-answers', ClarificationAnswerController::class)->name('app.tasks.clarification-answers.store');
 });

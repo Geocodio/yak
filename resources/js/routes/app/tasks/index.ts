@@ -1,4 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
+import coOwner from './co-owner'
+import clarificationAnswers from './clarification-answers'
 /**
 * @see \App\Http\Controllers\Api\App\Tasks\TaskListController::__invoke
 * @see app/Http/Controllers/Api/App/Tasks/TaskListController.php:12
@@ -409,6 +411,8 @@ const tasks = {
     rerunReview: Object.assign(rerunReview, rerunReview),
     retryRender: Object.assign(retryRender, retryRender),
     reroute: Object.assign(reroute, reroute),
+    coOwner: Object.assign(coOwner, coOwner),
+    clarificationAnswers: Object.assign(clarificationAnswers, clarificationAnswers),
 }
 
 export default tasks
