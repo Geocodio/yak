@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\GitHubWriteAccess;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request as HttpRequest;
@@ -19,11 +18,6 @@ use Tests\Support\ContractFixture;
 function earlyWarningPath(YakTask $task, string $suffix): string
 {
     return appTaskPath($task, "/co-owner/{$suffix}");
-}
-
-function lockWaitTimeout(): QueryException
-{
-    return tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']);
 }
 
 function earlyWarningGitHubFakes(array $overrides = []): void

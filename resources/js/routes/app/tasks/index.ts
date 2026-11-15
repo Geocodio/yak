@@ -406,12 +406,12 @@ reroute.post = (args: { task: string | { public_id: string } } | [task: string |
 const tasks = {
     index: Object.assign(index, index),
     show: Object.assign(show, show),
+    coOwner: Object.assign(coOwner, coOwner),
     retry: Object.assign(retry, retry),
     cancel: Object.assign(cancel, cancel),
     rerunReview: Object.assign(rerunReview, rerunReview),
     retryRender: Object.assign(retryRender, retryRender),
     reroute: Object.assign(reroute, reroute),
-    coOwner: Object.assign(coOwner, coOwner),
     clarificationAnswers: Object.assign(clarificationAnswers, clarificationAnswers),
 }
 

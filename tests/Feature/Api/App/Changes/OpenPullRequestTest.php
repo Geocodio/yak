@@ -10,7 +10,6 @@ use App\Services\Threads\PullRequests\PullRequestOpening;
 use App\Services\Threads\ThreadEventPublisher;
 use App\Services\Threads\ThreadPublishGuard;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -24,11 +23,6 @@ beforeEach(function () {
     $this->thread = threadWithChanges($this->owner);
     $this->headers = phoneHeadersFor($this->owner);
 });
-
-function lockWaitTimeout(): QueryException
-{
-    return tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']);
-}
 
 it('starts opening a pull request', function () {
     $response = $this->postJson(appThreadPath($this->thread, '/pull-request'), [], $this->headers)->assertStatus(202)->assertExactJson(['status' => 'opening']);

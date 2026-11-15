@@ -7,6 +7,7 @@ use App\Models\ThreadStar;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Devices\DeviceTokens;
+use Illuminate\Database\QueryException;
 
 /**
  * @param  array<string, mixed>  $attributes
@@ -88,4 +89,9 @@ function needsYouWorld(): array
     needyTask($user, 'Hidden question', $hidden);
 
     return ['user' => $user, 'other' => $other];
+}
+
+function lockWaitTimeout(): QueryException
+{
+    return tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']);
 }
