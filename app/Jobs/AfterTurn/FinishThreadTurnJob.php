@@ -14,6 +14,7 @@ use App\Models\YakTask;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\IncusThreadSandboxManager;
+use App\Services\Threads\QueuedMessageRunner;
 use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Services\Threads\ThreadDiffCapture;
 use App\Services\Threads\ThreadSandbox;
@@ -124,6 +125,8 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             }
 
             $this->afterTurn();
+            // The sandbox work is done, so a queued message starts its turn without racing it.
+            app(QueuedMessageRunner::class)->afterTurn($run->refresh());
             $recorder->finish();
             TaskContext::clear();
         }

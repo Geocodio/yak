@@ -1,0 +1,88 @@
+<?php
+
+namespace App\Services\Threads;
+
+use App\Enums\TaskRunKind;
+use App\Enums\TaskStatus;
+use App\Enums\ThreadStatus;
+use App\Enums\TurnState;
+use App\Models\PendingSteeringMessage;
+use App\Models\TaskRun;
+use App\Models\Thread;
+use App\Models\ThreadTurnMessage;
+use App\Services\Teleport\ThreadNotOwnedByYak;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
+
+/**
+ * Starts one turn for the messages a person queued while a turn ran. A
+ * completed turn is the only trigger: after a failed, stopped or interrupted
+ * turn the messages stay queued for the next message the person sends.
+ */
+class QueuedMessageRunner
+{
+    private const LOCK_SECONDS = 30;
+
+    private const LOCK_WAIT_SECONDS = 5;
+
+    public function __construct(private readonly ThreadTurns $turns) {}
+
+    /**
+     * The new turn, or null when nothing was started. Safe to call more than
+     * once for the same turn: the first call drains the messages, so a repeat
+     * finds nothing to send.
+     */
+    public function afterTurn(TaskRun $run): ?TaskRun
+    {
+        if ($run->turn_state !== TurnState::Completed || $run->thread_id === null) {
+            return null;
+        }
+
+        try {
+            return Cache::lock("thread-queued-start:{$run->thread_id}", self::LOCK_SECONDS)
+                ->block(self::LOCK_WAIT_SECONDS, fn (): ?TaskRun => $this->startQueuedTurn($run->thread_id));
+        } catch (LockTimeoutException) {
+            return null;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
+    }
+
+    private function startQueuedTurn(int $threadId): ?TaskRun
+    {
+        $thread = Thread::query()->find($threadId);
+
+        if ($thread === null
+            || $thread->status !== ThreadStatus::Open
+            || $thread->blocked_reason !== null
+            || ThreadTurns::activeTurn($thread) !== null) {
+            return null;
+        }
+
+        $head = $thread->headTask();
+
+        if ($head === null || $head->status === TaskStatus::AwaitingClarification) {
+            return null;
+        }
+
+        $oldest = PendingSteeringMessage::query()
+            ->where('root_task_id', $thread->messagesRootTask()->id)
+            ->where('source', 'thread')
+            ->whereNotIn('id', ThreadTurnMessage::query()->whereNotNull('pending_steering_message_id')->select('pending_steering_message_id'))
+            ->orderBy('id')
+            ->first();
+
+        if ($oldest === null) {
+            return null;
+        }
+
+        try {
+            return $this->turns->start($head, '', null, $oldest->model, TaskRunKind::FollowUp);
+        } catch (ThreadBusy|ThreadNotOwnedByYak) {
+            return null;
+        }
+    }
+}

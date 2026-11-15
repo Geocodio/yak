@@ -14,6 +14,7 @@ use App\Jobs\AfterTurn\FinishRetryTurnJob;
 use App\Jobs\AfterTurn\FinishRunYakTurnJob;
 use App\Jobs\AfterTurn\FinishThreadTurnJob;
 use App\Models\TaskRun;
+use App\Services\Threads\QueuedMessageRunner;
 
 /**
  * Queues the after-turn job for a turn that ended. A turn the runaway guard
@@ -42,7 +43,14 @@ class DispatchAfterTurnWork
             $finisher = FinishResearchFollowUpTurnJob::class;
         }
 
-        if ($finisher === null || in_array($run->turn_state, [TurnState::StoppedByGuard, TurnState::Interrupted], true)) {
+        // A run without a finisher has no sandbox work to wait for, so its queued messages go out now.
+        if ($finisher === null) {
+            app(QueuedMessageRunner::class)->afterTurn($run);
+
+            return;
+        }
+
+        if (in_array($run->turn_state, [TurnState::StoppedByGuard, TurnState::Interrupted], true)) {
             return;
         }
 
