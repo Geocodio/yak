@@ -70,6 +70,7 @@ final class TaskDetailData
         $coOwnerRequest = CoOwnerPanelData::latestRequest($task);
         // Only a gated conversation is judged by its head; others keep the root's status.
         $head = $coOwnerRequest !== null ? ($conversation->last() ?? $task) : $task;
+        $isFollowUp = ($conversation->last() ?? $task)->parent_task_id !== null;
         $focusedRun = self::resolveFocusedRun($conversation, $request->string('run')->toString() ?: null);
         $attemptCount = max(1, (int) $focusedRun->attempts);
         $attempt = min(max(1, $request->integer('attempt') ?: $attemptCount), $attemptCount);
@@ -79,7 +80,7 @@ final class TaskDetailData
             : null;
 
         $detail = [
-            'task' => self::task($task, $head, $coOwnerRequest, $focusedRun, $attempt, $attemptCount),
+            'task' => self::task($task, $head, $coOwnerRequest, $focusedRun, $attempt, $attemptCount, $isFollowUp),
             'thread' => self::thread($task, $conversation),
             'progress' => ['steps' => self::progressSteps($task, $head, $coOwnerRequest)],
             'coOwner' => $request->user() !== null ? CoOwnerPanelData::forRequest($coOwnerRequest, $request->user(), $isTimeBounded) : null,
@@ -90,7 +91,7 @@ final class TaskDetailData
             'findings' => self::findings($review),
             'composer' => self::composer($task, $conversation),
             'questions' => self::questions($conversation->last() ?? $task),
-            'actions' => self::actions($task, $head, $coOwnerRequest),
+            'actions' => self::actions($task, $head, $coOwnerRequest, $isFollowUp),
             'pollInterval' => in_array($task->status, self::FAST_POLL_STATUSES, true) ? 5000 : 15000,
         ];
 
@@ -153,7 +154,7 @@ final class TaskDetailData
     /**
      * @return array<string, mixed>
      */
-    private static function task(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, YakTask $focusedRun, int $attempt, int $attemptCount): array
+    private static function task(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, YakTask $focusedRun, int $attempt, int $attemptCount, bool $isFollowUp): array
     {
         $isAnsweredFix = $task->mode === TaskMode::Fix
             && $task->status === TaskStatus::Success
@@ -170,6 +171,7 @@ final class TaskDetailData
             'status' => $task->status->value,
             'statusLabel' => str_replace('_', ' ', $task->status->value),
             'mode' => $task->mode->value,
+            'isFollowUp' => $isFollowUp,
             'headline' => $headline,
             'summary' => $task->description_summary ?: Str::limit((string) $task->description, 70),
             'repo' => $task->repo,
@@ -825,7 +827,7 @@ final class TaskDetailData
     /**
      * @return array{canRetry: bool, canCancel: bool, canRerunReview: bool, canRequestReview: bool, canRetryRender: bool, canReroute: bool, rerouteTargets: array<int, string>}
      */
-    private static function actions(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): array
+    private static function actions(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, bool $isFollowUp): array
     {
         /** @var TaskStatus $status */
         $status = $head->status;
@@ -849,7 +851,7 @@ final class TaskDetailData
         return [
             'canRetry' => $canRetry,
             'canCancel' => $canCancel,
-            'canRerunReview' => $task->mode === TaskMode::Review,
+            'canRerunReview' => $task->mode === TaskMode::Review && ! $isFollowUp,
             'canRequestReview' => $task->mode !== TaskMode::Review
                 && $task->pr_url !== null
                 && (Repository::where('slug', (string) $task->repo)->where('is_active', true)->first()?->settings()->reviewEnabled() ?? false),
