@@ -315,6 +315,38 @@ private func row(_ path: String, in snapshot: FileTreeSnapshot) -> FileTreeRow? 
         #expect(await rig.requestedPaths() == ["", "src", "src"])
     }
 
+    @Test func aQuietRefreshThatFailedOfflineRunsAgainWhenOnline() async {
+        let rig = await makeRig {
+            await $0.set("", root, .failure(.notConnectedToInternet))
+        }
+        await rig.tree.start()
+        await rig.tree.refreshQuietly()
+        var snapshot = await rig.current()
+        #expect(snapshot.isOffline)
+        #expect(rowsLoaded(snapshot))
+        #expect(await rig.requestCount() == 2)
+        await rig.answers.set("", root)
+        await rig.tree.networkChanged(isOnline: true)
+        snapshot = await rig.current()
+        #expect(!snapshot.isOffline)
+        #expect(await rig.requestCount() == 3)
+    }
+
+    @Test func anOfflineRefreshKeepsTheCollapsedFolders() async {
+        let rig = await makeRig {
+            await $0.set("", root, .failure(.notConnectedToInternet))
+            await $0.set("src", src)
+        }
+        await rig.tree.start()
+        await rig.tree.toggle("src")
+        await rig.tree.toggle("src")
+        await rig.tree.refreshQuietly()
+        #expect(await rig.requestedPaths() == ["", "src", ""])
+        await rig.tree.toggle("src")
+        #expect(await rig.requestedPaths() == ["", "src", ""])
+        #expect(row("src", in: await rig.current())?.folderState == .loaded(truncated: true))
+    }
+
     @Test func aFolderThatIsGoneIsNotFound() async {
         let rig = await makeRig {
             await $0.set("", root)

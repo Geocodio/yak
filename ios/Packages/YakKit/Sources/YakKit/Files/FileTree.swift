@@ -129,6 +129,8 @@ public actor FileTree {
     private var addedPaths: [String] = []
     private var availability: WorkspaceAvailability?
     private var isOffline = false
+    /// Folders whose last load failed while they kept their rows; they are asked again by `retry()`.
+    private var staleFolders: Set<String> = []
     private var hasStarted = false
     private var isStopped = false
     private var inFlight: [String: (id: Int, task: Task<Void, Never>)] = [:]
@@ -180,10 +182,11 @@ public actor FileTree {
     /// The root when it is not loaded or the sandbox does not serve it, then every failed folder.
     public func retry() async {
         guard !isStopped else { return }
-        if case .loaded = folders[""]?.state ?? .notLoaded, availability == nil {
+        if case .loaded = folders[""]?.state ?? .notLoaded, availability == nil, !staleFolders.contains("") {
         } else {
             await load("", quiet: true)
         }
+        for path in staleFolders.sorted() where path != "" { await load(path, quiet: true) }
         for path in failedFolders() { await load(path, quiet: false) }
     }
 
@@ -192,7 +195,7 @@ public actor FileTree {
     public func refreshQuietly() async {
         guard !isStopped else { return }
         await load("", quiet: true)
-        guard case .loaded = folders[""]?.state ?? .notLoaded else { return }
+        guard case .loaded = folders[""]?.state ?? .notLoaded, !staleFolders.contains("") else { return }
         for path in folders.keys where path != "" && !expanded.contains(path) {
             if case .loaded = folders[path]?.state ?? .notLoaded { folders[path] = Folder() }
         }
@@ -201,7 +204,7 @@ public actor FileTree {
     }
 
     public func networkChanged(isOnline: Bool) async {
-        guard isOnline, !isStopped, isOffline || !failedFolders().isEmpty else { return }
+        guard isOnline, !isStopped, isOffline || !staleFolders.isEmpty || !failedFolders().isEmpty else { return }
         await retry()
     }
 
@@ -297,6 +300,7 @@ public actor FileTree {
 
     private func apply(_ answer: FileTreeFolder, to path: String) {
         folders[path] = Folder(state: .loaded(truncated: answer.truncated), entries: answer.entries)
+        staleFolders.remove(path)
         changedPaths = answer.changedPaths
         addedPaths = answer.addedPaths
         availability = nil
@@ -331,6 +335,7 @@ public actor FileTree {
     private func fail(_ path: String, _ problem: ThreadProblem) {
         var folder = folders[path] ?? Folder()
         if case .loaded = folder.state {
+            staleFolders.insert(path)
         } else {
             folder.state = .failed(problem)
             folders[path] = folder
