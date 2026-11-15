@@ -59,7 +59,10 @@ class ThreadMessageSender
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, 'This thread is closed.');
         }
 
-        if (in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForRepository, ThreadBlockReason::RepositorySetupFailed], true)) {
+        // A thread that has run before keeps its conversation: the message is queued and runs once the repository is ready.
+        $isRepositoryBlocked = in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForRepository, ThreadBlockReason::RepositorySetupFailed], true);
+
+        if ($isRepositoryBlocked && ! $thread->runs()->exists()) {
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_BLOCKED, self::NOT_STARTED_SENTENCE, ['reason' => $thread->blocked_reason->value]);
         }
 

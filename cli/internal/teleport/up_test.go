@@ -81,8 +81,8 @@ func TestUpDirtyTreeCommitsWIPThenProceeds(t *testing.T) {
 	if status := h.local.Git("status", "--porcelain"); status != "" {
 		t.Fatalf("dirty: %s", status)
 	}
-	if !strings.Contains(h.out.String(), "Committed 1 files") {
-		t.Fatal(h.out.String())
+	if out := h.out.String(); !strings.Contains(out, "Committed 1 uncommitted file:\n  README.md\n") {
+		t.Fatal(out)
 	}
 }
 

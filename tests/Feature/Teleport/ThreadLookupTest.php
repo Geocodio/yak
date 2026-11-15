@@ -26,7 +26,7 @@ it('returns the thread shape', function () {
 
     $response = $this->getJson("/api/cli/v1/threads/{$thread->public_id}", cliHeaders($token))->assertOk();
 
-    foreach (['id', 'title', 'repo', 'branch', 'status', 'visibility', 'owner_side', 'owner_device', 'waiting_for_computer', 'turn_running', 'teleport', 'claude_account', 'active_session_id', 'last_teleport_up', 'held_event_count', 'repos', 'url'] as $key) {
+    foreach (['id', 'public_id', 'title', 'repo', 'branch', 'status', 'visibility', 'owner_side', 'owner_device', 'waiting_for_computer', 'turn_running', 'teleport', 'claude_account', 'active_session_id', 'last_teleport_up', 'held_event_count', 'repos', 'url'] as $key) {
         expect($response->json('thread'))->toHaveKey($key);
     }
     expect($response->json('thread.id'))->toBe($thread->id)

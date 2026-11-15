@@ -17,8 +17,12 @@ const maxMarkerBytes = 4096
 
 // Marker says a session is owned by Yak and which thread owns it. Hooks read it without any network call.
 type Marker struct {
-	ThreadID         int       `json:"thread_id"`
-	TeleportID       string    `json:"teleport_id"`
+	ThreadID       int    `json:"thread_id"`
+	ThreadPublicID string `json:"thread_public_id,omitempty"`
+	TeleportID     string `json:"teleport_id"`
+	// ResumeEpoch is set when a teleport down hands the session to one process: only a claude started by that
+	// command carries it in YAK_TELEPORT_EPOCH, so any other process with the session open is stale.
+	ResumeEpoch      string    `json:"resume_epoch,omitempty"`
 	Owner            string    `json:"owner"`
 	ThreadURL        string    `json:"thread_url,omitempty"`
 	StackMessagesURL string    `json:"stack_messages_url,omitempty"`
@@ -90,6 +94,14 @@ func ReadMarker(dir, sessionID string) (Marker, bool) {
 		return Marker{}, false
 	}
 	return m, true
+}
+
+// ThreadRef is how a person names the thread: the public id when known, the numeric id for older markers.
+func (m Marker) ThreadRef() string {
+	if m.ThreadPublicID != "" {
+		return m.ThreadPublicID
+	}
+	return fmt.Sprint(m.ThreadID)
 }
 
 // ClearMarker removes the marker; a missing marker is not an error.

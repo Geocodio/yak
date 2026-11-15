@@ -501,7 +501,9 @@ class ThreadTurns
         $wake = $this->sandbox->ensureAwake($thread);
 
         if ($wake->waitingForSlot || $wake->restoring || ! $wake->ready) {
-            $this->wait($thread, $run, TurnState::WaitingForSandbox, ThreadBlockReason::WaitingForSandbox);
+            // A sandbox that cannot be cloned until its repository template is rebuilt is a repository wait.
+            $reason = $thread->blocked_reason === ThreadBlockReason::WaitingForRepository ? ThreadBlockReason::WaitingForRepository : ThreadBlockReason::WaitingForSandbox;
+            $this->wait($thread, $run, TurnState::WaitingForSandbox, $reason);
 
             return;
         }

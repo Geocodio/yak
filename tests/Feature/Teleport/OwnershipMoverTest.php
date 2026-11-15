@@ -6,6 +6,7 @@ use App\Exceptions\TeleportError;
 use App\Models\Device;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Models\ThreadEvent;
 use App\Services\Teleport\OwnershipMover;
 
 function deviceOwnedThreadWithTeleport(?Device $device = null): array
@@ -111,4 +112,13 @@ it('is the only code that writes the owner fields of an existing thread', functi
     }
 
     expect($offenders)->toBe([]);
+});
+
+it('appends a thread state event carrying the new owner side', function () {
+    [$thread, $teleport] = deviceOwnedThreadWithTeleport();
+
+    app(OwnershipMover::class)->toYak($thread, $teleport);
+
+    $event = ThreadEvent::query()->where('thread_id', $thread->id)->where('type', 'thread')->latest('sequence')->firstOrFail();
+    expect($event->payload['ownerSide'])->toBe('yak');
 });

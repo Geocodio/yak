@@ -66,6 +66,7 @@
     },
     "latestSequence": 12,
     "liveActivityChannel": null,
+    "localTurnStints": [],
     "localTurns": null,
     "messages": [],
     "modelLabels": {
@@ -102,6 +103,7 @@
         "continuedFromTitle": null,
         "environmentNote": null,
         "environmentSwitch": null,
+        "environmentSwitches": [],
         "failure": null,
         "hasDevices": true,
         "heldEvents": [],

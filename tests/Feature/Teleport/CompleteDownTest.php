@@ -15,6 +15,7 @@ beforeEach(function () {
     $this->thread = Thread::factory()->create(['repo' => 'acme/widgets', 'waiting_for_computer_at' => now()]);
     $this->sandbox = Mockery::mock(ThreadSandbox::class);
     $this->sandbox->shouldReceive('touch')->byDefault();
+    $this->sandbox->shouldReceive('endRunner')->byDefault();
     app()->instance(ThreadSandbox::class, $this->sandbox);
     $this->teleport = Teleport::factory()->down()->inState(TeleportState::Ready)->create([
         'thread_id' => $this->thread->id,
@@ -37,6 +38,12 @@ function completeDown(object $test, array $overrides = []): TestResponse
 {
     return $test->postJson("/api/cli/v1/teleports/{$test->teleport->id}/complete", completeDownBody($overrides), cliHeaders($test->token));
 }
+
+it('ends the runner when the thread moves down', function () {
+    $this->sandbox->shouldReceive('endRunner')->once();
+
+    completeDown($this)->assertOk();
+});
 
 it('completes down and moves ownership to the device', function () {
     $this->sandbox->shouldReceive('touch')->once();

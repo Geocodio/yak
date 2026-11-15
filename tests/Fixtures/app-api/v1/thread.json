@@ -62,6 +62,7 @@
     "diffTotals": null,
     "latestSequence": 12,
     "liveActivityChannel": "dGVzdC1jaGFubmVs",
+    "localTurnStints": [],
     "localTurns": null,
     "messages": [
         {
@@ -114,6 +115,7 @@
         "continuedFromTitle": null,
         "environmentNote": null,
         "environmentSwitch": null,
+        "environmentSwitches": [],
         "failure": null,
         "hasDevices": true,
         "heldEvents": [],

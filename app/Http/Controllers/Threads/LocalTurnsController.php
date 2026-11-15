@@ -16,8 +16,8 @@ class LocalTurnsController extends Controller
         // A hidden thread answers exactly like a missing one.
         abort_unless(Gate::allows('view', $thread), 404);
 
-        $data = $request->validate(['before' => ['required', 'integer', 'min:1'], 'limit' => ['nullable', 'integer', 'min:1', 'max:50']]);
+        $data = $request->validate(['stint' => ['required', 'string'], 'before' => ['required', 'integer', 'min:1'], 'limit' => ['nullable', 'integer', 'min:1', 'max:50']]);
 
-        return response()->json($localTurns->before($thread, (int) $data['before'], (int) ($data['limit'] ?? 25)));
+        return response()->json($localTurns->before($thread, $data['stint'], (int) $data['before'], (int) ($data['limit'] ?? 25)));
     }
 }

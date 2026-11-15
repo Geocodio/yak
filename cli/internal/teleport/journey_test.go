@@ -40,9 +40,17 @@ func (h *harness) writeProjectFile(rel, content string) {
 
 func (h *harness) hookDeps(out *bytes.Buffer) hook.HookDeps {
 	return hook.HookDeps{
-		ConfigDir: h.deps.ConfigDir, Out: out,
+		ConfigDir: h.deps.ConfigDir, Out: out, Env: h.hookEnv,
 		API: func() (*api.Client, bool) { return h.deps.API, true },
 	}
+}
+
+// hookEnv is the environment of the claude that yak teleport started; tests that play a stale terminal replace it.
+func (h *harness) hookEnv(key string) string {
+	if m, ok := config.ReadMarker(h.deps.ConfigDir, testSession); ok && key == hook.EpochEnv {
+		return m.ResumeEpoch
+	}
+	return ""
 }
 
 // journeyUp teleports a session with a transcript, a subagent, a tool result and a memory file up from main.
@@ -241,7 +249,7 @@ func TestMultiRepoRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	root, _ := downFolders(h.cwd, "fix")
+	root, _ := downFolders(h.cwd, h.srv.Threads[res.ThreadID].PublicID)
 	if h.local.Git("rev-parse", "HEAD") != tip {
 		t.Fatal("primary not fast-forwarded")
 	}
@@ -256,5 +264,24 @@ func TestMultiRepoRoundTrip(t *testing.T) {
 	}
 	if len(down.Applied) != 2 || down.Applied[1].Repo != "acme/api" || !strings.Contains(h.out.String(), "Applied: acme/widgets, acme/api\n") {
 		t.Fatalf("%+v\n%s", down.Applied, h.out.String())
+	}
+}
+
+func TestStaleTerminalIsBlockedAfterTeleportDown(t *testing.T) {
+	h := newHarness(t)
+	uploaded := bigTranscript()
+	res := h.journeyUp(uploaded)
+	h.yakWorks(res, uploaded)
+	if _, err := Down(t.Context(), h.deps, DownInput{ThreadID: res.ThreadID, Cwd: h.cwd}); err != nil {
+		t.Fatal(err)
+	}
+	prompt := hook.Input{SessionID: testSession, HookEventName: "UserPromptSubmit", Prompt: "keep going"}
+	stale := h.hookDeps(&bytes.Buffer{})
+	stale.Env = func(string) string { return "" }
+	if out := hook.UserPromptSubmit(stale, prompt); !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "another terminal") {
+		t.Fatalf("stale terminal not blocked: %q", out)
+	}
+	if out := hook.UserPromptSubmit(h.hookDeps(&bytes.Buffer{}), prompt); strings.Contains(out, `"decision"`) {
+		t.Fatalf("the resumed terminal was blocked: %q", out)
 	}
 }

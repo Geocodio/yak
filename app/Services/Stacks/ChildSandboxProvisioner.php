@@ -2,10 +2,13 @@
 
 namespace App\Services\Stacks;
 
+use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
+use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Repos\RepositoryTemplateDrift;
 use App\Services\Threads\SandboxRestorer;
 use App\Services\Threads\ThreadSandbox;
 use App\Support\SecretFilePatterns;
@@ -26,6 +29,7 @@ class ChildSandboxProvisioner
         private readonly SandboxManager $sandboxes,
         private readonly ThreadSandbox $lifecycle,
         private readonly SandboxRestorer $restorer,
+        private readonly RepositoryTemplateDrift $templateDrift,
     ) {}
 
     public function provision(Thread $child): void
@@ -56,6 +60,10 @@ class ChildSandboxProvisioner
         try {
             $this->sandboxes->copyFrom($parent, $child);
         } catch (Throwable) {
+            if ($this->mustWaitForTemplate($child)) {
+                return;
+            }
+
             $this->cloneWithParentChanges($parent, $child);
             $child->forceFill(['queued_for_slot_at' => null])->save();
 
@@ -75,6 +83,10 @@ class ChildSandboxProvisioner
      */
     private function provisionFromOwnTemplate(Thread $child): void
     {
+        if ($this->mustWaitForTemplate($child)) {
+            return;
+        }
+
         if (! $this->restorer->restore($child)) {
             throw new RuntimeException("Could not build the sandbox of sub-thread {$child->name}.");
         }
@@ -82,6 +94,22 @@ class ChildSandboxProvisioner
         $this->recordContainer($child);
         $this->checkoutBranch($child);
         $child->forceFill(['queued_for_slot_at' => null])->save();
+    }
+
+    /**
+     * A child never clones a stale repository template: it waits, queued, for the setup that rebuilds it.
+     */
+    private function mustWaitForTemplate(Thread $child): bool
+    {
+        $repository = Repository::query()->where('slug', $child->repo)->first();
+
+        if ($repository === null || ! $this->templateDrift->mustWait($repository)) {
+            return false;
+        }
+
+        $child->forceFill(['queued_for_slot_at' => $child->queued_for_slot_at ?? now(), 'blocked_reason' => ThreadBlockReason::WaitingForRepository, 'blocked_at' => $child->blocked_at ?? now()])->save();
+
+        return true;
     }
 
     private function cloneWithParentChanges(Thread $parent, Thread $child): void

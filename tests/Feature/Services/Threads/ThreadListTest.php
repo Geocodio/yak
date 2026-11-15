@@ -105,7 +105,7 @@ test('rows sort by last activity with null last and bucket into today, this week
     $mk = fn (?CarbonInterface $at) => Thread::factory()->create(['created_by_user_id' => $user->id, 'last_activity_at' => $at])->public_id;
 
     $older = $mk(now()->subWeeks(2));
-    $none = $mk(null);
+    $none = Thread::factory()->create(['created_by_user_id' => $user->id, 'last_activity_at' => null, 'created_at' => now()->subWeeks(3)])->public_id;
     $today = $mk(now()->startOfDay()->addHour());
     $week = $mk(now()->startOfWeek()->addHour());
 
@@ -131,7 +131,7 @@ test('a thread with no runs and no activity renders as stopped', function () {
         'isShared' => false,
         'isUnattended' => false,
         'lastActivityAt' => null,
-        'group' => 'older',
+        'group' => 'today',
         'children' => [],
     ]);
 });

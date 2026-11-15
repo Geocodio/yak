@@ -53,6 +53,7 @@ beforeEach(function () {
 
         return SandboxWake::ready();
     })->byDefault();
+    $this->sandbox->shouldReceive('endRunner')->byDefault();
     app()->instance(ThreadSandbox::class, $this->sandbox);
 
     $this->turns = Mockery::mock(ThreadTurns::class);
@@ -239,8 +240,8 @@ it('records when preparation started', function () {
 
 it('starts a turn with the message', function () {
     $begin = beginAndUpload($this);
-    $this->turns->shouldReceive('start')->once()->withArgs(function ($task, string $prompt, $driver, $model) {
-        return $task->source === 'teleport' && $prompt === 'continue with the cache tests' && $driver->id === $this->device->user_id && $model === null;
+    $this->turns->shouldReceive('start')->once()->withArgs(function ($task, string $prompt, $driver, $model, $kind = null, $shownText = null) {
+        return $task->source === 'teleport' && $prompt === 'continue with the cache tests' && $driver->id === $this->device->user_id && $model === null && $shownText === 'continue with the cache tests';
     });
 
     $this->postJson("/api/cli/v1/teleports/{$begin['teleport_id']}/complete", completeBody(message: 'continue with the cache tests'), cliHeaders($this->token))
@@ -305,7 +306,8 @@ it('resets a live sandbox to the pushed head on a second up and runs the symlink
     $this->postJson("/api/cli/v1/threads/{$thread->public_id}/session/checkpoint", ['session_id' => COMPLETE_SESSION, 'rel_path' => COMPLETE_SESSION . '.jsonl', 'sha256' => $chunkSha], cliHeaders($this->token))->assertOk();
 
     $this->sandboxes->calls = [];
-    $this->sessions->shouldReceive('restoreIntoSandbox')->once();
+    $this->sandbox->shouldReceive('endRunner')->once()->ordered();
+    $this->sessions->shouldReceive('restoreIntoSandbox')->once()->ordered();
     $this->sandbox->shouldReceive('ensureAwake')->andReturn(SandboxWake::ready());
 
     $this->postJson("/api/cli/v1/teleports/{$second['teleport_id']}/complete", completeBody(), cliHeaders($this->token))->assertOk();

@@ -80,6 +80,7 @@ it('never lets the bearer token or a git credential reach stored or emitted data
         return SandboxWake::ready();
     });
     $sandbox->shouldReceive('touch');
+    $sandbox->shouldReceive('endRunner')->byDefault();
     app()->instance(ThreadSandbox::class, $sandbox);
     app()->instance(ThreadTurns::class, Mockery::mock(ThreadTurns::class));
 

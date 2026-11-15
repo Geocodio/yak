@@ -1,16 +1,10 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
-import type { ThreadEventState } from '../../types/thread-events';
+
+export { livePropsSignature } from './livePropsSignature';
 
 const SETTLE_MS = 300;
 const RETRY_MS = 3000;
-
-/** One string that changes whenever the turn or the thread state behind the page props changes. */
-export function livePropsSignature(threadId: string, events: Pick<ThreadEventState, 'turn' | 'thread'>): string {
-    const { turn, thread } = events;
-
-    return [threadId, turn?.turnId, turn?.state, thread?.status, thread?.sandboxState, thread?.runnerState, thread?.blockedReason, thread?.pullRequestOpening].join('|');
-}
 
 /**
  * The status pill, the composer and the panels render server props. A turn or thread event means those

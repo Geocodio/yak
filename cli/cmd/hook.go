@@ -35,16 +35,16 @@ func runHook(ctx *Context, args []string) int {
 		}
 		_, _ = link.Install(runtime.GOOS, home, binary, run)
 	}
-	deps := hook.HookDeps{Binary: binary, Home: home, RefreshHandler: refresh, ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, API: func() (*api.Client, bool) { return silentClient(ctx) }}
+	deps := hook.HookDeps{Env: ctx.Env, Binary: binary, Home: home, RefreshHandler: refresh, ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, API: func() (*api.Client, bool) { return silentClient(ctx) }}
 	deps.RunTeleport = func(args []string) (string, int) {
 		var buf bytes.Buffer
 		inner := *ctx
 		inner.Stdout, inner.Stderr, inner.Interactive = &buf, &buf, false
-		inner.Stdin = strings.NewReader("")
+		inner.Stdin, inner.Exec = strings.NewReader(""), nil
 		if in.Cwd != "" {
 			inner.Cwd = in.Cwd
 		}
-		code := runTeleport(&inner, append([]string{"--session", in.SessionID}, args...))
+		code := runTeleport(&inner, append([]string{"--session", in.SessionID, "--in-session"}, args...))
 		return buf.String(), code
 	}
 	var out string

@@ -455,7 +455,7 @@ it('bakes the agent runner into yak-base where the broker starts it', function (
 it('keeps the sandbox base version in step between Ansible and the app', function () {
     $ansibleVersion = Yaml::parseFile(base_path('ansible/group_vars/yak.yml'))['yak_sandbox_base_version'];
 
-    expect($ansibleVersion)->toBe(9)
+    expect($ansibleVersion)->toBe(10)
         ->and(config('yak.sandbox.base_version'))->toBe($ansibleVersion);
 });
 

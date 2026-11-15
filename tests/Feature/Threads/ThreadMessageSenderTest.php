@@ -159,7 +159,10 @@ it('refuses each state with its code', function (Closure $arrange, string $code,
 })->with([
     'closed' => [fn (Thread $thread) => $thread->forceFill(['status' => ThreadStatus::Closed])->save(), 'thread_closed', 'This thread is closed.', []],
     'device' => [fn (Thread $thread) => $thread->forceFill(['owner_side' => ThreadOwnerSide::Device])->save(), 'thread_owned_by_device', 'Your computer is working on this thread. Hand it back to Yak before sending a message.', []],
-    'waiting' => [fn (Thread $thread) => $thread->forceFill(['blocked_reason' => ThreadBlockReason::WaitingForRepository])->save(), 'thread_blocked', 'This thread has not started yet. It starts when its repository is set up.', ['reason' => 'waiting_for_repository']],
+    'waiting' => [function (Thread $thread) {
+        $thread->runs()->delete();
+        $thread->forceFill(['blocked_reason' => ThreadBlockReason::WaitingForRepository])->save();
+    }, 'thread_blocked', 'This thread has not started yet. It starts when its repository is set up.', ['reason' => 'waiting_for_repository']],
     'no tasks' => [fn (Thread $thread) => $thread->tasks()->delete(), 'thread_blocked', 'This thread has not started yet. It starts when its repository is set up.', ['reason' => 'no_task']],
     'intent while running' => [fn () => senderInput(key: null, intent: 'fix_preview'), 'turn_running', 'Claude is already working on this thread.', []],
     'busy' => [function () {

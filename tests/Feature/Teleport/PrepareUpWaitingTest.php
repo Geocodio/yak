@@ -1,20 +1,30 @@
 <?php
 
 use App\DataTransferObjects\SandboxWake;
+use App\Enums\RunnerState;
 use App\Enums\TeleportState;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSandboxState;
+use App\Enums\TurnState;
 use App\Jobs\PrepareTeleportUpJob;
+use App\Models\ClaudeAccount;
 use App\Models\Repository;
+use App\Models\TaskRun;
 use App\Models\Teleport;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
+use App\Models\ThreadSession;
 use App\Services\Teleport\OwnershipMover;
+use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\FakeSandboxManager;
+use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadSandbox;
+use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Sleep;
 use Tests\Support\LocalGitSandboxManager;
 
 require_once __DIR__ . '/CliTestHelpers.php';
@@ -56,6 +66,7 @@ beforeEach(function () {
 
         return $wake;
     });
+    $this->sandbox->shouldReceive('endRunner')->byDefault();
     app()->instance(ThreadSandbox::class, $this->sandbox);
 });
 
@@ -166,4 +177,35 @@ it('writes the teleport environment note for a sandbox that was restored', funct
 
     $note = collect($this->git->calls)->first(fn (array $call): bool => str_contains((string) ($call['arguments']['stdin'] ?? ''), 'Machine switch'));
     expect($note)->not->toBeNull();
+});
+
+it('starts a fresh runner that resumes the restored session on the next turn', function () {
+    app()->forgetInstance(ThreadSandbox::class);
+    $realSandbox = app(ThreadSandbox::class);
+    $this->sandbox->shouldReceive('endRunner')->andReturnUsing(fn (Thread $thread) => $realSandbox->endRunner($thread));
+    app()->instance(ThreadSandbox::class, $this->sandbox);
+
+    $account = ClaudeAccount::factory()->create();
+    $this->thread->forceFill(['claude_account_id' => $account->id, 'runner_state' => RunnerState::Idle, 'sandbox_container' => 'yak-thread-1'])->save();
+    $session = ThreadSession::factory()->create(['thread_id' => $this->thread->id]);
+
+    Sleep::fake();
+    Sleep::whenFakingSleep(fn () => Thread::withoutGlobalScopes()->whereKey($this->thread->id)->update(['runner_state' => RunnerState::None]));
+
+    runUpJob(preparingUpTeleport($this));
+
+    $thread = Thread::withoutGlobalScopes()->find($this->thread->id);
+    $channel = "threads:{$thread->id}";
+    expect(app(BrokerStreams::class)->commands($channel))->toBe([['type' => 'end']])
+        ->and($thread->runner_state)->toBe(RunnerState::None);
+
+    app()->instance(SandboxManager::class, new FakeSandboxManager);
+    app()->forgetInstance(ThreadCommands::class);
+    app()->forgetInstance(ThreadTurns::class);
+
+    $run = TaskRun::factory()->create(['thread_id' => $thread->id, 'turn_state' => TurnState::Pending, 'claude_account_id' => $account->id]);
+    app(ThreadTurns::class)->dispatchTurn($thread, $run);
+
+    $start = collect(app(BrokerStreams::class)->commands($channel))->firstWhere('type', 'start_runner');
+    expect($start['start']['resume'])->toBe($session->session_id);
 });

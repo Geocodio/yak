@@ -101,6 +101,32 @@ test('idle pause records state and time', function () {
     expect($thread->fresh()->sandbox_state_changed_at->equalTo(now()))->toBeTrue();
 });
 
+test('endRunner ends the runner without syncing or stopping the sandbox', function () {
+    $thread = runningSandboxThread();
+    $streams = app(BrokerStreams::class);
+    $sync = app(SessionFileSync::class);
+
+    Sleep::fake();
+    Sleep::whenFakingSleep(fn () => $thread->update(['runner_state' => RunnerState::None]));
+
+    app(ThreadSandbox::class)->endRunner($thread);
+
+    expect($streams->commands("threads:{$thread->id}"))->toBe([['type' => 'end']])
+        ->and($sync->synced)->toBe([])
+        ->and(operations())->toBe([])
+        ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running)
+        ->and($thread->fresh()->runner_state)->toBe(RunnerState::None);
+});
+
+test('endRunner leaves a paused sandbox alone', function () {
+    $thread = runningSandboxThread(['sandbox_state' => ThreadSandboxState::Paused]);
+
+    app(ThreadSandbox::class)->endRunner($thread);
+
+    expect(app(BrokerStreams::class)->commands("threads:{$thread->id}"))->toBe([])
+        ->and($thread->fresh()->runner_state)->toBe(RunnerState::Idle);
+});
+
 test('stop sends end waits for runner exit then syncs then stops', function () {
     $order = [];
     $thread = runningSandboxThread();

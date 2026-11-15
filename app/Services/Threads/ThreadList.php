@@ -234,10 +234,11 @@ class ThreadList
                 ? $owners->get($thread->created_by_user_id)?->initials()
                 : null,
             'lastActivityAt' => $thread->last_activity_at?->toIso8601String(),
+            // A thread nobody has acted on yet is as old as its creation.
             'group' => match (true) {
-                $thread->last_activity_at === null => 'older',
-                $thread->last_activity_at->greaterThanOrEqualTo($startOfDay) => 'today',
-                $thread->last_activity_at->greaterThanOrEqualTo($startOfWeek) => 'this_week',
+                ($thread->last_activity_at ?? $thread->created_at) === null => 'older',
+                ($thread->last_activity_at ?? $thread->created_at)->greaterThanOrEqualTo($startOfDay) => 'today',
+                ($thread->last_activity_at ?? $thread->created_at)->greaterThanOrEqualTo($startOfWeek) => 'this_week',
                 default => 'older',
             },
             'children' => $children,

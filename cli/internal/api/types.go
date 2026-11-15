@@ -174,6 +174,7 @@ type BeginUpRequest struct {
 
 type BeginUpThread struct {
 	ID                    int           `json:"id"`
+	PublicID              string        `json:"public_id"`
 	IsNew                 bool          `json:"is_new"`
 	ContinuedFromThreadID *int          `json:"continued_from_thread_id"`
 	Slug                  string        `json:"slug"`

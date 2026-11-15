@@ -81,7 +81,7 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
 }
 
-export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, walkthrough = null, sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = null, notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitch = null, onLinkChange, onEditUnsent, onOpenChanges }: { working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitch?: { from: string; to: string; at: string } | null; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; walkthrough?: ThreadWalkthrough | null; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData | null; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, walkthrough = null, sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], onLinkChange, onEditUnsent, onOpenChanges }: { working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; walkthrough?: ThreadWalkthrough | null; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
     const unsent = useUnsentMessages(threadId);
     const latest = entries.at(-1);
@@ -102,22 +102,36 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const [lightboxIndex, setLightboxIndex] = useState(0);
     let previousDay = '';
     const waiting = waitingRow(entries, working, unsent.length > 0 || notice !== null);
-    const switchAt = environmentSwitch?.at ?? environmentNote?.at ?? null;
-    const switchIndex = switchAt === null ? -1 : switchPosition(entries, switchAt);
-    const switchBlock = (
-        <Fragment key="environment-switch">
-            {environmentSwitch && <SideSwitchDivider {...environmentSwitch} />}
-            {environmentNote && <EnvironmentNoteCard threadId={threadId} text={environmentNote.text} from={environmentNote.from} to={environmentNote.to} />}
-        </Fragment>
-    );
+    // Each move gets its divider before the first message of the new side; the computer stretch that began at a
+    // move follows its divider, and the stretch the thread began with opens the conversation.
+    const switchBlocks = new Map<number, React.ReactNode[]>();
+    environmentSwitches.forEach((switched) => {
+        const index = switchPosition(entries, switched.at);
+        const stints = localTurns.filter((stint) => stint.movedAt === switched.at);
+
+        switchBlocks.set(index, [
+            ...(switchBlocks.get(index) ?? []),
+            <Fragment key={`environment-switch-${switched.at}`}>
+                <SideSwitchDivider {...switched} />
+                {stints.map((stint) => (
+                    <LocalTurnsFold key={stint.stintId} threadId={threadId} localTurns={stint} modelLabels={modelLabels} />
+                ))}
+                {environmentNote?.at === switched.at && <EnvironmentNoteCard threadId={threadId} text={environmentNote.text} from={environmentNote.from} to={environmentNote.to} />}
+            </Fragment>,
+        ]);
+    });
+    const movedAts = new Set(environmentSwitches.map((switched) => switched.at));
+    const openingStints = localTurns.filter((stint) => stint.movedAt === null || !movedAts.has(stint.movedAt));
 
     return (
         <>
         <div ref={scroller} className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-8" data-testid="thread-conversation-scroller">
             <div ref={content} className="mx-auto flex max-w-[760px] flex-col gap-4">
-                {localTurns && <LocalTurnsFold threadId={threadId} localTurns={localTurns} modelLabels={modelLabels} />}
+                {openingStints.map((stint) => (
+                    <LocalTurnsFold key={stint.stintId} threadId={threadId} localTurns={stint} modelLabels={modelLabels} />
+                ))}
                 {entries.map((entry, index) => {
-                    const before = index === switchIndex ? switchBlock : null;
+                    const before = switchBlocks.get(index) ?? null;
 
                     if (entry.type === 'event') {
                         return (
@@ -161,7 +175,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                         <PendingStep since={waiting.since} label={waiting.queued ? 'Queued. Claude picks this up next.' : 'Thinking…'} quiet={waiting.queued} testId={waiting.queued ? 'thread-queued' : 'thread-thinking'} />
                     </div>
                 )}
-                {switchIndex === entries.length && switchBlock}
+                {switchBlocks.get(entries.length)}
                 {pullRequestCount > 1 && <PullRequestChips threadId={threadId} lastActivityAt={lastActivityAt} />}
                 <span
                     hidden

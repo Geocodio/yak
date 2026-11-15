@@ -58,6 +58,7 @@ class TeleportDownCompleter
             $this->mover->toDevice($thread, $device, $teleport);
         });
 
+        $this->sandbox->endRunner($thread->refresh());
         $this->sandbox->touch($thread->refresh());
 
         return $this->respond($teleport->refresh());

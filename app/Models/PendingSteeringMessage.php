@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Enums\SteeringMode;
+use App\Enums\TurnMessageState;
 use App\Facades\Telemetry;
 use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
@@ -169,6 +171,18 @@ class PendingSteeringMessage extends Model
     }
 
     /**
+     * Messages the agent has not read: no turn message in the started or completed state references them.
+     *
+     * @param  Builder<PendingSteeringMessage>  $query
+     */
+    public function scopeUnread(Builder $query): void
+    {
+        $query->whereNotExists(fn ($read) => $read->from('thread_turn_messages')
+            ->whereColumn('thread_turn_messages.pending_steering_message_id', 'pending_steering_messages.id')
+            ->whereIn('thread_turn_messages.state', [TurnMessageState::Started->value, TurnMessageState::Completed->value]));
+    }
+
+    /**
      * Withdraw the message before Yak sees it, deleting its files too.
      */
     public function withdraw(): void
@@ -181,13 +195,13 @@ class PendingSteeringMessage extends Model
      * Take every undelivered reply queued on the task's conversation and render it as
      * markdown, deleting the rows. Their files move onto `$task`, whose run
      * now carries the replies, so the agent still gets them. Returns null
-     * when nothing is queued. A message already handed to a turn (a
-     * `ThreadTurnMessage` references it) stays as history and is not drained.
+     * when nothing is queued. A message the agent already read stays as history
+     * and is not drained; one whose turn ended before the agent read it is.
      */
     public static function drainFor(YakTask $task): ?string
     {
         $messages = self::where('root_task_id', $task->rootTask()->id)
-            ->whereNotExists(fn ($delivered) => $delivered->from('thread_turn_messages')->whereColumn('thread_turn_messages.pending_steering_message_id', 'pending_steering_messages.id'))
+            ->unread()
             ->orderBy('id')
             ->get();
 

@@ -40,7 +40,7 @@ export function TeleportToYakDialog({ thread, teleport, open, onClose }: { threa
                 )}
 
                 <p className="rounded-lg bg-panel-2 p-3 text-[12.5px] leading-relaxed text-muted">
-                    The command commits your work first (it asks about anything uncommitted), pushes <code className="font-mono text-[11.5px]">{thread.branch}</code> and uploads the conversation. After that the session on {device} becomes read-only.{' '}
+                    The command commits any uncommitted files as one WIP commit without asking (it lists them), pushes <code className="font-mono text-[11.5px]">{thread.branch}</code> and uploads the conversation. After that the session on {device} becomes read-only.{' '}
                     <a href={teleportDocs} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">
                         How teleport works
                     </a>

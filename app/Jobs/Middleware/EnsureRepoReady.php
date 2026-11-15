@@ -3,19 +3,17 @@
 namespace App\Jobs\Middleware;
 
 use App\Enums\NotificationType;
-use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadBlockReason;
 use App\Jobs\SendNotificationJob;
-use App\Jobs\SetupYakJob;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
-use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
-use App\Services\ResponsiblePersonResolver;
+use App\Services\Threads\Repos\RepositoryTemplateDrift;
 use App\Services\Threads\SetupScriptHash;
 use Closure;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 /**
  * Refuses to run a task against a repository that hasn't been set up yet,
@@ -55,6 +53,10 @@ class EnsureRepoReady
             return;
         }
 
+        if ($task->thread_id !== null && $this->waitForTemplate($task, $repository)) {
+            return;
+        }
+
         if (empty($repository->sandbox_snapshot)) {
             $this->refuse(
                 $job,
@@ -74,7 +76,7 @@ class EnsureRepoReady
                 : 'v' . (int) $repository->sandbox_base_version;
 
             $sandbox->invalidateTemplate($repository);
-            $setupTask = $this->dispatchSetupTask($repository);
+            $setupTask = app(RepositoryTemplateDrift::class)->dispatchSetupTask($repository);
 
             $reason = sprintf(
                 'Sandbox base image updated (%s → v%d). A fresh Setup task (#%d) has been dispatched — retry this task once setup completes.',
@@ -90,7 +92,7 @@ class EnsureRepoReady
 
         if ($this->setupScriptChanged($repository)) {
             $sandbox->invalidateTemplate($repository);
-            $setupTask = $this->dispatchSetupTask($repository, '.yak/setup.sh changed');
+            $setupTask = app(RepositoryTemplateDrift::class)->dispatchSetupTask($repository, '.yak/setup.sh changed');
 
             $this->refuse(
                 $job,
@@ -102,6 +104,27 @@ class EnsureRepoReady
         }
 
         $next($job);
+    }
+
+    /**
+     * A thread task whose repository template is stale, or already being rebuilt, does not
+     * fail: the thread waits for the repository and ThreadsAwaitingRepository starts the
+     * task once setup succeeds. A stale template is invalidated and rebuilt here, once.
+     */
+    private function waitForTemplate(YakTask $task, Repository $repository): bool
+    {
+        if (! app(RepositoryTemplateDrift::class)->mustWait($repository)) {
+            return false;
+        }
+
+        $task->update(['status' => TaskStatus::Pending]);
+
+        Thread::query()->withoutGlobalScopes()->whereKey($task->thread_id)->update([
+            'blocked_reason' => ThreadBlockReason::WaitingForRepository,
+            'blocked_at' => now(),
+        ]);
+
+        return true;
     }
 
     /** A script missing on the default branch, or a failed read, never triggers a rebuild. */
@@ -150,26 +173,5 @@ class EnsureRepoReady
         if (method_exists($job, 'fail')) {
             $job->fail(new \RuntimeException($reason));
         }
-    }
-
-    private function dispatchSetupTask(Repository $repository, string $reason = 'yak-base updated'): YakTask
-    {
-        $setupTask = YakTask::create([
-            'repo' => $repository->slug,
-            'external_id' => 'setup-' . Str::random(8),
-            'mode' => TaskMode::Setup,
-            'description' => "Re-provision sandbox for {$repository->name} ({$reason})",
-            'source' => 'system',
-            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
-        ]);
-
-        $repository->update([
-            'setup_task_id' => $setupTask->id,
-            'setup_status' => 'pending',
-        ]);
-
-        app(AgentJobDispatcher::class)->dispatch($setupTask, SetupYakJob::class);
-
-        return $setupTask;
     }
 }

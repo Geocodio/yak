@@ -56,7 +56,16 @@ export function StatusGroup({ thread, notice, composerState, capacity = null, ac
             <div className="flex flex-col gap-3">
                 <StatusCard thread={thread} notice={notice} composerState={composerState} />
                 {hasCapacity && <CapacityBlock capacity={capacity} accountName={accountName} />}
-                {environment !== null && (
+                {environment !== null && composerState === 'disabled_computer' && (
+                    <div data-testid="environment-sandbox-state">
+                        <div className="flex items-center gap-2 text-[13px] font-medium text-body">
+                            <span className="inline-block size-1.5 rounded-pill bg-idle" aria-hidden />
+                            On your computer
+                        </div>
+                        <p className="mt-0.5 text-[12px] text-muted">This thread is on your computer, so the Yak sandbox is not running it.</p>
+                    </div>
+                )}
+                {environment !== null && composerState !== 'disabled_computer' && (
                     <div data-testid="environment-sandbox-state">
                         <div className="flex items-center gap-2 text-[13px] font-medium text-body">
                             <span className={cn('inline-block size-1.5 rounded-pill', DOT[environment.sandbox.state])} aria-hidden />

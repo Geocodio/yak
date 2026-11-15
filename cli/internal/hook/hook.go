@@ -21,6 +21,10 @@ import (
 	"github.com/geocodio/yak/cli/internal/slash"
 )
 
+// EpochEnv names the variable yak teleport sets for the claude it starts, so a hook can tell that process from a
+// stale one that still has the same session open.
+const EpochEnv = "YAK_TELEPORT_EPOCH"
+
 // MaxInputBytes caps what a hook reads from stdin.
 const MaxInputBytes = 1 << 20
 
@@ -42,6 +46,8 @@ type HookDeps struct {
 	Out       io.Writer
 	// Binary is the absolute path of the running yak; empty falls back to "yak".
 	Binary string
+	// Env reads the environment of the claude process that runs the hook; nil reads nothing.
+	Env func(string) string
 	// Home locates the record of the registered yak:// handler.
 	Home string
 	// RefreshHandler re-registers the yak:// handler for Binary; nil disables the refresh.
@@ -113,12 +119,12 @@ func UserPromptSubmit(d HookDeps, in Input) string {
 	}
 	m, ok := config.ReadMarker(d.ConfigDir, in.SessionID)
 	if ok && m.Owner == "yak" {
-		bin := "yak"
-		if d.Binary != "" {
-			bin = link.ShellQuote(d.Binary)
-		}
-		return block(fmt.Sprintf("This session is on Yak. Run %s teleport %d to bring it back, or run %s marker clear %s to use it as a local session again (its work can be teleported up as a new thread).",
-			bin, m.ThreadID, bin, in.SessionID))
+		bin := quotedBinary(d)
+		return block(fmt.Sprintf("This session is on Yak. Run %s teleport %s to bring it back, or run %s marker clear %s to use it as a local session again (its work can be teleported up as a new thread).",
+			bin, m.ThreadRef(), bin, in.SessionID))
+	}
+	if ok && m.Owner == "device" && m.ResumeEpoch != "" && (d.Env == nil || d.Env(EpochEnv) != m.ResumeEpoch) {
+		return block(fmt.Sprintf("This terminal has an out-of-date copy of this session. The thread was teleported to this computer again and is running in another terminal, so a turn here would write to the same session with old context. Use the terminal where you ran yak teleport. If it is gone, run %s marker clear %s to use this session as a plain local one.", quotedBinary(d), in.SessionID))
 	}
 	if out, handled := slashTeleport(d, in.Prompt); handled {
 		return out
@@ -129,6 +135,14 @@ func UserPromptSubmit(d HookDeps, in Input) string {
 		}
 	}
 	return ""
+}
+
+// quotedBinary is the command to show a person: the quoted absolute path, or plain yak.
+func quotedBinary(d HookDeps) string {
+	if d.Binary != "" {
+		return link.ShellQuote(d.Binary)
+	}
+	return "yak"
 }
 
 func block(reason string) string {

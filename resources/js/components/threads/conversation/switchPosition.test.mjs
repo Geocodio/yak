@@ -14,3 +14,7 @@ test('sits before the first message sent after the move', () => {
 test('stays at the end when nothing was sent after the move', () => {
     assert.equal(switchPosition([person('2026-11-14T00:40:00Z'), event()], '2026-11-14T00:50:00Z'), 2);
 });
+
+test('sits before a message stamped in the same second as the move', () => {
+    assert.equal(switchPosition([event(), person('2026-11-14T00:50:00Z'), event()], '2026-11-14T00:50:00Z'), 1);
+});

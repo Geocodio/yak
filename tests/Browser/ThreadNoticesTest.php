@@ -183,6 +183,17 @@ it('shows the sandbox waiting card with a slot strip and no time estimate', func
         ->assertNoJavaScriptErrors();
 });
 
+it('shows the repository setup waiting notice when the template is being rebuilt', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'repo' => 'acme/site', 'blocked_reason' => ThreadBlockReason::WaitingForRepository, 'blocked_at' => now()]);
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->public_id}")
+        ->assertSeeIn('[data-testid="thread-notice"]', 'Waiting for repository setup')
+        ->assertSeeIn('[data-testid="thread-notice"]', 'This thread starts by itself as soon as setup finishes')
+        ->assertNoJavaScriptErrors();
+});
+
 it('shows the share waiting card with the viewer own sandboxes', function () {
     config(['yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 1]);
     $user = User::factory()->create();
@@ -257,7 +268,9 @@ it('shows the environment note and side-switch divider after a teleport up and a
     Teleport::factory()->down()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => now()]);
 
     visit("/threads/{$thread->public_id}")
-        ->assertSeeIn('[data-testid="side-switch-divider"]', 'Moved from Yak to your computer')
+        ->assertSee('Moved from your computer to Yak')
+        ->assertSee('Moved from Yak to your computer')
+        ->assertCount('[data-testid="side-switch-divider"]', 2)
         ->assertVisible('[data-testid="environment-note"]')
         ->assertNoJavaScriptErrors();
 });

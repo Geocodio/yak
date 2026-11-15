@@ -98,7 +98,7 @@ The upload resumes after an interruption. If your connection drops, the command 
 
 The command refuses to move a checkout in an unsafe state: a merge or rebase in progress, a detached HEAD, a branch with no commits, or a submodule with local changes. It lists what to fix.
 
-Every change travels with the thread, committed or not. The command commits all changed tracked files and all untracked files as one WIP commit (`WIP: teleport to Yak`) without asking. Files that look like secrets are the exception; see below.
+Every change travels with the thread, committed or not. The command commits all changed tracked files and all untracked files as one WIP commit (`WIP: teleport to Yak`) without asking, and prints the files it committed. Files that look like secrets are the exception; see below.
 
 If you are on the repo's default branch, the command never commits to it. It makes a detached WIP commit, and Yak assigns the branch `yak/<thread-title-slug>` (the slug is at most 50 characters). On any other branch, the thread uses your branch name.
 
@@ -129,9 +129,11 @@ If the thread already exists and is on your computer, running `/yak:yak teleport
 2. In a terminal, go to your checkout of the thread's repo and run `yak teleport <thread>`. The command asks "Teleport thread N "title" (repo) to this computer?" and waits for a yes. `--yes` skips the question.
 3. Yak commits any unsaved sandbox work as a WIP commit (`WIP: teleport to local machine`) and pushes the branch. Your computer fetches it and fast-forwards. It never merges or rebases.
 4. The command downloads the session, checks each file by hash, and writes the files only if all of them arrive.
-5. It then starts `claude --resume <session-id>` in the right folder. If it cannot start Claude, it prints `Continue with: cd <folder> && claude --resume <session-id>`.
+5. It then starts `claude --resume <session-id>` in the right folder. In a terminal it first asks "Start claude --resume now?", because Claude Code clears the screen and you would lose the summary above. If it cannot start Claude, it prints `Continue with: cd <folder> && YAK_TELEPORT_EPOCH=<id> claude --resume <session-id>`.
 
-The final line is "Thread N is now on this computer. Yak will not run turns on it until you teleport it back up."
+Only the Claude started this way (it carries `YAK_TELEPORT_EPOCH`) may run turns on the session. A terminal that still has the same session open from before, for example the one you teleported up from, is blocked with "This terminal has an out-of-date copy of this session" so two terminals cannot write to one transcript. Run `yak marker clear <session-id>` there to use it as a plain local session.
+
+The final line is "Thread <id> is now on this computer. Yak will not run turns on it until you teleport it back up."
 
 If you run the command from a checkout of a different repo, it stops with a message that names the right repo.
 
@@ -156,7 +158,7 @@ If your checkout does not match the thread's last known state, the command lists
 | Choice | What it does |
 | --- | --- |
 | "Stash them, then apply the thread" | Runs `git stash`, applies the thread, and leaves the stash for you. Not offered when your local branch has commits the thread does not have. |
-| "Apply into a new worktree" | Creates `<checkout>-yak-<thread-slug>` next to your checkout and applies the thread there. Your checkout stays as it is. |
+| "Apply into a new worktree" | Creates `<checkout>-yak-<thread-id>` next to your checkout (the folder is named after the thread id) on the branch `<thread-branch>-yak`, and applies the thread there. Your checkout stays as it is. Teleporting up from that worktree works: its branch is pushed to the thread's branch. |
 | "Cancel" (default) | Changes nothing. Yak keeps the thread. |
 
 Pass `--stash` or `--worktree` to choose in advance. If stashed changes conflict with the thread, the conflict markers are in the files and the stash is kept.
@@ -189,7 +191,7 @@ The command prints each directory with its role and reason, then asks "Bring <re
 On the way down:
 
 - The primary repo is applied to your checkout as described above.
-- Each extra repo with changes is cloned fresh into `<checkout>-<thread-slug>/<repo>`.
+- Each extra repo with changes is cloned fresh into `<checkout>-<thread-id>/<repo>`.
 - Context repos stay on Yak. The output says "Context repos stay on Yak: ...".
 - If an extra repo cannot be brought down, the command skips it and reports "Not applied: <repo> (<reason>)". The rest of the teleport still completes.
 

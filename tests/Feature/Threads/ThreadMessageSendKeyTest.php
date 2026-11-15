@@ -4,6 +4,7 @@ use App\DataTransferObjects\ThreadMessageInput;
 use App\Enums\MessageDelivery;
 use App\Enums\SteeringMode;
 use App\Enums\ThreadLockHolder;
+use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadMessagesData;
 use App\Models\PendingSteeringMessage;
@@ -76,6 +77,7 @@ it('does not drain a delivered steer into the next prompt', function () {
     $fakes['commands']->shouldReceive('steer')->once();
     $fakes['commands']->shouldReceive('startRunner', 'turn', 'setModel');
     $steer = app(ThreadTurns::class)->steer($thread, 'Use the staging bucket', null, null, null, 'thread');
+    ThreadTurnMessage::query()->where('uuid', $steer->uuid)->update(['state' => TurnMessageState::Started]);
     $run->forceFill(['turn_state' => TurnState::Completed, 'finished_at' => now()])->save();
     $thread->forceFill(['lock_holder' => ThreadLockHolder::None, 'lock_turn_id' => null])->save();
 

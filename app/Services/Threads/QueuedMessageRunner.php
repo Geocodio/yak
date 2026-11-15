@@ -97,7 +97,7 @@ class QueuedMessageRunner
         $oldest = PendingSteeringMessage::query()
             ->where('root_task_id', $thread->messagesRootTask()->id)
             ->where('source', 'thread')
-            ->whereNotExists(fn ($delivered) => $delivered->from('thread_turn_messages')->whereColumn('thread_turn_messages.pending_steering_message_id', 'pending_steering_messages.id'))
+            ->unread()
             ->orderBy('id')
             ->first();
 
