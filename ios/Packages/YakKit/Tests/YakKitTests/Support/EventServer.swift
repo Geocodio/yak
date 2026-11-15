@@ -12,6 +12,7 @@ actor EventServer {
     private let events: [ThreadEvent]
     private var publishedThrough = 0
     private(set) var requestedAfters: [Int] = []
+    private var malformedSequences: Set<Int> = []
 
     /// Stored events only.
     init(threadID: String, events: [ThreadEvent]) {
@@ -22,6 +23,11 @@ actor EventServer {
     /// What the server holds so far; `latestSequence` answers with this.
     func publish(through sequence: Int) {
         publishedThrough = sequence
+    }
+
+    /// These events are sent as elements that do not decode, as a buggy server might.
+    func sendMalformed(_ sequences: Set<Int>) {
+        malformedSequences = sequences
     }
 
     func install(on transport: ScriptedTransport) async {
@@ -44,15 +50,18 @@ actor EventServer {
         let limit = min(items.first { $0.name == "limit" }?.value.flatMap(Int.init) ?? 500, 500)
         requestedAfters.append(after)
         let page = events.filter { $0.sequence > after && $0.sequence <= publishedThrough }.prefix(limit)
-        struct Body: Encodable {
-            let events: [ThreadEvent]
-            let latestSequence: Int
-            let source: String
+        var elements: [String] = []
+        for event in page {
+            if malformedSequences.contains(event.sequence) {
+                elements.append(#"{"bogus":true}"#)
+            } else if let body = try? encoder.encode(event) {
+                elements.append(String(decoding: body, as: UTF8.self))
+            } else {
+                return .json(500, "{}")
+            }
         }
-        guard
-            let body = try? encoder.encode(
-                Body(events: Array(page), latestSequence: publishedThrough, source: "test"))
-        else { return .json(500, "{}") }
-        return .json(200, String(decoding: body, as: UTF8.self))
+        return .json(
+            200,
+            #"{"events":[\#(elements.joined(separator: ","))],"latestSequence":\#(publishedThrough),"source":"test"}"#)
     }
 }

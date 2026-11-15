@@ -109,8 +109,9 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     await rig.transport.waitForRequests(before + 1, on: route)
     #expect(await rig.transport.requests(on: route).count == before + 1)
     await rig.transport.release(route)
-    _ = await settled(rig.engine, at: 10)
     await rig.transport.waitForRequests(before + 2, on: route)
+    _ = await settled(rig.engine, at: 10)
+    for _ in 0..<50 { await Task.yield() }
     #expect(await rig.transport.requests(on: route).count == before + 2)
 }
 
@@ -143,7 +144,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     await rig.transport.on("GET threads/\(threadID)/events/3", .json(500, "{}"))
     await rig.engine.receive(.pointer(sequence: 3))
     _ = await settled(rig.engine, at: 3)
-    #expect(await server.requestedAfters.last == 2)
+    #expect(await server.requestedAfters == [0, 2])
 }
 
 @Test func showsTheCachedConversationAtOnce() async throws {
@@ -282,4 +283,104 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async -> Con
     let snapshot = await settled(rig.engine, at: 1)
     #expect(eventEntries(snapshot).isEmpty)
     #expect(await rig.transport.requests(on: "GET threads/\(threadID)/events").count == before)
+}
+
+@Test func aMalformedEventInAFullPageDoesNotSkipTheRest() async throws {
+    let server = EventServer(threadID: threadID, events: (1...1301).map(assistantText))
+    await server.publish(through: 100)
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 100))
+    await server.sendMalformed([300])
+    await server.publish(through: 1301)
+    await rig.engine.receive(.event(assistantText(1301)))
+    let snapshot = await settled(rig.engine, at: 1301)
+    #expect(await server.requestedAfters.suffix(3) == [100, 600, 1100])
+    #expect(eventEntries(snapshot).count == 1300)
+}
+
+@Test func aCatchUpFailureKeepsTheConversationOnScreen() async throws {
+    let server = EventServer(threadID: threadID, events: (1...3).map(assistantText))
+    await server.publish(through: 2)
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 2))
+    let route = "GET threads/\(threadID)/events"
+    let before = await rig.transport.requests(on: route).count
+    await rig.transport.on(route, .json(500, #"{"error":"server_error","message":"Secret detail."}"#))
+    await rig.engine.receive(.subscribed)
+    await rig.transport.waitForRequests(before + 1, on: route)
+    let failed = await StreamRecorder(rig.engine.snapshots()).next { $0.problem != nil }
+    #expect(failed.load == .ready && failed.lastSequence == 2 && !failed.entries.isEmpty)
+    #expect(failed.problem == .server(code: "server_error", message: "Secret detail."))
+    #expect(!failed.isOffline)
+}
+
+@Test func aFailedShowKeepsTheCachedCopy() async throws {
+    let list = try EventList.load("events/simple-turn")
+    let clock = ManualClock()
+    let cache = Cache(instance: UUID(), files: InMemoryFileStore(), clock: clock)
+    let show = try decoded(ThreadShow.self, "scenario-thread-show")
+    await cache.saveThread(
+        threadID, CachedThread(show: show, events: list.stored, lastSequence: 14, firstLoadedAfter: 0))
+    let server = EventServer(threadID: threadID, events: list.stored)
+    let rig = try await makeRig(
+        server: server, show: .json(500, #"{"error":"server_error","message":"Down."}"#), cache: cache,
+        clock: clock)
+    let snapshot = await StreamRecorder(rig.engine.snapshots()).next { $0.problem != nil }
+    #expect(snapshot.load == .ready && snapshot.isShowingCachedCopy && snapshot.entries.count == 4)
+}
+
+/// Blocks the first read after `gate()`, so a test can park `open()` inside the cache read.
+private final class GatedFileStore: FileStore, @unchecked Sendable {
+    let inner = InMemoryFileStore()
+    let started = DispatchSemaphore(value: 0)
+    let proceed = DispatchSemaphore(value: 0)
+    private let lock = NSLock()
+    private var gated = false
+
+    func gate() { lock.withLock { gated = true } }
+
+    func read(_ path: String) throws(FileStoreError) -> Data? {
+        let isBlocking = lock.withLock { () -> Bool in
+            defer { gated = false }
+            return gated
+        }
+        if isBlocking {
+            started.signal()
+            proceed.wait()
+        }
+        return try inner.read(path)
+    }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        try inner.write(data, to: path, protection: protection)
+    }
+    func remove(_ path: String) throws(FileStoreError) { try inner.remove(path) }
+    func list(_ folder: String) throws(FileStoreError) -> [String] { try inner.list(folder) }
+}
+
+@Test func inputDuringTheCacheReadWaitsForTheRestore() async throws {
+    let list = try EventList.load("events/simple-turn")
+    let clock = ManualClock()
+    let files = GatedFileStore()
+    let cache = Cache(instance: UUID(), files: files, clock: clock)
+    let show = try decoded(ThreadShow.self, "scenario-thread-show")
+    await cache.saveThread(
+        threadID, CachedThread(show: show, events: list.stored, lastSequence: 14, firstLoadedAfter: 0))
+    let server = EventServer(threadID: threadID, events: list.stored)
+    await server.publish(through: 14)
+    let rig = try await makeRig(
+        server: server, show: try showResult(latestSequence: 14), cache: cache, clock: clock, openNow: false)
+    files.gate()
+    let opening = Task { await rig.engine.open() }
+    await withCheckedContinuation { continuation in
+        DispatchQueue.global().async {
+            files.started.wait()
+            continuation.resume()
+        }
+    }
+    await rig.engine.receive(.subscribed)
+    await rig.engine.requestCatchUp()
+    files.proceed.signal()
+    await opening.value
+    let snapshot = await StreamRecorder(rig.engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
+    #expect(snapshot.entries.count == 4 && !snapshot.isShowingCachedCopy)
+    #expect(await server.requestedAfters == [14])
+    #expect(await rig.transport.requests(on: "GET threads/\(threadID)").count == 1)
 }

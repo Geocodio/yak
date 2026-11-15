@@ -86,9 +86,12 @@ public struct EventsPage: Decodable, Equatable, Sendable {
     public let events: [ThreadEvent]
     public let latestSequence: Int
     public let source: String
+    /// How many elements the server sent, including the ones dropped as malformed.
+    public let rawEventCount: Int
 
-    public init(events: [ThreadEvent], latestSequence: Int, source: String) {
+    public init(events: [ThreadEvent], latestSequence: Int, source: String, rawEventCount: Int? = nil) {
         self.events = events
+        self.rawEventCount = rawEventCount ?? events.count
         self.latestSequence = latestSequence
         self.source = source
     }
@@ -102,6 +105,7 @@ public struct EventsPage: Decodable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: Keys.self)
         let elements = try container.decode([LossyEvent].self, forKey: .events)
         events = elements.compactMap(\.event)
+        rawEventCount = elements.count
         if events.count < elements.count { logDroppedEvents(elements.count - events.count) }
         latestSequence = try container.decode(Int.self, forKey: .latestSequence)
         source = try container.decodeIfPresent(String.self, forKey: .source) ?? ""

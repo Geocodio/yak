@@ -22,6 +22,12 @@ public enum ThreadProblem: Equatable, Sendable {
         }
     }
 
+    /// The case and the error code, never the server's message text, so it is safe to log.
+    var logName: String {
+        if case .server(let code, _) = self { return "server(\(code))" }
+        return "\(self)"
+    }
+
     /// Whether asking again can change the outcome.
     public var isRetryable: Bool {
         switch self {
@@ -55,13 +61,17 @@ public struct ConversationSnapshot: Equatable, Sendable {
     /// A `/clear` delivery named a new thread.
     public var replacementThreadID: String?
     public var lastSequence: Int
+    /// The newest request failure other than `.offline` while a conversation stays on screen: show a
+    /// banner. It clears on the next success. Without anything to show, `load` is `.failed` instead.
+    public var problem: ThreadProblem?
 
     public init(
         load: ThreadLoadState = .loading, show: ThreadShow? = nil, entries: [ConversationEntry] = [],
         currentStepKey: String? = nil, waiting: WaitingRow? = nil, turn: TurnChange? = nil,
         thread: ThreadStateChange? = nil, connection: ConnectionState = .offline,
         isShowingCachedCopy: Bool = false, isOffline: Bool = false, hasOlderHistory: Bool = false,
-        isLoadingOlder: Bool = false, replacementThreadID: String? = nil, lastSequence: Int = 0
+        isLoadingOlder: Bool = false, replacementThreadID: String? = nil, lastSequence: Int = 0,
+        problem: ThreadProblem? = nil
     ) {
         self.load = load
         self.show = show
@@ -77,5 +87,6 @@ public struct ConversationSnapshot: Equatable, Sendable {
         self.isLoadingOlder = isLoadingOlder
         self.replacementThreadID = replacementThreadID
         self.lastSequence = lastSequence
+        self.problem = problem
     }
 }

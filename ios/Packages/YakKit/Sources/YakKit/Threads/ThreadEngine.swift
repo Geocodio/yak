@@ -41,6 +41,9 @@ public actor ThreadEngine {
     private var replacementThreadID: String?
 
     private var hasOpened = false
+    /// True once `open()` has restored the cache; until then live input waits so it cannot be overwritten.
+    private var isOpenFinished = false
+    private var problem: ThreadProblem?
     private var isClosed = false
     private var catchUpTask: Task<Void, Never>?
     private var isRerunRequested = false
@@ -75,6 +78,7 @@ public actor ThreadEngine {
             load = .ready
             isShowingCachedCopy = true
         }
+        isOpenFinished = true
         publishNow()
         requestCatchUp()
     }
@@ -112,16 +116,16 @@ public actor ThreadEngine {
         guard !isClosed else { return }
         switch message {
         case .event(let event):
-            applyLive(event)
+            if isOpenFinished { applyLive(event) }
         case .pointer(let sequence):
-            handlePointer(sequence)
+            if isOpenFinished { handlePointer(sequence) }
         case .subscribed:
             requestCatchUp()
         case .connection(let next):
             connection = next
             changed(isStored: false)
         case .subscriptionFailed(let failure):
-            logFailure("thread subscription failed: \(failure.map { "\($0)" } ?? "refused")")
+            logFailure("thread subscription failed: \(failure.map { ThreadProblem($0).logName } ?? "refused")")
         }
     }
 
@@ -140,7 +144,7 @@ public actor ThreadEngine {
 
     /// Fetches what the stream missed. While one runs, a request only marks a rerun.
     public func requestCatchUp() {
-        guard !isClosed else { return }
+        guard !isClosed, isOpenFinished else { return }
         if catchUpTask != nil {
             isRerunRequested = true
             return
@@ -186,7 +190,7 @@ public actor ThreadEngine {
         switch result {
         case .success(let event): applyLive(event)
         case .failure(let failure):
-            logFailure("pointer fetch failed: \(failure)")
+            logFailure("pointer fetch failed: \(ThreadProblem(failure).logName)")
             requestCatchUp()
         }
     }
@@ -216,13 +220,16 @@ public actor ThreadEngine {
                 return
             }
             guard !isClosed, !Task.isCancelled else { return }
-            let isLastPage = page.events.count < Self.historyPage
+            // The end is decided by what the server sent, so a malformed event dropped from a full page
+            // cannot make the engine skip the events after it.
+            let isLastPage = page.rawEventCount < Self.historyPage
             state.apply(page.events, latestSequence: isLastPage ? page.latestSequence : nil)
             isOffline = false
+            problem = nil
             isShowingCachedCopy = false
             load = .ready
             changed(isStored: true)
-            if isLastPage { return }
+            if isLastPage || state.lastSequence <= after { return }
         }
     }
 
@@ -262,17 +269,23 @@ public actor ThreadEngine {
             do {
                 _ = try await self.client.send(.markSeen(self.threadID))
             } catch {
-                logFailure("mark seen failed: \(error)")
+                logFailure("mark seen failed: \((error as? APIFailure).map { ThreadProblem($0).logName } ?? "unknown")")
             }
             self.sideTasks[identifier] = nil
         }
     }
 
-    /// A failed request keeps what is shown. Without any data the screen gets the error state.
+    /// A failed request keeps what is shown, a cached copy included, whatever the problem is: `.offline`
+    /// sets `isOffline` and any other problem goes into `problem`. Only without data does `load` become
+    /// `.failed`.
     private func fail(_ problem: ThreadProblem, what: String) {
-        logFailure("\(what) failed: \(problem)")
+        logFailure("\(what) failed: \(problem.logName)")
         if problem == .offline { isOffline = true }
-        if problem != .offline || load != .ready { load = .failed(problem) }
+        if load == .ready {
+            if problem != .offline { self.problem = problem }
+        } else {
+            load = .failed(problem)
+        }
         changed(isStored: false)
     }
 
@@ -349,6 +362,6 @@ public actor ThreadEngine {
                 waiting: ConversationMerge.waitingRow(in: entries, turn: state.turn), turn: state.turn,
                 thread: state.thread, connection: connection, isShowingCachedCopy: isShowingCachedCopy,
                 isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: false,
-                replacementThreadID: replacementThreadID, lastSequence: state.lastSequence))
+                replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem))
     }
 }
