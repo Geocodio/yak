@@ -103,6 +103,23 @@ it('drops queued turn lines when the runner ends, as the real broker does', func
         ->and(end($types))->toBe('broker.runner_exited');
 });
 
+it('keeps a steer behind the held turn lines that are still queued', function (): void {
+    $client = localRedisClient();
+    config(['yak.e2e.enabled' => true]);
+    (new E2eServiceProvider(app()))->boot();
+    $streams = new RedisBrokerStreams('streams_test');
+    $streams->register('threads:7');
+    $streams->command('threads:7', ['type' => 'start_runner', 'container' => 'thread-7', 'start' => ['type' => 'start']]);
+    $streams->command('threads:7', ['type' => 'turn', 'uuid' => 'held-1', 'text' => 'Look closer ' . E2eRunnerScript::HOLD_MARKER]);
+    $streams->command('threads:7', ['type' => 'steer', 'uuid' => 'steer-1', 'text' => 'Actually, stop']);
+
+    $this->artisan('yak:e2e-runner', ['--pace' => '1', '--once' => true, '--connection' => 'streams_test'])->assertExitCode(0);
+
+    $written = implode("\n", array_map(fn (array $entry): string => $entry['line'], array_values($client->xRange('threads:7:out', '-', '+'))));
+
+    expect($written)->not->toContain('steer-1');
+});
+
 it('serves at most two hundred channels', function (): void {
     $client = localRedisClient();
     foreach (range(1, 201) as $number) {

@@ -131,6 +131,7 @@ class E2eRunnerCommand extends Command
         $queue = $this->queues[$channel] ?? [];
         $dropped = 0;
         $generation = $wire->generation($channel);
+        $notBefore = $queue === [] ? 0.0 : (float) end($queue)['due'];
 
         foreach ($lines as $scheduled) {
             if (count($queue) >= self::MAX_QUEUED_LINES) {
@@ -138,7 +139,7 @@ class E2eRunnerCommand extends Command
 
                 continue;
             }
-            $queue[] = ['due' => $now + $scheduled['afterMilliseconds'] / 1000, 'line' => $scheduled['line'], 'fromBroker' => $scheduled['fromBroker'], 'generation' => $generation];
+            $queue[] = ['due' => max($notBefore, $now + $scheduled['afterMilliseconds'] / 1000), 'line' => $scheduled['line'], 'fromBroker' => $scheduled['fromBroker'], 'generation' => $generation];
         }
 
         usort($queue, fn (array $first, array $second): int => $first['due'] <=> $second['due']);

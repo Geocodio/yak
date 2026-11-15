@@ -251,6 +251,7 @@ it('refuses an oversized or overlong fixture', function (string $contents): void
 ]);
 
 it('times an interrupt and a steer after the held turn lines that are still queued', function (string $commandType): void {
+    $this->freezeTime();
     $script = liveScript(4.0);
     $opening = $script->respond('threads:1', scriptTurnCommand('Look closer ' . E2eRunnerScript::HOLD_MARKER), 1);
     $lastOpeningDue = max(array_column($opening, 'afterMilliseconds'));
