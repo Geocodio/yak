@@ -18,7 +18,8 @@ private func makeRig() async throws -> Rig {
     let client = APIClient(
         baseURL: URL(string: "https://example.test")!, token: "test-token", transport: transport,
         appVersion: "1.0", systemDescription: "Test", sleep: { _ in })
-    return Rig(feed: PullRequestsFeed(threadID: "d0e515ef", client: client, clock: clock), transport: transport, clock: clock)
+    let feed = PullRequestsFeed(threadID: "d0e515ef", client: client, clock: clock)
+    return Rig(feed: feed, transport: transport, clock: clock)
 }
 
 @Test func rowsReadThePanel() throws {
@@ -70,10 +71,13 @@ private func makeRig() async throws -> Rig {
     await rig.clock.advance(by: .seconds(10))
     await rig.transport.waitForRequests(2, on: route)
     await rig.clock.waitForSleeper(endingAt: .seconds(20))
+    await rig.clock.advance(by: .seconds(10))
+    await rig.transport.waitForRequests(3, on: route)
+    await rig.clock.waitForSleeper(endingAt: .seconds(30))
     await rig.clock.advance(by: .seconds(5))
     await rig.feed.setVisible(false)
     await rig.clock.advance(by: .seconds(30))
-    #expect(await rig.transport.requests(on: route).count == 2)
+    #expect(await rig.transport.requests(on: route).count == 3)
     #expect(rig.clock.sleeperDeadlines.isEmpty)
     await rig.feed.close()
 }
@@ -109,5 +113,20 @@ private func makeRig() async throws -> Rig {
     await rig.feed.reload()
     let ready = try await snapshots.next { $0.load == .ready }
     #expect(ready.panel?.openCount == 2)
+    await rig.feed.close()
+}
+
+@Test func reloadRestartsPollingAfterAProblemThatRetryingCannotFix() async throws {
+    let rig = try await makeRig()
+    await rig.transport.on(route, .json(404, #"{"error":"not_found","message":"Gone."}"#))
+    let snapshots = StreamRecorder(await rig.feed.snapshots())
+    await rig.feed.setVisible(true)
+    _ = try await snapshots.next { $0.problem != nil }
+    await rig.transport.on(route, try .scenario(200, "scenario-pull-requests"))
+    await rig.feed.reload()
+    _ = try await snapshots.next { $0.load == .ready }
+    await rig.clock.waitForSleeper(endingAt: .seconds(10))
+    await rig.clock.advance(by: .seconds(10))
+    await rig.transport.waitForRequests(3, on: route)
     await rig.feed.close()
 }

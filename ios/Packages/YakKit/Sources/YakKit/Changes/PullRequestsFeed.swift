@@ -31,6 +31,8 @@ public actor PullRequestsFeed {
     private var generation = 0
     private var pollTask: Task<Void, Never>?
     private var slowTask: Task<Void, Never>?
+    /// True while a poll loop is running; a loop that stops on a problem that retrying cannot fix clears it.
+    private var isPolling = false
 
     public init(threadID: String, client: APIClient, clock: any YakClock) {
         self.threadID = threadID
@@ -50,15 +52,24 @@ public actor PullRequestsFeed {
         guard visible else {
             pollTask?.cancel()
             pollTask = nil
+            isPolling = false
+            slowTask?.cancel()
+            slowTask = nil
             return
         }
+        startPolling(fetchFirst: true)
+    }
+
+    private func startPolling(fetchFirst: Bool) {
+        isPolling = true
         pollTask = Task {
-            await self.fetch()
+            if fetchFirst { await self.fetch() }
             while !Task.isCancelled, self.shouldKeepPolling {
                 do { try await self.clock.sleep(for: Self.pollInterval) } catch { return }
                 guard !Task.isCancelled else { return }
                 await self.fetch()
             }
+            if !Task.isCancelled { self.isPolling = false }
         }
     }
 
@@ -70,6 +81,7 @@ public actor PullRequestsFeed {
             publish()
         }
         await fetch()
+        if isVisible, !isClosed, !isPolling, problem?.isRetryable ?? true { startPolling(fetchFirst: false) }
     }
 
     /// Cancels the polling and ends the streams. Repeating it changes nothing.
