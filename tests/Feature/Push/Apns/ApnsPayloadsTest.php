@@ -3,6 +3,7 @@
 use App\Models\Thread;
 use App\Services\Push\Apns\ApnsPayloads;
 use Carbon\CarbonImmutable;
+use Tests\Support\ContractFixture;
 
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-16 12:00:00', 'UTC'));
@@ -135,4 +136,11 @@ it('hashes a collapse id to 32 hex characters', function () {
         ->and($id)->not->toContain('run-7')
         ->and(ApnsPayloads::collapseId('run-7'))->toBe($id)
         ->and(ApnsPayloads::collapseId('run-8'))->not->toBe($id);
+});
+
+it('builds a widget reload without thread data', function () {
+    $payload = app(ApnsPayloads::class)->widgetReload();
+
+    expect($payload)->toBe(['aps' => ['content-changed' => true]]);
+    ContractFixture::assertMatches('app', 'push/widget-reload', $payload);
 });

@@ -17,6 +17,8 @@ function pushRoutes(): array
     return [
         'PUT push-tokens' => ['PUT', '/api/app/v1/push-tokens/alert', $token],
         'DELETE push-tokens' => ['DELETE', '/api/app/v1/push-tokens/alert', []],
+        'PUT widget token' => ['PUT', '/api/app/v1/push-tokens/widget', $token],
+        'DELETE widget token' => ['DELETE', '/api/app/v1/push-tokens/widget', []],
         'GET notifications' => ['GET', '/api/app/v1/notifications', []],
         'PUT notifications' => ['PUT', '/api/app/v1/notifications', ['events' => ['needs_you' => false]]],
         'PUT live-activities' => ['PUT', '/api/app/v1/live-activities', ['threads' => []]],
@@ -72,8 +74,10 @@ it('touches only the caller\'s own rows', function () {
     [, $headers] = phoneWithHeaders();
 
     $this->putJson('/api/app/v1/push-tokens/alert', ['token' => str_repeat('ab', 32), 'environment' => 'production'], $headers)->assertNoContent();
+    $this->putJson('/api/app/v1/push-tokens/widget', ['token' => str_repeat('ef', 32), 'environment' => 'production'], $headers)->assertNoContent();
     $this->putJson('/api/app/v1/notifications', ['events' => ['needs_you' => false]], $headers)->assertOk();
     $this->deleteJson('/api/app/v1/push-tokens/alert', [], $headers)->assertNoContent();
+    $this->deleteJson('/api/app/v1/push-tokens/widget', [], $headers)->assertNoContent();
 
     expect($otherToken->fresh()->toArray())->toBe($before['token'])
         ->and($other->fresh()->push_event_preferences)->toBe($before['preferences'])

@@ -42,6 +42,23 @@ it('sends an alert with the headers Apple needs', function () {
         ->and($request->data())->toBe(['aps' => ['alert' => 'Hi']]);
 });
 
+it('sends a widget reload with the headers Apple needs', function () {
+    fakeApns();
+    $token = str_repeat('e5', 32);
+
+    $response = app(ApnsClient::class)->sendWidgetReload($token, ['aps' => ['content-changed' => true]]);
+
+    $request = apnsRequests("/3/device/{$token}")[0];
+    expect($response->isSuccess())->toBeTrue()
+        ->and($request->url())->toBe("https://api.push.apple.com/3/device/{$token}")
+        ->and($request->header('apns-push-type'))->toBe(['widgets'])
+        ->and($request->header('apns-topic'))->toBe(['com.example.yak.push-type.widgets'])
+        ->and($request->header('apns-priority'))->toBe(['5'])
+        ->and($request->header('apns-expiration'))->toBe([(string) CarbonImmutable::parse('2026-11-16 13:00:00', 'UTC')->getTimestamp()])
+        ->and($request->header('apns-collapse-id'))->toBe(['widget-reload'])
+        ->and($request->data())->toBe(['aps' => ['content-changed' => true]]);
+});
+
 it('uses the sandbox host for a sandbox instance', function () {
     fakeApns(environment: 'sandbox');
 
@@ -169,13 +186,15 @@ it('never logs a device token', function (string $kind) {
     Exceptions::fake();
     $token = str_repeat('c3', 32);
     fakeApns(['api.push.apple.com/*' => match ($kind) {
-        'bad token' => Http::response(['reason' => 'BadDeviceToken'], 400),
+        'bad token', 'widget reload refused' => Http::response(['reason' => 'BadDeviceToken'], 400),
         'timeout' => fn () => throw new ConnectionException("cURL error 28 for https://api.push.apple.com/3/device/{$token}"),
         'server error' => Http::response('', 500),
     }]);
     $row = DevicePushToken::factory()->create(['token' => $token]);
 
-    $response = app(ApnsClient::class)->sendAlert($token, [], 'c');
+    $response = $kind === 'widget reload refused'
+        ? app(ApnsClient::class)->sendWidgetReload($token, [])
+        : app(ApnsClient::class)->sendAlert($token, [], 'c');
     app(ApnsTokenFailures::class)->record($row, $response);
 
     expect($response)->toBeInstanceOf(ApnsResponse::class);
@@ -183,7 +202,7 @@ it('never logs a device token', function (string $kind) {
     Exceptions::assertNotReported(fn (Throwable $exception) => str_contains($exception->getMessage(), $token));
     $stored = DevicePushToken::query()->find($row->id)?->last_error ?? '';
     expect($stored)->not->toContain($token);
-})->with(['bad token', 'timeout', 'server error']);
+})->with(['bad token', 'timeout', 'server error', 'widget reload refused']);
 
 it('answers with a short class name when the payload cannot be encoded, without the token in any trace', function () {
     Exceptions::fake();

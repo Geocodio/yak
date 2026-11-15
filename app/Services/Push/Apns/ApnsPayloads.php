@@ -43,6 +43,16 @@ final class ApnsPayloads
     }
 
     /**
+     * A widget reload names no thread: the widget fetches its own data when the system wakes it.
+     *
+     * @return array{aps: array{content-changed: true}}
+     */
+    public function widgetReload(): array
+    {
+        return ['aps' => ['content-changed' => true]];
+    }
+
+    /**
      * @param  array<string, mixed>  $contentState
      * @return array<string, mixed>
      */
