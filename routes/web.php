@@ -7,7 +7,9 @@ use App\Http\Controllers\Api\App\DevicePairController as AppDevicePairController
 use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenController;
 use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
 use App\Http\Controllers\Api\App\MeController as AppMeController;
+use App\Http\Controllers\Api\App\Threads\ThreadController as AppThreadController;
 use App\Http\Controllers\Api\App\Threads\ThreadListController as AppThreadListController;
+use App\Http\Controllers\Api\App\Threads\ThreadSeenController as AppThreadSeenController;
 use App\Http\Controllers\Api\Cli\SessionFileController;
 use App\Http\Controllers\Api\Cli\SshLookupController;
 use App\Http\Controllers\Api\Cli\StackMessageController;
@@ -470,6 +472,8 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::get('me', AppMeController::class)->name('app.me');
         Route::delete('device', [AppDeviceController::class, 'destroy'])->name('app.device.destroy');
         Route::get('threads', AppThreadListController::class)->name('app.threads.index');
+        Route::get('threads/{thread}', [AppThreadController::class, 'show'])->name('app.threads.show');
+        Route::post('threads/{thread}/seen', AppThreadSeenController::class)->name('app.threads.seen');
     });
 });
 

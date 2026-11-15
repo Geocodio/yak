@@ -16,10 +16,7 @@ class ThreadSeenController extends Controller
         // A hidden thread answers exactly like a missing one.
         abort_unless(Gate::allows('view', $thread), 404);
 
-        ThreadView::query()->updateOrCreate(
-            ['user_id' => ($request->user() ?? abort(401))->id, 'thread_id' => $thread->id],
-            ['last_seen_at' => now()],
-        );
+        ThreadView::markSeen($request->user() ?? abort(401), $thread);
 
         return response()->noContent();
     }
