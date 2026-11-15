@@ -251,6 +251,13 @@ sub normalize_literal {
         if ($c eq '\\') {
             my $next = substr($literal, $i + 1, 1);
             if ($next eq '(') { $i = skip_parens($literal, $i + 1, undef); $out .= "\0"; next; }
+            if ($next eq 'u' && substr($literal, $i + 2) =~ /^\{([0-9A-Fa-f]{1,8})\}/) {
+                my $character = chr(hex $1);
+                utf8::encode($character);
+                $out .= $character;
+                $i += 4 + length $1;
+                next;
+            }
             $out .= exists $escapes{$next} ? $escapes{$next} : $next;
             $i += 2;
             next;
@@ -313,10 +320,11 @@ if ($mode eq 'tokens') {
 }
 
 my %found;
+my $unreadable = 0;
 for my $path (@arguments) {
     my $text = slurp($path, ':raw');
     if (!defined $text) {
-        if ($mode eq 'tokens') { print STDERR "release-scan: cannot read $path\n"; }
+        if ($mode eq 'tokens') { print STDERR "release-scan: cannot read $path\n"; $unreadable = 1; }
         else { print "$path: cannot be read\n"; }
         next;
     }
@@ -331,3 +339,4 @@ for my $path (@arguments) {
     else { die "release-scan: unknown mode $mode\n"; }
 }
 print "$_\n" for sort keys %found;
+exit($unreadable ? 1 : 0);

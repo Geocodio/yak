@@ -193,6 +193,14 @@ let verbatim = Text(verbatim: "not a key")
 let dynamic = Text(LocalizedStringKey(someKey))
 EOF
 expect_pass "catalog: keys, interpolations and verbatim pass"
+fresh
+plant Yak/Planted.swift <<'EOF'
+let view = Text("caf\u{E9}")
+EOF
+plant Yak/Extra.xcstrings <<'EOF'
+{"strings": {"caf\u00e9": {}}, "version": "1.0"}
+EOF
+expect_pass "catalog: a \\u{...} escape is decoded before the lookup"
 
 # usage strings
 fresh
@@ -273,6 +281,10 @@ EOF
 fresh
 planted_share
 expect_fail "discovery: an app-extension target that no file registers" "release: privacy manifests" "YakShare: YakShare/PrivacyInfo.xcprivacy is missing"
+if ! grep -qF "release: extension targets: YakShare" <<<"$output"; then
+    echo "FAIL  discovery: the output lacks 'release: extension targets: YakShare'"
+    failures=$((failures + 1))
+fi
 fresh
 planted_share
 cp "$work/ios/Yak/Support/PrivacyInfo.xcprivacy" "$work/ios/YakShare/PrivacyInfo.xcprivacy"
@@ -338,6 +350,17 @@ func planted() { logFailure("sent \(message.text)") }
 let host = "https://help.example.org"
 EOF
 expect_fail "a file name with a space is still scanned" "release: logging" "My Planted.swift"
+if ! grep -qF "release: hosts" <<<"$output"; then
+    echo "FAIL  a file name with a space: the hosts rule did not name it"
+    failures=$((failures + 1))
+fi
+fresh
+plant Yak/Support/Hidden.swift <<'EOF'
+let manager = CLLocationManager()
+EOF
+chmod 000 "$work/ios/Yak/Support/Hidden.swift"
+expect_fail "an unreadable Swift file is a finding, not a silent pass" "release: usage strings" "cannot be read"
+chmod 600 "$work/ios/Yak/Support/Hidden.swift"
 fresh
 plant Yak/Raw.swift <<'EOF'
 let raw = #"say "hi" at https://help.example.org"#

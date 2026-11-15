@@ -85,7 +85,8 @@ release_check_usage_strings() {
     for folder in Yak $(release_extension_targets); do
         [ -d "$folder" ] || continue
         found=$(release_swift_files "$folder" | release_scan tokens \
-            'AVCaptureDevice|DataScannerViewController|VNDocumentCameraViewController|LAContext|PHPhotoLibrary|PHAsset|CLLocationManager|AVAudioRecorder|requestRecordPermission')
+            'AVCaptureDevice|DataScannerViewController|VNDocumentCameraViewController|LAContext|PHPhotoLibrary|PHAsset|CLLocationManager|AVAudioRecorder|requestRecordPermission') \
+            || hits="$hits$folder: a Swift file cannot be read, so its usage strings were not checked"$'\n'
         for api in $found; do
             case "$api" in
                 AVCaptureDevice | DataScannerViewController | VNDocumentCameraViewController) key=NSCameraUsageDescription ;;
@@ -168,7 +169,8 @@ release_check_privacy_manifests() {
         source_dirs="$folder Shared Packages/YakKit/Sources"
         # shellcheck disable=SC2086
         found=$(release_swift_files $source_dirs | release_scan tokens \
-            'UserDefaults|creationDate|modificationDate|contentModificationDateKey|creationDateKey|attributesOfItem|systemUptime|mach_absolute_time|volumeAvailableCapacity|systemFreeSize|activeInputModes')
+            'UserDefaults|creationDate|modificationDate|contentModificationDateKey|creationDateKey|attributesOfItem|systemUptime|mach_absolute_time|volumeAvailableCapacity|systemFreeSize|activeInputModes') \
+            || hits="$hits$manifest: a Swift file cannot be read, so its privacy categories were not checked"$'\n'
         for api in $found; do
             case "$api" in
                 UserDefaults) category=NSPrivacyAccessedAPICategoryUserDefaults ;;
