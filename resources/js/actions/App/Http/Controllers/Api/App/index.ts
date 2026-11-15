@@ -6,6 +6,7 @@ import MeController from './MeController'
 import DeviceController from './DeviceController'
 import Threads from './Threads'
 import BroadcastAuthController from './BroadcastAuthController'
+import Tasks from './Tasks'
 
 const App = {
     InstanceController: Object.assign(InstanceController, InstanceController),
@@ -16,6 +17,7 @@ const App = {
     DeviceController: Object.assign(DeviceController, DeviceController),
     Threads: Object.assign(Threads, Threads),
     BroadcastAuthController: Object.assign(BroadcastAuthController, BroadcastAuthController),
+    Tasks: Object.assign(Tasks, Tasks),
 }
 
 export default App

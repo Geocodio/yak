@@ -2,6 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../
 import device from './device'
 import threads from './threads'
 import broadcasting from './broadcasting'
+import tasks from './tasks'
 /**
 * @see \App\Http\Controllers\Api\App\InstanceController::__invoke
 * @see app/Http/Controllers/Api/App/InstanceController.php:13
@@ -96,6 +97,7 @@ const app = {
     me: Object.assign(me, me),
     threads: Object.assign(threads, threads),
     broadcasting: Object.assign(broadcasting, broadcasting),
+    tasks: Object.assign(tasks, tasks),
 }
 
 export default app

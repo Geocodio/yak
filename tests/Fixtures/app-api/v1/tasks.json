@@ -1,0 +1,100 @@
+{
+    "counts": {
+        "needsCoOwner": 1,
+        "reviews": 0,
+        "setup": 0,
+        "tasks": 4
+    },
+    "nextPage": 2,
+    "options": {
+        "repos": [
+            "example/api"
+        ],
+        "sources": [
+            "dashboard",
+            "linear",
+            "manual",
+            "slack"
+        ]
+    },
+    "tasks": [
+        {
+            "askedFirstName": "Test",
+            "by": "Test person",
+            "cost": null,
+            "createdAgo": "1h ago",
+            "createdAt": "2026-11-15T11:00:00+00:00",
+            "createdTooltip": "Created Nov 15, 2026 11:00 · Updated Nov 15, 2026 12:00 · Ran for —",
+            "deploymentUrl": null,
+            "description": "Upgrade the payments SDK",
+            "externalId": "ENG-12",
+            "externalUrl": "https://linear.example.com/issue/ENG-12",
+            "followUps": [],
+            "id": "a1b2c3d4",
+            "pr": {
+                "number": 41,
+                "state": "open",
+                "url": "https://github.com/example/api/pull/41"
+            },
+            "previewGif": null,
+            "previewUrl": null,
+            "repo": "example/api",
+            "repoUrl": "https://github.com/example/api/pull/41",
+            "source": "linear",
+            "sourceLabel": "Linear",
+            "status": "awaiting_co_owner"
+        },
+        {
+            "askedFirstName": null,
+            "by": "Test person",
+            "cost": null,
+            "createdAgo": "1h ago",
+            "createdAt": "2026-11-15T10:00:00+00:00",
+            "createdTooltip": "Created Nov 15, 2026 10:00 · Updated Nov 15, 2026 12:00 · Ran for —",
+            "deploymentUrl": null,
+            "description": "Retry failed uploads",
+            "externalId": "dashboard-1",
+            "externalUrl": null,
+            "followUps": [
+                {
+                    "createdAgo": "1h ago",
+                    "description": "Handle the empty batch",
+                    "externalId": "dashboard-1",
+                    "id": "f0110w01",
+                    "status": "success"
+                }
+            ],
+            "id": "k3m9p2qa",
+            "pr": null,
+            "previewGif": null,
+            "previewUrl": null,
+            "repo": "example/api",
+            "repoUrl": null,
+            "source": "dashboard",
+            "sourceLabel": "Dashboard",
+            "status": "success"
+        },
+        {
+            "askedFirstName": null,
+            "by": "Test person",
+            "cost": null,
+            "createdAgo": "3h ago",
+            "createdAt": "2026-11-15T09:00:00+00:00",
+            "createdTooltip": "Created Nov 15, 2026 09:00 · Updated Nov 15, 2026 12:00 · Ran for —",
+            "deploymentUrl": null,
+            "description": "Rename the upload endpoint",
+            "externalId": "dashboard-1",
+            "externalUrl": null,
+            "followUps": [],
+            "id": "r3n4m3ep",
+            "pr": null,
+            "previewGif": null,
+            "previewUrl": null,
+            "repo": "example/api",
+            "repoUrl": null,
+            "source": "slack",
+            "sourceLabel": "Slack",
+            "status": "failed"
+        }
+    ]
+}
