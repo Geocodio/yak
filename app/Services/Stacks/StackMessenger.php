@@ -56,7 +56,7 @@ class StackMessenger
 
     public static function personFrame(?User $person, string $text): string
     {
-        $name = $person?->name ?? 'a person';
+        $name = $person === null ? 'a person' : $person->name;
 
         return "[Note from {$name}, the person driving this stack.]\n\n{$text}";
     }
