@@ -16,7 +16,7 @@ import repositories from './repositories'
 import pullRequests from './pull-requests'
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:152
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:77
 * @route '/threads/{thread}/stop'
 */
 export const stop = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -31,7 +31,7 @@ stop.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:152
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:77
 * @route '/threads/{thread}/stop'
 */
 stop.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -64,7 +64,7 @@ stop.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:152
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:77
 * @route '/threads/{thread}/stop'
 */
 stop.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -74,7 +74,7 @@ stop.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see app/Http/Controllers/Threads/ContinueTurnController.php:16
 * @route '/threads/{thread}/continue'
 */
 export const continueMethod = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -89,7 +89,7 @@ continueMethod.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see app/Http/Controllers/Threads/ContinueTurnController.php:16
 * @route '/threads/{thread}/continue'
 */
 continueMethod.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -122,7 +122,7 @@ continueMethod.url = (args: { thread: string | { public_id: string } } | [thread
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see app/Http/Controllers/Threads/ContinueTurnController.php:16
 * @route '/threads/{thread}/continue'
 */
 continueMethod.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -176,7 +176,7 @@ newMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
-* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @see app/Http/Controllers/Threads/StoreThreadController.php:17
 * @route '/threads'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -191,7 +191,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
-* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @see app/Http/Controllers/Threads/StoreThreadController.php:17
 * @route '/threads'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -200,7 +200,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Threads\StoreThreadController::__invoke
-* @see app/Http/Controllers/Threads/StoreThreadController.php:16
+* @see app/Http/Controllers/Threads/StoreThreadController.php:17
 * @route '/threads'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -210,7 +210,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:22
+* @see app/Http/Controllers/Threads/ThreadController.php:15
 * @route '/threads/{thread}'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -225,7 +225,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:22
+* @see app/Http/Controllers/Threads/ThreadController.php:15
 * @route '/threads/{thread}'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -258,7 +258,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:22
+* @see app/Http/Controllers/Threads/ThreadController.php:15
 * @route '/threads/{thread}'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -268,7 +268,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:22
+* @see app/Http/Controllers/Threads/ThreadController.php:15
 * @route '/threads/{thread}'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

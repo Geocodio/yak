@@ -62,7 +62,8 @@ class ThreadEventBroadcast implements ShouldBroadcastNow
         $payload = [
             'sequence' => $this->sequence,
             'type' => $this->type,
-            'data' => $this->data,
+            // An event without fields is an empty JSON object, never an array.
+            'data' => $this->data === [] ? (object) [] : $this->data,
             'createdAt' => $this->createdAt,
         ];
 

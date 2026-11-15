@@ -5,11 +5,13 @@ namespace App\Services;
 use App\DataTransferObjects\ClarificationQuestion;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Exceptions\ThreadActionRefused;
 use App\Facades\Telemetry;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
-use Illuminate\Support\Facades\DB;
+use App\Services\Devices\ShortLockWait;
+use App\Services\Threads\QueuedMessages;
 
 /**
  * The one way answers reach a waiting task, whatever surface they came from:
@@ -22,7 +24,7 @@ class ClarificationAnswerSubmitter
      */
     public function submit(YakTask $task, array $answers, ?string $note, string $answeredBy, string $via): bool
     {
-        $claimed = DB::transaction(function () use ($task, $answers, $note, $answeredBy): bool {
+        $claimed = ShortLockWait::transaction(function () use ($task, $answers, $note, $answeredBy): bool {
             $locked = YakTask::whereKey($task->id)->lockForUpdate()->first();
 
             if ($locked === null || $locked->status !== TaskStatus::AwaitingClarification || $locked->pendingClarificationQuestions() === []) {
@@ -38,7 +40,7 @@ class ClarificationAnswerSubmitter
             ]);
 
             return true;
-        });
+        }, fn (): ThreadActionRefused => new ThreadActionRefused('unavailable', QueuedMessages::BUSY_SENTENCE, [], 503));
 
         if (! $claimed) {
             return false;

@@ -72,7 +72,7 @@ export type RepositoryCardData = {
     error: string | null;
 };
 
-export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child' | 'repository';
+export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child' | 'repository' | 'question';
 
 export type ThreadEventDataMap = {
     entry: TranscriptEntry;
@@ -84,6 +84,7 @@ export type ThreadEventDataMap = {
     'diff.updated': Record<string, never>;
     child: ChildCardData;
     repository: RepositoryCardData;
+    question: { open: boolean };
 };
 
 export type ThreadEventEnvelope<T extends ThreadEventType = ThreadEventType> = {

@@ -21,7 +21,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
+use Throwable;
 
 /**
  * Creates a thread from the start screen: the thread, its primary repository,
@@ -29,6 +29,13 @@ use RuntimeException;
  */
 class ThreadStarter
 {
+    /**
+     * Time after which no further extra repository check starts. One time-bounded check
+     * takes at most 6 s (3 s token request plus 3 s repository request), so the worst case
+     * is 3 + 6 = 9 s before the resolver and the transaction, inside the 10 s answer limit.
+     */
+    private const ACCESS_CHECK_BUDGET_SECONDS = 3;
+
     public function __construct(
         private readonly ClaudeAccountResolver $resolver,
         private readonly AgentJobDispatcher $dispatcher,
@@ -40,7 +47,7 @@ class ThreadStarter
      * @param  list<array{repo: string, role: string}>  $extraRepositories  research mode treats every extra as context
      *
      * @throws ValidationException when an extra is the primary, repeated, or not reachable by the GitHub App
-     * @throws RuntimeException when no usable account exists, or the chosen one is not the starter's to use
+     * @throws ThreadAccountUnavailable when no usable account exists, or the chosen one is not the starter's to use
      */
     public function start(
         User $starter,
@@ -57,11 +64,11 @@ class ThreadStarter
         $resolved = $this->resolver->forNewThread($starter, $repo, $accountId, $model);
 
         if ($resolved->account === null) {
-            throw new RuntimeException('No usable Claude account. Connect one in Settings, Claude accounts, or ask an admin to set up a shared account.');
+            throw new ThreadAccountUnavailable('No usable Claude account. Connect one in Settings, Claude accounts, or ask an admin to set up a shared account.');
         }
 
         if ($accountId !== null && $resolved->account->id !== $accountId) {
-            throw new RuntimeException('That Claude account is not available to you. Pick one of your own or a shared account.');
+            throw new ThreadAccountUnavailable('That Claude account is not available to you. Pick one of your own or a shared account.');
         }
 
         $setupStatus = Repository::query()->where('slug', $repo)->value('setup_status');
@@ -128,7 +135,14 @@ class ThreadStarter
         }
 
         // The before-turn job prepares the branch in the thread's sandbox and writes the first turn.
-        $this->dispatcher->dispatch($task, RunYakJob::class);
+        // The thread and task are committed. A queue failure must not fail the request (a repeat would
+        // start a second thread). Stamping dispatched_at lets yak:reap-lost-pending re-dispatch the task.
+        try {
+            $this->dispatcher->dispatch($task, RunYakJob::class);
+        } catch (Throwable $exception) {
+            report($exception);
+            $task->update(['dispatched_at' => now()]);
+        }
 
         return $thread;
     }
@@ -139,11 +153,16 @@ class ThreadStarter
     private function assertExtrasAllowed(string $primary, array $extraRepositories): void
     {
         $seen = [$primary];
+        $deadline = hrtime(true) + self::ACCESS_CHECK_BUDGET_SECONDS * 1_000_000_000;
 
         foreach ($extraRepositories as $index => $extra) {
-            $reason = in_array($extra['repo'], $seen, true)
-                ? "{$extra['repo']} is already part of this thread."
-                : $this->access->check($extra['repo'])->reason;
+            if (in_array($extra['repo'], $seen, true)) {
+                $reason = "{$extra['repo']} is already part of this thread.";
+            } elseif (hrtime(true) > $deadline) {
+                $reason = "GitHub took too long to answer for {$extra['repo']}. Try again in a moment.";
+            } else {
+                $reason = $this->access->check($extra['repo'])->reason;
+            }
 
             if ($reason !== null) {
                 throw ValidationException::withMessages(["repositories.{$index}.repo" => $reason]);

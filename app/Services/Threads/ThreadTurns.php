@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\Devices\ShortLockWait;
 use App\Services\Stacks\ResearchChildRunner;
 use App\Services\TaskAttachmentStager;
 use App\Services\Teleport\ThreadNotOwnedByYak;
@@ -122,9 +123,9 @@ class ThreadTurns
      * @throws ThreadBusy when the thread already runs a turn
      * @throws ThreadNotOwnedByYak when a device owns the thread or a teleport is open
      */
-    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null, ?Closure $storeAttachments = null): TaskRun
+    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null, ?Closure $storeAttachments = null, ?string $sendKey = null): TaskRun
     {
-        [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments): array {
+        [$thread, $run, $account, $blocked] = ShortLockWait::threadTransaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments, $sendKey): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
 
@@ -146,7 +147,7 @@ class ThreadTurns
             }
 
             $queued = PendingSteeringMessage::drainFor($task);
-            $text = $queued === null ? $prompt : $queued . "\n\n" . $prompt;
+            $text = $queued === null ? $prompt : ($prompt === '' ? $queued : $queued . "\n\n" . $prompt);
             $uuid = (string) Str::uuid();
 
             $run = TaskRun::query()->create([
@@ -164,7 +165,7 @@ class ThreadTurns
                 'turn_state' => TurnState::Pending,
                 'started_at' => now(),
             ]);
-            $message = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText, 'intent' => $intent]);
+            $message = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText, 'intent' => $intent, 'send_key' => $sendKey]);
 
             if ($storeAttachments !== null) {
                 $storeAttachments($message);
@@ -361,9 +362,14 @@ class ThreadTurns
      * Otherwise it stays queued for the next prompt. `$source` is `thread` for
      * a person's message, which reaches the runner wrapped; any other source
      * carries text Yak already framed. `$storeAttachments` runs before delivery
-     * so the files exist when the text is built.
+     * so the files exist when the text is built. With `$isQueueOnly` the message
+     * is never handed to the running turn; it waits for the next prompt.
+     *
+     * Delivery is at least once: when the command reached the runner but its
+     * answer was lost, or the bookkeeping after it failed, the message is queued
+     * and Claude reads it again in the next prompt.
      */
-    public function steer(Thread $thread, string $text, ?User $sender, ?string $model, ?Closure $storeAttachments = null, string $source = 'system'): PendingSteeringMessage
+    public function steer(Thread $thread, string $text, ?User $sender, ?string $model, ?Closure $storeAttachments = null, string $source = 'system', ?string $sendKey = null, bool $isQueueOnly = false): PendingSteeringMessage
     {
         app(ThreadOwnership::class)->assertYakMayRunTurns($thread->fresh() ?? $thread);
 
@@ -373,10 +379,12 @@ class ThreadTurns
             'root_task_id' => $root->rootTask()->id,
             'text' => $text,
             'source' => $source,
-            'mode' => SteeringMode::Steer,
+            'mode' => $isQueueOnly ? SteeringMode::Queue : SteeringMode::Steer,
             'author_name' => $sender?->name,
+            'author_user_id' => $source === 'thread' ? $sender?->id : null,
             'uuid' => (string) Str::uuid(),
             'model' => $model,
+            'send_key' => $sendKey,
         ]);
 
         if ($storeAttachments !== null) {
@@ -387,11 +395,56 @@ class ThreadTurns
             Thread::query()->whereKey($thread->id)->whereNull('owner_user_id')->update(['owner_user_id' => $sender->id]);
         }
 
-        if (! app(SteeringDelivery::class)->deliver($thread, $message)) {
+        // Only a person's thread message starts a turn on its own; every other source keeps waiting for the next prompt.
+        $isPersonMessage = $source === 'thread' && $sender !== null;
+
+        if ($isQueueOnly) {
+            if ($isPersonMessage) {
+                $this->startQueuedAfterCompletedTurn($thread);
+            }
+
+            return $message;
+        }
+
+        try {
+            $isDelivered = app(SteeringDelivery::class)->deliver($thread, $message);
+        } catch (Throwable $exception) {
+            // The row stays as one queued message so a retry with the same send key replays this result.
+            report($exception);
+            $isDelivered = false;
+        }
+
+        if (! $isDelivered) {
             $message->forceFill(['mode' => SteeringMode::Queue])->save();
+
+            if ($isPersonMessage) {
+                $this->startQueuedAfterCompletedTurn($thread);
+
+                // The turn that started drained this message into its prompt, so it was sent, not queued.
+                if (! PendingSteeringMessage::query()->whereKey($message->id)->exists()) {
+                    $message->setAttribute('mode', SteeringMode::Steer);
+                }
+            }
         }
 
         return $message;
+    }
+
+    /**
+     * A message queued as the turn ended has no later trigger, so a thread that is idle after a completed turn starts it now.
+     * The runner drains under its own lock, so a message is never sent twice.
+     */
+    private function startQueuedAfterCompletedTurn(Thread $thread): void
+    {
+        if (self::activeTurn($thread) !== null) {
+            return;
+        }
+
+        $latest = TaskRun::query()->where('thread_id', $thread->id)->latest('id')->first();
+
+        if ($latest !== null) {
+            app(QueuedMessageRunner::class)->afterTurn($latest);
+        }
     }
 
     /**
@@ -403,7 +456,7 @@ class ThreadTurns
         $finisher = app(TurnFinisher::class);
         $events = [];
 
-        DB::transaction(function () use ($thread, $finisher, &$events): void {
+        ShortLockWait::threadTransaction(function () use ($thread, $finisher, &$events): void {
             $locked = Thread::query()->lockForUpdate()->findOrFail($thread->id);
             $run = self::activeTurn($locked);
 

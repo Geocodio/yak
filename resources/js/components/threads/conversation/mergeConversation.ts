@@ -38,7 +38,7 @@ function sendOrderPlaces(messages: ThreadMessage[], anchorOf: (message: ThreadMe
  * Interleaves the person's messages with the model's events.
  * - messages and items are de-duplicated (by uuid or id, and by item key);
  * - an unread message is greyed and sits at the end;
- * - a read message with `readAfterSequence` follows the last event up to that sequence;
+ * - a read message with `readAfterSequence` follows every event at or below that sequence and precedes every later one;
  * - a message read live follows the event at its `readSequences` entry, or the answer when none is known, at the end of the events;
  * - a message the server already marks read without a sequence is earlier history and keeps send order at the top;
  * - the person's messages never pass each other: a message read later than one sent after it moves up beside that one.
@@ -68,10 +68,10 @@ export function mergeConversation(messages: ThreadMessage[], readUuids: string[]
     let next = 0;
 
     ordered.forEach((item) => {
-        entries.push({ type: 'event', item });
-        while (next < anchored.length && places.get(anchored[next])! <= item.sequence) {
+        while (next < anchored.length && places.get(anchored[next])! < item.sequence) {
             entries.push(person(anchored[next++], false));
         }
+        entries.push({ type: 'event', item });
     });
 
     anchored.slice(next).forEach((message) => entries.push(person(message, false)));

@@ -20,10 +20,10 @@ class StoreClarificationAnswersRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'answers' => ['required', 'array'],
+            'answers' => ['required', 'array', 'max:10'],
             'answers.*' => ['array'],
-            'answers.*.choices' => ['present', 'array'],
-            'answers.*.choices.*' => ['string'],
+            'answers.*.choices' => ['present', 'array', 'max:' . ClarificationQuestion::MAX_OPTIONS],
+            'answers.*.choices.*' => ['string', 'max:500'],
             'answers.*.other' => ['nullable', 'string', 'max:2000'],
             'note' => ['nullable', 'string', 'max:2000'],
         ];

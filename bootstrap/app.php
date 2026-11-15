@@ -2,9 +2,11 @@
 
 use App\Channels\Drone\PollCommand;
 use App\Exceptions\TeleportError;
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Middleware\AuthenticateDevice;
 use App\Http\Middleware\ClientProtocol;
 use App\Http\Middleware\EnsureTaskDriveRights;
+use App\Http\Middleware\EnsureThreadDriveRights;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
 use App\Http\Middleware\StampClientProtocol;
@@ -50,6 +52,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'client.protocol' => ClientProtocol::class,
             'auth.device' => AuthenticateDevice::class,
             'task.drive' => EnsureTaskDriveRights::class,
+            'thread.drive' => EnsureThreadDriveRights::class,
         ]);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: ClientProtocol::class);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
@@ -107,6 +110,17 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return CliError::make($e->errorCode, $e->getMessage(), $e->status, $e->details);
         });
+        $exceptions->render(function (ThreadActionRefused $e, Request $request) {
+            if (ClientApi::for($request) === null) {
+                return null;
+            }
+
+            return response()->json([
+                'error' => $e->errorCode,
+                'message' => $e->getMessage(),
+                ...($e->details === [] ? [] : ['details' => (object) $e->details]),
+            ], $e->status);
+        });
         $exceptions->render(function (AuthorizationException|AccessDeniedHttpException $e, Request $request) {
             if (ClientApi::for($request) === null) {
                 return null;
@@ -114,7 +128,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json(['error' => 'forbidden', 'message' => 'You do not have access to this.'], 403);
         });
-        $exceptions->render(function (QueryException $e, Request $request) {
+        $exceptions->render(function (QueryException|RedisException $e, Request $request) {
             if (ClientApi::for($request) === null) {
                 return null;
             }
@@ -134,8 +148,15 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             $status = $e->getStatusCode();
+            // A 503 raised on purpose (a repeat that arrives while the first send runs) carries a sentence that says what to do.
+            $message = match (true) {
+                $status === 403 => 'You do not have access to this.',
+                $status === 405 => 'This endpoint does not accept that method.',
+                $status === 503 && $e->getMessage() !== '' => $e->getMessage(),
+                default => 'Yak could not handle this request.',
+            };
 
-            return response()->json(['error' => ClientApi::errorCodeForStatus($status), 'message' => $status === 405 ? 'This endpoint does not accept that method.' : 'Yak could not handle this request.'], $status, $e->getHeaders());
+            return response()->json(['error' => ClientApi::errorCodeForStatus($status), 'message' => $message], $status, $e->getHeaders());
         });
         // Registered last: anything no renderer above claimed is a server error, and the client never sees HTML or the detail.
         $exceptions->render(function (Throwable $e, Request $request) {

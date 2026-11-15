@@ -9,7 +9,7 @@ use App\Enums\TurnMessageState;
 use App\Models\PendingSteeringMessage;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
-use Illuminate\Support\Facades\DB;
+use App\Services\Devices\ShortLockWait;
 
 /**
  * Hands a steering message to the thread's running turn. The message keeps its
@@ -21,16 +21,21 @@ class SteeringDelivery
 
     /**
      * False when no turn is running on a ready runner or the message is already
-     * sent; the message then stays queued.
+     * sent; true when a new prompt drained it; the message then stays queued.
      */
     public function deliver(Thread $thread, PendingSteeringMessage $message): bool
     {
-        return DB::transaction(function () use ($thread, $message): bool {
+        return ShortLockWait::threadTransaction(function () use ($thread, $message): bool {
             $locked = Thread::query()->lockForUpdate()->findOrFail($thread->id);
             $run = ThreadTurns::runningTurn($locked);
 
             if ($run === null || ! in_array($locked->runner_state, [RunnerState::Idle, RunnerState::Busy], true)) {
                 return false;
+            }
+
+            // A new prompt may have drained this message between the insert and the lock; it was already sent.
+            if (! PendingSteeringMessage::query()->whereKey($message->id)->lockForUpdate()->exists()) {
+                return true;
             }
 
             $uuid = (string) $message->uuid;
@@ -52,6 +57,7 @@ class SteeringDelivery
                 'kind' => TurnMessageKind::Steer,
                 'state' => TurnMessageState::Sent,
                 'pending_steering_message_id' => $message->id,
+                'send_key' => $message->send_key,
             ]);
             ThreadTurns::trackUuid($run, $uuid);
 

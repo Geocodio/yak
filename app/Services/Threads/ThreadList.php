@@ -39,9 +39,10 @@ class ThreadList
     /**
      * @return array{starred: list<array<string, mixed>>, needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool}
      */
-    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine): array
+    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null): array
     {
         $status = $filter === ThreadListFilter::Closed ? 'closed' : 'open';
+        $searchText = trim($search ?? '');
         $roots = Thread::query()
             ->withoutVisibilityScope()
             ->visibleTo($user)
@@ -49,6 +50,7 @@ class ThreadList
             ->where('status', $status)
             ->when($filter === ThreadListFilter::Mine, fn (Builder $query) => self::mine($query, $user))
             ->when($filter === ThreadListFilter::StartedByYak, fn (Builder $query) => $query->whereNull('created_by_user_id'))
+            ->when($searchText !== '', fn (Builder $query) => self::matching($query, $user, $status, $searchText))
             ->select('threads.*')
             ->addSelect(['latest_run_id' => self::latestRunId()])
             ->withExists('shares as is_shared')
@@ -119,6 +121,27 @@ class ThreadList
             'needsYouCount' => count($needsYou) + count(array_filter($starred, fn (array $row): bool => $row['needsYouReason'] !== null)),
             'hasAnyThreads' => $roots->isNotEmpty() || self::hasAnyThreads($user),
         ];
+    }
+
+    /**
+     * Keeps a root whose title, or the title of a sub-thread the viewer may see, contains the search.
+     *
+     * @param  Builder<Thread>  $query
+     */
+    private static function matching(Builder $query, User $user, string $status, string $search): void
+    {
+        $pattern = self::likePattern($search);
+        $like = 'lower(threads.title) like ? escape \'' . self::LIKE_ESCAPE . '\'';
+
+        $query->where(function (Builder $query) use ($user, $status, $pattern, $like): void {
+            $query->whereRaw($like, [$pattern])
+                ->orWhereIn('threads.id', app(ThreadAccess::class)
+                    ->scopeVisibleTo(Thread::query()->withoutGlobalScope(VisibleThreadScope::class), $user)
+                    ->whereNotNull('threads.parent_thread_id')
+                    ->where('threads.status', $status)
+                    ->whereRaw($like, [$pattern])
+                    ->select('threads.parent_thread_id'));
+        });
     }
 
     private static function hasAnyThreads(User $user): bool

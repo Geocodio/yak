@@ -1,23 +1,8 @@
 <?php
 
-use App\Models\Device;
-use App\Models\User;
-use App\Services\Devices\DeviceTokens;
+use App\Models\CoOwnerRequest;
+use App\Models\YakTask;
 use Tests\Support\ContractFixture;
-
-/**
- * @param  array<string, mixed>  $attributes
- * @return array{0: Device, 1: array<string, string>}
- */
-function phoneWithHeaders(array $attributes = [], bool $isPhone = true): array
-{
-    $token = app(DeviceTokens::class)->generate();
-    $attributes += ['user_id' => User::factory()->create(['name' => 'Test Person', 'email' => 'person@example.test'])->id, 'name' => 'Test phone'];
-    $factory = $isPhone ? Device::factory()->phone() : Device::factory();
-    $device = $factory->create(['token_hash' => app(DeviceTokens::class)->hash($token)] + $attributes);
-
-    return [$device, ['X-Yak-Protocol' => '1', 'Authorization' => "Bearer {$token}"]];
-}
 
 it('reports what the app needs at runtime', function () {
     config([
@@ -89,4 +74,12 @@ it('answers 426 for an app protocol that is too old', function () {
     [, $headers] = phoneWithHeaders();
 
     $this->getJson('/api/app/v1/me', ['X-Yak-Protocol' => '0'] + $headers)->assertStatus(426)->assertJsonPath('error', 'protocol_too_old');
+});
+
+it('counts needs-you tasks in me', function () {
+    [$device, $headers] = phoneWithHeaders();
+    $task = YakTask::factory()->awaitingCoOwner()->create(['description' => 'Rotate the signing key']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$device->user_id]]);
+
+    $this->getJson('/api/app/v1/me', $headers)->assertOk()->assertJsonPath('needsYouCount', 1);
 });

@@ -2,9 +2,13 @@
 
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
+use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Threads\ThreadStarter;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -34,4 +38,19 @@ it('puts the no-account error on the account field', function () {
     $this->actingAs($this->user)->post(route('threads.store'), ['repo' => 'acme/widgets', 'mode' => 'research', 'description' => 'Look into it'])
         ->assertSessionHasErrors('claude_account_id');
     expect(Thread::query()->count())->toBe(0);
+});
+
+it('removes uploaded attachments when the start fails', function () {
+    Storage::fake('artifacts');
+    $starter = Mockery::mock(ThreadStarter::class);
+    $starter->shouldReceive('start')->andThrow(new RuntimeException('boom'));
+    app()->instance(ThreadStarter::class, $starter);
+
+    $this->actingAs($this->user)->withoutExceptionHandling();
+    expect(fn () => $this->post(route('threads.store'), [
+        'repo' => 'acme/widgets', 'mode' => 'fix', 'description' => 'Fix the bug',
+        'attachments' => [UploadedFile::fake()->image('shot.png')],
+    ]))->toThrow(RuntimeException::class);
+
+    expect(TaskAttachment::count())->toBe(0)->and(Storage::disk('artifacts')->allFiles())->toBe([]);
 });

@@ -2,6 +2,7 @@
 
 use App\Contracts\SandboxShell;
 use App\Enums\RunnerState;
+use App\Enums\ThreadShareMode;
 use App\Enums\TurnState;
 use App\Models\Device;
 use App\Models\PendingSteeringMessage;
@@ -12,6 +13,7 @@ use App\Models\YakTask;
 use App\Services\Threads\SteeringText;
 use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadCommands;
+use App\Services\Threads\ThreadSharing;
 use App\Services\Threads\ThreadShell;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -131,6 +133,16 @@ it('stop interrupts via ThreadTurns::stop', function () {
     mockTurns()->shouldReceive('stop')->once()->withArgs(fn ($t) => $t->is($thread));
 
     $this->actingAs($user)->post(route('threads.stop', $thread))->assertRedirect();
+});
+
+it('refuses stop to a share recipient', function () {
+    $owner = User::factory()->create();
+    [$thread] = messageThread(['visibility' => 'private', 'owner_user_id' => $owner->id, 'created_by_user_id' => $owner->id]);
+    $recipient = User::factory()->create();
+    app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$recipient->id]);
+    mockTurns()->shouldNotReceive('stop');
+
+    $this->actingAs($recipient)->post(route('threads.stop', $thread))->assertForbidden();
 });
 
 it('stores a steer attachment before the runner receives the steer', function () {

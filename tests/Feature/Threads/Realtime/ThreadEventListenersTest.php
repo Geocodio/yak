@@ -143,3 +143,9 @@ it('drops the window when the runner of a closed thread exits', function () {
     expect(app(ThreadEventWindow::class)->since($thread->id, 0, 10))->toBeNull()
         ->and(DB::table('thread_events')->count())->toBe(1);
 });
+
+it('sends an empty event payload as a JSON object', function () {
+    $broadcast = new ThreadEventBroadcast(1, 1, 'stream.reset', [], '2026-11-15T12:00:00+00:00', 'public');
+
+    expect(json_encode($broadcast->broadcastWith()['data']))->toBe('{}');
+});

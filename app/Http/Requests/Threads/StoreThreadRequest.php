@@ -21,8 +21,8 @@ class StoreThreadRequest extends FormRequest
         return [
             'repo' => ['required', 'string', Rule::exists('repositories', 'slug')->where('is_active', true)],
             'mode' => ['required', 'in:fix,research'],
-            'repositories' => ['nullable', 'array'],
-            'repositories.*.repo' => ['required', 'string', 'distinct', 'different:repo'],
+            'repositories' => ['nullable', 'array', 'max:10'],
+            'repositories.*.repo' => ['required', 'string', 'max:255', 'distinct', 'different:repo'],
             'repositories.*.role' => ['required', Rule::in([RepositoryRole::Changes->value, RepositoryRole::Context->value])],
             'description' => ['required', 'string', 'min:3', 'max:10000'],
             'claude_account_id' => ['nullable', 'integer'],

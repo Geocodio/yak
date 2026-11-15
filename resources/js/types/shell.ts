@@ -18,6 +18,16 @@ export type ThreadListRow = {
     children: ThreadListRow[];
 };
 
+export type NeedsYouTaskItem = {
+    type: 'task';
+    taskId: string;
+    title: string;
+    needsYouReason: 'question' | 'co_owner';
+    needsYouLabel: string;
+    isPrivate: boolean;
+    lastActivityAt: string;
+};
+
 export type ThreadListData = {
     starred: ThreadListRow[];
     needsYou: ThreadListRow[];

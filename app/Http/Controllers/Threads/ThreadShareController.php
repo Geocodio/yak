@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Threads;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\UpdateThreadShareRequest;
+use App\Http\Resources\ThreadShareData;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\Threads\ThreadAccess;
-use App\Services\Threads\ThreadSecretFiles;
 use App\Services\Threads\ThreadSharing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,21 +19,11 @@ class ThreadShareController extends Controller
         private readonly ThreadSharing $sharing,
     ) {}
 
-    public function show(Request $request, Thread $thread, ThreadSecretFiles $secretFiles): JsonResponse
+    public function show(Request $request, Thread $thread): JsonResponse
     {
-        $owner = $this->owner($request, $thread);
-        $current = $this->sharing->current($thread);
-        $secrets = $secretFiles->for($thread->rootThread());
+        $this->owner($request, $thread);
 
-        return response()->json([
-            'mode' => $current['mode']->value,
-            'userIds' => $current['userIds'],
-            'people' => User::query()->orderBy('name')->get(['id', 'name'])
-                ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name, 'role' => $user->id === $owner->id ? 'Owner' : null])->values()->all(),
-            'secretFiles' => $secrets['files'],
-            'memoryFolder' => $secrets['memoryFolder'],
-            'memoryFiles' => $secrets['memoryFiles'],
-        ]);
+        return response()->json(ThreadShareData::for($thread));
     }
 
     public function update(UpdateThreadShareRequest $request, Thread $thread): JsonResponse

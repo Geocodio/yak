@@ -1,0 +1,30 @@
+<?php
+
+namespace App\Listeners;
+
+use App\Enums\TaskStatus;
+use App\Events\TaskStatusChanged;
+use App\Models\YakTask;
+use App\Services\Threads\ThreadQuestionEvents;
+
+/**
+ * Emits `question {open: false}` when a head task leaves AwaitingClarification, whatever moved
+ * it: an answer, the expiry, a cancel or a rerun.
+ */
+class EmitQuestionClosed
+{
+    public function handle(TaskStatusChanged $event): void
+    {
+        $task = $event->task;
+
+        if ($event->from !== TaskStatus::AwaitingClarification || $event->to === TaskStatus::AwaitingClarification || $task->thread_id === null) {
+            return;
+        }
+
+        if ((int) YakTask::withoutGlobalScopes()->where('thread_id', $task->thread_id)->max('id') !== $task->id) {
+            return;
+        }
+
+        app(ThreadQuestionEvents::class)->closed($task);
+    }
+}

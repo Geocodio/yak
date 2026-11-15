@@ -111,6 +111,7 @@ require_once __DIR__ . '/Helpers/AssertionHelpers.php';
 require_once __DIR__ . '/Helpers/LinearHelpers.php';
 require_once __DIR__ . '/Helpers/SlackHelpers.php';
 require_once __DIR__ . '/Helpers/RunnerStreamFixture.php';
+require_once __DIR__ . '/Support/AppApiHelpers.php';
 
 /**
  * The card's description is a stretched link (its `::after` pseudo-element

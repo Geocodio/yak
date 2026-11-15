@@ -14,10 +14,11 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * @property SteeringMode $mode
+ * @property string|null $send_key
  */
 class PendingSteeringMessage extends Model
 {
-    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'uuid', 'model', 'delivered_at', 'absorbed_at'];
+    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'delivered_at', 'absorbed_at', 'send_key'];
 
     /**
      * @return array<string, string>
@@ -53,6 +54,7 @@ class PendingSteeringMessage extends Model
         ?string $reviewerLogin = null,
         SteeringMode $mode = SteeringMode::Queue,
         ?string $authorName = null,
+        ?int $authorUserId = null,
     ): self {
         $root = $task->rootTask();
 
@@ -65,6 +67,7 @@ class PendingSteeringMessage extends Model
             'mode' => $mode,
             'reviewer_login' => $reviewerLogin,
             'author_name' => $authorName,
+            'author_user_id' => $authorUserId,
         ]);
     }
 
@@ -158,6 +161,14 @@ class PendingSteeringMessage extends Model
     }
 
     /**
+     * Only the signed-in person who wrote a message can change its text; channel messages and older rows have no author.
+     */
+    public function canEditTextBy(?User $user): bool
+    {
+        return $user !== null && $this->author_user_id !== null && $this->reviewer_login === null && $this->author_user_id === $user->id;
+    }
+
+    /**
      * Withdraw the message before Yak sees it, deleting its files too.
      */
     public function withdraw(): void
@@ -167,14 +178,18 @@ class PendingSteeringMessage extends Model
     }
 
     /**
-     * Take every reply queued on the task's conversation and render it as
+     * Take every undelivered reply queued on the task's conversation and render it as
      * markdown, deleting the rows. Their files move onto `$task`, whose run
      * now carries the replies, so the agent still gets them. Returns null
-     * when nothing is queued.
+     * when nothing is queued. A message already handed to a turn (a
+     * `ThreadTurnMessage` references it) stays as history and is not drained.
      */
     public static function drainFor(YakTask $task): ?string
     {
-        $messages = self::where('root_task_id', $task->rootTask()->id)->orderBy('id')->get();
+        $messages = self::where('root_task_id', $task->rootTask()->id)
+            ->whereNotExists(fn ($delivered) => $delivered->from('thread_turn_messages')->whereColumn('thread_turn_messages.pending_steering_message_id', 'pending_steering_messages.id'))
+            ->orderBy('id')
+            ->get();
 
         if ($messages->isEmpty()) {
             return null;
@@ -185,6 +200,19 @@ class PendingSteeringMessage extends Model
             'pending_steering_message_id' => null,
             'context' => TaskAttachment::CONTEXT_REQUEST,
         ]);
+
+        // The rows are deleted below; the send keys stay so a retry after the drain is still recognised.
+        $keyed = $messages->whereNotNull('send_key')->map(fn (self $message): array => [
+            'root_task_id' => $message->root_task_id,
+            'send_key' => $message->send_key,
+            'author_user_id' => $message->author_user_id,
+            'message_uuid' => $message->uuid,
+            'created_at' => now(),
+        ])->values()->all();
+
+        if ($keyed !== []) {
+            DB::table('drained_send_keys')->insert($keyed);
+        }
 
         self::whereIn('id', $messages->pluck('id'))->delete();
 

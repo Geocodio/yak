@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
  * Gives a model an eight character public_id that URLs and route parameters use
  * instead of the integer primary key. A numeric URL segment is a legacy link: a
  * GET redirects to the public id when the viewer may see the row (the global
- * scopes decide), the client APIs (CLI and app) still accept it, and every other request misses.
+ * scopes decide), the CLI API still accepts it, the app API binds by public id only (an id made of digits is still a public id), and every other request misses.
  *
  * @mixin Model
  */
@@ -57,13 +57,22 @@ trait HasPublicId
      */
     public function resolveRouteBinding($value, $field = null): ?Model
     {
-        if ($field !== null || ! ctype_digit((string) $value)) {
+        if ($field !== null) {
             return parent::resolveRouteBinding($value, $field);
         }
 
         $request = request();
+        $api = ClientApi::for($request);
 
-        if (ClientApi::for($request) !== null) {
+        if ($api === 'app') {
+            return parent::resolveRouteBinding($value, 'public_id');
+        }
+
+        if (! ctype_digit((string) $value)) {
+            return parent::resolveRouteBinding($value, $field);
+        }
+
+        if ($api === 'cli') {
             return parent::resolveRouteBinding($value, $this->getKeyName());
         }
 

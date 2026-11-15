@@ -1,12 +1,23 @@
 <?php
 
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\Api\App\BroadcastAuthController as AppBroadcastAuthController;
 use App\Http\Controllers\Api\App\DeviceCodeController as AppDeviceCodeController;
 use App\Http\Controllers\Api\App\DeviceController as AppDeviceController;
 use App\Http\Controllers\Api\App\DevicePairController as AppDevicePairController;
 use App\Http\Controllers\Api\App\DeviceTokenController as AppDeviceTokenController;
 use App\Http\Controllers\Api\App\InstanceController as AppInstanceController;
 use App\Http\Controllers\Api\App\MeController as AppMeController;
+use App\Http\Controllers\Api\App\Threads\ClarificationAnswerController as AppClarificationAnswerController;
+use App\Http\Controllers\Api\App\Threads\NewThreadController as AppNewThreadController;
+use App\Http\Controllers\Api\App\Threads\QueuedMessageController as AppQueuedMessageController;
+use App\Http\Controllers\Api\App\Threads\ThreadActionController as AppThreadActionController;
+use App\Http\Controllers\Api\App\Threads\ThreadController as AppThreadController;
+use App\Http\Controllers\Api\App\Threads\ThreadEventController as AppThreadEventController;
+use App\Http\Controllers\Api\App\Threads\ThreadListController as AppThreadListController;
+use App\Http\Controllers\Api\App\Threads\ThreadMessageController as AppThreadMessageController;
+use App\Http\Controllers\Api\App\Threads\ThreadSeenController as AppThreadSeenController;
+use App\Http\Controllers\Api\App\Threads\ThreadShareController as AppThreadShareController;
 use App\Http\Controllers\Api\Cli\SessionFileController;
 use App\Http\Controllers\Api\Cli\SshLookupController;
 use App\Http\Controllers\Api\Cli\StackMessageController;
@@ -298,6 +309,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('threads/{thread}/messages', [ThreadMessageController::class, 'store'])
         ->name('threads.messages.store');
     Route::post('threads/{thread}/stop', [ThreadMessageController::class, 'stop'])
+        ->middleware('thread.drive')
         ->name('threads.stop');
     Route::post('threads/{thread}/continue', ContinueTurnController::class)
         ->name('threads.continue');
@@ -468,6 +480,24 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
     Route::middleware('auth.device:phone')->group(function (): void {
         Route::get('me', AppMeController::class)->name('app.me');
         Route::delete('device', [AppDeviceController::class, 'destroy'])->name('app.device.destroy');
+        Route::get('threads', AppThreadListController::class)->name('app.threads.index');
+        Route::get('threads/new', [AppNewThreadController::class, 'create'])->name('app.threads.new');
+        Route::get('threads/new/repository-access', RepositoryAccessController::class)->middleware('throttle:30,1')->name('app.threads.repository-access');
+        Route::post('threads', [AppNewThreadController::class, 'store'])->name('app.threads.store');
+        Route::get('threads/{thread}', [AppThreadController::class, 'show'])->name('app.threads.show');
+        Route::post('threads/{thread}/messages', [AppThreadMessageController::class, 'store'])->name('app.threads.messages.store');
+        Route::post('threads/{thread}/clarification-answers', AppClarificationAnswerController::class)->name('app.threads.clarification-answers.store');
+        Route::get('threads/{thread}/share', [AppThreadShareController::class, 'show'])->name('app.threads.share.show');
+        Route::put('threads/{thread}/share', [AppThreadShareController::class, 'update'])->name('app.threads.share.update');
+        Route::post('threads/{thread}/seen', AppThreadSeenController::class)->name('app.threads.seen');
+        Route::post('threads/{thread}/stop', [AppThreadActionController::class, 'stop'])->middleware('thread.drive')->name('app.threads.stop');
+        Route::post('threads/{thread}/continue', [AppThreadActionController::class, 'continueTurn'])->middleware('thread.drive')->name('app.threads.continue');
+        Route::post('threads/{thread}/restore/retry', [AppThreadActionController::class, 'retryRestore'])->middleware('thread.drive')->name('app.threads.restore.retry');
+        Route::patch('threads/{thread}/queued-messages/{message}', [AppQueuedMessageController::class, 'update'])->middleware('thread.drive')->whereUuid('message')->name('app.threads.queued-messages.update');
+        Route::delete('threads/{thread}/queued-messages/{message}', [AppQueuedMessageController::class, 'destroy'])->middleware('thread.drive')->whereUuid('message')->name('app.threads.queued-messages.destroy');
+        Route::post('broadcasting/auth', AppBroadcastAuthController::class)->name('app.broadcasting.auth');
+        Route::get('threads/{thread}/events', [AppThreadEventController::class, 'index'])->middleware('throttle:app-events')->name('app.threads.events.index');
+        Route::get('threads/{thread}/events/{sequence}', [AppThreadEventController::class, 'show'])->middleware('throttle:app-events')->where('sequence', '[0-9]{1,10}')->name('app.threads.events.show');
     });
 });
 

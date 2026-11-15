@@ -16,6 +16,7 @@ use App\Services\Push\PushRecipients;
 use App\Services\Push\ThreadPush;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Threads\ThreadQuestionEvents;
 use App\YakPromptBuilder;
 
 /**
@@ -94,6 +95,8 @@ trait AsksClarifyingQuestions
             'questions' => $questionCount,
             'round' => $this->task->clarificationRoundCount(),
         ], task: $this->task);
+
+        app(ThreadQuestionEvents::class)->opened($this->task);
 
         $this->pushClarification($questionCount);
 

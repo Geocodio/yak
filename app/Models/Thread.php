@@ -199,6 +199,22 @@ class Thread extends Model
     }
 
     /**
+     * The task the thread works on now: the latest by id. The open question, answers, needs-you and sends all use it.
+     */
+    public function headTask(): ?YakTask
+    {
+        return $this->tasks()->latest('id')->first();
+    }
+
+    /**
+     * The owner of pending messages: the root of the thread's first task.
+     */
+    public function messagesRootTask(): YakTask
+    {
+        return $this->tasks()->oldest('id')->firstOrFail()->rootTask();
+    }
+
+    /**
      * The task that carries the thread's branch, pull request and artifacts: the latest one with a branch, else the latest.
      */
     public function pullRequestTask(): ?YakTask

@@ -115,7 +115,7 @@ final class TaskRowData
      * Only the head of the description is rendered, because the preview
      * never shows more than that.
      */
-    private static function plainPreview(string $markdown): string
+    public static function plainPreview(string $markdown): string
     {
         $html = Str::markdown(Str::substr($markdown, 0, 600), ['html_input' => 'strip']);
         $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5);

@@ -118,3 +118,10 @@ it('carries the intent of a request the dashboard made', function () {
 
     expect(ThreadMessagesData::for($thread)[0])->toMatchArray(['text' => 'Please set up the preview', 'intent' => 'add_preview_manifest']);
 });
+
+it('has no send key on messages from other clients', function () {
+    [$thread, , $run] = threadWithRun();
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id]);
+
+    expect(ThreadMessagesData::for($thread)[0])->toMatchArray(['sendKey' => null, 'mode' => null]);
+});

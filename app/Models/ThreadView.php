@@ -22,6 +22,14 @@ class ThreadView extends Model
 
     protected $guarded = [];
 
+    public static function markSeen(User $user, Thread $thread): void
+    {
+        self::query()->updateOrCreate(
+            ['user_id' => $user->id, 'thread_id' => $thread->id],
+            ['last_seen_at' => now()],
+        );
+    }
+
     /**
      * @return array<string, string>
      */

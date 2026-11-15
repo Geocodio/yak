@@ -19,23 +19,24 @@ class RedisBrokerStreams implements BrokerStreams
 
     /**
      * @param  string  $connection  a Redis connection without a key prefix: the broker uses bare names
+     * @param  ?string  $commandConnection  a prefix-less connection with a read timeout, for the calls made while a request holds a lock; defaults to $connection
      */
-    public function __construct(private readonly string $connection = 'threads') {}
+    public function __construct(private readonly string $connection = 'threads', private readonly ?string $commandConnection = null) {}
 
     public function register(string $channel): void
     {
-        $this->client()->sAdd(self::CHANNEL_SET, $channel);
+        $this->commandClient()->sAdd(self::CHANNEL_SET, $channel);
     }
 
     public function unregister(string $channel): void
     {
-        $this->client()->sRem(self::CHANNEL_SET, $channel);
+        $this->commandClient()->sRem(self::CHANNEL_SET, $channel);
     }
 
     public function channels(string $prefix): array
     {
         $channels = array_values(array_filter(
-            (array) $this->client()->sMembers(self::CHANNEL_SET),
+            (array) $this->commandClient()->sMembers(self::CHANNEL_SET),
             fn (string $channel): bool => str_starts_with($channel, $prefix),
         ));
         sort($channels);
@@ -45,7 +46,7 @@ class RedisBrokerStreams implements BrokerStreams
 
     public function command(string $channel, array $command): string
     {
-        return (string) $this->client()->xAdd($channel . ':in', '*', ['command' => json_encode($command, JSON_THROW_ON_ERROR)]);
+        return (string) $this->commandClient()->xAdd($channel . ':in', '*', ['command' => json_encode($command, JSON_THROW_ON_ERROR)]);
     }
 
     public function read(array $channels, string $consumer, int $blockMilliseconds, int $count): array
@@ -92,7 +93,7 @@ class RedisBrokerStreams implements BrokerStreams
 
     public function delete(string $channel): void
     {
-        $this->client()->del($channel . ':in', $channel . ':out', $channel . ':dead');
+        $this->commandClient()->del($channel . ':in', $channel . ':out', $channel . ':dead');
     }
 
     public function recordFailure(StreamEntry $entry): int
@@ -156,6 +157,14 @@ class RedisBrokerStreams implements BrokerStreams
     private function attemptKey(StreamEntry $entry): string
     {
         return $entry->channel . '|' . $entry->id;
+    }
+
+    /**
+     * @return \Redis
+     */
+    private function commandClient()
+    {
+        return Redis::connection($this->commandConnection ?? $this->connection)->client();
     }
 
     /**

@@ -1,0 +1,260 @@
+<?php
+
+use App\DataTransferObjects\RepositoryAccessResult;
+use App\DataTransferObjects\ResolvedAccount;
+use App\Models\ClaudeAccount;
+use App\Models\Repository;
+use App\Models\TaskAttachment;
+use App\Models\Thread;
+use App\Models\User;
+use App\Services\AgentJobDispatcher;
+use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
+use App\Services\Threads\Repos\RepositoryAccess;
+use App\Services\Threads\SendKeys;
+use App\Services\Threads\ThreadStarter;
+use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Tests\Support\ContractFixture;
+
+const NEW_THREAD_SEND_KEY = '5f0c2d1e-3b4a-4c5d-8e6f-7a8b9c0d1e2f';
+
+beforeEach(function () {
+    Queue::fake();
+    Storage::fake('artifacts');
+    $this->user = User::factory()->create(['name' => 'Test person']);
+    $this->headers = phoneHeadersFor($this->user) + ['Accept' => 'application/json'];
+    Repository::factory()->create(['slug' => 'example/api', 'name' => 'API']);
+    Repository::factory()->inactive()->create(['slug' => 'example/old']);
+});
+
+/** @return array<string, mixed> */
+function newThreadPayload(array $overrides = []): array
+{
+    return $overrides + [
+        'repo' => 'example/api',
+        'mode' => 'fix',
+        'description' => 'Retry failed uploads with backoff',
+        'send_key' => NEW_THREAD_SEND_KEY,
+    ];
+}
+
+function usableAccountFor(User $user): void
+{
+    $resolver = Mockery::mock(ClaudeAccountResolver::class);
+    $resolver->shouldReceive('forNewThread')->andReturn(new ResolvedAccount(ClaudeAccount::factory()->create(['owner_user_id' => $user->id]), 'sonnet'));
+    app()->instance(ClaudeAccountResolver::class, $resolver);
+}
+
+it('offers repositories, accounts and models', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
+    ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id, 'name' => 'Test account', 'is_default' => true, 'validated_at' => now()]);
+
+    $response = $this->getJson('/api/app/v1/threads/new', $this->headers)->assertOk();
+
+    expect($response->json('repos.0.slug'))->toBe('example/api')
+        ->and($response->json('picker'))->not->toBeNull()
+        ->and($response->json('defaultRepo'))->toBe('example/api')
+        ->and($response->json('models'))->toBe(app(ClaudeModelCatalog::class)->families())
+        ->and($response->json('models'))->toBe($response->json('picker.models'));
+    ContractFixture::assertMatches('app', 'thread-new', $response->json(), ['picker.accounts.*.id', 'picker.defaultsByRepo.example/api.accountId']);
+});
+
+it('answers the first call with empty tables', function () {
+    Repository::query()->delete();
+
+    $response = $this->getJson('/api/app/v1/threads/new', $this->headers)->assertOk();
+
+    expect($response->json('repos'))->toBe([])
+        ->and($response->json('defaultRepo'))->toBeNull()
+        ->and($response->json('picker.accounts'))->toBe([])
+        ->and($response->json('models'))->toBe($response->json('picker.models'));
+});
+
+it('checks repository access', function () {
+    $access = Mockery::mock(RepositoryAccess::class);
+    $access->shouldReceive('check')->with('example/web')->andReturn(new RepositoryAccessResult(true, null));
+    app()->instance(RepositoryAccess::class, $access);
+
+    $response = $this->getJson('/api/app/v1/threads/new/repository-access?repo=example/web', $this->headers)->assertOk()
+        ->assertJson(['allowed' => true, 'reason' => null]);
+    ContractFixture::assertMatches('app', 'thread-repository-access', $response->json());
+
+    $this->getJson('/api/app/v1/threads/new/repository-access?repo=not a repo', $this->headers)->assertStatus(422);
+});
+
+it('starts a thread and returns its public id', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
+    usableAccountFor($this->user);
+
+    $response = $this->post('/api/app/v1/threads', newThreadPayload([
+        'attachments' => [UploadedFile::fake()->image('shot.png')],
+        'attachment_refs' => ['Image #1'],
+    ]), $this->headers)->assertCreated();
+
+    $id = $response->json('id');
+    $thread = Thread::where('public_id', $id)->firstOrFail();
+    expect($id)->toHaveLength(8)
+        ->and($thread->headTask()->attachments)->toHaveCount(1);
+    ContractFixture::assertMatches('app', 'thread-store', $response->json(), ['id']);
+});
+
+it('answers 201 with an id when extra repositories are added', function () {
+    usableAccountFor($this->user);
+    Repository::factory()->create(['slug' => 'example/web']);
+    $access = Mockery::mock(RepositoryAccess::class);
+    $access->shouldReceive('check')->with('example/web')->andReturn(new RepositoryAccessResult(true, null));
+    app()->instance(RepositoryAccess::class, $access);
+
+    $response = $this->postJson('/api/app/v1/threads', newThreadPayload([
+        'repositories' => [['repo' => 'example/web', 'role' => 'context']],
+    ]), $this->headers)->assertCreated();
+
+    $thread = Thread::where('public_id', $response->json('id'))->firstOrFail();
+    expect($response->json())->toHaveKey('id')->and($thread->repositories)->toHaveCount(2);
+});
+
+it('answers 422 on the repository field when GitHub is unreachable', function () {
+    usableAccountFor($this->user);
+    Repository::factory()->create(['slug' => 'example/web']);
+    config()->set('yak.channels.github.installation_id', 42);
+    Http::fake(fn () => throw new ConnectionException('timed out'));
+
+    $this->postJson('/api/app/v1/threads', newThreadPayload([
+        'repositories' => [['repo' => 'example/web', 'role' => 'context']],
+    ]), $this->headers)->assertStatus(422)->assertJsonStructure(['details' => ['errors' => ['repositories.0.repo']]]);
+    expect(Thread::count())->toBe(0);
+});
+
+it('starts one thread for a repeated send key', function () {
+    usableAccountFor($this->user);
+
+    $first = $this->postJson('/api/app/v1/threads', newThreadPayload(), $this->headers)->assertCreated();
+    $second = $this->postJson('/api/app/v1/threads', newThreadPayload(), $this->headers)->assertCreated();
+
+    expect($second->json('id'))->toBe($first->json('id'))->and(Thread::count())->toBe(1);
+});
+
+it('removes stored files when the start fails', function () {
+    $starter = Mockery::mock(ThreadStarter::class);
+    $starter->shouldReceive('start')->andThrow(new RuntimeException('secret internal detail'));
+    app()->instance(ThreadStarter::class, $starter);
+
+    $response = $this->post('/api/app/v1/threads', newThreadPayload(['attachments' => [UploadedFile::fake()->image('shot.png')]]), $this->headers)
+        ->assertStatus(500)->assertJsonPath('error', 'server_error');
+
+    expect($response->getContent())->not->toContain('secret internal detail')
+        ->and(TaskAttachment::count())->toBe(0)
+        ->and(Storage::disk('artifacts')->allFiles())->toBe([]);
+});
+
+it('turns an account failure into a field error', function () {
+    $resolver = Mockery::mock(ClaudeAccountResolver::class);
+    $resolver->shouldReceive('forNewThread')->andReturn(new ResolvedAccount(null, 'sonnet'));
+    app()->instance(ClaudeAccountResolver::class, $resolver);
+
+    $this->postJson('/api/app/v1/threads', newThreadPayload(), $this->headers)
+        ->assertStatus(422)->assertJsonStructure(['details' => ['errors' => ['claude_account_id']]]);
+    expect(Thread::count())->toBe(0);
+});
+
+it('validates the start', function (array $overrides, string $field) {
+    $payload = newThreadPayload($overrides);
+
+    if ($field === 'send_key') {
+        unset($payload['send_key']);
+    }
+
+    $this->postJson('/api/app/v1/threads', $payload, $this->headers)
+        ->assertStatus(422)->assertJsonStructure(['details' => ['errors' => [$field]]]);
+})->with([
+    'missing send key' => [[], 'send_key'],
+    'bad mode' => [['mode' => 'deploy'], 'mode'],
+    'short description' => [['description' => 'ab'], 'description'],
+    'too many repositories' => [['repositories' => array_map(fn (int $i): array => ['repo' => "example/extra-{$i}", 'role' => 'context'], range(1, 11))], 'repositories'],
+    'unknown repository' => [['repo' => 'example/missing'], 'repo'],
+    'inactive repository' => [['repo' => 'example/old'], 'repo'],
+]);
+
+it('caps an extra repository slug at 255 characters before any GitHub check', function () {
+    $access = Mockery::mock(RepositoryAccess::class);
+    $access->shouldNotReceive('check');
+    app()->instance(RepositoryAccess::class, $access);
+
+    $response = $this->postJson('/api/app/v1/threads', newThreadPayload([
+        'repositories' => [['repo' => 'example/' . str_repeat('a', 300), 'role' => 'context']],
+    ]), $this->headers)->assertStatus(422);
+
+    expect($response->json('details.errors')['repositories.0.repo'][0])->toContain('255');
+});
+
+it('keeps the thread and its files when the queue push fails after commit, and a repeat starts no second thread', function () {
+    usableAccountFor($this->user);
+    $dispatcher = Mockery::mock(AgentJobDispatcher::class);
+    $dispatcher->shouldReceive('dispatch')->once()->andThrow(new RuntimeException('queue down'));
+    app()->instance(AgentJobDispatcher::class, $dispatcher);
+    $payload = newThreadPayload(['attachments' => [UploadedFile::fake()->image('shot.png')]]);
+
+    $first = $this->post('/api/app/v1/threads', $payload, $this->headers)->assertCreated();
+    $second = $this->post('/api/app/v1/threads', $payload, $this->headers)->assertCreated();
+
+    $thread = Thread::where('public_id', $first->json('id'))->firstOrFail();
+    expect($second->json('id'))->toBe($first->json('id'))
+        ->and(Thread::count())->toBe(1)
+        ->and($thread->headTask()->attachments)->toHaveCount(1)
+        ->and($thread->headTask()->dispatched_at)->not->toBeNull()
+        ->and(Storage::disk('artifacts')->allFiles())->toHaveCount(1);
+});
+
+it('answers 503 with a neutral sentence when a repeat arrives mid-start', function () {
+    $this->app->bind(SendKeys::class, fn () => new SendKeys(lockWaitSeconds: 0));
+    $lock = Cache::lock('thread-create:' . $this->user->id . ':' . NEW_THREAD_SEND_KEY . ':lock', 30);
+    expect($lock->get())->toBeTrue();
+
+    $this->postJson('/api/app/v1/threads', newThreadPayload(), $this->headers)->assertStatus(503)
+        ->assertJsonPath('error', 'unavailable')
+        ->assertJsonPath('message', 'Yak is still handling this request. Try again in a moment.');
+
+    $lock->release();
+});
+
+it('limits the repository access route to a burst of requests', function () {
+    $access = Mockery::mock(RepositoryAccess::class);
+    $access->shouldReceive('check')->andReturn(new RepositoryAccessResult(true, null));
+    app()->instance(RepositoryAccess::class, $access);
+    $status = 200;
+
+    for ($attempt = 0; $attempt < 200 && $status === 200; $attempt++) {
+        $response = $this->getJson('/api/app/v1/threads/new/repository-access?repo=example/web', $this->headers);
+        $status = $response->status();
+    }
+
+    expect($status)->toBe(429);
+    $response->assertJsonStructure(['error', 'message']);
+});
+
+it('routes threads/new before the thread binding', function () {
+    $this->getJson('/api/app/v1/threads/new', $this->headers)->assertOk();
+});
+
+it('refuses without a token, with a revoked phone and with a computer token', function (string $method, string $path) {
+    $send = fn (array $headers) => $this->json($method, $path, newThreadPayload(), $headers);
+
+    $send(['X-Yak-Protocol' => '1', 'Accept' => 'application/json'])->assertUnauthorized();
+
+    [$device, $headers] = phoneWithHeaders(['user_id' => $this->user->id]);
+    $device->forceFill(['revoked_at' => now()])->save();
+    $send($headers + ['Accept' => 'application/json'])->assertUnauthorized();
+
+    [, $computerHeaders] = phoneWithHeaders(['user_id' => $this->user->id], false);
+    $send($computerHeaders + ['Accept' => 'application/json'])->assertUnauthorized();
+})->with([
+    'new thread form' => ['GET', '/api/app/v1/threads/new'],
+    'repository access' => ['GET', '/api/app/v1/threads/new/repository-access?repo=example/web'],
+    'start a thread' => ['POST', '/api/app/v1/threads'],
+]);

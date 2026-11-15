@@ -55,7 +55,10 @@ class AppService
         });
     }
 
-    public function getInstallationToken(int $installationId): string
+    /**
+     * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total) when minting a fresh token, for callers that answer a waiting user
+     */
+    public function getInstallationToken(int $installationId, bool $isTimeBounded = false): string
     {
         $cached = GitHubInstallationToken::where('installation_id', $installationId)->first();
 
@@ -63,7 +66,7 @@ class AppService
             return $cached->token;
         }
 
-        return $this->requestInstallationToken($installationId);
+        return $this->requestInstallationToken($installationId, $isTimeBounded);
     }
 
     /**
@@ -179,11 +182,12 @@ class AppService
      *
      * @return array{description: ?string, topics: array<int, string>}|null
      */
-    public function getRepository(int $installationId, string $repoSlug): ?array
+    public function getRepository(int $installationId, string $repoSlug, bool $isTimeBounded = false): ?array
     {
-        $token = $this->getInstallationToken($installationId);
+        $token = $this->getInstallationToken($installationId, $isTimeBounded);
 
         $response = Http::withToken($token)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->get("https://api.github.com/repos/{$repoSlug}");
 
@@ -1736,11 +1740,12 @@ GRAPHQL;
         }
     }
 
-    private function requestInstallationToken(int $installationId): string
+    private function requestInstallationToken(int $installationId, bool $isTimeBounded = false): string
     {
         $jwt = $this->generateJwt();
 
         $response = Http::withToken($jwt)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->throw()
             ->post("https://api.github.com/app/installations/{$installationId}/access_tokens");

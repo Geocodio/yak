@@ -96,7 +96,7 @@ class TaskAttachment extends Model
         return [
             'attachments' => ['nullable', 'array', 'max:' . (int) config('yak.attachments.max_files')],
             'attachments.*' => ['file', 'max:' . (int) config('yak.attachments.max_file_kb')],
-            'attachment_refs' => ['nullable', 'array'],
+            'attachment_refs' => ['nullable', 'array', 'max:' . (int) config('yak.attachments.max_files')],
             'attachment_refs.*' => ['nullable', 'string', 'max:24', 'regex:' . self::REFERENCE_PATTERN],
         ];
     }
@@ -139,6 +139,20 @@ class TaskAttachment extends Model
             'reference' => $references[$index] ?? null,
             'uploaded_by_user_id' => $request->user()?->id,
         ]))->values();
+    }
+
+    /**
+     * Delete stored attachments (files and rows) that no task took over.
+     *
+     * @param  Collection<int, self>  $attachments
+     */
+    public static function discard(Collection $attachments): void
+    {
+        $attachments->each(function (self $attachment): void {
+            if ($attachment->fresh()?->yak_task_id === null) {
+                $attachment->delete();
+            }
+        });
     }
 
     /**

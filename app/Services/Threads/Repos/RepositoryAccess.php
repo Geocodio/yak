@@ -24,7 +24,7 @@ class RepositoryAccess
         }
 
         try {
-            $reachable = $this->github->getRepository((int) config('yak.channels.github.installation_id'), $slug) !== null;
+            $reachable = $this->github->getRepository((int) config('yak.channels.github.installation_id'), $slug, isTimeBounded: true) !== null;
         } catch (Throwable) {
             $reachable = false;
         }
