@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\Enums\RunnerState;
 use App\Enums\SteeringMode;
 use App\Enums\TaskRunKind;
+use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadStatus;
@@ -146,6 +147,8 @@ class ThreadTurns
                 $thread->owner_user_id = $driver->id;
             }
 
+            $this->answerOpenQuestion($task, $shownText ?? $prompt, $driver);
+
             $queued = PendingSteeringMessage::drainFor($task);
             $text = $queued === null ? $prompt : ($prompt === '' ? $queued : $queued . "\n\n" . $prompt);
             $uuid = (string) Str::uuid();
@@ -187,6 +190,28 @@ class ThreadTurns
         }
 
         return $run->refresh();
+    }
+
+    /**
+     * A message sent while the head task waits on a question is the answer: the task is no longer waiting
+     * on the person, so the sidebar and the question card close. Running is a status no reaper re-dispatches.
+     */
+    private function answerOpenQuestion(YakTask $task, string $reply, ?User $driver): void
+    {
+        $locked = YakTask::query()->whereKey($task->id)->lockForUpdate()->first();
+
+        if ($locked === null || $locked->status !== TaskStatus::AwaitingClarification) {
+            return;
+        }
+
+        $locked->recordClarificationAnswers([], $reply, $driver->name ?? 'Unknown');
+        $locked->markClarificationAnswersConsumed();
+        $locked->update([
+            'status' => TaskStatus::Running,
+            'clarification_expires_at' => null,
+            'clarification_reminder_at' => null,
+        ]);
+        $task->refresh();
     }
 
     /**
