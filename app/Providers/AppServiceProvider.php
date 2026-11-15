@@ -36,6 +36,16 @@ use Illuminate\Validation\Rules\Password;
 class AppServiceProvider extends ServiceProvider
 {
     /**
+     * App API paths that skip the `app-device` limit because they have their own limiter.
+     *
+     * @var list<string>
+     */
+    private const APP_DEVICE_UNTHROTTLED_PATHS = [
+        'api/app/v1/threads/*/events',
+        'api/app/v1/threads/*/events/*',
+    ];
+
+    /**
      * Register any application services.
      */
     public function register(): void
@@ -177,7 +187,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('app-device-code', fn (Request $request): Limit => Limit::perMinute(10)->by('ip:' . $request->ip()));
 
         RateLimiter::for('app-device', function (Request $request): Limit {
-            if ($request->is('api/app/v1/threads/*/events', 'api/app/v1/threads/*/events/*')) {
+            if ($request->is(...self::APP_DEVICE_UNTHROTTLED_PATHS)) {
                 return Limit::none();
             }
 
