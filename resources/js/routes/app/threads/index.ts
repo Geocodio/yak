@@ -1,4 +1,5 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
+import events from './events'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\ThreadListController::__invoke
 * @see app/Http/Controllers/Api/App/Threads/ThreadListController.php:12
@@ -173,6 +174,7 @@ const threads = {
     index: Object.assign(index, index),
     show: Object.assign(show, show),
     seen: Object.assign(seen, seen),
+    events: Object.assign(events, events),
 }
 
 export default threads

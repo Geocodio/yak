@@ -1,0 +1,31 @@
+{
+    "events": [
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "html": "<p>Done</p>\n",
+                        "text": "Done",
+                        "type": "text"
+                    }
+                ],
+                "messageId": "m1",
+                "role": "assistant"
+            },
+            "sequence": 1,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "completed",
+                "turnId": "<volatile:int>"
+            },
+            "sequence": 2,
+            "type": "turn"
+        }
+    ],
+    "latestSequence": 2,
+    "source": "database"
+}

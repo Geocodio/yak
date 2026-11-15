@@ -177,9 +177,19 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('app-device-code', fn (Request $request): Limit => Limit::perMinute(10)->by('ip:' . $request->ip()));
 
         RateLimiter::for('app-device', function (Request $request): Limit {
+            if ($request->is('api/app/v1/threads/*/events', 'api/app/v1/threads/*/events/*')) {
+                return Limit::none();
+            }
+
             $device = $request->attributes->get('device');
 
             return Limit::perMinute(240)->by($device instanceof Device ? 'device:' . $device->id : 'ip:' . $request->ip());
+        });
+
+        RateLimiter::for('app-events', function (Request $request): Limit {
+            $device = $request->attributes->get('device');
+
+            return Limit::perMinute(1200)->by($device instanceof Device ? 'events:' . $device->id : 'events-ip:' . $request->ip());
         });
     }
 }
