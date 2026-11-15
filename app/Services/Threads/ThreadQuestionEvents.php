@@ -3,6 +3,7 @@
 namespace App\Services\Threads;
 
 use App\Models\YakTask;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -29,10 +30,15 @@ class ThreadQuestionEvents
             return;
         }
 
-        try {
-            $this->publisher->append($task->thread_id, 'question', ['open' => $isOpen]);
-        } catch (Throwable $exception) {
-            report($exception);
-        }
+        $threadId = $task->thread_id;
+
+        // After the surrounding transaction commits, so a client reloading on the event sees the change.
+        DB::afterCommit(function () use ($threadId, $isOpen): void {
+            try {
+                $this->publisher->append($threadId, 'question', ['open' => $isOpen]);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        });
     }
 }

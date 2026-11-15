@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Enums\TaskStatus;
 use App\Events\TaskStatusChanged;
+use App\Models\YakTask;
 use App\Services\Threads\ThreadQuestionEvents;
 
 /**
@@ -20,7 +21,7 @@ class EmitQuestionClosed
             return;
         }
 
-        if ($task->thread?->headTask()?->is($task) !== true) {
+        if ((int) YakTask::withoutGlobalScopes()->where('thread_id', $task->thread_id)->max('id') !== $task->id) {
             return;
         }
 

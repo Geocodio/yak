@@ -8,6 +8,7 @@ use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClarificationAnswerSubmitter;
 use App\Services\Threads\ThreadEventPublisher;
@@ -16,6 +17,7 @@ use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\InMemoryThreadEventWindow;
 
@@ -169,10 +171,33 @@ it('emits nothing for a task without a thread', function () {
 it('keeps answering when the event cannot be stored', function () {
     [$thread, $task] = threadAwaitingAnswer();
     $this->mock(ThreadEventPublisher::class, fn ($publisher) => $publisher->shouldReceive('append')->andThrow(new RuntimeException('window down')));
-    $this->withoutExceptionHandling();
+    Exceptions::fake();
 
     $submitted = app(ClarificationAnswerSubmitter::class)->submit($task, ['on_failure' => ['choices' => ['Fail the whole batch'], 'other' => null]], null, 'Test person', 'dashboard');
 
     expect($submitted)->toBeTrue()
         ->and($task->fresh()->status)->toBe(TaskStatus::Pending);
+    Exceptions::assertReported(RuntimeException::class);
+});
+
+it('stores the close event only after the surrounding transaction commits', function () {
+    [$thread, $task] = threadAwaitingAnswer();
+
+    DB::transaction(function () use ($task, $thread) {
+        $task->update(['status' => TaskStatus::Cancelled]);
+        expect(questionEvents($thread))->toBe([]);
+    });
+
+    expect(questionEvents($thread))->toBe([['open' => false]]);
+});
+
+it('stores the close event for a signed-in person who cannot see the thread', function () {
+    $thread = Thread::factory()->private()->create();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'status' => TaskStatus::AwaitingClarification]);
+    $task->recordClarificationRound([questionOnFailure()], 'I need one decision.');
+    $this->actingAs(User::factory()->create());
+
+    $task->update(['status' => TaskStatus::Cancelled]);
+
+    expect(questionEvents($thread))->toBe([['open' => false]]);
 });
