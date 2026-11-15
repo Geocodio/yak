@@ -10,6 +10,7 @@ function classifiedRouteNames(): array
         ...VisibilityRoutes::lists(),
         ...VisibilityRoutes::hosts(),
         ...VisibilityRoutes::appThreads(),
+        ...VisibilityRoutes::groupNames('classified'),
     ];
 }
 

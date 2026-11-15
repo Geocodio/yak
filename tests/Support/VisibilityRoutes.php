@@ -2,9 +2,14 @@
 
 namespace Tests\Support;
 
+use App\Models\Thread;
+use App\Models\ThreadRepository;
+use App\Models\User;
+use Closure;
 use Illuminate\Routing\Route as LaravelRoute;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
+use InvalidArgumentException;
 
 /**
  * Every route is classified here, so a new route cannot ship without someone
@@ -13,6 +18,14 @@ use Illuminate\Support\Facades\URL;
  */
 class VisibilityRoutes
 {
+    /** Group files of the app API features, one per feature, read in name order. */
+    public const GROUPS_DIRECTORY = __DIR__ . '/AppRouteGroups';
+
+    /** Keys whose route names must be claimed by one group file only. */
+    private const GROUP_NAME_KEYS = ['global', 'appThreads', 'classified'];
+
+    private const GROUP_KEYS = ['global', 'appThreads', 'appThreadProbes', 'classified', 'sweepWorld', 'sweepHeaders', 'sweepTables'];
+
     /** @var array<string, array{0: string, 1: string, 2?: array<string, mixed>, 3?: int}> method, uri template, payload, owner status */
     private const PROBES = [
         'threads.show' => ['GET', '/threads/{thread}'],
@@ -216,6 +229,7 @@ class VisibilityRoutes
             // Host-only protocol for the broker and the CLI behind the session-store token: no signed-in user exists to filter for.
             'session-store.append', 'session-store.checkpoint', 'session-store.file', 'session-store.files',
             'session-store.length', 'session-store.read', 'session-store.tree',
+            ...self::groupNames('global'),
         ];
     }
 
@@ -226,7 +240,7 @@ class VisibilityRoutes
      */
     public static function appThreads(): array
     {
-        return ['app.threads.index', 'app.threads.show', 'app.threads.seen', 'app.threads.events.index', 'app.threads.events.show', 'app.threads.messages.store', 'app.threads.queued-messages.update', 'app.threads.queued-messages.destroy', 'app.threads.clarification-answers.store', 'app.threads.stop', 'app.threads.continue', 'app.threads.restore.retry', 'app.threads.new', 'app.threads.repository-access', 'app.threads.store', 'app.threads.share.show', 'app.threads.share.update', 'app.broadcasting.auth'];
+        return ['app.threads.index', 'app.threads.show', 'app.threads.seen', 'app.threads.events.index', 'app.threads.events.show', 'app.threads.messages.store', 'app.threads.queued-messages.update', 'app.threads.queued-messages.destroy', 'app.threads.clarification-answers.store', 'app.threads.stop', 'app.threads.continue', 'app.threads.restore.retry', 'app.threads.new', 'app.threads.repository-access', 'app.threads.store', 'app.threads.share.show', 'app.threads.share.update', 'app.broadcasting.auth', ...self::groupNames('appThreads')];
     }
 
     /**
@@ -238,9 +252,9 @@ class VisibilityRoutes
      */
     public static function appThreadProbes(): array
     {
-        $probe = fn (string $method, string $path, bool $isDrive, array $body = []): array => ['method' => $method, 'path' => $path, 'isDrive' => $isDrive, 'body' => $body];
+        $probe = self::probe(...);
 
-        return [
+        $core = [
             'app.threads.show' => $probe('GET', '/threads/{thread}', false),
             'app.threads.seen' => $probe('POST', '/threads/{thread}/seen', false),
             'app.threads.events.index' => $probe('GET', '/threads/{thread}/events', false),
@@ -255,6 +269,127 @@ class VisibilityRoutes
             'app.threads.continue' => $probe('POST', '/threads/{thread}/continue', true),
             'app.threads.restore.retry' => $probe('POST', '/threads/{thread}/restore/retry', true),
         ];
+
+        $duplicates = array_keys(array_intersect_key($core, $groupProbes = self::groupProbes()));
+
+        if ($duplicates !== []) {
+            throw new InvalidArgumentException('A route group probes a core route again: ' . implode(', ', $duplicates) . '.');
+        }
+
+        return [...$core, ...$groupProbes];
+    }
+
+    /**
+     * One sweep probe: a request on a route that takes a thread.
+     *
+     * @param  array<string, mixed>  $body
+     * @return array{method: string, path: string, isDrive: bool, body: array<string, mixed>}
+     */
+    public static function probe(string $method, string $path, bool $isDrive, array $body = []): array
+    {
+        return ['method' => $method, 'path' => $path, 'isDrive' => $isDrive, 'body' => $body];
+    }
+
+    /**
+     * Every group file in name order, keyed by file name without `.php`. A
+     * missing folder gives no groups. An unknown key, a value of the wrong
+     * shape or a route name claimed by two groups throws.
+     *
+     * @return array<string, array{global?: list<string>, appThreads?: list<string>, appThreadProbes?: array<string, array{method: string, path: string, isDrive: bool, body: array<string, mixed>}>, classified?: list<string>, sweepWorld?: Closure, sweepHeaders?: array<string, string>, sweepTables?: list<string>}>
+     */
+    public static function groupsIn(string $directory = self::GROUPS_DIRECTORY): array
+    {
+        $files = glob($directory . '/*.php') ?: [];
+        sort($files);
+
+        $groups = [];
+        $claimedBy = [];
+
+        foreach ($files as $file) {
+            $name = basename($file);
+            $group = require $file;
+
+            if (! is_array($group)) {
+                throw new InvalidArgumentException("Route group {$name} must return an array.");
+            }
+
+            foreach ($group as $key => $value) {
+                if (! in_array($key, self::GROUP_KEYS, true)) {
+                    throw new InvalidArgumentException("Route group {$name} has the unknown key '{$key}'; allowed: " . implode(', ', self::GROUP_KEYS) . '.');
+                }
+
+                $isValid = match ($key) {
+                    'sweepWorld' => $value instanceof Closure,
+                    'appThreadProbes', 'sweepHeaders' => is_array($value),
+                    default => is_array($value) && array_is_list($value),
+                };
+
+                if (! $isValid) {
+                    throw new InvalidArgumentException("Route group {$name} has the wrong shape under '{$key}'.");
+                }
+            }
+
+            foreach (self::GROUP_NAME_KEYS as $key) {
+                foreach ($group[$key] ?? [] as $routeName) {
+                    if (isset($claimedBy[$routeName])) {
+                        throw new InvalidArgumentException("Route name '{$routeName}' is claimed by two groups: {$claimedBy[$routeName]} and {$name}.");
+                    }
+
+                    $claimedBy[$routeName] = $name;
+                }
+            }
+
+            $groups[basename($file, '.php')] = $group;
+        }
+
+        return $groups;
+    }
+
+    /**
+     * The names under one list key across all groups.
+     *
+     * @param  'global'|'appThreads'|'classified'|'sweepTables'  $key
+     * @return list<string>
+     */
+    public static function groupNames(string $key, string $directory = self::GROUPS_DIRECTORY): array
+    {
+        return array_values(array_merge(...array_map(
+            fn (array $group): array => $group[$key] ?? [],
+            array_values(self::groupsIn($directory)),
+        )));
+    }
+
+    /**
+     * @return array<string, array{method: string, path: string, isDrive: bool, body: array<string, mixed>}>
+     */
+    public static function groupProbes(string $directory = self::GROUPS_DIRECTORY): array
+    {
+        return array_merge([], ...array_map(
+            fn (array $group): array => $group['appThreadProbes'] ?? [],
+            array_values(self::groupsIn($directory)),
+        ));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function groupHeaders(string $directory = self::GROUPS_DIRECTORY): array
+    {
+        return array_merge([], ...array_map(
+            fn (array $group): array => $group['sweepHeaders'] ?? [],
+            array_values(self::groupsIn($directory)),
+        ));
+    }
+
+    /**
+     * @return list<Closure(array{thread: Thread, owner: User, repository: ThreadRepository}): array<string, string>>
+     */
+    public static function groupWorlds(string $directory = self::GROUPS_DIRECTORY): array
+    {
+        return array_values(array_filter(array_map(
+            fn (array $group): ?Closure => $group['sweepWorld'] ?? null,
+            array_values(self::groupsIn($directory)),
+        )));
     }
 
     /**
