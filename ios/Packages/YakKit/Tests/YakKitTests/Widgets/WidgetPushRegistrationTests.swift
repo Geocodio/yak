@@ -80,13 +80,18 @@ private actor ConcurrencyCounter {
         maximum = max(maximum, active)
     }
     func leave() { active -= 1 }
+    var isFull: Bool { active >= 4 }
 }
 
 private struct CountingTransport: HTTPTransport {
     let counter: ConcurrencyCounter
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         await counter.enter()
-        for _ in 0..<50 { await Task.yield() }
+        var yields = 0
+        while await !counter.isFull, yields < 10_000 {
+            await Task.yield()
+            yields += 1
+        }
         await counter.leave()
         return (Data(), HTTPURLResponse(url: request.url!, statusCode: 204, httpVersion: nil, headerFields: nil)!)
     }
