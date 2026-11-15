@@ -121,14 +121,15 @@ final class StubPreview: @unchecked Sendable {
     }
 
     private func file(_ name: String, status: Int = 200, edit: (inout [String: Any]) -> Void) -> StubReply {
-        guard let data = scenarioData(name),
-            var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-            let body = { () -> Data? in
-                edit(&object)
-                return try? JSONSerialization.data(withJSONObject: object)
-            }()
-        else { return missing() }
-        return StubReply(answer: .reply(status: status, contentType: "application/json", body: body))
+        guard let data = scenarioData(name) else { return missing() }
+        do {
+            guard var object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { return missing() }
+            edit(&object)
+            let body = try JSONSerialization.data(withJSONObject: object)
+            return StubReply(answer: .reply(status: status, contentType: "application/json", body: body))
+        } catch {
+            return missing()
+        }
     }
 
     private func status(threadID: String, play: StubPreviewPlay) -> StubReply {
@@ -188,9 +189,15 @@ final class StubPreview: @unchecked Sendable {
     private enum StateEdit { case none, setupEnded, unknownState }
 
     private func ticket(_ request: StubRequest) -> StubReply {
-        guard let body = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
-            let path = body["path"] as? String, path.hasPrefix("/")
-        else {
+        let path: String? = {
+            do {
+                let body = try JSONSerialization.jsonObject(with: request.body) as? [String: Any]
+                return body?["path"] as? String
+            } catch {
+                return nil
+            }
+        }()
+        guard let path, path.hasPrefix("/") else {
             return StubReply(
                 answer: Scenario.error(
                     422, "validation_failed", "The path is not valid.",

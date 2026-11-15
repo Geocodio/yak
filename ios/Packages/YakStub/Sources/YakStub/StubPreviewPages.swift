@@ -4,6 +4,8 @@ import Network
 /// The second loopback listener: the preview host. It serves the auth handshake, a cookie and a plain page, and
 /// writes its own small HTTP/1.1 responses so `StubReply` and `StubServer` need no header field.
 final class StubPreviewPages: @unchecked Sendable {
+    /// Seconds the listener has to reach `.ready` before start() throws.
+    static let startBound: TimeInterval = 5
     private let preview: StubPreview
     private let apiBaseURL: String
     private let lock = NSLock()
@@ -33,6 +35,12 @@ final class StubPreviewPages: @unchecked Sendable {
                 }
             }
             listener.start(queue: .global())
+            DispatchQueue.global().asyncAfter(deadline: .now() + Self.startBound) { [listener] in
+                if once.first() {
+                    listener.cancel()
+                    continuation.resume(throwing: StubPreviewPagesError.didNotStart)
+                }
+            }
         }
         preview.setPagesBaseURL("http://127.0.0.1:\(port)")
         return port
@@ -66,7 +74,11 @@ final class StubPreviewPages: @unchecked Sendable {
             let query = components?.queryItems ?? []
             let ticket = query.first { $0.name == "ticket" }?.value ?? ""
             var destination = query.first { $0.name == "to" }?.value ?? "/"
-            if !destination.hasPrefix("/") || destination.hasPrefix("//") { destination = "/" }
+            if !destination.hasPrefix("/") || destination.hasPrefix("//")
+                || destination.contains(where: { $0 == "\r" || $0 == "\n" })
+            {
+                destination = "/"
+            }
             guard preview.playing != .signInRefused, preview.redeem(ticket: ticket) else {
                 preview.record("auth refused")
                 return Response(
@@ -150,4 +162,9 @@ private final class PagesOnce: @unchecked Sendable {
             return !done
         }
     }
+}
+
+enum StubPreviewPagesError: Error, CustomStringConvertible {
+    case didNotStart
+    var description: String { "The preview pages listener did not start within 5 seconds." }
 }

@@ -5,7 +5,7 @@ extension InstanceSession {
     public func openPreview(_ threadID: String) async -> PreviewSession? {
         guard let client = apiClient() else { return nil }
         return PreviewSession(
-            threadID: threadID, client: client, clock: environment.clock,
+            threadID: threadID, client: client, clock: clock,
             allowsLoopbackHTTP: environment.allowsInsecureRealtime)
     }
 }

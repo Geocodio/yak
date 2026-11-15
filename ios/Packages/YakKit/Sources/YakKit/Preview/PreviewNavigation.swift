@@ -28,14 +28,20 @@ public enum PreviewNavigation {
         return components.port.map { "\(lowered):\($0)" } ?? lowered
     }
 
+    /// about:blank and about:srcdoc, ignoring any query or fragment.
+    private static func isBlankOrSrcdoc(_ url: URL) -> Bool {
+        var specifier = String(url.absoluteString.dropFirst("about:".count)).lowercased()
+        if let cut = specifier.firstIndex(where: { $0 == "#" || $0 == "?" }) { specifier = String(specifier[..<cut]) }
+        return specifier == "blank" || specifier == "srcdoc"
+    }
+
     /// `isUserInitiated`: the navigation type is `.linkActivated` or `.formSubmitted`.
     public static func decide(
         url: URL, previewHost: String, instanceHost: String, isMainFrame: Bool,
         isUserInitiated: Bool, allowsLoopbackHTTP: Bool = false
     ) -> Decision {
         let scheme = url.scheme?.lowercased() ?? ""
-        let absolute = url.absoluteString.lowercased()
-        if absolute == "about:blank" || absolute == "about:srcdoc" { return .allow }
+        if scheme == "about", isBlankOrSrcdoc(url) { return .allow }
         if scheme == "javascript" { return .cancel }
 
         func opensBrowser() -> Decision { isUserInitiated ? .openInBrowser(url) : .cancelUnrequestedOpen }

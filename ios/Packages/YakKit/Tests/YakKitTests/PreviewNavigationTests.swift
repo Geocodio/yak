@@ -182,3 +182,26 @@ func addressesStayOnTheHost(typed: String, expected: String) {
     #expect(PreviewDataStoreID.toErase(existing: [], known: [storeA], keep: [], pending: []) == [])
     #expect(PreviewDataStoreID.toErase(existing: [storeB, storeB], known: [storeB], keep: [], pending: []) == [storeB])
 }
+
+@Test func theLengthCutNeverEndsInsideAMultiByteCharacter() {
+    let cut = PreviewAddress.normalize("/" + String(repeating: "é", count: 1500))
+    #expect(cut.count <= 2048)
+    #expect(!cut.hasSuffix("%C3"))
+    #expect(cut.hasSuffix("%C3%A9"))
+    #expect(PreviewAddress.normalize("/" + String(repeating: "a", count: 3000)).count == 2048)
+}
+
+@Test func aboutBlankWithAFragmentOrQueryIsStillBlank() {
+    #expect(decide("about:blank#x", main: true) == .allow)
+    #expect(decide("about:blank#x", main: false) == .allow)
+    #expect(decide("about:srcdoc?a=b", main: false) == .allow)
+    #expect(decide("about:config", main: false) == .cancel)
+}
+
+@Test func aTrailingSlashOrOtherCaseOnTheAuthPathNeverShowsTheTicket() {
+    let slash = URL(string: "https://t-p7m4q2hx9z.yak.example.test/_yak/auth/?ticket=s&to=%2Fp")!
+    #expect(PreviewAddress.display(slash) == "/p")
+    #expect(PreviewAddress.copyable(slash)?.absoluteString == "https://t-p7m4q2hx9z.yak.example.test/p")
+    let upper = URL(string: "https://t-p7m4q2hx9z.yak.example.test/_YAK/Auth?ticket=s&to=%2Fp")!
+    #expect(PreviewAddress.display(upper) == "/p")
+}

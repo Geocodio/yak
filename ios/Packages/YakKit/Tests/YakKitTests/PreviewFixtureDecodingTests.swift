@@ -3,13 +3,13 @@ import Testing
 
 @testable import YakKit
 
-/// The server's preview fixtures, read through `Fixtures` only. Each returns early until the fixture exists.
+/// The server's preview fixtures, read through `Fixtures` only. A missing fixture fails the test.
 @Test(arguments: [
     "thread-preview-status", "thread-preview-status-starting", "thread-preview-status-failing",
     "thread-preview-ticket", "thread-preview-restore",
 ])
 func decodesEveryPreviewFixture(name: String) throws {
-    guard Fixtures.exists(name) else { return }
+    try #require(Fixtures.exists(name), "The server fixture \(name) is missing.")
     let data = try Fixtures.data(name)
     switch name {
     case "thread-preview-status":

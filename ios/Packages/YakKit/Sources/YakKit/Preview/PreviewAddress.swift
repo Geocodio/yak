@@ -23,13 +23,7 @@ public enum PreviewAddress {
         while let first = text.first, first == "/" || first == "\\" { text.removeFirst() }
         var encoded = "/" + percentEncode(text)
         if encoded.count > maximumLength {
-            encoded = String(encoded.prefix(maximumLength))
-            for offset in 1...2 where encoded.count >= offset {
-                if encoded[encoded.index(encoded.endIndex, offsetBy: -offset)] == "%" {
-                    encoded.removeLast(offset)
-                    break
-                }
-            }
+            encoded = truncated(encoded)
         }
         return encoded
     }
@@ -50,7 +44,7 @@ public enum PreviewAddress {
     /// Path and query; a /_yak/auth URL shows its `to`; nil or empty gives "/".
     public static func display(_ url: URL?) -> String {
         guard let url, let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return "/" }
-        if components.path == "/_yak/auth" {
+        if isAuthPath(components.path) {
             let destination = components.queryItems?.first { $0.name == "to" }?.value
             return normalize(destination ?? "/")
         }
@@ -63,6 +57,50 @@ public enum PreviewAddress {
     public static func copyable(_ url: URL?) -> URL? {
         guard let url else { return nil }
         return Self.url(path: display(url), previewURL: url)
+    }
+
+    /// Cuts to the maximum length without ending inside a "%XX" escape or between the escapes of one UTF-8 sequence.
+    private static func truncated(_ encoded: String) -> String {
+        var result = String(encoded.prefix(maximumLength))
+        while !result.isEmpty {
+            let tail = Array(result.utf8.suffix(3))
+            let endsInEscape = tail.count == 3 && tail[0] == UInt8(ascii: "%") && isHex(tail[1]) && isHex(tail[2])
+            if !endsInEscape, let percent = result.lastIndex(of: "%"),
+                result.distance(from: percent, to: result.endIndex) < 3
+            {
+                result.removeSubrange(percent...)
+                continue
+            }
+            if decodedBytesAreValidUTF8(result) { break }
+            result.removeLast(endsInEscape ? 3 : 1)
+        }
+        return result
+    }
+
+    private static func decodedBytesAreValidUTF8(_ encoded: String) -> Bool {
+        let bytes = Array(encoded.utf8)
+        var decoded: [UInt8] = []
+        var index = 0
+        while index < bytes.count {
+            if bytes[index] == UInt8(ascii: "%"), index + 2 < bytes.count, isHex(bytes[index + 1]),
+                isHex(bytes[index + 2]),
+                let value = UInt8(String(decoding: bytes[(index + 1)...(index + 2)], as: UTF8.self), radix: 16)
+            {
+                decoded.append(value)
+                index += 3
+            } else {
+                decoded.append(bytes[index])
+                index += 1
+            }
+        }
+        return String(validating: decoded, as: UTF8.self) != nil
+    }
+
+    /// The server mints exactly /_yak/auth; a trailing slash or other case is treated the same.
+    fileprivate static func isAuthPath(_ path: String) -> Bool {
+        var trimmed = path.lowercased()
+        while trimmed.hasSuffix("/") { trimmed.removeLast() }
+        return trimmed == "/_yak/auth"
     }
 
     private static func percentEncode(_ text: String) -> String {
