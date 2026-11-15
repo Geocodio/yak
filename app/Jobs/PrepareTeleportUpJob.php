@@ -130,6 +130,7 @@ class PrepareTeleportUpJob implements ShouldQueue
         $this->runRefresh($teleport, $thread, $refresh, $sandboxes);
 
         $teleport->progressStep(TeleportStep::SessionRestore, 'running');
+        $sandbox->endRunner($thread);
         $sessions->restoreIntoSandbox($thread);
         $this->linkLocalPath($thread, $teleport, $sandboxes);
         $this->writeNote($teleport, $thread, $note);

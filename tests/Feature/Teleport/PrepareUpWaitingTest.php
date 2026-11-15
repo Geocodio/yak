@@ -56,6 +56,7 @@ beforeEach(function () {
 
         return $wake;
     });
+    $this->sandbox->shouldReceive('endRunner')->byDefault();
     app()->instance(ThreadSandbox::class, $this->sandbox);
 });
 

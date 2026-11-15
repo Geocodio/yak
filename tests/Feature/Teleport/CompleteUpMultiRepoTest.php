@@ -69,6 +69,7 @@ beforeEach(function () {
 
         return SandboxWake::ready();
     });
+    $sandbox->shouldReceive('endRunner')->byDefault();
     app()->instance(ThreadSandbox::class, $sandbox);
     app()->instance(ThreadTurns::class, Mockery::mock(ThreadTurns::class));
 });

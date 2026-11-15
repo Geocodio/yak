@@ -110,6 +110,24 @@ class ThreadSandbox
         }
     }
 
+    /**
+     * Ends the runner without touching the sandbox or the stored session, so the next turn starts a runner that
+     * reads the session file as it is on disk. A paused sandbox is left alone: its runner is frozen and the wake
+     * path ends it.
+     */
+    public function endRunner(Thread $thread): void
+    {
+        $thread->refresh();
+
+        if ($thread->runner_state === RunnerState::None || $thread->sandbox_state !== ThreadSandboxState::Running) {
+            return;
+        }
+
+        $this->streams->command("threads:{$thread->id}", ['type' => 'end']);
+        $this->waitForRunnerExit($thread, (int) config('yak.threads.stop_timeout_seconds'));
+        $thread->forceFill(['runner_state' => RunnerState::None])->save();
+    }
+
     public function destroy(Thread $thread, bool $preserveWork = true): void
     {
         if ($thread->sharesParentSandbox()) {
