@@ -174,8 +174,11 @@ class LocalTurns
     public function parse(string $jsonl): array
     {
         $turns = [];
+        /** @var Turn|null $current */
         $current = null;
+        /** @var array<string, array{int, int}> $steps */
         $steps = [];
+        $turnId = 0;
 
         foreach (explode("\n", $jsonl) as $line) {
             $entry = json_decode($line, true);
@@ -194,6 +197,7 @@ class LocalTurns
                         $turns[] = $current;
                     }
                     $id = count($turns) + 1;
+                    $turnId = $id;
                     $current = ['id' => $id, 'at' => (string) ($entry['timestamp'] ?? ''), 'text' => $prompt, 'html' => Markdown::toHtml($prompt), 'items' => []];
                     $steps = [];
 
@@ -220,12 +224,12 @@ class LocalTurns
 
                 if ($type === 'text' && trim((string) ($block['text'] ?? '')) !== '') {
                     $text = SecretRedactor::redact((string) $block['text']);
-                    $current['items'][] = ['kind' => 'text', 'key' => "local:{$current['id']}:" . count($current['items']), 'html' => Markdown::toHtml($text), 'model' => $entry['message']['model'] ?? null];
+                    $current['items'][] = ['kind' => 'text', 'key' => "local:{$turnId}:" . count($current['items']), 'html' => Markdown::toHtml($text), 'model' => $entry['message']['model'] ?? null];
                 } elseif ($type === 'tool_use') {
                     $last = array_key_last($current['items']);
 
-                    if ($last === null || $current['items'][$last]['kind'] !== 'tools') {
-                        $current['items'][] = ['kind' => 'tools', 'key' => "local:{$current['id']}:" . count($current['items']), 'steps' => []];
+                    if ($last === null || ($current['items'][$last]['kind'] ?? null) !== 'tools') {
+                        $current['items'][] = ['kind' => 'tools', 'key' => "local:{$turnId}:" . count($current['items']), 'steps' => []];
                         $last = array_key_last($current['items']);
                     }
 
