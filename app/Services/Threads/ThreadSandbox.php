@@ -6,6 +6,7 @@ use App\DataTransferObjects\SandboxWake;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
+use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\Datasets\DatasetClones;
 use App\Services\Stacks\ResearchChildRunner;
@@ -14,6 +15,7 @@ use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\Preview\ThreadPreviewActivity;
 use App\Services\Threads\Preview\ThreadPreviewDevServer;
+use App\Services\Threads\Repos\RepositoryTemplateDrift;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
@@ -40,6 +42,7 @@ class ThreadSandbox
         private DatasetClones $datasetClones,
         private ThreadPreviewDevServer $previewServer,
         private RefreshTriggers $triggers,
+        private RepositoryTemplateDrift $templateDrift,
     ) {}
 
     public function touch(Thread $thread): void
@@ -270,6 +273,10 @@ class ThreadSandbox
 
     private function restoreAwake(Thread $thread): SandboxWake
     {
+        if ($this->mustWaitForRepository($thread)) {
+            return SandboxWake::restoring();
+        }
+
         $needsSlot = in_array($thread->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed, ThreadSandboxState::Stopped], true);
 
         if ($needsSlot && ! $this->makeRoom($thread)) {
@@ -287,6 +294,27 @@ class ThreadSandbox
         $this->clearWaiting($thread);
 
         return SandboxWake::ready();
+    }
+
+    /**
+     * A sandbox without a container is cloned from the repository template. A stale template is
+     * never cloned: the thread waits for the setup that rebuilds it.
+     */
+    private function mustWaitForRepository(Thread $thread): bool
+    {
+        if (! in_array($thread->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed], true)) {
+            return false;
+        }
+
+        $repository = Repository::query()->where('slug', $thread->repo)->first();
+
+        if ($repository === null || ! $this->templateDrift->mustWait($repository)) {
+            return false;
+        }
+
+        $thread->update(['blocked_reason' => ThreadBlockReason::WaitingForRepository, 'blocked_at' => $thread->blocked_at ?? now()]);
+
+        return true;
     }
 
     private function startStopped(Thread $thread): SandboxWake
