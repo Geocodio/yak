@@ -32,7 +32,7 @@ beforeEach(function () {
  * @param  array<string, mixed>  $state
  * @return array{0: Thread, 1: User}
  */
-function terminalThread(array $state = []): array
+function appTerminalThread(array $state = []): array
 {
     $user = User::factory()->create(['name' => 'Test person']);
     $thread = privateThreadOf($user, ['title' => 'Retry failed uploads', 'repo' => 'example/api', 'sandbox_container' => 'yak-thread-7', 'sandbox_state' => ThreadSandboxState::Running, ...$state]);
@@ -70,7 +70,7 @@ function mockEviction(?EvictionReason $reason): void
 }
 
 it('opens a shell for the owner', function () {
-    [$thread, $user] = terminalThread();
+    [$thread, $user] = appTerminalThread();
 
     $response = openAppTerminal($thread, $user)->assertOk();
     $token = $response->json('token');
@@ -90,7 +90,7 @@ it('opens a shell for the owner', function () {
 });
 
 it('asks the phone to wait for a slot', function () {
-    [$thread, $user] = terminalThread(['sandbox_state' => ThreadSandboxState::Paused]);
+    [$thread, $user] = appTerminalThread(['sandbox_state' => ThreadSandboxState::Paused]);
     mockEnsureAwake(SandboxWake::waitingForSlot());
     mockEviction(EvictionReason::GlobalCap);
 
@@ -100,7 +100,7 @@ it('asks the phone to wait for a slot', function () {
 });
 
 it('says the sandbox was removed', function () {
-    [$thread, $user] = terminalThread(['sandbox_state' => ThreadSandboxState::Destroyed, 'sandbox_container' => null]);
+    [$thread, $user] = appTerminalThread(['sandbox_state' => ThreadSandboxState::Destroyed, 'sandbox_container' => null]);
 
     $response = openAppTerminal($thread, $user)->assertStatus(409)->assertExactJson(['error' => 'sandbox_destroyed', 'message' => 'The sandbox was removed. Restore it to open a shell.']);
 
@@ -108,7 +108,7 @@ it('says the sandbox was removed', function () {
 });
 
 it('answers each refusal with its code and sentence', function (string $case, int $status, string $code, string $message) {
-    [$thread, $user] = terminalThread();
+    [$thread, $user] = appTerminalThread();
     $origin = APP_TERMINAL_ORIGIN;
     $headers = null;
 
@@ -136,7 +136,7 @@ it('answers each refusal with its code and sentence', function (string $case, in
 ]);
 
 it('never wakes a paused sandbox for a share recipient', function () {
-    [$thread, $user] = terminalThread(['sandbox_state' => ThreadSandboxState::Stopped]);
+    [$thread, $user] = appTerminalThread(['sandbox_state' => ThreadSandboxState::Stopped]);
     $recipient = User::factory()->create();
     app(ThreadSharing::class)->apply($thread, $user, ThreadShareMode::People, [$recipient->id]);
     mockEnsureAwake(null);
@@ -145,7 +145,7 @@ it('never wakes a paused sandbox for a share recipient', function () {
 });
 
 it('answers a failed restore as blocked', function (ThreadSandboxState $state) {
-    [$thread, $user] = terminalThread(['sandbox_state' => $state, 'blocked_reason' => ThreadBlockReason::RestoreFailed]);
+    [$thread, $user] = appTerminalThread(['sandbox_state' => $state, 'blocked_reason' => ThreadBlockReason::RestoreFailed]);
     mockEnsureAwake(null);
 
     openAppTerminal($thread, $user)->assertStatus(409)->assertExactJson([
@@ -157,7 +157,7 @@ it('answers a failed restore as blocked', function (ThreadSandboxState $state) {
 
 it('waits while Restore runs', function () {
     Queue::fake();
-    [$thread, $user] = terminalThread(['sandbox_state' => ThreadSandboxState::Destroyed, 'sandbox_container' => null]);
+    [$thread, $user] = appTerminalThread(['sandbox_state' => ThreadSandboxState::Destroyed, 'sandbox_container' => null]);
 
     $this->postJson(appThreadPath($thread, '/restore/retry'), [], phoneHeadersFor($user))->assertOk();
     Queue::assertPushed(RetryThreadRestoreJob::class, 1);
@@ -166,14 +166,14 @@ it('waits while Restore runs', function () {
 });
 
 it('names the slot a queued restore waits for', function () {
-    [$thread, $user] = terminalThread(['sandbox_state' => ThreadSandboxState::Destroyed, 'sandbox_container' => null, 'blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'restore_requested_at' => now()]);
+    [$thread, $user] = appTerminalThread(['sandbox_state' => ThreadSandboxState::Destroyed, 'sandbox_container' => null, 'blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'restore_requested_at' => now()]);
     mockEviction(EvictionReason::GlobalCap);
 
     openAppTerminal($thread, $user)->assertStatus(202)->assertExactJson(['state' => 'waiting', 'limit' => 'global_cap', 'restoring' => true]);
 });
 
 it('answers a stranger like a missing thread', function () {
-    [$thread] = terminalThread();
+    [$thread] = appTerminalThread();
     $stranger = User::factory()->create();
     $missing = openAppTerminal($thread, $stranger)->assertNotFound();
 
@@ -184,7 +184,7 @@ it('answers a stranger like a missing thread', function () {
 });
 
 it('refuses a missing, revoked or computer token', function () {
-    [$thread, $user] = terminalThread();
+    [$thread, $user] = appTerminalThread();
     $headers = ['Origin' => APP_TERMINAL_ORIGIN, 'X-Yak-Protocol' => '1'];
 
     $this->postJson(appThreadPath($thread, '/terminal-sessions'), [], $headers)->assertUnauthorized();
@@ -198,7 +198,7 @@ it('refuses a missing, revoked or computer token', function () {
 });
 
 it('ignores unknown fields', function () {
-    [$thread, $user] = terminalThread();
+    [$thread, $user] = appTerminalThread();
 
     openAppTerminal($thread, $user, body: ['session' => 'main', 'x' => 1])->assertOk()->assertJsonStructure(['url', 'token', 'expires_at']);
 });
