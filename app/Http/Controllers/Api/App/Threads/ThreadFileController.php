@@ -10,6 +10,7 @@ use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\App\ListThreadFilesRequest;
 use App\Http\Requests\Api\App\SaveAppThreadFileRequest;
+use App\Http\Requests\Api\App\SearchThreadFilesRequest;
 use App\Http\Requests\Api\App\ShowThreadFileRequest;
 use App\Http\Resources\ThreadDiffData;
 use App\Models\Thread;
@@ -74,6 +75,19 @@ class ThreadFileController extends Controller
             && SandboxPath::isWritable(SandboxPath::resolve($thread, $scope, $path));
 
         return response()->json([...$file->toArray(), 'state' => 'ready', 'canEdit' => $canEdit]);
+    }
+
+    /**
+     * Repository files whose path contains the query, at most 100.
+     */
+    public function search(SearchThreadFilesRequest $request, Thread $thread): JsonResponse
+    {
+        $this->ensureAvailable($request, $thread);
+
+        $result = $this->files->search($thread, $request->string('q')->toString());
+        $this->sandbox->markSessionOpen($thread);
+
+        return response()->json(['state' => 'ready', ...$result]);
     }
 
     /**

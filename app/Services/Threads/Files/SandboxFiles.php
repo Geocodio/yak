@@ -21,6 +21,8 @@ class SandboxFiles
 {
     public const COMMAND_TIMEOUT_SECONDS = 20;
 
+    public const SEARCH_LIMIT = 100;
+
     private const EXIT_OUTSIDE_ROOT = 3;
 
     private const EXIT_NOT_A_FILE = 4;
@@ -96,6 +98,36 @@ class SandboxFiles
         $limit = (int) config('yak.files.tree_limit');
 
         return new FolderListing(array_slice($entries, 0, $limit), count($entries) > $limit);
+    }
+
+    /**
+     * Tracked and untracked, not ignored repository files whose path contains the query, case-insensitively.
+     * Grep finding nothing (exit 1) and head closing the pipe early (exit 141) are normal ends.
+     *
+     * @return array{matches: list<array{name: string, path: string}>, truncated: bool}
+     */
+    public function search(Thread $thread, string $query): array
+    {
+        $root = SandboxPath::root($thread, FileScope::Repository);
+
+        $result = $this->exec($thread, sprintf(
+            'set -o pipefail; %s git -C %s ls-files -z --cached --others --exclude-standard | grep -z -i -F -e %s | head -z -n %d',
+            $this->guard($thread, FileScope::Repository, $root),
+            escapeshellarg($root),
+            escapeshellarg($query),
+            self::SEARCH_LIMIT + 1,
+        ));
+
+        $this->failOnGuard($result->exitCode());
+
+        if (! in_array($result->exitCode(), [0, 1, 141], true)) {
+            throw new SandboxCommandFailed('A sandbox file command failed.');
+        }
+
+        $paths = array_values(array_filter(explode("\0", rtrim($result->output(), "\n")), fn (string $path): bool => $path !== ''));
+        $matches = array_map(fn (string $path): array => ['name' => basename($path), 'path' => $path], array_slice($paths, 0, self::SEARCH_LIMIT));
+
+        return ['matches' => $matches, 'truncated' => count($paths) > self::SEARCH_LIMIT];
     }
 
     public function read(Thread $thread, FileScope $scope, string $path): FileContent

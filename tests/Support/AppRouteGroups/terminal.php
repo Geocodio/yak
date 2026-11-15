@@ -4,11 +4,12 @@ use App\Enums\ThreadSandboxState;
 use Tests\Support\VisibilityRoutes;
 
 return [
-    'appThreads' => ['app.threads.terminal-sessions.store', 'app.threads.files.tree', 'app.threads.files.show', 'app.threads.files.update'],
+    'appThreads' => ['app.threads.terminal-sessions.store', 'app.threads.files.tree', 'app.threads.files.show', 'app.threads.files.update', 'app.threads.files.search'],
     'appThreadProbes' => [
         'app.threads.terminal-sessions.store' => VisibilityRoutes::probe('POST', '/threads/{thread}/terminal-sessions', true),
         'app.threads.files.tree' => VisibilityRoutes::probe('GET', '/threads/{thread}/files?scope=repo', false),
         'app.threads.files.show' => VisibilityRoutes::probe('GET', '/threads/{thread}/files/content?scope=repo&path=README.md', false),
+        'app.threads.files.search' => VisibilityRoutes::probe('GET', '/threads/{thread}/files/search?scope=repo&q=readme', false),
         'app.threads.files.update' => VisibilityRoutes::probe('PUT', '/threads/{thread}/files/content', true, ['scope' => 'repo', 'path' => 'README.md', 'content' => 'x', 'base_sha256' => '']),
     ],
     'sweepHeaders' => ['Origin' => 'https://yak.example.test'],

@@ -8,5 +8,6 @@ use Illuminate\Support\Facades\Route;
 Route::post('threads/{thread}/terminal-sessions', [TerminalSessionController::class, 'store'])->name('app.threads.terminal-sessions.store');
 
 Route::get('threads/{thread}/files', [ThreadFileController::class, 'tree'])->middleware('throttle:app-files')->name('app.threads.files.tree');
+Route::get('threads/{thread}/files/search', [ThreadFileController::class, 'search'])->middleware('throttle:app-files')->name('app.threads.files.search');
 Route::get('threads/{thread}/files/content', [ThreadFileController::class, 'show'])->middleware('throttle:app-files')->name('app.threads.files.show');
 Route::put('threads/{thread}/files/content', [ThreadFileController::class, 'update'])->middleware('throttle:app-files')->name('app.threads.files.update');
