@@ -39,7 +39,7 @@ struct StubControl {
             status = (response as? HTTPURLResponse)?.statusCode ?? 0
             done.fulfill()
         }.resume()
-        XCTWaiter().wait(for: [done], timeout: 5)
+        XCTWaiter().wait(for: [done], timeout: 30)
         XCTAssertEqual(status, 200, "the stub did not accept \(endpoint) \(body)")
     }
 }

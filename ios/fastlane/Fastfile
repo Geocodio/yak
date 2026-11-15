@@ -95,6 +95,8 @@ platform :ios do
 
   def run_ui_tests(device, port, result_path, selection, environment)
     variables = environment.merge("YAK_STUB_PORT" => port).map { |name, value| "TEST_RUNNER_#{name}=#{value.shellescape}" }.join(" ")
+    # A simulator that is still booting times out the first app launch, so the tests start on a booted one.
+    sh("xcrun simctl bootstatus #{device.shellescape} -b")
     sh(
       "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
       "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} #{selection} " \
