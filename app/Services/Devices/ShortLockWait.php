@@ -5,6 +5,7 @@ namespace App\Services\Devices;
 use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 /**
@@ -15,6 +16,19 @@ class ShortLockWait
     public const LOCK_WAIT_SECONDS = 5;
 
     private const LOCK_WAIT_TIMEOUT_ERROR = 1205;
+
+    /**
+     * A thread-row lock section: a wait that runs out answers 503 with a sentence that says what to do.
+     *
+     * @template TReturn
+     *
+     * @param  Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function threadTransaction(Closure $callback): mixed
+    {
+        return self::transaction($callback, fn (): Throwable => new HttpException(503, 'Yak is still handling another request for this thread. Try again in a moment.'));
+    }
 
     /**
      * @template TReturn

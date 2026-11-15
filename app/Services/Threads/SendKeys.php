@@ -13,7 +13,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  */
 class SendKeys
 {
-    private const LOCK_SECONDS = 30;
+    // Longer than any action it guards: the thread-row waits are capped at 5 seconds and a send is one request.
+    private const LOCK_SECONDS = 180;
 
     private const RESULT_MINUTES = 10;
 

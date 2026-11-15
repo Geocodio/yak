@@ -9,7 +9,7 @@ use App\Enums\TurnMessageState;
 use App\Models\PendingSteeringMessage;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
-use Illuminate\Support\Facades\DB;
+use App\Services\Devices\ShortLockWait;
 
 /**
  * Hands a steering message to the thread's running turn. The message keeps its
@@ -25,7 +25,7 @@ class SteeringDelivery
      */
     public function deliver(Thread $thread, PendingSteeringMessage $message): bool
     {
-        return DB::transaction(function () use ($thread, $message): bool {
+        return ShortLockWait::threadTransaction(function () use ($thread, $message): bool {
             $locked = Thread::query()->lockForUpdate()->findOrFail($thread->id);
             $run = ThreadTurns::runningTurn($locked);
 
