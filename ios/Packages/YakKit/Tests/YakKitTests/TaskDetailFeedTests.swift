@@ -6,6 +6,20 @@ import Testing
 private let taskID = "k3m9p2qa"
 private let showRoute = "GET tasks/\(taskID)"
 
+private final class CountingFileStore: FileStore, @unchecked Sendable {
+    private let inner = InMemoryFileStore()
+    private let lock = NSLock()
+    private var writes = 0
+    var writeCount: Int { lock.withLock { writes } }
+    func read(_ path: String) throws(FileStoreError) -> Data? { try inner.read(path) }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        lock.withLock { writes += 1 }
+        try inner.write(data, to: path, protection: protection)
+    }
+    func remove(_ path: String) throws(FileStoreError) { try inner.remove(path) }
+    func list(_ folder: String) throws(FileStoreError) -> [String] { try inner.list(folder) }
+}
+
 private struct Rig {
     let feed: TaskDetailFeed
     let transport: ScriptedTransport
@@ -77,7 +91,51 @@ private func makeRig(
         let latest = try await snapshots.next { _ in true }
         #expect(latest.task?.task.id == taskID)
         #expect(await rig.cache.task(taskID) != nil)
-        #expect(await rig.cache.task("c4h1d2ab") == nil)
+        // The child id reaches the root's copy through the alias.
+        #expect(await rig.cache.task("c4h1d2ab") == rig.cache.task(taskID))
+    }
+
+    @Test func aChildIDOfflineShowsTheRootsSavedCopy() async throws {
+        let first = try await makeRig(askedID: "c4h1d2ab")
+        await first.feed.open()
+        let second = try await makeRig(askedID: "c4h1d2ab", cache: first.cache)
+        await second.transport.on("GET tasks/c4h1d2ab", .failure(.notConnectedToInternet))
+        await second.feed.open()
+        let latest = try await StreamRecorder(await second.feed.snapshots()).next { _ in true }
+        #expect(latest.task?.task.id == taskID && latest.load == .ready && latest.isOffline)
+    }
+
+    @Test func aRevokedChildIDRemovesTheRootsCopyAndDraft() async throws {
+        let first = try await makeRig(askedID: "c4h1d2ab")
+        await first.feed.open()
+        await first.cache.saveTaskQuestionDraft(QuestionDraft(roundKey: "r1"), id: taskID)
+        let second = try await makeRig(askedID: "c4h1d2ab", cache: first.cache)
+        await second.transport.on("GET tasks/c4h1d2ab", .json(403, #"{"error":"forbidden","message":"No."}"#))
+        await second.feed.open()
+        #expect(await first.cache.task(taskID) == nil)
+        #expect(await first.cache.taskQuestionDraft(taskID) == nil)
+    }
+
+    @Test func aDraftSavedUnderAChildIDLandsInTheRootFolder() async throws {
+        let first = try await makeRig(askedID: "c4h1d2ab")
+        await first.feed.open()
+        // A feed that has not loaded yet still stores under the root the cache knows.
+        let second = try await makeRig(askedID: "c4h1d2ab", cache: first.cache)
+        let draft = QuestionDraft(roundKey: "r1")
+        await second.feed.saveQuestionDraft(draft)
+        #expect(await first.cache.taskQuestionDraft(taskID) == draft)
+    }
+
+    @Test func anUnchangedPollWritesNothing() async throws {
+        let files = CountingFileStore()
+        let clock = ManualClock()
+        let rig = try await makeRig(cache: Cache(instance: UUID(), files: files, clock: clock), clock: clock)
+        await rig.feed.open()
+        let writesAfterOpen = files.writeCount
+        #expect(writesAfterOpen > 0)
+        await rig.feed.reload()
+        await rig.feed.reload()
+        #expect(files.writeCount == writesAfterOpen)
     }
 
     @Test func detailPollsOnlyWhileVisible() async throws {

@@ -27,6 +27,8 @@ public actor TaskDetailFeed {
     private var isOffline = false
     private var hasOpened = false
     private var hasFetched = false
+    /// The saved copy is written when the task changes and once per open, so an unchanged poll writes nothing.
+    private var hasSaved = false
     private var isVisible = false
     private var isClosed = false
     /// Counts the loads started, so an answer to an overtaken load is dropped.
@@ -133,6 +135,7 @@ public actor TaskDetailFeed {
         return draft
     }
 
+    /// Stored under the root task, found through the cache's alias when the screen was opened by a child id.
     public func saveQuestionDraft(_ draft: QuestionDraft) async {
         await cache.saveTaskQuestionDraft(draft, id: storedID)
     }
@@ -226,13 +229,16 @@ public actor TaskDetailFeed {
         }
         guard !Task.isCancelled, !isClosed, current == generation else { return }
         stopSlowTimer()
+        let changed = fetched != task
         task = fetched
         load = .ready
         problem = nil
         isOffline = false
         publish()
+        guard changed || !hasSaved else { return }
+        hasSaved = true
         let id = fetched.task.id
-        await cache.saveTask(fetched, id: id)
+        await cache.saveTask(fetched, id: id, askedID: taskID)
         if let draft = await cache.taskQuestionDraft(id), draft.roundKey != fetched.questionRound?.roundKey {
             await cache.saveTaskQuestionDraft(nil, id: id)
         }

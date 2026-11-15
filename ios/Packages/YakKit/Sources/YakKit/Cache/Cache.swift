@@ -51,9 +51,6 @@ public actor Cache {
         self.clock = clock
     }
 
-    /// The current time from the cache's clock, for a feature's own index.
-    func clockNow() -> Date { clock.now() }
-
     // MARK: Paths
 
     private var indexPath: String { "\(root)/index.json" }

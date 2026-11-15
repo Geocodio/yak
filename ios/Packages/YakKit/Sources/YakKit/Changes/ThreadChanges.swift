@@ -62,6 +62,8 @@ public actor ThreadChanges {
     private var settleTask: Task<Void, Never>?
     private var diffSlowTask: Task<Void, Never>?
     private var lastSeenDiffSequence: Int?
+    /// True once the end of the current turn has caused a reload, so a lagging server cannot cause another.
+    private var hasReloadedForTurnEnd = false
     private var hasOpened = false
     /// The file to return to when the first list arrives without a cached copy.
     private var pendingRestore: DiffFileKey?
@@ -80,10 +82,14 @@ public actor ThreadChanges {
         broadcast.stream()
     }
 
-    /// Shows the cached list and marks at once, then asks for the diff. Repeating it changes nothing.
-    public func open(restoring key: DiffFileKey?) async {
+    /// Shows the cached list and marks at once, then asks for the diff. Repeating it changes nothing. `baseline` is the
+    /// engine's current snapshot: a diff update after it reloads, even one that lands before the first `threadChanged`.
+    public func open(restoring key: DiffFileKey?, baseline: ConversationSnapshot? = nil) async {
         guard !hasOpened, !isClosed else { return }
         hasOpened = true
+        if let sequence = baseline?.lastDiffUpdateSequence {
+            lastSeenDiffSequence = max(sequence, lastSeenDiffSequence ?? sequence)
+        }
         snapshot.marks = await cache.viewedMarks(thread: threadID)
         if let cached = await cache.diff(thread: threadID) {
             snapshot.diff = cached
@@ -157,7 +163,7 @@ public actor ThreadChanges {
     }
 
     /// From the thread's snapshot: reloads when `lastDiffUpdateSequence` moved, and when a turn ends while the diff
-    /// says `isTurnRunning`. The first sequence seen is the value at open and is the baseline.
+    /// says `isTurnRunning`, once per turn. Without a `baseline` at open, the first sequence seen is the baseline.
     public func threadChanged(_ conversation: ConversationSnapshot) async {
         guard !isClosed else { return }
         var needsReload = false
@@ -165,7 +171,12 @@ public actor ThreadChanges {
             if let seen = lastSeenDiffSequence, sequence > seen { needsReload = true }
             lastSeenDiffSequence = max(sequence, lastSeenDiffSequence ?? sequence)
         }
-        if snapshot.diff?.isTurnRunning == true, conversation.turn?.state.isActive == false {
+        if conversation.turn?.state.isActive == true {
+            hasReloadedForTurnEnd = false
+        } else if conversation.turn?.state.isActive == false, snapshot.diff?.isTurnRunning == true,
+            !hasReloadedForTurnEnd
+        {
+            hasReloadedForTurnEnd = true
             needsReload = true
         }
         if needsReload { scheduleSettledReload() }
@@ -407,6 +418,8 @@ public actor ThreadChanges {
             return
         }
         notFoundKeys.insert(file.key)
+        slowTasks[file.key]?.cancel()
+        slowTasks[file.key] = nil
         _ = requestReload()
     }
 

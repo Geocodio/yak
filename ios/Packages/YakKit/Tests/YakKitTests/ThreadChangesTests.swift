@@ -234,6 +234,51 @@ private func settle(_ rig: Rig) async {
     #expect(await rig.transport.requests(on: diffRoute).count == 2)
 }
 
+@Test func aDiffUpdateBetweenOpenAndTheFirstSnapshotIsNotLost() async throws {
+    let rig = try await makeRig()
+    await rig.changes.open(restoring: nil, baseline: changed(sequence: 7))
+    await rig.changes.threadChanged(changed(sequence: 8))
+    await settle(rig)
+    #expect(await rig.transport.requests(on: diffRoute).count == 2)
+}
+
+@Test func aTurnEndReloadsOnceEvenWhenTheDiffStillSaysRunning() async throws {
+    let rig = try await makeRig()
+    let running = try Scenarios.data("scenario-thread-diff", setting: ["diff", "isTurnRunning"], toJSON: "true")
+    await rig.transport.on(diffRoute, .json(200, String(decoding: running, as: UTF8.self)))
+    await rig.changes.open(restoring: nil)
+    let ended = TurnChange(turnId: LenientID("t1"), state: .completed)
+    await rig.changes.threadChanged(ConversationSnapshot(turn: ended))
+    await settle(rig)
+    await rig.changes.threadChanged(ConversationSnapshot(turn: ended))
+    await rig.clock.advance(by: ThreadEngine.refreshSettle)
+    for _ in 0..<200 { await Task.yield() }
+    #expect(await rig.transport.requests(on: diffRoute).count == 2)
+    // The next turn that ends reloads again.
+    let next = TurnChange(turnId: LenientID("t2"), state: .running)
+    await rig.changes.threadChanged(ConversationSnapshot(turn: next))
+    await rig.changes.threadChanged(ConversationSnapshot(turn: ended))
+    await settle(rig)
+    #expect(await rig.transport.requests(on: diffRoute).count == 3)
+}
+
+@Test func aFileWaitingForTheReloadDoesNotTurnSlow() async throws {
+    let rig = try await makeRig()
+    await rig.transport.on(fileRoute(501), .json(404, #"{"error":"not_found","message":"Not found."}"#))
+    await rig.transport.hold(fileRoute(501))
+    let opening = Task { await rig.changes.open(restoring: uploadKey) }
+    await rig.transport.waitForRequests(1, on: fileRoute(501))
+    await rig.transport.hold(diffRoute)
+    await rig.transport.release(fileRoute(501))
+    await rig.transport.waitForRequests(2, on: diffRoute)
+    await rig.clock.advance(by: ThreadEngine.slowAfter)
+    for _ in 0..<200 { await Task.yield() }
+    let snapshot = try await recorder(rig).next { _ in true }
+    #expect(snapshot.pages[uploadKey] != .slow)
+    await rig.transport.release(diffRoute)
+    await opening.value
+}
+
 @Test func offlineKeepsTheListAndMarksUnloadedFiles() async throws {
     let rig = try await makeRig()
     await rig.transport.on(fileRoute(501), .failure(.notConnectedToInternet))
