@@ -198,9 +198,10 @@ enum Scenario: String, CaseIterable, Sendable {
     static let slowDelay = Duration.seconds(10)
     static let slowerDelay = Duration.seconds(14)
 
-    func reply(to request: StubRequest, baseURL: String, fixtures: StubFixtures, threads: StubThreads = StubThreads())
-        -> StubReply
-    {
+    func reply(
+        to request: StubRequest, baseURL: String, fixtures: StubFixtures, threads: StubThreads = StubThreads(),
+        realtimePort: UInt16 = 0
+    ) -> StubReply {
         switch self {
         case .notYak:
             return StubReply(answer: Self.html)
@@ -217,14 +218,18 @@ enum Scenario: String, CaseIterable, Sendable {
         let route = "\(request.method) \(request.path.dropFirst(Self.apiPrefix.count))"
         var reply =
             threadReply(route: route, request: request, baseURL: baseURL, fixtures: fixtures, threads: threads)
-            ?? StubReply(answer: answer(route: route, request: request, baseURL: baseURL, fixtures: fixtures))
+            ?? StubReply(
+                answer: answer(
+                    route: route, request: request, baseURL: baseURL, fixtures: fixtures, realtimePort: realtimePort))
         if self == .slow { reply.delay = Self.slowDelay }
         if self == .slower { reply.delay = Self.slowerDelay }
         if self == .serverTooOld { reply.protocolHeader = 0 }
         return reply
     }
 
-    private func answer(route: String, request: StubRequest, baseURL: String, fixtures: StubFixtures) -> StubAnswer {
+    private func answer(
+        route: String, request: StubRequest, baseURL: String, fixtures: StubFixtures, realtimePort: UInt16
+    ) -> StubAnswer {
         func json(_ name: String, edit: (inout [String: Any]) -> Void = { _ in }) -> StubAnswer {
             .reply(
                 status: 200, contentType: "application/json",
@@ -250,7 +255,13 @@ enum Scenario: String, CaseIterable, Sendable {
                 return Self.error(
                     426, "protocol_too_old", "Update the app.",
                     details: ["min_protocol": 99, "current_protocol": 99, "client_protocol": 1])
-            default: return json("me")
+            default:
+                return json("me") {
+                    guard realtimePort != 0 else { return }
+                    $0["realtime"] = [
+                        "host": "127.0.0.1", "port": Int(realtimePort), "scheme": "http", "key": "stub-key",
+                    ]
+                }
             }
         case "POST device/pair":
             switch self {

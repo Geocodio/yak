@@ -93,7 +93,7 @@ private func json(_ object: Any, status: Int = 200) -> StubAnswer {
 private let noContent = StubAnswer.reply(status: 204, contentType: "application/json", body: Data())
 
 extension Scenario {
-    private var playsLive: Bool { self == .oneThreadWorking }
+    var playsLive: Bool { self == .oneThreadWorking }
 
     /// The data file of the scenario, or the server's own fixture in the `server-fixtures` scenario.
     private func data(_ name: String, _ fixtures: StubFixtures, _ baseURL: String) -> [String: Any] {
@@ -195,6 +195,17 @@ extension Scenario {
             }
             let type = broadcast["type"] as? String
             return type == "delta" || type == "stream.reset" ? nil : broadcast
+        }
+    }
+
+    /// The items the socket plays for a thread, in order, each with its sequence and its JSON text.
+    func broadcasts(_ id: String, _ fixtures: StubFixtures, _ baseURL: String) -> [(sequence: Int, json: String)] {
+        let source = data("events/simple-turn", fixtures, baseURL)
+        return (source["broadcasts"] as? [[String: Any]] ?? []).compactMap { item in
+            guard let sequence = item["sequence"] as? Int,
+                let data = try? JSONSerialization.data(withJSONObject: item, options: [.sortedKeys])
+            else { return nil }
+            return (sequence, String(decoding: data, as: UTF8.self))
         }
     }
 
