@@ -8,6 +8,7 @@ use App\Models\ThreadDiff;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\PullRequests\PullRequestOpening;
 use Illuminate\Support\Facades\Queue;
 
 function openChangesTab(Thread $thread)
@@ -111,5 +112,22 @@ test('a pull request held for a co-owner shows the wait instead of the button', 
     visit(route('threads.show', $thread))
         ->assertSeeIn('[data-testid="pull-request-held"]', 'Waiting for a co-owner')
         ->assertMissing('[data-testid="open-pull-request"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a failed opening frees the button and says why, even after the page reloads its props mid-request', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = Thread::factory()->create();
+
+    $page = openChangesTab($thread)
+        ->click('[data-testid="open-pull-request"]')
+        ->assertSeeIn('[data-testid="open-pull-request"]', 'Opening PR…');
+
+    $task = YakTask::query()->where('thread_id', $thread->id)->firstOrFail();
+    app(PullRequestOpening::class)->finish($task, new RuntimeException('GitHub PR creation failed: Validation Failed'));
+
+    $page->wait(8)
+        ->assertSeeIn('[data-testid="open-pull-request"]', 'Open PR')
+        ->assertSee('GitHub said: Validation Failed')
         ->assertNoJavaScriptErrors();
 });

@@ -1,7 +1,7 @@
 import { router } from '@inertiajs/react';
 import { Button, Menu, toast } from '@geocodio/console-ui';
 import { ChevronDown, GitPullRequest, Video } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PrivatePublishGate } from '@/components/threads/share/PrivatePublishGate';
 import { store as storeMessage } from '@/routes/threads/messages';
 import { store } from '@/routes/threads/pull-request';
@@ -28,6 +28,7 @@ export function requestPullRequest(threadId: string, acknowledgePrivate: boolean
     router.post(store.url(threadId), acknowledgePrivate ? { acknowledged_private_publish: true } : {}, {
         preserveScroll: true,
         onError: () => toast.error('Could not open the pull request', { description: 'Yak could not start it. Try again in a moment.' }),
+        onCancel: onFinish,
         onFinish,
     });
 }
@@ -43,6 +44,12 @@ const chevronClass = 'h-8 w-8 shrink-0 justify-center rounded-l-none rounded-r-[
 export function OpenPullRequestButton({ thread, publishWarning, variant = 'primary', className, isRecording = false }: { thread: ThreadData; publishWarning: boolean; variant?: 'primary' | 'secondary'; className?: string; isRecording?: boolean }) {
     const [processing, setProcessing] = useState(false);
     const isOpening = processing || thread.pullRequestOpening?.state === 'opening';
+    const openingKey = `${thread.pullRequestOpening?.state ?? 'none'}:${thread.pullRequestOpening?.at ?? ''}`;
+
+    // The request's own visit can be cut short by a live reload, so the server's opening state takes over as soon as it changes.
+    useEffect(() => {
+        setProcessing(false);
+    }, [openingKey]);
 
     const submit = () => {
         setProcessing(true);
