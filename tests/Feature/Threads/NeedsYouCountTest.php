@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\ThreadStatus;
 use App\Models\CoOwnerRequest;
+use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\NeedsYouCount;
@@ -75,4 +77,27 @@ it('ignores a decided co-owner request', function () {
     CoOwnerRequest::factory()->create(['asked_user_ids' => [$user->id], 'status' => CoOwnerRequestStatus::Approved]);
 
     expect(NeedsYouTasks::for($user))->toBe([]);
+});
+
+it('counts every task item without the list cap', function () {
+    $user = User::factory()->create();
+    foreach (range(1, 55) as $number) {
+        needyTask($user, "Question {$number}");
+    }
+
+    expect(NeedsYouCount::for($user, 0))->toBe(55)->and(NeedsYouTasks::for($user))->toHaveCount(50);
+});
+
+it('labels a question in a closed private thread the signed-in person cannot see, and flags it private', function () {
+    $user = User::factory()->create();
+    $other = User::factory()->create();
+    $thread = Thread::factory()->private($user)->create(['status' => ThreadStatus::Closed]);
+    needyTask($user, 'Closed private question', $thread);
+    needyTask($user, 'Plain question');
+    $this->actingAs($other);
+
+    $items = collect(NeedsYouTasks::for($user))->keyBy('title');
+
+    expect($items['Closed private question'])->toMatchArray(['needsYouReason' => 'question', 'isPrivate' => true])
+        ->and($items['Plain question']['isPrivate'])->toBeFalse();
 });

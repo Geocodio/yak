@@ -15,6 +15,6 @@ class NeedsYouCount
     {
         $threads = $mineThreadCount ?? ThreadList::for($user, ThreadListFilter::Mine)['needsYouCount'];
 
-        return $threads + count(NeedsYouTasks::for($user));
+        return $threads + NeedsYouTasks::count($user);
     }
 }

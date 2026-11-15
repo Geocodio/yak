@@ -2,6 +2,7 @@
     "hasAnyThreads": true,
     "needsYou": [
         {
+            "isPrivate": false,
             "lastActivityAt": "2026-11-15T12:00:00+00:00",
             "needsYouLabel": "Asked you a question",
             "needsYouReason": "question",
