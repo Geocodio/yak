@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources;
 
-use App\Http\Controllers\Threads\TerminalSessionController;
 use App\Models\Device;
 use App\Models\User;
+use App\Services\Ssh\TerminalSessions;
 use App\Services\Threads\NeedsYouCount;
 
 /**
@@ -51,7 +51,7 @@ final class AppMeData
             ],
             'needsYouCount' => NeedsYouCount::for($user),
             'realtime' => self::realtime(),
-            'terminal' => ['wsUrl' => TerminalSessionController::socketUrl()],
+            'terminal' => ['wsUrl' => TerminalSessions::socketUrl()],
             'attachments' => [
                 'maxFiles' => (int) config('yak.attachments.max_files'),
                 'maxFileBytes' => (int) config('yak.attachments.max_file_kb') * 1024,

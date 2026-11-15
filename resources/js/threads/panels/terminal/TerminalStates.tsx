@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CommandBlock } from '@/components/threads/teleport/CommandBlock';
 import type { SharedProps } from '@/types/shared';
 import type { TeleportData, ThreadData } from '@/types/threads';
-import { WAIT_LIMIT_MS, type TerminalLimit, type TerminalPhase, type TerminalSessionState } from './useTerminalSession';
+import { RESTORE_WAIT_LIMIT_MS, WAIT_LIMIT_MS, type TerminalLimit, type TerminalPhase, type TerminalSessionState } from './useTerminalSession';
 
 function Centered({ testId, title, children }: { testId: string; title: string; children?: ReactNode }) {
     return (
@@ -125,10 +125,10 @@ function secondsLabel(milliseconds: number): string {
     return `${(milliseconds / 1000).toFixed(1)}s`;
 }
 
-function clockLabel(milliseconds: number): string {
+function clockLabel(milliseconds: number, limitMilliseconds: number): string {
     const total = Math.floor(milliseconds / 1000);
 
-    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')} of ${Math.floor(WAIT_LIMIT_MS / 60000)}:00`;
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')} of ${Math.floor(limitMilliseconds / 60000)}:00`;
 }
 
 const LIMIT_COPY: Record<TerminalLimit, string> = {
@@ -141,13 +141,14 @@ type WaitProps = {
     state: 'connecting' | 'waiting';
     phase: TerminalPhase;
     limit: TerminalLimit | null;
+    restoring: boolean;
     personAwakeCap: number;
     sandboxState: ThreadData['sandboxState'];
     onReconnect: () => void;
 };
 
 /** The wait before the first bytes: three steps backed by the session request, the socket and the shell output. */
-function WaitingState({ state, phase, limit, personAwakeCap, sandboxState, onReconnect }: WaitProps) {
+function WaitingState({ state, phase, limit, restoring, personAwakeCap, sandboxState, onReconnect }: WaitProps) {
     const starts = useRef<Partial<Record<TerminalPhase, number>>>({});
     const [now, setNow] = useState(() => Date.now());
     starts.current[phase] ??= Date.now();
@@ -164,10 +165,11 @@ function WaitingState({ state, phase, limit, personAwakeCap, sandboxState, onRec
     const slowAfter = isCold ? SLOW_WAKE_STOPPED_SECONDS : SLOW_WAKE_PAUSED_SECONDS;
     const sandboxMilliseconds = now - (starts.current.sandbox ?? now);
     const isSlow = !isWaitingForSlot && phase === 'sandbox' && isWaking && sandboxMilliseconds >= slowAfter * 1000;
+    const waitLimit = restoring ? RESTORE_WAIT_LIMIT_MS : WAIT_LIMIT_MS;
     const activeIndex = STEPS.findIndex((step) => step.phase === phase);
 
     const activeText: Record<TerminalPhase, string> = {
-        sandbox: isWaitingForSlot ? 'waiting for a free slot' : isSlow ? 'still waking' : isCold ? 'starting from a full stop' : isWaking ? 'waking' : 'checking',
+        sandbox: restoring ? 'being restored' : isWaitingForSlot ? 'waiting for a free slot' : isSlow ? 'still waking' : isCold ? 'starting from a full stop' : isWaking ? 'waking' : 'checking',
         link: 'opening a secure connection',
         shell: 'starting in /workspace',
     };
@@ -179,7 +181,7 @@ function WaitingState({ state, phase, limit, personAwakeCap, sandboxState, onRec
         const text = status === 'active' ? activeText[step.phase] : status === 'done' ? (index === 0 ? 'awake' : 'connected') : step.todo;
         let seconds: string | undefined;
         if (begun !== undefined && status !== 'todo') {
-            seconds = isWaitingForSlot && status === 'active' ? clockLabel(now - begun) : secondsLabel((next ?? now) - begun);
+            seconds = isWaitingForSlot && status === 'active' ? clockLabel(now - begun, waitLimit) : secondsLabel((next ?? now) - begun);
         }
 
         return <StepRow key={step.phase} status={status} name={step.name} text={text} seconds={seconds} slow={isSlow && status === 'active'} />;
@@ -190,15 +192,15 @@ function WaitingState({ state, phase, limit, personAwakeCap, sandboxState, onRec
     return (
         <Surface moving>
             <div aria-live="polite" data-testid={isWaitingForSlot ? 'terminal-waiting' : 'terminal-connecting'}>
-                <p className="sr-only">{isWaitingForSlot ? 'Waiting for a free sandbox' : title}</p>
+                <p className="sr-only">{restoring ? 'Restoring the sandbox' : isWaitingForSlot ? 'Waiting for a free sandbox' : title}</p>
                 {rows}
                 {isWaitingForSlot && (
                     <div className="ml-[11ch] mt-[7px] h-0.5 w-[min(28ch,60%)] overflow-hidden rounded-sm bg-hair" aria-hidden="true">
-                        <div className="h-full bg-accent" style={{ width: `${Math.min(100, ((now - (starts.current.sandbox ?? now)) / WAIT_LIMIT_MS) * 100)}%` }} />
+                        <div className="h-full bg-accent" style={{ width: `${Math.min(100, ((now - (starts.current.sandbox ?? now)) / waitLimit) * 100)}%` }} />
                     </div>
                 )}
             </div>
-            {isWaitingForSlot && limit !== null && (
+            {isWaitingForSlot && !restoring && limit !== null && (
                 <div className="activity-rise mt-[18px] max-w-[62ch] rounded-card bg-warn-soft px-3.5 py-3 font-sans" data-testid="terminal-limit">
                     <p className="flex items-center gap-[7px] text-[13.5px] font-medium text-body">
                         <span className="size-2 shrink-0 rounded-pill bg-warn" aria-hidden="true" />
@@ -227,6 +229,7 @@ type Props = {
     state: Exclude<TerminalSessionState, 'connected' | 'idle' | 'lost'>;
     phase: TerminalPhase;
     limit: TerminalLimit | null;
+    restoring: boolean;
     reason: string | null;
     sandboxState: ThreadData['sandboxState'];
     personAwakeCap: number;
@@ -234,9 +237,9 @@ type Props = {
 };
 
 /** Overlay for every session state except a live shell. */
-export function SessionState({ state, phase, limit, reason, sandboxState, personAwakeCap, onReconnect }: Props) {
+export function SessionState({ state, phase, limit, restoring, reason, sandboxState, personAwakeCap, onReconnect }: Props) {
     if (state === 'connecting' || state === 'waiting') {
-        return <WaitingState state={state} phase={phase} limit={limit} personAwakeCap={personAwakeCap} sandboxState={sandboxState} onReconnect={onReconnect} />;
+        return <WaitingState state={state} phase={phase} limit={limit} restoring={restoring} personAwakeCap={personAwakeCap} sandboxState={sandboxState} onReconnect={onReconnect} />;
     }
 
     const failedIndex = STEPS.findIndex((step) => step.phase === phase);

@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers\Threads;
 
+use App\DataTransferObjects\TerminalSessionResult;
 use App\Http\Controllers\Controller;
 use App\Models\Thread;
 use App\Services\Ssh\GitHubKeyDirectory;
-use App\Services\Ssh\SshAccess;
-use App\Services\Ssh\TerminalTokens;
+use App\Services\Ssh\TerminalSessions;
 use App\Services\Threads\SandboxCapacity;
 use App\Services\Threads\ThreadAccess;
-use App\Services\Threads\ThreadSandbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,9 +31,7 @@ class TerminalSessionController extends Controller
         Request $request,
         string $thread,
         ThreadAccess $threadAccess,
-        SshAccess $access,
-        ThreadSandbox $sandbox,
-        TerminalTokens $tokens,
+        TerminalSessions $sessions,
         GitHubKeyDirectory $github,
         SandboxCapacity $capacity,
     ): JsonResponse {
@@ -45,52 +42,17 @@ class TerminalSessionController extends Controller
 
         $origin = (string) $request->headers->get('Origin');
 
-        if (! in_array($origin, $this->allowedOrigins(), true)) {
-            return response()->json(['error' => 'origin_not_allowed'], 403);
+        if (in_array($origin, $sessions->allowedOrigins(), true)) {
+            $github->refresh($user);
         }
 
-        $denial = $access->denial($user, $thread);
+        $result = $sessions->open($user, $thread, $origin);
 
-        if ($denial !== null) {
-            return response()->json(['error' => $denial], self::REFUSALS[$denial] ?? 403);
-        }
-
-        $github->refresh($user);
-
-        if (! $sandbox->ensureAwake($thread)->ready) {
-            return response()->json(['state' => 'waiting', 'limit' => $capacity->needsEviction($thread)?->value], 202);
-        }
-
-        $token = $tokens->issue($user, $thread, $origin);
-
-        return response()->json([
-            'url' => self::socketUrl() . '?token=' . $token,
-            'token' => $token,
-            'expires_at' => now()->addSeconds((int) config('yak.ssh.terminal_token_ttl'))->toIso8601String(),
-        ]);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function allowedOrigins(): array
-    {
-        $parts = parse_url((string) config('app.url'));
-        $appOrigin = isset($parts['scheme'], $parts['host'])
-            ? $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '')
-            : null;
-
-        return array_values(array_filter([...(array) config('yak.ssh.terminal_allowed_origins'), $appOrigin]));
-    }
-
-    public static function socketUrl(): string
-    {
-        $configured = config('yak.ssh.terminal_ws_url');
-
-        if (is_string($configured) && $configured !== '') {
-            return $configured;
-        }
-
-        return preg_replace('/^http/', 'ws', rtrim((string) config('app.url'), '/')) . '/terminal/ws';
+        return match ($result->outcome) {
+            TerminalSessionResult::READY => response()->json(['url' => $result->url, 'token' => $result->token, 'expires_at' => $result->expiresAt]),
+            TerminalSessionResult::REFUSED => response()->json(['error' => $result->refusal], $result->refusal === 'origin_not_allowed' ? 403 : (self::REFUSALS[(string) $result->refusal] ?? 403)),
+            TerminalSessionResult::WAITING => response()->json(['state' => 'waiting', 'limit' => $result->limit, 'restoring' => $result->restoring], 202),
+            default => response()->json(['state' => 'waiting', 'limit' => $capacity->needsEviction($thread)?->value, 'restoring' => false], 202),
+        };
     }
 }

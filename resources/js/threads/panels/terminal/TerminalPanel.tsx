@@ -26,7 +26,7 @@ type SessionProps = {
 /** One shell: its own token, socket and xterm. Inactive tabs stay mounted so their shells keep running. */
 function TerminalSessionBody({ threadId, sandboxState, personAwakeCap, active, clearToken, onState }: SessionProps) {
     const session = useTerminalSession(threadId);
-    const { state, phase, limit, reason, connect, send, resize, onData } = session;
+    const { state, phase, limit, restoring, reason, connect, send, resize, onData } = session;
     const controls = useRef<TerminalControls | null>(null);
     const [ctrlArmed, setCtrlArmed] = useState(false);
     const ctrlRef = useRef(false);
@@ -79,7 +79,7 @@ function TerminalSessionBody({ threadId, sandboxState, personAwakeCap, active, c
                 </Suspense>
                 {state !== 'connected' && state !== 'idle' && state !== 'lost' && (
                     <div className="absolute inset-0 bg-sidebar">
-                        <SessionState state={state} phase={phase} limit={limit} reason={reason} sandboxState={sandboxState} personAwakeCap={personAwakeCap} onReconnect={connect} />
+                        <SessionState state={state} phase={phase} limit={limit} restoring={restoring} reason={reason} sandboxState={sandboxState} personAwakeCap={personAwakeCap} onReconnect={connect} />
                     </div>
                 )}
             </div>

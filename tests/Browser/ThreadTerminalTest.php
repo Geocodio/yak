@@ -292,3 +292,31 @@ JS);
     $page->assertSeeIn('[data-testid="terminal-waiting"]', 'waiting for a free slot');
     $page->assertNoJavaScriptErrors();
 });
+
+test('a restore is shown as restoring, not as a slot wait', function () {
+    $page = visit(route('threads.show', terminalRunningThread()));
+    installTerminalSocketStub($page);
+    $page->script(<<<'JS'
+(() => {
+    const realFetch = window.fetch;
+    const realNow = Date.now;
+    window.fetch = (input, init) => {
+        if (!String(input).includes('/terminal-sessions')) {
+            return realFetch(input, init);
+        }
+        window.__restoreCalls = (window.__restoreCalls ?? 0) + 1;
+        if (window.__restoreCalls > 1) {
+            Date.now = () => realNow() + 130000;
+        }
+
+        return Promise.resolve(new Response(JSON.stringify({ state: 'waiting', limit: null, restoring: true }), { status: 202, headers: { 'Content-Type': 'application/json' } }));
+    };
+})();
+JS);
+    openTerminalTab($page);
+    waitForTerminal($page, statusIs('waiting'));
+
+    $page->assertSeeIn('[data-testid="terminal-waiting"]', 'being restored');
+    $page->assertDontSee('No sandbox slot became free');
+    $page->assertNoJavaScriptErrors();
+});
