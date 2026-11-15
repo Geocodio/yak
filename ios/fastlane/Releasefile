@@ -114,6 +114,7 @@ platform :ios do
       ENV["YAK_CONFIG_FROM_ENVIRONMENT"] = "1"
       release_timed("Generating the project") { generate }
       api_key = release_connect(key_path)
+      groups = release_upload_groups(bundle_id, team_group)
 
       latest = release_timed("Reading TestFlight's latest build number") do
         release_apple_call("Reading TestFlight's latest build number") do
@@ -148,7 +149,6 @@ platform :ios do
 
       release_upload_symbols
       notes = release_notes_text(options[:notes])
-      groups = release_upload_groups(bundle_id, team_group)
 
       release_timed("Uploading and waiting for TestFlight to process the build (at most 30 minutes)") do
         upload_to_testflight(
@@ -156,7 +156,7 @@ platform :ios do
           ipa: archive,
           app_identifier: bundle_id,
           changelog: notes,
-          groups: groups,
+          **ReleaseSupport.upload_group_options(groups),
           distribute_external: false,
           notify_external_testers: false,
           wait_processing_timeout_duration: PROCESSING_TIMEOUT_SECONDS

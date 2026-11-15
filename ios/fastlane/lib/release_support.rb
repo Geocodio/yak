@@ -124,6 +124,12 @@ module ReleaseSupport
     internal && all_builds ? [] : [name]
   end
 
+  # Group options for the TestFlight upload. An empty list passes nil, because pilot treats [] as "groups
+  # given". Beta App Review is for external testers only, so it is never requested.
+  def self.upload_group_options(groups)
+    { groups: groups.empty? ? nil : groups, submit_beta_review: false }
+  end
+
   # xcodebuild arguments that read the key id and issuer id from the environment, so the build log's
   # command line never holds them.
   def self.signing_arguments

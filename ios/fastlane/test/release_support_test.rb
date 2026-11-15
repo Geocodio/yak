@@ -216,6 +216,14 @@ class ReleaseSupportTest < Minitest::Test
     assert_equal ["Example Yak"], ReleaseSupport.upload_groups("Example Yak", internal: nil, all_builds: nil)
   end
 
+  def test_upload_group_options_pass_no_groups_and_skip_beta_review_for_an_empty_list
+    assert_equal({ groups: nil, submit_beta_review: false }, ReleaseSupport.upload_group_options([]))
+  end
+
+  def test_upload_group_options_name_the_groups_and_skip_beta_review
+    assert_equal({ groups: ["Example Yak"], submit_beta_review: false }, ReleaseSupport.upload_group_options(["Example Yak"]))
+  end
+
   def test_signing_arguments_reference_the_environment_and_hold_no_value
     text = ReleaseSupport.signing_arguments
     assert_includes text, '-authenticationKeyID "$ASC_KEY_ID"'
