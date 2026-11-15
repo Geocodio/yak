@@ -20,7 +20,10 @@ release_extension_targets() {
 # release_scan <release-scan.pl arguments>: the file list arrives on stdin, one path per line, and is
 # passed NUL-separated so a path with a space stays one argument.
 release_scan() {
-    tr '\n' '\0' | xargs -0 perl scripts/release-scan.pl "$@"
+    tr '\n' '\0' | xargs -0 perl scripts/release-scan.pl "$@" && return 0
+    # The caller reads stdout inside $(...), so a scanner that died must leave a finding there too.
+    [ "$1" = tokens ] || echo "release-scan.pl failed (see the error above), so this check did not run"
+    return 1
 }
 
 release_report() {

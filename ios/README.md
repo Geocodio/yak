@@ -43,7 +43,7 @@ Each company builds and signs its own app. You do these steps once, in this orde
 7. Run bootstrap three times:
    - `bundle exec fastlane bootstrap dry_run:true` only reads and prints what it would do. Export `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_PATH` (the `.p8` file) and the `YAK_*` values from step 5 first. The lane names every missing value.
    - `bundle exec fastlane bootstrap` registers the three identifiers (`<id>`, `<id>.widgets`, `<id>.share`), enables their capabilities, creates the tester group and adds the testers.
-   - Run it once more. Every row should read "already present".
+   - Run it once more. Every row should read "already present" except the app group and Broadcast rows, which always read "check by hand".
 8. Do each row that bootstrap marks "check by hand" or "needs a person" in the developer portal. Likely:
    - Register the app group and assign it to all three identifiers (the API cannot).
    - Turn on Broadcast Capability under Push Notifications for `<id>`.
@@ -79,9 +79,9 @@ Each company builds and signs its own app. You do these steps once, in this orde
 - The build number is the workflow's run number (`412`, and `412.2` on a re-run). The lane refuses when that is not above TestFlight's latest build. After you rename the workflow the run numbers restart; set `YAK_BUILD_NUMBER_OFFSET` high enough to stay above the last build.
 - TestFlight builds expire after 90 days. On the 1st of every other month the `refresh` lane rebuilds the last released tag, so a build is always available.
 - GitHub turns off scheduled workflows in a public repository after 60 days without repository activity. A quiet fork can lose the refresh this way. Whether a tag pushed by the workflow's own `GITHUB_TOKEN` counts as activity is not stated in GitHub's documentation, so do not rely on it; a merge to `main` is the sure way. To check, open the Actions tab: a turned-off workflow shows as disabled. Turn it back on with Actions, "iOS release", "Enable workflow", and do the same for "iOS nightly". A manual run of `refresh` covers a missed one.
-- `bundle exec fastlane screenshots only:"Class/test"` runs the named walkthrough screens in light and dark and writes `build/screenshots/pr/` with a `body.md`. Attach them to a pull request from that folder with `gh pr edit <number> --body-file body.md --attach './light-name.png#Alt text'`.
-- `bundle exec fastlane sweep` runs the whole walkthrough on every device, appearance and orientation and writes a contact sheet at `build/screenshots/sweep/index.html`.
-- Crash reporting is compiled in only when `YAK_SENTRY_DSN` is set. It collects crashes, app hangs and watchdog terminations. It never sends messages, thread titles, tokens, breadcrumbs, screenshots or view hierarchies, and the app says so in Settings.
+- Coming with the walkthrough task (not on this branch yet): `bundle exec fastlane screenshots only:"Class/test"` runs the named walkthrough screens in light and dark and writes `build/screenshots/pr/` with a `body.md`. Attach them to a pull request from that folder with `gh pr edit <number> --body-file body.md --attach './light-name.png#Alt text'`.
+- Coming with the walkthrough task: `bundle exec fastlane sweep` runs the whole walkthrough on every device, appearance and orientation and writes a contact sheet at `build/screenshots/sweep/index.html`.
+- Coming with the crash reporting task (the Settings footnote and `project-sentry.yml` do not exist yet): crash reporting is compiled in only when `YAK_SENTRY_DSN` is set. It collects crashes, app hangs and watchdog terminations. It never sends messages, thread titles, tokens, breadcrumbs, screenshots or view hierarchies, and the app says so in Settings.
 - Dependabot watches GitHub Actions, the Gemfile and the app's Swift packages through `Packages/Pins`. A pull request there fails lint until the matching `exactVersion` in `project.yml` or `project-sentry.yml` changes in the same pull request; change that one line and push.
 - Before a phase's TestFlight build is called done, run the manual pass in [docs/manual-pass.md](docs/manual-pass.md).
-- Licenses: SwiftTerm (MIT), swift-markdown (Apache 2.0) and sentry-cocoa (MIT). The in-app licenses screen lists them.
+- Licenses: SwiftTerm (MIT), swift-markdown (Apache 2.0) and sentry-cocoa (MIT). The in-app licenses screen comes with the same task and does not exist yet.

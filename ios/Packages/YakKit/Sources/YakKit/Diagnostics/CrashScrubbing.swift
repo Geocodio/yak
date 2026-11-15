@@ -32,18 +32,23 @@ public enum CrashScrubbing {
         (#"\u{201C}[^\u{201D}]*(?:\u{201D}|$)"#, "\"<text>\""),
         (#"\u{2018}[^\u{2019}]*(?:\u{2019}|$)"#, "\"<text>\""),
         (#"'[^']*(?:'|$)"#, "\"<text>\""),
+        (
+            #"(?i)[A-Za-z0-9_\-]*(?:token|secret|password|passwd|key|auth)[A-Za-z0-9_\-]*\s*[:=]\s*[^\s&"',;]+"#,
+            "<secret>"
+        ),
         (#"[A-Za-z0-9_\-+/=.]{24,}"#, "<redacted>"),
         (#"\s+"#, " "),
     ]
 
-    /// Replaces URLs, bearer and Authorization values, email addresses, quoted text and long token-like runs,
+    /// Replaces URLs, bearer and Authorization values, email addresses, key=value secrets, quoted text and long token-like runs,
     /// collapses whitespace, and cuts to `maximumOutputLength` on a character boundary.
     public static func scrub(_ text: String) -> String {
         var working = boundedInput(removingInvisibleControls(text))
         for (pattern, replacement) in replacements {
             // The patterns are constants; a failure here is a programming error caught by the tests.
+            // Simple word boundaries keep `Authorization:Bearer x` from reading as one Unicode word.
             // swiftlint:disable:next force_try
-            working = working.replacing(try! Regex(pattern), with: replacement)
+            working = working.replacing(try! Regex(pattern).wordBoundaryKind(.simple), with: replacement)
         }
         working = working.trimmingCharacters(in: .whitespaces)
         return String(working.prefix(maximumOutputLength))

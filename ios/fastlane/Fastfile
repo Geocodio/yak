@@ -12,6 +12,7 @@ platform :ios do
     if ENV["YAK_CONFIG_FROM_ENVIRONMENT"] == "1"
       begin
         File.write(config, ReleaseSupport.config_text(ENV), perm: 0o600)
+        File.chmod(0o600, config)
       rescue ReleaseSupport::Refusal => refusal
         UI.user_error!(refusal.message)
       end

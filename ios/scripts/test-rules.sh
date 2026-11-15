@@ -118,6 +118,12 @@ func planted() {
 }
 EOF
 expect_pass "logging: lookalikes pass"
+for planted in 'logFailure("a \(error as NSError)")' 'logFailure("\(String(reflecting: error))")' \
+    'logFailure("\(message.description)")' 'logFailure("\(thing.debugDescription)")' 'log.error("\(message.text)")'; do
+    fresh
+    printf 'func planted() { %s }\n' "$planted" | plant Yak/Planted.swift
+    expect_fail "logging: $planted" "release: logging"
+done
 
 # trap messages
 fresh
@@ -203,6 +209,10 @@ plant Yak/Extra.xcstrings <<'EOF'
 EOF
 expect_pass "catalog: a \\u{...} escape is decoded before the lookup"
 
+fresh
+printf '{"strings": ' > "$work/ios/Yak/Support/Localizable.xcstrings"
+expect_fail "catalog: a catalog that is not valid JSON" "release: catalog"
+
 # usage strings
 fresh
 plant Yak/Support/UsesLocation.swift <<'EOF'
@@ -268,6 +278,10 @@ fresh
 valid_workflow
 sed -i.bak "s/vars.YAK_IOS_RELEASE == 'on'/vars.YAK_BUNDLE_ID != ''/" "$work/.github/workflows/ios-release.yml"
 expect_fail "workflow: another variable in the job's if" "release: workflow" "YAK_BUNDLE_ID"
+fresh
+valid_workflow
+sed -i.bak '/if: .*YAK_IOS_RELEASE/d' "$work/.github/workflows/ios-release.yml"
+expect_fail "workflow: no if on the release job" "release: workflow" "skips quietly"
 
 # extension targets: discovery, groups, override, minimum version, privacy
 planted_share() {

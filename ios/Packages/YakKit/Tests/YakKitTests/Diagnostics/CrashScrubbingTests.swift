@@ -92,11 +92,22 @@ import Testing
         arguments: [
             #"{"Authorization": "Basic dXNlcjpwYXNz"}"#, #"Authorization: "Bearer dXNlcjpwYXNz""#,
             #"'Authorization'='Token dXNlcjpwYXNz'"#, "Authorization=dXNlcjpwYXNz",
-            "authorization: Basic dXNlcjpwYXNz",
+            "authorization: Basic dXNlcjpwYXNz", "Authorization:Bearer dXNlcjpwYXNz",
+            "authorization:Basic dXNlcjpwYXNz",
         ])
     func redactsAuthorizationInEveryForm(input: String) {
         let result = CrashScrubbing.scrub(input)
         #expect(!result.contains("dXNlcjpwYXNz"), "leaked in \(result)")
+    }
+
+    @Test(
+        arguments: [
+            ("token=abc123", "<secret>"), ("password=hunter2", "<secret>"), ("api_key: x", "<secret>"),
+            ("yak.example.com/api?token=abc", "yak.example.com/api?<secret>"),
+            ("client_secret = s3cret end", "<secret> end"),
+        ])
+    func redactsKeyValuePairs(input: String, expected: String) {
+        #expect(CrashScrubbing.scrub(input) == expected)
     }
 
     @Test func removesInvisibleControlsBeforeMatching() {

@@ -86,6 +86,7 @@ when "workflow"
   puts "#{path}: cancel-in-progress must be false" unless text.match?(/cancel-in-progress:\s*false\b/)
   (document["jobs"] || {}).each do |name, job|
     condition = job.is_a?(Hash) ? job["if"].to_s : ""
+    puts "#{path}: job #{name} needs `if: vars.YAK_IOS_RELEASE == 'on'` so a fork skips quietly" unless condition.include?("vars.YAK_IOS_RELEASE == 'on'")
     condition.scan(/\bvars\.([A-Za-z0-9_]+)/).flatten.each do |variable|
       puts "#{path}: job #{name} reads vars.#{variable} in its if; only vars.YAK_IOS_RELEASE is visible there" unless variable == "YAK_IOS_RELEASE"
     end

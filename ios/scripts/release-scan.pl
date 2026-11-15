@@ -158,6 +158,9 @@ sub private_interpolation {
     $trimmed =~ s/^\s+|\s+$//g;
     return 'the error itself (use type(of: error))'
         if $trimmed =~ /^(?:error|error\.localizedDescription|String\(describing:\s*error\))$/;
+    return 'a cast of the error (use type(of: error))' if $trimmed =~ /(?<![A-Za-z0-9_])error\s+as(?![?A-Za-z0-9_])/;
+    return 'a reflected value' if $trimmed =~ /String\s*\(\s*reflecting\s*:/;
+    return "a 'description', which can hold private text" if $trimmed =~ /\.\s*(?:debugDescription|description)(?![A-Za-z0-9_])/;
     (my $code = $expression) =~ s/"(?:[^"\\]|\\.)*"/""/g;
     while ($code =~ /([A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*)/g) {
         my @chain = split /\s*\.\s*/, $1;
@@ -177,7 +180,7 @@ sub scan_logging {
     my @openings;
     while ($t =~ /(?:^|(?<=[\s.({=,]))(?:logFailure|log)\s*\(/mg) { push @openings, $+[0] - 1; }
     while ($t =~ /(?<![A-Za-z0-9_])os_log\s*\(/g) { push @openings, $+[0] - 1; }
-    while ($t =~ /(?<![A-Za-z0-9_])logger\s*\.\s*(?:$levels)\s*\(/g) { push @openings, $+[0] - 1; }
+    while ($t =~ /(?<![A-Za-z0-9_])(?:logger|log)\s*\.\s*(?:$levels)\s*\(/g) { push @openings, $+[0] - 1; }
     while ($t =~ /(?<![A-Za-z0-9_])Logger\s*\(/g) {
         my $after = skip_parens($t, $+[0] - 1, undef);
         my $resume = pos($t);

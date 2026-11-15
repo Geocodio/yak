@@ -111,7 +111,8 @@ platform :ios do
     summary = {}
 
     release_with_key do |key_path|
-      ENV["YAK_CONFIG_FROM_ENVIRONMENT"] = "1"
+      # A local run keeps the developer's own Config.xcconfig; only CI builds it from the environment.
+      ENV["YAK_CONFIG_FROM_ENVIRONMENT"] = "1" if ENV["CI"] == "true"
       release_timed("Generating the project") { generate }
       api_key = release_connect(key_path)
       groups = release_upload_groups(bundle_id, team_group)
@@ -142,6 +143,7 @@ platform :ios do
           export_team_id: ENV.fetch("YAK_TEAM_ID"),
           output_directory: RELEASE_DIRECTORY,
           output_name: "Yak",
+          buildlog_path: RELEASE_DIRECTORY,
           xcargs: "#{ReleaseSupport.signing_arguments} CURRENT_PROJECT_VERSION=#{build}",
           export_xcargs: ReleaseSupport.signing_arguments
         )
@@ -388,7 +390,7 @@ platform :ios do
     end
     tag = ReleaseSupport.last_release_tag(release_tags)
     range = tag ? "#{tag.shellescape}..HEAD" : "-n 200"
-    subjects = `git -C #{IOS_ROOT.shellescape} log --format=%s #{range} -- ios`.each_line.map(&:chomp)
+    subjects = `git -C #{IOS_ROOT.shellescape} log --format=%s #{range} -- .`.each_line.map(&:chomp)
     ReleaseSupport.release_notes(subjects, fallback: fallback)
   end
 
