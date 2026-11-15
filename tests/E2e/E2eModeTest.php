@@ -40,7 +40,7 @@ it('is never on outside testing', function (string $environment): void {
 })->with(['local', 'staging', 'production']);
 
 it('registers no e2e command without the mode', function (): void {
-    expect(array_keys(Artisan::all()))->not->toContain('yak:e2e-seed', 'yak:e2e-runner');
+    expect(array_keys(Artisan::all()))->not->toContain('yak:e2e-seed')->not->toContain('yak:e2e-runner');
 
     $before = get_class(app(SandboxManager::class));
     (new E2eServiceProvider(app()))->register();

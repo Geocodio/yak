@@ -10,6 +10,9 @@ use Illuminate\Support\ServiceProvider;
  */
 class E2eServiceProvider extends ServiceProvider
 {
+    /**
+     * Does nothing unless E2eMode::isActive(); then bindFakes().
+     */
     public function register(): void
     {
         if (! E2eMode::isActive()) {
@@ -19,6 +22,9 @@ class E2eServiceProvider extends ServiceProvider
         $this->bindFakes();
     }
 
+    /**
+     * Does nothing unless E2eMode::isActive(); then registers yak:e2e-seed and yak:e2e-runner and calls E2eGitHub::fake().
+     */
     public function boot(): void
     {
         if (! E2eMode::isActive()) {
