@@ -17,6 +17,6 @@ class ThreadController extends Controller
         // A hidden thread answers exactly like a missing one.
         abort_unless(Gate::allows('view', $thread), 404);
 
-        return Inertia::render('Threads/Show', ThreadShowData::build($thread, $request->user()));
+        return Inertia::render('Threads/Show', ThreadShowData::build($thread, $request->user() ?? abort(401)));
     }
 }

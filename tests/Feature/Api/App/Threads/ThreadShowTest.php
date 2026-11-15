@@ -3,6 +3,8 @@
 use App\DataTransferObjects\ClarificationQuestion;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadSandboxState;
+use App\Enums\TurnMessageState;
+use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadShare;
@@ -49,12 +51,14 @@ it('shows a thread after a finished turn', function () {
     $user = User::factory()->create(['name' => 'Test person']);
     $thread = Thread::factory()->create(['title' => 'Retry failed uploads', 'name' => 'retry-failed-uploads', 'repo' => 'example/api', 'created_by_user_id' => $user->id, 'event_sequence' => 12, 'sandbox_state' => ThreadSandboxState::None]);
     $task = YakTask::factory()->create(['thread_id' => $thread->id, 'status' => TaskStatus::Success, 'started_by_user_id' => $user->id]);
-    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id]);
-    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'text' => 'Retry failed uploads with backoff']);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour()]);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed, 'text' => 'Retry failed uploads with backoff']);
 
     $response = $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()
         ->assertJsonPath('question', null)
         ->assertJsonPath('latestSequence', 12)
+        ->assertJsonPath('composer.state', 'idle')
+        ->assertJsonPath('messages.0.state', 'read')
         ->assertJsonPath('messages.0.text', 'Retry failed uploads with backoff');
     ContractFixture::assertMatches('app', 'thread', $response->json(), SHOW_VOLATILE);
 });
@@ -94,8 +98,11 @@ it('answers a hidden thread exactly like a missing one', function () {
 
     $missing = $this->getJson('/api/app/v1/threads/zzzzzzzz', $headers)->assertNotFound();
     $this->getJson(appThreadPath($hidden), $headers)->assertNotFound()->assertExactJson($missing->json());
-    $this->postJson(appThreadPath($hidden, '/seen'), [], $headers)->assertNotFound();
     $this->getJson("/api/app/v1/threads/{$hidden->id}", $headers)->assertNotFound();
+
+    $missingSeen = $this->postJson('/api/app/v1/threads/zzzzzzzz/seen', [], $headers)->assertNotFound();
+    $this->postJson(appThreadPath($hidden, '/seen'), [], $headers)->assertNotFound()->assertExactJson($missingSeen->json());
+    $this->postJson("/api/app/v1/threads/{$hidden->id}/seen", [], $headers)->assertNotFound()->assertExactJson($missingSeen->json());
 });
 
 it('lets a share recipient read but not drive', function () {
@@ -106,17 +113,27 @@ it('lets a share recipient read but not drive', function () {
 
     $this->getJson(appThreadPath($thread), phoneHeadersFor($recipient))->assertOk()
         ->assertJsonPath('canDrive', false);
+    $this->postJson(appThreadPath($thread, '/seen'), [], phoneHeadersFor($recipient))->assertNoContent();
 });
 
-it('marks a thread seen once and answers 204 on a repeat', function () {
+it('marks a thread seen once, answers 204 on a repeat and clears its needs-you row', function () {
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour()]);
     $headers = phoneHeadersFor($user);
 
+    $before = $this->getJson('/api/app/v1/threads', $headers)->assertOk();
+    expect(collect($before->json('needsYou'))->pluck('id')->all())->toContain($thread->public_id)
+        ->and($before->json('needsYouCount'))->toBe(1);
+
     $this->postJson(appThreadPath($thread, '/seen'), [], $headers)->assertNoContent();
     $this->postJson(appThreadPath($thread, '/seen'), [], $headers)->assertNoContent();
 
-    expect(ThreadView::query()->where('user_id', $user->id)->where('thread_id', $thread->id)->count())->toBe(1);
+    $after = $this->getJson('/api/app/v1/threads', $headers)->assertOk();
+    expect(collect($after->json('needsYou'))->pluck('id')->all())->not->toContain($thread->public_id)
+        ->and($after->json('needsYouCount'))->toBe(0)
+        ->and(ThreadView::query()->where('user_id', $user->id)->where('thread_id', $thread->id)->count())->toBe(1);
 });
 
 it('refuses without a token, with a revoked phone and with a computer token', function () {
