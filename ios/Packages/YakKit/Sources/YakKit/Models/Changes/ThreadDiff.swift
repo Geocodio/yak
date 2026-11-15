@@ -29,14 +29,6 @@ public struct DiffFileStatus: OpenValue {
     public static let renamed = DiffFileStatus(rawValue: "renamed")
 }
 
-public struct RepositoryRole: OpenValue {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-    public static let primary = RepositoryRole(rawValue: "primary")
-    public static let changes = RepositoryRole(rawValue: "changes")
-    public static let context = RepositoryRole(rawValue: "context")
-}
-
 /// A file's identity across captures. File ids change on every capture; the repository and path do not.
 public struct DiffFileKey: Hashable, Codable, Sendable {
     public let repo: String

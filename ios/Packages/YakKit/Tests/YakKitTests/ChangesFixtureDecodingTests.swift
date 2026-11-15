@@ -3,13 +3,13 @@ import Testing
 
 @testable import YakKit
 
-/// Decodes the server's contract fixtures that the changes feature reads. A missing fixture returns early and
-/// prints "MISSING FIXTURE: <name>"; the merge gate greps the log for that line to confirm none was skipped.
+/// Decodes the server's contract fixtures that the changes feature reads. A missing fixture is recorded as an
+/// issue, so the run fails instead of passing without decoding anything.
 @Suite struct ChangesFixtureDecodingTests {
-    /// True when the fixture is on disk; otherwise prints the line the merge gate looks for.
+    /// True when the fixture is on disk; otherwise records a failure.
     private static func isPresent(_ name: String) -> Bool {
         if Fixtures.exists(name) { return true }
-        print("MISSING FIXTURE: \(name)")
+        Issue.record("The server fixture \(name) is missing, so nothing was decoded.")
         return false
     }
 
