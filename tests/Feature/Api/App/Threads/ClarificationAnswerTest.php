@@ -3,6 +3,7 @@
 use App\DataTransferObjects\ClarificationQuestion;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadShareMode;
+use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
 use App\Models\Thread;
 use App\Models\User;
@@ -49,6 +50,8 @@ it('answers the open question of the thread', function () {
     ], 'note' => null], $headers)->assertOk()->assertExactJson(['status' => 'sent']);
 
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
+    Queue::assertPushed(RunYakJob::class, 1);
+    Queue::assertNotPushed(RunFollowUpJob::class);
     $this->getJson(appThreadPath($thread), $headers)->assertOk()->assertJsonPath('question', null);
     ContractFixture::assertMatches('app', 'clarification-answers', $response->json());
 });
@@ -100,6 +103,7 @@ it('answers question_closed when the round was answered elsewhere', function () 
         ->assertJsonPath('message', 'These questions were already answered or have expired. Reload the thread to see where it stands.');
 
     Queue::assertPushed(RunYakJob::class, 1);
+    Queue::assertNotPushed(RunFollowUpJob::class);
     $this->getJson(appThreadPath($thread), $headers)->assertOk()->assertJsonPath('question', null);
 });
 
@@ -136,6 +140,7 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
     $body = ['answers' => ['on_failure' => ['choices' => ['Fail the whole batch'], 'other' => null]]];
 
     $this->postJson(answersPath($thread), $body, ['X-Yak-Protocol' => '1'])->assertUnauthorized()->assertJsonPath('error', 'unauthenticated');
+    $this->postJson('/api/app/v1/threads/zzzzzzzz/clarification-answers', $body, ['X-Yak-Protocol' => '1'])->assertUnauthorized()->assertJsonPath('error', 'unauthenticated');
 
     [$device, $headers] = phoneWithHeaders(['user_id' => $user->id]);
     $device->update(['revoked_at' => now()]);
