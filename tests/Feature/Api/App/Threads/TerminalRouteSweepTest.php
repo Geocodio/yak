@@ -7,6 +7,8 @@ use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadSharing;
 use Tests\Support\VisibilityRoutes;
 
+require_once __DIR__ . '/ThreadRouteSweepTest.php';
+
 it('never wakes or writes for a share recipient', function (string $name) {
     ['thread' => $thread, 'owner' => $owner, 'placeholders' => $placeholders] = sweepThread();
     $thread->update(['sandbox_state' => ThreadSandboxState::Paused]);
