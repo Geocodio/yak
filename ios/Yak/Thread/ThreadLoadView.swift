@@ -68,19 +68,29 @@ struct ThreadLoadView: View {
         title: LocalizedStringKey, body: LocalizedStringKey, systemImage: String, identifier: String,
         @ViewBuilder actions: () -> Actions
     ) -> some View {
-        Fitting(alignment: .center) {
-            VStack(spacing: 8) {
-                Image(systemName: systemImage).font(.largeTitle).foregroundStyle(Color.yakMuted)
-                    .accessibilityHidden(true).padding(.bottom, 4)
-                Text(title).font(.headline).multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(body).font(.subheadline).foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                actions().padding(.top, 8)
-            }
-            .padding(24).frame(maxWidth: 420).frame(maxWidth: .infinity)
-            .accessibilityElement(children: .contain).accessibilityIdentifier(identifier)
+        let actionsView = actions()
+        return Fitting(alignment: .center) {
+            messageBody(title: title, body: body, systemImage: systemImage, isCompact: false, actions: actionsView)
+        } compact: {
+            messageBody(title: title, body: body, systemImage: systemImage, isCompact: true, actions: actionsView)
         }
+        .accessibilityElement(children: .contain).accessibilityIdentifier(identifier)
+    }
+
+    private func messageBody<Actions: View>(
+        title: LocalizedStringKey, body: LocalizedStringKey, systemImage: String, isCompact: Bool,
+        actions: Actions
+    ) -> some View {
+        VStack(spacing: isCompact ? 4 : 8) {
+            Image(systemName: systemImage).font(isCompact ? .title2 : .largeTitle).foregroundStyle(Color.yakMuted)
+                .accessibilityHidden(true).padding(.bottom, isCompact ? 0 : 4)
+            Text(title).font(.headline).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(body).font(.subheadline).foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            actions.padding(.top, isCompact ? 4 : 8)
+        }
+        .padding(isCompact ? 16 : 24).frame(maxWidth: 420).frame(maxWidth: .infinity)
     }
 }
 
@@ -136,7 +146,12 @@ private struct Fitting<Full: View, Compact: View>: View {
     var body: some View {
         ScrollView {
             Group {
-                if verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize { compact } else { full }
+                if verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize {
+                    // The compact variant caps its text, so its action fits in view at the largest size.
+                    compact.dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                } else {
+                    full
+                }
             }
             .frame(maxWidth: .infinity, minHeight: areaHeight, alignment: alignment)
         }

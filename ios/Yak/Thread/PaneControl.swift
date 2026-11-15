@@ -2,27 +2,22 @@ import SwiftUI
 import YakKit
 
 /// The pane button of the bar and of the trailing strip. A tap opens the menu of panes; press, slide and release
-/// picks one in a single motion, which is how the system's menu works.
+/// picks one in a single motion, which is how the system's menu works. The menu carries the identifier `pane.menu`
+/// and the label "Thread panes"; with more than one pane the menu shows that heading too.
 struct PaneMenuButton: View {
     let panes: [PaneID]
     @Binding var focused: PaneID
 
     var body: some View {
         Menu {
-            Section {
-                Picker(selection: $focused) {
-                    ForEach(panes, id: \.self) { id in
-                        if let descriptor = PaneCatalog.descriptor(for: id) {
-                            Label(descriptor.name, systemImage: descriptor.symbol).tag(id)
-                                .accessibilityIdentifier("pane.menu.\(id.rawValue)")
-                        }
-                    }
-                } label: {
+            if panes.count > 1 {
+                Section {
+                    picker
+                } header: {
                     Text("pane.menu")
                 }
-                .pickerStyle(.inline)
-            } header: {
-                Text("pane.menu")
+            } else {
+                picker
             }
         } label: {
             HStack(spacing: 4) {
@@ -38,13 +33,23 @@ struct PaneMenuButton: View {
         }
         .tint(.primary)
         .menuOrder(.fixed)
-        .accessibilityLabel(Text(label))
-        .accessibilityIdentifier("pane.button")
+        .accessibilityLabel(Text("pane.menu"))
+        .accessibilityValue(Text(PaneCatalog.descriptor(for: focused)?.name ?? ""))
+        .accessibilityIdentifier("pane.menu")
     }
 
-    private var label: String {
-        let name = PaneCatalog.descriptor(for: focused).map { String(localized: $0.name) } ?? ""
-        return String(localized: "pane.button.label \(name)")
+    private var picker: some View {
+        Picker(selection: $focused) {
+            ForEach(panes, id: \.self) { id in
+                if let descriptor = PaneCatalog.descriptor(for: id) {
+                    Label(descriptor.name, systemImage: descriptor.symbol).tag(id)
+                        .accessibilityIdentifier("pane.menu.\(id.rawValue)")
+                }
+            }
+        } label: {
+            Text("pane.menu")
+        }
+        .pickerStyle(.inline)
     }
 }
 
@@ -131,7 +136,9 @@ struct PaneStripToolbar: ToolbarContent {
                                 .overlay(alignment: .topTrailing) {
                                     if descriptor.hasBadge(thread) { QuestionBadge().offset(x: 6, y: -3) }
                                 }
-                            Text(descriptor.name).font(.caption).foregroundStyle(.primary).lineLimit(1)
+                            // Fit: caption2 on one line passes the contrast audit and leaves room for a fifth caption ("Overview")
+                            // when five panes share the strip; a longer name must shorten, not scale.
+                            Text(descriptor.name).font(.caption2).foregroundStyle(.primary).lineLimit(1)
                         }
                     }
                     .accessibilityLabel(Text(descriptor.name))

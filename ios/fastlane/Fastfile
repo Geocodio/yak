@@ -1,3 +1,4 @@
+require "json"
 default_platform(:ios)
 
 IOS_ROOT = File.expand_path("..", __dir__)
@@ -44,7 +45,12 @@ platform :ios do
       selection = "-only-testing:YakUITests -skip-testing:YakUITests/WalkthroughTests -skip-testing:YakUITests/ThreadWalkthroughTests"
       if options[:only]
         # A bare test name searches the smoke test classes; `Class/test` names one.
-        names = options[:only].include?("/") ? [options[:only]] : %w[PairingSmokeTests ThreadSmokeTests].map { |klass| "#{klass}/#{options[:only]}" }
+        classes = %w[PairingSmokeTests ThreadSmokeTests]
+        names = if options[:only].include?("/") || classes.include?(options[:only])
+          [options[:only]]
+        else
+          classes.map { |klass| "#{klass}/#{options[:only]}" }
+        end
         selection = names.map { |name| "-only-testing:YakUITests/#{name}" }.join(" ") + " -skip-testing:YakUITests/WalkthroughTests -skip-testing:YakUITests/ThreadWalkthroughTests"
       end
       if options[:core_only]
@@ -141,5 +147,9 @@ platform :ios do
       "-retry-tests-on-failure -test-iterations 2 " \
       "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
     )
+    # A selection that matches nothing still ends in TEST SUCCEEDED, so an empty run fails here.
+    summary = JSON.parse(`xcrun xcresulttool get test-results summary --path #{result_path.shellescape} --compact`)
+    UI.user_error!("No test ran for #{selection}") if summary["totalTestCount"].to_i.zero?
+    UI.message("#{summary["totalTestCount"]} tests ran")
   end
 end
