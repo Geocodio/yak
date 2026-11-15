@@ -86,12 +86,15 @@ it('reports each other state without running anything', function (Closure $arran
 ]);
 
 it('reports a running sandbox with an empty cache as starting', function () {
+    Queue::fake();
+
     $this->getJson(previewStatusPath($this->thread), phoneHeadersFor($this->owner))->assertOk()
         ->assertJsonPath('state', 'starting_dev_server')
         ->assertJsonPath('port', null)
         ->assertJsonPath('coldStartCommand', null);
 
     expect(app(SandboxManager::class)->calls)->toBe([]);
+    Queue::assertNothingPushed();
 });
 
 it('says the add request ended without a manifest', function () {
