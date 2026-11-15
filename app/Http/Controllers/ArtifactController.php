@@ -26,10 +26,41 @@ class ArtifactController extends Controller
 
         $mimeType = $this->guessMimeType($filename);
 
+        $this->abortWhenRangeStartsPastEnd($request, $artifact->disk_path);
+
         return response()->file(
             Storage::disk('artifacts')->path($artifact->disk_path),
             ['Content-Type' => $mimeType],
         );
+    }
+
+    /**
+     * Symfony ignores a Range whose start lies past the end and answers 200
+     * with the whole file. For a plain GET, answer 416 instead. A Range that
+     * Symfony ignores anyway (If-Range present, HEAD, reversed range-spec)
+     * is left to it.
+     */
+    private function abortWhenRangeStartsPastEnd(Request $request, string $diskPath): void
+    {
+        if (! $request->isMethod('GET') || $request->headers->has('If-Range')) {
+            return;
+        }
+
+        if (! preg_match('/^bytes=(\d+)-(\d*)$/i', (string) $request->header('Range'), $matches)) {
+            return;
+        }
+
+        $start = (int) $matches[1];
+
+        if ($matches[2] !== '' && (int) $matches[2] < $start) {
+            return;
+        }
+
+        $size = Storage::disk('artifacts')->size($diskPath);
+
+        if ($start >= $size) {
+            abort(416, 'Range not satisfiable.', ['Content-Range' => "bytes */{$size}"]);
+        }
     }
 
     public function viewer(Request $request, YakTask $task, string $filename): Response
