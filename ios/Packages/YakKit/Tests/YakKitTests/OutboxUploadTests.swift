@@ -16,11 +16,15 @@ private func makeClient(_ transport: ScriptedTransport) -> APIClient {
         appVersion: "1.0", systemDescription: "Test phone")
 }
 
-private func waitUntil(_ condition: @Sendable () async -> Bool) async {
-    for _ in 0..<5_000 {
+private func waitUntil(
+    sourceLocation: SourceLocation = #_sourceLocation, _ condition: @Sendable () async -> Bool
+) async {
+    let deadline = ContinuousClock.now + .seconds(10)
+    while ContinuousClock.now < deadline {
         if await condition() { return }
         await Task.yield()
     }
+    Issue.record("waitUntil gave up: the condition was not met", sourceLocation: sourceLocation)
 }
 
 /// An outbox on a background upload link, with the files, the clock and the fake session it runs on.
@@ -58,6 +62,14 @@ private final class UploadWorld: @unchecked Sendable {
         return OutboxDraft(target: .thread(thread), text: text, attachments: try names.map { try storedAttachment($0) })
     }
 
+    /// The task is running and the ledger has saved that, so a relaunched ledger reads it back.
+    func waitForUploading(_ item: UUID) async {
+        await waitUntil {
+            if case .uploading(_, let task)? = await self.ledger.record(for: item)?.phase { return task != 0 }
+            return false
+        }
+    }
+
     func settle() async { for _ in 0..<300 { await Task.yield() } }
 
     func answer(
@@ -92,6 +104,7 @@ private final class UploadWorld: @unchecked Sendable {
         let world = UploadWorld()
         let item = try await world.outbox.enqueue(world.draft("See photo", files: ["photo.jpg"]))
         await waitUntil { world.session.started.count == 1 }
+        await world.waitForUploading(item.id)
         let body = try world.bodyText(try #require(world.session.started.first))
         #expect(body.contains(item.id.uuidString))
         #expect(await world.outbox.items().first?.state == .sending)
@@ -205,6 +218,7 @@ private final class UploadWorld: @unchecked Sendable {
         let world = UploadWorld()
         let item = try await world.outbox.enqueue(world.draft("Gone", files: ["a.jpg"]))
         await waitUntil { world.session.started.count == 1 }
+        await world.waitForUploading(item.id)
         await world.relaunch { ledger in
             await world.answer(item.id, on: ledger)
         }
@@ -337,10 +351,12 @@ private final class UploadWorld: @unchecked Sendable {
         await world.outbox.load()
         let item = try await world.outbox.enqueue(world.draft("Slow down", files: ["a.jpg"]))
         await waitUntil { world.session.started.count == 1 }
+        await world.waitForUploading(item.id)
         await world.answer(
             item.id, status: 429, body: #"{"error":"rate_limited","message":"Slow down"}"#,
             headers: ["Retry-After": "300"])
         await waitUntil { await world.outbox.items().first?.state == .waiting }
+        await world.clock.waitForSleeper(endingAt: .seconds(300))
         await world.clock.advance(by: .seconds(150))
         await world.outbox.retryFailedUploads()
         await world.settle()

@@ -70,11 +70,15 @@ private func attachmentDraft(_ rig: UploadRig, item: UUID, text: String) throws 
     )
 }
 
-private func waitUntil(_ condition: @Sendable () async -> Bool) async {
-    for _ in 0..<5_000 {
+private func waitUntil(
+    sourceLocation: SourceLocation = #_sourceLocation, _ condition: @Sendable () async -> Bool
+) async {
+    let deadline = ContinuousClock.now + .seconds(10)
+    while ContinuousClock.now < deadline {
         if await condition() { return }
         await Task.yield()
     }
+    Issue.record("waitUntil gave up: the condition was not met", sourceLocation: sourceLocation)
 }
 
 @Suite struct SessionUploadTests {
