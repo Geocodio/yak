@@ -82,6 +82,13 @@ func rejectsAWronglyTypedThreadField(name: String, path: [String], replacement: 
     }
 }
 
+@Test func newThreadOptionsDecodeWithNoRepositoriesWhenPHPWritesAnEmptyArray() throws {
+    let data = try Scenarios.data("scenario-thread-new", setting: ["picker", "defaultsByRepo"], toJSON: "[]")
+    #expect(try JSONDecoder().decode(NewThreadOptions.self, from: data).picker.defaultsByRepo.isEmpty)
+    let object = try Scenarios.data("scenario-thread-new", setting: ["picker", "defaultsByRepo"], toJSON: "{}")
+    #expect(try JSONDecoder().decode(NewThreadOptions.self, from: object).picker.defaultsByRepo.isEmpty)
+}
+
 @Test func decodesTheSmallResponses() throws {
     #expect(try decoded(ThreadCreated.self, "scenario-thread-store").id == "k7m2q9rt")
     #expect(try decoded(MessageSendResult.self, "scenario-message-queued").status == .queued)

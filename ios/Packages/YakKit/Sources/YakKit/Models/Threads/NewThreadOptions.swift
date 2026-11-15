@@ -15,6 +15,20 @@ public struct NewThreadRepository: Codable, Equatable, Sendable {
 public struct AccountPicker: Codable, Equatable, Sendable {
     public let accounts: [ClaudeAccount]
     public let defaultsByRepo: [String: RepositoryDefaults]
+
+    private enum CodingKeys: String, CodingKey { case accounts, defaultsByRepo }
+
+    /// PHP writes an empty associative array as `[]`, so an instance without repositories sends
+    /// `defaultsByRepo: []`. That reads as an empty dictionary instead of a type mismatch.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        accounts = try container.decode([ClaudeAccount].self, forKey: .accounts)
+        if let list = try? container.decode([RepositoryDefaults].self, forKey: .defaultsByRepo), list.isEmpty {
+            defaultsByRepo = [:]
+        } else {
+            defaultsByRepo = try container.decode([String: RepositoryDefaults].self, forKey: .defaultsByRepo)
+        }
+    }
 }
 
 public struct ClaudeAccount: Codable, Equatable, Sendable {
