@@ -28,6 +28,16 @@ final class ThreadActionRefused extends RuntimeException
 
     public const QUESTION_CLOSED = 'question_closed';
 
+    public const SANDBOX_DESTROYED = 'sandbox_destroyed';
+
+    public const NO_SANDBOX = 'no_sandbox';
+
+    public const ORIGIN_NOT_ALLOWED = 'origin_not_allowed';
+
+    public const SANDBOX_UNAVAILABLE = 'sandbox_unavailable';
+
+    public const FILE_CONFLICT = 'file_conflict';
+
     /**
      * @param  array<string, mixed>  $details
      */

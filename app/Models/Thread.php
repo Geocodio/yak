@@ -70,6 +70,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonImmutable|null $taken_over_at
  * @property CarbonImmutable|null $messages_paused_at
  * @property CarbonImmutable|null $queued_for_slot_at
+ * @property CarbonImmutable|null $restore_requested_at
  * @property string|null $current_step
  * @property int $stack_alert_turn_mark
  * @property int $stack_alert_hours_mark
@@ -129,6 +130,7 @@ class Thread extends Model
             'taken_over_at' => 'immutable_datetime',
             'messages_paused_at' => 'immutable_datetime',
             'queued_for_slot_at' => 'immutable_datetime',
+            'restore_requested_at' => 'immutable_datetime',
             'stack_stopped_at' => 'immutable_datetime',
             'preview_last_request_at' => 'immutable_datetime',
         ];

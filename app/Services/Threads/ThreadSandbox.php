@@ -250,6 +250,30 @@ class ThreadSandbox
         }
     }
 
+    /**
+     * Restores only while a restore is still needed, checked under the sandbox lock: a removed sandbox or a
+     * failed restore. Null when the lock is held by a removal or another wake.
+     */
+    public function restoreIfNeeded(Thread $thread): ?SandboxWake
+    {
+        $lock = Cache::lock($this->lockName($thread), self::LOCK_SECONDS);
+
+        if (! $lock->get()) {
+            return null;
+        }
+
+        try {
+            $thread->refresh();
+
+            $needed = $thread->blocked_reason === ThreadBlockReason::RestoreFailed
+                || in_array($thread->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed], true);
+
+            return $needed ? $this->restoreAwake($thread) : SandboxWake::ready();
+        } finally {
+            $lock->release();
+        }
+    }
+
     private function restoreAwake(Thread $thread): SandboxWake
     {
         $needsSlot = in_array($thread->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed, ThreadSandboxState::Stopped], true);

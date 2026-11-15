@@ -4,12 +4,14 @@ namespace App\Services\Threads;
 
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadOwnerSide;
+use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Exceptions\ThreadActionRefused;
 use App\Jobs\RetryThreadRestoreJob;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Devices\ShortLockWait;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 
 /**
@@ -21,6 +23,9 @@ class ThreadRecovery
     public const DEVICE_SENTENCE = 'Your computer is working on this thread. Hand it back to Yak before continuing.';
 
     public const CLOSED_SENTENCE = 'This thread is closed.';
+
+    /** Above the job's 900-second timeout, its release budget (20 x 30 seconds) and 300 seconds in the queue. */
+    public const RESTORE_GUARD_SECONDS = 1800;
 
     public function __construct(private readonly ThreadTurns $turns) {}
 
@@ -60,25 +65,49 @@ class ThreadRecovery
     }
 
     /**
-     * False when a restore already runs and nothing was dispatched.
+     * False when a restore already runs or is queued and nothing was dispatched. The queued record is the
+     * thread's `restore_requested_at`, set under the thread row lock, so repeated calls dispatch one job.
      *
      * @throws ThreadActionRefused
      */
     public function retryRestore(Thread $thread): bool
     {
-        if (! $thread->isOpen()) {
-            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, self::CLOSED_SENTENCE);
-        }
+        $job = ShortLockWait::threadTransaction(function () use ($thread): RetryThreadRestoreJob|bool {
+            $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($thread->id);
 
-        if ($thread->isSandboxBusy()) {
+            if (! $locked->isOpen()) {
+                throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, self::CLOSED_SENTENCE);
+            }
+
+            if ($locked->owner_side === ThreadOwnerSide::Device) {
+                throw ThreadActionRefused::because(ThreadActionRefused::THREAD_OWNED_BY_DEVICE, self::DEVICE_SENTENCE);
+            }
+
+            if ($locked->isSandboxBusy()) {
+                return false;
+            }
+
+            if ($locked->restore_requested_at !== null && $locked->restore_requested_at->greaterThan(now()->subSeconds(self::RESTORE_GUARD_SECONDS))) {
+                return false;
+            }
+
+            $needsRestore = $locked->blocked_reason === ThreadBlockReason::RestoreFailed
+                || in_array($locked->sandbox_state, [ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed], true);
+
+            if (! $needsRestore) {
+                throw ThreadActionRefused::because(ThreadActionRefused::NOTHING_TO_RESTORE, 'Nothing needs restoring.');
+            }
+
+            $locked->forceFill(['restore_requested_at' => now()->startOfSecond()])->save();
+
+            return new RetryThreadRestoreJob($locked, $locked->restore_requested_at);
+        });
+
+        if ($job === false) {
             return false;
         }
 
-        if ($thread->blocked_reason !== ThreadBlockReason::RestoreFailed) {
-            throw ThreadActionRefused::because(ThreadActionRefused::NOTHING_TO_RESTORE, 'Nothing needs restoring.');
-        }
-
-        RetryThreadRestoreJob::dispatch($thread);
+        dispatch($job);
 
         return true;
     }
