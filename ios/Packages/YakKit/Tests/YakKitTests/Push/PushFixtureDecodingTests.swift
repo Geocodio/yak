@@ -76,3 +76,21 @@ func decodesTheAlertPayloads(name: String) throws {
     let yak = try #require(payload.yak)
     if name == "push/alert-account" { #expect(yak.id == nil) }
 }
+
+@Test(
+    arguments: [
+        "push/live-activity-start", "push/live-activity-start-private", "push/live-activity-update",
+        "push/live-activity-end",
+    ])
+func decodesTheLiveActivityPayloads(name: String) throws {
+    guard Fixtures.exists(name) else { return }
+    let object = try #require(try Fixtures.object(name) as? [String: Any])
+    let aps = try #require(object["aps"] as? [String: Any])
+    let state = try JSONDecoder().decode(
+        ThreadActivityContentState.self,
+        from: JSONSerialization.data(withJSONObject: try #require(aps["content-state"])))
+    guard name.hasPrefix("push/live-activity-start") else { return }
+    #expect(aps["attributes-type"] as? String == "ThreadActivityAttributes")
+    #expect(Set((aps["attributes"] as? [String: Any] ?? [:]).keys) == ["instance", "threadId", "title"])
+    if name.hasSuffix("-private") { #expect(state.isPrivate && state.step.isEmpty) }
+}
