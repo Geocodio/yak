@@ -88,5 +88,5 @@ it('restores a research child transcript into its worktree project directory', f
 
     app(SessionSync::class)->restoreIntoSandbox($child);
 
-    expect($this->sandboxes->disks[$child->id])->toBe(["/home/yak/.claude-child/projects/-workspace-research-scan/{$this->sid}.jsonl" => "one\n"]);
+    expect($this->sandboxes->disks[$child->id])->toBe(["/home/yak/.claude-child/projects/-home-yak-research-scan/{$this->sid}.jsonl" => "one\n"]);
 });

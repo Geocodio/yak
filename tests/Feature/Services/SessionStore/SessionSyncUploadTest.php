@@ -146,7 +146,7 @@ it('throws when reading a sandbox file fails', function () {
 it('syncs a research child transcript written under its worktree project directory', function () {
     $parent = Thread::factory()->create(['sandbox_container' => 'yak-shared']);
     $child = Thread::factory()->child($parent)->create(['kind' => ThreadKind::Research, 'name' => 'scan', 'sandbox_container' => 'yak-shared', 'claude_config_dir' => '/home/yak/.claude-child']);
-    $this->sandboxes->disks[$child->id] = ["/home/yak/.claude-child/projects/-workspace-research-scan/{$this->rel}" => "one\n"];
+    $this->sandboxes->disks[$child->id] = ["/home/yak/.claude-child/projects/-home-yak-research-scan/{$this->rel}" => "one\n"];
 
     app(SessionSync::class)->syncFromSandbox($child);
 

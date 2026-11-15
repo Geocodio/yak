@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Thread;
+use App\Services\Stacks\ChildOutcomeRecorder;
 use App\Services\Stacks\ChildSpawner;
 use App\Services\Threads\ThreadBusy;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -57,5 +58,11 @@ class StartChildThreadJob implements ShouldQueue
     {
         app(ChildSpawner::class)->finishStartRequest($this->childThreadId);
         Log::error('A child thread could not start', ['thread' => $this->childThreadId, 'error' => $exception->getMessage()]);
+
+        $child = Thread::query()->withoutGlobalScopes()->find($this->childThreadId);
+
+        if ($child !== null && $child->isOpen()) {
+            app(ChildOutcomeRecorder::class)->recordStartFailed($child, $exception->getMessage());
+        }
     }
 }

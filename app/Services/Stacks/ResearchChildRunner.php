@@ -17,7 +17,8 @@ use RuntimeException;
  */
 class ResearchChildRunner
 {
-    private const WORKTREE_ROOT = '/workspace-research';
+    /** Under the sandbox user's home, the one place the runner user can create directories. */
+    private const WORKTREE_ROOT = '/home/yak/research';
 
     public function __construct(
         private readonly SandboxManager $sandboxes,
@@ -127,7 +128,9 @@ class ResearchChildRunner
         $result = $this->sandboxes->exec($thread, $command);
 
         if ($result->failed()) {
-            throw new RuntimeException("{$command[0]} failed in the sandbox (exit {$result->exitCode()})");
+            $stderr = trim($result->errorOutput());
+
+            throw new RuntimeException("{$command[0]} failed in the sandbox (exit {$result->exitCode()})" . ($stderr === '' ? '' : ": {$stderr}"));
         }
     }
 }
