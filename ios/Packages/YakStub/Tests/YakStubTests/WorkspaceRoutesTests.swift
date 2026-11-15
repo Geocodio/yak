@@ -85,6 +85,21 @@ import Testing
         #expect(code(answer) == errorCode)
     }
 
+    @Test func theRefusalsUseTheContractSentences() {
+        func message(_ id: String) -> String? { json(terminal(workspace(.terminalStates), id))["message"] as? String }
+        #expect(message("termdev1") == "This thread runs on a computer.")
+        #expect(message("termg0ne") == "The sandbox was removed. Restore it to open a shell.")
+    }
+
+    @Test func aShareRecipientWhoCannotDriveGetsNoShell() {
+        let stub = workspace()
+        let refused = stub.answer(request("POST", "threads/d0e515ef/terminal-sessions"), canDrive: false)
+        #expect(refused?.status == 403)
+        #expect(code(refused) == "forbidden")
+        let noOrigin = stub.answer(request("POST", "threads/d0e515ef/terminal-sessions", origin: nil), canDrive: false)
+        #expect(code(noOrigin) == "origin_not_allowed")
+    }
+
     @Test func aBlockedThreadSaysWhy() {
         let answer = terminal(workspace(.terminalStates), "termb1kd")
         #expect((json(answer)["details"] as? [String: Any])?["reason"] as? String == "restore_failed")
@@ -148,7 +163,17 @@ import Testing
     @Test func everyFilesStateHasItsAnswer() {
         let stub = workspace(.filesStates)
         func details(_ id: String) -> [String: Any] { json(files(stub, id))["details"] as? [String: Any] ?? [:] }
+        func message(_ id: String) -> String? { json(files(stub, id))["message"] as? String }
         #expect(details("fs10t000")["waitingForSlot"] as? Bool == true)
+        #expect(message("fs10t000") == "The sandbox is waiting for a free slot.")
+        #expect(message("fr3st0re") == "The sandbox is being restored.")
+        #expect(message("fc10sed0") == "This thread is closed, so its sandbox is gone.")
+        #expect(message("fdev1ce0") == "This thread runs on a computer, so its files are there.")
+        for id in ["fc10sed0", "fdev1ce0"] {
+            #expect(details(id)["canRestore"] as? Bool == false)
+            #expect(details(id)["waitingForSlot"] as? Bool == false)
+            #expect(details(id)["restoring"] as? Bool == false)
+        }
         #expect(details("fas1eep0")["state"] as? String == "asleep")
         #expect(details("fg0ne000")["state"] as? String == "destroyed")
         #expect(details("fr3st0re")["restoring"] as? Bool == true)
@@ -170,7 +195,9 @@ import Testing
     @Test func aSaveIsReadBack() {
         let stub = workspace()
         #expect(put(stub, "changed\n")?.status == 200)
-        #expect(json(read(stub, "src/Importer.php"))["content"] as? String == "changed\n")
+        let reread = json(read(stub, "src/Importer.php"))
+        #expect(reread["content"] as? String == "changed\n")
+        #expect(reread["headContent"] as? String != "changed\n")
         #expect(stub.putCount == 1)
     }
 

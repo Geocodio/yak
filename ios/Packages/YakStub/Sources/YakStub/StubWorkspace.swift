@@ -105,7 +105,7 @@ final class StubWorkspace: @unchecked Sendable {
         let route = parts.dropFirst(2).joined(separator: "/")
         switch (request.method, route) {
         case ("POST", "terminal-sessions"):
-            return lock.withLock { terminalSession(thread: thread, request: request) }
+            return lock.withLock { terminalSession(thread: thread, request: request, canDrive: canDrive) }
         case ("GET", "files"):
             return lock.withLock { tree(thread: thread, request: request, canDrive: canDrive) }
         case ("GET", "files/content"):
@@ -119,7 +119,7 @@ final class StubWorkspace: @unchecked Sendable {
 
     // MARK: Terminal
 
-    private func terminalSession(thread: String, request: WorkspaceRequest) -> WorkspaceAnswer {
+    private func terminalSession(thread: String, request: WorkspaceRequest, canDrive: Bool) -> WorkspaceAnswer {
         let variant = state.variant
         let delay: Duration =
             switch variant {
@@ -133,6 +133,7 @@ final class StubWorkspace: @unchecked Sendable {
         guard request.header("Origin") == ownOrigin else {
             return error(403, "origin_not_allowed", "This Yak does not accept terminal connections from this app.")
         }
+        guard canDrive else { return error(403, "forbidden", "You do not have access to this.") }
         switch variant {
         case .terminalWaiting:
             state.waitingAnswers += 1
@@ -167,10 +168,10 @@ final class StubWorkspace: @unchecked Sendable {
             return error(403, "origin_not_allowed", "This Yak does not accept terminal connections from this app.")
         case "termf0rb": return error(403, "forbidden", "You do not have access to this.")
         case "termc10s": return error(409, "thread_closed", "This thread is closed.")
-        case "termdev1": return error(409, "thread_owned_by_device", "This thread is running on a computer.")
+        case "termdev1": return error(409, "thread_owned_by_device", "This thread runs on a computer.")
         case "termg0ne":
             return state.restoreAsked.contains(thread)
-                ? nil : error(409, "sandbox_destroyed", "The sandbox was removed.")
+                ? nil : error(409, "sandbox_destroyed", "The sandbox was removed. Restore it to open a shell.")
         case "termn0sb": return error(409, "no_sandbox", "This thread has no sandbox yet.")
         case "termb1kd":
             return error(
@@ -230,27 +231,43 @@ final class StubWorkspace: @unchecked Sendable {
         case "fwak1ng0":
             return count < 2 ? scenario(409, "scenario-files-waking") : nil
         case "fs10t000":
-            return unavailable("scenario-files-waking") { $0["waitingForSlot"] = true }
+            return unavailable("scenario-files-waking", message: "The sandbox is waiting for a free slot.") {
+                $0["waitingForSlot"] = true
+            }
         case "fas1eep0":
             return scenario(409, "scenario-files-asleep")
         case "fg0ne000":
             if !state.restoreAsked.contains(thread) { return scenario(409, "scenario-files-destroyed") }
             let restoring = state.requestCounts["restoring-\(thread)", default: 0]
             state.requestCounts["restoring-\(thread)"] = restoring + 1
-            return restoring < 2 ? unavailable("scenario-files-waking") { $0["restoring"] = true } : nil
+            return restoring < 2 ? restoringAnswer() : nil
         case "fr3st0re":
-            return unavailable("scenario-files-waking") { $0["restoring"] = true }
+            return restoringAnswer()
         case "fc10sed0":
-            return unavailable("scenario-files-waking") {
+            return unavailable("scenario-files-waking", message: "This thread is closed, so its sandbox is gone.") {
                 $0["state"] = "closed_destroyed"
+                $0["canRestore"] = false
+                $0["waitingForSlot"] = false
+                $0["restoring"] = false
             }
         case "fdev1ce0":
-            return unavailable("scenario-files-waking") { $0["state"] = "on_device" }
+            return unavailable(
+                "scenario-files-waking", message: "This thread runs on a computer, so its files are there."
+            ) {
+                $0["state"] = "on_device"
+                $0["canRestore"] = false
+                $0["waitingForSlot"] = false
+                $0["restoring"] = false
+            }
         case "fbr0ken0":
             return error(503, "unavailable", "The sandbox did not answer. Try again in a moment.")
         default:
             return nil
         }
+    }
+
+    private func restoringAnswer() -> WorkspaceAnswer {
+        unavailable("scenario-files-waking", message: "The sandbox is being restored.") { $0["restoring"] = true }
     }
 
     private func content(request: WorkspaceRequest, canDrive: Bool) -> WorkspaceAnswer {
@@ -340,7 +357,6 @@ final class StubWorkspace: @unchecked Sendable {
             object["content"] = text
             object["size"] = text.utf8.count
             object["sha256"] = hash ?? Self.savedHash
-            object["headContent"] = text
         }
         object["path"] = path
         if let language { object["language"] = language }
@@ -389,8 +405,11 @@ final class StubWorkspace: @unchecked Sendable {
     }
 
     /// A 409 `sandbox_unavailable` built from a scenario, with its `details` changed.
-    private func unavailable(_ name: String, edit: (inout [String: Any]) -> Void) -> WorkspaceAnswer {
+    private func unavailable(
+        _ name: String, message: String? = nil, edit: (inout [String: Any]) -> Void
+    ) -> WorkspaceAnswer {
         guard var object = object(name) else { return missing(name) }
+        if let message { object["message"] = message }
         var details = object["details"] as? [String: Any] ?? [:]
         edit(&details)
         object["details"] = details

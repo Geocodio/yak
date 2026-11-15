@@ -9,7 +9,7 @@ final class FakeBridge: @unchecked Sendable {
     private let frames: Data
     private let origin: String
     private let admit: @Sendable (String) -> BridgeAdmission
-    private let queue = DispatchQueue(label: "fake-bridge")
+    fileprivate let queue = DispatchQueue(label: "fake-bridge")
     private let lock = NSLock()
     private var listener: NWListener?
     private var peers: [Peer] = []
@@ -52,6 +52,10 @@ final class FakeBridge: @unchecked Sendable {
                     if once.first() { continuation.resume(returning: Int(listener.port?.rawValue ?? 0)) }
                 case .failed(let error):
                     if once.first() { continuation.resume(throwing: error) }
+                case .waiting(let error):
+                    if once.first() { continuation.resume(throwing: error) }
+                case .cancelled:
+                    if once.first() { continuation.resume(throwing: CancellationError()) }
                 default: break
                 }
             }
@@ -157,8 +161,13 @@ final class FakeBridge: @unchecked Sendable {
                 + "Sec-WebSocket-Accept: \(accept)\r\n\r\n"
             upgraded = true
             send(Data(response.utf8))
+            guard headers["origin"] == bridge.allowedOrigin else {
+                log("bridge refused")
+                close(code: 4403)
+                return
+            }
             let admission = bridge.admission(for: query["token"] ?? "")
-            guard headers["origin"] == bridge.allowedOrigin, admission != .refuse else {
+            guard admission != .refuse else {
                 log("bridge refused")
                 close(code: 4403)
                 return
@@ -253,14 +262,17 @@ final class FakeBridge: @unchecked Sendable {
             }
         }
 
+        /// Safe from any thread: the work runs on the bridge's queue, once.
         func close(code: Int) {
-            var payload = Data([UInt8(code >> 8 & 0xFF), UInt8(code & 0xFF)])
-            payload.append(Data())
-            guard upgraded else {
-                finish()
-                return
+            bridge.queue.async { [self] in
+                guard !isFinished else { return }
+                guard upgraded else {
+                    finish()
+                    return
+                }
+                let payload = Data([UInt8(code >> 8 & 0xFF), UInt8(code & 0xFF)])
+                sendFrame(opcode: 0x8, payload: payload) { self.finish() }
             }
-            sendFrame(opcode: 0x8, payload: payload) { self.finish() }
         }
 
         private func sendFrame(opcode: UInt8, payload: Data, then: (@Sendable () -> Void)? = nil) {

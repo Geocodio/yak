@@ -1,5 +1,6 @@
 #if canImport(Darwin)
     import Foundation
+import Synchronization
     import Testing
 
     @testable import YakStub
@@ -59,6 +60,20 @@
             let (refusing, refusingPort) = try await self.bridge(.refuse)
             defer { refusing.stop() }
             #expect(await closeCode(socket(refusingPort)) == 4403)
+        }
+
+        @Test(.timeLimit(.minutes(1))) func aWrongOriginDoesNotUseUpAToken() async throws {
+            let asked = Mutex(0)
+            let bridge = FakeBridge(
+                frames: try frames(), origin: Self.origin,
+                admit: { _ in
+                    asked.withLock { $0 += 1 }
+                    return .open
+                })
+            let port = try await bridge.start()
+            defer { bridge.stop() }
+            #expect(await closeCode(socket(port, origin: "https://other.example.test")) == 4403)
+            #expect(asked.withLock { $0 } == 0)
         }
 
         @Test(.timeLimit(.minutes(1))) func sendsTheBannerAndEchoes() async throws {
