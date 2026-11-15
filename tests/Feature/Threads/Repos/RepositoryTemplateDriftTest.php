@@ -1,10 +1,16 @@
 <?php
 
+use App\DataTransferObjects\SandboxWake;
+use App\DataTransferObjects\ThreadMessageInput;
+use App\Enums\MessageDelivery;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Enums\TeleportState;
 use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
+use App\Enums\TurnState;
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Resources\ThreadNoticeData;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\PrepareTeleportUpJob;
@@ -16,12 +22,17 @@ use App\Models\Teleport;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Stacks\ChildSandboxProvisioner;
+use App\Services\Threads\ThreadMessageSender;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadStarter;
+use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 
 require_once __DIR__ . '/../../Teleport/CliTestHelpers.php';
+require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
+require_once __DIR__ . '/../../../Support/ThreadTurnsHelpers.php';
 
 beforeEach(function () {
     Process::fake(['*' => Process::result(exitCode: 0)]);
@@ -128,4 +139,48 @@ it('does not clone while a setup is already rebuilding the template', function (
 
     expect($wake->ready)->toBeFalse()->and($wake->restoring)->toBeTrue();
     Queue::assertNotPushed(SetupYakJob::class);
+});
+
+it('keeps the repository wait on a turn whose sandbox waits for the template', function () {
+    [$thread, $task] = threadWithTask();
+    $thread->forceFill(['blocked_reason' => ThreadBlockReason::WaitingForRepository, 'blocked_at' => now()])->save();
+    $fakes = fakeTurnCollaborators(wake: SandboxWake::restoring());
+    $fakes['commands']->shouldNotReceive('turn');
+
+    $run = app(ThreadTurns::class)->start($task, 'go', null, null);
+
+    expect($run->turn_state)->toBe(TurnState::WaitingForSandbox)
+        ->and($thread->refresh()->blocked_reason)->toBe(ThreadBlockReason::WaitingForRepository);
+});
+
+it('queues a message on a thread that has already run while its repository is rebuilt', function () {
+    [$thread] = runningTurnFor();
+    YakTask::factory()->create(['thread_id' => $thread->id]);
+    $thread->forceFill(['runner_model' => 'sonnet', 'model' => 'sonnet', 'blocked_reason' => ThreadBlockReason::WaitingForRepository, 'blocked_at' => now()])->save();
+
+    $result = app(ThreadMessageSender::class)->send($thread, User::factory()->create(), new ThreadMessageInput('Use the staging bucket', null, null, null, MessageDelivery::AfterTurn, null));
+
+    expect($result->status)->toBe('queued');
+});
+
+it('still refuses a message on a thread that never started', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForRepository]);
+    YakTask::factory()->create(['thread_id' => $thread->id]);
+
+    expect(fn () => app(ThreadMessageSender::class)->send($thread, User::factory()->create(), new ThreadMessageInput('hi', null, null, null, MessageDelivery::Steer, null)))
+        ->toThrow(ThreadActionRefused::class, 'This thread has not started yet.');
+});
+
+it('does not clone a stale template for a child in another repository', function () {
+    Repository::factory()->create(['slug' => 'acme/other', 'sandbox_base_version' => 9]);
+    $parent = Thread::factory()->create(['repo' => 'acme/widgets', 'sandbox_container' => 'yak-thread-parent', 'sandbox_state' => ThreadSandboxState::Running]);
+    $child = Thread::factory()->child($parent)->create(['kind' => ThreadKind::Implement, 'repo' => 'acme/other']);
+
+    app(ChildSandboxProvisioner::class)->provision($child);
+
+    $child->refresh();
+    expect($child->sandbox_state)->toBe(ThreadSandboxState::None)
+        ->and($child->queued_for_slot_at)->not->toBeNull()
+        ->and($child->blocked_reason)->toBe(ThreadBlockReason::WaitingForRepository);
+    Queue::assertPushed(SetupYakJob::class, 1);
 });

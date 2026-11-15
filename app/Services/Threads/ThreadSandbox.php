@@ -363,7 +363,7 @@ class ThreadSandbox
 
     private function clearWaiting(Thread $thread): void
     {
-        if ($thread->blocked_reason === ThreadBlockReason::WaitingForSandbox) {
+        if (in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForSandbox, ThreadBlockReason::WaitingForRepository], true)) {
             $thread->update(['blocked_reason' => null, 'blocked_at' => null]);
         }
     }
