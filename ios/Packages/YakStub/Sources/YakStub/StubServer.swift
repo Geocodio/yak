@@ -118,8 +118,8 @@ final class StubServer: Sendable {
             connection.cancel()
             return
         }
-        // Method and path only: a request's headers and body can carry a token or a pairing code.
-        log("\(request.method) \(request.path) -> \(status)")
+        // Method and status only: a request's path, headers and body can carry a token or a pairing code.
+        log("\(request.method) -> \(status)")
         var head = "HTTP/1.1 \(status) \(status < 300 ? "OK" : "Error")\r\n"
         head += "Content-Type: \(contentType)\r\nContent-Length: \(body.count)\r\nConnection: close\r\n"
         head += "X-Yak-Protocol: \(reply.protocolHeader)\r\nX-Yak-Min-Protocol: 1\r\n\r\n"

@@ -27,6 +27,6 @@ do {
     FileHandle.standardOutput.write(Data("listening on 127.0.0.1:\(actualPort)\n".utf8))
     try await Task.sleep(for: .seconds(Int.max / 2))
 } catch {
-    log("yak-stub failed: \(error)")
+    log("yak-stub failed: \(Swift.type(of: error))")
     exit(1)
 }
