@@ -1,7 +1,8 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
+import children from './children'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::show
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:17
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:20
 * @route '/api/app/v1/threads/{thread}/stack'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +17,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::show
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:17
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:20
 * @route '/api/app/v1/threads/{thread}/stack'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +50,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::show
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:17
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:20
 * @route '/api/app/v1/threads/{thread}/stack'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +60,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::show
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:17
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:20
 * @route '/api/app/v1/threads/{thread}/stack'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,6 +70,7 @@ show.head = (args: { thread: string | { public_id: string } } | [thread: string 
 
 const stack = {
     show: Object.assign(show, show),
+    children: Object.assign(children, children),
 }
 
 export default stack

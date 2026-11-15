@@ -11,10 +11,11 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
+use App\Services\Devices\ShortLockWait;
 use App\Services\Threads\ThreadTurns;
 use App\YakPromptBuilder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Creates the sub-thread rows for a spawn. Sandbox and first turn are
@@ -33,30 +34,43 @@ class ChildSpawner
         private readonly ChildCardPublisher $cards,
     ) {}
 
-    public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null, ?string $repo = null, ?User $actor = null): Thread
+    public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null, ?string $repo = null, ?User $actor = null, ?string $spawnKey = null): Thread
     {
-        $this->rules->assertMaySpawn($parent);
-
         if (! in_array($kind, self::SPAWNABLE_KINDS, true)) {
-            throw new StackRuleViolation('A sub-thread must be research, implement, mockup or general.');
+            throw new StackRuleViolation('A sub-thread must be research, implement, mockup or general.', personMessage: 'Choose research, implement, mockup or general.', field: 'kind');
         }
 
         $repo = $this->rules->resolveChildRepo($parent, $kind, $repo);
         $brief = trim($brief);
 
         if ($brief === '') {
-            throw new StackRuleViolation('A sub-thread needs a brief.');
+            throw new StackRuleViolation('A sub-thread needs a brief.', personMessage: 'Write what the sub-thread should do.', field: 'brief');
         }
 
         $allowedModels = app(ClaudeModelCatalog::class)->acceptedValues();
 
         if ($model !== null && ! in_array($model, $allowedModels, true)) {
-            throw new StackRuleViolation('Unknown model. Use one of: ' . implode(', ', ClaudeModelCatalog::FAMILIES) . ', or an exact model id.');
+            throw new StackRuleViolation('Unknown model. Use one of: ' . implode(', ', ClaudeModelCatalog::FAMILIES) . ', or an exact model id.', personMessage: 'Choose one of the listed models.', field: 'model');
         }
 
-        $child = DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy, $repo, $actor): Thread {
+        $child = ShortLockWait::threadTransaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy, $repo, $actor, $spawnKey): Thread {
             $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($parent->id);
             $root = $locked->rootThread();
+            $creatorId = $actor->id ?? $root->owner_user_id;
+
+            if ($spawnKey !== null) {
+                $existing = Thread::query()->withoutGlobalScopes()->where('parent_thread_id', $locked->id)->where('spawn_key', $spawnKey)->first();
+
+                if ($existing !== null) {
+                    if ($existing->created_by_user_id !== $creatorId) {
+                        throw ValidationException::withMessages(['send_key' => 'This key was already used for another request. Try again with a new one.']);
+                    }
+
+                    return $existing;
+                }
+            }
+
+            $this->rules->assertMaySpawn($locked);
             $slug = $this->uniqueName($locked, $name);
             $branch = in_array($kind, [ThreadKind::Implement, ThreadKind::Mockup], true)
                 ? 'yak/' . ($locked->branch ?? $locked->name) . '/' . $slug
@@ -70,7 +84,8 @@ class ChildSpawner
                 'brief' => $brief,
                 'visibility' => $root->visibility,
                 'owner_user_id' => $root->owner_user_id,
-                'created_by_user_id' => $actor->id ?? $root->owner_user_id,
+                'created_by_user_id' => $creatorId,
+                'spawn_key' => $spawnKey,
                 'parent_thread_id' => $locked->id,
                 'root_thread_id' => $root->id,
                 'spawned_by_task_run_id' => $spawnedBy?->id,
@@ -103,7 +118,9 @@ class ChildSpawner
             return $child;
         });
 
-        $this->cards->publish($child);
+        if ($child->wasRecentlyCreated) {
+            $this->cards->publish($child);
+        }
 
         return $child;
     }

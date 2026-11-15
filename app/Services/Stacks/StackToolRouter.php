@@ -11,6 +11,7 @@ use App\Jobs\StartChildThreadJob;
 use App\Models\Thread;
 use App\Services\Teleport\HeldEvents;
 use App\Services\Threads\YakToolRouter;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Serves the stack tools and passes every other tool to the router it wraps.
@@ -36,6 +37,12 @@ class StackToolRouter implements YakToolRouter
             };
         } catch (StackRuleViolation $violation) {
             return new YakToolResult(true, $violation->getMessage());
+        } catch (HttpException $busy) {
+            if ($busy->getStatusCode() !== 503) {
+                throw $busy;
+            }
+
+            return new YakToolResult(true, 'Yak is busy with another change to this stack. Try again in a moment.');
         }
     }
 
