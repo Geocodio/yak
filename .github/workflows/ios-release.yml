@@ -65,7 +65,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_$(cat .xcode-version).app
+        run: sudo xcode-select -s "/Applications/Xcode_$(cat .xcode-version).app"
       - name: Install tools
         run: brew install xcodegen
       - name: Install sentry-cli
