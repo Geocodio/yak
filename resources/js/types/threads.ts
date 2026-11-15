@@ -105,6 +105,7 @@ export type TeleportData = {
     heldEvents: HeldEventData[];
     environmentNote: string | null;
     environmentSwitches: { from: string; to: string; at: string }[];
+    environmentSwitch: { from: string; to: string; at: string } | null;
     accountName: string | null;
     continuedFromThreadId: string | null;
     continuedFromTitle: string | null;
@@ -145,7 +146,7 @@ export type ThreadPageData = {
     walkthrough: ThreadWalkthrough | null;
     sharedFiles: SharedFile[];
     messages: ThreadMessage[];
-    localTurns: LocalTurnsData[];
+    localTurnStints: LocalTurnsData[];
     composer: ThreadComposer;
     notice: ThreadNotice | null;
     capacity: ThreadCapacity | null;

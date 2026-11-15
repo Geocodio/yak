@@ -38,6 +38,7 @@ class TeleportPageState
      *     heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>,
      *     environmentNote: ?string,
      *     environmentSwitches: list<array{from: string, to: string, at: string}>,
+     *     environmentSwitch: ?array{from: string, to: string, at: string},
      *     accountName: ?string,
      *     continuedFromThreadId: ?string,
      *     continuedFromTitle: ?string,
@@ -82,7 +83,9 @@ class TeleportPageState
             'failure' => $this->failure($thread, $open),
             'heldEvents' => $onDevice ? $this->heldEventList($thread) : [],
             'environmentNote' => $this->environmentNote($thread),
-            'environmentSwitches' => $this->environmentSwitches($thread),
+            'environmentSwitches' => $switches = $this->environmentSwitches($thread),
+            // The latest move alone, kept for app API protocol 1 clients.
+            'environmentSwitch' => $switches === [] ? null : $switches[array_key_last($switches)],
             'accountName' => $thread->claudeAccount?->name,
             'continuedFromThreadId' => $thread->continued_from_thread_id === null ? null : Thread::query()->withoutGlobalScopes()->find($thread->continued_from_thread_id, ['id', 'public_id'])?->public_id,
             'continuedFromTitle' => $thread->continued_from_thread_id === null ? null : Thread::query()->whereKey($thread->continued_from_thread_id)->value('title'),

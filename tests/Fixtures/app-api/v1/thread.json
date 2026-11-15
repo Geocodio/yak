@@ -60,7 +60,8 @@
     },
     "diffTotals": null,
     "latestSequence": 12,
-    "localTurns": [],
+    "localTurnStints": [],
+    "localTurns": null,
     "messages": [
         {
             "attachmentIds": [],
@@ -111,6 +112,7 @@
         "continuedFromThreadId": null,
         "continuedFromTitle": null,
         "environmentNote": null,
+        "environmentSwitch": null,
         "environmentSwitches": [],
         "failure": null,
         "hasDevices": true,

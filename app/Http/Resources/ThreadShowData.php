@@ -50,10 +50,11 @@ use App\Services\Teleport\LocalTurns;
  *     pullRequest: ?array{number: int, url: string},
  *     brief: ?array{text: string, kind: string, model: ?string, startedAt: string, branch: ?string},
  *     publishWarning: bool,
- *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitches: list<array{from: string, to: string, at: string}>, accountName: ?string, continuedFromThreadId: ?string, continuedFromTitle: ?string, canTeleport: bool},
+ *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitches: list<array{from: string, to: string, at: string}>, environmentSwitch: ?array{from: string, to: string, at: string}, accountName: ?string, continuedFromThreadId: ?string, continuedFromTitle: ?string, canTeleport: bool},
  *     capacity: ?array{turns: array{used: int, limit: int}, sandboxes: array{used: int, limit: int}, share: array{used: int, limit: int}},
  *     messages: list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>,
- *     localTurns: list<array{stintId: string, movedAt: ?string, count: int, firstPromptText: string, startedAt: string, endedAt: string, hasMore: bool, authorName: string, authorInitials: string, turns: list<array<string, mixed>>}>,
+ *     localTurnStints: list<array{stintId: string, movedAt: ?string, count: int, firstPromptText: string, startedAt: string, endedAt: string, hasMore: bool, authorName: string, authorInitials: string, turns: list<array<string, mixed>>}>,
+ *     localTurns: array{stintId: string, movedAt: ?string, count: int, firstPromptText: string, startedAt: string, endedAt: string, hasMore: bool, authorName: string, authorInitials: string, turns: list<array<string, mixed>>}|null,
  *     walkthrough: ?array{isRecording: bool, isRendering: bool, video: ?array{url: string, thumbnailUrl: ?string, durationSeconds: float, chapters: list<array{title: string, startSeconds: float}>}, screenshots: list<array{url: string, caption: ?string}>, isInPullRequest: bool},
  *     sharedFiles: list<array{id: string, name: string, kind: 'report'|'image'|'csv'|'pdf'|'text'|'file', sizeBytes: int, url: string, sharedWithTeam: bool, anchorSequence: ?int, createdAt: string}>,
  *     composer: array{state: 'idle'|'working'|'disabled_closed'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>},
@@ -71,7 +72,9 @@ final class ThreadShowData
     {
         return array_merge(ThreadPageData::build($thread, $viewer), [
             'messages' => ThreadMessagesData::for($thread, $viewer),
-            'localTurns' => app(LocalTurns::class)->summaries($thread),
+            'localTurnStints' => $stints = app(LocalTurns::class)->summaries($thread),
+            // The first stint alone, kept for app API protocol 1 clients.
+            'localTurns' => $stints[0] ?? null,
             'walkthrough' => ThreadWalkthroughData::for($thread),
             'sharedFiles' => ThreadSharedFilesData::for($thread),
             'composer' => ThreadComposerData::for($thread, $viewer),

@@ -89,34 +89,37 @@ it('groups the uploaded transcript into turns and stops at the teleport', functi
     [$thread, $user] = teleportedThread();
 
     $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page
-        ->where('localTurns.0.count', 2)
-        ->where('localTurns.0.firstPromptText', 'Find the **duplicate** plan')
-        ->where('localTurns.0.startedAt', '2026-11-13T16:12:00Z')
-        ->where('localTurns.0.endedAt', '2026-11-14T09:00:00Z')
-        ->where('localTurns.0.hasMore', false)
-        ->where('localTurns.0.authorInitials', 'MH')
-        ->has('localTurns.0.turns', 2)
-        ->where('localTurns.0.turns.0.html', "<p>Find the <strong>duplicate</strong> plan</p>\n")
-        ->has('localTurns.0.turns.0.items', 2)
-        ->where('localTurns.0.turns.0.items.0.kind', 'tools')
-        ->has('localTurns.0.turns.0.items.0.steps', 3)
-        ->where('localTurns.0.turns.0.items.0.steps.0.category', 'command')
-        ->where('localTurns.0.turns.0.items.0.steps.0.content.output', 'found with key [redacted]')
-        ->where('localTurns.0.turns.0.items.0.steps.1.failed', true)
-        ->where('localTurns.0.turns.0.items.0.steps.2.label', 'Agent: Explore pricing')
-        ->where('localTurns.0.turns.0.items.1.kind', 'text')
-        ->where('localTurns.0.turns.0.items.1.html', "<p>It is <code>PlanCatalog</code>.</p>\n")
-        ->where('localTurns.0.turns.1.text', 'Fix it'));
+        ->where('localTurnStints.0.count', 2)
+        ->where('localTurnStints.0.firstPromptText', 'Find the **duplicate** plan')
+        ->where('localTurnStints.0.startedAt', '2026-11-13T16:12:00Z')
+        ->where('localTurnStints.0.endedAt', '2026-11-14T09:00:00Z')
+        ->where('localTurnStints.0.hasMore', false)
+        ->where('localTurnStints.0.authorInitials', 'MH')
+        ->has('localTurnStints.0.turns', 2)
+        ->where('localTurnStints.0.turns.0.html', "<p>Find the <strong>duplicate</strong> plan</p>\n")
+        ->has('localTurnStints.0.turns.0.items', 2)
+        ->where('localTurnStints.0.turns.0.items.0.kind', 'tools')
+        ->has('localTurnStints.0.turns.0.items.0.steps', 3)
+        ->where('localTurnStints.0.turns.0.items.0.steps.0.category', 'command')
+        ->where('localTurnStints.0.turns.0.items.0.steps.0.content.output', 'found with key [redacted]')
+        ->where('localTurnStints.0.turns.0.items.0.steps.1.failed', true)
+        ->where('localTurnStints.0.turns.0.items.0.steps.2.label', 'Agent: Explore pricing')
+        ->where('localTurnStints.0.turns.0.items.1.kind', 'text')
+        ->where('localTurnStints.0.turns.0.items.1.html', "<p>It is <code>PlanCatalog</code>.</p>\n")
+        ->where('localTurnStints.0.turns.1.text', 'Fix it')
+        // Protocol 1 clients keep reading the first stint under the old key.
+        ->where('localTurns.count', 2)
+        ->where('localTurns.firstPromptText', 'Find the **duplicate** plan'));
 });
 
 it('opens on the latest ten turns and pages earlier ones', function () {
     [$thread, $user] = teleportedThread(40);
 
     $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page
-        ->where('localTurns.0.count', 42)
-        ->where('localTurns.0.hasMore', true)
-        ->has('localTurns.0.turns', 10)
-        ->where('localTurns.0.turns.0.id', 33));
+        ->where('localTurnStints.0.count', 42)
+        ->where('localTurnStints.0.hasMore', true)
+        ->has('localTurnStints.0.turns', 10)
+        ->where('localTurnStints.0.turns.0.id', 33));
 
     $this->actingAs($user)->getJson(route('threads.local-turns', ['thread' => $thread, 'stint' => Teleport::query()->where('thread_id', $thread->id)->value('id'), 'before' => 33, 'limit' => 25]))
         ->assertOk()
@@ -133,7 +136,7 @@ it('shows nothing without a completed teleport up', function () {
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['owner_user_id' => $user->id]);
 
-    $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page->where('localTurns', []));
+    $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page->where('localTurnStints', []));
 });
 
 it('gives nothing to a person who cannot read the thread', function () {
@@ -169,10 +172,10 @@ it('shows the stretch from every later move to the computer, cut at each side', 
     ]);
 
     $this->actingAs($user)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page
-        ->has('localTurns', 2)
-        ->where('localTurns.0.movedAt', null)
-        ->where('localTurns.0.count', 2)
-        ->where('localTurns.1.movedAt', '2026-11-14T12:00:00+00:00')
-        ->where('localTurns.1.count', 1)
-        ->where('localTurns.1.turns.0.text', 'Laptop again'));
+        ->has('localTurnStints', 2)
+        ->where('localTurnStints.0.movedAt', null)
+        ->where('localTurnStints.0.count', 2)
+        ->where('localTurnStints.1.movedAt', '2026-11-14T12:00:00+00:00')
+        ->where('localTurnStints.1.count', 1)
+        ->where('localTurnStints.1.turns.0.text', 'Laptop again'));
 });

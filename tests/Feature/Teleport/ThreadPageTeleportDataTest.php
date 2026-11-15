@@ -108,7 +108,8 @@ it('lists every completed teleport as an environment switch, oldest first', func
     $device = Device::factory()->create();
     $viewer = User::factory()->create();
 
-    expect(teleportProp($viewer, $thread)['environmentSwitches'])->toBe([]);
+    expect(teleportProp($viewer, $thread)['environmentSwitches'])->toBe([])
+        ->and(teleportProp($viewer, $thread)['environmentSwitch'])->toBeNull();
 
     Teleport::factory()->up()->inState(TeleportState::Completed)->create(['thread_id' => $thread->id, 'device_id' => $device->id, 'completed_at' => '2026-11-11 10:00:00']);
     expect(teleportProp($viewer, $thread)['environmentSwitches'])->toHaveCount(1)->and(teleportProp($viewer, $thread)['environmentSwitches'][0])->toMatchArray(['from' => 'your computer', 'to' => 'Yak']);
@@ -118,7 +119,9 @@ it('lists every completed teleport as an environment switch, oldest first', func
 
     expect($switches)->toHaveCount(2)
         ->and($switches[0])->toMatchArray(['from' => 'your computer', 'to' => 'Yak'])
-        ->and($switches[1])->toMatchArray(['from' => 'Yak', 'to' => 'your computer']);
+        ->and($switches[1])->toMatchArray(['from' => 'Yak', 'to' => 'your computer'])
+        // Protocol 1 clients keep reading the latest move under the old key.
+        ->and(teleportProp($viewer, $thread)['environmentSwitch'])->toMatchArray(['from' => 'Yak', 'to' => 'your computer']);
 });
 
 it('exposes the teleport block as an Inertia prop', function () {

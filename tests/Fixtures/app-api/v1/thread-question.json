@@ -60,7 +60,8 @@
     },
     "diffTotals": null,
     "latestSequence": 4812,
-    "localTurns": [],
+    "localTurnStints": [],
+    "localTurns": null,
     "messages": [],
     "modelLabels": {
         "claude-fable-5-2": "Fable 5.2",
@@ -113,6 +114,7 @@
         "continuedFromThreadId": null,
         "continuedFromTitle": null,
         "environmentNote": null,
+        "environmentSwitch": null,
         "environmentSwitches": [],
         "failure": null,
         "hasDevices": true,

@@ -43,7 +43,7 @@ const WIDE_RAIL_QUERY = '(min-width: 1200px)';
 /** From this width the page shows the views side by side; below it the phone tabs take over. */
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
-export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, messages, localTurns, notice, composer, capacity, teleport, stackParent, modelLabels }: Props) {
+export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, messages, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels }: Props) {
     const dockPanels = dockPanelsFor(thread);
     const dock = useDockState();
     const dockPanelIds = dockPanels.map((panel) => panel.id);
@@ -217,7 +217,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurns} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />
+                    <Conversation working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />
                     <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
                 </div>
 
