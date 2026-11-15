@@ -88,6 +88,8 @@ public actor InstanceSession {
     private var runID = 0
     private var hasEnded = false
     private var isUnpairing = false
+    /// Awaited before each outbox update reaches a thread engine; a test holds an update here.
+    private var forwardingGate: (@Sendable (OutboxUpdate) async -> Void)?
     private var nextToken = 0
 
     private var client: APIClient?
@@ -426,15 +428,19 @@ public actor InstanceSession {
         }
     }
 
+    func setForwardingGate(_ gate: (@Sendable (OutboxUpdate) async -> Void)?) { forwardingGate = gate }
+
     /// One task reads the outbox's changes and deliveries from a single stream, so the engine hears of a
     /// delivery before the list that no longer holds the delivered item.
     private func outboxForwarders(thread id: String, engine: ThreadEngine) async -> [Task<Void, Never>] {
         guard let currentOutbox else { return [] }
         let updates = await currentOutbox.updates()
         let target = OutboxTarget.thread(id)
+        let gate = forwardingGate
         return [
             Task {
                 for await update in updates {
+                    await gate?(update)
                     switch update {
                     case .items(let items): await engine.outboxChanged(items.filter { $0.target == target })
                     case .delivery(let delivery) where delivery.target == target: await engine.delivered(delivery)

@@ -1,9 +1,9 @@
 import Foundation
 import Testing
 
-/// Collects what a stream yields, so a test can wait for a value instead of sleeping.
 struct StreamRecorderTimeout: Error {}
 
+/// Collects what a stream yields, so a test can wait for a value instead of sleeping.
 actor StreamRecorder<Value: Sendable> {
     private(set) var values: [Value] = []
     private var cursor = 0

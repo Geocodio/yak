@@ -401,8 +401,13 @@ private func nextSnapshot(
         let statuses = StreamRecorder(await rig.session.statuses())
         _ = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Private words"))
         _ = try await statuses.next { $0 == .needsPairing }
+        try OutboxInbox.add(
+            OutboxDraft(target: .thread(threadID), text: "From the share sheet"), instance: rig.instance.id,
+            files: rig.files, id: UUID(), now: rig.clock.now())
+        #expect(try !rig.files.list(OutboxInbox.folder(rig.instance.id)).isEmpty)
         await rig.session.unpair()
         #expect(try rig.files.list(InstanceFolders.outbox(rig.instance.id)).isEmpty)
+        #expect(try rig.files.list(OutboxInbox.folder(rig.instance.id)).isEmpty)
         #expect(try rig.files.list("instances/\(rig.instance.id.uuidString)").isEmpty)
     }
 
@@ -442,6 +447,39 @@ private func nextSnapshot(
         let shown = await snapshots.values
         let first = try #require(shown.firstIndex { $0.entries.contains { $0.id == outboxID } })
         #expect(shown[first...].allSatisfy { $0.entries.contains { $0.id == outboxID } })
+        await rig.session.stop()
+    }
+
+    /// While the engine has not heard of a delivery, the list that no longer holds the delivered item must not
+    /// reach it either. Two forwarding tasks would let that list through and the message would vanish.
+    @Test func theShrunkListWaitsBehindTheDelivery() async throws {
+        let messages = "POST threads/\(threadID)/messages"
+        let rig = try await startedRig { transport in
+            await transport.on(showRoute, try showAnswer())
+            await transport.on(messages, try .scenario(200, "scenario-message-sent"))
+        }
+        let (reached, signal) = AsyncStream.makeStream(of: Void.self)
+        let (opened, open) = AsyncStream.makeStream(of: Void.self)
+        await rig.session.setForwardingGate { update in
+            guard case .delivery = update else { return }
+            signal.yield()
+            for await _ in opened { return }
+        }
+        let engine = try #require(await rig.session.openThread(threadID))
+        let snapshots = StreamRecorder(await engine.snapshots())
+        let item = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Please add a test"))
+        let outboxID = "outbox:\(item.id.uuidString.lowercased())"
+        _ = try await nextSnapshot(snapshots, clock: rig.clock) { $0.entries.contains { $0.id == outboxID } }
+        for await _ in reached { break }
+        for _ in 0..<2000 { await Task.yield() }
+        await rig.clock.advance(by: .seconds(1))
+        for _ in 0..<2000 { await Task.yield() }
+        let held = try #require(await snapshots.values.last)
+        #expect(held.entries.contains { $0.id == outboxID })
+        open.yield()
+        _ = try await nextSnapshot(snapshots, clock: rig.clock) {
+            $0.entries.contains { if case .delivered = $0 { true } else { false } }
+        }
         await rig.session.stop()
     }
 
