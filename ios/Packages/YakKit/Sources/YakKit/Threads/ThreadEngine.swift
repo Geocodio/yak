@@ -52,6 +52,7 @@ public actor ThreadEngine {
     /// True once `open()` has restored the cache; until then live input waits so it cannot be overwritten.
     private var isOpenFinished = false
     private var problem: ThreadProblem?
+    private var lastDiffUpdateSequence: Int?
     private(set) var isClosed = false
     var actionTasks: [String: Task<ThreadActionOutcome, Never>] = [:]
     private var catchUpTask: Task<Void, Never>?
@@ -335,6 +336,9 @@ public actor ThreadEngine {
             case .question(let change):
                 if !change.open, event.sequence > pageSequence { show?.question = nil }
                 if event.sequence > pageSequence { needsRefresh = true }
+            case .diffUpdated:
+                lastDiffUpdateSequence = max(lastDiffUpdateSequence ?? 0, event.sequence)
+                if event.sequence > pageSequence { needsRefresh = true }
             default:
                 break
             }
@@ -580,6 +584,7 @@ public actor ThreadEngine {
                 waiting: ConversationMerge.waitingRow(in: entries, turn: state.turn), turn: state.turn,
                 thread: state.thread, connection: connection, isShowingCachedCopy: isShowingCachedCopy,
                 isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: isLoadingOlder,
-                replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem))
+                replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem,
+                lastDiffUpdateSequence: lastDiffUpdateSequence))
     }
 }

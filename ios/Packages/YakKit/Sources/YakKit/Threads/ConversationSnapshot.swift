@@ -64,6 +64,8 @@ public struct ConversationSnapshot: Equatable, Sendable {
     /// The newest request failure other than `.offline` while a conversation stays on screen: show a
     /// banner. It clears on the next success. Without anything to show, `load` is `.failed` instead.
     public var problem: ThreadProblem?
+    /// The newest applied `diff.updated`; nil before one.
+    public var lastDiffUpdateSequence: Int?
 
     public init(
         load: ThreadLoadState = .loading, show: ThreadShow? = nil, entries: [ConversationEntry] = [],
@@ -71,7 +73,7 @@ public struct ConversationSnapshot: Equatable, Sendable {
         thread: ThreadStateChange? = nil, connection: ConnectionState = .offline,
         isShowingCachedCopy: Bool = false, isOffline: Bool = false, hasOlderHistory: Bool = false,
         isLoadingOlder: Bool = false, replacementThreadID: String? = nil, lastSequence: Int = 0,
-        problem: ThreadProblem? = nil
+        problem: ThreadProblem? = nil, lastDiffUpdateSequence: Int? = nil
     ) {
         self.load = load
         self.show = show
@@ -88,5 +90,6 @@ public struct ConversationSnapshot: Equatable, Sendable {
         self.replacementThreadID = replacementThreadID
         self.lastSequence = lastSequence
         self.problem = problem
+        self.lastDiffUpdateSequence = lastDiffUpdateSequence
     }
 }
