@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\QueuedMessageController::update
-* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:16
+* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:17
 * @route '/api/app/v1/threads/{thread}/queued-messages/{message}'
 */
 export const update = (args: { thread: string | { public_id: string }, message: string | number } | [thread: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\QueuedMessageController::update
-* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:16
+* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:17
 * @route '/api/app/v1/threads/{thread}/queued-messages/{message}'
 */
 update.url = (args: { thread: string | { public_id: string }, message: string | number } | [thread: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ update.url = (args: { thread: string | { public_id: string }, message: string | 
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\QueuedMessageController::update
-* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:16
+* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:17
 * @route '/api/app/v1/threads/{thread}/queued-messages/{message}'
 */
 update.patch = (args: { thread: string | { public_id: string }, message: string | number } | [thread: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -54,7 +54,7 @@ update.patch = (args: { thread: string | { public_id: string }, message: string 
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\QueuedMessageController::destroy
-* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:24
+* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:25
 * @route '/api/app/v1/threads/{thread}/queued-messages/{message}'
 */
 export const destroy = (args: { thread: string | { public_id: string }, message: string | number } | [thread: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -69,7 +69,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\QueuedMessageController::destroy
-* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:24
+* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:25
 * @route '/api/app/v1/threads/{thread}/queued-messages/{message}'
 */
 destroy.url = (args: { thread: string | { public_id: string }, message: string | number } | [thread: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions) => {
@@ -97,7 +97,7 @@ destroy.url = (args: { thread: string | { public_id: string }, message: string |
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\QueuedMessageController::destroy
-* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:24
+* @see app/Http/Controllers/Api/App/Threads/QueuedMessageController.php:25
 * @route '/api/app/v1/threads/{thread}/queued-messages/{message}'
 */
 destroy.delete = (args: { thread: string | { public_id: string }, message: string | number } | [thread: string | { public_id: string }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

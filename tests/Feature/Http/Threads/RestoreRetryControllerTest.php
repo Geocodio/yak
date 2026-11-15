@@ -76,3 +76,12 @@ it('runs the restore from the job', function () {
 
     (new RetryThreadRestoreJob($thread))->handle(app(ThreadSandbox::class));
 });
+
+it('says the restore is running while the sandbox is busy', function () {
+    Queue::fake();
+    $thread = Thread::factory()->create(['lock_holder' => ThreadLockHolder::Sandbox, 'lock_turn_id' => 'restore']);
+
+    $this->actingAs(User::factory()->create())->post(route('threads.restore.retry', $thread))->assertSessionHas('error', 'The restore is already running.');
+
+    Queue::assertNothingPushed();
+});

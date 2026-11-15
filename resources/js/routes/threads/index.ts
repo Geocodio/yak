@@ -74,7 +74,7 @@ stop.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see app/Http/Controllers/Threads/ContinueTurnController.php:16
 * @route '/threads/{thread}/continue'
 */
 export const continueMethod = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -89,7 +89,7 @@ continueMethod.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see app/Http/Controllers/Threads/ContinueTurnController.php:16
 * @route '/threads/{thread}/continue'
 */
 continueMethod.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -122,7 +122,7 @@ continueMethod.url = (args: { thread: string | { public_id: string } } | [thread
 
 /**
 * @see \App\Http\Controllers\Threads\ContinueTurnController::__invoke
-* @see app/Http/Controllers/Threads/ContinueTurnController.php:19
+* @see app/Http/Controllers/Threads/ContinueTurnController.php:16
 * @route '/threads/{thread}/continue'
 */
 continueMethod.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
