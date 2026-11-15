@@ -104,4 +104,17 @@ module ReleaseSupport
   def self.release_tag(version:, build:)
     "ios/v#{version}-#{build}"
   end
+
+  # Splits "ios/v<version>-<build>" into [version, build]; nil when the tag is not a release tag.
+  def self.release_tag_parts(tag)
+    match = tag.to_s.match(%r{\Aios/v(\d+\.\d+\.\d+)-(\d+(?:\.\d+)*)\z})
+    match && [match[1], match[2]]
+  end
+
+  # "tester@example.com" becomes "t***@example.com" so a log never lists a tester address.
+  def self.mask_address(address)
+    local, separator, domain = address.to_s.rpartition("@")
+    return "*" if separator.empty? || local.empty? || domain.empty?
+    "#{local[0]}***@#{domain}"
+  end
 end

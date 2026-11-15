@@ -15,6 +15,30 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 ## iOS
 
+### ios bootstrap
+
+```sh
+[bundle exec] fastlane ios bootstrap
+```
+
+One-time App Store Connect setup: identifiers, capabilities, tester group and testers. Option dry_run:true only reads.
+
+### ios beta
+
+```sh
+[bundle exec] fastlane ios beta
+```
+
+Archive, upload to TestFlight and tag. Option notes: replaces the notes taken from merged pull requests.
+
+### ios refresh
+
+```sh
+[bundle exec] fastlane ios refresh
+```
+
+Rebuild the last released version so TestFlight keeps an unexpired build.
+
 ### ios generate
 
 ```sh

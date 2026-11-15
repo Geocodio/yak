@@ -2,13 +2,24 @@ default_platform(:ios)
 
 IOS_ROOT = File.expand_path("..", __dir__)
 require_relative "lib/release_support"
+import("Releasefile")
 
 platform :ios do
   desc "Generate the Xcode project from project.yml"
   lane :generate do
     config = File.join(IOS_ROOT, "Config.xcconfig")
     example = File.join(IOS_ROOT, "Config.example.xcconfig")
-    FileUtils.cp(example, config) unless File.exist?(config)
+    if ENV["YAK_CONFIG_FROM_ENVIRONMENT"] == "1"
+      begin
+        File.write(config, ReleaseSupport.config_text(ENV), perm: 0o600)
+      rescue ReleaseSupport::Refusal => refusal
+        UI.user_error!(refusal.message)
+      end
+      UI.message("Wrote Config.xcconfig from the environment.")
+    else
+      FileUtils.cp(example, config) unless File.exist?(config)
+    end
+    ENV["YAK_SENTRY_ENABLED"] = ReleaseSupport.read_config(File.read(config))["YAK_SENTRY_DSN"].to_s.empty? ? "false" : "true"
     version_path = File.join(IOS_ROOT, "VERSION")
     version = File.exist?(version_path) ? File.read(version_path) : ""
     UI.user_error!("ios/VERSION must hold a version like 1.2.0.") unless version.match?(/\A\d+\.\d+\.\d+\n?\z/)

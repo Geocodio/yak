@@ -188,4 +188,18 @@ class ReleaseSupportTest < Minitest::Test
     environment = { "A" => "x", "B" => "", "C" => "  " }
     assert_equal %w[B C D], ReleaseSupport.missing_variables(environment, %w[A B C D])
   end
+
+  def test_mask_address
+    assert_equal "t***@example.com", ReleaseSupport.mask_address("tester@example.com")
+    assert_equal "*", ReleaseSupport.mask_address("")
+    assert_equal "*", ReleaseSupport.mask_address("no-at-sign")
+    assert_equal "a***@example.com", ReleaseSupport.mask_address("a@example.com")
+    assert_equal "*", ReleaseSupport.mask_address(nil)
+  end
+
+  def test_release_tag_parts
+    assert_equal ["0.1.0", "412.2"], ReleaseSupport.release_tag_parts("ios/v0.1.0-412.2")
+    assert_nil ReleaseSupport.release_tag_parts("ios/v0.1.0")
+    assert_nil ReleaseSupport.release_tag_parts("v0.1.0-1\nios/v0.1.0-2")
+  end
 end
