@@ -22,7 +22,8 @@ class ReviewRiskScorer
             if (! is_array($signal) || ! is_int($signal['value'] ?? null)
                 || $signal['value'] < 0 || $signal['value'] > 4
                 || ! is_string($signal['explanation'] ?? null) || trim($signal['explanation']) === ''
-                || ! is_array($signal['references'] ?? null) || $signal['references'] === []
+                || ! is_array($signal['references'] ?? null)
+                || ($signal['references'] === [] && ! self::isUncitedWeakVerification($key, $signal['value']))
                 || array_filter($signal['references'], fn ($ref): bool => ! is_string($ref) || trim($ref) === '') !== []) {
                 $reasons[] = "Missing or invalid risk signal: {$key}";
             } else {
@@ -51,5 +52,14 @@ class ReviewRiskScorer
 
         return ['score' => $components === [] ? null : max($components), 'model_confidence' => $confidence,
             'reasons' => $reasons, 'components' => $components];
+    }
+
+    /**
+     * Weak verification is the absence of a test or check, so there is nothing to cite. Accepting it can only
+     * raise the score, never lower it, because the verification gap grows as the value falls.
+     */
+    private static function isUncitedWeakVerification(string $key, int $value): bool
+    {
+        return $key === 'verification_strength' && $value <= 1;
     }
 }
