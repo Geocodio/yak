@@ -314,8 +314,9 @@ test('a restore is shown as restoring, not as a slot wait', function () {
 })();
 JS);
     openTerminalTab($page);
-    waitForTerminal($page, statusIs('waiting'));
+    waitForTerminal($page, 'window.__restoreCalls >= 3');
 
+    $page->assertScript(statusIs('waiting'), true);
     $page->assertSeeIn('[data-testid="terminal-waiting"]', 'being restored');
     $page->assertDontSee('No sandbox slot became free');
     $page->assertNoJavaScriptErrors();

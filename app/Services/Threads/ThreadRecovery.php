@@ -64,6 +64,12 @@ class ThreadRecovery
         }
     }
 
+    public static function isRestoreQueued(Thread $thread): bool
+    {
+        return $thread->restore_requested_at !== null
+            && $thread->restore_requested_at->greaterThan(now()->subSeconds(self::RESTORE_GUARD_SECONDS));
+    }
+
     /**
      * False when a restore already runs or is queued and nothing was dispatched. The queued record is the
      * thread's `restore_requested_at`, set under the thread row lock, so repeated calls dispatch one job.
@@ -87,7 +93,7 @@ class ThreadRecovery
                 return false;
             }
 
-            if ($locked->restore_requested_at !== null && $locked->restore_requested_at->greaterThan(now()->subSeconds(self::RESTORE_GUARD_SECONDS))) {
+            if (self::isRestoreQueued($locked)) {
                 return false;
             }
 

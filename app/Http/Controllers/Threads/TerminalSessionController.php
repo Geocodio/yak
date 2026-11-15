@@ -42,11 +42,11 @@ class TerminalSessionController extends Controller
 
         $origin = (string) $request->headers->get('Origin');
 
-        if (in_array($origin, $sessions->allowedOrigins(), true)) {
+        $result = $sessions->open($user, $thread, $origin);
+
+        if ($result->outcome !== TerminalSessionResult::REFUSED) {
             $github->refresh($user);
         }
-
-        $result = $sessions->open($user, $thread, $origin);
 
         return match ($result->outcome) {
             TerminalSessionResult::READY => response()->json(['url' => $result->url, 'token' => $result->token, 'expires_at' => $result->expiresAt]),

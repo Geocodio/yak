@@ -37,7 +37,7 @@ class TerminalSessions
             return TerminalSessionResult::refused($denial);
         }
 
-        if ($this->isRestoreQueued($thread)) {
+        if (ThreadRecovery::isRestoreQueued($thread)) {
             $limit = $thread->blocked_reason === ThreadBlockReason::WaitingForSandbox
                 ? $this->capacity->needsEviction($thread)?->value
                 : null;
@@ -94,11 +94,5 @@ class TerminalSessions
         }
 
         return preg_replace('/^http/', 'ws', rtrim((string) config('app.url'), '/')) . '/terminal/ws';
-    }
-
-    private function isRestoreQueued(Thread $thread): bool
-    {
-        return $thread->restore_requested_at !== null
-            && $thread->restore_requested_at->greaterThan(now()->subSeconds(ThreadRecovery::RESTORE_GUARD_SECONDS));
     }
 }

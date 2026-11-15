@@ -29,7 +29,7 @@ class SandboxFileAvailability
 
         $canDrive = $this->access->canDrive($user, $thread);
 
-        if ($thread->isOpen() && $this->restoreIsQueued($thread)) {
+        if ($thread->isOpen() && ThreadRecovery::isRestoreQueued($thread)) {
             return new SandboxUnavailable(
                 SandboxUnavailable::WAKING,
                 waitingForSlot: $thread->blocked_reason === ThreadBlockReason::WaitingForSandbox,
@@ -64,11 +64,5 @@ class SandboxFileAvailability
                     ? null
                     : new SandboxUnavailable(SandboxUnavailable::WAKING, waitingForSlot: $wake->waitingForSlot, restoring: $wake->restoring);
         }
-    }
-
-    private function restoreIsQueued(Thread $thread): bool
-    {
-        return $thread->restore_requested_at !== null
-            && $thread->restore_requested_at->greaterThan(now()->subSeconds(ThreadRecovery::RESTORE_GUARD_SECONDS));
     }
 }

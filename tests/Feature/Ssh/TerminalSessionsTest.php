@@ -131,8 +131,15 @@ it('says restoring while the wake rebuilds and not while it waits for a slot', f
     $thread = Thread::factory()->paused()->create();
     $user = User::factory()->create();
 
+    $capacity = Mockery::mock(SandboxCapacity::class);
+    $capacity->shouldReceive('needsEviction')->andReturn(null);
+    app()->instance(SandboxCapacity::class, $capacity);
+
     mockSandbox(SandboxWake::restoring());
-    expect(sessions()->open($user, $thread, SESSIONS_ORIGIN)->restoring)->toBeTrue();
+    $restoring = sessions()->open($user, $thread, SESSIONS_ORIGIN);
+    expect($restoring->outcome)->toBe(TerminalSessionResult::WAITING)
+        ->and($restoring->restoring)->toBeTrue()
+        ->and($restoring->limit)->toBeNull();
 
     mockSandbox(SandboxWake::waitingForSlot());
     $result = sessions()->open($user, $thread, SESSIONS_ORIGIN);
@@ -166,7 +173,9 @@ it('never calls GitHub', function () {
 });
 
 it('builds the socket URL from config or the app URL', function () {
-    expect(TerminalSessions::socketUrl())->toBe('wss://yak.example.test/terminal/ws');
+    config()->set('yak.ssh.terminal_ws_url', 'wss://terminal.example.test/ws');
+
+    expect(TerminalSessions::socketUrl())->toBe('wss://terminal.example.test/ws');
 
     config()->set('yak.ssh.terminal_ws_url', '');
 
