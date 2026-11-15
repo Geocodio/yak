@@ -184,6 +184,8 @@ class AppService
         $token = $this->getInstallationToken($installationId);
 
         $response = Http::withToken($token)
+            ->connectTimeout(2)
+            ->timeout(3)
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->get("https://api.github.com/repos/{$repoSlug}");
 
@@ -1741,6 +1743,8 @@ GRAPHQL;
         $jwt = $this->generateJwt();
 
         $response = Http::withToken($jwt)
+            ->connectTimeout(2)
+            ->timeout(3)
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->throw()
             ->post("https://api.github.com/app/installations/{$installationId}/access_tokens");

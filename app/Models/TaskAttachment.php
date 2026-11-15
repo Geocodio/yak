@@ -96,7 +96,7 @@ class TaskAttachment extends Model
         return [
             'attachments' => ['nullable', 'array', 'max:' . (int) config('yak.attachments.max_files')],
             'attachments.*' => ['file', 'max:' . (int) config('yak.attachments.max_file_kb')],
-            'attachment_refs' => ['nullable', 'array'],
+            'attachment_refs' => ['nullable', 'array', 'max:' . (int) config('yak.attachments.max_files')],
             'attachment_refs.*' => ['nullable', 'string', 'max:24', 'regex:' . self::REFERENCE_PATTERN],
         ];
     }

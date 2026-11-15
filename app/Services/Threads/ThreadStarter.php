@@ -28,6 +28,9 @@ use Illuminate\Validation\ValidationException;
  */
 class ThreadStarter
 {
+    /** Total time the extra repository checks may take, so a slow GitHub stays inside the send key lock. */
+    private const ACCESS_CHECK_BUDGET_SECONDS = 8;
+
     public function __construct(
         private readonly ClaudeAccountResolver $resolver,
         private readonly AgentJobDispatcher $dispatcher,
@@ -138,11 +141,16 @@ class ThreadStarter
     private function assertExtrasAllowed(string $primary, array $extraRepositories): void
     {
         $seen = [$primary];
+        $deadline = hrtime(true) + self::ACCESS_CHECK_BUDGET_SECONDS * 1_000_000_000;
 
         foreach ($extraRepositories as $index => $extra) {
-            $reason = in_array($extra['repo'], $seen, true)
-                ? "{$extra['repo']} is already part of this thread."
-                : $this->access->check($extra['repo'])->reason;
+            if (in_array($extra['repo'], $seen, true)) {
+                $reason = "{$extra['repo']} is already part of this thread.";
+            } elseif (hrtime(true) > $deadline) {
+                $reason = "GitHub took too long to answer for {$extra['repo']}. Try again in a moment.";
+            } else {
+                $reason = $this->access->check($extra['repo'])->reason;
+            }
 
             if ($reason !== null) {
                 throw ValidationException::withMessages(["repositories.{$index}.repo" => $reason]);

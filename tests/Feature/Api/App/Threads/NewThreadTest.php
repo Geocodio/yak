@@ -12,7 +12,9 @@ use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Threads\Repos\RepositoryAccess;
 use App\Services\Threads\ThreadStarter;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\ContractFixture;
@@ -25,6 +27,7 @@ beforeEach(function () {
     $this->user = User::factory()->create(['name' => 'Test person']);
     $this->headers = phoneHeadersFor($this->user) + ['Accept' => 'application/json'];
     Repository::factory()->create(['slug' => 'example/api', 'name' => 'API']);
+    Repository::factory()->inactive()->create(['slug' => 'example/old']);
 });
 
 /** @return array<string, mixed> */
@@ -47,6 +50,7 @@ function usableAccountFor(User $user): void
 
 it('offers repositories, accounts and models', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
+    ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id, 'name' => 'Test account', 'is_default' => true, 'validated_at' => now()]);
 
     $response = $this->getJson('/api/app/v1/threads/new', $this->headers)->assertOk();
 
@@ -55,7 +59,18 @@ it('offers repositories, accounts and models', function () {
         ->and($response->json('defaultRepo'))->toBe('example/api')
         ->and($response->json('models'))->toBe(app(ClaudeModelCatalog::class)->families())
         ->and($response->json('models'))->toBe($response->json('picker.models'));
-    ContractFixture::assertMatches('app', 'thread-new', $response->json());
+    ContractFixture::assertMatches('app', 'thread-new', $response->json(), ['picker.accounts.*.id', 'picker.defaultsByRepo.example/api.accountId']);
+});
+
+it('answers the first call with empty tables', function () {
+    Repository::query()->delete();
+
+    $response = $this->getJson('/api/app/v1/threads/new', $this->headers)->assertOk();
+
+    expect($response->json('repos'))->toBe([])
+        ->and($response->json('defaultRepo'))->toBeNull()
+        ->and($response->json('picker.accounts'))->toBe([])
+        ->and($response->json('models'))->toBe($response->json('picker.models'));
 });
 
 it('checks repository access', function () {
@@ -84,6 +99,33 @@ it('starts a thread and returns its public id', function () {
     expect($id)->toHaveLength(8)
         ->and($thread->headTask()->attachments)->toHaveCount(1);
     ContractFixture::assertMatches('app', 'thread-store', $response->json(), ['id']);
+});
+
+it('answers 201 with an id when extra repositories are added', function () {
+    usableAccountFor($this->user);
+    Repository::factory()->create(['slug' => 'example/web']);
+    $access = Mockery::mock(RepositoryAccess::class);
+    $access->shouldReceive('check')->with('example/web')->andReturn(new RepositoryAccessResult(true, null));
+    app()->instance(RepositoryAccess::class, $access);
+
+    $response = $this->postJson('/api/app/v1/threads', newThreadPayload([
+        'repositories' => [['repo' => 'example/web', 'role' => 'context']],
+    ]), $this->headers)->assertCreated();
+
+    $thread = Thread::where('public_id', $response->json('id'))->firstOrFail();
+    expect($response->json())->toHaveKey('id')->and($thread->repositories)->toHaveCount(2);
+});
+
+it('answers 422 on the repository field when GitHub is unreachable', function () {
+    usableAccountFor($this->user);
+    Repository::factory()->create(['slug' => 'example/web']);
+    config()->set('yak.channels.github.installation_id', 42);
+    Http::fake(fn () => throw new ConnectionException('timed out'));
+
+    $this->postJson('/api/app/v1/threads', newThreadPayload([
+        'repositories' => [['repo' => 'example/web', 'role' => 'context']],
+    ]), $this->headers)->assertStatus(422)->assertJsonStructure(['details' => ['errors' => ['repositories.0.repo']]]);
+    expect(Thread::count())->toBe(0);
 });
 
 it('starts one thread for a repeated send key', function () {
@@ -130,9 +172,11 @@ it('validates the start', function (array $overrides, string $field) {
 })->with([
     'missing send key' => [[], 'send_key'],
     'bad mode' => [['mode' => 'deploy'], 'mode'],
-    'short description' => [['description' => 'x'], 'description'],
+    'short description' => [['description' => 'ab'], 'description'],
     'too many repositories' => [['repositories' => array_map(fn (int $i): array => ['repo' => "example/extra-{$i}", 'role' => 'context'], range(1, 11))], 'repositories'],
-    'inactive repository' => [['repo' => 'example/missing'], 'repo'],
+    'unknown repository' => [['repo' => 'example/missing'], 'repo'],
+    'inactive repository' => [['repo' => 'example/old'], 'repo'],
+    'oversized extra repository' => [['repositories' => [['repo' => 'example/' . str_repeat('a', 300), 'role' => 'context']]], 'repositories.0.repo'],
 ]);
 
 it('routes threads/new before the thread binding', function () {

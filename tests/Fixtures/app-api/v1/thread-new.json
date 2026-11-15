@@ -39,12 +39,25 @@
         }
     ],
     "picker": {
-        "accounts": [],
+        "accounts": [
+            {
+                "color": "violet",
+                "defaultModel": "sonnet",
+                "icon": "briefcase",
+                "id": "<volatile:int>",
+                "isDefault": true,
+                "isSystem": false,
+                "kind": "setup_token",
+                "name": "Test account",
+                "status": "active",
+                "usable": true
+            }
+        ],
         "defaultsByRepo": {
             "example/api": {
-                "accountId": null,
+                "accountId": "<volatile:int>",
                 "brokenDefaultAccountId": null,
-                "model": "opus"
+                "model": "sonnet"
             }
         },
         "models": [
