@@ -75,17 +75,16 @@ struct AppLockPolicyTests {
         #expect(policy.isLocked)
     }
 
-    @Test(arguments: [
-        (Date(timeIntervalSinceReferenceDate: .nan), start),
-        (start, Date(timeIntervalSinceReferenceDate: .nan)),
-        (Date(timeIntervalSinceReferenceDate: .infinity), start),
-        (start, Date(timeIntervalSinceReferenceDate: .infinity)),
-    ])
-    func aTimeThatIsNotFiniteLocks(background: Date, active: Date) {
-        var policy = unlockedPolicy()
-        policy.handle(.enteredBackground(background))
-        policy.handle(.becameActive(active))
-        #expect(policy.isLocked)
+    @Test func aTimeThatIsNotFiniteLocks() {
+        let nan = Date(timeIntervalSinceReferenceDate: .nan)
+        let infinity = Date(timeIntervalSinceReferenceDate: .infinity)
+        let pairs = [(nan, start), (start, nan), (infinity, start), (start, infinity)]
+        for (background, active) in pairs {
+            var policy = unlockedPolicy()
+            policy.handle(.enteredBackground(background))
+            policy.handle(.becameActive(active))
+            #expect(policy.isLocked)
+        }
     }
 
     @Test func activeWithoutBackgroundDoesNotLock() {
@@ -142,12 +141,17 @@ struct AppLockPolicyTests {
     }
 
     @Test func theLimitCannotGrow() {
-        var long = AppLockPolicy(isOn: true, backgroundLimit: 10_000)
-        long.handle(.launched)
-        long.handle(.unlocked)
-        long.handle(.enteredBackground(at(0)))
-        long.handle(.becameActive(at(300)))
-        #expect(long.isLocked)
+        for limit in [10_000, .infinity, .nan] as [TimeInterval] {
+            var policy = AppLockPolicy(isOn: true, backgroundLimit: limit)
+            policy.handle(.launched)
+            policy.handle(.unlocked)
+            policy.handle(.enteredBackground(at(0)))
+            policy.handle(.becameActive(at(299)))
+            #expect(!policy.isLocked)
+            policy.handle(.enteredBackground(at(1_000)))
+            policy.handle(.becameActive(at(1_300)))
+            #expect(policy.isLocked)
+        }
 
         var negative = AppLockPolicy(isOn: true, backgroundLimit: -5)
         negative.handle(.launched)
@@ -158,15 +162,16 @@ struct AppLockPolicyTests {
     }
 
     @Test func theCoverRule() {
-        for isOn in [false, true] {
-            for isLocked in [false, true] {
-                for sceneIsActive in [false, true] {
-                    let expected = (isOn && !sceneIsActive) || isLocked
-                    #expect(
-                        AppLockPolicy.coversContent(isOn: isOn, isLocked: isLocked, sceneIsActive: sceneIsActive)
-                            == expected)
-                }
-            }
+        let table: [(isOn: Bool, isLocked: Bool, sceneIsActive: Bool, covers: Bool)] = [
+            (false, false, false, false), (false, false, true, false),
+            (false, true, false, true), (false, true, true, true),
+            (true, false, false, true), (true, false, true, false),
+            (true, true, false, true), (true, true, true, true),
+        ]
+        for row in table {
+            #expect(
+                AppLockPolicy.coversContent(isOn: row.isOn, isLocked: row.isLocked, sceneIsActive: row.sceneIsActive)
+                    == row.covers)
         }
     }
 
