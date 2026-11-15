@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\Api\App\BroadcastAuthController as AppBroadcastAuthController;
 use App\Http\Controllers\Api\App\DeviceCodeController as AppDeviceCodeController;
 use App\Http\Controllers\Api\App\DeviceController as AppDeviceController;
 use App\Http\Controllers\Api\App\DevicePairController as AppDevicePairController;
@@ -494,6 +495,7 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::post('threads/{thread}/restore/retry', [AppThreadActionController::class, 'retryRestore'])->middleware('thread.drive')->name('app.threads.restore.retry');
         Route::patch('threads/{thread}/queued-messages/{message}', [AppQueuedMessageController::class, 'update'])->middleware('thread.drive')->whereUuid('message')->name('app.threads.queued-messages.update');
         Route::delete('threads/{thread}/queued-messages/{message}', [AppQueuedMessageController::class, 'destroy'])->middleware('thread.drive')->whereUuid('message')->name('app.threads.queued-messages.destroy');
+        Route::post('broadcasting/auth', AppBroadcastAuthController::class)->name('app.broadcasting.auth');
         Route::get('threads/{thread}/events', [AppThreadEventController::class, 'index'])->middleware('throttle:app-events')->name('app.threads.events.index');
         Route::get('threads/{thread}/events/{sequence}', [AppThreadEventController::class, 'show'])->middleware('throttle:app-events')->where('sequence', '[0-9]{1,10}')->name('app.threads.events.show');
     });

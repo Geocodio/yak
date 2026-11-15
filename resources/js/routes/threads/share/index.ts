@@ -69,7 +69,7 @@ show.head = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadShareController::update
-* @see app/Http/Controllers/Threads/ThreadShareController.php:27
+* @see app/Http/Controllers/Threads/ThreadShareController.php:29
 * @route '/threads/{thread}/share'
 */
 export const update = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -84,7 +84,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadShareController::update
-* @see app/Http/Controllers/Threads/ThreadShareController.php:27
+* @see app/Http/Controllers/Threads/ThreadShareController.php:29
 * @route '/threads/{thread}/share'
 */
 update.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -117,7 +117,7 @@ update.url = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadShareController::update
-* @see app/Http/Controllers/Threads/ThreadShareController.php:27
+* @see app/Http/Controllers/Threads/ThreadShareController.php:29
 * @route '/threads/{thread}/share'
 */
 update.put = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
