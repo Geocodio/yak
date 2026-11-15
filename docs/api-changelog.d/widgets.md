@@ -9,3 +9,5 @@ Reload push. When the needs-you count or the set of running threads changes, Yak
 Contract fixture: `push/widget-reload`.
 
 `features.widgets` in `GET me` stays `true` and now means `PUT push-tokens/widget` exists; it was already `true` before this change, so clients probe the route and treat `404` as no widget push.
+
+A reload follows a change within about 10 seconds, and a device gets at most one a minute; a change inside that minute arrives at its end.

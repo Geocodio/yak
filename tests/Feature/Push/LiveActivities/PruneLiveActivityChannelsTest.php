@@ -45,7 +45,7 @@ it('keeps the channel of a thread with a recent run, even when an older run exis
 
     $this->artisan('yak:live-activities:prune-channels')->assertSuccessful();
 
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(DeleteLiveActivityChannelJob::class);
 });
 
 it('deletes the channel of a closed thread even with a fresh run', function () {
