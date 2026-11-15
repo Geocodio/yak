@@ -1,0 +1,14 @@
+{
+    "coldStartCommand": "npm run dev",
+    "error": null,
+    "log": [],
+    "port": 3000,
+    "setup": {
+        "endedWithoutManifest": false,
+        "intent": null,
+        "isRunning": false
+    },
+    "state": "ready",
+    "steps": [],
+    "url": "https://t-k3m9p2qa7x.yak.example.com/"
+}
