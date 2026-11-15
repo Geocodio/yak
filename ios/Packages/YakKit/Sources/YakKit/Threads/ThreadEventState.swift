@@ -47,7 +47,7 @@ public struct ThreadEventState: Equatable, Sendable {
     }
 
     /// Applies the events newer than `lastSequence`, in the order given; gaps inside the batch are allowed
-    /// because a catch-up page has none of the deltas. Returns the events it applied.
+    /// because a catch-up page from the database has none of the deltas. Returns the events it applied.
     @discardableResult
     public mutating func apply(_ events: [ThreadEvent], latestSequence: Int? = nil) -> [ThreadEvent] {
         var applied: [ThreadEvent] = []

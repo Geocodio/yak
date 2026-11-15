@@ -121,7 +121,14 @@ func decodesEveryServerEventList(name: String) throws {
     }
     #expect(sequences == Array(1...(sequences.count + 1)).dropLast())
     #expect(list.events.allSatisfy { $0.payload != .unknown })
-    #expect(list.catchUp.events.allSatisfy { $0.isStored })
+    // A catch-up served from the live window still carries deltas and stream resets; one served from the
+    // database does not. Either way, replaying it must leave the same stored events as the socket did.
+    var fromSocket = ThreadEventState()
+    fromSocket.apply(list.events)
+    var fromCatchUp = ThreadEventState()
+    fromCatchUp.apply(list.catchUp.events, latestSequence: list.catchUp.latestSequence)
+    #expect(fromCatchUp.storedEvents.map(\.sequence) == fromSocket.storedEvents.map(\.sequence))
+    #expect(fromCatchUp.lastSequence == list.catchUp.latestSequence)
     let pointerCount = list.broadcasts.filter { if case .pointer = $0 { true } else { false } }.count
     #expect(list.pointers.count == pointerCount)
     switch name {
