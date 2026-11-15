@@ -79,11 +79,12 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
         }
     }
 
-    /// True when the text may change without the server holding the old text under this key.
+    /// True when the text may change without the server holding the old text under this key: an item that
+    /// was ever attempted may already be there.
     public var isEditable: Bool {
         switch state {
-        case .queued, .refused: true
-        case .waiting: attemptCount == 0
+        case .refused: true
+        case .queued, .waiting: attemptCount == 0
         case .sending, .slow: false
         }
     }

@@ -204,8 +204,8 @@ public actor Outbox {
         guard !isShutDown, let index = stored.firstIndex(where: { $0.id == id }) else { throw .notFound }
         switch stored[index].state {
         case .sending, .slow: throw .alreadySending
-        case .waiting where stored[index].attemptCount > 0: throw .mayAlreadyBeSent
-        default: break
+        case .queued, .waiting: if stored[index].attemptCount > 0 { throw .mayAlreadyBeSent }
+        case .refused: break
         }
         stored[index].text = text
         publish()
@@ -364,8 +364,8 @@ public actor Outbox {
             stored[index].state = .queued
             pause(reason)
         case .stayQueued:
+            // The request may have reached the server, so the attempt still counts.
             stored[index].state = .queued
-            stored[index].attemptCount -= 1
         }
         publish()
     }

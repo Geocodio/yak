@@ -190,7 +190,9 @@ private struct Harness {
         await settle()
         #expect(await transport.requests(on: threadRoute).count == 1)
         #expect(await outbox.items().first?.state == .queued)
-        #expect(await outbox.items().first?.attemptCount == 0)
+        #expect(await outbox.items().first?.attemptCount == 1)
+        let item = try #require(await outbox.items().first)
+        await #expect(throws: OutboxEditProblem.mayAlreadyBeSent) { try await outbox.edit(item.id, text: "Changed") }
         await outbox.networkReturned()
         _ = await deliveries.next { _ in true }
         #expect(await transport.requests(on: threadRoute).count == 2)

@@ -69,7 +69,7 @@ struct ThreadListFeedTests {
         let cached = try decoded(ThreadList.self, "scenario-thread-list")
         let rig = try await makeRig(cachedMine: cached)
         await rig.transport.hold("GET threads")
-        await rig.transport.on("GET threads", try .json(200, emptyList))
+        await rig.transport.on("GET threads", .json(200, emptyList))
         let recorder = StreamRecorder(await rig.feed.states())
         await rig.feed.setVisible(true)
         let first = await recorder.next { $0.isShowingCachedCopy }

@@ -80,6 +80,23 @@ private struct Setup {
         await first.transport.release(threadRoute)
     }
 
+    @Test func anItemThatWasInFlightWhenTheAppDiedCannotBeEdited() async throws {
+        let first = Setup()
+        await first.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
+        await first.transport.hold(threadRoute)
+        let saved = try await first.outbox.enqueue(draft("Maybe sent"))
+        await first.transport.waitForRequests(1, on: threadRoute)
+
+        let second = Setup(files: first.files, instance: first.instance)
+        await second.outbox.pause(.serverTooOld)
+        await second.outbox.load()
+        #expect(await second.outbox.items().first?.state == .queued)
+        await #expect(throws: OutboxEditProblem.mayAlreadyBeSent) {
+            try await second.outbox.edit(saved.id, text: "Changed")
+        }
+        await first.transport.release(threadRoute)
+    }
+
     @Test func aSendingItemIsSavedAsQueued() async throws {
         let setup = Setup()
         await setup.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
