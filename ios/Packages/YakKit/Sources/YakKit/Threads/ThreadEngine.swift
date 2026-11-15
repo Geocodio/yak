@@ -16,6 +16,14 @@ public actor ThreadEngine {
     public static let historyPage = 500
     /// A cached copy further behind than this is dropped and the newest page is loaded instead.
     private static let largestUsableGap = 2000
+    /// How often a visible engine catches up while the socket is not delivering.
+    public static let pollInterval: Duration = .seconds(3)
+    /// How long a first load may wait before it counts as slow.
+    public static let slowAfter: Duration = .seconds(8)
+    /// Events that change the page join one refresh when they arrive inside this time.
+    public static let refreshSettle: Duration = .milliseconds(300)
+    /// The wait before a failed refresh is tried again.
+    public static let refreshRetry: Duration = .seconds(3)
 
     public nonisolated let threadID: String
 
@@ -52,6 +60,15 @@ public actor ThreadEngine {
     private var isCacheDirty = false
     private var sideTasks: [UUID: Task<Void, Never>] = [:]
     private var pointersInFlight: Set<Int> = []
+    private var isVisible = false
+    private var isSubscribed = false
+    private var pollTask: Task<Void, Never>?
+    private var refreshTask: Task<Void, Never>?
+    private var isRefreshRequested = false
+    private var refreshGeneration = 0
+    private var slowTask: Task<Void, Never>?
+    private var olderTask: Task<Void, Never>?
+    private var isLoadingOlder = false
 
     public init(
         threadID: String, client: APIClient, cache: Cache, clock: any YakClock,
@@ -79,8 +96,10 @@ public actor ThreadEngine {
             isShowingCachedCopy = true
         }
         isOpenFinished = true
+        if load == .loading { startSlowTimer() }
         publishNow()
         requestCatchUp()
+        updatePolling()
     }
 
     /// Cancels every task, saves the cache and ends the snapshot streams. Repeating it changes nothing.
@@ -91,6 +110,11 @@ public actor ThreadEngine {
         frameTask?.cancel()
         cacheTask?.cancel()
         for task in sideTasks.values { task.cancel() }
+        for task in [pollTask, refreshTask, slowTask, olderTask] { task?.cancel() }
+        pollTask = nil
+        refreshTask = nil
+        slowTask = nil
+        olderTask = nil
         catchUpTask = nil
         frameTask = nil
         cacheTask = nil
@@ -120,11 +144,17 @@ public actor ThreadEngine {
         case .pointer(let sequence):
             if isOpenFinished { handlePointer(sequence) }
         case .subscribed:
+            isSubscribed = true
             requestCatchUp()
+            updatePolling()
         case .connection(let next):
             connection = next
+            if next != .live { isSubscribed = false }
             changed(isStored: false)
+            updatePolling()
         case .subscriptionFailed(let failure):
+            isSubscribed = false
+            updatePolling()
             logFailure("thread subscription failed: \(failure.map { ThreadProblem($0).logName } ?? "refused")")
         }
     }
@@ -140,6 +170,161 @@ public actor ThreadEngine {
         if !deliveries.contains(where: { $0.sendKey == delivery.sendKey }) { deliveries.append(delivery) }
         if delivery.threadID != threadID { replacementThreadID = delivery.threadID }
         changed(isStored: false)
+        scheduleShowRefresh()
+    }
+
+    // MARK: Visibility, polling, refreshes and history
+
+    /// A visible engine marks the thread seen and, while the socket is not delivering, polls.
+    public func setVisible(_ visible: Bool) async {
+        guard !isClosed, visible != isVisible else { return }
+        isVisible = visible
+        if visible {
+            // Before the first show answer, confirming the show sends the mark.
+            if isShowConfirmed { sendMarkSeen() }
+            requestCatchUp()
+        }
+        updatePolling()
+    }
+
+    /// Fetches the older page of events. A second call while one runs, or at the start of the thread, does nothing.
+    public func loadOlder() async {
+        guard !isClosed, isOpenFinished, load == .ready, firstLoadedAfter > 0, !isLoadingOlder else { return }
+        isLoadingOlder = true
+        changed(isStored: false)
+        let task = Task { await self.runLoadOlder() }
+        olderTask = task
+        await task.value
+        if olderTask == task { olderTask = nil }
+    }
+
+    /// Fetches the thread now and replaces the page's messages, composer, question and panes with the answer.
+    public func refreshShow() async {
+        guard !isClosed, isShowConfirmed else { return }
+        if let problem = await fetchShow(), problem.isRetryable { startRefreshLoop(retryFirst: true) }
+    }
+
+    private var shouldPoll: Bool {
+        isVisible && isOpenFinished && !isClosed && !(connection == .live && isSubscribed)
+    }
+
+    private func updatePolling() {
+        guard shouldPoll else {
+            pollTask?.cancel()
+            pollTask = nil
+            return
+        }
+        guard pollTask == nil else { return }
+        pollTask = Task {
+            while !Task.isCancelled {
+                do { try await self.clock.sleep(for: Self.pollInterval) } catch { return }
+                guard self.shouldPoll else { return }
+                self.requestCatchUp()
+            }
+        }
+    }
+
+    private func startSlowTimer() {
+        slowTask = Task {
+            do { try await self.clock.sleep(for: Self.slowAfter) } catch { return }
+            guard !self.isClosed, self.load == .loading else { return }
+            self.load = .slow
+            self.changed(isStored: false)
+        }
+    }
+
+    private func scheduleShowRefresh() {
+        guard !isClosed, isShowConfirmed else { return }
+        isRefreshRequested = true
+        startRefreshLoop(retryFirst: false)
+    }
+
+    private func startRefreshLoop(retryFirst: Bool) {
+        guard refreshTask == nil else { return }
+        isRefreshRequested = true
+        refreshTask = Task { await self.runRefreshes(retryFirst: retryFirst) }
+    }
+
+    private func runRefreshes(retryFirst: Bool) async {
+        var shouldWait = true
+        var delay = retryFirst ? Self.refreshRetry : Self.refreshSettle
+        while isRefreshRequested, !isClosed, !Task.isCancelled {
+            if shouldWait {
+                do { try await clock.sleep(for: delay) } catch { break }
+            }
+            isRefreshRequested = false
+            if let problem = await fetchShow(), problem.isRetryable {
+                isRefreshRequested = true
+                delay = Self.refreshRetry
+            } else {
+                delay = Self.refreshSettle
+            }
+            shouldWait = true
+        }
+        refreshTask = nil
+    }
+
+    /// Returns the problem when the request failed, nil when it succeeded or was overtaken.
+    private func fetchShow() async -> ThreadProblem? {
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let fetched: ThreadShow
+        do {
+            fetched = try await client.send(.thread(threadID))
+        } catch {
+            guard !isClosed, !Task.isCancelled else { return nil }
+            let failure = ThreadProblem(error)
+            logFailure("show refresh failed: \(failure.logName)")
+            if failure == .offline { isOffline = true } else { problem = failure }
+            changed(isStored: false)
+            return failure
+        }
+        guard !isClosed, !Task.isCancelled, generation == refreshGeneration else { return nil }
+        show = fetched
+        isOffline = false
+        problem = nil
+        changed(isStored: true)
+        return nil
+    }
+
+    private func runLoadOlder() async {
+        let bound = firstLoadedAfter
+        let after = max(0, bound - Self.historyPage)
+        let page: EventsPage
+        do {
+            page = try await client.send(.events(threadID, after: after, limit: Self.historyPage))
+        } catch {
+            isLoadingOlder = false
+            guard !isClosed, !Task.isCancelled else { return }
+            fail(ThreadProblem(error), what: "history")
+            return
+        }
+        isLoadingOlder = false
+        guard !isClosed, !Task.isCancelled else { return }
+        state.prependOlder(page.events.filter { $0.sequence <= bound })
+        firstLoadedAfter = after
+        isOffline = false
+        problem = nil
+        changed(isStored: true)
+    }
+
+    /// Reacts to events that were just applied: a closed question leaves the page at once, and anything
+    /// that changes the page (a turn, thread or question change newer than the page) schedules a refresh.
+    private func noteApplied(_ applied: [ThreadEvent]) {
+        let pageSequence = show?.latestSequence ?? 0
+        var needsRefresh = false
+        for event in applied {
+            switch event.payload {
+            case .turn, .thread:
+                if event.sequence > pageSequence { needsRefresh = true }
+            case .question(let change):
+                if !change.open { show?.question = nil }
+                if event.sequence > pageSequence { needsRefresh = true }
+            default:
+                break
+            }
+        }
+        if needsRefresh { scheduleShowRefresh() }
     }
 
     /// Fetches what the stream missed. While one runs, a request only marks a rerun.
@@ -160,7 +345,7 @@ public actor ThreadEngine {
             requestCatchUp()
             return
         }
-        state.apply([event])
+        noteApplied(state.apply([event]))
         changed(isStored: event.isStored)
     }
 
@@ -223,7 +408,7 @@ public actor ThreadEngine {
             // The end is decided by what the server sent, so a malformed event dropped from a full page
             // cannot make the engine skip the events after it.
             let isLastPage = page.rawEventCount < Self.historyPage
-            state.apply(page.events, latestSequence: isLastPage ? page.latestSequence : nil)
+            noteApplied(state.apply(page.events, latestSequence: isLastPage ? page.latestSequence : nil))
             isOffline = false
             problem = nil
             isShowingCachedCopy = false
@@ -245,6 +430,7 @@ public actor ThreadEngine {
         }
         guard !isClosed, !Task.isCancelled else { return false }
         show = fetched
+        refreshGeneration += 1
         isShowConfirmed = true
         let cachedLast = state.lastSequence
         let hasCachedCopy = isShowingCachedCopy
@@ -254,7 +440,7 @@ public actor ThreadEngine {
             state = ThreadEventState(lastSequence: start)
             firstLoadedAfter = start
             isShowingCachedCopy = false
-            load = .loading
+            if load == .ready { load = .loading }
         }
         markSeenOnce()
         changed(isStored: true)
@@ -264,6 +450,10 @@ public actor ThreadEngine {
     private func markSeenOnce() {
         guard !hasMarkedSeen else { return }
         hasMarkedSeen = true
+        sendMarkSeen()
+    }
+
+    private func sendMarkSeen() {
         let identifier = UUID()
         sideTasks[identifier] = Task {
             do {
@@ -342,6 +532,10 @@ public actor ThreadEngine {
 
     private func publishNow() {
         guard !isClosed else { return }
+        if load != .loading, load != .slow {
+            slowTask?.cancel()
+            slowTask = nil
+        }
         let messages = show?.messages ?? []
         deliveries.removeAll { delivery in
             messages.contains { message in
@@ -361,7 +555,7 @@ public actor ThreadEngine {
                 currentStepKey: ConversationMerge.currentStepKey(in: entries, turn: state.turn),
                 waiting: ConversationMerge.waitingRow(in: entries, turn: state.turn), turn: state.turn,
                 thread: state.thread, connection: connection, isShowingCachedCopy: isShowingCachedCopy,
-                isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: false,
+                isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: isLoadingOlder,
                 replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem))
     }
 }

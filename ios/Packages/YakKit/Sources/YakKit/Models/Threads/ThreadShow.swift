@@ -5,7 +5,7 @@ public struct ThreadShow: Codable, Equatable, Sendable {
     public let composer: Composer
     public let notice: ThreadNotice?
     public let panes: ThreadPanes
-    public let question: ThreadQuestion?
+    public var question: ThreadQuestion?
     public let latestSequence: Int
 }
 
