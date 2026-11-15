@@ -48,6 +48,26 @@ final class ThreadActionRefused extends RuntimeException
 
     public const NOTHING_TO_RETRY = 'nothing_to_retry';
 
+    public const NOTHING_TO_PUBLISH = 'nothing_to_publish';
+
+    public const CI_NOT_FAILING = 'ci_not_failing';
+
+    public const TASK_NOT_RETRYABLE = 'task_not_retryable';
+
+    public const TASK_NOT_CANCELLABLE = 'task_not_cancellable';
+
+    public const NOT_A_REVIEW = 'not_a_review';
+
+    public const REVIEW_ALREADY_QUEUED = 'review_already_queued';
+
+    public const PULL_REQUEST_UNKNOWN = 'pull_request_unknown';
+
+    public const GITHUB_UNAVAILABLE = 'github_unavailable';
+
+    public const NOTHING_TO_RENDER = 'nothing_to_render';
+
+    public const TASK_NOT_REROUTABLE = 'task_not_reroutable';
+
     /**
      * @param  array<string, mixed>  $details
      */
