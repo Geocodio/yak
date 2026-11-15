@@ -186,3 +186,42 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
     #expect(sections.first?.rows.first?.title == "Fix the import retry")
     #expect(sections.count == 2)
 }
+
+@MainActor
+@Suite struct InstanceSwitchModelTests {
+    private struct SwitchFailure: Error {}
+
+    @Test func ignoresASecondTapWhileOneSwitchIsUnderWay() async {
+        var activated: [UUID] = []
+        var release: CheckedContinuation<Void, Never>?
+        let model = InstanceSwitchModel(
+            activate: { id in
+                activated.append(id)
+                await withCheckedContinuation { release = $0 }
+            }, finish: {})
+        let first = UUID()
+        let running = Task { await model.switchTo(id: first, name: "One") }
+        while release == nil { await Task.yield() }
+        #expect(model.isSwitching)
+        #expect(model.switchingID == first)
+        #expect(await model.switchTo(id: UUID(), name: "Two") == false)
+        release?.resume()
+        #expect(await running.value)
+        #expect(activated == [first])
+    }
+
+    @Test func aFailedSwitchNamesTheInstanceAndFreesTheRows() async {
+        var shouldFail = true
+        var finished = 0
+        let model = InstanceSwitchModel(
+            activate: { _ in if shouldFail { throw SwitchFailure() } }, finish: { finished += 1 })
+        #expect(await model.switchTo(id: UUID(), name: "Other") == false)
+        #expect(model.failedName == "Other")
+        #expect(!model.isSwitching)
+        #expect(finished == 0)
+        shouldFail = false
+        #expect(await model.switchTo(id: UUID(), name: "Other"))
+        #expect(model.failedName == nil)
+        #expect(finished == 1)
+    }
+}

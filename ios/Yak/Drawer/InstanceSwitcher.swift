@@ -1,4 +1,3 @@
-import OSLog
 import SwiftUI
 import YakKit
 
@@ -9,13 +8,18 @@ struct InstanceSwitcher: View {
     let active: Instance
     let onClose: () -> Void
 
+    init(model: AppModel, active: Instance, onClose: @escaping () -> Void) {
+        self.model = model
+        self.active = active
+        self.onClose = onClose
+        _switcher = State(
+            initialValue: InstanceSwitchModel(
+                activate: { try await model.instances.setActive($0) }, finish: { await model.reloadRoute() }))
+    }
+
     @State private var instances: [Instance] = []
     @State private var showsAdd = false
-    @State private var isSwitching = false
-    /// The row whose switch is under way, which shows a spinner.
-    @State private var switchingID: UUID?
-    /// The name of the instance the last switch failed for; the sheet says so until the next try.
-    @State private var failedName: String?
+    @State private var switcher: InstanceSwitchModel
 
     var body: some View {
         NavigationStack {
@@ -23,7 +27,7 @@ struct InstanceSwitcher: View {
                 Section {
                     ForEach(instances) { instance in row(instance) }
                 } footer: {
-                    if let failedName {
+                    if let failedName = switcher.failedName {
                         Text("switcher.switchFailed \(failedName)").foregroundStyle(.primary)
                             .accessibilityIdentifier("switcher.failed")
                     }
@@ -68,7 +72,7 @@ struct InstanceSwitcher: View {
         .onChange(of: model.wantsScanner) { _, wantsScanner in
             if wantsScanner { showsAdd = true }
         }
-        .sensoryFeedback(.selection, trigger: isSwitching)
+        .sensoryFeedback(.selection, trigger: switcher.isSwitching)
     }
 
     private func row(_ instance: Instance) -> some View {
@@ -77,22 +81,8 @@ struct InstanceSwitcher: View {
                 onClose()
                 return
             }
-            isSwitching = true
-            switchingID = instance.id
-            failedName = nil
             Task {
-                do {
-                    try await model.instances.setActive(instance.id)
-                } catch {
-                    Logger(subsystem: "Yak", category: "InstanceSwitcher")
-                        .error("Switching instance failed: \(String(describing: type(of: error)), privacy: .public)")
-                    failedName = instance.name
-                    switchingID = nil
-                    isSwitching = false
-                    return
-                }
-                await model.reloadRoute()
-                onClose()
+                if await switcher.switchTo(id: instance.id, name: instance.name) { onClose() }
             }
         } label: {
             HStack(spacing: 12) {
@@ -106,7 +96,7 @@ struct InstanceSwitcher: View {
                     Text(statusLine(instance)).font(.footnote).foregroundStyle(Color.yakMuted)
                 }
                 Spacer(minLength: 8)
-                if switchingID == instance.id {
+                if switcher.switchingID == instance.id {
                     ProgressView().accessibilityHidden(true)
                 } else if instance.id == active.id {
                     Image(systemName: "checkmark").foregroundStyle(.primary).accessibilityHidden(true)
@@ -115,7 +105,7 @@ struct InstanceSwitcher: View {
             .frame(minHeight: 44)
             .contentShape(.rect)
         }
-        .disabled(isSwitching)
+        .disabled(switcher.isSwitching)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel(instance))
         .accessibilityAddTraits(instance.id == active.id ? .isSelected : [])
@@ -130,7 +120,7 @@ struct InstanceSwitcher: View {
 
     private func accessibilityLabel(_ instance: Instance) -> String {
         var parts = [instance.name, instance.url.host() ?? "", statusLine(instance)]
-        if switchingID == instance.id { parts.append(String(localized: "switcher.switching")) }
+        if switcher.switchingID == instance.id { parts.append(String(localized: "switcher.switching")) }
         return parts.filter { !$0.isEmpty }.joined(separator: ". ")
     }
 }

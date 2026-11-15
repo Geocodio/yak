@@ -125,10 +125,13 @@ import XCTest
             {
                 return true
             }
-            // At the largest text size the drawer's message or list runs under the bottom bar or the keyboard; the
-            // audit finds that cut text but cannot name its element. Only the drawer screens are excused.
-            if issue.auditType == .contrast, issue.element == nil, environment["YAK_TEXT_SIZE"] == "largest",
-                name.hasPrefix("drawer")
+            // At the largest text size a message or list scrolls under the bottom bar, and the audit finds the text
+            // that the bar covers, sometimes without naming its element. Only these screens, which scroll by design, are excused.
+            if issue.auditType == .contrast, environment["YAK_TEXT_SIZE"] == "largest",
+                [
+                    "drawer", "drawer-empty", "drawer-empty-others", "drawer-no-results", "drawer-offline",
+                    "drawer-sub-threads",
+                ].contains(name)
             {
                 return true
             }

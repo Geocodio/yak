@@ -21,10 +21,13 @@ struct DrawerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !(isSearchFocused && verticalSizeClass == .compact) { header }
+            if !(isSearchFocused && (verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize)) { header }
             if let name = scene.justPairedUserName { banner(name) }
-            content
+            content.frame(maxHeight: .infinity, alignment: .top)
         }
+        // Whatever sits above the bottom bar is clipped to the room left, so the bar is always fully on screen.
+        .frame(maxHeight: .infinity, alignment: .top)
+        .clipped()
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         .background(Color(.secondarySystemBackground))
         .accessibilityElement(children: .contain)
@@ -38,7 +41,9 @@ struct DrawerView: View {
         HStack(spacing: 8) {
             Button(action: openSwitcher) {
                 HStack(spacing: 6) {
-                    Text(instance.name).font(.title2.bold()).multilineTextAlignment(.leading)
+                    Text(instance.name).font(dynamicTypeSize.isAccessibilitySize ? .title3.bold() : .title2.bold())
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2).minimumScaleFactor(0.6)
                         .fixedSize(horizontal: false, vertical: true)
                     Image(systemName: "chevron.up.chevron.down").font(.footnote.weight(.semibold))
                         .foregroundStyle(Color.yakMuted)
@@ -52,6 +57,7 @@ struct DrawerView: View {
             Spacer(minLength: 0)
             Button(action: openAccount) {
                 Text(initials).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                    .lineLimit(1).fixedSize().dynamicTypeSize(...DynamicTypeSize.accessibility1)
                     .padding(8).frame(minWidth: 36, minHeight: 36)
                     .background(Color.primary.opacity(0.1), in: .capsule)
                     .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
@@ -246,8 +252,7 @@ struct DrawerView: View {
         }
     }
 
-    /// On a tall screen at a normal text size the message and its actions sit at the top. When height or width is
-    /// short, the message scrolls and the actions stay pinned just above the bottom bar, so they are always in view.
+    /// The message and its actions sit at the top and scroll together when the room is short.
     private func stateMessage<Actions: View>(
         title: Text, detail: Text?, systemImage: String, @ViewBuilder actions: () -> Actions
     ) -> some View {
@@ -266,22 +271,15 @@ struct DrawerView: View {
         .padding(.horizontal, 24)
         let actionButtons = VStack(spacing: 10) { actions() }.fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 24)
-        return Group {
-            if showsIcon {
-                ScrollView {
-                    VStack(spacing: 16) {
-                        message
-                        actionButtons
-                    }
-                    .padding(.top, 40).padding(.bottom, 24)
-                }
-            } else {
-                VStack(spacing: 12) {
-                    ScrollView { message.padding(.top, 16) }.scrollBounceBehavior(.basedOnSize)
-                    actionButtons.padding(.bottom, 12)
-                }
+        // Message and actions scroll together, so no line of the message is ever hidden behind the actions.
+        return ScrollView {
+            VStack(spacing: 16) {
+                message
+                actionButtons
             }
+            .padding(.top, showsIcon ? 40 : 16).padding(.bottom, showsIcon ? 24 : 12)
         }
+        .scrollBounceBehavior(.basedOnSize)
         .frame(maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("drawer.message")
@@ -290,6 +288,8 @@ struct DrawerView: View {
     // MARK: Bottom bar
 
     private var bottomBar: some View {
+        // With the keyboard up at a large text size the filter shows as an icon, so the bar stays short.
+        let isOneRow = isSearchFocused && dynamicTypeSize.isAccessibilitySize
         let layout =
             dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
@@ -321,7 +321,7 @@ struct DrawerView: View {
             .frame(minHeight: 44)
             .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 12))
             HStack(spacing: 8) {
-                filterMenu
+                filterMenu(showsName: !isOneRow)
                 Button {
                     scene.openNewThread(repo: nil, text: nil)
                 } label: {
@@ -343,7 +343,7 @@ struct DrawerView: View {
         Binding(get: { drawer?.search ?? "" }, set: { drawer?.search = $0 })
     }
 
-    private var filterMenu: some View {
+    private func filterMenu(showsName: Bool) -> some View {
         let filter = drawer?.filter ?? scene.state.filter
         return Menu {
             Picker("drawer.filter.title", selection: filterBinding) {
@@ -353,7 +353,11 @@ struct DrawerView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(name(of: filter)).font(.subheadline.weight(.semibold))
+                if showsName {
+                    Text(name(of: filter)).font(.subheadline.weight(.semibold))
+                } else {
+                    Image(systemName: icon(of: filter)).font(.body.weight(.semibold))
+                }
                 Image(systemName: "chevron.down").font(.caption2.weight(.bold)).accessibilityHidden(true)
             }
             .foregroundStyle(.primary)
@@ -386,6 +390,14 @@ struct DrawerView: View {
         }
     }
 
+    private func icon(of filter: ThreadListFilter) -> String {
+        switch filter {
+        case .mine: "person"
+        case .yak: "sparkles"
+        case .everyone: "person.2"
+        }
+    }
+
     private func label(of filter: ThreadListFilter) -> LocalizedStringKey {
         switch filter {
         case .mine: "drawer.filter.label.mine"
@@ -407,6 +419,21 @@ private struct DrawerLoading: View {
     @State private var isDim = false
 
     var body: some View {
+        ScrollView { loadingContent }.scrollBounceBehavior(.basedOnSize)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .task {
+                do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
+                withAnimation(.easeIn(duration: 0.2)) { showsSkeleton = true }
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 0.9).repeatForever()) { isDim = true }
+            }
+            .task {
+                do { try await Task.sleep(for: ThreadListFeed.slowAfter) } catch { return }
+                withAnimation(.spring) { hasWaitedLong = true }
+            }
+    }
+
+    private var loadingContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             if isSlow || hasWaitedLong {
                 VStack(alignment: .leading, spacing: 8) {
@@ -427,17 +454,7 @@ private struct DrawerLoading: View {
             }
         }
         .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .task {
-            do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
-            withAnimation(.easeIn(duration: 0.2)) { showsSkeleton = true }
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 0.9).repeatForever()) { isDim = true }
-        }
-        .task {
-            do { try await Task.sleep(for: ThreadListFeed.slowAfter) } catch { return }
-            withAnimation(.spring) { hasWaitedLong = true }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func row(_ index: Int) -> some View {
