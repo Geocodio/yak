@@ -17,7 +17,7 @@ function classifiedRouteNames(): array
 test('every application route is classified', function () {
     $unclassified = array_values(array_diff(array_keys(VisibilityRoutes::applicationRoutes()), classifiedRouteNames()));
 
-    expect($unclassified)->toBe([], 'classify these in tests/Support/VisibilityRoutes.php: ' . implode(', ', $unclassified));
+    expect($unclassified)->toBe([], 'classify these in tests/Support/AppRouteGroups/<feature>.php: ' . implode(', ', $unclassified));
 });
 
 test('no classified name is stale', function () {

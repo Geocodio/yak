@@ -499,7 +499,7 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::get('threads/{thread}/events', [AppThreadEventController::class, 'index'])->middleware('throttle:app-events')->name('app.threads.events.index');
         Route::get('threads/{thread}/events/{sequence}', [AppThreadEventController::class, 'show'])->middleware('throttle:app-events')->where('sequence', '[0-9]{1,10}')->name('app.threads.events.show');
 
-        // Each feature's app routes live in routes/app/<feature>.php and inherit the protocol check and the phone token above.
+        /** Each feature's app routes live in routes/app/<feature>.php and inherit the protocol check and the phone token above. */
         foreach (glob(__DIR__ . '/app/*.php') ?: [] as $featureRoutes) {
             require $featureRoutes;
         }

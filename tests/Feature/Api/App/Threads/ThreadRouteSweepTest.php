@@ -14,13 +14,32 @@ use Tests\Support\VisibilityRoutes;
 use Tests\TestCase;
 
 /**
+ * Adds placeholders to a set, refusing a key that is already set so a group cannot
+ * silently replace a core value or another group's value.
+ *
+ * @param  array<string, string>  $existing
+ * @param  array<string, string>  $added
+ * @return array<string, string>
+ */
+function mergeSweepPlaceholders(array $existing, array $added): array
+{
+    foreach (array_keys($added) as $key) {
+        if (array_key_exists($key, $existing)) {
+            throw new InvalidArgumentException("Sweep placeholder {$key} is already set.");
+        }
+    }
+
+    return [...$existing, ...$added];
+}
+
+/**
  * @param  array{method: string, path: string, isDrive: bool, body: array<string, mixed>}  $probe
  * @param  array<string, string>  $headers
  * @param  array<string, string>  $placeholders  `{name}` => value, from the world's group closures
  */
 function appRouteSweepRequest(TestCase $test, array $probe, string $threadKey, array $headers, array $placeholders = []): TestResponse
 {
-    $replacements = ['{thread}' => $threadKey, '{message}' => '6f1d7c0e-5b7a-4a52-9c1e-0d2f3a4b5c6d', ...$placeholders];
+    $replacements = mergeSweepPlaceholders(['{thread}' => $threadKey, '{message}' => '6f1d7c0e-5b7a-4a52-9c1e-0d2f3a4b5c6d'], $placeholders);
     $path = '/api/app/v1' . strtr($probe['path'], $replacements);
 
     return $test->json($probe['method'], $path, $probe['body'], [...VisibilityRoutes::groupHeaders(), ...$headers]);
@@ -51,7 +70,7 @@ function sweepThread(): array
     $placeholders = ['{repository}' => (string) $repository->id];
 
     foreach (VisibilityRoutes::groupWorlds() as $extendWorld) {
-        $placeholders = [...$placeholders, ...$extendWorld($world)];
+        $placeholders = mergeSweepPlaceholders($placeholders, $extendWorld($world));
     }
 
     return [...$world, 'placeholders' => $placeholders];
@@ -64,6 +83,11 @@ function sweepRowCounts(): array
         ->mapWithKeys(fn (string $table): array => [$table => DB::table($table)->count()])
         ->all();
 }
+
+it('refuses a sweep placeholder that is already set', function () {
+    expect(fn () => mergeSweepPlaceholders(['{thread}' => 'a'], ['{thread}' => 'b']))->toThrow(InvalidArgumentException::class)
+        ->and(mergeSweepPlaceholders(['{thread}' => 'a'], ['{other}' => 'b']))->toBe(['{thread}' => 'a', '{other}' => 'b']);
+});
 
 it('probes every app thread route', function () {
     $routes = VisibilityRoutes::applicationRoutes();

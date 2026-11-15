@@ -378,10 +378,10 @@ class VisibilityRoutes
      */
     public static function groupNames(string $key, string $directory = self::GROUPS_DIRECTORY): array
     {
-        return array_values(array_merge(...array_map(
+        return array_merge(...array_map(
             fn (array $group): array => $group[$key] ?? [],
             array_values(self::groupsIn($directory)),
-        )));
+        ));
     }
 
     /**
