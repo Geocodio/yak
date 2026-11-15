@@ -83,6 +83,8 @@ class CoOwnerDecisionController extends Controller
 
     /**
      * Reads the request again, so a double tap that lost the race answers like the tap that won.
+     *
+     * @phpstan-impure
      */
     private function isDecidedBy(CoOwnerRequest $coOwnerRequest, CoOwnerRequestStatus $status, User $user): bool
     {
