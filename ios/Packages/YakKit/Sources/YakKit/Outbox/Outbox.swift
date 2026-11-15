@@ -65,6 +65,7 @@ public actor Outbox {
     // MARK: Changing
 
     public func enqueue(_ draft: OutboxDraft) async throws(FileStoreError) -> OutboxItem {
+        guard !isShutDown else { throw .unreadable }
         let item = OutboxItem(
             id: makeID(), target: draft.target, text: draft.text, model: draft.model, delivery: draft.delivery,
             attachments: draft.attachments, createdAt: clock.now())
@@ -85,6 +86,7 @@ public actor Outbox {
     /// Reads `items.json`, takes in what other processes left, and starts sending. An item that was
     /// in flight when the app stopped is queued again and goes out with the same `send_key`.
     public func load() {
+        guard !isShutDown else { return }
         loadSavedList()
         importIncoming()
     }
@@ -121,6 +123,7 @@ public actor Outbox {
 
     /// Moves every inbox file into the list, in `createdAt` order, then removes the files.
     public func importIncoming() {
+        guard !isShutDown else { return }
         let folder = OutboxInbox.folder(instance)
         let names: [String]
         do { names = try files.list(folder) } catch {
@@ -160,6 +163,7 @@ public actor Outbox {
 
     /// Everything this instance keeps for sending: the list, the inbox and the attachment files.
     public func eraseAll() {
+        guard !isShutDown else { return }
         for timer in slowTimers.values { timer.cancel() }
         for timer in retryTimers.values { timer.cancel() }
         slowTimers = [:]
@@ -197,7 +201,7 @@ public actor Outbox {
     }
 
     public func edit(_ id: UUID, text: String) throws(OutboxEditProblem) {
-        guard let index = stored.firstIndex(where: { $0.id == id }) else { throw .notFound }
+        guard !isShutDown, let index = stored.firstIndex(where: { $0.id == id }) else { throw .notFound }
         switch stored[index].state {
         case .sending, .slow: throw .alreadySending
         case .waiting where stored[index].attemptCount > 0: throw .mayAlreadyBeSent
@@ -208,7 +212,7 @@ public actor Outbox {
     }
 
     public func remove(_ id: UUID) throws(OutboxEditProblem) -> OutboxItem {
-        guard let index = stored.firstIndex(where: { $0.id == id }) else { throw .notFound }
+        guard !isShutDown, let index = stored.firstIndex(where: { $0.id == id }) else { throw .notFound }
         switch stored[index].state {
         case .sending, .slow: throw .alreadySending
         default: break
@@ -223,6 +227,7 @@ public actor Outbox {
 
     /// A refused or waiting item is sent again now.
     public func retry(_ id: UUID) {
+        guard !isShutDown else { return }
         guard let index = stored.firstIndex(where: { $0.id == id }) else { return }
         switch stored[index].state {
         case .refused, .waiting:
@@ -236,6 +241,7 @@ public actor Outbox {
 
     /// Every waiting item is sent now instead of after its delay.
     public func networkReturned() {
+        guard !isShutDown else { return }
         makeWaitingItemsQueued()
         pump()
     }
@@ -259,6 +265,7 @@ public actor Outbox {
     }
 
     public func resume() {
+        guard !isShutDown else { return }
         pauseState = nil
         makeWaitingItemsQueued()
         pump()

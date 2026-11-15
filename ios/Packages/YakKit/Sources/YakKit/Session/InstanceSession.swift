@@ -82,6 +82,8 @@ public actor InstanceSession {
     private let connectionBroadcast = Broadcast(ConnectionState.offline)
 
     private var isStarted = false
+    /// A running stop; a start that arrives meanwhile waits for it instead of being undone by it.
+    private var stopping: Task<Void, Never>?
     /// Counts starts and stops, so an answer that arrives after a stop is dropped.
     private var runID = 0
     private var hasEnded = false
@@ -120,6 +122,7 @@ public actor InstanceSession {
 
     /// Reads the token and asks `me`. Repeating it while started changes nothing.
     public func start() async {
+        await stopping?.value
         guard !isStarted else { return }
         isStarted = true
         hasEnded = false
@@ -259,10 +262,16 @@ public actor InstanceSession {
     }
 
     public func stop() async {
+        if let stopping { return await stopping.value }
         runID += 1
         isStarted = false
-        await tearDown(closingThreads: true)
-        await releaseParts()
+        let work = Task {
+            await self.tearDown(closingThreads: true)
+            await self.releaseParts()
+        }
+        stopping = work
+        await work.value
+        stopping = nil
     }
 
     /// Stops the outbox's work and drops everything the session built; the outbox items stay on disk.

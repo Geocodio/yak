@@ -324,9 +324,14 @@ private func nextSnapshot(
         await rig.transport.release(messages)
         _ = await deliveries.next { _ in true }
         for _ in 0..<100 { await Task.yield() }
-        #expect(await rig.transport.requests(on: messages).count == 2)
+        let posts = await rig.transport.requests(on: messages)
+        #expect(posts.count == 2)
         #expect(await outbox.items().isEmpty)
-        #expect(item.id == item.id)
+        let sendKeys = posts.compactMap {
+            ($0.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any])?["send_key"]
+                as? String
+        }
+        #expect(sendKeys == [item.id.uuidString, item.id.uuidString])
         await rig.session.stop()
     }
 

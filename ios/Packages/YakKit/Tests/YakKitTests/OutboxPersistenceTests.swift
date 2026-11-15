@@ -206,6 +206,41 @@ private struct Setup {
         await setup.transport.release(threadRoute)
     }
 
+    @Test func aShutDownOutboxLeavesTheSavedListAlone() async throws {
+        let old = Setup()
+        await old.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
+        await old.transport.hold(threadRoute)
+        let item = try await old.outbox.enqueue(draft("Old"))
+        await old.outbox.shutDown()
+        let next = Setup(files: old.files, instance: old.instance)
+        await next.transport.on(threadRoute, try .scenario(200, "scenario-message-sent"))
+        await next.transport.hold(threadRoute)
+        await next.outbox.load()
+        await next.transport.waitForRequests(1, on: threadRoute)
+        let saved = try #require(try old.files.read(old.itemsPath))
+        await #expect(throws: FileStoreError.self) { try await old.outbox.enqueue(draft("Stale")) }
+        await #expect(throws: OutboxEditProblem.notFound) { try await old.outbox.edit(item.id, text: "Stale") }
+        await #expect(throws: OutboxEditProblem.notFound) { _ = try await old.outbox.remove(item.id) }
+        await old.outbox.retry(item.id)
+        await old.outbox.importIncoming()
+        await old.outbox.eraseAll()
+        #expect(try old.files.read(old.itemsPath) == saved)
+        #expect(await next.outbox.items().map(\.id) == [item.id])
+        await old.transport.release(threadRoute)
+        await next.transport.release(threadRoute)
+    }
+
+    @Test func aShutDownOutboxLeavesTheInboxFilesInPlace() async throws {
+        let setup = Setup()
+        let id = UUID()
+        try OutboxInbox.add(draft("Shared"), instance: setup.instance, files: setup.files, id: id, now: Date())
+        await setup.outbox.shutDown()
+        await setup.outbox.load()
+        #expect(try setup.files.list(setup.incomingFolder) == ["\(id.uuidString).json"])
+        #expect(try setup.files.read(setup.itemsPath) == nil)
+        #expect(await setup.outbox.items().isEmpty)
+    }
+
     @Test func aFailedSaveKeepsTheInboxFile() async throws {
         let base = InMemoryFileStore()
         let setup = Setup(files: base, store: FailingListStore(base: base))
