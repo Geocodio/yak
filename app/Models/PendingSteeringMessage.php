@@ -201,6 +201,19 @@ class PendingSteeringMessage extends Model
             'context' => TaskAttachment::CONTEXT_REQUEST,
         ]);
 
+        // The rows are deleted below; the send keys stay so a retry after the drain is still recognised.
+        $keyed = $messages->whereNotNull('send_key')->map(fn (self $message): array => [
+            'root_task_id' => $message->root_task_id,
+            'send_key' => $message->send_key,
+            'author_user_id' => $message->author_user_id,
+            'message_uuid' => $message->uuid,
+            'created_at' => now(),
+        ])->values()->all();
+
+        if ($keyed !== []) {
+            DB::table('drained_send_keys')->insert($keyed);
+        }
+
         self::whereIn('id', $messages->pluck('id'))->delete();
 
         return self::render($messages);

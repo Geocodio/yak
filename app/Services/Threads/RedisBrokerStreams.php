@@ -19,8 +19,6 @@ class RedisBrokerStreams implements BrokerStreams
 
     /**
      * @param  string  $connection  a Redis connection without a key prefix: the broker uses bare names
-     */
-    /**
      * @param  ?string  $commandConnection  a prefix-less connection with a read timeout, for the calls made while a request holds a lock; defaults to $connection
      */
     public function __construct(private readonly string $connection = 'threads', private readonly ?string $commandConnection = null) {}

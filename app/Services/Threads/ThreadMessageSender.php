@@ -17,6 +17,7 @@ use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\YakPromptBuilder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Sends a person's message into a thread: starts a turn, steers the running
@@ -145,6 +146,16 @@ class ThreadMessageSender
 
         if ($queued !== null) {
             return new ThreadMessageResult($queued->mode === SteeringMode::Steer ? 'sent' : 'queued', $queued->uuid, null);
+        }
+
+        $drained = DB::table('drained_send_keys')
+            ->where('root_task_id', $thread->messagesRootTask()->id)
+            ->where('send_key', $sendKey)
+            ->where('author_user_id', $user->id)
+            ->first();
+
+        if ($drained !== null) {
+            return new ThreadMessageResult('sent', $drained->message_uuid, null);
         }
 
         $prompt = ThreadTurnMessage::query()

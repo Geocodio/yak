@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Redis;
 $GLOBALS['realtimeRedis'] = null;
 
 /**
- * Points the `threads` connection at a throwaway redis-server, or skips when none is installed.
+ * Points the `threads`, `thread-window` and `threads-commands` connections at a throwaway redis-server, or skips when none is installed.
  */
 function useThrowawayRedis(): void
 {
@@ -37,7 +37,11 @@ function useThrowawayRedis(): void
 
     $GLOBALS['realtimeRedis'] = ['process' => $process, 'directory' => $directory];
     $connection = ['host' => '127.0.0.1', 'port' => $port, 'database' => 0, 'options' => ['prefix' => '']];
-    config(['database.redis.threads' => $connection, 'database.redis.thread-window' => $connection]);
+    config([
+        'database.redis.threads' => $connection,
+        'database.redis.thread-window' => $connection,
+        'database.redis.threads-commands' => $connection + ['read_timeout' => 30.0],
+    ]);
     app()->forgetInstance('redis');
     Redis::clearResolvedInstance('redis');
 }
@@ -59,4 +63,5 @@ function stopThrowawayRedis(): void
 
     Redis::purge('threads');
     Redis::purge('thread-window');
+    Redis::purge('threads-commands');
 }
