@@ -1,4 +1,4 @@
-public enum ThreadListFilter: String, Sendable, CaseIterable { case mine, yak, everyone }
+public enum ThreadListFilter: String, Codable, Sendable, CaseIterable { case mine, yak, everyone }
 
 public struct ThreadList: Codable, Equatable, Sendable {
     public let starred: [ThreadRow]
