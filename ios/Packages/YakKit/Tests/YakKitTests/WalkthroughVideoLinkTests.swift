@@ -48,6 +48,14 @@ import Testing
         #expect(WalkthroughVideoLink.playable(padded, instance: instance(), allowsLoopbackHTTP: false) == nil)
     }
 
+    @Test func theLimitCountsBytesNotCharacters() {
+        let accents = String(repeating: "\u{0301}", count: 1_000)
+        let hostile = "https://yak.example.com/" + String(repeating: "a", count: 2_000) + accents
+        #expect(hostile.count <= WalkthroughVideoLink.maximumLength)
+        #expect(hostile.utf8.count > WalkthroughVideoLink.maximumLength)
+        #expect(WalkthroughVideoLink.playable(hostile, instance: instance(), allowsLoopbackHTTP: false) == nil)
+    }
+
     @Test func loopbackOnlyInTestMode() {
         let stub = instance(url: "http://127.0.0.1:8123")
         let link = "http://127.0.0.1:8123/__stub/walkthrough-video/sample.mp4"

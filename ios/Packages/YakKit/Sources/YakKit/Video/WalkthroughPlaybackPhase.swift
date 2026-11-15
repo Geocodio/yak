@@ -33,6 +33,7 @@ public enum WalkthroughPlaybackPhase: Equatable, Sendable {
     public static let failAfter: Duration = .seconds(30)
 
     /// Pure: `isReady` from the item status, `failure` from its error, `waited` since play was asked.
+    /// Precedence: ready, then an item failure, then offline, then the time limits.
     /// Offline before ready gives `.failed(.offline)`; not ready after `failAfter` gives `.failed(.timedOut)`.
     public static func make(
         isReady: Bool, failure: WalkthroughVideoProblem?, isOnline: Bool, waited: Duration

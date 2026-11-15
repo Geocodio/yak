@@ -6,9 +6,9 @@ public enum WalkthroughVideoLink {
 
     /// The URL to hand to the player, or nil. https only, host and port equal to the instance's `url` or
     /// `canonicalURL` (compared normalized), no user or password; plain http to 127.0.0.1 on the instance's port only with
-    /// `allowsLoopbackHTTP`. Strings over `maximumLength` are refused before parsing.
+    /// `allowsLoopbackHTTP`. Strings over `maximumLength` UTF-8 bytes are refused before parsing.
     public static func playable(_ raw: String?, instance: Instance, allowsLoopbackHTTP: Bool) -> URL? {
-        guard let raw, !raw.isEmpty, raw.count <= maximumLength,
+        guard let raw, !raw.isEmpty, raw.utf8.count <= maximumLength,
             let components = URLComponents(string: raw),
             components.user == nil, components.password == nil,
             let scheme = components.scheme?.lowercased(),
