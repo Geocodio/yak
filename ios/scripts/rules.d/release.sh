@@ -17,6 +17,12 @@ release_extension_targets() {
     } | sort -u
 }
 
+# release_scan <release-scan.pl arguments>: the file list arrives on stdin, one path per line, and is
+# passed NUL-separated so a path with a space stays one argument.
+release_scan() {
+    tr '\n' '\0' | xargs -0 perl scripts/release-scan.pl "$@"
+}
+
 release_report() {
     local label="$1" hits="$2"
     if [ -n "$hits" ]; then
@@ -26,30 +32,24 @@ release_report() {
 }
 
 release_check_logging() {
-    local files
-    files=$(release_swift_files "${targets[@]}")
-    # shellcheck disable=SC2086
-    release_report 'logging' "$(echo "$files" | xargs perl scripts/release-scan.pl logging)"
+    release_report 'logging' "$(release_swift_files "${targets[@]}" | release_scan logging)"
 }
 
 release_check_traps() {
-    local files
-    files=$(release_swift_files "${targets[@]}")
-    release_report 'trap message' "$(echo "$files" | xargs perl scripts/release-scan.pl traps)"
+    release_report 'trap message' "$(release_swift_files "${targets[@]}" | release_scan traps)"
 }
 
 release_check_hosts() {
-    local files file allowed skip checked=""
-    files=$(release_swift_files "${targets[@]}" | grep -vE '^(YakUITests|YakTests|Packages/[^/]+/Tests|Packages/YakStub)/|^Yak/Support/TestMode\.swift$')
-    for file in $files; do
+    local file allowed skip checked=""
+    while IFS= read -r file; do
         skip=0
         for allowed in ${host_allowed_files[@]+"${host_allowed_files[@]}"}; do
             [ "$file" = "$allowed" ] && skip=1
         done
         [ "$skip" = 1 ] || checked="$checked$file"$'\n'
-    done
+    done < <(release_swift_files "${targets[@]}" | grep -vE '^(YakUITests|YakTests|Packages/[^/]+/Tests|Packages/YakStub)/|^Yak/Support/TestMode\.swift$')
     release_report 'hosts (add the file to host_allowed_files with a reason if the host is intended)' \
-        "$(echo "$checked" | sed '/^$/d' | xargs perl scripts/release-scan.pl hosts)"
+        "$(echo "$checked" | sed '/^$/d' | release_scan hosts)"
 }
 
 # Catalogs for one target folder: its own xcstrings files and Shared/.
@@ -64,7 +64,7 @@ release_check_catalog() {
         catalogs=$(release_catalogs "$folder")
         files=$(release_swift_files "$folder")
         [ -n "$files" ] || continue
-        hits="$hits$(echo "$files" | xargs perl scripts/release-scan.pl catalog "$catalogs")"$'\n'
+        hits="$hits$(echo "$files" | release_scan catalog "$catalogs")"$'\n'
     done
     # ponytail: a key built in a variable or a LocalizedStringKey(...) is not checked.
     release_report 'catalog' "$(echo "$hits" | sed '/^$/d')"
@@ -84,7 +84,7 @@ release_check_usage_strings() {
     local folder found api key hits=""
     for folder in Yak $(release_extension_targets); do
         [ -d "$folder" ] || continue
-        found=$(release_swift_files "$folder" | xargs perl scripts/release-scan.pl tokens \
+        found=$(release_swift_files "$folder" | release_scan tokens \
             'AVCaptureDevice|DataScannerViewController|VNDocumentCameraViewController|LAContext|PHPhotoLibrary|PHAsset|CLLocationManager|AVAudioRecorder|requestRecordPermission')
         for api in $found; do
             case "$api" in
@@ -117,8 +117,8 @@ release_check_versions() {
 
 release_check_sentry() {
     local hits
-    hits=$(release_swift_files "${targets[@]}" | grep -v '^Yak/CrashReporting/' | xargs grep -nE 'import Sentry|SentrySDK' 2>/dev/null || true)
-    hits="$hits"$'\n'$(release_swift_files "${targets[@]}" | xargs grep -n 'SentrySDK\.capture' 2>/dev/null || true)
+    hits=$(release_swift_files "${targets[@]}" | grep -v '^Yak/CrashReporting/' | tr '\n' '\0' | xargs -0 grep -nE 'import Sentry|SentrySDK' 2>/dev/null || true)
+    hits="$hits"$'\n'$(release_swift_files "${targets[@]}" | tr '\n' '\0' | xargs -0 grep -n 'SentrySDK\.capture' 2>/dev/null || true)
     release_report 'sentry (import and SentrySDK stay in Yak/CrashReporting, and never capture by hand)' "$(echo "$hits" | sed '/^$/d' | sort -u)"
 }
 
@@ -167,7 +167,7 @@ release_check_privacy_manifests() {
             || hits="$hits$manifest: NSPrivacyTracking must be false"$'\n'
         source_dirs="$folder Shared Packages/YakKit/Sources"
         # shellcheck disable=SC2086
-        found=$(release_swift_files $source_dirs | xargs perl scripts/release-scan.pl tokens \
+        found=$(release_swift_files $source_dirs | release_scan tokens \
             'UserDefaults|creationDate|modificationDate|contentModificationDateKey|creationDateKey|attributesOfItem|systemUptime|mach_absolute_time|volumeAvailableCapacity|systemFreeSize|activeInputModes')
         for api in $found; do
             case "$api" in

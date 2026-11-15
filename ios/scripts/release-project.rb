@@ -10,7 +10,8 @@ require "yaml"
 def load_yaml(path)
   YAML.safe_load(File.read(path), aliases: true) || {}
 rescue StandardError => error
-  puts "#{path}: cannot be read as YAML (#{error.class})"
+  # extension-targets prints target names on stdout, so its finding goes to stderr; the other modes fail on it.
+  (ARGV[0] == "extension-targets" ? $stderr : $stdout).puts "#{path}: cannot be read as YAML (#{error.class})"
   {}
 end
 

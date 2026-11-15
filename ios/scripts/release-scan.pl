@@ -13,16 +13,20 @@ use JSON::PP;
 my ($mode, @arguments) = @ARGV;
 die "usage: release-scan.pl <mode> ...\n" unless defined $mode;
 
+# ponytail: raw strings (#"..."#) are not understood here, so a raw string with an inner quote can
+# misplace an argument split for the logging, trap and catalog rules; only the hosts rule reads them.
+# Upgrade: count the leading # characters and look for the matching closing delimiter.
 sub skip_string {
-    my ($t, $i, $interpolations) = @_;
-    my $n = length $t;
-    my $isTriple = substr($t, $i, 3) eq '"""';
+    my (undef, $i, $interpolations) = @_;
+    my $r = \$_[0];
+    my $n = length $$r;
+    my $isTriple = substr($$r, $i, 3) eq '"""';
     $i += $isTriple ? 3 : 1;
     while ($i < $n) {
-        my $c = substr($t, $i, 1);
+        my $c = substr($$r, $i, 1);
         if ($c eq '\\') {
-            if (substr($t, $i + 1, 1) eq '(') {
-                my $end = skip_parens($t, $i + 1, $interpolations);
+            if (substr($$r, $i + 1, 1) eq '(') {
+                my $end = skip_parens($$r, $i + 1, $interpolations);
                 push @$interpolations, [$i + 2, $end - 1] if $interpolations;
                 $i = $end;
                 next;
@@ -30,20 +34,23 @@ sub skip_string {
             $i += 2;
             next;
         }
-        return $i + ($isTriple ? 3 : 1) if $isTriple ? substr($t, $i, 3) eq '"""' : $c eq '"';
+        return $i + ($isTriple ? 3 : 1) if $isTriple ? substr($$r, $i, 3) eq '"""' : $c eq '"';
         return $i if !$isTriple && $c eq "\n";
         $i++;
     }
     return $n;
 }
 
+# ponytail: every unclosed call reads to the end of the file, so thousands of unclosed calls in one file
+# are quadratic. Real Swift never has them; cap the walk if a hostile file ever matters.
 # $i is the index of "("; returns the index after the matching ")".
 sub skip_parens {
-    my ($t, $i, $interpolations) = @_;
-    my ($n, $depth) = (length $t, 0);
+    my (undef, $i, $interpolations) = @_;
+    my $r = \$_[0];
+    my ($n, $depth) = (length $$r, 0);
     while ($i < $n) {
-        my $c = substr($t, $i, 1);
-        if ($c eq '"') { $i = skip_string($t, $i, $interpolations); next; }
+        my $c = substr($$r, $i, 1);
+        if ($c eq '"') { $i = skip_string($$r, $i, $interpolations); next; }
         if ($c eq '(') { $depth++; }
         elsif ($c eq ')') { $depth--; return $i + 1 if $depth == 0; }
         $i++;
@@ -52,14 +59,14 @@ sub skip_parens {
 }
 
 sub mask_comments {
-    my ($t) = @_;
-    my ($o, $i, $n) = ($t, 0, length $t);
+    my $r = \$_[0];
+    my ($o, $i, $n) = ($$r, 0, length $$r);
     while ($i < $n) {
-        my $c = substr($t, $i, 1);
-        if ($c eq '"') { $i = skip_string($t, $i, undef); next; }
-        my $two = substr($t, $i, 2);
+        my $c = substr($$r, $i, 1);
+        if ($c eq '"') { $i = skip_string($$r, $i, undef); next; }
+        my $two = substr($$r, $i, 2);
         if ($two eq '//') {
-            my $e = index($t, "\n", $i);
+            my $e = index($$r, "\n", $i);
             $e = $n if $e < 0;
             substr($o, $i, $e - $i) = ' ' x ($e - $i);
             $i = $e;
@@ -68,7 +75,7 @@ sub mask_comments {
         if ($two eq '/*') {
             my ($depth, $j) = (0, $i);
             while ($j < $n) {
-                my $pair = substr($t, $j, 2);
+                my $pair = substr($$r, $j, 2);
                 if ($pair eq '/*') { $depth++; $j += 2; next; }
                 if ($pair eq '*/') { $depth--; $j += 2; last if $depth == 0; next; }
                 $j++;
@@ -86,30 +93,41 @@ sub mask_comments {
 
 # Top-level arguments between the parentheses that open at $open and end before $end.
 sub split_arguments {
-    my ($t, $open, $end) = @_;
+    my (undef, $open, $end) = @_;
+    my $r = \$_[0];
     my (@parts, $depth);
     my ($start, $i) = ($open + 1, $open + 1);
     $depth = 0;
     while ($i < $end - 1) {
-        my $c = substr($t, $i, 1);
-        if ($c eq '"') { $i = skip_string($t, $i, undef); next; }
+        my $c = substr($$r, $i, 1);
+        if ($c eq '"') { $i = skip_string($$r, $i, undef); next; }
         if ($c =~ /[(\[{]/) { $depth++; }
         elsif ($c =~ /[)\]}]/) { $depth--; }
-        elsif ($c eq ',' && $depth == 0) { push @parts, substr($t, $start, $i - $start); $start = $i + 1; }
+        elsif ($c eq ',' && $depth == 0) { push @parts, substr($$r, $start, $i - $start); $start = $i + 1; }
         $i++;
     }
-    push @parts, substr($t, $start, $end - 1 - $start);
+    push @parts, substr($$r, $start, $end - 1 - $start);
     return map { my $p = $_; $p =~ s/^\s+|\s+$//g; $p } @parts;
 }
 
+# Line numbers come from the newline offsets of the file being scanned (set once per file), so a
+# file with many findings stays linear.
+my @newlineOffsets;
 sub line_of {
-    my ($t, $pos) = @_;
-    return 1 + (substr($t, 0, $pos) =~ tr/\n//);
+    my (undef, $pos) = @_;
+    my ($low, $high) = (0, scalar @newlineOffsets);
+    while ($low < $high) {
+        my $middle = int(($low + $high) / 2);
+        if ($newlineOffsets[$middle] < $pos) { $low = $middle + 1; } else { $high = $middle; }
+    }
+    return 1 + $low;
 }
 
+# Swift files are read as bytes: every syntax character is ASCII, and character-indexed substr on a
+# decoded string is far slower on a large file.
 sub slurp {
-    my ($path) = @_;
-    open(my $handle, '<:encoding(UTF-8)', $path) or return undef;
+    my ($path, $layer) = @_;
+    open(my $handle, "<$layer", $path) or return undef;
     local $/;
     my $text = <$handle>;
     close $handle;
@@ -162,7 +180,10 @@ sub scan_logging {
     while ($t =~ /(?<![A-Za-z0-9_])logger\s*\.\s*(?:$levels)\s*\(/g) { push @openings, $+[0] - 1; }
     while ($t =~ /(?<![A-Za-z0-9_])Logger\s*\(/g) {
         my $after = skip_parens($t, $+[0] - 1, undef);
-        if (substr($t, $after) =~ /\A\s*\.\s*(?:$levels)\s*\(/) { push @openings, $after + $+[0] - 1; }
+        my $resume = pos($t);
+        pos($t) = $after;
+        push @openings, $+[0] - 1 if $t =~ /\G\s*\.\s*(?:$levels)\s*\(/gc;
+        pos($t) = $resume;
     }
     my %seen;
     for my $open (sort { $a <=> $b } @openings) {
@@ -205,7 +226,10 @@ sub scan_traps {
 
 sub scan_hosts {
     my ($path, $t) = @_;
-    while ($t =~ /"[^"\n]*:\/\/[A-Za-z0-9][^"\n]*"/g) {
+    # Plain, raw (#"..."#) and triple-quoted strings.
+    while ($t =~ /(#+)"(.*?)"\1|"""(.*?)"""|"([^"\n]*)"/sg) {
+        my $body = $2 // $3 // $4;
+        next unless $body =~ m{://[A-Za-z0-9]};
         print "$path:" . line_of($t, $-[0]) . ": a string literal names a host\n";
     }
 }
@@ -241,8 +265,8 @@ my %catalogKeys;
 if ($mode eq 'catalog') {
     my $list = shift @arguments;
     for my $catalog (grep { length } split /,/, $list // '') {
-        my $text = slurp($catalog);
-        my $data = defined $text ? eval { decode_json(do { utf8::encode($text); $text }) } : undef;
+        my $text = slurp($catalog, ':raw');
+        my $data = defined $text ? eval { decode_json($text) } : undef;
         die "release-scan: cannot read catalog $catalog\n" unless $data && ref $data->{strings} eq 'HASH';
         $catalogKeys{normalize_key($_)} = 1 for keys %{ $data->{strings} };
     }
@@ -272,9 +296,11 @@ sub scan_catalog {
         $argument =~ s/^localized\s*:\s*//;
         next unless $argument =~ /\A"/ && $argument !~ /\A"""/;
         next unless skip_string($argument, 0, undef) == length $argument;
-        my $key = normalize_literal($argument);
+        my $bytes = normalize_literal($argument);
+        my $key = $bytes;
+        utf8::decode($key);
         next if $key eq '' || $catalogKeys{$key};
-        (my $shown = $key) =~ s/\0/\\(...)/g;
+        (my $shown = $bytes) =~ s/\0/\\(...)/g;
         print "$path:" . line_of($t, $open) . ": \"$shown\" is not a key in the string catalogs\n";
     }
 }
@@ -288,9 +314,15 @@ if ($mode eq 'tokens') {
 
 my %found;
 for my $path (@arguments) {
-    my $text = slurp($path);
-    next unless defined $text;
+    my $text = slurp($path, ':raw');
+    if (!defined $text) {
+        if ($mode eq 'tokens') { print STDERR "release-scan: cannot read $path\n"; }
+        else { print "$path: cannot be read\n"; }
+        next;
+    }
     my $t = mask_comments($text);
+    @newlineOffsets = ();
+    push @newlineOffsets, $-[0] while $t =~ /\n/g;
     if ($mode eq 'logging') { scan_logging($path, $t); }
     elsif ($mode eq 'traps') { scan_traps($path, $t); }
     elsif ($mode eq 'hosts') { scan_hosts($path, $t); }

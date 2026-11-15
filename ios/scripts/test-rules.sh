@@ -2,6 +2,8 @@
 # Plants one violation at a time in a copy of ios/ and expects scripts/check-rules.sh to name it.
 # Also plants the lookalikes that must pass. Exits non-zero when any case behaves otherwise.
 set -u
+started=$(date +%s)
+echo "test-rules: copying ios/ and planting one case at a time (about a minute)"
 cd "$(dirname "$0")/../.."
 repository=$(pwd)
 base=$(mktemp -d)
@@ -270,7 +272,7 @@ EOF
 }
 fresh
 planted_share
-expect_fail "discovery: an app-extension target that no file registers" "release: privacy manifests" "release: extension targets: YakShare"
+expect_fail "discovery: an app-extension target that no file registers" "release: privacy manifests" "YakShare: YakShare/PrivacyInfo.xcprivacy is missing"
 fresh
 planted_share
 cp "$work/ios/Yak/Support/PrivacyInfo.xcprivacy" "$work/ios/YakShare/PrivacyInfo.xcprivacy"
@@ -303,8 +305,59 @@ fresh
 perl -pi -e 's/NSPrivacyAccessedAPICategoryUserDefaults/NSPrivacyAccessedAPICategoryOther/' "$work/ios/Yak/Support/PrivacyInfo.xcprivacy"
 expect_fail "privacy: a missing required-reason category" "release: privacy manifests" "NSPrivacyAccessedAPICategoryUserDefaults"
 
+# hostile input: every rule must stay quiet or name the finding, never hang or crash
+fresh
+: > "$work/ios/Yak/Empty.swift"
+expect_pass "hostile: an empty Swift file"
+fresh
+plant Yak/Unterminated.swift <<'EOF'
+func broken() { let a = Text("open
+let b = foo(1, (2
+let c = "http
+EOF
+expect_pass "hostile: an unterminated string and parenthesis"
+fresh
+plant Yak/Control.swift <<'EOF'
+let a = Text("tab\tnew\nline \u{1F600} \u{0} \0 \\")
+let b = Text("bell \u{7}")
+EOF
+printf 'let c = Text("raw \001 \033 control")\n' >> "$work/ios/Yak/Control.swift"
+expect_fail "hostile: control characters and unicode escapes in a catalog key" "release: catalog" "is not a key"
+fresh
+perl -e 'print "let x = foo(\"a\", (1 + 2), [3]) // log(\"x\")\nlog(\"ok \\(count)\")\n" for 1..60000' > "$work/ios/Yak/Huge.swift"
+perl -e 'print "log(\"a\" + ((\n" for 1..300' > "$work/ios/Yak/Unclosed.swift"
+hugeStarted=$(date +%s)
+expect_pass "hostile: a file of several MB"
+if [ $(($(date +%s) - hugeStarted)) -gt 60 ]; then
+    echo "FAIL  hostile: the multi-MB file took more than 60 seconds"
+    failures=$((failures + 1))
+fi
+fresh
+plant "Yak/My Planted.swift" <<'EOF'
+func planted() { logFailure("sent \(message.text)") }
+let host = "https://help.example.org"
+EOF
+expect_fail "a file name with a space is still scanned" "release: logging" "My Planted.swift"
+fresh
+plant Yak/Raw.swift <<'EOF'
+let raw = #"say "hi" at https://help.example.org"#
+let block = """
+https://help.example.org
+"""
+EOF
+expect_fail "hosts: a raw string and a triple-quoted string" "release: hosts" "Yak/Raw.swift"
+fresh
+plant YakShare/target.yml <<'EOF'
+targets: [unclosed
+EOF
+expect_fail "a target.yml that is not YAML is named, not read as target names" "YakShare/target.yml: cannot be read as YAML"
+if grep -q "extension targets: .*cannot" <<<"$output"; then
+    echo "FAIL  the YAML finding leaked into the target names"
+    failures=$((failures + 1))
+fi
+
 if [ "$failures" -ne 0 ]; then
-    echo "$failures case(s) failed"
+    echo "$failures case(s) failed after $(($(date +%s) - started)) seconds"
     exit 1
 fi
-echo "all cases behave as expected"
+echo "all cases behave as expected ($(($(date +%s) - started)) seconds)"
