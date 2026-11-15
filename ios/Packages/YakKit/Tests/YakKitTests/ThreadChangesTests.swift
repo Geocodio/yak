@@ -251,6 +251,8 @@ private func settle(_ rig: Rig) async {
     await rig.changes.threadChanged(ConversationSnapshot(turn: ended))
     await settle(rig)
     await rig.changes.threadChanged(ConversationSnapshot(turn: ended))
+    // Let a second settle timer register if the flag did not stop it, then run the full window.
+    for _ in 0..<200 { await Task.yield() }
     await rig.clock.advance(by: ThreadEngine.refreshSettle)
     for _ in 0..<200 { await Task.yield() }
     #expect(await rig.transport.requests(on: diffRoute).count == 2)

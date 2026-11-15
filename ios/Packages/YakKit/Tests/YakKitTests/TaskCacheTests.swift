@@ -25,14 +25,18 @@ private func makeCache(_ clock: ManualClock = ManualClock()) -> Cache {
         let cache = makeCache(clock)
         let task = try decoded(AppTask.self, "scenario-task")
         await cache.saveQuestionDraft(QuestionDraft(roundKey: "thread-round"), thread: "d0e515ef")
-        await cache.saveTaskQuestionDraft(QuestionDraft(roundKey: "r1"), id: "task0")
-        for number in 0...50 {
-            await cache.saveTask(task, id: "task\(number)")
+        await cache.saveTaskQuestionDraft(QuestionDraft(roundKey: "r1"), id: "task9")
+        // The oldest task is "task9", which is not the lowest key, so only the counter order evicts it.
+        let order = (10...50).map { "task\($0)" } + (0...9).map { "task\($0)" }
+        await cache.saveTask(task, id: "task9")
+        await clock.advance(by: .seconds(1))
+        for id in order where id != "task9" {
+            await cache.saveTask(task, id: id)
             await clock.advance(by: .seconds(1))
         }
-        #expect(await cache.task("task0") == nil)
-        #expect(await cache.taskQuestionDraft("task0") == nil)
-        for number in 1...50 { #expect(await cache.task("task\(number)") == task) }
+        #expect(await cache.task("task9") == nil)
+        #expect(await cache.taskQuestionDraft("task9") == nil)
+        for id in order where id != "task9" { #expect(await cache.task(id) == task) }
         #expect(await cache.questionDraft(thread: "d0e515ef") != nil)
     }
 
