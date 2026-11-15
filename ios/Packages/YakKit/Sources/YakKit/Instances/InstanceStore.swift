@@ -67,6 +67,8 @@ public actor InstanceStore {
     private let now: @Sendable () -> Date
     public nonisolated let build: PushBuild?
     private var instances: [Instance]
+    /// True while the load filled tints that are not yet stored.
+    private var hasUnstoredTints: Bool
     private var activeID: UUID?
 
     public init(
@@ -77,7 +79,9 @@ public actor InstanceStore {
         self.defaults = defaults
         self.tokens = tokens
         self.now = now
-        self.instances = Self.loadInstances(from: defaults)
+        let loaded = Self.loadInstances(from: defaults)
+        self.instances = loaded.instances
+        self.hasUnstoredTints = loaded.filledTints
         self.activeID = defaults.data(forKey: Self.activeKey)
             .flatMap { String(data: $0, encoding: .utf8) }
             .flatMap(UUID.init(uuidString:))
@@ -85,14 +89,36 @@ public actor InstanceStore {
 
     /// An unreadable list is treated as empty: the person pairs again instead of the app crashing.
     /// The failure is logged without any stored content.
-    private static func loadInstances(from defaults: KeyValueStore) -> [Instance] {
-        guard let data = defaults.data(forKey: instancesKey) else { return [] }
+    /// Instances without a known tint get one in stored order, in memory only, so every process agrees.
+    private static func loadInstances(from defaults: KeyValueStore) -> (instances: [Instance], filledTints: Bool) {
+        guard let data = defaults.data(forKey: instancesKey) else { return ([], false) }
+        var instances: [Instance]
         do {
-            return try JSONDecoder().decode([Instance].self, from: data)
+            instances = try JSONDecoder().decode([Instance].self, from: data)
         } catch {
             logFailure("Stored instance list is unreadable, starting empty: \(type(of: error))")
-            return []
+            return ([], false)
         }
+        var filled = false
+        for index in instances.indices where !(instances[index].tint?.isKnown ?? false) {
+            instances[index].tint = InstanceTint.assign(
+                for: instances[index].id, taken: knownTints(in: instances, except: index))
+            filled = true
+        }
+        return (instances, filled)
+    }
+
+    private static func knownTints(in instances: [Instance], except index: Int) -> [InstanceTint] {
+        instances.enumerated().compactMap { offset, instance in
+            offset == index || !(instance.tint?.isKnown ?? false) ? nil : instance.tint
+        }
+    }
+
+    /// Writes the list once when the load filled any tint, and does nothing otherwise. Only the app calls it, once
+    /// at launch; extensions never do, so a load in another process never overwrites the app's list.
+    public func persistMissingTints() throws {
+        guard hasUnstoredTints else { return }
+        try persistList()
     }
 
     /// Most recently used first.
@@ -133,6 +159,7 @@ public actor InstanceStore {
         if let existingIndex {
             instances[existingIndex] = instance
         } else {
+            instance.tint = InstanceTint.assign(for: instance.id, taken: instances.compactMap(\.tint))
             instances.append(instance)
         }
         activeID = instance.id
@@ -194,8 +221,13 @@ public actor InstanceStore {
         try persist()
     }
 
-    private func persist() throws {
+    private func persistList() throws {
         defaults.set(try JSONEncoder().encode(instances), forKey: Self.instancesKey)
+        hasUnstoredTints = false
+    }
+
+    private func persist() throws {
+        try persistList()
         defaults.set(activeID.map { Data($0.uuidString.utf8) }, forKey: Self.activeKey)
     }
 }
