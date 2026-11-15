@@ -19,6 +19,7 @@ final class FakeUploadSession: UploadSession, @unchecked Sendable {
     private var startedTasks: [Started] = []
     private var live: Set<UploadTaskDescription> = []
     private var problem: UploadStartProblem?
+    private var hook: (@Sendable (UploadTaskDescription) async -> Void)?
 
     init(identifier: String) { self.identifier = identifier }
 
@@ -34,9 +35,16 @@ final class FakeUploadSession: UploadSession, @unchecked Sendable {
         set { lock.withLock { problem = newValue } }
     }
 
-    func start(_ request: URLRequest, bodyPath: String, description: UploadTaskDescription) async throws(
-        UploadStartProblem
-    ) -> Int {
+    /// Runs inside `start`, before it returns: a task that answers while the caller still waits.
+    var duringStart: (@Sendable (UploadTaskDescription) async -> Void)? {
+        get { lock.withLock { hook } }
+        set { lock.withLock { hook = newValue } }
+    }
+
+    func start(_ request: URLRequest, bodyPath: String, description: UploadTaskDescription)
+        async throws(UploadStartProblem) -> Int
+    {
+        await duringStart?(description)
         let outcome: Result<Int, UploadStartProblem> = lock.withLock {
             if let problem { return .failure(problem) }
             startedTasks.append(Started(request: request, bodyPath: bodyPath, description: description))

@@ -87,7 +87,7 @@ public actor UploadLedger {
         guard let url = URL(string: "https://yak.invalid/api/app/v1/\(record.path)"),
             let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: headers)
         else { return nil }
-        let wasCut = body.count >= Self.answerLimit
+        let wasCut = body.count > Self.answerLimit
         do throws(APIFailure) {
             if wasCut { throw .notYak }
             if record.path == "threads" {
@@ -153,22 +153,50 @@ public actor UploadLedger {
         if case .answered = record.phase { return nil }
         guard starting.insert(item).inserted else { return record }
         defer { starting.remove(item) }
+        let request: URLRequest
         do {
-            let request = try await client.uploadRequest(path: record.path, contentType: record.contentType)
-            let attempt = record.attempts + 1
-            let task = try await session.start(
-                request, bodyPath: record.bodyPath, description: UploadTaskDescription(item: item, attempt: attempt))
-            record.attempts = attempt
-            record.phase = .uploading(session: session.identifier, task: task)
+            request = try await client.uploadRequest(path: record.path, contentType: record.contentType)
         } catch {
             logUpload("upload not started: \(type(of: error))")
-            record.phase = .failed(.notStarted)
+            return fail(record, attempts: record.attempts)
         }
+        // The attempt is saved before the task starts, so an answer that arrives while `start` waits is matched.
+        let attempt = record.attempts + 1
+        let previous = record
+        record.attempts = attempt
+        record.phase = .uploading(session: session.identifier, task: 0)
         record.updatedAt = clock.now()
         progress[item] = nil
         persist(record)
+        do {
+            let task = try await session.start(
+                request, bodyPath: record.bodyPath,
+                description: UploadTaskDescription(item: item, attempt: attempt))
+            guard var current = load(item), current.attempts == attempt, case .uploading = current.phase else {
+                return load(item)
+            }
+            current.phase = .uploading(session: session.identifier, task: task)
+            persist(current)
+            refreshSummary()
+            return current
+        } catch {
+            logUpload("upload not started: \(type(of: error))")
+            guard let current = load(item), current.attempts == attempt, case .uploading = current.phase else {
+                return load(item)
+            }
+            return fail(previous, attempts: previous.attempts)
+        }
+    }
+
+    private func fail(_ record: UploadRecord, attempts: Int) -> UploadRecord {
+        var failed = record
+        failed.attempts = attempts
+        failed.phase = .failed(.notStarted)
+        failed.updatedAt = clock.now()
+        progress[record.itemID] = nil
+        persist(failed)
         refreshSummary()
-        return record
+        return failed
     }
 
     public func sent(_ description: UploadTaskDescription, bytes: Int64, of total: Int64) {
@@ -181,7 +209,8 @@ public actor UploadLedger {
 
     public func received(_ description: UploadTaskDescription, data: Data) {
         var buffer = buffers[description] ?? Data()
-        let room = Self.answerLimit - buffer.count
+        // One byte past the limit is kept, so an answer of exactly the limit differs from a cut one.
+        let room = Self.answerLimit + 1 - buffer.count
         guard room > 0 else { return }
         buffer.append(data.prefix(room))
         buffers[description] = buffer
@@ -226,7 +255,7 @@ public actor UploadLedger {
     /// Marks `.uploading` records of `session` whose description is not in `live` as `.failed(.lost)`.
     public func reconcile(session: String, live: Set<UploadTaskDescription>) {
         for var record in records() {
-            guard case .uploading(let known, _) = record.phase, known == session,
+            guard case .uploading(let known, _) = record.phase, known == session, !starting.contains(record.itemID),
                 !live.contains(UploadTaskDescription(item: record.itemID, attempt: record.attempts))
             else { continue }
             record.phase = .failed(.lost)
@@ -321,12 +350,20 @@ public actor UploadLedger {
         }
         guard let data else { return nil }
         guard let record = try? JSONDecoder().decode(UploadRecord.self, from: data), record.itemID == item,
-            data.count - answerSize(record) <= Self.recordLimit
+            data.count - answerSize(record) <= Self.recordLimit, record.bodyPath == bodyPath(item),
+            isUploadPath(record.path)
         else {
             drop(item, reason: "invalid")
             return nil
         }
         return record
+    }
+
+    private func isUploadPath(_ path: String) -> Bool {
+        let pieces = path.split(separator: "/", omittingEmptySubsequences: false)
+        if pieces == ["threads"] { return true }
+        guard pieces.count == 3, pieces[0] == "threads", pieces[2] == "messages" else { return false }
+        return !pieces[1].isEmpty && pieces[1].allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
     }
 
     private func answerSize(_ record: UploadRecord) -> Int {

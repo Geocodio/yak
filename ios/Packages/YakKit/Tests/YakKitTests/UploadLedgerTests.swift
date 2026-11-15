@@ -78,8 +78,10 @@ private func answer(
     let expected = Endpoint.sendMessage(
         "d0e515ef", text: "Look", model: nil, delivery: .steer, sendKey: item.id,
         attachments: [
-            .file(name: "attachments[]", fileName: "a.jpg", contentType: "image/jpeg", data: Data("bytes of a.jpg".utf8)),
-            .file(name: "attachments[]", fileName: "b.jpg", contentType: "image/jpeg", data: Data("bytes of b.jpg".utf8)),
+            .file(
+                name: "attachments[]", fileName: "a.jpg", contentType: "image/jpeg", data: Data("bytes of a.jpg".utf8)),
+            .file(
+                name: "attachments[]", fileName: "b.jpg", contentType: "image/jpeg", data: Data("bytes of b.jpg".utf8)),
         ], references: ["Image #1", "Image #1"]
     ).multipart?.encoded()
     #expect(try setup.files.read(record.bodyPath) == expected)
@@ -182,9 +184,12 @@ private func answer(
 }
 
 @Test func sameTaskNumbersOnTwoShareSessionsStayApart() async throws {
-    let first = Setup(), second = Setup()
-    let firstItem = try first.item(), secondItem = try second.item()
-    let ledgerOne = first.ledger(), ledgerTwo = second.ledger()
+    let first = Setup()
+    let second = Setup()
+    let firstItem = try first.item()
+    let secondItem = try second.item()
+    let ledgerOne = first.ledger()
+    let ledgerTwo = second.ledger()
     let sessionOne = first.session(.share(invocation: UUID()))
     let sessionTwo = second.session(.share(invocation: UUID()))
     _ = try await ledgerOne.prepare(firstItem, origin: .share)
@@ -252,7 +257,9 @@ private func answer(
     let setup = Setup()
     let ledger = setup.ledger()
     let session = setup.session(.share(invocation: UUID()))
-    let failed = try setup.item(), sharing = try setup.item(), prepared = try setup.item()
+    let failed = try setup.item()
+    let sharing = try setup.item()
+    let prepared = try setup.item()
     _ = try await ledger.prepare(failed, origin: .app)
     _ = await ledger.start(failed.id, session: session, client: setup.client)
     await ledger.completed(
@@ -284,7 +291,7 @@ private func answer(
         Issue.record("not answered")
         return
     }
-    #expect(body.count == 65_536)
+    #expect(body.count == 65_537)
     #expect(await ledger.outcome(for: item.id) == .decision(.retry(after: .seconds(1))))
 }
 
@@ -331,7 +338,10 @@ private func answer(
 @Test func hostileRecordFilesAreDropped() async throws {
     let setup = Setup()
     let ledger = setup.ledger()
-    let other = try setup.item(), huge = UUID(), garbage = UUID(), foreign = UUID()
+    let other = try setup.item()
+    let huge = UUID()
+    let garbage = UUID()
+    let foreign = UUID()
     let mine = try await ledger.prepare(other, origin: .app)
     try setup.files.write(Data(repeating: 0x20, count: 200_000), to: setup.recordPath(huge), protection: .complete)
     try setup.files.write(Data(), to: setup.bodyPath(huge), protection: .complete)
@@ -430,4 +440,70 @@ private func answer(
     await ledger.remove(item.id)
     #expect(await ledger.records().isEmpty)
     #expect(try setup.files.read(setup.bodyPath(item.id)) == nil)
+}
+
+@Test func anAnswerThatArrivesWhileTheTaskIsStartingLands() async throws {
+    let setup = Setup()
+    let session = setup.session(.app(instance: setup.instanceID))
+    let item = try setup.item()
+    let ledger = setup.ledger()
+    _ = try await ledger.prepare(item, origin: .app)
+    session.duringStart = { description in
+        await answer(
+            ledger, description.item, attempt: description.attempt, status: 200,
+            body: #"{"status":"sent","uuid":"m-early"}"#, session: session.identifier)
+    }
+    let started = await ledger.start(item.id, session: session, client: setup.client)
+    guard case .answered? = started?.phase else {
+        Issue.record("the early answer was lost")
+        return
+    }
+    #expect(await ledger.outcome(for: item.id) == .delivered(status: .sent, messageUUID: "m-early", threadID: nil))
+}
+
+@Test func aStartThatFailsLeavesTheAttemptCountAlone() async throws {
+    let setup = Setup()
+    let session = setup.session(.app(instance: setup.instanceID))
+    session.startProblem = .noSession
+    let item = try setup.item()
+    let ledger = setup.ledger()
+    _ = try await ledger.prepare(item, origin: .app)
+    let started = await ledger.start(item.id, session: session, client: setup.client)
+    #expect(started?.phase == .failed(.notStarted))
+    #expect(started?.attempts == 0)
+}
+
+@Test func aRecordNamingAnotherFileOrPathIsDroppedAndTheFileStays() async throws {
+    let setup = Setup()
+    let ledger = setup.ledger()
+    let mine = try await ledger.prepare(try setup.item(), origin: .app)
+    let victim = "\(InstanceFolders.uploads(setup.instanceID))/victim.body"
+    try setup.files.write(Data("keep".utf8), to: victim, protection: .complete)
+    let crafted: [(String, String)] = [
+        (victim, mine.path), (mine.bodyPath, "threads/../x"), (mine.bodyPath, "other"),
+        (mine.bodyPath, "threads//messages"),
+    ]
+    for (bodyPath, path) in crafted {
+        let id = UUID()
+        let record = UploadRecord(
+            itemID: id, origin: .app, path: path, contentType: mine.contentType, bodyPath: bodyPath,
+            updatedAt: setup.clock.now())
+        try setup.files.write(JSONEncoder().encode(record), to: setup.recordPath(id), protection: .complete)
+        #expect(await ledger.record(for: id) == nil, "\(bodyPath) \(path)")
+        await ledger.remove(id)
+    }
+    #expect(try setup.files.read(victim) == Data("keep".utf8))
+}
+
+@Test func anAnswerOfExactlyTheLimitIsNotCut() async throws {
+    let setup = Setup()
+    let session = setup.session(.app(instance: setup.instanceID))
+    let item = try setup.item()
+    let ledger = setup.ledger()
+    _ = try await ledger.prepare(item, origin: .app)
+    _ = await ledger.start(item.id, session: session, client: setup.client)
+    let padding = String(repeating: " ", count: UploadLedger.answerLimit - 30)
+    await answer(
+        ledger, item.id, status: 200, body: #"{"status":"sent","uuid":"m-1"}"# + padding, session: session.identifier)
+    #expect(await ledger.outcome(for: item.id) == .delivered(status: .sent, messageUUID: "m-1", threadID: nil))
 }

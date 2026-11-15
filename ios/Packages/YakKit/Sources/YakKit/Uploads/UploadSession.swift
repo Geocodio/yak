@@ -33,8 +33,8 @@ public struct UploadTaskDescription: Equatable, Hashable, Sendable {
 public protocol UploadSession: Sendable {
     var identifier: String { get }
     /// Starts an upload task whose `taskDescription` is `description.text`; returns the task identifier.
-    func start(_ request: URLRequest, bodyPath: String, description: UploadTaskDescription) async throws(
-        UploadStartProblem) -> Int
+    func start(_ request: URLRequest, bodyPath: String, description: UploadTaskDescription)
+        async throws(UploadStartProblem) -> Int
     /// The descriptions of the tasks the session still has.
     func liveTasks() async -> Set<UploadTaskDescription>
 }
