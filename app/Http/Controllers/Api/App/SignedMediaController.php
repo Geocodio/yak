@@ -29,6 +29,6 @@ class SignedMediaController extends Controller
     {
         $run = YakTask::query()->where('public_id', $task)->firstOrFail();
 
-        return app(PullRequestImageController::class)($run, $asset, $github);
+        return app(PullRequestImageController::class)($run, $asset, $github, isTimeBounded: true);
     }
 }

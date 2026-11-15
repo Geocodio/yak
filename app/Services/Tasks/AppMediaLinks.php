@@ -23,6 +23,12 @@ final class AppMediaLinks
     /** @var array<string, YakTask>|null public id => task, for the conversation of the task shown */
     private ?array $conversationByPublicId = null;
 
+    /** @var array<int, TaskAttachment>|null */
+    private ?array $attachmentsById = null;
+
+    /** @var array<int, array<string, Artifact>>|null */
+    private ?array $artifactsByTask = null;
+
     public function __construct(private readonly YakTask $task) {}
 
     /**
@@ -51,7 +57,7 @@ final class AppMediaLinks
         if (str_contains($html, '/pr-images/')) {
             $html = preg_replace_callback(
                 "#https?://{$characters}+?/tasks/([A-Za-z0-9]+)/pr-images/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})#i",
-                fn (array $match): string => $this->conversationTask($match[1]) !== null ? $this->forPullRequestImage($match[1], $match[2]) : $match[0],
+                fn (array $match): string => $this->conversationTask($match[1]) !== null ? self::forPullRequestImage($match[1], $match[2]) : $match[0],
                 $html,
             ) ?? $html;
         }
@@ -60,10 +66,10 @@ final class AppMediaLinks
             $html = preg_replace_callback(
                 "#https?://{$characters}+?(?<!app-media)/task-attachments/(\d+)(\?{$characters}*)?#",
                 function (array $match): string {
-                    $attachment = TaskAttachment::query()->find((int) $match[1]);
+                    $attachment = $this->attachments()[(int) $match[1]] ?? null;
 
-                    return $attachment !== null && $this->belongsToConversation($attachment->yak_task_id)
-                        ? $this->forAttachment($attachment, str_contains($match[2] ?? '', 'download=1'))
+                    return $attachment !== null
+                        ? self::forAttachment($attachment, str_contains($match[2] ?? '', 'download=1'))
                         : $match[0];
                 },
                 $html,
@@ -89,7 +95,7 @@ final class AppMediaLinks
         return $html;
     }
 
-    public function forAttachment(TaskAttachment $attachment, bool $isDownload = false): string
+    public static function forAttachment(TaskAttachment $attachment, bool $isDownload = false): string
     {
         return URL::temporarySignedRoute(
             'app.media.task-attachments',
@@ -98,7 +104,7 @@ final class AppMediaLinks
         );
     }
 
-    public function forPullRequestImage(string $taskPublicId, string $asset): string
+    public static function forPullRequestImage(string $taskPublicId, string $asset): string
     {
         return URL::temporarySignedRoute(
             'app.media.pr-images',
@@ -111,7 +117,7 @@ final class AppMediaLinks
      * The stored file opens through the existing signed file route, so the app
      * loses only the web's viewer frame around it.
      */
-    public function forArtifact(Artifact $artifact): string
+    public static function forArtifact(Artifact $artifact): string
     {
         return URL::temporarySignedRoute(
             'artifacts.show',
@@ -123,9 +129,9 @@ final class AppMediaLinks
     private function forConversationArtifact(string $taskPublicId, string $filename): ?string
     {
         $task = $this->conversationTask($taskPublicId);
-        $artifact = $task === null ? null : Artifact::query()->where('yak_task_id', $task->id)->where('filename', $filename)->first();
+        $artifact = $task === null ? null : ($this->artifacts()[$task->id][$filename] ?? null);
 
-        return $artifact === null ? null : $this->forArtifact($artifact);
+        return $artifact === null ? null : self::forArtifact($artifact);
     }
 
     private function conversationTask(string $publicId): ?YakTask
@@ -133,9 +139,31 @@ final class AppMediaLinks
         return $this->conversation()[$publicId] ?? null;
     }
 
-    private function belongsToConversation(?int $taskId): bool
+    /**
+     * @return array<int, TaskAttachment> keyed by id, loaded once for the conversation
+     */
+    private function attachments(): array
     {
-        return $taskId !== null && array_any($this->conversation(), fn (YakTask $task): bool => $task->id === $taskId);
+        return $this->attachmentsById ??= TaskAttachment::query()
+            ->whereIn('yak_task_id', array_map(fn (YakTask $task): int => $task->id, $this->conversation()))
+            ->get()->keyBy('id')->all();
+    }
+
+    /**
+     * @return array<int, array<string, Artifact>> task id => filename => artifact, loaded once
+     */
+    private function artifacts(): array
+    {
+        if ($this->artifactsByTask === null) {
+            $this->artifactsByTask = [];
+            $artifacts = Artifact::query()->whereIn('yak_task_id', array_map(fn (YakTask $task): int => $task->id, $this->conversation()))->get();
+
+            foreach ($artifacts as $artifact) {
+                $this->artifactsByTask[$artifact->yak_task_id][$artifact->filename] ??= $artifact;
+            }
+        }
+
+        return $this->artifactsByTask;
     }
 
     /**

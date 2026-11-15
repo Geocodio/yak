@@ -7,6 +7,8 @@ use App\Enums\TaskMode;
 use App\Http\Controllers\Controller;
 use App\Models\Repository;
 use App\Models\YakTask;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -23,7 +25,7 @@ use Illuminate\Support\Str;
  */
 class PullRequestImageController extends Controller
 {
-    public function __invoke(YakTask $task, string $asset, AppService $github): Response
+    public function __invoke(YakTask $task, string $asset, AppService $github, bool $isTimeBounded = false): Response
     {
         $context = json_decode((string) $task->context, true) ?: [];
         $body = (string) ($context['body'] ?? '');
@@ -34,6 +36,18 @@ class PullRequestImageController extends Controller
 
         // The signed URLs expire after about five minutes, so the rendered
         // body is reused only briefly by the other images on the same page.
+        try {
+            return $this->streamImage($task, $asset, $body, $repoFullName, $github, $isTimeBounded);
+        } catch (ConnectionException $exception) {
+            // The app's web view cannot wait on GitHub; the web page keeps its own behavior.
+            throw_unless($isTimeBounded, $exception);
+
+            abort(503, 'GitHub did not answer in time.');
+        }
+    }
+
+    private function streamImage(YakTask $task, string $asset, string $body, string $repoFullName, AppService $github, bool $isTimeBounded): Response
+    {
         $bodyHtml = Cache::remember(
             "pr-body-html:{$task->id}",
             now()->addMinutes(3),
@@ -41,13 +55,15 @@ class PullRequestImageController extends Controller
                 (int) config('yak.channels.github.installation_id'),
                 $repoFullName,
                 $body,
+                $isTimeBounded,
             ),
         );
 
         $pattern = '#src="(https://private-user-images\.githubusercontent\.com/[^"]*' . preg_quote($asset, '#') . '[^"]*)"#';
         abort_unless(preg_match($pattern, $bodyHtml, $match) === 1, 404);
 
-        $image = Http::timeout(15)->get(html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5));
+        $image = Http::when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3), fn (PendingRequest $request) => $request->timeout(15))
+            ->get(html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5));
         $contentType = (string) $image->header('Content-Type');
         abort_unless($image->successful() && Str::startsWith($contentType, ['image/', 'video/']), 404);
 

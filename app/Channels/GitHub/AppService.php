@@ -208,11 +208,12 @@ class AppService
      * `private-user-images` URLs that load without a GitHub session for
      * about five minutes, including uploads no longer in the live PR body.
      */
-    public function renderMarkdown(int $installationId, string $repoSlug, string $markdown): ?string
+    public function renderMarkdown(int $installationId, string $repoSlug, string $markdown, bool $isTimeBounded = false): ?string
     {
-        $token = $this->getInstallationToken($installationId);
+        $token = $this->getInstallationToken($installationId, $isTimeBounded);
 
         $response = Http::withToken($token)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->post('https://api.github.com/markdown', [
                 'text' => $markdown,
                 'mode' => 'gfm',
