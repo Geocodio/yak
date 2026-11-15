@@ -4,6 +4,8 @@ import Foundation
 struct StubRequest: Sendable {
     var method: String
     var path: String
+    /// The decoded query items; a key that repeats keeps its last value.
+    var query: [String: String] = [:]
     var headers: [String: String] = [:]
     var body = Data()
 }
