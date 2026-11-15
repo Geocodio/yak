@@ -129,6 +129,22 @@ release_check_workflow() {
     release_report 'workflow' "$(ruby scripts/release-project.rb workflow "$workflow")"
 }
 
+release_check_nightly() {
+    local workflow="../.github/workflows/ios-nightly.yml"
+    [ -f "$workflow" ] || return 0
+    release_report 'nightly' "$(ruby scripts/release-project.rb nightly "$workflow")"
+}
+
+release_check_dependabot() {
+    # The repository root only exists in a full checkout; a standalone copy of ios/ skips this.
+    [ -d ../.github ] || return 0
+    release_report 'dependabot' "$(ruby scripts/release-project.rb dependabot ../.github/dependabot.yml)"
+}
+
+release_check_pins() {
+    release_report 'pins' "$(ruby scripts/release-project.rb pins)"
+}
+
 # Strings under a key of an entitlements file, sorted, one per line.
 release_entitlement_strings() {
     perl -0777 -ne '
@@ -199,6 +215,9 @@ deferred_checks+=(
     release_check_versions
     release_check_sentry
     release_check_workflow
+    release_check_nightly
+    release_check_dependabot
+    release_check_pins
     release_check_groups
     release_check_minimum_versions
     release_check_privacy_manifests

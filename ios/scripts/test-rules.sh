@@ -14,6 +14,7 @@ if [ -d .github/workflows ]; then
     mkdir -p "$base/pristine/.github"
     rsync -a .github/workflows "$base/pristine/.github/"
 fi
+[ -f .github/dependabot.yml ] && cp .github/dependabot.yml "$base/pristine/.github/"
 
 failures=0
 work=""
@@ -378,6 +379,74 @@ if grep -q "extension targets: .*cannot" <<<"$output"; then
     echo "FAIL  the YAML finding leaked into the target names"
     failures=$((failures + 1))
 fi
+
+# nightly workflow, Dependabot and the pins package
+fresh
+rm "$work/.github/dependabot.yml"
+expect_fail "dependabot: the file is missing" "release: dependabot" "is missing"
+fresh
+sed -i.bak 's/package-ecosystem: bundler/package-ecosystem: npm/' "$work/.github/dependabot.yml"
+expect_fail "dependabot: bundler is not covered" "release: dependabot" "bundler"
+fresh
+sed -i.bak 's#/ios/Packages/Pins#/ios/Packages/YakKit#' "$work/.github/dependabot.yml"
+expect_fail "dependabot: swift points away from Pins" "release: dependabot" "/ios/Packages/Pins"
+fresh
+sed -i.bak "s/^  schedule:/  pull_request:\\
+  schedule:/" "$work/.github/workflows/ios-nightly.yml"
+expect_fail "nightly: a pull_request trigger" "release: nightly" "pull_request"
+fresh
+printf '\n# uses secrets.KEY\n' >> "$work/.github/workflows/ios-nightly.yml"
+expect_fail "nightly: a secrets reference" "release: nightly" "secrets"
+fresh
+sed -i.bak 's/timeout-minutes: 40/timeout-minutes: 90/' "$work/.github/workflows/ios-nightly.yml"
+expect_fail "nightly: a job without the 40 minute bound" "release: nightly" "timeout-minutes"
+fresh
+plant project-planted.yml <<'EOF'
+packages:
+  Widget:
+    url: https://github.com/example/widget.git
+    exactVersion: 1.0.0
+EOF
+sed -i.bak 's#dependencies: \[#dependencies: [\
+        .package(url: "https://github.com/example/widget.git", exact: "1.0.0"),#' "$work/ios/Packages/Pins/Package.swift"
+expect_fail "pins: Package.resolved is missing" "release: pins" "Package.resolved"
+fresh
+sed -i.bak 's#dependencies: \[#dependencies: [\
+        .package(url: "https://github.com/example/unused.git", exact: "1.0.0"),#' "$work/ios/Packages/Pins/Package.swift"
+expect_fail "pins: a package no project file uses" "release: pins" "example/unused"
+fresh
+plant project-planted.yml <<'EOF'
+packages:
+  Widget:
+    url: https://github.com/example/widget.git
+    exactVersion: 2.0.0
+EOF
+expect_fail "pins: a project package that Pins does not pin" "release: pins" "example/widget"
+fresh
+plant project-planted.yml <<'EOF'
+packages:
+  Widget:
+    url: https://github.com/example/widget.git
+    exactVersion: 1.0.0
+EOF
+sed -i.bak 's#dependencies: \[#dependencies: [\
+        .package(url: "https://github.com/example/widget.git", exact: "1.0.1"),#' "$work/ios/Packages/Pins/Package.swift"
+expect_fail "pins: a version one patch above the project pin" "release: pins" "change both in the same pull request"
+fresh
+sed -i.bak 's#dependencies: \[#dependencies: [\
+        .package(url: "https://github.com/example/widget.git", from: "1.0.0"),#' "$work/ios/Packages/Pins/Package.swift"
+expect_fail "pins: a range instead of exact" "release: pins" "exact:"
+fresh
+plant project-planted.yml <<'EOF'
+packages:
+  Widget:
+    url: https://github.com/example/widget.git
+    exactVersion: 1.0.0
+EOF
+sed -i.bak 's#dependencies: \[#dependencies: [\
+        .package(url: "https://github.com/example/widget.git", exact: "1.0.0"),#' "$work/ios/Packages/Pins/Package.swift"
+echo '{"pins":[],"version":3}' > "$work/ios/Packages/Pins/Package.resolved"
+expect_pass "pins: matching versions pass"
 
 if [ "$failures" -ne 0 ]; then
     echo "$failures case(s) failed after $(($(date +%s) - started)) seconds"

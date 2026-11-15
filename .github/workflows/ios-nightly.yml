@@ -1,0 +1,63 @@
+name: iOS nightly
+
+# Slow checks that do not belong in every pull request. It holds no secrets and never runs
+# pull request code.
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-nightly
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: ios
+
+jobs:
+  yakkit-thread-sanitizer:
+    # GitHub's hosted Xcode 27 image. Never register a self-hosted runner under this label.
+    runs-on: xcode-27
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_$(cat .xcode-version).app"
+      # The one job that calls no lane: it is a single swift command with no setup.
+      - name: Test YakKit with Thread Sanitizer
+        working-directory: ios/Packages/YakKit
+        run: swift test --sanitize=thread
+
+  sentry-build:
+    # GitHub's hosted Xcode 27 image. Never register a self-hosted runner under this label.
+    runs-on: xcode-27
+    timeout-minutes: 40
+    env:
+      YAK_CONFIG_FROM_ENVIRONMENT: '1'
+      YAK_TEAM_ID: TEAMID1234
+      YAK_BUNDLE_ID: com.example.yak
+      YAK_APP_GROUP: group.com.example.yak
+      YAK_DISPLAY_NAME: Example Yak
+      YAK_SENTRY_DSN: https://public@sentry.example.invalid/1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_$(cat .xcode-version).app"
+      - name: Install tools
+        run: brew install xcodegen
+      - name: Install gems
+        run: bundle install
+      # Builds the app with Sentry compiled in and fails when fewer than 3 CrashReportingTests ran.
+      - name: Sentry build and tests
+        run: bundle exec fastlane sentry_tests
+      - name: Keep the result bundle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentry-build-results
+          path: ios/build/*.xcresult
+          if-no-files-found: ignore
