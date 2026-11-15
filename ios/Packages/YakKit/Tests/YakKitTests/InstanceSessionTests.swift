@@ -136,6 +136,26 @@ private func nextSnapshot(
         #expect(await rig.session.outbox() == nil)
     }
 
+    @Test func featureAccessorsFollowTheSession() async throws {
+        let rig = try await makeRig { await $0.on(showRoute, revokedAnswer) }
+        #expect(await rig.session.apiClient() == nil)
+        #expect(await rig.session.instanceCache() == nil)
+        await rig.session.start()
+        #expect(await rig.session.apiClient() != nil)
+        #expect(await rig.session.instanceCache() != nil)
+        #expect(rig.session.clock.now() == rig.clock.now())
+        await rig.session.stop()
+        #expect(await rig.session.apiClient() == nil)
+        #expect(await rig.session.instanceCache() == nil)
+
+        let revoked = try await startedRig { await $0.on(showRoute, revokedAnswer) }
+        let statuses = StreamRecorder(await revoked.session.statuses())
+        _ = await revoked.session.openThread(threadID)
+        _ = try await statuses.next { $0 == .needsPairing }
+        #expect(await revoked.session.apiClient() == nil)
+        #expect(await revoked.session.instanceCache() == nil)
+    }
+
     @Test func startWithoutATokenNeedsPairing() async throws {
         let rig = try await makeRig(keepsToken: false)
         await rig.session.start()
