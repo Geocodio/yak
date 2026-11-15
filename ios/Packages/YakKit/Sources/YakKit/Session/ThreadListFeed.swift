@@ -107,6 +107,10 @@ public actor ThreadListFeed {
 
     /// Loads now and waits for the answer.
     public func refresh() async {
+        if state.list == nil, case .failed = state.load {
+            state.load = .loading
+            publish()
+        }
         await start().value
     }
 

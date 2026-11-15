@@ -120,9 +120,11 @@ struct ThreadListFeedTests {
         await rig.feed.setVisible(true)
         await rig.transport.waitForRequests(1, on: "GET threads")
         let recorder = StreamRecorder(await rig.feed.states())
+        let search = Task { await rig.feed.setFilter(.mine, search: "import") }
+        await rig.transport.waitForRequests(2, on: "GET threads")
+        #expect(await rig.transport.cancelledRequests == 1)
         await rig.transport.release("GET threads")
-        // The held request was overtaken: the search request is the one that answers.
-        await rig.feed.setFilter(.mine, search: "import")
+        await search.value
         let requests = await rig.transport.requests(on: "GET threads")
         #expect(requests.last?.url?.query?.contains("search=import") == true)
         let state = await recorder.next { $0.search == "import" && $0.load == .ready }
@@ -163,6 +165,13 @@ struct ThreadListFeedTests {
         let recorder = StreamRecorder(await rig.feed.states())
         let state = await recorder.next { _ in true }
         #expect(state.load == .failed(.needsPairing) && state.list == nil)
+        await rig.transport.on("GET threads", .json(200, emptyList))
+        await rig.transport.hold("GET threads")
+        let retry = Task { await rig.feed.refresh() }
+        _ = await recorder.next { $0.load == .loading }
+        await rig.transport.release("GET threads")
+        await retry.value
+        _ = await recorder.next { $0.load == .ready }
     }
 
     @Test func aFirstLoadStillWaitingAfterEightSecondsIsSlow() async throws {

@@ -16,6 +16,8 @@ actor ScriptedTransport: HTTPTransport {
     private var holders: [Int: (route: String, continuation: CheckedContinuation<Void, any Error>)] = [:]
     private var nextHolder = 0
     private(set) var requests: [URLRequest] = []
+    /// Held requests whose task was cancelled while they waited.
+    private(set) var cancelledRequests = 0
 
     private static let notFound = FakeTransport.Result.json(404, #"{"error":"not_found","message":"Not found."}"#)
 
@@ -95,6 +97,7 @@ actor ScriptedTransport: HTTPTransport {
 
     private func cancelHolder(_ identifier: Int) {
         guard let holder = holders.removeValue(forKey: identifier) else { return }
+        cancelledRequests += 1
         holder.continuation.resume(throwing: URLError(.cancelled))
     }
 
