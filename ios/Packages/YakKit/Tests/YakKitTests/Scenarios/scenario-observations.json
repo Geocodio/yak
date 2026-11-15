@@ -1,0 +1,12 @@
+{
+  "observations": [
+    {"id": 301, "repo": "example/api", "source": "flaky-test", "sourceLabel": "CI", "kind": "flaky_test.task_created", "kindLabel": "Task opened",
+     "outcome": "acted", "summary": "A test in the upload suite fails one run in ten.", "subject": "UploadRetryTest", "referenceUrl": null,
+     "taskId": "k7m2q9rt", "taskUrl": "https://yak.example.com/tasks/k7m2q9rt", "createdAgo": "2h ago", "createdAt": "2026-11-15T10:00:00+00:00"},
+    {"id": 302, "repo": "example/web", "source": "feature-flag", "sourceLabel": "Flags", "kind": "feature_flag.skipped", "kindLabel": "Skipped",
+     "outcome": "declined", "summary": "An unused feature flag in pricing.", "subject": null, "referenceUrl": "https://example.com/flags/pricing",
+     "taskId": null, "taskUrl": null, "createdAgo": "5h ago", "createdAt": "2026-11-15T07:00:00+00:00"}
+  ],
+  "nextPage": null,
+  "options": {"repos": ["example/api", "example/web"]}
+}

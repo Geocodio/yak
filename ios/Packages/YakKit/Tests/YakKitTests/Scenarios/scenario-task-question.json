@@ -1,0 +1,22 @@
+{
+  "task": {"id": "q5w8e2rt", "status": "awaiting_clarification", "statusLabel": "awaiting clarification", "mode": "fix",
+           "headline": null, "summary": "Add rate limiting to the export", "repo": "example/api", "sourceLabel": "Slack",
+           "sourceUrl": null, "startedBy": "Test person", "pr": null, "nextSteps": null, "branch": null, "cost": null},
+  "threadId": null,
+  "canDrive": true,
+  "thread": [],
+  "progress": null,
+  "coOwner": null,
+  "earlyWarning": null,
+  "walkthrough": null,
+  "composer": {"state": "answer_questions"},
+  "questions": [
+    {"id": "scope", "header": "Scope", "question": "Which exports get the limit?", "multiSelect": false,
+     "options": [{"label": "All exports", "description": "Every export endpoint."}, {"label": "Large exports", "description": "Only over 10,000 rows."}]},
+    {"id": "window", "header": "Window", "question": "How long is the window?", "multiSelect": false,
+     "options": [{"label": "One minute", "description": "Sixty seconds."}, {"label": "One hour", "description": "Sixty minutes."}]}
+  ],
+  "actions": {"canRetry": false, "canCancel": true, "canRerunReview": false, "canRequestReview": false,
+              "canRetryRender": false, "canReroute": false, "rerouteTargets": []},
+  "pollInterval": 5000
+}
