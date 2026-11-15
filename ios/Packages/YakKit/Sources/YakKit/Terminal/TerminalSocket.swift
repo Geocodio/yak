@@ -35,7 +35,8 @@ public protocol TerminalSocketConnector: Sendable {
     public struct URLSessionTerminalSocketConnector: TerminalSocketConnector {
         public init() {}
 
-        public func connect(to url: URL, origin: String, handshakeTimeout: Duration) async throws -> any TerminalSocket {
+        public func connect(to url: URL, origin: String, handshakeTimeout: Duration) async throws -> any TerminalSocket
+        {
             let configuration = URLSessionConfiguration.ephemeral
             configuration.httpCookieStorage = nil
             configuration.httpShouldSetCookies = false
@@ -45,7 +46,6 @@ public protocol TerminalSocketConnector: Sendable {
             var request = URLRequest(url: url)
             request.setValue(origin, forHTTPHeaderField: "Origin")
             let task = session.webSocketTask(with: request)
-            delegate.task = task
             task.resume()
             let timeout = Task {
                 try await Task.sleep(for: handshakeTimeout)
@@ -74,7 +74,6 @@ public protocol TerminalSocketConnector: Sendable {
         private var closeCode: Int?
         private var closeWaiters: [CheckedContinuation<Int?, Never>] = []
         private var isFinished = false
-        var task: URLSessionWebSocketTask?
 
         func waitUntilOpened() async -> Bool {
             await withCheckedContinuation { continuation in
@@ -102,9 +101,15 @@ public protocol TerminalSocketConnector: Sendable {
             continuation?.resume(returning: opened)
         }
 
-        /// The close code once the connection is over, or nil when it ended without one.
-        func finalCloseCode() async -> Int? {
-            await withCheckedContinuation { continuation in
+        /// The close code once the connection is over, or nil when it ended without one. Waits at most
+        /// `limit`, then gives up with nil so a missing delegate callback cannot hang the caller.
+        func finalCloseCode(limit: Duration = .seconds(2)) async -> Int? {
+            let timer = Task {
+                try await Task.sleep(for: limit)
+                finish(code: nil)
+            }
+            defer { timer.cancel() }
+            return await withCheckedContinuation { continuation in
                 lock.lock()
                 if isFinished {
                     let code = closeCode

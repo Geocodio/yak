@@ -7,14 +7,17 @@ public enum BridgeMessage: Equatable, Sendable {
 
     /// Reads one control frame. Anything that is not a well-formed `exit` frame is `.unknown`.
     public static func parse(_ text: String) -> BridgeMessage {
-        guard let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
-            object["type"] as? String == "exit",
-            let number = object["code"] as? NSNumber,
-            CFGetTypeID(number) != CFBooleanGetTypeID(),
-            let code = Int(exactly: number.doubleValue),
-            abs(code) <= 1_000_000
+        guard let frame = try? JSONDecoder().decode(ExitFrame.self, from: Data(text.utf8)),
+            frame.type == "exit",
+            abs(frame.code) <= 1_000_000
         else { return .unknown }
-        return .exit(code: code)
+        return .exit(code: frame.code)
+    }
+
+    /// Decoding `code` as an `Int` rejects booleans, fractions and out-of-range numbers on every platform.
+    private struct ExitFrame: Decodable {
+        let type: String
+        let code: Int
     }
 }
 

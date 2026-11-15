@@ -24,13 +24,14 @@ struct BridgeProtocolTests {
         #expect(BridgeControl.resize(cols: 80, rows: 24) == #"{"type":"resize","cols":80,"rows":24}"#)
     }
 
-    @Test(arguments: [
-        (1000, false, TerminalCloseKind.ended), (4408, true, .ended),
-        (1001, false, .lost), (1006, false, .lost), (1011, false, .lost),
-        (nil, false, .lost), (4403, false, .denied), (4408, false, .idle),
-        (4429, false, .tooMany), (1002, false, .broken), (1003, false, .broken),
-        (1009, false, .broken), (4000, false, .broken),
-    ] as [(Int?, Bool, TerminalCloseKind)])
+    @Test(
+        arguments: [
+            (1000, false, TerminalCloseKind.ended), (4408, true, .ended),
+            (1001, false, .lost), (1006, false, .lost), (1011, false, .lost),
+            (nil, false, .lost), (4403, false, .denied), (4408, false, .idle),
+            (4429, false, .tooMany), (1002, false, .broken), (1003, false, .broken),
+            (1009, false, .broken), (4000, false, .broken),
+        ] as [(Int?, Bool, TerminalCloseKind)])
     func everyCloseCodeHasOneKind(code: Int?, sawExit: Bool, expected: TerminalCloseKind) {
         #expect(TerminalCloseKind.classify(code: code, sawExit: sawExit) == expected)
     }

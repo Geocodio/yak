@@ -13,6 +13,7 @@
         private var connections: [NWConnection] = []
         private let originRecorder = OriginRecorder()
         private let closeCode: UInt16?
+        private let receivedRecorder = ReceivedRecorder()
         private let answersUpgrade: Bool
 
         init(closeCode: UInt16? = nil, answersUpgrade: Bool = true) throws {
@@ -34,6 +35,7 @@
         }
 
         var recordedOrigins: [String] { originRecorder.all }
+        var receivedFrames: [ReceivedFrame] { receivedRecorder.all }
 
         func start() async throws -> UInt16 {
             listener.newConnectionHandler = { [weak self] connection in
@@ -72,6 +74,18 @@
                 return
             }
             receiveAndEcho(connection)
+            readFrames(from: connection)
+        }
+
+        private func readFrames(from connection: NWConnection) {
+            connection.receiveMessage { [weak self] content, context, _, error in
+                guard let self, error == nil else { return }
+                let metadata = context?.protocolMetadata(definition: NWProtocolWebSocket.definition)
+                if let metadata = metadata as? NWProtocolWebSocket.Metadata, let content {
+                    self.receivedRecorder.record(ReceivedFrame(isBinary: metadata.opcode == .binary, data: content))
+                }
+                self.readFrames(from: connection)
+            }
         }
 
         /// Sends a binary and a text frame, then echoes nothing.
@@ -89,6 +103,18 @@
         }
     }
 
+    private struct ReceivedFrame: Equatable {
+        let isBinary: Bool
+        let data: Data
+    }
+
+    private final class ReceivedRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var frames: [ReceivedFrame] = []
+        func record(_ frame: ReceivedFrame) { lock.withLock { frames.append(frame) } }
+        var all: [ReceivedFrame] { lock.withLock { frames } }
+    }
+
     private final class OriginRecorder: @unchecked Sendable {
         private let lock = NSLock()
         private var origins: [String] = []
@@ -99,7 +125,12 @@
     private final class Once: @unchecked Sendable {
         private let lock = NSLock()
         private var done = false
-        func first() -> Bool { lock.withLock { defer { done = true }; return !done } }
+        func first() -> Bool {
+            lock.withLock {
+                defer { done = true }
+                return !done
+            }
+        }
     }
 
     @Suite(.timeLimit(.minutes(1)))
@@ -128,6 +159,12 @@
             #expect(try await socket.receive() == .control(#"{"type":"exit","code":0}"#))
             try await socket.send(bytes: Data([0x61]))
             try await socket.send(text: BridgeControl.resize(cols: 80, rows: 24))
+            for _ in 0..<100 where bridge.receivedFrames.count < 2 { try await Task.sleep(for: .milliseconds(50)) }
+            #expect(
+                bridge.receivedFrames == [
+                    ReceivedFrame(isBinary: true, data: Data([0x61])),
+                    ReceivedFrame(isBinary: false, data: Data(BridgeControl.resize(cols: 80, rows: 24).utf8)),
+                ])
             await socket.close()
         }
 
