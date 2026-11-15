@@ -7,6 +7,7 @@ use App\Exceptions\ThreadActionRefused;
 use App\Models\PendingSteeringMessage;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Devices\ShortLockWait;
 use App\Services\Teleport\ThreadOwnership;
@@ -22,6 +23,8 @@ class QueuedMessages
 {
     public const DELIVERED_SENTENCE = 'Yak already has that message.';
 
+    public const NOT_YOUR_MESSAGE_SENTENCE = 'Only the person who wrote this message can change its text.';
+
     public const REVIEW_SENTENCE = 'A GitHub review waits for the follow-up, so the reviewer is asked to look again.';
 
     public const BUSY_SENTENCE = 'Yak is busy with this conversation. Try again in a few seconds.';
@@ -34,11 +37,15 @@ class QueuedMessages
      * @throws ThreadActionRefused
      * @throws ValidationException
      */
-    public function update(YakTask $rootTask, int|string $message, ?SteeringMode $mode, ?string $text): PendingSteeringMessage
+    public function update(YakTask $rootTask, User $actingUser, int|string $message, ?SteeringMode $mode, ?string $text): PendingSteeringMessage
     {
-        return $this->shortTransaction(function () use ($rootTask, $message, $mode, $text): PendingSteeringMessage {
+        return $this->shortTransaction(function () use ($rootTask, $actingUser, $message, $mode, $text): PendingSteeringMessage {
             $thread = $this->lockThread($rootTask);
             $pending = $this->findLocked($rootTask, $message);
+
+            if ($text !== null && $text !== $pending->text && ! $pending->canEditTextBy($actingUser)) {
+                throw new ThreadActionRefused(ThreadActionRefused::NOT_YOUR_MESSAGE, self::NOT_YOUR_MESSAGE_SENTENCE, [], 403);
+            }
 
             if ($mode === SteeringMode::Steer && ! $pending->canSteer()) {
                 throw ValidationException::withMessages(['mode' => self::REVIEW_SENTENCE]);

@@ -183,6 +183,7 @@ export type ThreadMessage = {
     authorInitials: string;
     model: string | null;
     state: 'pending' | 'read' | 'cancelled';
+    canEditText: boolean;
     intent: 'add_preview_manifest' | 'fix_preview' | 'record_walkthrough' | 'record_walkthrough_and_open_pr' | null;
     sendKey: string | null;
     mode: 'steer' | 'queue' | null;

@@ -219,3 +219,44 @@ it('answers 503 unavailable when the lock cannot be taken in time', function () 
     $this->patchJson(queuedMessagePath($thread, $message->uuid), ['text' => 'new'], $headers)->assertStatus(503)->assertExactJson($busy);
     $this->deleteJson(queuedMessagePath($thread, $message->uuid), [], $headers)->assertStatus(503)->assertExactJson($busy);
 });
+
+it('lets only the author change the text of a queued message', function () {
+    [$thread, $author, $message] = threadWithQueuedMessage();
+    $other = User::factory()->create(['name' => 'Other person']);
+
+    $this->patchJson(queuedMessagePath($thread, $message->uuid), ['text' => 'Hijacked'], phoneHeadersFor($other))
+        ->assertStatus(403)
+        ->assertJsonPath('error', 'not_your_message')
+        ->assertJsonPath('message', 'Only the person who wrote this message can change its text.');
+    expect($message->fresh()->text)->toBe('Then update the docs');
+
+    $this->patchJson(queuedMessagePath($thread, $message->uuid), ['text' => 'Then update the README'], phoneHeadersFor($author))->assertOk();
+    expect($message->fresh()->text)->toBe('Then update the README');
+});
+
+it('refuses a text edit on a reviewer message and on a row without an author', function () {
+    [$thread, $user, $message] = threadWithQueuedMessage();
+    $message->forceFill(['reviewer_login' => 'alice'])->save();
+    $this->patchJson(queuedMessagePath($thread, $message->uuid), ['text' => 'Edited'], phoneHeadersFor($user))->assertStatus(403)->assertJsonPath('error', 'not_your_message');
+
+    $message->forceFill(['reviewer_login' => null, 'author_user_id' => null])->save();
+    $this->patchJson(queuedMessagePath($thread, $message->uuid), ['text' => 'Edited'], phoneHeadersFor($user))->assertStatus(403)->assertJsonPath('error', 'not_your_message');
+    expect($message->fresh()->text)->toBe('Then update the docs');
+});
+
+it('lets another driver switch the mode of a message they did not write', function () {
+    [$thread, , $message] = threadWithQueuedMessage();
+    $other = User::factory()->create();
+    $this->mock(ThreadCommands::class)->shouldReceive('steer');
+
+    $this->patchJson(queuedMessagePath($thread, $message->uuid), ['mode' => 'steer'], phoneHeadersFor($other))->assertOk();
+    expect($message->fresh()->mode)->toBe(SteeringMode::Steer);
+});
+
+it('shows canEditText only to the author', function () {
+    [$thread, $author] = threadWithQueuedMessage();
+    $other = User::factory()->create();
+
+    $this->getJson(appThreadPath($thread), phoneHeadersFor($author))->assertOk()->assertJsonFragment(['text' => 'Then update the docs', 'canEditText' => true]);
+    $this->getJson(appThreadPath($thread), phoneHeadersFor($other))->assertOk()->assertJsonFragment(['text' => 'Then update the docs', 'canEditText' => false]);
+});

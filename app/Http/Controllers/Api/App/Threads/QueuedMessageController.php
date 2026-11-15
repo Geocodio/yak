@@ -17,7 +17,7 @@ class QueuedMessageController extends Controller
     public function update(UpdateQueuedMessageRequest $request, Thread $thread, string $message, QueuedMessages $queued): JsonResponse
     {
         $this->assertOpen($thread);
-        $queued->update($this->rootTask($thread), $message, $request->enum('mode', SteeringMode::class), $request->validated('text'));
+        $queued->update($this->rootTask($thread), $request->user() ?? abort(401), $message, $request->enum('mode', SteeringMode::class), $request->validated('text'));
 
         return response()->json(['status' => 'updated']);
     }

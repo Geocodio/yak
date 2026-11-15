@@ -376,6 +376,7 @@ class ThreadTurns
             'source' => $source,
             'mode' => $isQueueOnly ? SteeringMode::Queue : SteeringMode::Steer,
             'author_name' => $sender?->name,
+            'author_user_id' => $source === 'thread' ? $sender?->id : null,
             'uuid' => (string) Str::uuid(),
             'model' => $model,
             'send_key' => $sendKey,

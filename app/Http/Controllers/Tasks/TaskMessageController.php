@@ -89,7 +89,7 @@ class TaskMessageController extends Controller
     {
         $mode = $request->enum('mode', SteeringMode::class) ?? SteeringMode::Queue;
 
-        $message = PendingSteeringMessage::queueFor($head, $text, 'dashboard', mode: $mode, authorName: auth()->user()?->name);
+        $message = PendingSteeringMessage::queueFor($head, $text, 'dashboard', mode: $mode, authorName: auth()->user()?->name, authorUserId: auth()->user()?->id);
         TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]);
 
         TaskLogger::info($head, $mode === SteeringMode::Steer ? 'Steering message waiting for the next tool call via Yak UI' : 'Steering message queued via Yak UI');

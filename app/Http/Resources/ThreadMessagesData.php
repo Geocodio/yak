@@ -10,6 +10,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
 use App\Models\ThreadTurnMessage;
+use App\Models\User;
 use App\Support\AttachmentReferences;
 use App\Support\Markdown;
 use Illuminate\Support\Str;
@@ -21,9 +22,9 @@ use Illuminate\Support\Str;
 final class ThreadMessagesData
 {
     /**
-     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
+     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
      */
-    public static function for(Thread $thread): array
+    public static function for(Thread $thread, ?User $viewer = null): array
     {
         $rows = ThreadTurnMessage::query()
             ->whereHas('taskRun', fn ($runs) => $runs->where('thread_id', $thread->id))
@@ -81,6 +82,7 @@ final class ThreadMessagesData
                     TurnMessageState::Started, TurnMessageState::Completed => 'read',
                     TurnMessageState::Cancelled => 'cancelled',
                 },
+                'canEditText' => false,
                 'intent' => $row->intent,
                 'sendKey' => $row->send_key,
                 'mode' => null,
@@ -115,6 +117,7 @@ final class ThreadMessagesData
                 'authorInitials' => self::initials($queued->author_name),
                 'model' => $queued->model,
                 'state' => 'pending',
+                'canEditText' => $queued->canEditTextBy($viewer),
                 'intent' => null,
                 'sendKey' => $queued->send_key,
                 'mode' => $queued->mode->value,

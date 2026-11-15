@@ -68,6 +68,7 @@
             "authorInitials": "TP",
             "authorName": "Test person",
             "bodyHtml": "<p>Retry failed uploads with backoff</p>\n",
+            "canEditText": false,
             "id": "<volatile:string>",
             "intent": null,
             "mode": null,

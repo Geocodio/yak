@@ -28,9 +28,9 @@ New endpoints: `GET threads`, `GET threads/new`, `GET threads/new/repository-acc
 
 New event type: `question`, which carries the open question of a thread (`open: false` when it closes).
 
-New fields: `starred` in the list; the `closed` filter and `search` on the list; `type` on every root row of `starred`, `needsYou` and `threads`; task items in `needsYou`; `panes`, `question` and `latestSequence` on thread show; `sendKey` and `mode` on message rows; `uuid` (null for `/clear`) and `queued` in the send response.
+New fields: `starred` in the list; the `closed` filter and `search` on the list; `type` on every root row of `starred`, `needsYou` and `threads`; task items in `needsYou`; `panes`, `question` and `latestSequence` on thread show; `sendKey`, `mode` and `canEditText` on message rows; `uuid` (null for `/clear`) and `queued` in the send response.
 
-New 409 codes: `nothing_to_continue`, `nothing_to_restore`, `question_closed`.
+New 409 codes: `nothing_to_continue`, `nothing_to_restore`, `question_closed`. New 403 code: `not_your_message`, when someone other than the author edits the text of a queued message (mode switches and withdraw keep the drive-rights rule). Message rows carry `canEditText`, true only for the asking author of a still queued message.
 
 `POST threads/{thread}/messages` and `POST threads` answer `503 unavailable` while the same `send_key` is still being handled; the client retries with the same key.
 

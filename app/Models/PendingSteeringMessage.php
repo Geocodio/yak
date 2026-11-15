@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PendingSteeringMessage extends Model
 {
-    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'uuid', 'model', 'delivered_at', 'absorbed_at', 'send_key'];
+    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'delivered_at', 'absorbed_at', 'send_key'];
 
     /**
      * @return array<string, string>
@@ -54,6 +54,7 @@ class PendingSteeringMessage extends Model
         ?string $reviewerLogin = null,
         SteeringMode $mode = SteeringMode::Queue,
         ?string $authorName = null,
+        ?int $authorUserId = null,
     ): self {
         $root = $task->rootTask();
 
@@ -66,6 +67,7 @@ class PendingSteeringMessage extends Model
             'mode' => $mode,
             'reviewer_login' => $reviewerLogin,
             'author_name' => $authorName,
+            'author_user_id' => $authorUserId,
         ]);
     }
 
@@ -156,6 +158,14 @@ class PendingSteeringMessage extends Model
     public function canSteer(): bool
     {
         return $this->reviewer_login === null;
+    }
+
+    /**
+     * Only the signed-in person who wrote a message can change its text; channel messages and older rows have no author.
+     */
+    public function canEditTextBy(?User $user): bool
+    {
+        return $user !== null && $this->author_user_id !== null && $this->reviewer_login === null && $this->author_user_id === $user->id;
     }
 
     /**

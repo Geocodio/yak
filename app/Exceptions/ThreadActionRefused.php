@@ -24,6 +24,8 @@ final class ThreadActionRefused extends RuntimeException
 
     public const NOTHING_TO_RESTORE = 'nothing_to_restore';
 
+    public const NOT_YOUR_MESSAGE = 'not_your_message';
+
     public const QUESTION_CLOSED = 'question_closed';
 
     /**

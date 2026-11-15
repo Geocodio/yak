@@ -21,7 +21,7 @@ class QueuedMessageController extends Controller
     public function update(UpdateQueuedMessageRequest $request, YakTask $task, int $message, QueuedMessages $queued): RedirectResponse
     {
         try {
-            $queued->update($task->rootTask(), $message, $request->enum('mode', SteeringMode::class), null);
+            $queued->update($task->rootTask(), $request->user() ?? abort(401), $message, $request->enum('mode', SteeringMode::class), null);
         } catch (ThreadActionRefused $refusal) {
             return $this->back($task, $refusal->getMessage());
         } catch (ValidationException $invalid) {

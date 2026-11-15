@@ -52,7 +52,7 @@ use App\Services\Teleport\LocalTurns;
  *     publishWarning: bool,
  *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitch: ?array{from: string, to: string, at: string}, accountName: ?string, continuedFromThreadId: ?string, continuedFromTitle: ?string, canTeleport: bool},
  *     capacity: ?array{turns: array{used: int, limit: int}, sandboxes: array{used: int, limit: int}, share: array{used: int, limit: int}},
- *     messages: list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>,
+ *     messages: list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>,
  *     localTurns: ?array{count: int, firstPromptText: string, startedAt: string, endedAt: string, hasMore: bool, authorName: string, authorInitials: string, turns: list<array<string, mixed>>},
  *     walkthrough: ?array{isRecording: bool, isRendering: bool, video: ?array{url: string, thumbnailUrl: ?string, durationSeconds: float, chapters: list<array{title: string, startSeconds: float}>}, screenshots: list<array{url: string, caption: ?string}>, isInPullRequest: bool},
  *     sharedFiles: list<array{id: string, name: string, kind: 'report'|'image'|'csv'|'pdf'|'text'|'file', sizeBytes: int, url: string, sharedWithTeam: bool, anchorSequence: ?int, createdAt: string}>,
@@ -70,7 +70,7 @@ final class ThreadShowData
     public static function build(Thread $thread, User $viewer): array
     {
         return array_merge(ThreadPageData::build($thread, $viewer), [
-            'messages' => ThreadMessagesData::for($thread),
+            'messages' => ThreadMessagesData::for($thread, $viewer),
             'localTurns' => app(LocalTurns::class)->summary($thread),
             'walkthrough' => ThreadWalkthroughData::for($thread),
             'sharedFiles' => ThreadSharedFilesData::for($thread),
