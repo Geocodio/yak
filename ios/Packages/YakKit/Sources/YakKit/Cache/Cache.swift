@@ -49,6 +49,8 @@ private struct LastOpened: Codable {
 public actor Cache {
     public static let maximumEventsPerThread = 2000
     public static let maximumThreads = 50
+    /// The largest widget snapshot file that is read; a larger one is removed.
+    public static let maximumWidgetSnapshotBytes = 256 * 1024
 
     /// The instance's cache folder. A feature's `Cache+<Feature>.swift` stores under it, so `eraseAll()` removes it.
     let root: String
@@ -73,12 +75,18 @@ public actor Cache {
 
     // MARK: Reading and writing one file
 
-    /// Nil when missing, unreadable or not decodable. A file that does not decode is removed.
-    func load<Value: Decodable>(_ type: Value.Type, at path: String) -> Value? {
+    /// Nil when missing, unreadable or not decodable. A file that does not decode, or that holds more than
+    /// `maximumBytes` (never loaded past the bound), is removed.
+    func load<Value: Decodable>(_ type: Value.Type, at path: String, maximumBytes: Int? = nil) -> Value? {
         let data: Data
         do {
-            guard let found = try files.read(path) else { return nil }
+            let read = try maximumBytes.map { try files.read(path, maximumBytes: $0) } ?? files.read(path)
+            guard let found = read else { return nil }
             data = found
+        } catch FileStoreError.tooLarge {
+            logFailure("cache file too large: \(type)")
+            do { try files.remove(path) } catch { logFailure("cache remove failed: \(Swift.type(of: error))") }
+            return nil
         } catch {
             logFailure("cache read failed: \(Swift.type(of: error))")
             return nil
@@ -196,7 +204,7 @@ public actor Cache {
     // MARK: Widget snapshot
 
     public func widgetSnapshot() -> WidgetSnapshot? {
-        load(WidgetSnapshot.self, at: widgetPath)
+        load(WidgetSnapshot.self, at: widgetPath, maximumBytes: Self.maximumWidgetSnapshotBytes)
     }
 
     public func saveWidgetSnapshot(_ snapshot: WidgetSnapshot) {
