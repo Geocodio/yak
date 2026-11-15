@@ -5,8 +5,8 @@ public enum MessageDelivery: String, Codable, Sendable {
 }
 
 /// What the person chose on the new thread screen.
-public struct NewThreadDraft: Codable, Equatable, Sendable {
-    public struct ExtraRepository: Codable, Equatable, Sendable {
+public struct NewThreadDraft: Codable, Equatable, Hashable, Sendable {
+    public struct ExtraRepository: Codable, Equatable, Hashable, Sendable {
         public let repo: String
         public let role: String
 
