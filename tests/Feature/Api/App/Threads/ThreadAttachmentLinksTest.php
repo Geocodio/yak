@@ -111,6 +111,18 @@ it('signs only this thread\'s files', function () {
         ->and($task)->not->toBeNull();
 });
 
+it('leaves the editable message text untouched', function () {
+    [$user, $thread, , , , $foreign] = attachmentLinksWorld();
+    $own = $thread->tasks()->first()->attachments()->first();
+    $text = "Look at {$own->url()}";
+    ThreadTurnMessage::query()->where('text', 'See Image #1 and File #2')->update(['text' => $text]);
+
+    $message = $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()->json('messages.0');
+
+    expect($message['text'])->toBe($text)
+        ->and($message['bodyHtml'])->toContain('app-media');
+});
+
 it('keeps the single-task links as they were', function () {
     $user = User::factory()->create();
     $task = YakTask::factory()->create(['started_by_user_id' => $user->id, 'thread_id' => null]);

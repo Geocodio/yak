@@ -27,9 +27,12 @@ final class AppThreadData
         $latestSequence = (int) Thread::withoutGlobalScopes()->whereKey($thread->id)->value('event_sequence');
         $data = ThreadShowData::build($thread, $viewer);
         $attachmentIds = array_values(array_unique(array_merge(...array_column($data['messages'], 'attachmentIds') ?: [[]])));
-        /** @var ThreadShow['messages'] $messages */
-        $messages = AppMediaLinks::forThread($thread, $attachmentIds)->rewriteTree($data['messages']);
-        $data['messages'] = $messages;
+        $links = AppMediaLinks::forThread($thread, $attachmentIds);
+        // The editable `text` stays as typed so an edit never saves an expiring link.
+        $data['messages'] = array_map(fn (array $message): array => [
+            'attachments' => array_map(fn (array $attachment): array => $links->rewriteTree($attachment), $message['attachments']),
+            'bodyHtml' => $links->rewrite($message['bodyHtml']),
+        ] + $message, $data['messages']);
         $hasNoSandbox = $thread->sandbox_state === ThreadSandboxState::None;
 
         return $data + [
