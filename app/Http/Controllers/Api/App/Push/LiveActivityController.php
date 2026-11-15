@@ -36,11 +36,15 @@ class LiveActivityController extends Controller
 
             DeviceLiveActivity::query()->where('device_id', $device->id)->whereNotIn('thread_id', $threadIds)->delete();
 
-            $existing = DeviceLiveActivity::query()->where('device_id', $device->id)->pluck('thread_id');
-
-            foreach ($threadIds->diff($existing) as $threadId) {
-                DeviceLiveActivity::query()->create(['device_id' => $device->id, 'thread_id' => $threadId, 'source' => 'app', 'started_at' => now()]);
-            }
+            // Rows the server started for the same thread keep their source and started_at: a duplicate is skipped, not an error.
+            DeviceLiveActivity::query()->insertOrIgnore($threadIds->map(fn (int $threadId): array => [
+                'device_id' => $device->id,
+                'thread_id' => $threadId,
+                'source' => 'app',
+                'started_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])->all());
         }, fn (): Throwable => new HttpException(503, 'Yak is busy with another request for this device. Try again in a few seconds.'));
 
         return response()->noContent();

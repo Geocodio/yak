@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Threads\ThreadSharing;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 function liveActivitiesPath(): string
 {
@@ -52,6 +53,22 @@ it('changes nothing on a repeat', function () {
 
     expect(DeviceLiveActivity::query()->count())->toBe(1)
         ->and($row->fresh()->updated_at->equalTo($row->updated_at))->toBeTrue();
+});
+
+it('answers 204 when the server starts the same activity at the same moment', function () {
+    [$device, $headers, $user] = liveActivityPhone();
+    $thread = privateThreadOf($user);
+    $isRacing = false;
+    DB::beforeExecuting(function (string $query) use (&$isRacing, $device, $thread): void {
+        if (! $isRacing && str_starts_with($query, 'insert') && str_contains($query, 'device_live_activities')) {
+            $isRacing = true;
+            DeviceLiveActivity::factory()->create(['device_id' => $device->id, 'thread_id' => $thread->id, 'source' => 'server']);
+        }
+    });
+
+    $this->putJson(liveActivitiesPath(), ['threads' => [$thread->public_id]], $headers)->assertNoContent();
+
+    expect(DeviceLiveActivity::query()->sole()->source)->toBe('server');
 });
 
 it('clears the set with an empty list and leaves other phones alone', function () {
@@ -112,7 +129,7 @@ it('accepts an empty list and ignores unknown fields', function () {
 it('answers 503 when the device row lock is held', function () {
     [, $headers, $user] = liveActivityPhone();
     $thread = privateThreadOf($user);
-    DeviceLiveActivity::creating(fn () => throw tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']));
+    DB::beforeExecuting(fn (string $query) => str_contains($query, 'device_live_activities') && str_starts_with($query, 'insert') ? throw tap(new QueryException('mysql', $query, [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']) : null);
 
     $this->putJson(liveActivitiesPath(), ['threads' => [$thread->public_id]], $headers)
         ->assertStatus(503)

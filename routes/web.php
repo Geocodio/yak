@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\PushTokenKind;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\Api\App\BroadcastAuthController as AppBroadcastAuthController;
 use App\Http\Controllers\Api\App\DeviceCodeController as AppDeviceCodeController;
@@ -487,12 +486,6 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
     Route::middleware('auth.device:phone')->group(function (): void {
         Route::get('me', AppMeController::class)->name('app.me');
         Route::delete('device', [AppDeviceController::class, 'destroy'])->name('app.device.destroy');
-        Route::put('push-tokens/{kind}', [AppPushTokenController::class, 'update'])->where('kind', PushTokenKind::routePattern())->name('app.push-tokens.update');
-        Route::delete('push-tokens/{kind}', [AppPushTokenController::class, 'destroy'])->where('kind', PushTokenKind::routePattern())->name('app.push-tokens.destroy');
-        Route::get('notifications', [AppNotificationPreferenceController::class, 'show'])->name('app.notifications.show');
-        Route::put('notifications', [AppNotificationPreferenceController::class, 'update'])->name('app.notifications.update');
-        Route::put('live-activities', [AppLiveActivityController::class, 'update'])->name('app.live-activities.update');
-        Route::post('push-tokens/alert/test', AppPushTestController::class)->middleware('throttle:app-push-test')->name('app.push-tokens.test');
         Route::get('threads', AppThreadListController::class)->name('app.threads.index');
         Route::get('threads/new', [AppNewThreadController::class, 'create'])->name('app.threads.new');
         Route::get('threads/new/repository-access', RepositoryAccessController::class)->middleware('throttle:30,1')->name('app.threads.repository-access');
@@ -503,7 +496,6 @@ Route::prefix('api/app/v1')->middleware('client.protocol:app')->withoutMiddlewar
         Route::get('threads/{thread}/share', [AppThreadShareController::class, 'show'])->name('app.threads.share.show');
         Route::put('threads/{thread}/share', [AppThreadShareController::class, 'update'])->name('app.threads.share.update');
         Route::post('threads/{thread}/seen', AppThreadSeenController::class)->name('app.threads.seen');
-        Route::post('threads/{thread}/live-activity-channel', AppLiveActivityChannelController::class)->name('app.threads.live-activity-channel');
         Route::post('threads/{thread}/stop', [AppThreadActionController::class, 'stop'])->middleware('thread.drive')->name('app.threads.stop');
         Route::post('threads/{thread}/continue', [AppThreadActionController::class, 'continueTurn'])->middleware('thread.drive')->name('app.threads.continue');
         Route::post('threads/{thread}/restore/retry', [AppThreadActionController::class, 'retryRestore'])->middleware('thread.drive')->name('app.threads.restore.retry');
