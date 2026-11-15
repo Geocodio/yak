@@ -113,6 +113,10 @@ require_once __DIR__ . '/Helpers/SlackHelpers.php';
 require_once __DIR__ . '/Helpers/RunnerStreamFixture.php';
 require_once __DIR__ . '/Support/AppApiHelpers.php';
 
+foreach (glob(__DIR__ . '/Support/App/*.php') ?: [] as $featureHelpers) {
+    require_once $featureHelpers;
+}
+
 /**
  * The card's description is a stretched link (its `::after` pseudo-element
  * covers the whole card) so tapping anywhere non-interactive on the card

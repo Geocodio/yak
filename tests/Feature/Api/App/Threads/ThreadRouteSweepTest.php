@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\RepositorySetupStatus;
 use App\Enums\ThreadShareMode;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
+use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadSharing;
@@ -12,17 +14,44 @@ use Tests\Support\VisibilityRoutes;
 use Tests\TestCase;
 
 /**
- * @param  array{method: string, path: string, isDrive: bool, body: array<string, mixed>}  $probe
- * @param  array<string, string>  $headers
+ * Adds placeholders to a set, refusing a key that is already set so a group cannot
+ * silently replace a core value or another group's value.
+ *
+ * @param  array<string, string>  $existing
+ * @param  array<string, string>  $added
+ * @return array<string, string>
  */
-function appRouteSweepRequest(TestCase $test, array $probe, string $threadKey, array $headers): TestResponse
+function mergeSweepPlaceholders(array $existing, array $added): array
 {
-    $path = '/api/app/v1' . str_replace(['{thread}', '{message}'], [$threadKey, '6f1d7c0e-5b7a-4a52-9c1e-0d2f3a4b5c6d'], $probe['path']);
+    foreach (array_keys($added) as $key) {
+        if (array_key_exists($key, $existing)) {
+            throw new InvalidArgumentException("Sweep placeholder {$key} is already set.");
+        }
+    }
 
-    return $test->json($probe['method'], $path, $probe['body'], $headers);
+    return [...$existing, ...$added];
 }
 
-/** @return array{0: Thread, 1: User} */
+/**
+ * @param  array{method: string, path: string, isDrive: bool, body: array<string, mixed>}  $probe
+ * @param  array<string, string>  $headers
+ * @param  array<string, string>  $placeholders  `{name}` => value, from the world's group closures
+ */
+function appRouteSweepRequest(TestCase $test, array $probe, string $threadKey, array $headers, array $placeholders = []): TestResponse
+{
+    $replacements = mergeSweepPlaceholders(['{thread}' => $threadKey, '{message}' => '6f1d7c0e-5b7a-4a52-9c1e-0d2f3a4b5c6d'], $placeholders);
+    $path = '/api/app/v1' . strtr($probe['path'], $replacements);
+
+    return $test->json($probe['method'], $path, $probe['body'], [...VisibilityRoutes::groupHeaders(), ...$headers]);
+}
+
+/**
+ * The sweep's world: one private thread with a task, an event and the shared
+ * repository row `example/web` (setup failed). Group files add rows through
+ * their `sweepWorld` closures and return placeholders.
+ *
+ * @return array{thread: Thread, owner: User, repository: ThreadRepository, placeholders: array<string, string>}
+ */
 function sweepThread(): array
 {
     $owner = User::factory()->create(['name' => 'Test person']);
@@ -31,16 +60,34 @@ function sweepThread(): array
 
     ThreadEvent::query()->create(['thread_id' => $thread->id, 'sequence' => 1, 'type' => 'turn', 'payload' => ['turnId' => 1, 'state' => 'completed'], 'created_at' => now()]);
 
-    return [$thread, $owner];
+    $repository = ThreadRepository::factory()->create([
+        'thread_id' => $thread->id,
+        'repo' => 'example/web',
+        'setup_status' => RepositorySetupStatus::Failed,
+    ]);
+
+    $world = ['thread' => $thread, 'owner' => $owner, 'repository' => $repository];
+    $placeholders = ['{repository}' => (string) $repository->id];
+
+    foreach (VisibilityRoutes::groupWorlds() as $extendWorld) {
+        $placeholders = mergeSweepPlaceholders($placeholders, $extendWorld($world));
+    }
+
+    return [...$world, 'placeholders' => $placeholders];
 }
 
 /** @return array<string, int> */
 function sweepRowCounts(): array
 {
-    return collect(['thread_events', 'task_runs', 'pending_steering_messages', 'thread_turn_messages'])
+    return collect(['thread_events', 'task_runs', 'pending_steering_messages', 'thread_turn_messages', ...VisibilityRoutes::groupNames('sweepTables')])
         ->mapWithKeys(fn (string $table): array => [$table => DB::table($table)->count()])
         ->all();
 }
+
+it('refuses a sweep placeholder that is already set', function () {
+    expect(fn () => mergeSweepPlaceholders(['{thread}' => 'a'], ['{thread}' => 'b']))->toThrow(InvalidArgumentException::class)
+        ->and(mergeSweepPlaceholders(['{thread}' => 'a'], ['{other}' => 'b']))->toBe(['{thread}' => 'a', '{other}' => 'b']);
+});
 
 it('probes every app thread route', function () {
     $routes = VisibilityRoutes::applicationRoutes();
@@ -57,33 +104,33 @@ it('probes every app thread route', function () {
 });
 
 it('answers a stranger on a private thread exactly like a missing thread', function (string $name) {
-    [$thread] = sweepThread();
+    ['thread' => $thread, 'placeholders' => $placeholders] = sweepThread();
     $probe = VisibilityRoutes::appThreadProbes()[$name];
     $headers = phoneHeadersFor(User::factory()->create());
 
-    $missing = appRouteSweepRequest($this, $probe, 'zzzzzzzz', $headers)->assertNotFound();
-    appRouteSweepRequest($this, $probe, $thread->public_id, $headers)->assertNotFound()->assertExactJson($missing->json());
-    appRouteSweepRequest($this, $probe, (string) $thread->id, $headers)->assertNotFound()->assertExactJson($missing->json());
+    $missing = appRouteSweepRequest($this, $probe, 'zzzzzzzz', $headers, $placeholders)->assertNotFound();
+    appRouteSweepRequest($this, $probe, $thread->public_id, $headers, $placeholders)->assertNotFound()->assertExactJson($missing->json());
+    appRouteSweepRequest($this, $probe, (string) $thread->id, $headers, $placeholders)->assertNotFound()->assertExactJson($missing->json());
 })->with(array_keys(VisibilityRoutes::appThreadProbes()));
 
 it('refuses a share recipient on every action', function (string $name) {
-    [$thread, $owner] = sweepThread();
+    ['thread' => $thread, 'owner' => $owner, 'placeholders' => $placeholders] = sweepThread();
     $recipient = User::factory()->create();
     app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$recipient->id]);
     $before = sweepRowCounts();
 
-    appRouteSweepRequest($this, VisibilityRoutes::appThreadProbes()[$name], $thread->public_id, phoneHeadersFor($recipient))
+    appRouteSweepRequest($this, VisibilityRoutes::appThreadProbes()[$name], $thread->public_id, phoneHeadersFor($recipient), $placeholders)
         ->assertForbidden()->assertJsonPath('error', 'forbidden');
 
     expect(sweepRowCounts())->toBe($before);
 })->with(array_keys(array_filter(VisibilityRoutes::appThreadProbes(), fn (array $probe): bool => $probe['isDrive'])));
 
 it('lets a share recipient read', function (string $name) {
-    [$thread, $owner] = sweepThread();
+    ['thread' => $thread, 'owner' => $owner, 'placeholders' => $placeholders] = sweepThread();
     $recipient = User::factory()->create();
     app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$recipient->id]);
 
-    appRouteSweepRequest($this, VisibilityRoutes::appThreadProbes()[$name], $thread->public_id, phoneHeadersFor($recipient))->assertSuccessful();
+    appRouteSweepRequest($this, VisibilityRoutes::appThreadProbes()[$name], $thread->public_id, phoneHeadersFor($recipient), $placeholders)->assertSuccessful();
 })->with(array_keys(array_filter(
     VisibilityRoutes::appThreadProbes(),
     fn (array $probe, string $name): bool => ! $probe['isDrive'] && $name !== 'app.threads.share.show',
