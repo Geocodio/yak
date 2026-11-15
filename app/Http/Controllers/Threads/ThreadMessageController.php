@@ -2,29 +2,26 @@
 
 namespace App\Http\Controllers\Threads;
 
-use App\Enums\ThreadBlockReason;
-use App\Enums\ThreadOwnerSide;
+use App\DataTransferObjects\ThreadMessageInput;
+use App\Enums\MessageDelivery;
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\SendThreadMessageRequest;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
-use App\Services\Threads\ClearCommand;
 use App\Services\Threads\ThreadAccess;
-use App\Services\Threads\ThreadBusy;
-use App\Services\Threads\ThreadPublishGuard;
+use App\Services\Threads\ThreadMessageSender;
 use App\Services\Threads\ThreadTurns;
-use App\YakPromptBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 
 class ThreadMessageController extends Controller
 {
-    public function store(SendThreadMessageRequest $request, Thread $thread, ThreadTurns $turns, ThreadAccess $access): RedirectResponse|JsonResponse
+    public function store(SendThreadMessageRequest $request, Thread $thread, ThreadMessageSender $sender, ThreadAccess $access): RedirectResponse|JsonResponse
     {
         // A hidden thread answers exactly like a missing one.
         abort_unless(Gate::allows('view', $thread), 404);
@@ -35,92 +32,30 @@ class ThreadMessageController extends Controller
             return $this->refuse($request, 'You cannot send messages to this thread.');
         }
 
-        if ($thread->owner_side === ThreadOwnerSide::Device) {
-            return $this->refuse($request, 'Your computer is working on this thread. Hand it back to Yak before sending a message.');
-        }
-
-        if (! $thread->isOpen()) {
-            return $this->refuse($request, 'This thread is closed.');
-        }
-
-        if (in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForRepository, ThreadBlockReason::RepositorySetupFailed], true)) {
-            return $this->refuse($request, 'This thread has not started yet. It starts when its repository is set up.');
-        }
-
-        $text = (string) $request->validated('message');
-        $model = $request->validated('model');
-        $task = $thread->tasks()->latest('id')->firstOrFail();
-
-        // Recording and then opening the PR publishes a private conversation, so it needs the same acknowledgement as Open PR.
-        if ($request->validated('intent') === 'record_walkthrough_and_open_pr') {
-            ThreadPublishGuard::assertAcknowledged($thread, $request->acknowledgedPrivatePublish());
-        }
-
-        $sendKey = $request->validated('send_key');
-        $claim = $sendKey === null ? null : "thread-send:{$thread->id}:{$user?->id}:{$sendKey}";
-
-        // A browser that lost the answer to a send repeats it with the same key; the message is already in.
-        if ($claim !== null && ! Cache::add($claim, true, now()->addMinutes(10))) {
-            return $this->sent($request);
-        }
+        $taskId = $thread->headTask()?->id;
+        $input = new ThreadMessageInput(
+            (string) $request->validated('message'),
+            $request->validated('model'),
+            $request->validated('intent'),
+            $request->validated('send_key'),
+            MessageDelivery::Steer,
+            fn (ThreadTurnMessage|PendingSteeringMessage $message) => $message instanceof ThreadTurnMessage
+                ? TaskAttachment::storeFromRequest($request, ['yak_task_id' => $taskId, 'thread_turn_message_id' => $message->id])
+                : TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]),
+        );
 
         try {
-            if (ClearCommand::matches($text)) {
-                if (ThreadTurns::activeTurn($thread) !== null) {
-                    $this->release($claim);
+            $result = $sender->send($thread, $user ?? abort(401), $input);
+        } catch (ThreadActionRefused $refusal) {
+            return $this->refuse($request, $refusal->getMessage());
+        }
 
-                    return $this->refuse($request, 'Stop the running turn before clearing.');
-                }
+        if ($result->threadId !== null) {
+            $continued = route('threads.show', $result->threadId);
 
-                $continued = route('threads.show', ClearCommand::apply($thread, $task));
-
-                return $request->expectsJson()
-                    ? response()->json(['status' => 'sent', 'redirect' => $continued])
-                    : redirect()->to($continued)->with('success', 'Started a new thread continued from this one.');
-            }
-
-            $intent = $request->validated('intent');
-
-            if ($intent !== null && ThreadTurns::activeTurn($thread) !== null) {
-                $this->release($claim);
-
-                return $this->refuse($request, 'Claude is already working on this thread.');
-            }
-
-            if (ThreadTurns::activeTurn($thread) === null) {
-                $prompt = match ($intent) {
-                    'add_preview_manifest' => YakPromptBuilder::previewSetupPrompt('missing'),
-                    'fix_preview' => YakPromptBuilder::previewSetupPrompt('failing'),
-                    'record_walkthrough', 'record_walkthrough_and_open_pr' => YakPromptBuilder::recordWalkthroughPrompt(),
-                    default => $text,
-                };
-                $turns->start(
-                    $task,
-                    $prompt,
-                    $user,
-                    $model,
-                    shownText: $text,
-                    intent: $intent,
-                    storeAttachments: fn (ThreadTurnMessage $message) => TaskAttachment::storeFromRequest($request, ['yak_task_id' => $task->id, 'thread_turn_message_id' => $message->id]),
-                );
-            } else {
-                $turns->steer(
-                    $thread,
-                    $text,
-                    $user,
-                    $model,
-                    fn (PendingSteeringMessage $message) => TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]),
-                    'thread',
-                );
-            }
-        } catch (ThreadBusy) {
-            $this->release($claim);
-
-            return $this->refuse($request, 'This thread is already starting a turn. Give it a moment.');
-        } catch (\Throwable $failure) {
-            $this->release($claim);
-
-            throw $failure;
+            return $request->expectsJson()
+                ? response()->json(['status' => 'sent', 'redirect' => $continued])
+                : redirect()->to($continued)->with('success', 'Started a new thread continued from this one.');
         }
 
         return $this->sent($request);
@@ -137,16 +72,6 @@ class ThreadMessageController extends Controller
     private function refuse(Request $request, string $reason): RedirectResponse|JsonResponse
     {
         return $request->expectsJson() ? response()->json(['message' => $reason], 422) : back()->with('error', $reason);
-    }
-
-    /**
-     * A send that did not go through must stay repeatable with the same key.
-     */
-    private function release(?string $claim): void
-    {
-        if ($claim !== null) {
-            Cache::forget($claim);
-        }
     }
 
     public function stop(Request $request, Thread $thread, ThreadTurns $turns): RedirectResponse
