@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadCommands;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 require_once __DIR__ . '/../../Support/ThreadTurnHelpers.php';
 
@@ -102,12 +101,11 @@ test('switching to steer during a running turn hands the message to that turn', 
     $thread->forceFill(['runner_model' => 'sonnet', 'model' => 'sonnet'])->save();
     $task = YakTask::factory()->create(['thread_id' => $thread->id, 'status' => TaskStatus::Running]);
     $message = PendingSteeringMessage::queueFor($task, 'also handle IPv6', 'dashboard');
-    $message->forceFill(['uuid' => (string) Str::uuid()])->save();
     $this->mock(ThreadCommands::class)->shouldReceive('steer')->once();
 
     $this->patch(route('tasks.queued-messages.update', [$task, $message->id]), ['mode' => 'steer'])
         ->assertRedirect(route('tasks.show', $task))
         ->assertSessionMissing('error');
 
-    expect(ThreadTurnMessage::where('uuid', $message->uuid)->exists())->toBeTrue();
+    expect(ThreadTurnMessage::where('pending_steering_message_id', $message->id)->first()?->uuid)->not->toBeEmpty();
 });

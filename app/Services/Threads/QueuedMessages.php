@@ -8,8 +8,9 @@ use App\Models\PendingSteeringMessage;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
+use App\Services\Devices\ShortLockWait;
 use App\Services\Teleport\ThreadOwnership;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -23,6 +24,8 @@ class QueuedMessages
 
     public const REVIEW_SENTENCE = 'A GitHub review waits for the follow-up, so the reviewer is asked to look again.';
 
+    public const BUSY_SENTENCE = 'Yak is busy with this conversation. Try again in a few seconds.';
+
     public function __construct(private readonly SteeringDelivery $delivery) {}
 
     /**
@@ -33,7 +36,7 @@ class QueuedMessages
      */
     public function update(YakTask $rootTask, int|string $message, ?SteeringMode $mode, ?string $text): PendingSteeringMessage
     {
-        return DB::transaction(function () use ($rootTask, $message, $mode, $text): PendingSteeringMessage {
+        return $this->shortTransaction(function () use ($rootTask, $message, $mode, $text): PendingSteeringMessage {
             $thread = $this->lockThread($rootTask);
             $pending = $this->findLocked($rootTask, $message);
 
@@ -44,6 +47,10 @@ class QueuedMessages
             $pending->update(array_filter(['mode' => $mode, 'text' => $text], fn (mixed $value): bool => $value !== null));
 
             if ($mode === SteeringMode::Steer && $thread !== null && app(ThreadOwnership::class)->yakMayRunTurns($thread)) {
+                if ($pending->uuid === null) {
+                    $pending->forceFill(['uuid' => (string) Str::uuid()])->save();
+                }
+
                 $this->delivery->deliver($thread, $pending);
             }
 
@@ -56,19 +63,28 @@ class QueuedMessages
      */
     public function withdraw(YakTask $rootTask, int|string $message): void
     {
-        DB::transaction(function () use ($rootTask, $message): void {
+        $this->shortTransaction(function () use ($rootTask, $message): void {
             $this->lockThread($rootTask);
             $this->findLocked($rootTask, $message)->withdraw();
         });
     }
 
+    /**
+     * @template TReturn
+     *
+     * @param  \Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    private function shortTransaction(\Closure $callback): mixed
+    {
+        return ShortLockWait::transaction(
+            $callback,
+            fn (): ThreadActionRefused => new ThreadActionRefused('unavailable', self::BUSY_SENTENCE, [], 503),
+        );
+    }
+
     private function lockThread(YakTask $rootTask): ?Thread
     {
-        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
-            // A lock wait stays under 5 seconds; the timeout surfaces as a QueryException, which the client APIs answer with 503 unavailable.
-            DB::statement('SET SESSION innodb_lock_wait_timeout = 5');
-        }
-
         return $rootTask->thread_id === null ? null : Thread::query()->lockForUpdate()->find($rootTask->thread_id);
     }
 
