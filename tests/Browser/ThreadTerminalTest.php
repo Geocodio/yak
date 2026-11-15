@@ -90,8 +90,8 @@ function waitForTerminal($page, string $condition): void
 {
     $found = $page->script(<<<JS
 new Promise((resolve) => {
-    const started = Date.now();
-    const tick = () => (({$condition}) ? resolve(true) : Date.now() - started > 8000 ? resolve(false) : setTimeout(tick, 50));
+    const started = performance.now();
+    const tick = () => (({$condition}) ? resolve(true) : performance.now() - started > 8000 ? resolve(false) : setTimeout(tick, 50));
     tick();
 })
 JS);
@@ -319,5 +319,32 @@ JS);
     $page->assertScript(statusIs('waiting'), true);
     $page->assertSeeIn('[data-testid="terminal-waiting"]', 'being restored');
     $page->assertDontSee('No sandbox slot became free');
+    $page->assertNoJavaScriptErrors();
+});
+
+test('a wait past the cap without a restore reports no free slot', function () {
+    $page = visit(route('threads.show', terminalRunningThread()));
+    installTerminalSocketStub($page);
+    $page->script(<<<'JS'
+(() => {
+    const realFetch = window.fetch;
+    const realNow = Date.now;
+    window.fetch = (input, init) => {
+        if (!String(input).includes('/terminal-sessions')) {
+            return realFetch(input, init);
+        }
+        window.__waitCalls = (window.__waitCalls ?? 0) + 1;
+        if (window.__waitCalls > 1) {
+            Date.now = () => realNow() + 130000;
+        }
+
+        return Promise.resolve(new Response(JSON.stringify({ state: 'waiting', limit: null, restoring: false }), { status: 202, headers: { 'Content-Type': 'application/json' } }));
+    };
+})();
+JS);
+    openTerminalTab($page);
+    waitForTerminal($page, "document.body.innerText.includes('No sandbox slot became free')");
+
+    $page->assertSee('No sandbox slot became free');
     $page->assertNoJavaScriptErrors();
 });
