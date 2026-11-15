@@ -1,0 +1,223 @@
+<?php
+
+use App\Channels\Slack\SenderPolicy;
+use App\DataTransferObjects\ClarificationQuestion;
+use App\Enums\TaskStatus;
+use App\Enums\ThreadSandboxState;
+use App\Enums\TurnState;
+use App\Models\ClaudeAccount;
+use App\Models\Repository;
+use App\Models\TaskRun;
+use App\Models\Thread;
+use App\Models\User;
+use App\Models\YakTask;
+use App\Providers\E2eServiceProvider;
+use App\Services\E2e\E2eGitHub;
+use App\Services\E2e\E2eRepositoryConfig;
+use App\Services\E2e\E2eRunnerScript;
+use App\Services\E2e\E2eSandboxManager;
+use App\Services\E2e\E2eSessionFileSync;
+use App\Services\RepositoryConfig;
+use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\FakeBrokerStreams;
+use App\Services\Threads\ThreadDriver;
+use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\StrayRequestException;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Redis;
+
+beforeEach(function (): void {
+    // The thread event window lives on the real Redis the native server uses.
+    $redis = startLocalRedis();
+
+    if ($redis === null) {
+        $this->markTestSkipped('redis-server is not installed.');
+    }
+
+    $GLOBALS['startedRedisServers'][] = $redis;
+    config(['database.redis.thread-window.host' => '127.0.0.1', 'database.redis.thread-window.port' => $redis['port'], 'database.redis.thread-window.url' => null]);
+    app()->forgetInstance('redis');
+    Redis::clearResolvedInstance('redis');
+    config(['yak.e2e.enabled' => true, 'queue.default' => 'sync', 'yak.channels.github.installation_id' => 1]);
+    (new E2eServiceProvider(app()))->bindFakes();
+    E2eGitHub::fake();
+    app()->singleton(BrokerStreams::class, fn () => new FakeBrokerStreams);
+
+    $this->user = User::factory()->create(['name' => 'Test person']);
+    $this->headers = phoneHeadersFor($this->user) + ['Accept' => 'application/json'];
+    Repository::factory()->create(['slug' => 'example/api', 'name' => 'API', 'is_default' => true, 'github_full_name' => 'example/api']);
+    ClaudeAccount::factory()->system()->default()->create(['validated_at' => now()]);
+    $this->runner = (object) ['script' => new E2eRunnerScript(pace: 0), 'handled' => [], 'sequences' => [], 'generations' => []];
+});
+
+/**
+ * Plays the fake runner: feeds every new command on the thread and one-shot channels through the script,
+ * pushes its lines into the driver's streams and runs the drivers until they have read them all.
+ */
+function answerBrokerCommands(Thread $thread): void
+{
+    $test = test();
+    $runner = $test->runner;
+    $streams = app(BrokerStreams::class);
+
+    for ($round = 0; $round < 4; $round++) {
+        $pushed = false;
+
+        foreach (array_merge($streams->channels('threads:'), $streams->channels('runs:')) as $channel) {
+            $commands = $streams->commands($channel);
+
+            foreach (array_slice($commands, $runner->handled[$channel] ?? 0) as $command) {
+                if (($command['type'] ?? null) === 'start_runner') {
+                    $runner->generations[$channel] = ($runner->generations[$channel] ?? 0) + 1;
+                }
+
+                foreach ($runner->script->respond($channel, $command, $runner->generations[$channel] ?? 1) as $scripted) {
+                    $streams->pushOut($channel, $runner->generations[$channel] ?? 1, $runner->sequences[$channel] = ($runner->sequences[$channel] ?? 0) + 1, $scripted['line'], $scripted['fromBroker']);
+                    $pushed = true;
+                }
+            }
+
+            $runner->handled[$channel] = count($commands);
+        }
+
+        Artisan::call('yak:thread-drivers', ['--once' => true]);
+
+        if (! $pushed) {
+            break;
+        }
+    }
+
+    $test->travel(60)->seconds();
+    app(ThreadDriver::class)->tick();
+}
+
+afterEach(fn () => stopStartedLocalRedis());
+
+/**
+ * Every request the pipeline made went to a faked GitHub URL.
+ */
+function expectOnlyFakedGitHubRequests(): void
+{
+    expect(Http::recorded()->map(fn (array $pair): string => (string) $pair[0]->url())->every(fn (string $url): bool => str_starts_with($url, 'https://api.github.com/')))->toBeTrue();
+}
+
+function latestRunOf(Thread $thread): TaskRun
+{
+    return TaskRun::query()->where('thread_id', $thread->id)->latest('id')->firstOrFail();
+}
+
+it('starts a thread from the phone and finishes its first turn', function (): void {
+    $response = $this->postJson('/api/app/v1/threads', [
+        'repo' => 'example/api',
+        'mode' => 'fix',
+        'description' => 'Retry failed uploads with backoff',
+        'send_key' => '5f0c2d1e-3b4a-4c5d-8e6f-7a8b9c0d1e2f',
+    ], $this->headers)->assertCreated();
+
+    $thread = Thread::query()->where('public_id', $response->json('id'))->firstOrFail();
+    $channel = 'threads:' . $thread->id;
+    $types = array_column(app(BrokerStreams::class)->commands($channel), 'type');
+
+    expect($types)->toContain('start_runner')->toContain('turn');
+
+    answerBrokerCommands($thread);
+
+    expect(latestRunOf($thread)->turn_state)->toBe(TurnState::Completed);
+    expectOnlyFakedGitHubRequests();
+});
+
+it('answers a question and finishes the clarification turn', function (): void {
+    $thread = Thread::factory()->create(['title' => 'Retry failed uploads', 'repo' => 'example/api', 'created_by_user_id' => $this->user->id, 'owner_user_id' => $this->user->id]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'repo' => 'example/api', 'status' => TaskStatus::AwaitingClarification, 'started_by_user_id' => $this->user->id, 'clarification_expires_at' => now()->addDay()]);
+    $task->recordClarificationRound([
+        ClarificationQuestion::fromArray([
+            'id' => 'on_failure', 'header' => 'On failure', 'question' => 'What should happen to the row?',
+            'options' => [['label' => 'Mark the row as failed'], ['label' => 'Fail the whole batch']], 'multi_select' => false,
+        ]),
+    ], 'I need one decision.');
+
+    $this->postJson(appThreadPath($thread, '/clarification-answers'), ['answers' => [
+        'on_failure' => ['choices' => ['Mark the row as failed'], 'other' => null],
+    ], 'note' => null], $this->headers)->assertOk();
+
+    $channel = 'threads:' . $thread->id;
+    expect(array_column(app(BrokerStreams::class)->commands($channel), 'type'))->toContain('turn');
+
+    answerBrokerCommands($thread);
+
+    expect(latestRunOf($thread)->turn_state)->toBe(TurnState::Completed);
+    $this->getJson(appThreadPath($thread), $this->headers)->assertOk()->assertJsonPath('question', null);
+});
+
+it('steers and stops a held turn', function (): void {
+    $response = $this->postJson('/api/app/v1/threads', [
+        'repo' => 'example/api',
+        'mode' => 'fix',
+        'description' => 'Work on it ' . E2eRunnerScript::HOLD_MARKER,
+        'send_key' => '6a0c2d1e-3b4a-4c5d-8e6f-7a8b9c0d1e2f',
+    ], $this->headers)->assertCreated();
+    $thread = Thread::query()->where('public_id', $response->json('id'))->firstOrFail();
+
+    answerBrokerCommands($thread);
+    expect(latestRunOf($thread)->turn_state)->toBe(TurnState::Running);
+
+    $this->postJson(appThreadPath($thread, '/messages'), ['message' => 'Go left', 'send_key' => '7b0c2d1e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'], $this->headers)->assertSuccessful();
+    answerBrokerCommands($thread);
+    expect(array_column(app(BrokerStreams::class)->commands('threads:' . $thread->id), 'type'))->toContain('steer')
+        ->and(latestRunOf($thread)->turn_state)->toBe(TurnState::Running);
+
+    $this->postJson(appThreadPath($thread, '/stop'), [], $this->headers)->assertSuccessful();
+    answerBrokerCommands($thread);
+
+    expect(latestRunOf($thread)->turn_state)->toBe(TurnState::Interrupted);
+});
+
+it('opens a pull request against the faked GitHub', function (): void {
+    $thread = threadWithChanges($this->user);
+    $thread->pullRequestTask()->update(['repo' => 'example/api']);
+
+    $this->postJson(appThreadPath($thread, '/pull-request'), [], $this->headers)->assertStatus(202);
+
+    $primary = $thread->repositories()->where('repo', 'example/api')->firstOrFail();
+    expect($primary->pull_request_number)->toBe(E2eGitHub::PULL_REQUEST_NUMBER)
+        ->and($primary->pull_request_url)->toBe('https://github.com/example/api/pull/7');
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request->url() === 'https://api.github.com/repos/example/api/pulls');
+});
+
+it('refuses an outbound request it does not fake', function (): void {
+    expect(fn () => Http::get('https://example.com/'))->toThrow(StrayRequestException::class, 'https://example.com/');
+});
+
+it('agrees across processes', function (): void {
+    $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Running]);
+    $first = new E2eSandboxManager;
+    $second = new E2eSandboxManager;
+
+    $first->pause($thread);
+    $thread->forceFill(['sandbox_state' => ThreadSandboxState::Paused])->save();
+
+    $second->resume($thread);
+    $thread->forceFill(['sandbox_state' => ThreadSandboxState::Running])->save();
+
+    expect($second->state($thread))->toBe(ThreadSandboxState::Running);
+
+    $stale = Thread::query()->findOrFail($thread->id);
+    $first->stop($stale, 10);
+});
+
+it('binds what the server needs and nothing from the feature suite', function (): void {
+    expect(app(SessionFileSync::class))->toBeInstanceOf(E2eSessionFileSync::class)
+        ->and(app(RepositoryConfig::class))->toBeInstanceOf(E2eRepositoryConfig::class)
+        ->and(app(SandboxManager::class))->toBeInstanceOf(E2eSandboxManager::class)
+        ->and(app(RepositoryConfig::class)->snapshot(Repository::query()->firstOrFail())->state)->toBe('unavailable')
+        ->and(app(SenderPolicy::class)::class)->toBe(SenderPolicy::class);
+
+    foreach ([SandboxManager::class, SessionFileSync::class, RepositoryConfig::class, SenderPolicy::class] as $abstract) {
+        expect(str_starts_with(app($abstract)::class, 'Tests\\'))->toBeFalse()
+            ->and(str_contains(app($abstract)::class, '@anonymous'))->toBeFalse();
+    }
+    Http::assertNothingSent();
+});
