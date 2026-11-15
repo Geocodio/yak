@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadSharing;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\ContractFixture;
 
@@ -148,4 +149,20 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
 
     [, $computerHeaders] = phoneWithHeaders(['user_id' => $user->id], isPhone: false);
     $this->postJson(answersPath($thread), $body, $computerHeaders)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
+});
+
+it('answers 503 unavailable when the lock cannot be taken in time', function () {
+    Queue::fake();
+    [$thread, $user, $task] = threadWithOpenQuestions();
+    YakTask::updating(fn () => throw tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']));
+
+    $this->postJson(answersPath($thread), ['answers' => [
+        'on_failure' => ['choices' => ['Mark the row as failed'], 'other' => null],
+        'notify' => ['choices' => ['The uploader'], 'other' => null],
+    ], 'note' => null], phoneHeadersFor($user))
+        ->assertStatus(503)
+        ->assertExactJson(['error' => 'unavailable', 'message' => 'Yak is busy with this conversation. Try again in a few seconds.']);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification);
+    Queue::assertNotPushed(RunYakJob::class);
 });
