@@ -48,7 +48,10 @@ public actor OverviewActions {
     private var stacks: [String: (stack: ThreadStack, fetchedAt: Date)] = [:]
     /// Thread ids of `stacks`, oldest first.
     private var stackOrder: [String] = []
-    private var stackLookups: [String: Task<Result<(stack: ThreadStack, fetchedAt: Date), APIFailure>, Never>] = [:]
+    private typealias StackAnswer = (stack: ThreadStack, fetchedAt: Date)
+    /// A finished lookup clears its slot only while the slot still holds that lookup's token.
+    private var stackLookups: [String: (token: Int, task: Task<Result<StackAnswer, APIFailure>, Never>)] = [:]
+    private var nextStackLookupToken = 0
     /// Counts the times the stacks were dropped, so a lookup that was asked before a change never stores its answer.
     private var stackGeneration = 0
 
@@ -96,12 +99,14 @@ public actor OverviewActions {
         }
         let lookup: Task<Result<(stack: ThreadStack, fetchedAt: Date), APIFailure>, Never>
         if let running = stackLookups[threadID] {
-            lookup = running
+            lookup = running.task
         } else {
             let generation = stackGeneration
+            nextStackLookupToken += 1
+            let token = nextStackLookupToken
             lookup = Task {
                 let result = await self.send(.stack(threadID))
-                if generation == self.stackGeneration { self.stackLookups[threadID] = nil }
+                if self.stackLookups[threadID]?.token == token { self.stackLookups[threadID] = nil }
                 switch result {
                 case .success(let stack):
                     let answer = (stack: stack, fetchedAt: self.clock.now())
@@ -112,7 +117,7 @@ public actor OverviewActions {
                     return .failure(failure)
                 }
             }
-            stackLookups[threadID] = lookup
+            stackLookups[threadID] = (token, lookup)
         }
         switch await lookup.value {
         case .success(let answer): return answer

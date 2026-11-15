@@ -424,3 +424,19 @@ private final class SessionDefaults: KeyValueStore, @unchecked Sendable {
     _ = try await (old, fresh)
     #expect(await rig.transport.requests(on: stackRoute).count == 2)
 }
+
+@Test func aRootActionDuringAnotherThreadsLookupStillLetsLaterLookupsAsk() async throws {
+    let rig = OverviewRig()
+    let otherRoute = "GET threads/q7other0/stack"
+    await rig.transport.on(otherRoute, try .scenario(200, "scenario-overview-busy-stack"))
+    await rig.transport.hold(otherRoute)
+    async let held = rig.actions.stack("q7other0")
+    await rig.transport.waitForRequests(1, on: otherRoute)
+    await rig.transport.on("POST threads/\(root)/stack/stop", .json(200, #"{"status":"stopping"}"#))
+    #expect(await rig.actions.stopStack(root) == .done)
+    await rig.transport.release(otherRoute)
+    _ = try await held
+    await rig.clock.advance(by: .seconds(60))
+    _ = try await rig.actions.stack("q7other0")
+    #expect(await rig.transport.requests(on: otherRoute).count == 2)
+}
