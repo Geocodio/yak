@@ -95,6 +95,45 @@ func decodesEveryThreadFixture(name: String) throws {
     }
 }
 
+@Test(arguments: ["thread-events", "thread-event", "broadcasting-auth-private", "broadcasting-auth-presence"])
+func decodesEveryEventFixture(name: String) throws {
+    guard Fixtures.exists(name) else { return }  // Runs once the server's fixture exists.
+    let data = try Fixtures.data(name)
+    switch name {
+    case "thread-events":
+        #expect(try JSONDecoder().decode(EventsPage.self, from: data).events.allSatisfy { $0.payload != .unknown })
+    case "thread-event": #expect(try JSONDecoder().decode(ThreadEvent.self, from: data).payload != .unknown)
+    case "broadcasting-auth-private":
+        #expect(try JSONDecoder().decode(ChannelAuthorization.self, from: data).channelData == nil)
+    default: #expect(try JSONDecoder().decode(ChannelAuthorization.self, from: data).channelData != nil)
+    }
+}
+
+@Test(arguments: ["simple-turn", "steer", "question", "failed-turn", "stream-reset", "pointer"])
+func decodesEveryServerEventList(name: String) throws {
+    guard Fixtures.exists("events/\(name)") else { return }  // Runs once the server's fixture exists.
+    let list = try EventList.loadFixture("events/\(name)")
+    let sequences = list.broadcasts.map { item -> Int in
+        switch item {
+        case .event(let event): return event.sequence
+        case .pointer(let sequence): return sequence
+        }
+    }
+    #expect(sequences == Array(1...(sequences.count + 1)).dropLast())
+    #expect(list.events.allSatisfy { $0.payload != .unknown })
+    #expect(list.catchUp.events.allSatisfy { $0.isStored })
+    let pointerCount = list.broadcasts.filter { if case .pointer = $0 { true } else { false } }.count
+    #expect(list.pointers.count == pointerCount)
+    switch name {
+    case "stream-reset": #expect(list.events.contains { $0.payload == .streamReset })
+    case "question":
+        let last = list.events.suffix(2).map { $0.payload }
+        #expect(last == [.question(QuestionChange(open: true)), .question(QuestionChange(open: false))])
+    case "pointer": #expect(pointerCount == 1)
+    default: break
+    }
+}
+
 /// A wrongly typed field must fail the decode; this is what keeps the fixtures honest.
 @Test(arguments: [
     ("me", ["needsYouCount"], #""0""#),

@@ -43,6 +43,20 @@ public enum JSONValue: Codable, Sendable, Equatable {
     }
 }
 
+extension JSONValue {
+    /// The member named `key` when this value is an object that has one.
+    public subscript(key: String) -> JSONValue? {
+        if case .object(let members) = self { return members[key] }
+        return nil
+    }
+
+    /// The text when this value is a string.
+    public var stringValue: String? {
+        if case .string(let text) = self { return text }
+        return nil
+    }
+}
+
 /// The server's error body: `{"error": code, "message": text, "details": {...}}`.
 public struct APIError: Error, Equatable, Sendable {
     public let status: Int
