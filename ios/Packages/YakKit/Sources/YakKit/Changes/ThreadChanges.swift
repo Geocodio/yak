@@ -53,8 +53,8 @@ public actor ThreadChanges {
     private var freshKeys: Set<DiffFileKey> = []
     /// Ready patches, least recently shown first.
     private var patchOrder: [DiffFileKey] = []
-    /// The file id that answered 404 for a key; a second 404 for the same id is final.
-    private var notFoundIDs: [DiffFileKey: Int] = [:]
+    /// Keys that answered 404 and have not loaded since; a second 404 for one of them is final.
+    private var notFoundKeys: Set<DiffFileKey> = []
     private var pageTasks: [DiffFileKey: Task<Void, Never>] = [:]
     private var slowTasks: [DiffFileKey: Task<Void, Never>] = [:]
     private var reloadTask: Task<Void, Never>?
@@ -62,7 +62,6 @@ public actor ThreadChanges {
     private var settleTask: Task<Void, Never>?
     private var diffSlowTask: Task<Void, Never>?
     private var lastSeenDiffSequence: Int?
-    private var hasLoadedDiff = false
     private var hasOpened = false
     /// The file to return to when the first list arrives without a cached copy.
     private var pendingRestore: DiffFileKey?
@@ -93,7 +92,6 @@ public actor ThreadChanges {
             snapshot.isShowingCachedCopy = true
         } else {
             pendingRestore = key
-            startDiffSlowTimer()
         }
         guard !isClosed else { return }
         publish()
@@ -121,14 +119,18 @@ public actor ThreadChanges {
     /// Pull to refresh and Retry. A call while one runs joins it and asks for one more run.
     public func reload() async {
         guard !isClosed else { return }
+        await requestReload().value
+    }
+
+    /// Starts a reload run, or asks the running one for one more run.
+    private func requestReload() -> Task<Void, Never> {
         if let running = reloadTask {
             isRerunRequested = true
-            await running.value
-            return
+            return running
         }
         let task = Task { await self.runReloads() }
         reloadTask = task
-        await task.value
+        return task
     }
 
     public func show(_ key: DiffFileKey) async {
@@ -155,13 +157,13 @@ public actor ThreadChanges {
     }
 
     /// From the thread's snapshot: reloads when `lastDiffUpdateSequence` moved, and when a turn ends while the diff
-    /// says `isTurnRunning`. A sequence seen before the first answer is already part of that answer.
+    /// says `isTurnRunning`. The first sequence seen is the value at open and is the baseline.
     public func threadChanged(_ conversation: ConversationSnapshot) async {
         guard !isClosed else { return }
         var needsReload = false
-        if let sequence = conversation.lastDiffUpdateSequence, sequence > (lastSeenDiffSequence ?? 0) {
-            lastSeenDiffSequence = sequence
-            needsReload = hasLoadedDiff
+        if let sequence = conversation.lastDiffUpdateSequence {
+            if let seen = lastSeenDiffSequence, sequence > seen { needsReload = true }
+            lastSeenDiffSequence = max(sequence, lastSeenDiffSequence ?? sequence)
         }
         if snapshot.diff?.isTurnRunning == true, conversation.turn?.state.isActive == false {
             needsReload = true
@@ -201,6 +203,12 @@ public actor ThreadChanges {
     }
 
     private func fetchDiff() async {
+        if snapshot.diff == nil, snapshot.load != .ready {
+            diffSlowTask?.cancel()
+            snapshot.load = .loading
+            publish()
+            startDiffSlowTimer()
+        }
         let response: ThreadDiffResponse
         do {
             response = try await client.send(.threadDiff(threadID))
@@ -221,7 +229,6 @@ public actor ThreadChanges {
         guard !isClosed else { return }
         diffSlowTask?.cancel()
         diffSlowTask = nil
-        hasLoadedDiff = true
         await apply(response.diff)
     }
 
@@ -260,7 +267,7 @@ public actor ThreadChanges {
         states[key] = nil
         freshKeys.remove(key)
         patchOrder.removeAll { $0 == key }
-        notFoundIDs[key] = nil
+        notFoundKeys.remove(key)
         slowTasks[key]?.cancel()
         slowTasks[key] = nil
     }
@@ -268,6 +275,7 @@ public actor ThreadChanges {
     // MARK: File pages
 
     private func pagerMoved() async {
+        snapshot.lastMove = .kept
         publish()
         await loadPages()
     }
@@ -316,6 +324,7 @@ public actor ThreadChanges {
         slowTasks[file.key] = nil
         states[file.key] = state
         freshKeys.insert(file.key)
+        notFoundKeys.remove(file.key)
         if case .ready = state {
             patchOrder.removeAll { $0 == file.key }
             patchOrder.append(file.key)
@@ -371,7 +380,7 @@ public actor ThreadChanges {
     private func handlePageFailure(_ file: DiffFileSummary, _ failure: APIFailure) async {
         let problem = ThreadProblem(failure)
         if problem == .notFound {
-            await handleMissingFile(file)
+            handleMissingFile(file)
             return
         }
         slowTasks[file.key]?.cancel()
@@ -386,9 +395,10 @@ public actor ThreadChanges {
         publish()
     }
 
-    /// One diff reload, then the file is found again by repository and path. A second 404 for the same id is final.
-    private func handleMissingFile(_ file: DiffFileSummary) async {
-        if notFoundIDs[file.key] == file.id {
+    /// One diff reload (joined or rerun through the reload rules), which loads the file again by repository and path.
+    /// A second 404 for the same key is final. Never waits for the reload: the reload may be waiting for this page.
+    private func handleMissingFile(_ file: DiffFileSummary) {
+        if notFoundKeys.contains(file.key) {
             slowTasks[file.key]?.cancel()
             slowTasks[file.key] = nil
             states[file.key] = .gone
@@ -396,14 +406,8 @@ public actor ThreadChanges {
             publish()
             return
         }
-        notFoundIDs[file.key] = file.id
-        await fetchDiff()
-        guard !isClosed else { return }
-        if let found = snapshot.pager.files.first(where: { $0.key == file.key }) {
-            await fetchPage(found)
-        } else {
-            await loadPages()
-        }
+        notFoundKeys.insert(file.key)
+        _ = requestReload()
     }
 
     // MARK: Output
@@ -422,5 +426,4 @@ public actor ThreadChanges {
 
     /// Tests read these.
     var keptPatchCount: Int { patchOrder.count }
-    var requestedStates: [DiffFileKey: FilePageState] { states }
 }

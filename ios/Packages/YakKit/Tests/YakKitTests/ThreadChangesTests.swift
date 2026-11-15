@@ -123,6 +123,7 @@ private func settle(_ rig: Rig) async {
     let rig = try await makeRig()
     await rig.changes.open(restoring: nil)
     #expect(await rig.transport.requests(on: diffRoute).count == 1)
+    await rig.changes.threadChanged(changed(sequence: 7))
     await rig.changes.threadChanged(changed(sequence: 8))
     await rig.changes.threadChanged(changed(sequence: 8))
     await settle(rig)
@@ -131,6 +132,95 @@ private func settle(_ rig: Rig) async {
     await rig.clock.advance(by: ThreadEngine.refreshSettle)
     for _ in 0..<200 { await Task.yield() }
     #expect(await rig.transport.requests(on: diffRoute).count == 2)
+}
+
+@Test func twoTriggersInOneSettleWindowReloadOnce() async throws {
+    let rig = try await makeRig()
+    await rig.changes.open(restoring: nil)
+    await rig.changes.threadChanged(changed(sequence: 7))
+    await rig.changes.threadChanged(changed(sequence: 8))
+    await rig.changes.threadChanged(changed(sequence: 9))
+    await settle(rig)
+    #expect(await rig.transport.requests(on: diffRoute).count == 2)
+}
+
+@Test func reloadsDuringARunningReloadAskForExactlyOneMoreRun() async throws {
+    let rig = try await makeRig()
+    await rig.transport.hold(diffRoute)
+    let opening = Task { await rig.changes.open(restoring: nil) }
+    await rig.transport.waitForRequests(1, on: diffRoute)
+    let first = Task { await rig.changes.reload() }
+    let second = Task { await rig.changes.reload() }
+    for _ in 0..<200 { await Task.yield() }
+    await rig.transport.release(diffRoute)
+    await opening.value
+    await first.value
+    await second.value
+    #expect(await rig.transport.requests(on: diffRoute).count == 2)
+}
+
+@Test func anUpdateWhileTheFirstAnswerIsInFlightIsNotLost() async throws {
+    let rig = try await makeRig()
+    await rig.changes.threadChanged(changed(sequence: 7))
+    await rig.transport.hold(diffRoute)
+    let opening = Task { await rig.changes.open(restoring: nil) }
+    await rig.transport.waitForRequests(1, on: diffRoute)
+    await rig.changes.threadChanged(changed(sequence: 8))
+    await settle(rig)
+    await rig.transport.release(diffRoute)
+    await opening.value
+    #expect(await rig.transport.requests(on: diffRoute).count == 2)
+}
+
+@Test func retryFromTheErrorShowsLoadingThenSlow() async throws {
+    let rig = try await makeRig()
+    await rig.transport.on(diffRoute, .json(500, "{}"), try .scenario(200, "scenario-thread-diff"))
+    let snapshots = await recorder(rig)
+    await rig.changes.open(restoring: nil)
+    _ = try await snapshots.next {
+        if case .failed = $0.load { return true } else { return false }
+    }
+    await rig.transport.hold(diffRoute)
+    let retrying = Task { await rig.changes.reload() }
+    _ = try await snapshots.next { $0.load == .loading }
+    await rig.clock.waitForSleeper(endingAt: rig.clock.offset + ThreadEngine.slowAfter)
+    await rig.clock.advance(by: ThreadEngine.slowAfter)
+    _ = try await snapshots.next { $0.load == .slow }
+    await rig.transport.release(diffRoute)
+    _ = try await snapshots.next { $0.load == .ready }
+    await retrying.value
+}
+
+@Test func aRecapturedFileThatAnswers404AgainIsGone() async throws {
+    let rig = try await makeRig()
+    let notFound = FakeTransport.Result.json(404, #"{"error":"not_found","message":"Not found."}"#)
+    await rig.transport.on(fileRoute(501), notFound)
+    await rig.transport.on(fileRoute(601), notFound)
+    await rig.transport.on(diffRoute, try .scenario(200, "scenario-thread-diff"), try scenarioWithIDs(shiftedBy: 100))
+    await rig.changes.open(restoring: uploadKey)
+    let snapshot = try await recorder(rig).next { $0.pages[uploadKey] == .gone }
+    #expect(snapshot.pages[uploadKey] == .gone)
+    #expect(await rig.transport.requests(on: fileRoute(501)).count == 1)
+    #expect(await rig.transport.requests(on: fileRoute(601)).count == 1)
+    #expect(await rig.transport.requests(on: diffRoute).count == 2)
+}
+
+@Test func navigatingAwayClearsTheMovedBecauseGoneLine() async throws {
+    let rig = try await makeRig()
+    await rig.changes.open(restoring: nil)
+    let initial = try await recorder(rig).next { $0.load == .ready && !$0.isShowingCachedCopy }
+    let full = try #require(initial.diff)
+    let current = try #require(initial.pager.current)
+    let remaining = full.files.filter { $0.key != current }
+    let encoded = String(decoding: try JSONEncoder().encode(remaining), as: UTF8.self)
+    let reduced = try Scenarios.data("scenario-thread-diff", setting: ["diff", "files"], toJSON: encoded)
+    await rig.transport.on(diffRoute, .json(200, String(decoding: reduced, as: UTF8.self)))
+    await rig.changes.reload()
+    let moved = try await recorder(rig).next { $0.lastMove != .kept }
+    #expect(moved.lastMove == .movedBecauseGone(previous: current))
+    await rig.changes.next()
+    let after = try await recorder(rig).next { $0.lastMove == .kept }
+    #expect(after.lastMove == .kept)
 }
 
 @Test func theEndOfARunningTurnReloads() async throws {
@@ -194,6 +284,9 @@ private func settle(_ rig: Rig) async {
     for _ in 0..<13 { await rig.changes.next() }
     let snapshot = try await recorder(rig).next { $0.pager.index == 13 }
     #expect(snapshot.pages.count <= 3)
-    #expect(await rig.changes.keptPatchCount <= ThreadChanges.keptPatches)
-    #expect(await rig.changes.keptPatchCount > 0)
+    #expect(await rig.changes.keptPatchCount == ThreadChanges.keptPatches)
+    let firstKey = DiffFileKey(repo: "example/api", path: "src/file1.php")
+    #expect(await rig.transport.requests(on: fileRoute(701)).count == 1)
+    await rig.changes.show(firstKey)
+    #expect(await rig.transport.requests(on: fileRoute(701)).count == 2)
 }
