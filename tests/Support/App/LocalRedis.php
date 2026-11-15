@@ -17,6 +17,23 @@ function startLocalRedis(): ?array
         return null;
     }
 
+    // The probed port can be taken before redis-server binds it, so a few ports are tried.
+    for ($attempt = 0; $attempt < 5; $attempt++) {
+        $started = startLocalRedisOnFreePort($binary);
+
+        if ($started !== null) {
+            return $started;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @return array{process: resource, port: int, directory: string}|null
+ */
+function startLocalRedisOnFreePort(string $binary): ?array
+{
     $socket = stream_socket_server('tcp://127.0.0.1:0');
     $port = (int) substr(strrchr((string) stream_socket_get_name($socket, false), ':'), 1);
     fclose($socket);

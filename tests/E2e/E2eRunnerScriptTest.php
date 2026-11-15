@@ -249,3 +249,22 @@ it('refuses an oversized or overlong fixture', function (string $contents): void
     'over one MiB' => [fn () => str_repeat('a', E2eRunnerScript::MAX_FIXTURE_BYTES + 1)],
     'over 2000 lines' => [fn () => str_repeat("{}\n", E2eRunnerScript::MAX_FIXTURE_LINES + 1)],
 ]);
+
+it('times an interrupt and a steer after the held turn lines that are still queued', function (string $commandType): void {
+    $script = liveScript(4.0);
+    $opening = $script->respond('threads:1', scriptTurnCommand('Look closer ' . E2eRunnerScript::HOLD_MARKER), 1);
+    $lastOpeningDue = max(array_column($opening, 'afterMilliseconds'));
+
+    $following = $script->respond('threads:1', ['type' => $commandType, 'uuid' => '99999999-2222-4333-8444-555555555555'], 1);
+
+    expect($lastOpeningDue)->toBeGreaterThan(8000)
+        ->and($following)->not->toBeEmpty()
+        ->and(min(array_column($following, 'afterMilliseconds')))->toBeGreaterThanOrEqual($lastOpeningDue);
+})->with(['interrupt', 'steer']);
+
+it('keeps a command uuid with a quote or a backslash inside the lines', function (): void {
+    $uuid = 'a"b\\c';
+    $lines = liveScript(0.0)->respond('threads:1', scriptTurnCommand('Hello', $uuid), 1);
+
+    expect(collect($lines)->where('line.type', 'command_lifecycle')->every(fn (array $scripted): bool => $scripted['line']['command_uuid'] === $uuid))->toBeTrue();
+});

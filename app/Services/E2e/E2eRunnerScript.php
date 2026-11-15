@@ -47,6 +47,9 @@ final class E2eRunnerScript
     /** @var array<string, array{uuid: string, since: CarbonImmutable}> */
     private array $held = [];
 
+    /** @var array<string, int> epoch milliseconds when the channel's last scheduled line is due */
+    private array $busyUntil = [];
+
     public function __construct(?string $fixtureDirectory = null, private readonly float $pace = 1.0)
     {
         $this->fixtureDirectory = $fixtureDirectory ?? base_path('tests/Fixtures/runner-streams');
@@ -62,7 +65,7 @@ final class E2eRunnerScript
         $type = $command['type'] ?? null;
         $uuid = $command['uuid'] ?? null;
 
-        return match ($type) {
+        $lines = match ($type) {
             'start_runner' => $this->start($channel, $generation),
             'turn', 'steer' => is_string($uuid) && $uuid !== '' ? $this->message($channel, $type, $uuid, $command) : [],
             'interrupt' => $this->interrupt($channel),
@@ -70,6 +73,31 @@ final class E2eRunnerScript
             'kill' => $this->kill($channel),
             default => [],
         };
+
+        return $this->afterQueued($channel, in_array($type, ['start_runner', 'end', 'kill'], true), $lines);
+    }
+
+    /**
+     * A channel's lines are written in the order they are scheduled, so a new command's lines are
+     * timed after the channel's last scheduled line. A start, end or kill clears the broker's queue.
+     *
+     * @param  list<array{afterMilliseconds: int, line: array<string, mixed>, fromBroker: bool}>  $lines
+     * @return list<array{afterMilliseconds: int, line: array<string, mixed>, fromBroker: bool}>
+     */
+    private function afterQueued(string $channel, bool $clearsQueue, array $lines): array
+    {
+        $nowMilliseconds = CarbonImmutable::now()->getTimestampMs();
+        $offset = $clearsQueue ? 0 : max(0, ($this->busyUntil[$channel] ?? 0) - $nowMilliseconds);
+        $lastDue = $nowMilliseconds;
+
+        foreach ($lines as $index => $scheduled) {
+            $lines[$index]['afterMilliseconds'] += $offset;
+            $lastDue = max($lastDue, $nowMilliseconds + $lines[$index]['afterMilliseconds']);
+        }
+
+        $this->busyUntil[$channel] = $lastDue;
+
+        return $lines;
     }
 
     /** True while the channel's turn is held. */
@@ -99,7 +127,7 @@ final class E2eRunnerScript
             }
 
             unset($this->held[$channel]);
-            $released[$channel] = $this->naturalEnd($hold['uuid']);
+            $released[$channel] = $this->afterQueued($channel, false, $this->naturalEnd($hold['uuid']));
         }
 
         return $released;
@@ -263,7 +291,7 @@ final class E2eRunnerScript
             $milliseconds = (int) ($line['_ms'] ?? 0);
             $after = min(self::TURN_CAP_MILLISECONDS, max($previous, (int) round(max(0, $milliseconds - $originMilliseconds) * $this->pace)));
             $previous = $after;
-            $retargeted = json_decode(str_replace($recordedUuid, $uuid, (string) json_encode($line)), true);
+            $retargeted = json_decode(str_replace($recordedUuid, substr((string) json_encode($uuid), 1, -1), (string) json_encode($line)), true);
             $scripted[] = $this->scripted($retargeted, $after);
         }
 

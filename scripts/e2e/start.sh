@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Starts a real Yak natively for the iOS journeys. Run from the repository root.
 # Leaves the processes running; scripts/e2e/stop.sh stops them.
+# ERR, INT and TERM stop everything; a SIGKILL or a closed terminal does not, so run
+# scripts/e2e/stop.sh before the next start. The ports (Redis 16379 and the app's) are fixed and
+# YAK_E2E_DIR defaults to ${TMPDIR}/yak-e2e, so two worktrees cannot run e2e at the same time.
 set -euo pipefail
 
 startedAt=$SECONDS

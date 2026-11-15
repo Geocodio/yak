@@ -5,6 +5,7 @@ namespace App\Services\E2e;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use RedisException;
+use Throwable;
 
 /**
  * A fake broker on the real Redis streams: answers start_runner, turn, steer and interrupt
@@ -112,8 +113,14 @@ class E2eRunnerCommand extends Command
             unset($this->queues[$channel]);
         }
 
-        $generation = $type === 'start_runner' ? $wire->startGeneration($channel) : $wire->generation($channel);
-        $this->enqueue($wire, $channel, $script->respond($channel, $command, $generation), microtime(true));
+        try {
+            $generation = $type === 'start_runner' ? $wire->startGeneration($channel) : $wire->generation($channel);
+            $this->enqueue($wire, $channel, $script->respond($channel, $command, $generation), microtime(true));
+        } catch (RedisException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            Log::error('yak:e2e-runner dropped a command it failed to answer', ['channel' => $channel, 'type' => $type, 'exception' => $exception::class, 'message' => $exception->getMessage()]);
+        }
     }
 
     /**
