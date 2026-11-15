@@ -19,25 +19,35 @@ public struct MultipartBody: Sendable, Equatable {
 
     public func encoded() -> Data {
         var body = Data()
-        func append(_ text: String) { body.append(Data(text.utf8)) }
         for part in parts {
-            append("--\(boundary)\r\n")
+            body.append(head(of: part))
             switch part {
-            case .field(let name, let value):
-                append("Content-Disposition: form-data; name=\"\(Self.quoted(name))\"\r\n\r\n")
-                append(value)
-            case .file(let name, let fileName, let contentType, let data):
-                append(
-                    "Content-Disposition: form-data; name=\"\(Self.quoted(name))\"; filename=\"\(Self.quoted(fileName))\"\r\n"
-                )
-                append("Content-Type: \(Self.headerValue(contentType))\r\n\r\n")
-                body.append(data)
+            case .field(_, let value): body.append(Data(value.utf8))
+            case .file(_, _, _, let data): body.append(data)
             }
-            append("\r\n")
+            body.append(Self.partEnd)
         }
-        append("--\(boundary)--\r\n")
+        body.append(closing)
         return body
     }
+
+    /// The boundary line and headers of a part, up to the first byte of its content.
+    func head(of part: Part) -> Data {
+        var text = "--\(boundary)\r\n"
+        switch part {
+        case .field(let name, _):
+            text += "Content-Disposition: form-data; name=\"\(Self.quoted(name))\"\r\n\r\n"
+        case .file(let name, let fileName, let contentType, _):
+            text +=
+                "Content-Disposition: form-data; name=\"\(Self.quoted(name))\"; filename=\"\(Self.quoted(fileName))\"\r\n"
+            text += "Content-Type: \(Self.headerValue(contentType))\r\n\r\n"
+        }
+        return Data(text.utf8)
+    }
+
+    static let partEnd = Data("\r\n".utf8)
+
+    var closing: Data { Data("--\(boundary)--\r\n".utf8) }
 
     /// A header parameter value: quotes and line breaks cannot end the parameter early.
     private static func quoted(_ text: String) -> String {
