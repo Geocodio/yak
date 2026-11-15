@@ -230,6 +230,34 @@ class VisibilityRoutes
     }
 
     /**
+     * One request per app thread route that takes a thread, for the sweep in
+     * ThreadRouteSweepTest. `isDrive` marks the routes a share recipient may
+     * not call. `{message}` stands for a queued message uuid.
+     *
+     * @return array<string, array{method: string, path: string, isDrive: bool, body: array<string, mixed>}>
+     */
+    public static function appThreadProbes(): array
+    {
+        $probe = fn (string $method, string $path, bool $isDrive, array $body = []): array => ['method' => $method, 'path' => $path, 'isDrive' => $isDrive, 'body' => $body];
+
+        return [
+            'app.threads.show' => $probe('GET', '/threads/{thread}', false),
+            'app.threads.seen' => $probe('POST', '/threads/{thread}/seen', false),
+            'app.threads.events.index' => $probe('GET', '/threads/{thread}/events', false),
+            'app.threads.events.show' => $probe('GET', '/threads/{thread}/events/1', false),
+            'app.threads.share.show' => $probe('GET', '/threads/{thread}/share', false),
+            'app.threads.share.update' => $probe('PUT', '/threads/{thread}/share', true, ['mode' => 'only_me']),
+            'app.threads.messages.store' => $probe('POST', '/threads/{thread}/messages', true, ['message' => 'Please retry the upload.', 'send_key' => '6f1d7c0e-5b7a-4a52-9c1e-0d2f3a4b5c6d']),
+            'app.threads.queued-messages.update' => $probe('PATCH', '/threads/{thread}/queued-messages/{message}', true, ['text' => 'Edited text']),
+            'app.threads.queued-messages.destroy' => $probe('DELETE', '/threads/{thread}/queued-messages/{message}', true),
+            'app.threads.clarification-answers.store' => $probe('POST', '/threads/{thread}/clarification-answers', true, ['answers' => []]),
+            'app.threads.stop' => $probe('POST', '/threads/{thread}/stop', true),
+            'app.threads.continue' => $probe('POST', '/threads/{thread}/continue', true),
+            'app.threads.restore.retry' => $probe('POST', '/threads/{thread}/restore/retry', true),
+        ];
+    }
+
+    /**
      * Routes with no id that list or aggregate across threads. Each is swept
      * for leaks in VisibilityListSurfacesTest.
      *

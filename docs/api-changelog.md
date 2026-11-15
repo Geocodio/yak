@@ -19,3 +19,21 @@ The first protocol: device flow sign-in, `me`, repository resolution, teleport a
 The first protocol: error contract, phone devices, pairing, `instance` and `me`.
 
 `POST device/pair` takes an optional `request_id` (a UUID). A repeat with the same code and `request_id` inside the code's 120 seconds returns the first response, so a lost response can be retried. `POST device/token` also takes an optional `request_id` (a UUID). A repeat with the same `device_code` and `request_id` within 60 seconds of the first success returns the same response, and still honors the poll interval. A poll without a matching `request_id` never gets the token a second time.
+
+#### Threads (2026-11-15)
+
+Additions under spec 10.3, so the protocol stays 1.
+
+New endpoints: `GET threads`, `GET threads/new`, `GET threads/new/repository-access`, `POST threads`, `GET threads/{thread}`, `POST threads/{thread}/seen`, `GET` and `PUT threads/{thread}/share`, `GET threads/{thread}/events`, `GET threads/{thread}/events/{sequence}`, `POST threads/{thread}/messages`, `PATCH` and `DELETE threads/{thread}/queued-messages/{message}`, `POST threads/{thread}/clarification-answers`, `POST threads/{thread}/stop`, `POST threads/{thread}/continue`, `POST threads/{thread}/restore/retry` and `POST broadcasting/auth`. Threads are addressed by public id; a numeric id answers 404. Queued messages are addressed by their `uuid`.
+
+New event type: `question`, which carries the open question of a thread (`open: false` when it closes).
+
+New fields: `starred` in the list; the `closed` filter and `search` on the list; `type` on every root row of `starred`, `needsYou` and `threads`; task items in `needsYou`; `panes`, `question` and `latestSequence` on thread show; `sendKey` and `mode` on message rows; `uuid` (null for `/clear`) and `queued` in the send response.
+
+New 409 codes: `nothing_to_continue`, `nothing_to_restore`, `question_closed`.
+
+`POST threads/{thread}/messages` and `POST threads` answer `503 unavailable` while the same `send_key` is still being handled; the client retries with the same key.
+
+Queued messages go out when a turn completes, without the person sending anything else. A switch to Steer during a running turn hands the message to that turn at once.
+
+Contract fixtures: `threads`, `thread`, `thread-question` (a thread with an open question), `thread-events`, `thread-event`, `thread-message-sent`, `thread-message-queued`, `thread-message-clear`, `queued-message-updated`, `clarification-answers`, `thread-stop`, `thread-continue`, `thread-restore-retry`, `thread-new`, `thread-store`, `thread-repository-access`, `thread-share`, `thread-share-updated`, `broadcasting-auth-private`, `broadcasting-auth-presence`, `error-thread-blocked`, and the recorded event lists under `events/`.
