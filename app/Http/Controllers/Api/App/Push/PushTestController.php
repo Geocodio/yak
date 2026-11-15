@@ -50,13 +50,11 @@ class PushTestController extends Controller
             ApnsPayloads::collapseId($push['tag']),
         );
 
-        if ($response->isSuccess()) {
-            $failures->record($token, $response);
+        $failures->record($token, $response);
 
+        if ($response->isSuccess()) {
             return response()->json(['status' => 'sent']);
         }
-
-        $failures->record($token, $response);
 
         if ($response->isRetryable()) {
             throw new HttpException(503, 'Apple did not answer in time. Try again in a minute.');

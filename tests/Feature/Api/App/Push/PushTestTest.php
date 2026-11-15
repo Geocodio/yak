@@ -2,7 +2,6 @@
 
 use App\Enums\PushTokenKind;
 use App\Models\DevicePushToken;
-use App\Models\User;
 use App\Services\Push\Apns\PushRefusals;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -21,7 +20,7 @@ function phoneWithAlertToken(array $apple = []): array
 
 it('sends a test notification to this device', function () {
     [$device, $headers] = phoneWithAlertToken();
-    alertTokenFor(User::factory()->create(['email' => 'other@example.test']), str_repeat('cd', 32));
+    alertTokenFor($device->user, str_repeat('cd', 32));
 
     $response = $this->postJson(PUSH_TEST_PATH, [], $headers)->assertOk();
 
