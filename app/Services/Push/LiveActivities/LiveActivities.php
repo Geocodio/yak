@@ -18,6 +18,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Services\Push\Apns\ApnsConfig;
 use App\Services\Threads\ThreadAccess;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
@@ -124,6 +125,7 @@ class LiveActivities
 
     /**
      * Ends the activity with the state of the latest turn, then deletes the channel at Apple.
+     * The delete is chained behind the end, so a retried end still finds its channel.
      */
     public function threadClosed(Thread $thread): void
     {
@@ -136,8 +138,22 @@ class LiveActivities
             default => LiveActivityState::Stopped,
         };
 
-        $this->end($thread, $state);
-        $this->channels->deleteLater($thread);
+        $endJob = $this->prepareEnd($thread, $state);
+        $deleteJob = $this->channels->deleteJobFor($thread);
+
+        if ($endJob !== null && $deleteJob !== null) {
+            Bus::chain([$endJob, $deleteJob])->dispatch();
+
+            return;
+        }
+
+        if ($endJob !== null) {
+            dispatch($endJob);
+        }
+
+        if ($deleteJob !== null) {
+            dispatch($deleteJob);
+        }
     }
 
     private function settledState(Thread $thread): LiveActivityState
@@ -199,6 +215,15 @@ class LiveActivities
      */
     public function end(Thread $thread, LiveActivityState $state): void
     {
+        $job = $this->prepareEnd($thread, $state);
+
+        if ($job !== null) {
+            dispatch($job);
+        }
+    }
+
+    private function prepareEnd(Thread $thread, LiveActivityState $state): ?BroadcastLiveActivityJob
+    {
         DeviceLiveActivity::query()->where('thread_id', $thread->id)->delete();
 
         $this->forgetPendingStep($thread);
@@ -210,12 +235,10 @@ class LiveActivities
         }
 
         if (! $this->canBroadcast($thread)) {
-            return;
+            return null;
         }
 
-        $fresh = $this->fresh($thread);
-
-        BroadcastLiveActivityJob::dispatch($thread->id, 'end', LiveActivityContent::for($fresh, $state, ''), now()->getTimestamp(), 10);
+        return new BroadcastLiveActivityJob($thread->id, 'end', LiveActivityContent::for($this->fresh($thread), $state, ''), now()->getTimestamp(), 10);
     }
 
     public function blocked(Thread $thread, ThreadBlockReason $reason): void

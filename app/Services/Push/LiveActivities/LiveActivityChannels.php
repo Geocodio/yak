@@ -56,9 +56,16 @@ class LiveActivityChannels
 
     public function deleteLater(Thread $thread): void
     {
-        if (filled($thread->live_activity_channel)) {
-            DeleteLiveActivityChannelJob::dispatch($thread->id, $thread->live_activity_channel);
+        $job = $this->deleteJobFor($thread);
+
+        if ($job !== null) {
+            dispatch($job);
         }
+    }
+
+    public function deleteJobFor(Thread $thread): ?DeleteLiveActivityChannelJob
+    {
+        return filled($thread->live_activity_channel) ? new DeleteLiveActivityChannelJob($thread->id, $thread->live_activity_channel) : null;
     }
 
     private function createOnce(Thread $thread, bool $repeatAfterRenewal): string

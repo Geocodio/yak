@@ -16,6 +16,7 @@ use App\Events\TurnFailed;
 use App\Events\TurnStarted;
 use App\Jobs\AfterTurn\FinishThreadTurnJob;
 use App\Jobs\Push\BroadcastLiveActivityJob;
+use App\Jobs\Push\DeleteLiveActivityChannelJob;
 use App\Jobs\Push\StartLiveActivityJob;
 use App\Listeners\DispatchAfterTurnWork;
 use App\Models\Device;
@@ -367,7 +368,19 @@ it('ends and deletes the channel when the thread closes', function () {
         ->and(DeviceLiveActivity::query()->count())->toBe(0);
 });
 
+it('chains the channel delete behind the end so a retried end still has its channel', function () {
+    Queue::fake();
+    $this->thread->update(['live_activity_channel' => 'dGVzdC1jaGFubmVs', 'sandbox_state' => ThreadSandboxState::Destroyed]);
+    $this->run->update(['turn_state' => TurnState::Completed]);
+
+    app(ThreadCloser::class)->close($this->thread->fresh(), 'merged');
+
+    Queue::assertPushed(BroadcastLiveActivityJob::class, fn ($job) => $job->event === 'end' && count($job->chained) === 1 && unserialize($job->chained[0]) instanceof DeleteLiveActivityChannelJob);
+    Queue::assertNotPushed(DeleteLiveActivityChannelJob::class);
+});
+
 it('keeps a private thread off the lock screen for every viewer', function () {
+    // The recipient's channel subscription is covered by 'lets a share recipient watch' in LiveActivityChannelTest; here the payloads are what matters.
     $recipient = User::factory()->create(['name' => 'Test recipient']);
     $this->thread->update(['visibility' => 'private']);
     ThreadShare::factory()->create(['thread_id' => $this->thread->id, 'user_id' => $recipient->id]);
@@ -384,7 +397,9 @@ it('keeps a private thread off the lock screen for every viewer', function () {
     event(new TurnFailed($this->run));
 
     $alerts = array_values(array_filter(apnsRequests('/3/device/'), fn ($request) => ($request->header('apns-push-type')[0] ?? '') === 'alert'));
-    expect($alerts)->not->toBeEmpty();
+    $alertTokens = array_count_values(array_map(fn ($alert) => basename($alert->url()), $alerts));
+    // The needs-you alert reaches the owner and the recipient; the failed turn alerts the owner once more.
+    expect($alertTokens)->toBe([str_repeat('e5', 32) => 2, str_repeat('f6', 32) => 1]);
 
     foreach ($alerts as $alert) {
         expect(json_decode($alert->body(), true)['aps']['alert'])->toBe(['title' => 'Private thread', 'body' => 'Open Yak to read it.']);
