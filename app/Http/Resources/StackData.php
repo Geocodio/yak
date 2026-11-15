@@ -2,12 +2,16 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\ThreadStatus;
 use App\Models\StackThreadMessage;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
+use App\Services\Stacks\ChildAwakeLimit;
 use App\Services\Stacks\StackListing;
+use App\Services\Stacks\StackRules;
 use App\Services\Stacks\StackUsage;
+use App\Services\Stacks\StopStack;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadTurns;
 use App\Support\SecretRedactor;
@@ -37,6 +41,8 @@ final class StackData
      *     messages: list<array{id: int, fromName: string, toName: string, kind: string, text: string, createdAt: string}>,
      *     canDrive: bool,
      *     canStop: bool,
+     *     stoppedAt: ?string,
+     *     addChild: array{allowed: bool, error: ?string, message: ?string},
      * }
      */
     public static function for(Thread $thread, ?User $viewer): array
@@ -46,15 +52,14 @@ final class StackData
         $parent = $thread->isChild() ? Thread::query()->withoutGlobalScopes()->find($thread->parent_thread_id) : null;
         $canDrive = $access->canDrive($viewer, $root);
 
+        $refusal = app(StackRules::class)->refusalForSpawn($thread, $viewer);
         $children = [];
-        $awake = ThreadTurns::activeTurn($root) !== null ? 1 : 0;
-        $waiting = 0;
+        $hasOpenChild = false;
 
         foreach (Thread::query()->withoutVisibilityScope()->visibleTo($viewer)->where('root_thread_id', $root->id)->with(['primaryRepository', 'diff'])->orderBy('id')->get() as $child) {
             $isOtherRepo = $child->repo !== $root->repo;
             $state = StackListing::state($child);
-            $awake += in_array($state, ['working', 'waiting'], true) ? 1 : 0;
-            $waiting += $child->queued_for_slot_at !== null ? 1 : 0;
+            $hasOpenChild = $hasOpenChild || $child->isOpen();
 
             $children[] = [
                 'id' => $child->public_id,
@@ -102,7 +107,7 @@ final class StackData
             'isRoot' => ! $thread->isChild(),
             'parent' => $parent === null ? null : ['id' => $parent->public_id, 'name' => $parent->name, 'title' => $parent->title],
             'children' => $children,
-            'limit' => ['current' => $root->child_awake_limit, 'max' => (int) config('yak.threads.person_awake_cap'), 'awake' => $awake, 'waiting' => $waiting],
+            'limit' => self::limit($root),
             'maxChildren' => (int) config('yak.threads.max_children'),
             'models' => app(ClaudeModelCatalog::class)->families(),
             'parentAccountName' => $root->claudeAccount?->name,
@@ -114,7 +119,32 @@ final class StackData
             ],
             'messages' => $messages,
             'canDrive' => $canDrive,
-            'canStop' => $canDrive,
+            'canStop' => $canDrive && ($root->stack_stopped_at === null
+                ? $hasOpenChild || ThreadTurns::activeTurn($root) !== null
+                : app(StopStack::class)->hasActiveTurn($root)),
+            'stoppedAt' => $root->stack_stopped_at?->toIso8601String(),
+            'addChild' => [
+                'allowed' => $refusal === null,
+                'error' => $refusal?->errorCode,
+                'message' => $refusal?->getMessage(),
+            ],
+        ];
+    }
+
+    /**
+     * @return array{current: int, max: int, awake: int, waiting: int}
+     */
+    public static function limit(Thread $root): array
+    {
+        return [
+            'current' => $root->child_awake_limit,
+            'max' => (int) config('yak.threads.person_awake_cap'),
+            'awake' => app(ChildAwakeLimit::class)->awakeCount($root),
+            'waiting' => Thread::query()->withoutGlobalScopes()
+                ->where('parent_thread_id', $root->id)
+                ->where('status', ThreadStatus::Open->value)
+                ->whereNotNull('queued_for_slot_at')
+                ->count(),
         ];
     }
 

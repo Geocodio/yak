@@ -2,6 +2,8 @@
 
 namespace App\Services\Stacks;
 
+use App\Enums\TurnState;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadTurns;
@@ -51,5 +53,18 @@ class StopStack
         }
 
         return $stopped;
+    }
+
+    /**
+     * Whether any thread of the stack still has a turn waiting or running.
+     */
+    public function hasActiveTurn(Thread $root): bool
+    {
+        return TaskRun::query()
+            ->whereIn('thread_id', Thread::query()->withoutGlobalScopes()
+                ->where(fn ($query) => $query->whereKey($root->id)->orWhere('root_thread_id', $root->id))
+                ->select('id'))
+            ->whereIn('turn_state', [...ThreadTurns::WAITING_STATES, TurnState::Running])
+            ->exists();
     }
 }
