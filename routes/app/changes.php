@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\App\ObservationController;
 use App\Http\Controllers\Api\App\Tasks\ClarificationAnswerController;
 use App\Http\Controllers\Api\App\Tasks\CoOwnerDecisionController;
 use App\Http\Controllers\Api\App\Tasks\EarlyWarningController;
@@ -16,6 +17,8 @@ Route::post('threads/{thread}/pull-request', [PullRequestController::class, 'sto
 Route::get('threads/{thread}/pull-requests', [PullRequestController::class, 'index'])->name('app.threads.pull-requests.show');
 Route::put('threads/{thread}/pull-requests/order', [PullRequestController::class, 'order'])->name('app.threads.pull-requests.order');
 Route::post('threads/{thread}/pull-requests/{repository}/fix', [PullRequestController::class, 'fix'])->middleware('thread.drive')->where('repository', '[0-9]{1,10}')->name('app.threads.pull-requests.fix');
+
+Route::get('observations', ObservationController::class)->name('app.observations.index');
 
 Route::get('tasks', TaskListController::class)->name('app.tasks.index');
 Route::get('tasks/{task}', [TaskController::class, 'show'])->name('app.tasks.show');

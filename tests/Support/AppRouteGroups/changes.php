@@ -6,7 +6,7 @@ use Tests\Support\VisibilityRoutes;
 
 return [
     'appThreads' => ['app.threads.diff.show', 'app.threads.diff.files.show', 'app.threads.pull-request.store', 'app.threads.pull-requests.show', 'app.threads.pull-requests.order', 'app.threads.pull-requests.fix'],
-    'classified' => ['app.tasks.index', 'app.tasks.show', 'app.tasks.retry', 'app.tasks.cancel', 'app.tasks.rerun-review', 'app.tasks.retry-render', 'app.tasks.reroute', 'app.tasks.co-owner.approve', 'app.tasks.co-owner.request-changes', 'app.tasks.co-owner.reject', 'app.tasks.co-owner.withdraw', 'app.tasks.clarification-answers.store', 'app.tasks.co-owner.tag', 'app.tasks.co-owner.decline', 'app.tasks.co-owner.candidates', 'app.media.task-attachments', 'app.media.pr-images'],
+    'classified' => ['app.tasks.index', 'app.tasks.show', 'app.tasks.retry', 'app.tasks.cancel', 'app.tasks.rerun-review', 'app.tasks.retry-render', 'app.tasks.reroute', 'app.tasks.co-owner.approve', 'app.tasks.co-owner.request-changes', 'app.tasks.co-owner.reject', 'app.tasks.co-owner.withdraw', 'app.tasks.clarification-answers.store', 'app.tasks.co-owner.tag', 'app.tasks.co-owner.decline', 'app.tasks.co-owner.candidates', 'app.media.task-attachments', 'app.media.pr-images', 'app.observations.index'],
     'appThreadProbes' => [
         'app.threads.diff.show' => VisibilityRoutes::probe('GET', '/threads/{thread}/diff', false),
         'app.threads.diff.files.show' => VisibilityRoutes::probe('GET', '/threads/{thread}/diff/files/{file}', false),
