@@ -66,11 +66,14 @@ public actor RealtimeClient {
         backoffTask?.cancel()
         timerTask?.cancel()
         wakeNetworkWaiter()
-        await connection?.close()
-        await task?.value
+        // State is cleared before the first suspension so a start() that runs during the awaits owns
+        // a clean slate.
+        let closing = connection
         connection = nil
         currentSocketID = nil
-        stateBroadcast.send(.offline)
+        publish(.offline)
+        await closing?.close()
+        await task?.value
     }
 
     public func states() -> AsyncStream<ConnectionState> {
@@ -82,20 +85,25 @@ public actor RealtimeClient {
     /// Unsatisfied: stops the attempts and shows `offline`, closing nothing. Satisfied: skips any
     /// backoff wait and tries at once with the backoff restarted.
     public func networkPathChanged(isSatisfied: Bool) {
-        guard runTask != nil else { return }
         hasNetwork = isSatisfied
+        guard runTask != nil else { return }
         if !isSatisfied {
             backoffTask?.cancel()
-            stateBroadcast.send(.offline)
+            publish(.offline)
             return
         }
         attempt = 0
         backoffTask?.cancel()
         wakeNetworkWaiter()
-        if currentSocketID != nil { stateBroadcast.send(.live) }
+        if currentSocketID != nil { publish(.live) }
     }
 
     // MARK: - Run loop
+
+    /// Broadcasts only a change, so subscribers never see the same state twice in a row.
+    private func publish(_ state: ConnectionState) {
+        if stateBroadcast.value != state { stateBroadcast.send(state) }
+    }
 
     private func isCurrent(_ generation: Int) -> Bool {
         generation == self.generation && !Task.isCancelled
@@ -107,22 +115,22 @@ public actor RealtimeClient {
                 await withCheckedContinuation { networkWaiter = $0 }
                 continue
             }
-            stateBroadcast.send(.reconnecting)
+            publish(.reconnecting)
             let outcome = await attemptConnection(generation: generation)
             guard isCurrent(generation) else { break }
             switch outcome {
             case .permanent:
-                stateBroadcast.send(.offline)
+                publish(.offline)
                 finish(generation: generation)
                 return
             case .immediate:
                 continue
             case .dropped:
                 guard hasNetwork else {
-                    stateBroadcast.send(.offline)
+                    publish(.offline)
                     continue
                 }
-                stateBroadcast.send(.reconnecting)
+                publish(.reconnecting)
                 let wait = Self.backoff[min(attempt, Self.backoff.count - 1)]
                 attempt += 1
                 await backoffWait(wait)
@@ -162,7 +170,7 @@ public actor RealtimeClient {
         do {
             opened = try await connector.connect(to: configuration.url)
         } catch {
-            log("connect failed")
+            log("connect failed: \(type(of: error))")
             return .dropped
         }
         guard isCurrent(generation) else {
@@ -176,6 +184,7 @@ public actor RealtimeClient {
             do {
                 text = try await opened.receive()
             } catch {
+                log("receive failed: \(type(of: error))")
                 break
             }
             guard isCurrent(generation) else { break }
@@ -184,10 +193,12 @@ public actor RealtimeClient {
         }
         timerTask?.cancel()
         let wasEstablished = currentSocketID != nil
-        currentSocketID = nil
-        connection = nil
+        if generation == self.generation {
+            currentSocketID = nil
+            connection = nil
+        }
         await opened.close()
-        if wasEstablished, isCurrent(generation), hasNetwork { stateBroadcast.send(.reconnecting) }
+        if wasEstablished, isCurrent(generation), hasNetwork { publish(.reconnecting) }
         return sessionOutcome ?? .dropped
     }
 
@@ -202,9 +213,10 @@ public actor RealtimeClient {
             currentSocketID = established.socketID
             activityTimeout = .seconds(min(established.activityTimeout, 30))
             attempt = 0
-            if hasNetwork { stateBroadcast.send(.live) }
+            if hasNetwork { publish(.live) }
         case "pusher:ping":
             do { try await opened.send(PusherFrame(event: "pusher:pong").encoded()) } catch {
+                log("pong send failed: \(type(of: error))")
                 sessionOutcome = .dropped
                 return
             }
@@ -262,6 +274,7 @@ public actor RealtimeClient {
             phase = .awaitingPong
             armTimer(Self.pongTimeout, generation: generation)
             do { try await connection.send(PusherFrame(event: "pusher:ping").encoded()) } catch {
+                log("ping send failed: \(type(of: error))")
                 sessionOutcome = .dropped
                 await connection.close()
             }
@@ -273,7 +286,7 @@ public actor RealtimeClient {
 
     private func log(_ message: String) {
         #if canImport(os)
-            Logger(subsystem: "app.yak", category: "realtime").debug("\(message, privacy: .public)")
+            Logger(subsystem: "YakKit", category: "RealtimeClient").error("\(message, privacy: .public)")
         #endif
     }
 }

@@ -65,13 +65,16 @@ actor FakeWebSocketServer: WebSocketConnector {
         return connection
     }
 
-    /// The nth accepted connection, counted from 0. Fails the test instead of hanging.
+    /// The nth accepted connection, counted from 0. Records an issue and returns a closed connection
+    /// instead of hanging or crashing the process.
     func waitForConnection(_ index: Int) async -> FakeConnection {
         let deadline = ContinuousClock.now + .seconds(10)
         while connections.count <= index {
             if ContinuousClock.now > deadline {
                 Issue.record("Timed out waiting for connection \(index)")
-                fatalError("FakeWebSocketServer.waitForConnection timed out")
+                let missing = FakeConnection()
+                await missing.close()
+                return missing
             }
             await park()
         }

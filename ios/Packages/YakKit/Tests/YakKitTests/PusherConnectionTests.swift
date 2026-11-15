@@ -84,11 +84,13 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         let server = FakeWebSocketServer()
         let clock = ManualClock()
         let realtime = makeClient(server: server, clock: clock)
+        let states = StreamRecorder(await realtime.states())
         await realtime.start()
         let connection = await server.waitForConnection(0)
         await clock.waitForSleeper(endingAt: .seconds(15))
         await clock.advance(by: .seconds(15))
         await connection.waitUntilClosed()
+        _ = await states.next { $0 == .reconnecting }
         await clock.waitForSleeper(endingAt: .seconds(16))
         await clock.advance(by: .seconds(1))
         _ = await server.waitForConnection(1)
@@ -160,6 +162,37 @@ let refusingAuthorizer: ChannelAuthorizer = { _, _ throws(APIFailure) -> Channel
         await realtime.networkPathChanged(isSatisfied: true)
         _ = await server.waitForConnection(0)
         await realtime.stop()
+    }
+
+    @Test func aNetworkChangeWhileStoppedIsRemembered() async {
+        let server = FakeWebSocketServer()
+        let clock = ManualClock()
+        let realtime = makeClient(server: server, clock: clock)
+        await realtime.start()
+        await realtime.networkPathChanged(isSatisfied: false)
+        await realtime.stop()
+        await realtime.networkPathChanged(isSatisfied: true)
+        await realtime.start()
+        _ = await server.waitForConnection(0)
+        await realtime.stop()
+    }
+
+    @Test func sameStateIsNeverBroadcastTwiceInARow() async {
+        let server = FakeWebSocketServer()
+        let clock = ManualClock()
+        let realtime = makeClient(server: server, clock: clock)
+        let states = StreamRecorder(await realtime.states())
+        await realtime.start()
+        let connection = await server.waitForConnection(0)
+        await connection.serverSends(Frames.established(socketID: "1.2", activityTimeout: 30))
+        _ = await states.next { $0 == .live }
+        await realtime.networkPathChanged(isSatisfied: true)
+        await connection.drop()
+        _ = await states.next { $0 == .reconnecting }
+        await realtime.stop()
+        _ = await states.next { $0 == .offline }
+        let recorded = await states.values
+        #expect(recorded == [.offline, .reconnecting, .live, .reconnecting, .offline])
     }
 
     @Test func noConfigurationNeverConnects() async {
