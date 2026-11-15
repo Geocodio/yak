@@ -96,6 +96,7 @@ public actor InstanceSession {
     private var meRequester: APIClient?
     private var currentMe: Me?
     private var cache: Cache?
+    private var overview: OverviewActions?
     private var currentOutbox: Outbox?
     private var feed: ThreadListFeed?
     private var realtime: RealtimeClient?
@@ -122,6 +123,8 @@ public actor InstanceSession {
     public func apiClient() -> APIClient? { isActive ? client : nil }
     /// The instance's cache, erased on unpair and revoke. Nil unless the session is active.
     public func instanceCache() -> Cache? { isActive ? cache : nil }
+    /// The Overview's actions, made with the client and cache at start. Nil unless the session is active.
+    public func overviewActions() -> OverviewActions? { isActive ? overview : nil }
     public nonisolated var clock: any YakClock { environment.clock }
 
     private var isActive: Bool { isStarted && !hasEnded && statusBroadcast.value == .active }
@@ -201,6 +204,8 @@ public actor InstanceSession {
         guard let client, cache == nil else { return }
         let newCache = Cache(instance: instance.id, files: environment.files, clock: environment.clock)
         cache = newCache
+        overview = OverviewActions(
+            client: client, cache: newCache, clock: environment.clock, makeID: environment.makeID)
         let newOutbox = Outbox(
             instance: instance.id, client: client, files: environment.files, clock: environment.clock,
             makeID: environment.makeID)
@@ -302,6 +307,7 @@ public actor InstanceSession {
     private func releaseParts(keepingOutbox: Bool = false) async {
         await currentOutbox?.shutDown()
         cache = nil
+        overview = nil
         if !keepingOutbox { currentOutbox = nil }
         feed = nil
         realtime = nil
