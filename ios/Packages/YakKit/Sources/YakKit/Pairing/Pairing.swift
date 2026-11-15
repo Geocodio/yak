@@ -129,7 +129,8 @@ public actor Pairing {
             waited += interval
             if Task.isCancelled { throw .cancelled }
             do {
-                let response = try await client.send(.pollDeviceToken(deviceCode: flow.code.deviceCode, requestID: flow.requestID))
+                let response = try await client.send(
+                    .pollDeviceToken(deviceCode: flow.code.deviceCode, requestID: flow.requestID))
                 return try await store(response, url: flow.url, client: client)
             } catch let failure as APIFailure {
                 // A dropped request is no answer from the instance: keep polling until the code expires.

@@ -45,7 +45,7 @@ UI smoke tests against the stub server: fastlane ui_smoke device:"iPhone Duo" on
 [bundle exec] fastlane ios walkthrough
 ```
 
-Quality-bar walkthrough, screenshots in build/screenshots/<device>/<appearance>: fastlane walkthrough device:"iPhone 18 Pro" appearance:dark|light|largest-text orientation:landscape only:testName
+Quality-bar walkthrough, screenshots in build/screenshots/<device>/<appearance>/<orientation>: fastlane walkthrough device:"iPhone 18 Pro" appearance:dark|light|largest-text orientation:landscape only:testName
 
 ### ios test
 
