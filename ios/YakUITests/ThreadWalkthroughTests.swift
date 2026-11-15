@@ -227,6 +227,10 @@ import XCTest
         app.buttons["newThread.send"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["newThread.waiting"].waitForExistence(timeout: 30))
         try shootNewThread("new-thread-offline")
+        // The network returns: the outbox sends the item and the screen opens the new thread.
+        try stub.setOnline(true)
+        let waiting = app.descendants(matching: .any)["newThread.waiting"]
+        XCTAssertTrue(waiting.waitForNonExistence(timeout: 40))
     }
 
     func testNewThreadNoRepositories() throws {
@@ -280,7 +284,12 @@ import XCTest
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
             // The keyboard covers part of the screen; what is behind it cannot be judged.
-            if issue.auditType == .contrast, app.keyboards.firstMatch.exists { return true }
+            let keyboard = app.keyboards.firstMatch
+            if issue.auditType == .contrast, keyboard.exists, let element = issue.element,
+                keyboard.frame.intersects(element.frame)
+            {
+                return true
+            }
             // A short window scrolls the page under the navigation bar, whose glass blurs what passes behind it.
             if issue.auditType == .contrast, let element = issue.element,
                 bars.contains(where: { $0.frame.intersects(element.frame) })
@@ -300,7 +309,7 @@ import XCTest
             }
             // On a wide screen the system keyboard is a floating window the audit cannot place, so it reports the text
             // behind it and text it cannot match to an element.
-            if app.windows.firstMatch.frame.width > 700, issue.auditType == .contrast || issue.element == nil {
+            if app.windows.firstMatch.frame.width > 700, issue.element == nil {
                 return true
             }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")

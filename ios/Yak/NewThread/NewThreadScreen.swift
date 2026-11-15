@@ -17,6 +17,7 @@ struct NewThreadScreen: View {
     let openWeb: (URL) -> Void
 
     @State private var model: NewThreadModel?
+    @State private var modelOpenCount = 0
     /// The stop of the model that went before, so the next one reads the draft it saved.
     @State private var stopping: Task<Void, Never>?
 
@@ -41,10 +42,17 @@ struct NewThreadScreen: View {
     /// The prefill and the item of a link or of the drawer's "Not sent yet" row are read once, when the screen opens.
     private func run() async {
         await stopping?.value
-        let next = NewThreadModel(
-            session: session, scene: scene, prefill: scene.newThreadPrefill, item: scene.newThreadItem)
+        // A model that never started only holds what the person typed while the session was not active; it stays.
+        let next: NewThreadModel
+        if let model, !model.hasStarted, modelOpenCount == scene.newThreadOpenCount {
+            next = model
+        } else {
+            next = NewThreadModel(
+                session: session, scene: scene, prefill: scene.newThreadPrefill, item: scene.newThreadItem)
+            model = next
+            modelOpenCount = scene.newThreadOpenCount
+        }
         next.isCompactWidth = isCompactWidth
-        model = next
         guard isSessionActive else { return }
         await next.start()
         // Waits until the task is cancelled, which is how the screen leaves.
@@ -76,15 +84,23 @@ private struct NewThreadContent: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    header
-                    middle
-                    // At accessibility sizes and in a short window the bar is taller than the room, so it scrolls with the content.
-                    if scrollsBottom, !hasNoRepositories { bottom }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 20) {
+                        header
+                        middle
+                        // At accessibility sizes and in a short window the bar is taller than the room, so it scrolls with the content.
+                        if scrollsBottom, !hasNoRepositories { bottom.id(Self.barID) }
+                    }
+                    .frame(maxWidth: 560).frame(maxWidth: .infinity)
+                    .padding(.horizontal, 24).padding(.top, 32).padding(.bottom, 16)
                 }
-                .frame(maxWidth: 560).frame(maxWidth: .infinity)
-                .padding(.horizontal, 24).padding(.top, 32).padding(.bottom, 16)
+                // The field and the send button stay above the keyboard while the person types.
+                .onChange(of: isFieldFocused) { scrollBarIntoView(proxy) }
+                .onChange(of: model.text) { scrollBarIntoView(proxy) }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+                    scrollBarIntoView(proxy)
+                }
             }
             .scrollDismissesKeyboard(.interactively)
             .scrollBounceBehavior(.basedOnSize)
@@ -110,6 +126,16 @@ private struct NewThreadContent: View {
         .sensoryFeedback(.warning, trigger: model.refusedSendCount)
         .task(id: model.load == .ready || model.load == .loading) { focusFieldWhenFree() }
         .onChange(of: model.pending == nil) { focusFieldWhenFree() }
+        .onChange(of: app.network.isOnline) { _, isOnline in
+            if isOnline, model.options == nil { Task { await model.retry() } }
+        }
+    }
+
+    private static let barID = "newThread.barAnchor"
+
+    private func scrollBarIntoView(_ proxy: ScrollViewProxy) {
+        guard scrollsBottom else { return }
+        withAnimation(.smooth(duration: 0.2)) { proxy.scrollTo(Self.barID, anchor: .bottom) }
     }
 
     private func focusFieldWhenFree() {
@@ -199,6 +225,7 @@ private struct NewThreadContent: View {
     private var bottom: some View {
         VStack(spacing: 8) {
             if isOffline && model.pending == nil { offlineNotice }
+            if model.isOffline && model.options == nil && model.pending == nil { retryButton }
             if let pending = model.pending { PendingRow(model: model, item: pending) }
             if let line = chipProblem { problemLine(line) }
             chips
@@ -295,7 +322,8 @@ private struct NewThreadContent: View {
         } label: {
             ChipLabel(
                 systemImage: "shippingbox",
-                text: model.form.repo.map(Self.repositoryName(model.options)) ?? "newThread.repo.pick")
+                text: model.form.repo.map { Text(verbatim: Self.repositoryName(model.options)($0)) }
+                    ?? Text("newThread.repo.pick"))
         }
         .disabled(model.options == nil)
         .accessibilityLabel(Text("newThread.repo.label"))
@@ -312,7 +340,7 @@ private struct NewThreadContent: View {
         } label: {
             ChipLabel(
                 systemImage: model.form.mode == .fix ? "wrench.and.screwdriver" : "magnifyingglass",
-                text: model.form.mode == .fix ? "newThread.mode.fix" : "newThread.mode.research")
+                text: model.form.mode == .fix ? Text("newThread.mode.fix") : Text("newThread.mode.research"))
         }
         .accessibilityLabel(Text("newThread.mode.label"))
         .accessibilityIdentifier("newThread.mode")
@@ -331,9 +359,9 @@ private struct NewThreadContent: View {
         .accessibilityIdentifier("newThread.model")
     }
 
-    private var modelText: LocalizedStringKey {
-        guard let value = model.form.model else { return "newThread.model.default" }
-        return LocalizedStringKey(ModelChoices.label(for: value, in: model.options?.models ?? []) ?? value)
+    private var modelText: Text {
+        guard let value = model.form.model else { return Text("newThread.model.default") }
+        return Text(verbatim: ModelChoices.label(for: value, in: model.options?.models ?? []) ?? value)
     }
 
     // MARK: Composer
@@ -460,23 +488,7 @@ private struct NewThreadContent: View {
     // MARK: Toolbar
 
     private var threadsButton: some View {
-        Button(action: openDrawer) {
-            Image(systemName: "sidebar.leading")
-                .frame(minWidth: 44, minHeight: 44)
-                .overlay(alignment: .topTrailing) {
-                    if needsYouCount > 0 {
-                        Text(needsYouCount, format: .number).font(.caption2.weight(.bold)).foregroundStyle(.white)
-                            .padding(.horizontal, 5).frame(minWidth: 16, minHeight: 16)
-                            .background(Color.red, in: .capsule).offset(x: -2, y: 4)
-                            .accessibilityHidden(true)
-                    }
-                }
-                .contentShape(.rect)
-        }
-        .accessibilityLabel(
-            needsYouCount > 0 ? Text("threads.button.needsYou \(needsYouCount)") : Text("threads.button")
-        )
-        .accessibilityIdentifier("threads.button")
+        ThreadsButton(needsYouCount: needsYouCount, action: openDrawer)
     }
 
     private var moreButton: some View {
@@ -539,28 +551,18 @@ private struct NewThreadContent: View {
 /// A chip above the composer: an icon and a short value, at least 44 points tall.
 private struct ChipLabel: View {
     let systemImage: String
-    let text: LocalizedStringKey
-
-    init(systemImage: String, text: LocalizedStringKey) {
-        self.systemImage = systemImage
-        self.text = text
-    }
-
-    init(systemImage: String, text: String) {
-        self.systemImage = systemImage
-        self.text = LocalizedStringKey(text)
-    }
+    let text: Text
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: systemImage).font(.footnote).accessibilityHidden(true)
-            Text(text).font(.subheadline.weight(.medium)).lineLimit(1)
+            text.font(.subheadline.weight(.medium)).lineLimit(1)
             Image(systemName: "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 12).frame(minHeight: 44)
-        .background(Color.primary.opacity(0.08), in: .capsule)
+        .background(Color(.tertiarySystemFill), in: .capsule)
         .contentShape(.capsule)
     }
 }
@@ -573,7 +575,7 @@ private struct LoadingChips: View {
     var body: some View {
         HStack(spacing: 8) {
             ForEach([112, 76, 96], id: \.self) { width in
-                Capsule().fill(Color.primary.opacity(0.08)).frame(width: CGFloat(width), height: 44)
+                Capsule().fill(Color(.tertiarySystemFill)).frame(width: CGFloat(width), height: 44)
             }
             Spacer(minLength: 0)
         }

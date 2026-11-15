@@ -22,6 +22,7 @@ private final class NewThreadTransport: HTTPTransport, @unchecked Sendable {
     private var paths: [String] = []
     private var bodies: [String: Data] = [:]
     var optionsDelay: Duration = .zero
+    var accessDelay: Duration = .zero
     var optionsAnswer: (status: Int, body: String)? = (200, NewThreadTransport.options)
     var startAnswer: (status: Int, body: String)? = (201, #"{"id":"k7m2q9rt"}"#)
     var accessAnswers: [String: String] = [:]
@@ -73,6 +74,7 @@ private final class NewThreadTransport: HTTPTransport, @unchecked Sendable {
             guard let answer = startAnswer else { throw URLError(.notConnectedToInternet) }
             (status, body) = answer
         case "GET threads/new/repository-access":
+            if accessDelay > .zero { try await Task.sleep(for: accessDelay) }
             let repo = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "repo" }?
                 .value
             body = accessAnswers[repo ?? ""] ?? #"{"allowed":true,"reason":null}"#
@@ -377,6 +379,65 @@ private final class NewThreadTransport: HTTPTransport, @unchecked Sendable {
     await model.attach(Data(count: 10), fileName: "c.txt", contentType: "text/plain", isImage: false)
     #expect(model.attachmentFailure == .tooMany(maximum: 2))
     #expect(model.attachments.map(\.reference) == ["File #1", "File #2"])
+    await model.stop()
+    await fixture.session.stop()
+}
+
+@MainActor @Test func retryAfterTheNetworkReturnsLoadsTheRepositories() async throws {
+    let fixture = try await Fixture { $0.optionsAnswer = nil }
+    let model = fixture.model()
+    model.text = "Fix the importer"
+    await model.start()
+    #expect(model.isOffline)
+    #expect(model.options == nil)
+    fixture.transport.optionsAnswer = (200, NewThreadTransport.options)
+    await model.retry()
+    #expect(model.load == .ready)
+    #expect(model.form.repo == "example/api")
+    #expect(model.text == "Fix the importer")
+    await model.stop()
+    await fixture.session.stop()
+}
+
+@MainActor @Test func twoQuickSendsStartOneThread() async throws {
+    let fixture = try await Fixture { $0.accessDelay = .milliseconds(150) }
+    let model = fixture.model()
+    await model.start()
+    model.text = "Fix the importer"
+    model.addExtraRepository("example/docs", role: "context")
+    async let first: Void = model.send()
+    async let second: Void = model.send()
+    _ = await (first, second)
+    #expect(await fixture.eventually { fixture.scene.state.threadID == "k7m2q9rt" })
+    #expect(fixture.transport.requestCount("POST threads") == 1)
+    await model.stop()
+    await fixture.session.stop()
+}
+
+@MainActor @Test func theChipsAloneAreSaved() async throws {
+    let fixture = try await Fixture()
+    let first = fixture.model()
+    await first.start()
+    first.form.mode = .research
+    await first.stop()
+    let second = fixture.model()
+    await second.start()
+    #expect(second.form.mode == .research)
+    #expect(second.text.isEmpty)
+    await second.stop()
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aRefusedSendBumpsTheHaptic() async throws {
+    let fixture = try await Fixture {
+        $0.startAnswer = (422, #"{"error":"validation_failed","message":"The description is too long."}"#)
+    }
+    let model = fixture.model()
+    await model.start()
+    model.text = "Fix the importer"
+    await model.send()
+    #expect(await fixture.eventually { if case .refused = model.pending?.state { true } else { false } })
+    #expect(model.refusedSendCount == 1)
     await model.stop()
     await fixture.session.stop()
 }

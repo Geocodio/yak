@@ -52,6 +52,9 @@ final class NewThreadModel {
     @ObservationIgnored private var sendKey: UUID?
     @ObservationIgnored private var submittedKey: UUID?
     @ObservationIgnored private var isStarted = false
+    /// True once `start()` ran, so the screen can keep a model that only collected typing.
+    @ObservationIgnored private(set) var hasStarted = false
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var isFinished = false
     @ObservationIgnored private var hasLoadedDraft = false
     @ObservationIgnored private var saveTask: Task<Void, Never>?
@@ -92,6 +95,7 @@ final class NewThreadModel {
     func start() async {
         guard !isStarted else { return }
         isStarted = true
+        hasStarted = true
         await loadDraft()
         await watchOutbox()
         await loadOptions()
@@ -104,15 +108,17 @@ final class NewThreadModel {
         saveTask?.cancel()
         saveTask = nil
         slowTask?.cancel()
+        loadTask?.cancel()
+        loadTask = nil
         for task in watchTasks + Array(accessTasks.values) { task.cancel() }
         watchTasks = []
         accessTasks = [:]
         await saveDraftNow()
     }
 
-    /// Asks for the repositories again; the text stays.
+    /// Asks for the repositories again, replacing a request still in flight; the text stays.
     func retry() async {
-        guard isStarted, load != .loading else { return }
+        guard isStarted else { return }
         await loadOptions()
     }
 
@@ -156,7 +162,10 @@ final class NewThreadModel {
 
     private func saveDraftNow() async {
         guard hasLoadedDraft, !isFinished, pending == nil, !isSending else { return }
-        let hasContent = !text.allSatisfy(\.isWhitespace) || !attachments.isEmpty
+        let defaultForm = NewThreadForm(
+            options: options, saved: nil, lastUsedRepo: lastRepository, linkRepo: prefill?.repo)
+        let hasContent =
+            !text.allSatisfy(\.isWhitespace) || !attachments.isEmpty || form.draft != defaultForm.draft
         let draft =
             hasContent
             ? ComposerDraft(
@@ -167,7 +176,15 @@ final class NewThreadModel {
 
     // MARK: Repositories
 
+    /// Runs the request in a task the model owns, so `stop()` and the next request can cancel it.
     private func loadOptions() async {
+        loadTask?.cancel()
+        let task = Task<Void, Never> { [weak self] in await self?.fetchOptions() }
+        loadTask = task
+        await task.value
+    }
+
+    private func fetchOptions() async {
         load = .loading
         slowTask?.cancel()
         slowTask = Task { [weak self, slowAfter] in
@@ -177,11 +194,13 @@ final class NewThreadModel {
         }
         do {
             let loaded = try await session.newThreadOptions()
+            guard !Task.isCancelled else { return }
             options = loaded
             form = NewThreadForm(
                 options: loaded, saved: form.draft, lastUsedRepo: lastRepository, linkRepo: prefill?.repo)
             load = .ready
         } catch {
+            guard !Task.isCancelled else { return }
             load = .failed(ThreadProblem(error))
         }
         slowTask?.cancel()
@@ -269,6 +288,10 @@ final class NewThreadModel {
 
     func send() async {
         guard !isLocked else { return }
+        // Locked from the first tap, so a second tap while the access checks run starts nothing.
+        isSending = true
+        defer { isSending = false }
+        sendKey = sendKey ?? UUID()
         for task in Array(accessTasks.values) { await task.value }
         if let blocked = form.problem(text: text, options: options, access: access) {
             problem = blocked
@@ -282,8 +305,6 @@ final class NewThreadModel {
         }
         problem = nil
         sendFailure = nil
-        isSending = true
-        defer { isSending = false }
         let key = sendKey ?? UUID()
         submittedKey = key
         saveTask?.cancel()
@@ -293,7 +314,8 @@ final class NewThreadModel {
                     target: .newThread(target), text: text.trimmingCharacters(in: .whitespacesAndNewlines),
                     model: form.model, delivery: .steer, attachments: attachments, sendKey: key))
             defaults.set(target.repo, forKey: Self.lastRepositoryKey(session.instance.id))
-            if !isFinished { pending = item }
+            // The outbox may already have reported a later state of this item.
+            if !isFinished, pending?.id != item.id { pending = item }
             await session.saveComposerDraft(nil, for: Self.draftKey)
         } catch {
             submittedKey = nil
@@ -310,7 +332,10 @@ final class NewThreadModel {
             Task { [weak self] in
                 for await items in await outbox.changes() {
                     guard let self, !Task.isCancelled else { return }
-                    if let key = submittedKey, let item = items.first(where: { $0.id == key }) { pending = item }
+                    if let key = submittedKey, let item = items.first(where: { $0.id == key }) {
+                        if case .refused = item.state, !isRefused(pending) { refusedSendCount += 1 }
+                        pending = item
+                    }
                 }
             })
         watchTasks.append(
@@ -321,6 +346,11 @@ final class NewThreadModel {
                     await finish(delivery)
                 }
             })
+    }
+
+    private func isRefused(_ item: OutboxItem?) -> Bool {
+        if case .refused = item?.state { return true }
+        return false
     }
 
     private func finish(_ delivery: OutboxDelivery) async {
