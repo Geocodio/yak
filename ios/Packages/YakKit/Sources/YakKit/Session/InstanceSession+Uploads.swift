@@ -34,6 +34,7 @@ extension InstanceSession {
     }
 
     private func updateShareContext(_ change: (inout ShareContext) -> Void) {
+        guard !hasEnded, !isUnpairing else { return }
         let files = environment.files
         var context = ShareContextStore.read(instance: instance.id, files: files)
         if let me = me() {
@@ -43,14 +44,20 @@ extension InstanceSession {
                     lastThread: context?.lastThread, options: context?.options, lastRepo: context?.lastRepo,
                     updatedAt: clock.now())
         }
-        guard var updated = context else { return }
+        guard var updated = context else {
+            logShareContext("share context skipped: no stored context and no profile yet")
+            return
+        }
         change(&updated)
         updated.updatedAt = clock.now()
         do { try ShareContextStore.write(updated, instance: instance.id, files: files) } catch {
-            #if canImport(os)
-                Logger(subsystem: "YakKit", category: "ShareContext").error(
-                    "share context not written: \(String(describing: type(of: error)), privacy: .public)")
-            #endif
+            logShareContext("share context not written: \(String(describing: type(of: error)))")
         }
+    }
+
+    private func logShareContext(_ message: String) {
+        #if canImport(os)
+            Logger(subsystem: "YakKit", category: "ShareContext").error("\(message, privacy: .public)")
+        #endif
     }
 }

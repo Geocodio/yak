@@ -118,13 +118,14 @@ public struct ShareDraft: Equatable, Sendable {
             return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .textTooShort(minimum: 1) : nil
         case .newThread:
             guard let slug = form?.repo else { return .noRepository }
-            if let options = context.options {
-                guard let repository = options.repos.first(where: { $0.slug == slug }) else { return .noRepository }
-                if repository.setupStatus != "ready" {
-                    return .repositoryNotReady(slug: slug, step: repository.setupStep)
-                }
+            // Without the loaded options there is nothing to check the repository against.
+            guard let repository = context.options?.repos.first(where: { $0.slug == slug }) else {
+                return .noRepository
             }
-            return text.trimmingCharacters(in: .whitespacesAndNewlines).count < Self.newThreadMinimum
+            if repository.setupStatus != "ready" {
+                return .repositoryNotReady(slug: slug, step: repository.setupStep)
+            }
+            return Self.codePointCount(text.trimmingCharacters(in: .whitespacesAndNewlines)) < Self.newThreadMinimum
                 ? .textTooShort(minimum: Self.newThreadMinimum) : nil
         }
     }
@@ -136,10 +137,21 @@ public struct ShareDraft: Equatable, Sendable {
         let images = attachedImages
         let next = target == .lastThread ? (context.lastThread?.nextAttachmentNumber ?? 1) : 1
         let references = ComposerAttachments.references(isImage: images.map { _ in true }, next: next)
+        var taken = Set<String>()
         let attachments = zip(images, references).map { name, reference in
             let safeName = ComposerAttachments.safeFileName(name)
+            // A cleaned name already used gets "-2", "-3" before the extension, like `storeAttachment`.
+            var unique = safeName
+            var counter = 2
+            while !taken.insert(unique).inserted {
+                let dot = safeName.lastIndex(of: ".").flatMap { $0 == safeName.startIndex ? nil : $0 }
+                let stem = dot.map { String(safeName[..<$0]) } ?? safeName
+                let ending = dot.map { String(safeName[$0...]) } ?? ""
+                unique = "\(stem)-\(counter)\(ending)"
+                counter += 1
+            }
             return OutboxAttachment(
-                reference: reference, fileName: safeName, contentType: "image/jpeg", path: attachmentPath(safeName))
+                reference: reference, fileName: name, contentType: "image/jpeg", path: attachmentPath(unique))
         }
         let outboxTarget: OutboxTarget
         switch target {

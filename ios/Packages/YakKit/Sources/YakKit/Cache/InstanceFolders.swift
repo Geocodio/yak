@@ -8,9 +8,7 @@ public enum InstanceFolders {
     public static func widgetSnapshot(_ instance: UUID) -> String { "\(cache(instance))/widget.json" }
     public static func widgetPushRecord(_ instance: UUID) -> String { "\(cache(instance))/widget-push.json" }
     public static func lastOpened(_ instance: UUID) -> String { "\(cache(instance))/last-opened.json" }
-    public static func shareContext(_ instance: UUID) -> String {
-        "instances/\(instance.uuidString)/share-context.json"
-    }
+    public static func shareContext(_ instance: UUID) -> String { "\(cache(instance))/share-context.json" }
     /// Where the share extension stages prepared images, at the app group root.
     public static let shareStaging = "share-staging"
     /// The device's widget token, at the app group root.

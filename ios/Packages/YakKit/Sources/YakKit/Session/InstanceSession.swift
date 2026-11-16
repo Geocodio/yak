@@ -92,8 +92,8 @@ public actor InstanceSession {
     private var stopping: Task<Void, Never>?
     /// Counts starts and stops, so an answer that arrives after a stop is dropped.
     private var runID = 0
-    private var hasEnded = false
-    private var isUnpairing = false
+    private(set) var hasEnded = false
+    private(set) var isUnpairing = false
     /// Awaited before each outbox update reaches a thread engine; a test holds an update here.
     private var forwardingGate: (@Sendable (OutboxUpdate) async -> Void)?
     private var nextToken = 0

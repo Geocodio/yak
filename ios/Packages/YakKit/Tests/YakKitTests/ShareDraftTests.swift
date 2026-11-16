@@ -144,3 +144,29 @@ private func readOnlyCopy(of show: ThreadShow) throws -> ThreadShow {
         typed: "See this", inputs: images, target: .lastThread, form: nil, model: nil, context: context)
     #expect(typed.problem == nil)
 }
+
+@Test func collidingImageNamesGetSuffixesAndKeepTheirNames() throws {
+    let context = try decoded(ShareContext.self, "scenario-share-context")
+    let inputs = ["a b.jpg", "a?b.jpg", "a:b.jpg"].map { ShareInput.image(fileName: $0) }
+    let draft = ShareDraft(typed: "hello", inputs: inputs, target: .lastThread, form: nil, model: nil, context: context)
+    let item = try #require(draft.outboxDraft(sendKey: key) { "files/\($0)" })
+    #expect(item.attachments.map(\.path) == ["files/a-b.jpg", "files/a-b-2.jpg", "files/a-b-3.jpg"])
+    #expect(item.attachments.map(\.fileName) == ["a b.jpg", "a?b.jpg", "a:b.jpg"])
+}
+
+@Test func theMinimumCountsCodePointsLikeTheServer() throws {
+    let context = try decoded(ShareContext.self, "scenario-share-context")
+    let form = NewThreadForm(options: context.options, saved: nil, lastUsedRepo: "example/api", linkRepo: nil)
+    let draft = ShareDraft(
+        typed: "e\u{0301}e", inputs: [], target: .newThread, form: form, model: nil, context: context)
+    #expect(draft.problem == nil)
+}
+
+@Test func aNewThreadWithoutOptionsHasNoRepository() throws {
+    var context = try decoded(ShareContext.self, "scenario-share-context")
+    let form = NewThreadForm(options: context.options, saved: nil, lastUsedRepo: "example/api", linkRepo: nil)
+    context.options = nil
+    let draft = ShareDraft(
+        typed: "Fix it please", inputs: [], target: .newThread, form: form, model: nil, context: context)
+    #expect(draft.problem == .noRepository)
+}
