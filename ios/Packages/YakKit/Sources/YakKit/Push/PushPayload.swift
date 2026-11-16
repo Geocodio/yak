@@ -106,8 +106,9 @@ public enum InstanceMatch {
         instances.first { $0.url == address } ?? instances.first { $0.canonicalURL == address }
     }
 
-    /// A `yak://` link whose `instance` item names a paired instance by its server address, rewritten to the paired `url`;
-    /// any other URL unchanged.
+    /// A `yak://` link whose `instance` item spells the address the app verified at pairing (an instance's `url`)
+    /// another way, rewritten to that `url`; any other URL unchanged. The server's `canonicalURL` is the server's
+    /// own claim and never matches a link from outside the app.
     public static func pairedLink(
         _ url: URL, instances: [Instance], normalize: (String) -> URL? = InstanceAddress.normalize
     ) -> URL {
@@ -117,7 +118,7 @@ public enum InstanceMatch {
             let index = items.firstIndex(where: { $0.name == "instance" }),
             let value = items[index].value,
             let address = normalize(value),
-            let match = instance(forNormalized: address, in: instances),
+            let match = instances.first(where: { $0.url == address }),
             match.url.absoluteString != value
         else { return url }
         items[index].value = match.url.absoluteString
@@ -158,9 +159,12 @@ public enum PushDestination: Equatable, Sendable {
         }
     }
 
+    /// The only pages a push may open. Every paired instance holds the same device token, so a push cannot prove
+    /// which instance sent it; a path outside this list is never opened.
+    public static let knownWebPaths: Set<String> = ["/settings/claude-accounts", "/settings/notifications"]
+
     private static func safeURL(path: String, on instance: Instance) -> URL? {
-        guard path.hasPrefix("/"), !path.hasPrefix("//"), path.count <= 512,
-            !path.contains("\\"), !path.contains("@"),
+        guard knownWebPaths.contains(path),
             let url = URL(string: instance.url.absoluteString + path),
             url.scheme == instance.url.scheme, url.host == instance.url.host, url.port == instance.url.port
         else { return nil }
