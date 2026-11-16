@@ -57,12 +57,8 @@ struct SubThreadsGroupView: View {
             if let parent = group.parent {
                 rows.append(AnyView(parentRow(parent)))
             }
-            if group.total > 0 || group.parent == nil { rows.append(AnyView(summary(group))) }
-            if case .refused(_, let message) = group.add {
-                rows.append(AnyView(refusal(message)))
-            } else if let onAdd {
-                rows.append(AnyView(addRow(onAdd)))
-            }
+            if group.total > 0 || group.parent == nil || onAdd != nil { rows.append(AnyView(summary(group))) }
+            if case .refused(_, let message) = group.add { rows.append(AnyView(refusal(message))) }
             for row in group.rows {
                 rows.append(AnyView(SubThreadRowView(row: row, model: model) { dropTarget = $0 }))
             }
@@ -94,23 +90,21 @@ struct SubThreadsGroupView: View {
         .buttonStyle(.plain).accessibilityElement(children: .combine).accessibilityIdentifier("overview.parent")
     }
 
-    private func addRow(_ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: "plus").accessibilityHidden(true)
-                Text("overview.add")
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 10).frame(minHeight: 44).contentShape(.rect)
-        }
-        .buttonStyle(.plain).disabled(model.isOffline).accessibilityIdentifier("overview.add")
-    }
-
+    /// The count, the awake limit of a root under it, and "Add" on the trailing side. Add stays on screen and is
+    /// disabled while the server refuses it.
     private func summary(_ group: SubThreadsGroup) -> some View {
-        OverviewRow(title: Text("drawer.children \(group.total) \(group.working)")) {
-            EmptyView()
+        let isRefused = if case .refused = group.add { true } else { false }
+        return OverviewRow(title: Text("drawer.children \(group.total) \(group.working)")) {
+            if let awake = group.awake { Text("overview.awake.line \(model.pendingAwakeLimit ?? awake.value)") }
         } trailing: {
-            EmptyView()
+            if let onAdd {
+                Button(action: onAdd) {
+                    Label("overview.addSubThread", systemImage: "plus").font(.body.weight(.medium))
+                        .frame(minHeight: 44).contentShape(.rect)
+                }
+                .buttonStyle(.plain).foregroundStyle(Color.accentColor).disabled(isRefused)
+                .accessibilityLabel(Text("overview.add")).accessibilityIdentifier("overview.addSubThread")
+            }
         }
         .accessibilityIdentifier("overview.summary")
     }

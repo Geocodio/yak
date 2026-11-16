@@ -179,7 +179,7 @@ import XCTest
 
     private func openAddSheet(_ scenario: String) throws {
         try openOverview(scenario)
-        let add = app.buttons["overview.add"]
+        let add = app.buttons["overview.addSubThread"]
         XCTAssertTrue(add.waitForExistence(timeout: 15))
         for _ in 0..<6 where !add.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         add.tap()

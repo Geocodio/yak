@@ -4019,6 +4019,26 @@
           }
         }
       }
+    },
+    "overview.addSubThread": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        }
+      }
+    },
+    "overview.awake.line %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Awake at once: %lld"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
