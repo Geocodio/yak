@@ -118,14 +118,14 @@ import XCTest
         XCTAssertEqual(XCTWaiter().wait(for: [saved], timeout: 10), .completed)
         try audit()
         try stub.play("notifications-failing")
-        let usage = app.switches["settings.switch.stack_usage"]
-        waitUntilEnabled(usage)
-        let valueBefore = usage.value as? String
-        usage.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        let pullRequest = app.switches["settings.switch.pull_request"]
+        waitUntilEnabled(pullRequest)
+        let valueBefore = pullRequest.value as? String
+        pullRequest.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         XCTAssertTrue(
             app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Could not save'")).firstMatch
                 .waitForExistence(timeout: 10))
-        XCTAssertEqual(usage.value as? String, valueBefore, "the switch returns to its earlier value")
+        XCTAssertEqual(pullRequest.value as? String, valueBefore, "the switch returns to its earlier value")
         try audit()
     }
 

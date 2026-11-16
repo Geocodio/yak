@@ -93,7 +93,7 @@ import XCTest
     }
 
     private func waitForLoadedSwitches() {
-        let usage = app.switches["settings.switch.stack_usage"]
+        let usage = app.switches["settings.switch.pull_request"]
         XCTAssertTrue(usage.waitForExistence(timeout: 15))
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: usage)
         XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 15), .completed)
@@ -156,7 +156,7 @@ import XCTest
         try openSettings()
         waitForLoadedSwitches()
         try stub.play("notifications-failing")
-        app.switches["settings.switch.stack_usage"].tap()
+        app.switches["settings.switch.pull_request"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings.switches.saveFailed"].waitForExistence(timeout: 15))
         try shoot("settings-save-failed")
     }

@@ -7,18 +7,15 @@ struct NotificationSwitchesView: View {
     @State private var showsSkeleton = false
 
     var body: some View {
-        SettingsHeaderRow(Text("settings.switches.header \(model.active.name)"))
+        SettingsHeaderRow(
+            Text("settings.switches.header \(model.active.name)"),
+            note: model.canPush ? Text("settings.switches.footer") : nil, alert: saveFailure)
         Section {
             if !model.canPush {
                 unavailable
             } else {
-                switchRows
                 status
-            }
-        } footer: {
-            if model.canPush {
-                Text("settings.switches.footer").font(.footnote.weight(.medium))
-                    .foregroundStyle(Color.primary)
+                switchRows
             }
         }
         .task(id: isLoading) {
@@ -71,6 +68,12 @@ struct NotificationSwitchesView: View {
         return true
     }
 
+    /// The failed save, in the heading's group: a row that appears below the switches is under the fold.
+    private var saveFailure: Text? {
+        guard let problem = model.switches.problem else { return nil }
+        return Text("settings.switches.saveFailed \(label(for: problem.event)) \(SettingsText.reason(problem.problem))")
+    }
+
     @ViewBuilder private var status: some View {
         if case .failed(let problem) = model.switches.load {
             VStack(alignment: .leading, spacing: 12) {
@@ -89,11 +92,6 @@ struct NotificationSwitchesView: View {
             }
             .accessibilityIdentifier("settings.switches.slow")
         }
-        if let problem = model.switches.problem {
-            Text("settings.switches.saveFailed \(label(for: problem.event)) \(SettingsText.reason(problem.problem))")
-                .foregroundStyle(Color.yakDanger)
-                .accessibilityIdentifier("settings.switches.saveFailed")
-        }
     }
 
     private func label(for event: PushEvent) -> String {
@@ -111,15 +109,28 @@ struct NotificationSwitchesView: View {
 /// is too light for the accessibility audit.
 struct SettingsHeaderRow: View {
     let text: Text
+    let note: Text?
+    let alert: Text?
 
-    init(_ text: Text) { self.text = text }
+    init(_ text: Text, note: Text? = nil, alert: Text? = nil) {
+        self.text = text
+        self.note = note
+        self.alert = alert
+    }
 
     var body: some View {
         Section {
-            text.font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                .accessibilityAddTraits(.isHeader)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 0, trailing: 16))
+            VStack(alignment: .leading, spacing: 4) {
+                text.font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                if let note { note.font(.footnote.weight(.medium)) }
+                if let alert {
+                    alert.font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                        .accessibilityIdentifier("settings.switches.saveFailed")
+                }
+            }
+            .foregroundStyle(Color.primary)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 0, trailing: 16))
         }
         .listSectionSpacing(0)
     }
