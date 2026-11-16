@@ -5,6 +5,7 @@ import YakKit
 /// row. It sits in a bottom safe-area inset, so it rides on the keyboard.
 struct BottomBar: View {
     let thread: ThreadModel
+    let slots: PaneSlots
     let placement: PaneControlPlacement
     @Binding var focused: PaneID
 
@@ -44,7 +45,11 @@ struct BottomBar: View {
     }
 
     @ViewBuilder private var row: some View {
-        if let descriptor = PaneCatalog.descriptor(for: focused) { descriptor.barRow(thread) }
+        if let own = slots.barRows[focused] {
+            own.view
+        } else if let descriptor = PaneCatalog.descriptor(for: focused) {
+            descriptor.barRow(thread)
+        }
     }
 
     /// A sideways swipe moves one pane, and does nothing at either end.

@@ -24,12 +24,23 @@ struct StubReply: Sendable {
     var protocolHeader = 1
 }
 
+/// A scenario data file that cannot be read. Names the file and the feature that asked for it.
+struct StubFixtureError: Error, CustomStringConvertible {
+    let scenario: String
+    /// The owning feature; nil for the core table.
+    let feature: String?
+
+    var description: String {
+        "scenario file \(scenario).json is missing or unreadable" + (feature.map { " (feature \($0))" } ?? "")
+    }
+}
+
 /// The fixture files, read once, with the values that change per run filled in.
 struct StubFixtures: Sendable {
     /// Server fixture name and scenario data name of every thread file the stub serves. A renamed file is a
     /// one-line change here. `thread-events`, `thread-event` and `thread-share` are not served: catch-up pages
     /// are computed from the event lists.
-    static let names: [(server: String, scenario: String)] = [
+    static let coreNames: [(server: String, scenario: String)] = [
         ("threads", "scenario-thread-list"),
         ("thread", "scenario-thread-show"),
         ("thread-question", "scenario-thread-question"),
@@ -46,6 +57,10 @@ struct StubFixtures: Sendable {
         ("events/stream-reset", "events/stream-reset"),
         ("events/pointer", "events/pointer"),
     ]
+    /// The core table and every feature's fixture pairs.
+    static var names: [(server: String, scenario: String)] {
+        coreNames + StubFeatures.all.flatMap(\.fixturePairs).map { ($0.server, $0.scenario) }
+    }
     private static let authorizationScenarioNames = [
         "scenario-broadcasting-auth-presence", "scenario-broadcasting-auth-private",
     ]
@@ -67,7 +82,13 @@ struct StubFixtures: Sendable {
         var scenarioFiles: [String: Data] = [:]
         if let scenariosDirectory {
             for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames {
-                scenarioFiles[name] = try Data(contentsOf: scenariosDirectory.appendingPathComponent("\(name).json"))
+                do {
+                    scenarioFiles[name] = try Data(
+                        contentsOf: scenariosDirectory.appendingPathComponent("\(name).json"))
+                } catch {
+                    let owner = StubFeatures.all.first { $0.fixturePairs.contains { $0.scenario == name } }?.name
+                    throw StubFixtureError(scenario: name, feature: owner)
+                }
             }
         }
         self.scenarioFiles = scenarioFiles

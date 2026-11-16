@@ -56,6 +56,7 @@ final class AppModel {
     /// Runs once before the first route is chosen; UI tests seed their instance here.
     private var prepare: (@Sendable (InstanceStore) async -> Void)?
     let network: NetworkMonitor
+    private let observers: InstanceObservers
     /// How many sheets are open. The pairing link screen is presented by the topmost one, because a screen
     /// cannot present over a sheet that its own parent presented.
     var openSheetCount = 0
@@ -71,8 +72,11 @@ final class AppModel {
             .app(version: "0.0.0", system: "Unit test", files: InMemoryFileStore(), allowsInsecureRealtime: false)
         },
         prepare: (@Sendable (InstanceStore) async -> Void)? = nil,
-        network: NetworkMonitor = NetworkMonitor()
+        network: NetworkMonitor = NetworkMonitor(),
+        observers: [any InstanceLifecycleObserver] = [],
+        observerTimeout: Duration = .seconds(5)
     ) {
+        self.observers = InstanceObservers(observers: observers, timeout: observerTimeout)
         self.network = network
         self.normalizeAddress = normalizeAddress
         self.parseLink = parseLink
@@ -93,6 +97,7 @@ final class AppModel {
             onPaired: { [weak self] instance in
                 self?.scene?.justPairedUserName = instance.userName
                 await self?.reloadRoute()
+                await self?.observers.paired(instance)
             },
             pairedInstances: { [weak self] in await self?.instances.all() ?? [] },
             normalizeAddress: normalizeAddress)
@@ -272,12 +277,14 @@ final class AppModel {
         refreshState = .idle
         wantsScanner = false
         await reloadRoute()
+        await observers.removed(instance, reason: .unpaired)
     }
 
     func markRevoked(_ instance: Instance) async {
         do { try await instances.markRevoked(instance.id) } catch { logFailure("Marking revoked failed") }
         refreshState = .idle
         await reloadRoute()
+        await observers.removed(instance, reason: .revoked)
     }
 
     private func logFailure(_ message: String) {

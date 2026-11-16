@@ -11,7 +11,7 @@ final class ThreadModel {
     /// The session had no engine to give, so there is nothing to wait for.
     private(set) var couldNotOpen = false
 
-    private let session: InstanceSession
+    let session: InstanceSession
     /// The drawer row's title, shown until the thread's own arrives.
     private var initialTitle: String?
     private var isStarted = false

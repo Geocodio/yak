@@ -1,21 +1,41 @@
 import SwiftUI
 import YakKit
 
+#if canImport(os)
+    import os
+#endif
+
 @main
 struct YakApp: App {
     @State private var model: AppModel
+    private let parts: AppParts
 
     init() {
         let version = DeviceDescription.appVersion()
         let system = DeviceDescription.current().systemDescription
         #if DEBUG
             if let testMode = TestMode.current() {
-                _model = State(initialValue: testMode.makeModel(version: version, system: system))
+                let parts = AppParts.make(storage: nil, isTestMode: true)
+                self.parts = parts
+                _model = State(initialValue: testMode.makeModel(version: version, system: system, parts: parts))
                 return
             }
         #endif
-        let tokens = KeychainTokenStore(accessGroup: nil)
-        let instances = InstanceStore(defaults: UserDefaults.standard, tokens: tokens, now: { Date() })
+        let storage = SharedStorage.open()
+        if let storage {
+            _ = storage.migrateFromStandardStores()
+        } else {
+            #if canImport(os)
+                Logger(subsystem: "Yak", category: "Startup")
+                    .error("No app group storage; the standard stores are used")
+            #endif
+        }
+        let tokens = storage?.tokens ?? KeychainTokenStore(accessGroup: nil)
+        let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
+        let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() })
+        let parts = AppParts.make(storage: storage, isTestMode: false)
+        self.parts = parts
+        let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
         _model = State(
             initialValue: AppModel(
                 instances: instances, tokens: tokens,
@@ -25,16 +45,15 @@ struct YakApp: App {
                         systemDescription: system)
                 },
                 makeEnvironment: {
-                    .app(
-                        version: version, system: system, files: SessionEnvironment.releaseFiles(),
-                        allowsInsecureRealtime: false)
-                }))
+                    .app(version: version, system: system, files: files, allowsInsecureRealtime: false)
+                },
+                observers: parts.observers))
     }
 
     var body: some Scene {
         WindowGroup {
             RootView(model: model)
-                .onOpenURL { url in Task { await model.handle(url: url) } }
+                .appRoot(parts, model: model)
                 #if DEBUG
                     .preferredColorScheme(TestMode.colorScheme())
                 #endif

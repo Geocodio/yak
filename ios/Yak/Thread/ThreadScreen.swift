@@ -20,6 +20,7 @@ struct ThreadScreen: View {
 
     @State private var model: ThreadModel?
     @State private var copiedLink = 0
+    @State private var slots = PaneSlots()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
@@ -69,10 +70,10 @@ struct ThreadScreen: View {
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     if placement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
-                    PaneHost(thread: thread, focused: focused.wrappedValue)
+                    PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    BottomBar(thread: thread, placement: placement, focused: focused)
+                    BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
                 }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
@@ -87,7 +88,7 @@ struct ThreadScreen: View {
                     ToolbarItem(placement: .principal) {
                         ThreadTitle(title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine)
                     }
-                    ToolbarItem(placement: .topBarTrailing) { threadMenu }
+                    ToolbarItem(placement: .topBarTrailing) { threadMenu(focused.wrappedValue) }
                 }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {
                     PaneStripToolbar(panes: thread.panes, focused: focused, thread: thread)
@@ -102,7 +103,7 @@ struct ThreadScreen: View {
 
     private func focusedBinding(_ thread: ThreadModel) -> Binding<PaneID> {
         Binding(
-            get: { thread.panes.contains(scene.state.focusedPane) ? scene.state.focusedPane : .chat },
+            get: { scene.shownPane(among: thread.panes) },
             set: { scene.focus(pane: $0) })
     }
 
@@ -112,7 +113,7 @@ struct ThreadScreen: View {
             if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
             PaneMenuButton(panes: thread.panes, focused: focused)
             Spacer(minLength: 0)
-            threadMenu.background(Color.primary.opacity(0.08), in: .circle)
+            threadMenu(focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
         }
         .tint(.primary)
         .padding(.vertical, 8).padding(.horizontal, 6)
@@ -147,8 +148,9 @@ struct ThreadScreen: View {
         .accessibilityIdentifier("threads.button")
     }
 
-    private var threadMenu: some View {
+    private func threadMenu(_ shownPane: PaneID) -> some View {
         Menu {
+            PaneMenuItems(slots: slots, focused: shownPane)
             Button {
                 openWeb(webURL)
             } label: {
@@ -175,7 +177,7 @@ struct ThreadScreen: View {
 
     /// Command 1 focuses Chat.
     private func shortcuts(_ focused: Binding<PaneID>) -> some View {
-        Button("pane.chat") { focused.wrappedValue = .chat }.keyboardShortcut("1")
+        Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
             .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }
 }

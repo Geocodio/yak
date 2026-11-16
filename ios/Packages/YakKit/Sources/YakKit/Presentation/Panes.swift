@@ -1,8 +1,11 @@
 public enum PaneID: String, CaseIterable, Codable, Sendable { case chat, preview, files, terminal, overview }
 
 public enum Panes {
-    /// Panes this build has. App plan 2b builds Chat only; later plans add theirs here.
-    public static let built: [PaneID] = [.chat]
+    /// Panes this build has, one line per pane. Files exists only while a Files mode is built.
+    public static let built: [PaneID] =
+        [
+            .chat
+        ] + (FilesMode.built.isEmpty ? [] : [.files])
 
     /// In `PaneID.allCases` order: Chat always; Preview when `server.preview`; Files when `server.files || server.changes`;
     /// Terminal when `server.terminal`; Overview always. Then filtered by `built`. A nil `server` gives Chat.

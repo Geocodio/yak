@@ -125,6 +125,23 @@ for planted in 'logFailure("a \(error as NSError)")' 'logFailure("\(String(refle
     expect_fail "logging: $planted" "release: logging"
 done
 
+# focused pane
+fresh
+plant Yak/Planted.swift <<'EOF'
+func planted() { switch scene.state.focusedPane { default: break } }
+EOF
+expect_fail "focus: a switch on the raw focused pane" "focusedPane read outside" "Yak/Planted.swift:1"
+fresh
+plant Yak/Planted.swift <<'EOF'
+func planted() { PaneMenuItems(slots: slots, focused: scene.state.focusedPane) }
+EOF
+expect_fail "focus: the raw focused pane as an argument" "focusedPane read outside" "Yak/Planted.swift:1"
+fresh
+plant Yak/Planted.swift <<'EOF'
+func planted() { scene.shownPane(among: panes); scene.isShown(.chat) }
+EOF
+expect_pass "focus: the accessors pass"
+
 # trap messages
 fresh
 plant Yak/Planted.swift <<'EOF'

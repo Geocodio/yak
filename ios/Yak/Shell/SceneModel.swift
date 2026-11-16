@@ -86,6 +86,14 @@ final class SceneModel {
     /// Leaves the open thread, so a wide window shows its empty detail next to the always visible list.
     func closeThread() { state.threadID = nil }
     func focus(pane: PaneID) { state.focusedPane = pane }
+    /// Whether `pane` is on screen. A pane or its model that pauses work, polls or shows a chip only while visible
+    /// asks this, never `focusedPane` itself, so a layout that shows two panes changes only this body.
+    /// With `panes`, a focused pane the thread does not have counts as chat, the pane the thread screen then shows.
+    func isShown(_ pane: PaneID, among panes: [PaneID]? = nil) -> Bool { shownPane(among: panes) == pane }
+    func shownPane(among panes: [PaneID]?) -> PaneID {
+        guard let panes else { return state.focusedPane }
+        return panes.contains(state.focusedPane) ? state.focusedPane : .chat
+    }
     func requestSearchFocus() {
         state.isDrawerOpen = true
         searchFocusRequest += 1

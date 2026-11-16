@@ -13,6 +13,8 @@ final class StubServer: Sendable {
     private let attachments: StubAttachments
     private let attachmentScenario = Locked<String?>(nil)
     private let threads = StubThreads()
+    private let features: [any StubFeature]
+    private let featureScenario = Locked<String?>(nil)
     private let listener: NWListener
     private let socket: PusherSocket
     private let socketPort = Locked<UInt16>(0)
@@ -20,8 +22,9 @@ final class StubServer: Sendable {
     /// `scenarios` is the folder of hand-written scenario files that the attachment scenarios read.
     init(
         port: UInt16, fixtures: StubFixtures, scenario: Scenario, scenarios: URL? = nil,
-        playbackInterval: Duration = .milliseconds(400)
+        playbackInterval: Duration = .milliseconds(400), features: [any StubFeature] = StubFeatures.all
     ) throws {
+        self.features = features
         self.fixtures = fixtures
         attachments = StubAttachments { name in
             guard let folder = scenarios else { return nil }
@@ -65,6 +68,50 @@ final class StubServer: Sendable {
         }
     }
 
+    /// Starts every feature's listeners, each within five seconds. A feature that throws or runs out of time
+    /// stops the rest and is named in the error.
+    func startFeatures() async throws {
+        for feature in features {
+            do {
+                try await Self.bounded(.seconds(5)) { try await feature.start() }
+            } catch let error as StubFeatureError {
+                throw StubFeatureError(feature: feature.name, isTimeout: error.isTimeout)
+            } catch {
+                throw StubFeatureError(feature: feature.name, isTimeout: false)
+            }
+        }
+    }
+
+    /// Runs `work` and gives up after `limit`. The timer is cancelled when the work finishes first, so no task keeps
+    /// sleeping for the full limit; `sleep` is replaced in tests to see that.
+    static func bounded(
+        _ limit: Duration,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        _ work: @escaping @Sendable () async throws -> Void
+    ) async throws {
+        let once = Once()
+        let timer = TaskHolder()
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let job = Task {
+                do {
+                    try await work()
+                    if once.first() { continuation.resume() }
+                } catch {
+                    if once.first() { continuation.resume(throwing: error) }
+                }
+                timer.cancel()
+            }
+            timer.set(
+                Task {
+                    do { try await sleep(limit) } catch { return }
+                    if once.first() {
+                        job.cancel()
+                        continuation.resume(throwing: StubFeatureError(feature: "", isTimeout: true))
+                    }
+                })
+        }
+    }
+
     /// Stops both listeners and closes every WebSocket.
     func stop() {
         listener.cancel()
@@ -95,23 +142,34 @@ final class StubServer: Sendable {
         if request.path == "/__stub/scenario" {
             if request.method == "POST" {
                 let name = String(decoding: request.body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+                let owners = features.filter { $0.scenarios.contains(name) }
                 if StubAttachments.scenarioNames.contains(name) {
                     current.set(.paired)
                     attachmentScenario.set(name)
+                    featureScenario.set(nil)
                     attachments.begin()
+                } else if owners.count == 1 {
+                    current.set(.paired)
+                    attachmentScenario.set(nil)
+                    featureScenario.set(name)
                 } else {
                     guard let scenario = Scenario(rawValue: name) else {
                         return StubReply(answer: Scenario.error(400, "unknown_scenario", "No scenario named \(name)."))
                     }
                     current.set(scenario)
                     attachmentScenario.set(nil)
+                    featureScenario.set(nil)
                 }
                 online.set(true)
                 attachments.setOnline(true)
                 threads.reset()
                 socket.reset()
+                for feature in features {
+                    feature.reset()
+                    feature.setOnline(true)
+                }
             }
-            let body = Data((attachmentScenario.get() ?? current.get().rawValue).utf8)
+            let body = Data((featureScenario.get() ?? attachmentScenario.get() ?? current.get().rawValue).utf8)
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: body))
         }
         if request.path == "/__stub/online" {
@@ -125,6 +183,7 @@ final class StubServer: Sendable {
                 online.set(state == "yes")
                 attachments.setOnline(state == "yes")
                 if state == "no" { socket.closeAll() }
+                for feature in features { feature.setOnline(state == "yes") }
             }
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data((online.get() ? "yes" : "no").utf8)))
@@ -133,16 +192,37 @@ final class StubServer: Sendable {
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data(threads.lastMessage.utf8)))
         }
-        if !online.get(), request.path.hasPrefix(Scenario.apiPrefix) { return StubReply(answer: .drop) }
+        for feature in features where Self.controlPath(of: feature.name, matches: request.path) {
+            if let reply = feature.control(request) { return reply }
+        }
+        let isAPI = request.path.hasPrefix(Scenario.apiPrefix)
+        if !online.get(), isAPI { return StubReply(answer: .drop) }
         let host = request.headers["host"] ?? "127.0.0.1"
+        let core: @Sendable () -> StubReply = { [self] in coreReply(to: request, baseURL: "http://\(host)") }
+        if isAPI, !features.isEmpty {
+            let context = StubContext(
+                scenario: featureScenario.get() ?? attachmentScenario.get() ?? current.get().rawValue,
+                baseURL: "http://\(host)", fixtures: fixtures, threads: threads, core: { core().answer })
+            let route = "\(request.method) \(request.path.dropFirst(Scenario.apiPrefix.count))"
+            for feature in features {
+                if let reply = feature.answer(route: route, request: request, context: context) { return reply }
+            }
+        }
+        return core()
+    }
+
+    private static func controlPath(of name: String, matches path: String) -> Bool {
+        path == "/__stub/\(name)" || path.hasPrefix("/__stub/\(name)/")
+    }
+
+    private func coreReply(to request: StubRequest, baseURL: String) -> StubReply {
         if let name = attachmentScenario.get(),
-            let reply = attachments.reply(to: request, scenario: name, baseURL: "http://\(host)")
+            let reply = attachments.reply(to: request, scenario: name, baseURL: baseURL)
         {
             return reply
         }
         return current.get().reply(
-            to: request, baseURL: "http://\(host)", fixtures: fixtures, threads: threads,
-            realtimePort: socketPort.get())
+            to: request, baseURL: baseURL, fixtures: fixtures, threads: threads, realtimePort: socketPort.get())
     }
 
     private static func write(_ reply: StubReply, for request: StubRequest, to connection: NWConnection) {
@@ -234,6 +314,25 @@ final class Locked<Value: Sendable>: @unchecked Sendable {
 }
 
 /// Lets only the first of several callbacks through.
+/// Holds the timer of `bounded` so the finished work can cancel it, even if it finishes before the timer is stored.
+final class TaskHolder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var task: Task<Void, Never>?
+    private var isCancelled = false
+    func set(_ new: Task<Void, Never>) {
+        lock.withLock {
+            task = new
+            if isCancelled { new.cancel() }
+        }
+    }
+    func cancel() {
+        lock.withLock {
+            isCancelled = true
+            task?.cancel()
+        }
+    }
+}
+
 final class Once: @unchecked Sendable {
     private let lock = NSLock()
     private var done = false

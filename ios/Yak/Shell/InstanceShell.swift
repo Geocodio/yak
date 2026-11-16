@@ -152,9 +152,9 @@ struct InstanceShell: View {
     /// Command N, Command K (the drawer's search field) and Command backslash.
     private var shortcuts: some View {
         VStack {
-            Button("shell.newThread") { scene.openNewThread(repo: nil, text: nil) }.keyboardShortcut("n")
-            Button("shell.threads") { scene.requestSearchFocus() }.keyboardShortcut("k")
-            Button("shell.threads") { scene.setDrawerOpen(!scene.state.isDrawerOpen) }.keyboardShortcut("\\")
+            Button("shell.newThread") { scene.openNewThread(repo: nil, text: nil) }.yakShortcut(.newThread)
+            Button("shell.threads") { scene.requestSearchFocus() }.yakShortcut(.searchThreads)
+            Button("shell.threads") { scene.setDrawerOpen(!scene.state.isDrawerOpen) }.yakShortcut(.toggleSidebar)
         }
         .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }

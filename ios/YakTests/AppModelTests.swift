@@ -65,7 +65,9 @@ private struct HealthyInstanceTransport: HTTPTransport {
     }
 }
 
-@MainActor private func makeLinkModel() -> (AppModel, InstanceStore) {
+@MainActor private func makeLinkModel(
+    observers: [any InstanceLifecycleObserver] = [], observerTimeout: Duration = .seconds(5)
+) -> (AppModel, InstanceStore) {
     let tokens = InMemoryTokenStore()
     let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
     let model = AppModel(
@@ -74,7 +76,8 @@ private struct HealthyInstanceTransport: HTTPTransport {
             APIClient(
                 baseURL: $0, token: nil, transport: HealthyInstanceTransport(), appVersion: "1",
                 systemDescription: "test", sleep: { _ in })
-        })
+        },
+        observers: observers, observerTimeout: observerTimeout)
     return (model, instances)
 }
 
@@ -272,4 +275,86 @@ func refreshingAnInstanceThatIsNotActiveOnlyUpdatesItsStoredCount(isCancelled: B
     #expect(model.refreshState == .idle)
     let stored = try #require(await instances.all().first { $0.id == other.id })
     #expect(stored.needsYouCount == (isCancelled ? 0 : 4))
+}
+
+@MainActor private final class RecordingObserver: InstanceLifecycleObserver {
+    private(set) var events: [String] = []
+    func instancePaired(_ instance: Instance) async { events.append("paired \(instance.url.host() ?? "")") }
+    func instanceRemoved(_ instance: Instance, reason: InstanceRemoval) async {
+        events.append("removed \(instance.url.host() ?? "") \(reason)")
+    }
+}
+
+/// Never answers, like an observer waiting on a network that is gone.
+@MainActor private final class StuckObserver: InstanceLifecycleObserver {
+    func instancePaired(_ instance: Instance) async { try? await Task.sleep(for: .seconds(3600)) }
+    func instanceRemoved(_ instance: Instance, reason: InstanceRemoval) async {
+        try? await Task.sleep(for: .seconds(3600))
+    }
+}
+
+private final class SleeperCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var count: Int { lock.withLock { value } }
+    func change(_ delta: Int) { lock.withLock { value += delta } }
+}
+
+@MainActor @Test func aFinishedObserverCallCancelsItsTimer() async throws {
+    let sleepers = SleeperCount()
+    let observers = InstanceObservers(
+        observers: [RecordingObserver()], timeout: .seconds(3600),
+        sleep: { _ in
+            sleepers.change(1)
+            defer { sleepers.change(-1) }
+            try await Task.sleep(for: .seconds(3600))
+        })
+    let (_, instances) = makeLinkModel()
+    let instance = try await instances.add(
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
+    for _ in 0..<20 { await observers.paired(instance) }
+    for _ in 0..<100 where sleepers.count > 0 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(sleepers.count == 0, "a timer is still sleeping after its call finished")
+}
+
+@MainActor @Test func observersHearAPairing() async {
+    let observer = RecordingObserver()
+    let (model, _) = makeLinkModel(observers: [observer])
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    #expect(observer.events == ["paired first.example.com"])
+}
+
+@MainActor @Test func observersHearARemoval() async throws {
+    let observer = RecordingObserver()
+    let (model, instances) = makeLinkModel(observers: [observer])
+    let instance = try await instances.add(
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
+    await model.remove(instance)
+    #expect(observer.events == ["removed first.example.com unpaired"])
+    #expect(await instances.all().isEmpty)
+}
+
+@MainActor @Test func observersHearARevoke() async throws {
+    let observer = RecordingObserver()
+    let (model, instances) = makeLinkModel(observers: [observer])
+    let instance = try await instances.add(
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
+    await model.markRevoked(instance)
+    #expect(observer.events == ["removed first.example.com revoked"])
+}
+
+@MainActor @Test func aSlowObserverDoesNotHoldTheRoute() async throws {
+    let recorder = RecordingObserver()
+    let (model, instances) = makeLinkModel(
+        observers: [StuckObserver(), recorder], observerTimeout: .milliseconds(50))
+    let instance = try await instances.add(
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
+    await model.reloadRoute()
+    let started = ContinuousClock.now
+    await model.remove(instance)
+    #expect(model.route == .connect)
+    #expect(ContinuousClock.now - started < .seconds(2))
+    // The observer after the stuck one is still told.
+    #expect(recorder.events == ["removed first.example.com unpaired"])
 }

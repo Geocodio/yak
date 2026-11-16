@@ -23,6 +23,7 @@ targets:
     platform: iOS
     sources:
       - path: Yak
+      - path: Shared
     dependencies:
       - package: YakKit
     settings:
@@ -51,6 +52,7 @@ targets:
             CFBundleURLSchemes: [yak]
         UILaunchScreen: {}
         YakAppGroup: $(YAK_APP_GROUP)
+        YakAppBundleID: $(YAK_BUNDLE_ID)
   YakTests:
     type: bundle.unit-test
     platform: iOS

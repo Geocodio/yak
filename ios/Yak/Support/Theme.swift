@@ -10,6 +10,9 @@ extension Color {
     /// Secondary text. The system's secondary label is too faint for the contrast audit, so this is the primary
     /// label color at 72 percent, which adapts to light and dark.
     static let yakMuted = Color.primary.opacity(0.72)
+    /// A count badge: the primary label color with the page color on top, so the pair keeps its contrast in light and dark.
+    static let yakBadge = Color.primary
+    static let yakOnBadge = Color(.systemBackground)
 }
 
 /// The one filled control on a screen.

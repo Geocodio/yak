@@ -36,7 +36,7 @@
             }
         }
 
-        @MainActor func makeModel(version: String, system: String) -> AppModel {
+        @MainActor func makeModel(version: String, system: String, parts: AppParts) -> AppModel {
             let lockable = LockableTokenStore()
             let instances = InstanceStore(defaults: MemoryDefaults(), tokens: lockable, now: { Date() })
             let seed = self
@@ -65,7 +65,8 @@
                     }
                     if seed.isKeychainLocked { lockable.lockReads() }
                 },
-                network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }))
+                network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }),
+                observers: parts.observers)
             model.skipsWebSession = skipsWebSession
             return model
         }
