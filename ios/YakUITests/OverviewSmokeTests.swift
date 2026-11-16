@@ -95,6 +95,43 @@ import XCTest
         try audit()
     }
 
+    func testLongPressOnAFailedSubThreadOffersItsActions() throws {
+        try launch(scenario: "overview-stack")
+        if !app.otherElements["drawer"].exists {
+            let threads = app.buttons["threads.button"]
+            if threads.waitForExistence(timeout: 10) { threads.tap() }
+        }
+        let failed = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
+        if !failed.waitForExistence(timeout: 10) {
+            let toggle = app.buttons["drawer.toggle.thread:s7ackr00"]
+            XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+            toggle.tap()
+        }
+        XCTAssertTrue(failed.waitForExistence(timeout: 10))
+        // The menu reads the stack the drawer fetched when the parent opened.
+        sleepForStack()
+        failed.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 5))
+        let takeOver = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Take over"))
+        XCTAssertTrue(takeOver.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.buttons["Split it up"].exists)
+        app.tap()
+        let working = app.descendants(matching: .any)["drawer.row.thread:b4ckf111"]
+        XCTAssertTrue(working.waitForExistence(timeout: 5))
+        working.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["Open"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Drop it"].exists)
+        app.tap()
+        try audit()
+    }
+
+    /// Gives the drawer's prefetch a moment, since the menu offers actions only from a fetched stack.
+    private func sleepForStack() {
+        let settle = XCTestExpectation(description: "stack")
+        settle.isInverted = true
+        wait(for: [settle], timeout: 2)
+    }
+
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex

@@ -172,7 +172,9 @@ struct InstanceShell: View {
     /// Shows the list while the session is active and applies the cold start on the first unsearched `mine` list.
     private func followThreadList() async {
         guard status == .active, let feed = await session.threadList() else { return }
-        let drawer = DrawerModel(feed: feed, outbox: await session.outbox(), scene: scene, clock: SystemClock())
+        let drawer = DrawerModel(
+            feed: feed, outbox: await session.outbox(), scene: scene, clock: SystemClock(),
+            overview: await session.overviewActions())
         drawerModel = drawer
         await drawer.setVisible(isListVisible)
         for await state in await feed.states() {

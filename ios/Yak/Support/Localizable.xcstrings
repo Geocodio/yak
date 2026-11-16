@@ -3082,6 +3082,16 @@
         }
       }
     },
+    "drawer.child.checking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking what this sub-thread allows"
+          }
+        }
+      }
+    },
     "overview.child.open": {
       "localizations": {
         "en": {

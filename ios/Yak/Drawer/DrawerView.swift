@@ -16,6 +16,7 @@ struct DrawerView: View {
     let retry: () -> Void
 
     @FocusState private var isSearchFocused: Bool
+    @State private var dropTarget: DrawerRow?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
@@ -32,7 +33,24 @@ struct DrawerView: View {
         // Whatever sits above the bottom bar is clipped to the room left, so the bar is always fully on screen.
         .frame(maxHeight: .infinity, alignment: .top)
         .clipped()
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                actionLine(drawer)
+                bottomBar
+            }
+        }
+        .animation(.spring(duration: 0.3), value: drawer?.actionLine)
+        .sensoryFeedback(.error, trigger: drawer?.refusalCount ?? 0)
+        .confirmationDialog(
+            Text("overview.drop.title \(dropTarget?.title ?? "")"), isPresented: dropBinding, titleVisibility: .visible
+        ) {
+            Button("overview.child.drop", role: .destructive) {
+                if let target = dropTarget, let drawer { Task { await drawer.perform(.drop, on: target) } }
+            }
+            Button("overview.cancel", role: .cancel) {}
+        } message: {
+            Text("overview.drop.message")
+        }
         .background(Color(.secondarySystemBackground))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("drawer")
@@ -166,13 +184,11 @@ struct DrawerView: View {
                 ForEach(sections) { section in
                     Section {
                         ForEach(section.rows) { row in
-                            DrawerRowView(
-                                row: row, now: context.date, open: { open(row) }, toggle: { drawer.toggle(row.id) }
-                            )
-                            .listRowInsets(.init())
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .transition(.opacity)
+                            rowView(row, now: context.date, drawer: drawer)
+                                .listRowInsets(.init())
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .transition(.opacity)
                         }
                     } header: {
                         Text(title(of: section.kind)).font(.subheadline.weight(.semibold))
@@ -192,6 +208,112 @@ struct DrawerView: View {
             .scrollDismissesKeyboard(.interactively)
             .animation(.spring(duration: 0.35), value: drawer.content)
             .accessibilityIdentifier("drawer.list")
+        }
+    }
+
+    /// A sub-thread row also offers a long press menu and swipe actions; a root row is the plain row.
+    @ViewBuilder private func rowView(_ row: DrawerRow, now: Date, drawer: DrawerModel) -> some View {
+        let plain = DrawerRowView(
+            row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) },
+            isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id)
+        if row.depth > 0, case .thread = row.target {
+            let menu = drawer.childMenu(row)
+            plain
+                .contextMenu {
+                    childMenuItems(row, menu: menu, drawer: drawer)
+                } preview: {
+                    DrawerRowView(row: row, now: now, open: {}, toggle: {}, isRunning: false)
+                        .frame(minWidth: 280)
+                        .onAppear { drawer.menuOpening(row) }
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    if case .ready(let actions) = menu, !drawer.isOffline {
+                        if actions.contains(.drop) {
+                            Button(role: .destructive) {
+                                dropTarget = row
+                            } label: {
+                                Text("overview.child.drop")
+                            }
+                        }
+                        if actions.contains(.takeOver) {
+                            Button {
+                                Task { await drawer.perform(.takeOver, on: row) }
+                            } label: {
+                                Text("overview.child.takeOver")
+                            }
+                            .tint(Color(.systemGray))
+                        }
+                    }
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    Button {
+                        open(row)
+                    } label: {
+                        Text("overview.child.open")
+                    }.tint(Color(.systemGray2))
+                }
+        } else {
+            plain
+        }
+    }
+
+    @ViewBuilder private func childMenuItems(_ row: DrawerRow, menu: DrawerChildMenu, drawer: DrawerModel)
+        -> some View
+    {
+        Button {
+            open(row)
+        } label: {
+            Text("overview.child.open")
+        }
+        switch menu {
+        case .loading:
+            Button {
+            } label: {
+                Text("drawer.child.checking")
+            }.disabled(true)
+        case .ready(let actions):
+            if actions.contains(.takeOver) {
+                Button {
+                    Task { await drawer.perform(.takeOver, on: row) }
+                } label: {
+                    Text("overview.child.takeOver")
+                    Text("overview.child.takeOver.subtitle")
+                }
+                .disabled(drawer.isOffline)
+            }
+            if actions.contains(.split) {
+                Button {
+                    Task { await drawer.perform(.split, on: row) }
+                } label: {
+                    Text("overview.child.split")
+                }
+                .disabled(drawer.isOffline)
+            }
+            if actions.contains(.drop) {
+                Button(role: .destructive) {
+                    dropTarget = row
+                } label: {
+                    Text("overview.child.drop")
+                }
+                .disabled(drawer.isOffline)
+            }
+        }
+    }
+
+    private var dropBinding: Binding<Bool> {
+        Binding(get: { dropTarget != nil }, set: { if !$0 { dropTarget = nil } })
+    }
+
+    /// The server's sentence about a refused action, above the bottom controls.
+    @ViewBuilder private func actionLine(_ drawer: DrawerModel?) -> some View {
+        if let line = drawer?.actionLine {
+            Text(line).font(.footnote.weight(.medium)).foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20).padding(.vertical, 10)
+                .background(Color.primary.opacity(0.06))
+                .accessibilityIdentifier("drawer.actionLine")
+                .transition(.opacity)
         }
     }
 

@@ -35,6 +35,16 @@ private func list(
 }
 
 @Suite struct DrawerSectionsTests {
+    @Test func aChildShowsItsStep() throws {
+        let list = try decoded(ThreadList.self, "scenario-overview-thread-list")
+        let content = makeContent(list, expanded: ["thread:s7ackr00": true])
+        let all = rows(content, .today) + rows(content, .needsYou)
+        let working = try #require(all.first { $0.id == "thread:b4ckf111" })
+        let stopped = try #require(all.first { $0.id == "thread:q7adapt0" })
+        #expect(working.subtitle == .step("Writing the backfill script"))
+        #expect(stopped.subtitle == .status(.stopped))
+    }
+
     @Test func buildsTheSectionsInOrder() throws {
         let list = try decoded(ThreadList.self, "scenario-thread-list")
         guard case .sections(let sections) = makeContent(list) else {

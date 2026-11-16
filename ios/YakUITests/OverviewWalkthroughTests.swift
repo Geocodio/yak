@@ -186,6 +186,61 @@ import XCTest
         XCTAssertTrue(app.textFields["addSubThread.name"].waitForExistence(timeout: 10))
     }
 
+    // MARK: Drawer sub-threads
+
+    func testDrawerChildMenu() throws {
+        try openDrawerChildren("overview-stack")
+        let failed = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
+        pause(2)
+        failed.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 5))
+        // The menu is the system's own surface; the audit cannot judge text on it.
+        try shoot("drawer-child-menu", audits: false)
+    }
+
+    func testDrawerChildMenuLoading() throws {
+        try openDrawerChildren("overview-slow")
+        let failed = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
+        failed.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["Checking what this sub-thread allows"].waitForExistence(timeout: 5))
+        try shoot("drawer-child-menu-loading", audits: false)
+    }
+
+    func testDrawerChildSwipe() throws {
+        try openDrawerChildren("overview-stack")
+        pause(2)
+        // A short drag from inside the row reveals the actions; a fast swipe would close the drawer.
+        let row = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.5)))
+        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 5))
+        try shoot("drawer-child-swipe", audits: false)
+    }
+
+    func testDrawerChildSteps() throws {
+        try openDrawerChildren("overview-stack")
+        XCTAssertTrue(app.staticTexts["Writing the backfill script"].exists)
+        try shoot("drawer-child-steps")
+    }
+
+    private func openDrawerChildren(_ scenario: String) throws {
+        try start(scenario, paired: true)
+        if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        let failed = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
+        if !failed.waitForExistence(timeout: 10) {
+            let toggle = app.buttons["drawer.toggle.thread:s7ackr00"]
+            XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+            toggle.tap()
+        }
+        XCTAssertTrue(failed.waitForExistence(timeout: 10))
+    }
+
+    private func pause(_ seconds: TimeInterval) {
+        let settle = XCTestExpectation(description: "pause")
+        settle.isInverted = true
+        wait(for: [settle], timeout: seconds)
+    }
+
     // MARK: Helpers
 
     private func chooseFromMenu(of childID: String, _ item: String) throws {
