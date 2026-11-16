@@ -43,9 +43,12 @@ export function StartThreadForm({
     isRepoBlocked = false,
     example,
     initialDescription = '',
+    isEmbedded = false,
 }: Omit<NewThreadPageData, 'emailToYakAddress'> & {
     onStarted?: () => void;
     autoFocus?: boolean;
+    /** Renders without its own card edge, for a host that already draws one (the New thread dialog). */
+    isEmbedded?: boolean;
     /** Called with the selected repository, so a wrapper can show that repository's setup state. */
     onRepoChange?: (slug: string) => void;
     /** The selected repository is still being set up: the thread is created now and starts when setup is done. */
@@ -206,7 +209,7 @@ export function StartThreadForm({
     return (
         <div data-testid="start-thread-form">
             <div
-                className="relative overflow-hidden rounded-2xl border border-hair bg-panel shadow-[var(--composer-shadow)] transition-[border-color,box-shadow] duration-200 focus-within:border-[var(--accent-edge)] focus-within:shadow-[var(--composer-shadow),0_0_0_3px_var(--composer-focus-ring)] motion-reduce:transition-none"
+                className={`relative overflow-hidden bg-panel ${isEmbedded ? '' : 'rounded-2xl border border-hair shadow-[var(--composer-shadow)]'}`}
                 {...draft.dropzoneProps}
             >
                 <AttachmentDropOverlay draft={draft} />
