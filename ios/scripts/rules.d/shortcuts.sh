@@ -11,11 +11,12 @@ if [ -n "$shortcut_hits" ]; then
     fail '.keyboardShortcut( outside Yak/Support/Shortcuts.swift'
 fi
 
-# Panes ask whether they are on screen through SceneModel.isShown(_:) or the isPaneShown environment value, so the
-# focused pane is compared only in the shell and in the pane control.
-focus_hits=$(grep -rnE --include='*.swift' '(==|!=|switch|case)[^\n]*focusedPane|focusedPane[[:space:]]*(==|!=)' Yak Shared 2>/dev/null \
+# Panes ask whether they are on screen through SceneModel.isShown(_:), SceneModel.shownPane(among:) or the
+# isPaneShown environment value, so the raw focusedPane is read only in the shell and in the pane control, in any
+# form (a comparison, a switch, an argument). The pattern holds no escape sequence, so BSD and GNU grep agree.
+focus_hits=$(grep -rnF --include='*.swift' 'focusedPane' Yak Shared 2>/dev/null \
     | grep -v '^Yak/Shell/' | grep -v '^Yak/Thread/PaneControl.swift:' || true)
 if [ -n "$focus_hits" ]; then
     echo "$focus_hits"
-    fail 'focusedPane compared outside Yak/Shell and Yak/Thread/PaneControl.swift'
+    fail 'focusedPane read outside Yak/Shell and Yak/Thread/PaneControl.swift'
 fi

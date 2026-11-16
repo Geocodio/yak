@@ -150,7 +150,7 @@ struct ThreadScreen: View {
 
     private var threadMenu: some View {
         Menu {
-            PaneMenuItems(slots: slots, focused: scene.state.focusedPane)
+            PaneMenuItems(slots: slots, focused: scene.shownPane(among: thread.panes))
             Button {
                 openWeb(webURL)
             } label: {
