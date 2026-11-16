@@ -12,7 +12,9 @@ protocol FilesModeView: View {
 @MainActor
 enum FilesModeRegistry {
     /// One line per mode view.
-    static let views: [any FilesModeView.Type] = []
+    static let views: [any FilesModeView.Type] = [
+        FilesEverythingView.self
+    ]
 
     static func view(for mode: FilesMode) -> (any FilesModeView.Type)? { views.first { $0.mode == mode } }
 }

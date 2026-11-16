@@ -73,7 +73,8 @@ private final class WorkspaceTransport: HTTPTransport, @unchecked Sendable {
                 status = 409
                 body = #"{"error":"sandbox_destroyed","message":"The sandbox was removed."}"#
             case .open:
-                body = #"{"url":"wss://example.test/terminal/ws?token=t3rm7k3n","token":"t3rm7k3n","expires_at":"2026-11-16T10:15:00+00:00"}"#
+                body =
+                    #"{"url":"wss://example.test/terminal/ws?token=t3rm7k3n","token":"t3rm7k3n","expires_at":"2026-11-16T10:15:00+00:00"}"#
             case .waiting:
                 status = 202
                 body = #"{"state":"waiting","limit":null,"restoring":false}"#
@@ -225,7 +226,7 @@ private final class Counter: @unchecked Sendable {
         return condition()
     }
 
-    func eventually(_ condition: () async -> Bool) async -> Bool {
+    func eventuallyAsync(_ condition: () async -> Bool) async -> Bool {
         for _ in 0..<600 {
             if await condition() { return true }
             try? await Task.sleep(for: .milliseconds(5))
@@ -294,10 +295,10 @@ private final class Counter: @unchecked Sendable {
     let surface = try #require(fixture.model.focusedShell?.surface as? FakeSurface)
     let socket = try #require(fixture.connector.sockets.first)
     fixture.model.press(.up)
-    #expect(await fixture.eventually { await socket.sentBytes.last == Data([0x1B, 0x5B, 0x41]) })
+    #expect(await fixture.eventuallyAsync { await socket.sentBytes.last == Data([0x1B, 0x5B, 0x41]) })
     surface.isApplicationCursorMode = true
     fixture.model.press(.up)
-    #expect(await fixture.eventually { await socket.sentBytes.last == Data([0x1B, 0x4F, 0x41]) })
+    #expect(await fixture.eventuallyAsync { await socket.sentBytes.last == Data([0x1B, 0x4F, 0x41]) })
     await fixture.finish()
 }
 

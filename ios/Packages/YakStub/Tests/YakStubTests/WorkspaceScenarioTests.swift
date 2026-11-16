@@ -131,8 +131,10 @@ private func send(
                 at: iosDirectory.appendingPathComponent("fixtures/\(name).json"),
                 to: directory.appendingPathComponent("\(name).json"))
         }
-        try Data(#"{"scope":"repo","path":"","truncated":false,"entries":[{"name":"zzz","path":"zzz","type":"file"}]}"#.utf8)
-            .write(to: directory.appendingPathComponent("thread-files.json"))
+        try Data(
+            #"{"scope":"repo","path":"","truncated":false,"entries":[{"name":"zzz","path":"zzz","type":"file"}]}"#.utf8
+        )
+        .write(to: directory.appendingPathComponent("thread-files.json"))
         return directory
     }
 

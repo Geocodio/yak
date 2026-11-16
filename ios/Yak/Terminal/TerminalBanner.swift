@@ -45,7 +45,8 @@ struct TerminalBanner: View {
         switch snapshot.phase {
         case .lost(let attempt, let retryAt):
             return Line(
-                text: Text("terminal.banner.lost \(Int(max(0, retryAt.timeIntervalSince(now).rounded(.up)))) \(attempt)"),
+                text: Text(
+                    "terminal.banner.lost \(Int(max(0, retryAt.timeIntervalSince(now).rounded(.up)))) \(attempt)"),
                 action: ("terminal.banner.reconnect", { Task { await model.retry() } }))
         case .couldNotReconnect:
             return Line(text: Text("terminal.banner.couldNotReconnect"), action: ("terminal.shell.new", newShell))
