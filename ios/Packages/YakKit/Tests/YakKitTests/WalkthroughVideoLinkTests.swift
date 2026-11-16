@@ -66,4 +66,23 @@ import Testing
         #expect(WalkthroughVideoLink.playable(other, instance: otherStub, allowsLoopbackHTTP: false) == nil)
         #expect(WalkthroughVideoLink.playable(other, instance: otherStub, allowsLoopbackHTTP: true) == nil)
     }
+
+    @Test func loopbackOnAnotherPortIsRefused() {
+        let stub = instance(url: "http://127.0.0.1:8123")
+        let link = "http://127.0.0.1:9999/__stub/walkthrough-video/sample.mp4"
+        #expect(WalkthroughVideoLink.playable(link, instance: stub, allowsLoopbackHTTP: true) == nil)
+    }
+
+    @Test func anExplicitDefaultPortMatchesAPortlessAddress() {
+        let link = "https://yak.example.com:443/artifacts/k3m9p2qa/walkthrough.mp4?signature=ab"
+        #expect(WalkthroughVideoLink.playable(link, instance: instance(), allowsLoopbackHTTP: false) != nil)
+    }
+
+    @Test func anHttpsLinkMatchesAnHttpInstanceByHostAndPortOnly() {
+        let plain = instance(url: "http://yak.example.com")
+        let accepted = WalkthroughVideoLink.playable(signed, instance: plain, allowsLoopbackHTTP: false)
+        #expect(accepted == URL(string: signed))
+        let withPort = instance(url: "http://yak.example.com:8080")
+        #expect(WalkthroughVideoLink.playable(signed, instance: withPort, allowsLoopbackHTTP: false) == nil)
+    }
 }
