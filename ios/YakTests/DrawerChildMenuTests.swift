@@ -120,6 +120,13 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
     fixture.model.toggle("thread:s7ackr00")
     #expect(await fixture.eventually { fixture.row("q7adapt0") != nil })
     #expect(fixture.transport.requestCount(for: "threads/s7ackr00/stack") == 1)
+    try? await Task.sleep(for: .milliseconds(100))
+    // Past the actor's ten second cache, a list update still does not ask again.
+    fixture.clock.advance(by: 11)
+    await fixture.feed.refresh()
+    await fixture.feed.refresh()
+    try? await Task.sleep(for: .milliseconds(100))
+    #expect(fixture.transport.requestCount(for: "threads/s7ackr00/stack") == 1)
 }
 
 @MainActor @Test func theMenuOffersOverridesOnlyForAFailedChild() async throws {

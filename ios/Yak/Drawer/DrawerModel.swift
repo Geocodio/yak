@@ -27,7 +27,9 @@ final class DrawerModel {
     @ObservationIgnored private var unsent: [OutboxItem] = []
     @ObservationIgnored private var expanded: [String: Bool] = [:]
     @ObservationIgnored private var searchTask: Task<Void, Never>?
-    @ObservationIgnored private var stackTasks: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var stackTasks: [String: (token: UUID, task: Task<Void, Never>)] = [:]
+    /// The roots whose stack was fetched during this visit of the drawer, so a list update never asks again.
+    @ObservationIgnored private var fetchedRoots: Set<String> = []
     @ObservationIgnored private var lineTask: Task<Void, Never>?
     @ObservationIgnored private var isVisible = false
     /// The root of every thread in the list, by thread id.
@@ -165,29 +167,36 @@ final class DrawerModel {
             })
     }
 
-    /// Fetches the stack of every expanded root once; collapsing a root or hiding the drawer cancels its fetch.
+    /// Fetches the stack of every expanded root once per visit; collapsing a root or hiding the drawer cancels its
+    /// fetch and forgets that it was fetched.
     private func prefetchStacks() {
         guard isVisible else { return }
         let roots = expandedRoots
-        for (root, task) in stackTasks where !roots.contains(root) {
-            task.cancel()
+        for (root, running) in stackTasks where !roots.contains(root) {
+            running.task.cancel()
             stackTasks[root] = nil
         }
-        for root in roots where stackTasks[root] == nil { fetchStack(of: root) }
+        fetchedRoots.formIntersection(roots)
+        for root in roots where !fetchedRoots.contains(root) { fetchStack(of: root) }
     }
 
     private func fetchStack(of root: String) {
         guard let overview else { return }
-        stackTasks[root] = Task { [weak self] in
+        fetchedRoots.insert(root)
+        let token = UUID()
+        let task = Task { [weak self] in
             // A failed fetch is logged by the actions; the menu stays in its loading state.
             if let answer = try? await overview.stack(root) { self?.stacks[root] = answer }
-            self?.stackTasks[root] = nil
+            // A fetch that was cancelled and replaced must not remove the handle of the one that replaced it.
+            if self?.stackTasks[root]?.token == token { self?.stackTasks[root] = nil }
         }
+        stackTasks[root] = (token, task)
     }
 
     private func cancelStackTasks() {
-        for task in stackTasks.values { task.cancel() }
+        for running in stackTasks.values { running.task.cancel() }
         stackTasks = [:]
+        fetchedRoots = []
     }
 
     /// What a long press on a sub-thread row offers.
