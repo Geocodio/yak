@@ -394,7 +394,8 @@ import XCTest
     private func shootThread(_ name: String) throws {
         try shoot(name, audits: false)
         let keyboard = keyboardFrame()
-        try app.performAccessibilityAudit { [app] issue in
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [app, auditBars] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 // The system caps the size of text in its bars, and draws its glass under the threads badge.
@@ -408,12 +409,14 @@ import XCTest
             {
                 return true
             }
-            // The drawer slid off the left edge is still in the tree; what the screen does not show cannot be judged.
-            if issue.auditType == .contrast, let element = issue.element, element.frame.maxX <= 0 { return true }
             // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
             if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
                 return true
             }
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            // Text behind a bar is covered by the bar.
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
             return true
         }
@@ -438,7 +441,8 @@ import XCTest
         // The field takes focus when the screen opens; the audit runs once the keyboard has settled.
         _ = app.keyboards.firstMatch.waitForExistence(timeout: 3)
         try shoot(name, audits: false)
-        try app.performAccessibilityAudit { [app] issue in
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [app, auditBars] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
@@ -473,6 +477,10 @@ import XCTest
             if app.windows.firstMatch.frame.width > 700, issue.element == nil {
                 return true
             }
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            // Text behind a bar is covered by the bar.
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
             return true
         }
