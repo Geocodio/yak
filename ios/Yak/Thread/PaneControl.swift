@@ -134,9 +134,10 @@ struct PaneBadgeView: View {
         case .question:
             QuestionBadge()
         case .count(let number):
-            Text(number, format: .number).font(.caption2.weight(.bold)).foregroundStyle(.white)
+            // No pane returns a count yet. Look at this badge in light and dark when the first one does.
+            Text(number, format: .number).font(.caption2.weight(.bold)).foregroundStyle(Color.yakOnBadge)
                 .padding(.horizontal, 4).frame(minWidth: 14, minHeight: 14)
-                .background(Color.blue, in: .capsule)
+                .background(Color.yakBadge, in: .capsule)
                 .overlay(Capsule().stroke(Color(.systemBackground), lineWidth: 1.5))
                 .accessibilityHidden(true)
         }
