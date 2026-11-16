@@ -4,7 +4,8 @@ import Testing
 
 @Test func onlyBuiltAndAllowedPanesAppear() {
     let all = ThreadPanes(chat: true, preview: true, terminal: true, changes: true, files: true)
-    #expect(Panes.available(server: all) == [.chat])
+    #expect(Panes.available(server: all) == [.chat, .files])
+    #expect(FilesMode.built.contains(.changed))
     let some = ThreadPanes(chat: true, preview: false, terminal: false, changes: true, files: false)
     #expect(Panes.available(server: some, built: PaneID.allCases) == [.chat, .files, .overview])
     #expect(Panes.available(server: all, built: PaneID.allCases) == PaneID.allCases)

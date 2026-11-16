@@ -884,6 +884,116 @@
         }
       }
     },
+    "files.banner.gone %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is no longer in the changes"
+          }
+        }
+      }
+    },
+    "files.banner.truncated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This diff is large, so some files are listed without their changes."
+          }
+        }
+      }
+    },
+    "files.banner.working" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak is still working. The changes update when the turn ends."
+          }
+        }
+      }
+    },
+    "files.count.one" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 file"
+          }
+        }
+      }
+    },
+    "files.count.other %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld files"
+          }
+        }
+      }
+    },
+    "files.counts.label %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld lines added, %lld removed"
+          }
+        }
+      }
+    },
+    "files.empty.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files that Yak edits in this thread appear here, one file per screen."
+          }
+        }
+      }
+    },
+    "files.empty.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No changes yet"
+          }
+        }
+      }
+    },
+    "files.error.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. The changes load when the connection returns."
+          }
+        }
+      }
+    },
+    "files.file.label %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File %@"
+          }
+        }
+      }
+    },
+    "files.list.header %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld files, %lld viewed"
+          }
+        }
+      }
+    },
     "files.mode.changed" : {
       "localizations" : {
         "en" : {
@@ -914,12 +1024,362 @@
         }
       }
     },
+    "files.next" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next file"
+          }
+        }
+      }
+    },
     "files.noMode" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Files are not available yet."
+          }
+        }
+      }
+    },
+    "files.open.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not open the pull request. Try again."
+          }
+        }
+      }
+    },
+    "files.open.held" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a co-owner"
+          }
+        }
+      }
+    },
+    "files.open.hint.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is closed"
+          }
+        }
+      }
+    },
+    "files.open.hint.loading" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading"
+          }
+        }
+      }
+    },
+    "files.open.hint.noChanges" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No changes to publish yet"
+          }
+        }
+      }
+    },
+    "files.open.hint.notReady" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to publish yet"
+          }
+        }
+      }
+    },
+    "files.open.hint.readOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can read this thread"
+          }
+        }
+      }
+    },
+    "files.open.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open PR"
+          }
+        }
+      }
+    },
+    "files.open.number %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#%lld Open"
+          }
+        }
+      }
+    },
+    "files.open.number.label %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull request %lld, open. Show details"
+          }
+        }
+      }
+    },
+    "files.open.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "files.open.opening" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening PR"
+          }
+        }
+      }
+    },
+    "files.page.binary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Binary file"
+          }
+        }
+      }
+    },
+    "files.page.gone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is no longer in the changes"
+          }
+        }
+      }
+    },
+    "files.page.noContent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No content changes"
+          }
+        }
+      }
+    },
+    "files.page.notSaved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file's changes are not saved on this device."
+          }
+        }
+      }
+    },
+    "files.page.notSaved.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It loads when the connection returns."
+          }
+        }
+      }
+    },
+    "files.page.openWeb" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open on the web"
+          }
+        }
+      }
+    },
+    "files.page.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual"
+          }
+        }
+      }
+    },
+    "files.page.tooLarge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too large to show here."
+          }
+        }
+      }
+    },
+    "files.position %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of %lld"
+          }
+        }
+      }
+    },
+    "files.position.label %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File %lld of %lld. Show all files"
+          }
+        }
+      }
+    },
+    "files.previous" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous file"
+          }
+        }
+      }
+    },
+    "files.private.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening a pull request publishes its branch and a description written from the private conversation to GitHub."
+          }
+        }
+      }
+    },
+    "files.private.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publish a private thread?"
+          }
+        }
+      }
+    },
+    "files.renamedFrom %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renamed from %@"
+          }
+        }
+      }
+    },
+    "files.row.added %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added: %@"
+          }
+        }
+      }
+    },
+    "files.row.hunk %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Section %@"
+          }
+        }
+      }
+    },
+    "files.row.noNewline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No newline at end of file"
+          }
+        }
+      }
+    },
+    "files.row.removed %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed: %@"
+          }
+        }
+      }
+    },
+    "files.viewed.label.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as viewed"
+          }
+        }
+      }
+    },
+    "files.viewed.label.on" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viewed. Tap to mark as not viewed"
+          }
+        }
+      }
+    },
+    "files.viewed.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as viewed"
+          }
+        }
+      }
+    },
+    "files.viewed.on" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viewed"
           }
         }
       }
@@ -2260,6 +2720,186 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cannot reach the server"
+          }
+        }
+      }
+    },
+    "pullRequest.checks.failing %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of %lld checks failing"
+          }
+        }
+      }
+    },
+    "pullRequest.checks.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No checks"
+          }
+        }
+      }
+    },
+    "pullRequest.checks.other %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks: %@"
+          }
+        }
+      }
+    },
+    "pullRequest.checks.passed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks passed"
+          }
+        }
+      }
+    },
+    "pullRequest.checks.running %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks running, %lld of %lld done"
+          }
+        }
+      }
+    },
+    "pullRequest.empty.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open PR publishes the branch and asks for review."
+          }
+        }
+      }
+    },
+    "pullRequest.empty.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pull request yet"
+          }
+        }
+      }
+    },
+    "pullRequest.error.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. The pull requests load when the connection returns."
+          }
+        }
+      }
+    },
+    "pullRequest.fix" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask Yak to fix"
+          }
+        }
+      }
+    },
+    "pullRequest.fix.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not send that. Try again."
+          }
+        }
+      }
+    },
+    "pullRequest.fix.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "pullRequest.fix.sent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak is on it"
+          }
+        }
+      }
+    },
+    "pullRequest.openGitHub" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open on GitHub"
+          }
+        }
+      }
+    },
+    "pullRequest.stale" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not refresh. Showing the last copy"
+          }
+        }
+      }
+    },
+    "pullRequest.state.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed"
+          }
+        }
+      }
+    },
+    "pullRequest.state.merged" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merged"
+          }
+        }
+      }
+    },
+    "pullRequest.state.open" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        }
+      }
+    },
+    "pullRequest.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull requests"
           }
         }
       }

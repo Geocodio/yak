@@ -58,6 +58,62 @@ import XCTest
         try audit()
     }
 
+    /// Opens thread `d0e515ef` from the drawer and switches to the Files pane with the pane menu.
+    private func openFiles(scenario: String) throws {
+        try launch(scenario: scenario)
+        openDrawerIfNeeded()
+        let row = element("drawer.row.thread:d0e515ef")
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        row.tap()
+        showPane("Files")
+        XCTAssertTrue(element("files.bar").waitForExistence(timeout: 15))
+    }
+
+    private func showPane(_ name: String) {
+        let menu = app.buttons["pane.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 15))
+        menu.tap()
+        let item = app.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        item.tap()
+    }
+
+    /// Smoke test 8, Changed half: the file and the bar position survive a switch to Chat and back.
+    func testChangedKeepsItsFileAcrossAPaneSwitch() throws {
+        try openFiles(scenario: "changes")
+        XCTAssertTrue(app.staticTexts["File RetryUpload.php"].waitForExistence(timeout: 15))
+        element("files.next").tap()
+        element("files.next").tap()
+        XCTAssertTrue(app.staticTexts["File uploads.ts"].waitForExistence(timeout: 10))
+        XCTAssertEqual(element("files.list").label, "File 3 of 4. Show all files")
+        showPane("Chat")
+        showPane("Files")
+        XCTAssertTrue(app.staticTexts["File uploads.ts"].waitForExistence(timeout: 10))
+        XCTAssertEqual(element("files.list").label, "File 3 of 4. Show all files")
+        try audit()
+    }
+
+    /// A file that was captured again loads by its path: the first file's rows appear, with no error text.
+    func testAReplacedFileReloadsByPath() throws {
+        try openFiles(scenario: "changes-replaced")
+        let row = element("files.changed").descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS %@", "retry(3)")
+        ).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertFalse(element("files.page.failed").exists)
+    }
+
+    func testOpenPullRequestOpensAndBecomesTheNumber() throws {
+        try openFiles(scenario: "changes")
+        let button = element("files.openPullRequest")
+        XCTAssertTrue(button.waitForExistence(timeout: 15))
+        button.tap()
+        let opened = NSPredicate(format: "label == %@", "Pull request 41, open. Show details")
+        wait(for: [XCTNSPredicateExpectation(predicate: opened, object: button)], timeout: 15)
+        XCTAssertEqual(button.label, "Pull request 41, open. Show details")
+        try audit()
+    }
+
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex

@@ -12,6 +12,8 @@ final class ThreadModel {
     private(set) var couldNotOpen = false
 
     let session: InstanceSession
+    /// The Files pane's model; it lives as long as the thread and starts when the pane is first drawn.
+    @ObservationIgnored private(set) lazy var files = FilesModel(thread: self)
     /// The drawer row's title, shown until the thread's own arrives.
     private var initialTitle: String?
     private var isStarted = false
@@ -46,6 +48,7 @@ final class ThreadModel {
     func stop() async {
         guard isStarted else { return }
         isStarted = false
+        await files.stop()
         await close()
     }
 
