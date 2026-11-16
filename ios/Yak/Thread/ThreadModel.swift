@@ -66,14 +66,14 @@ final class ThreadModel {
     init(threadID: String, session: InstanceSession, composer: ComposerModel? = nil) {
         self.threadID = threadID
         self.session = session
-        markdownCache = MarkdownCache(renderer: AppMarkdownRenderer(), clock: session.clock) { [weak self] key in
-            self?.markdownChanged(key)
-        }
         self.composer =
             composer
             ?? ComposerModel(
                 key: .thread(threadID),
                 backend: LiveComposerBackend(session: session, engine: nil, threadID: threadID), clock: SystemClock())
+        markdownCache = MarkdownCache(renderer: AppMarkdownRenderer(), clock: session.clock) { [weak self] key in
+            self?.markdownChanged(key)
+        }
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }
