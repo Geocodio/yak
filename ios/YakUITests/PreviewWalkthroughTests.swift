@@ -12,7 +12,36 @@ import XCTest
 
     private func shootCard(_ name: String, _ kind: String) throws {
         XCTAssertTrue(card(kind).waitForExistence(timeout: 15), name)
+        try shootPreview(name)
+    }
+
+    /// The shot, then an audit with the narrow rules the thread screen uses; the page's own content is the page's.
+    private func shootPreview(_ name: String) throws {
         try shoot(name, audits: false)
+        let keyboard = keyboardFrame()
+        let auditBars = AuditRules.Bars(app)
+        let page = AuditRules.Page(app)
+        try app.performAccessibilityAudit { [app, auditBars, page] issue in
+            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                // The system caps the size of text in its bars, and draws its glass under the threads badge.
+                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            if AuditRules.isInsidePage(issue, page: page) { return true }
+            if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
+                return true
+            }
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+            if issue.auditType == .contrast, let element = issue.element, let keyboard,
+                keyboard.intersects(element.frame)
+            {
+                return true
+            }
+            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
+            return true
+        }
     }
 
     /// Turns the device and turns it back when the test ends, so the next case starts upright.
@@ -33,7 +62,7 @@ import XCTest
         }
         XCTAssertTrue(app.buttons["preview.address"].exists)
         XCTAssertTrue(app.buttons["preview.reload"].exists)
-        try shoot("preview", audits: false)
+        try shootPreview("preview")
     }
 
     func testPreviewLandscape() throws {
@@ -43,30 +72,30 @@ import XCTest
         XCTAssertTrue(app.descendants(matching: .any)["thread.strip"].exists)
         XCTAssertTrue(app.buttons["preview.reload"].exists)
         XCTAssertTrue(app.buttons["preview.address"].exists)
-        try shoot("preview-landscape", audits: false)
+        try shootPreview("preview-landscape")
     }
 
     func testPreviewActivityLandscape() throws {
         turnToLandscape()
         try show("preview-working")
         XCTAssertTrue(app.buttons["activity.strip"].waitForExistence(timeout: 10))
-        try shoot("preview-activity-landscape", audits: false)
+        try shootPreview("preview-activity-landscape")
     }
 
     func testPreviewQuestionChipLandscape() throws {
         turnToLandscape()
         try show("preview-question")
         XCTAssertTrue(app.buttons["question.chip"].waitForExistence(timeout: 10))
-        try shoot("preview-question-chip-landscape", audits: false)
+        try shootPreview("preview-question-chip-landscape")
     }
 
     func testPreviewChecking() throws {
         try start("preview-slow", paired: true)
         PreviewScreen(app: app).open()
         XCTAssertTrue(card("checking").waitForExistence(timeout: 5))
-        try shoot("preview-checking", audits: false)
+        try shootPreview("preview-checking")
         XCTAssertTrue(app.staticTexts["This is taking longer than usual"].waitForExistence(timeout: 12))
-        try shoot("preview-checking-slow", audits: false)
+        try shootPreview("preview-checking-slow")
     }
 
     func testPreviewWaking() throws {
@@ -165,7 +194,7 @@ import XCTest
         XCTAssertTrue(app.webViews.staticTexts["Path: /"].waitForExistence(timeout: 15))
         try stub.setOnline(false)
         XCTAssertTrue(app.descendants(matching: .any)["preview.offline"].waitForExistence(timeout: 40))
-        try shoot("preview-offline", audits: false)
+        try shootPreview("preview-offline")
     }
 
     func testPreviewThreadOffline() throws {
@@ -178,7 +207,7 @@ import XCTest
         try stub.setOnline(false)
         PreviewScreen(app: app).open()
         XCTAssertTrue(card("problem").waitForExistence(timeout: 60))
-        try shoot("preview-thread-offline", audits: false)
+        try shootPreview("preview-thread-offline")
     }
 
     func testPreviewAddress() throws {
@@ -186,12 +215,13 @@ import XCTest
         XCTAssertTrue(app.webViews.staticTexts["Path: /"].waitForExistence(timeout: 15))
         app.buttons["preview.address"].tap()
         XCTAssertTrue(app.textFields["preview.address.field"].waitForExistence(timeout: 5))
+        // The keyboard is up over the page; the audit cannot judge what it covers.
         try shoot("preview-address", audits: false)
     }
 
     func testPreviewLoading() throws {
         try show("preview-slow")
-        try shoot("preview-loading", audits: false)
+        try shootPreview("preview-loading")
     }
 
     func testPreviewMenu() throws {
@@ -199,18 +229,19 @@ import XCTest
         XCTAssertTrue(app.webViews.staticTexts["Path: /"].waitForExistence(timeout: 15))
         app.buttons["thread.menu"].tap()
         XCTAssertTrue(app.buttons["Copy address"].waitForExistence(timeout: 5))
+        // The menu is the system's own surface; the audit cannot judge text on it.
         try shoot("preview-menu", audits: false)
     }
 
     func testPreviewActivity() throws {
         try show("preview-working")
         XCTAssertTrue(app.buttons["activity.strip"].waitForExistence(timeout: 10))
-        try shoot("preview-activity", audits: false)
+        try shootPreview("preview-activity")
     }
 
     func testPreviewQuestionChip() throws {
         try show("preview-question")
         XCTAssertTrue(app.buttons["question.chip"].waitForExistence(timeout: 10))
-        try shoot("preview-question-chip", audits: false)
+        try shootPreview("preview-question-chip")
     }
 }

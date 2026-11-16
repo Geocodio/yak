@@ -62,4 +62,31 @@ enum AuditRules {
     static func isOffScreen(_ frame: CGRect, window: CGRect) -> Bool {
         !frame.isEmpty && !frame.intersects(window)
     }
+
+    /// The frames of the elements inside the web view's own subtree, read before the audit starts. Cards and the
+    /// signing-in overlay sit over the web view but are not part of its subtree, so they stay audited.
+    @MainActor struct Page {
+        let frames: [CGRect]
+
+        /// Reads one snapshot of the subtree, because a page that is still loading changes under per-element reads.
+        init(_ app: XCUIApplication) {
+            var found: [CGRect] = []
+            func collect(_ snapshot: any XCUIElementSnapshot) {
+                for child in snapshot.children {
+                    found.append(child.frame)
+                    collect(child)
+                }
+            }
+            if app.webViews.firstMatch.exists, let snapshot = try? app.webViews.firstMatch.snapshot() {
+                collect(snapshot)
+            }
+            frames = found
+        }
+    }
+
+    /// A finding about an element of the page's own content, which is the page's, not ours to restyle.
+    static func isInsidePage(_ issue: XCUIAccessibilityAuditIssue, page: Page) -> Bool {
+        guard let element = issue.element, !element.frame.isEmpty else { return false }
+        return isOwn(element.frame, ownFrames: page.frames)
+    }
 }

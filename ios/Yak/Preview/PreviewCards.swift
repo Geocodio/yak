@@ -156,7 +156,7 @@ struct PreviewCardView: View {
             Group {
                 switch status ?? .pending {
                 case .done: Image(systemName: "checkmark.circle.fill").foregroundStyle(.primary)
-                case .active: ProgressView().controlSize(.small)
+                case .active: ProgressView().controlSize(.small).accessibilityHidden(true)
                 case .pending: Image(systemName: "circle").foregroundStyle(Color.yakMuted)
                 }
             }
@@ -243,7 +243,7 @@ struct PreviewCardView: View {
             Task { await model.perform(action) }
         } label: {
             HStack(spacing: 8) {
-                if isBusy { ProgressView().controlSize(.small) }
+                if isBusy { ProgressView().controlSize(.small).accessibilityHidden(true) }
                 Text(Self.title(of: action, isPending: Self.isPending(action))).fixedSize(
                     horizontal: false, vertical: true)
             }
@@ -368,7 +368,7 @@ struct PreviewSkeleton: View {
                     .accessibilityHidden(true)
                 }
                 HStack(spacing: 8) {
-                    if !isSlow { ProgressView().controlSize(.small) }
+                    if !isSlow { ProgressView().controlSize(.small).accessibilityHidden(true) }
                     Text(isSlow ? "preview.checking.slow" : "preview.checking").font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.yakMuted)
                 }

@@ -117,6 +117,10 @@ import XCTest
         strip.tap()
         XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 5))
         XCTAssertFalse(strip.exists)
+        // The strip puts the cursor in the composer.
+        let field = app.textFields["composer.field"]
+        let focused = expectation(for: NSPredicate(format: "hasKeyboardFocus == true"), evaluatedWith: field)
+        wait(for: [focused], timeout: 5)
     }
 
     func testTheQuestionChipOpensChat() throws {
@@ -130,15 +134,15 @@ import XCTest
     }
 
     private func audit() throws {
-        try app.performAccessibilityAudit { [self] issue in
+        let page = AuditRules.Page(app)
+        try app.performAccessibilityAudit { [self, page] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
             // The page's own content is the app's, not ours to restyle.
-            let page = app.webViews.firstMatch
-            if page.exists, let element = issue.element, page.frame.contains(element.frame) { return true }
+            if AuditRules.isInsidePage(issue, page: page) { return true }
             if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
                 return true
             }
