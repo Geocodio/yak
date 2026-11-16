@@ -202,9 +202,11 @@ private struct TextRow: View {
     }
 }
 
-/// Code that scrolls sideways inside its own box.
+/// Code that scrolls sideways inside its own box. The indicator flashes when the box appears, and a fade at the
+/// trailing edge shows that there is more to the right until the end is on screen.
 private struct CodeBlock: View {
     let text: String
+    @State private var hasMoreToTheRight = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: true) {
@@ -213,7 +215,24 @@ private struct CodeBlock: View {
                 .fixedSize()
                 .padding(12)
         }
+        .scrollIndicatorsFlash(onAppear: true)
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentSize.width - geometry.visibleRect.maxX > 1
+        } action: { _, new in
+            hasMoreToTheRight = new
+        }
         .background(Color(.secondarySystemFill), in: .rect(cornerRadius: 10))
+        .overlay(alignment: .trailing) {
+            if hasMoreToTheRight {
+                LinearGradient(
+                    colors: [Color(.secondarySystemFill).opacity(0), Color(.secondarySystemFill)],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(width: 28).clipShape(.rect(cornerRadius: 10))
+                .allowsHitTesting(false).accessibilityHidden(true)
+            }
+        }
+        .accessibilityIdentifier("code.block")
     }
 }
 

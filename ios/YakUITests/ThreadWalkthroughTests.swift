@@ -320,12 +320,26 @@ import XCTest
         try shootThread("chat-history-failed")
     }
 
+    /// A line of 120 columns scrolls sideways inside its box, and the end of it can be reached.
+    func testChatCodeWide() throws {
+        try openGallery("code-wide")
+        let block = app.descendants(matching: .any)["code.block"].firstMatch
+        XCTAssertTrue(block.waitForExistence(timeout: 10))
+        let code = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "ENDMARK")).firstMatch
+        XCTAssertTrue(code.exists)
+        let screen = app.windows.firstMatch.frame
+        XCTAssertGreaterThan(code.frame.maxX, screen.maxX, "the line is wider than the screen")
+        try shootThread("chat-code-wide")
+        block.swipeLeft()
+        XCTAssertLessThanOrEqual(code.frame.maxX, screen.maxX + 1, "the end of the line is reached by scrolling")
+        XCTAssertTrue(code.label.hasSuffix("ENDMARK"), "VoiceOver reads the whole line")
+    }
+
     func testChatNoticeWithGuard() throws {
         try openGallery("notice")
         XCTAssertTrue(app.buttons["notice.continue"].waitForExistence(timeout: 10))
         try shootThread("chat-notice-continue")
     }
-
 
     // MARK: New thread
 

@@ -240,6 +240,12 @@
             case "activity-open", "activity-open-a":
                 entries = [activityEntries[1], activityEntries[3], activityEntries[4]]
             case "notice": entries = [activityEntries[2]]
+            case "code-wide":
+                let wideLine =
+                    "php artisan import:retry --connection=primary --chunk=500 --max-attempts=3 --backoff=250 --queue=imports-nightly-ENDMARK"
+                entries = [
+                    .event(text("m1:0", "Run the retry like this:\n\n```\n\(wideLine)\n```\n", streaming: false))
+                ]
             case "history-failed": entries = Array(messageEntries[0..<2])
             default:
                 entries = Array(activityEntries[0..<5])
