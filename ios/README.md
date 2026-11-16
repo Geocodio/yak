@@ -50,6 +50,8 @@ Each company builds and signs its own app. You do these steps once, in this orde
    - Register the app group and assign it to all three identifiers (the API cannot).
    - Turn on Broadcast Capability under Push Notifications for `<id>`.
    - Push Notifications is enabled on both `<id>` and `<id>.widgets`. The app uses it for alerts and Live Activity tokens. The widget extension carries `aps-environment` for widget pushes, and automatic signing needs the capability on its identifier to make its profile.
+   - Turn on Time Sensitive Notifications on `<id>`.
+   - Debug builds get sandbox push tokens and Release builds get production tokens. An instance set to `production` pushes only to TestFlight builds, and a Release build run from Xcode gets a sandbox token that Apple refuses.
    - Invite anyone listed as "not an App Store Connect user yet".
 9. Create the GitHub environment `testflight` (Settings, Environments), restricted to the `main` branch, with required reviewers if you want them. Add these:
 
