@@ -240,26 +240,37 @@ private let bookInputs = LayoutInputs(
         #expect(PaneLayoutRules.plan(unfolded, available: all, inputs: wide).slots == startShown)
     }
 
-    @Test func aHiddenSecondPaneSurvivesAnOpenPanelAcrossAFoldOrARotation() {
-        let start = PaneState(focused: .chat, second: .terminal, isOverviewPanelOpen: true)
+    @Test(arguments: [false, true])
+    func aHiddenSecondPaneSurvivesAnOpenPanelAcrossAFoldOrARotation(secondLeads: Bool) {
+        let start = PaneState(focused: .chat, second: .terminal, secondLeads: secondLeads, isOverviewPanelOpen: true)
         func closedSlots(_ state: PaneState) -> [PaneSlot] {
             let plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
             let closed = PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
             return PaneLayoutRules.plan(closed, available: all, inputs: wide).slots
         }
         let expected = closedSlots(start)
-        #expect(
-            expected == [
-                PaneSlot(position: .leading, content: .pane(.chat)),
-                PaneSlot(position: .trailing, content: .pane(.terminal)),
-            ])
+        let panes: [SlotContent] = secondLeads ? [.pane(.terminal), .pane(.chat)] : [.pane(.chat), .pane(.terminal)]
+        #expect(expected.map(\.content) == panes)
         for (middle, middleInputs) in [(PaneArrangement.single, outer), (.stacked, upright)] {
             let there = PaneLayoutRules.arrangementChanged(
                 from: .sideBySide, to: middle, state: start, available: all, inputs: middleInputs)
             let back = PaneLayoutRules.arrangementChanged(
                 from: middle, to: .sideBySide, state: there, available: all, inputs: wide)
-            #expect(closedSlots(back) == expected, "\(middle)")
+            #expect(closedSlots(back) == expected, "\(middle) \(secondLeads)")
         }
+    }
+
+    @Test func atOneSlotTheSecondPaneDoesNotOutliveTheOverviewFocus() {
+        let open = PaneState(focused: .chat, second: .files, isOverviewPanelOpen: true)
+        var state = PaneLayoutRules.arrangementChanged(
+            from: .sideBySide, to: .single, state: open, available: all, inputs: outer)
+        #expect(state.focused == .overview && state.second == .chat)
+        var plan = PaneLayoutRules.plan(state, available: all, inputs: outer)
+        state = PaneLayoutRules.select(.files, from: nil, state: state, plan: plan)
+        #expect(state.second == nil)
+        plan = PaneLayoutRules.plan(state, available: all, inputs: outer)
+        state = PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
+        #expect(state.focused == .overview && state.second == nil)
     }
 
     @Test func defaultSecondOrder() {
@@ -377,22 +388,45 @@ private let bookInputs = LayoutInputs(
 
     @Test func aFoldAndAnUnfoldReturnTheSameShownPanes() {
         let others = PaneID.allCases.filter { $0 != .chat }
+        func slots(_ state: PaneState, available: [PaneID], closingThePanel: Bool) -> [SlotContent] {
+            var plan = PaneLayoutRules.plan(state, available: available, inputs: wide)
+            if closingThePanel, plan.slots.contains(where: { $0.content == .overviewPanel }) {
+                let closed = PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
+                plan = PaneLayoutRules.plan(closed, available: available, inputs: wide)
+            }
+            return plan.slots.map(\.content)
+        }
         for mask in 0..<(1 << others.count) {
             let available = [PaneID.chat] + others.enumerated().filter { mask & (1 << $0.offset) != 0 }.map(\.element)
+            guard available.count > 1 else { continue }
             for focused in available {
-                for panelOpen in [false, true] {
-                    let state = PaneState(focused: focused, isOverviewPanelOpen: panelOpen)
-                    let shown = Set(
-                        PaneLayoutRules.plan(state, available: available, inputs: wide).slots.map(\.content))
-                    for (middle, middleInputs) in [(PaneArrangement.single, outer), (.stacked, upright)] {
-                        let there = PaneLayoutRules.arrangementChanged(
-                            from: .sideBySide, to: middle, state: state, available: available, inputs: middleInputs)
-                        let back = PaneLayoutRules.arrangementChanged(
-                            from: middle, to: .sideBySide, state: there, available: available, inputs: wide)
-                        let again = Set(
-                            PaneLayoutRules.plan(back, available: available, inputs: wide).slots.map(\.content))
-                        if available.count > 1 {
-                            #expect(again == shown, "\(available) \(focused) \(panelOpen) \(middle)")
+                for second in [nil] + available.filter({ $0 != focused }).map(Optional.some) {
+                    for secondLeads in [false, true] {
+                        // A side without a second pane never occurs in a stored state.
+                        if second == nil && secondLeads { continue }
+                        for panelOpen in [false, true] {
+                            // The scene resolves a stored state before it shows it.
+                            let state = PaneLayoutRules.availableChanged(
+                                state: PaneState(
+                                    focused: focused, second: second, secondLeads: secondLeads,
+                                    isOverviewPanelOpen: panelOpen),
+                                available: available, inputs: wide)
+                            let shown = slots(state, available: available, closingThePanel: true)
+                            for (middle, middleInputs) in [(PaneArrangement.single, outer), (.stacked, upright)] {
+                                let there = PaneLayoutRules.arrangementChanged(
+                                    from: .sideBySide, to: middle, state: state, available: available,
+                                    inputs: middleInputs)
+                                let back = PaneLayoutRules.arrangementChanged(
+                                    from: middle, to: .sideBySide, state: there, available: available, inputs: wide)
+                                let again = slots(back, available: available, closingThePanel: true)
+                                let note =
+                                    "\(available) \(focused) \(String(describing: second)) \(secondLeads) \(panelOpen) \(middle)"
+                                if (panelOpen && available.contains(.overview)) || middle == .stacked {
+                                    #expect(again == shown, "\(note)")
+                                } else {
+                                    #expect(Set(again) == Set(shown), "\(note)")
+                                }
+                            }
                         }
                     }
                 }

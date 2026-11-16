@@ -8,24 +8,27 @@ public struct PaneState: Codable, Equatable, Sendable {
     /// The second pane sits in the first position (leading or lower).
     public var secondLeads: Bool
     public var lastSecond: PaneID?
+    /// The side `lastSecond` had when it was last shown.
+    public var lastSecondLeads: Bool
     public var isOverviewPanelOpen: Bool
     /// The upper slot's share of the height, clamped on use.
     public var stackedFraction: Double
 
     public init(
         focused: PaneID = .chat, second: PaneID? = nil, secondLeads: Bool = false, lastSecond: PaneID? = nil,
-        isOverviewPanelOpen: Bool = false, stackedFraction: Double = 0.5
+        lastSecondLeads: Bool = false, isOverviewPanelOpen: Bool = false, stackedFraction: Double = 0.5
     ) {
         self.focused = focused
         self.second = second
         self.secondLeads = secondLeads
         self.lastSecond = lastSecond
+        self.lastSecondLeads = lastSecondLeads
         self.isOverviewPanelOpen = isOverviewPanelOpen
         self.stackedFraction = stackedFraction
     }
 
     private enum CodingKeys: String, CodingKey {
-        case focused, second, secondLeads, lastSecond, isOverviewPanelOpen, stackedFraction
+        case focused, second, secondLeads, lastSecond, lastSecondLeads, isOverviewPanelOpen, stackedFraction
     }
 
     /// Restored state is untrusted: a missing key takes its default and a pane name this build does not know is dropped.
@@ -39,6 +42,8 @@ public struct PaneState: Codable, Equatable, Sendable {
             second: pane(.second),
             secondLeads: (try? container.decodeIfPresent(Bool.self, forKey: .secondLeads)).flatMap { $0 } ?? false,
             lastSecond: pane(.lastSecond),
+            lastSecondLeads: (try? container.decodeIfPresent(Bool.self, forKey: .lastSecondLeads)).flatMap { $0 }
+                ?? false,
             isOverviewPanelOpen: (try? container.decodeIfPresent(Bool.self, forKey: .isOverviewPanelOpen))
                 .flatMap { $0 } ?? false,
             stackedFraction: (try? container.decodeIfPresent(Double.self, forKey: .stackedFraction)).flatMap { $0 }
@@ -183,6 +188,7 @@ public enum PaneLayoutRules {
             next.secondLeads = isFirstOfPair(plan.focusedPosition)
             next.focused = pane
         }
+        if plan.slots.count == 1 { next.second = nil }
         return tidy(next, plan: plan)
     }
 
@@ -206,7 +212,10 @@ public enum PaneLayoutRules {
     ) -> PaneState {
         var next = state
         if old.slotCount == 2 && new.slotCount == 1 {
-            if let second = next.second { next.lastSecond = second }
+            if let second = next.second {
+                next.lastSecond = second
+                next.lastSecondLeads = next.secondLeads
+            }
             next.second = nil
             next.secondLeads = false
         } else if old.slotCount == 1 && new.slotCount == 2 {
@@ -302,7 +311,7 @@ public enum PaneLayoutRules {
         if panel {
             if next.focused == .overview {
                 next.isOverviewPanelOpen = true
-                next.secondLeads = false
+                next.secondLeads = next.lastSecondLeads
                 let replacement = next.second.flatMap { candidates.contains($0) ? $0 : nil }
                 next.focused =
                     replacement
@@ -318,6 +327,7 @@ public enum PaneLayoutRules {
                 if beside != .overview {
                     if arrangement.slotCount == 2, let hidden = next.second, hidden != beside {
                         next.lastSecond = hidden
+                        next.lastSecondLeads = next.secondLeads
                     }
                     next.second = beside
                     next.secondLeads = arrangement.slotCount == 2
