@@ -256,7 +256,11 @@ import XCTest
             // The drawer slid off the left edge is still in the tree; what the screen does not show cannot be judged.
             if issue.auditType == .contrast, let element = issue.element, element.frame.maxX <= 0 { return true }
             // The audit cannot match some text on the bar's glass in dark mode to an element; the shot was read by eye.
-            if issue.auditType == .contrast, issue.element == nil, name.hasPrefix("bar-") { return true }
+            if issue.auditType == .contrast, issue.element == nil, name.hasPrefix("bar-"),
+                ProcessInfo.processInfo.environment["YAK_APPEARANCE"] == "dark"
+            {
+                return true
+            }
             // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
             if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
                 return true

@@ -52,8 +52,12 @@ struct ThreadScreen: View {
 
     /// Keeps one model per thread while the screen shows it, and stops it when the thread changes or the screen goes.
     private func run() async {
+        // Text typed in the last moments before the model is replaced is saved first, then read back by the next one.
+        await model?.flushDraft()
         let next = ThreadModel(threadID: threadID, session: session)
         model = next
+        // Drafts are local files, so the field shows the saved text before the session is active.
+        await next.composer.load()
         guard isSessionActive else { return }
         await next.start(initialTitle: initialTitle)
         await next.setVisible(isVisible)

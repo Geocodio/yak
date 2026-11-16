@@ -56,7 +56,8 @@ struct ComposerBar: View {
     private var plusButton: some View {
         Button {
         } label: {
-            Image(systemName: "plus").font(.title3.weight(.medium)).frame(width: 44, height: 44).contentShape(.circle)
+            Image(systemName: "plus").font(.system(size: 20, weight: .medium)).frame(width: 44, height: 44)
+                .contentShape(.circle)
         }
         .tint(.primary).disabled(true)
         .accessibilityLabel("composer.plus.label")
@@ -94,8 +95,8 @@ struct ComposerBar: View {
                 if composer.isStopping {
                     ProgressView().tint(Color(.systemBackground))
                 } else {
-                    Image(systemName: "stop.fill").font(.footnote.weight(.bold)).foregroundStyle(
-                        Color(.systemBackground))
+                    Image(systemName: "stop.fill").font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color(.systemBackground))
                 }
             }
             .frame(width: 44, height: 44).contentShape(.circle)
@@ -131,7 +132,8 @@ private struct SendGlyph: View {
             if isBusy {
                 ProgressView().tint(Color(.systemBackground))
             } else {
-                Image(systemName: "arrow.up").font(.body.weight(.bold)).foregroundStyle(Color(.systemBackground))
+                Image(systemName: "arrow.up").font(.system(size: 18, weight: .bold)).foregroundStyle(
+                    Color(.systemBackground))
             }
         }
         .frame(width: 44, height: 44).contentShape(.circle)

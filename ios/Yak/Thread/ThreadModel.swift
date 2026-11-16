@@ -45,6 +45,7 @@ final class ThreadModel {
         if let initialTitle, snapshot?.show == nil { self.initialTitle = initialTitle }
         guard !isStarted else { return }
         isStarted = true
+        await composer.load()
         await open()
     }
 
@@ -87,7 +88,6 @@ final class ThreadModel {
         }
         engine = opened
         composer.use(backend: LiveComposerBackend(session: session, engine: opened, threadID: threadID))
-        await composer.load()
         await opened.setVisible(isVisible)
         readingTask = Task { [weak self] in
             for await next in await opened.snapshots() {

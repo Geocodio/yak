@@ -101,7 +101,9 @@ final class ComposerModel {
     func use(backend: any ComposerBackend) { self.backend = backend }
 
     func send(delivery: MessageDelivery) async {
-        guard canSend, case .thread(let threadID) = key else { return }
+        guard canSend, bar.unavailable == nil, delivery == .steer || bar.offersSendAfterTurn,
+            case .thread(let threadID) = key
+        else { return }
         isSending = true
         defer { isSending = false }
         let trimmed = typedText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -118,17 +120,24 @@ final class ComposerModel {
             return
         }
         saveTask?.cancel()
-        typedText = ""
-        attachments = []
-        model = nil
-        sendKey = nil
         hasEdited = true
         problem = nil
-        await backend.saveDraft(nil, for: key)
+        // Text typed while the send was in flight belongs to the next message and stays.
+        let isUnchanged =
+            typedText.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed && attachments == draft.attachments
+        sendKey = nil
+        if isUnchanged {
+            typedText = ""
+            attachments = []
+            model = nil
+            await backend.saveDraft(nil, for: key)
+        } else {
+            await backend.saveDraft(currentDraft, for: key)
+        }
     }
 
     func stop() async {
-        guard !isStopping else { return }
+        guard bar.showsStop, !isStopping else { return }
         isStopping = true
         defer { isStopping = false }
         switch await backend.stop() {
@@ -152,6 +161,8 @@ final class ComposerModel {
 
     /// Saves now; called when the thread closes or the app goes to the background.
     func flush() async {
+        // Before the saved draft is read and before any edit, the field only looks empty; writing it would delete the draft.
+        guard hasLoaded || hasEdited else { return }
         saveTask?.cancel()
         saveTask = nil
         await backend.saveDraft(currentDraft, for: key)
@@ -166,7 +177,7 @@ final class ComposerModel {
         saveTask?.cancel()
         saveTask = Task { [weak self, clock] in
             do { try await clock.sleep(for: Self.saveDelay) } catch { return }
-            guard let self, !Task.isCancelled else { return }
+            guard let self, !Task.isCancelled, self.hasLoaded || self.hasEdited else { return }
             await self.backend.saveDraft(self.currentDraft, for: self.key)
         }
     }

@@ -194,9 +194,10 @@ private func snapshot(state: String, canDrive: Bool = true) throws -> Conversati
         #expect(backend.savedDraft(.thread("d0e515ef")) == nil)
     }
 
-    @Test func aLongPressSendsAfterTheTurn() async {
+    @Test func aLongPressSendsAfterTheTurn() async throws {
         let backend = FakeComposerBackend()
         let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "working"))
         composer.text = "Then update the docs"
         await composer.send(delivery: .afterTurn)
         #expect(backend.sentDrafts.map(\.delivery) == [.afterTurn])
@@ -224,10 +225,11 @@ private func snapshot(state: String, canDrive: Bool = true) throws -> Conversati
         #expect(composer.refusalCount == 1)
     }
 
-    @Test func stopShowsProgressAndTheRefusal() async {
+    @Test func stopShowsProgressAndTheRefusal() async throws {
         let backend = FakeComposerBackend()
         backend.slowStop = .milliseconds(100)
         let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "working"))
         async let first: Void = composer.stop()
         await Task.yield()
         async let second: Void = composer.stop()
@@ -243,6 +245,46 @@ private func snapshot(state: String, canDrive: Bool = true) throws -> Conversati
         backend.stopResult = .done
         await composer.stop()
         #expect(composer.problem == nil)
+    }
+
+    @Test func theKeyboardShortcutsFollowTheBar() async throws {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.text = "Hello"
+        composer.update(snapshot: try snapshot(state: "readonly"))
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.isEmpty)
+        composer.update(snapshot: try snapshot(state: "idle"))
+        await composer.send(delivery: .afterTurn)
+        #expect(backend.sentDrafts.isEmpty)
+        await composer.stop()
+        #expect(backend.stopCount == 0)
+        composer.update(snapshot: try snapshot(state: "working"))
+        await composer.send(delivery: .afterTurn)
+        #expect(backend.sentDrafts.map(\.delivery) == [.afterTurn])
+    }
+
+    @Test func aFlushBeforeTheLoadKeepsTheSavedDraft() async {
+        let backend = FakeComposerBackend()
+        backend.seed(ComposerDraft(text: "Saved text"), for: .thread("d0e515ef"))
+        let composer = makeModel(backend: backend, clock: StepClock())
+        await composer.flush()
+        #expect(backend.savedDraft(.thread("d0e515ef"))?.text == "Saved text")
+        await composer.load()
+        #expect(composer.text == "Saved text")
+    }
+
+    @Test func textTypedWhileASendIsInFlightStays() async {
+        let backend = FakeComposerBackend()
+        backend.slowSend = .milliseconds(100)
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.text = "First"
+        async let inFlight: Void = composer.send(delivery: .steer)
+        await Task.yield()
+        composer.text = "First and more"
+        await inFlight
+        #expect(composer.text == "First and more")
+        #expect(backend.savedDraft(.thread("d0e515ef"))?.text == "First and more")
     }
 
     @Test func aLateLoadDoesNotOverwriteTyping() async {
