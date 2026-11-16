@@ -21,6 +21,7 @@ class RepositoryClaudeAccountController extends Controller
             UserRepositorySetting::query()->updateOrCreate($criteria, [
                 'claude_account_id' => $accountId,
                 'model' => $request->input('model'),
+                'effort' => $request->input('effort'),
             ]);
         }
 

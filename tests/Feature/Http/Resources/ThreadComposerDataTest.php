@@ -23,6 +23,7 @@ it('is idle on an open thread without a running turn', function () {
     expect($composer)->toBe([
         'state' => 'idle',
         'model' => 'opus',
+        'effort' => null,
         'models' => app(ClaudeModelCatalog::class)->families(),
         'accountName' => 'Work',
         'nextAttachmentNumber' => 1,

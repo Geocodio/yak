@@ -9,5 +9,6 @@ final readonly class ResolvedAccount
     public function __construct(
         public ?ClaudeAccount $account,
         public string $model,
+        public ?string $effort = null,
     ) {}
 }

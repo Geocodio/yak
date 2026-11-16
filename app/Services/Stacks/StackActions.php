@@ -33,10 +33,10 @@ class StackActions
      * Adds a sub-thread. A repeat with the same key returns the same child and creates nothing;
      * it only starts a child whose first start was lost.
      */
-    public function addChild(Thread $parent, User $actor, string $name, string $brief, ThreadKind $kind, ?string $model, ?string $spawnKey): Thread
+    public function addChild(Thread $parent, User $actor, string $name, string $brief, ThreadKind $kind, ?string $model, ?string $spawnKey, ?string $effort = null): Thread
     {
         try {
-            $child = $this->spawner->spawn($parent, $name, $brief, $kind, $model, actor: $actor, spawnKey: $spawnKey);
+            $child = $this->spawner->spawn($parent, $name, $brief, $kind, $model, actor: $actor, spawnKey: $spawnKey, effort: $effort);
         } catch (StackRuleViolation $violation) {
             if ($violation->errorCode !== null) {
                 throw $violation->toRefusal();

@@ -40,6 +40,7 @@ class StackController extends Controller
             ThreadKind::from((string) $request->validated('kind')),
             $request->validated('model') ?: null,
             (string) $request->validated('send_key'),
+            $request->validated('effort'),
         );
 
         return response()->json(['id' => $child->public_id, 'name' => $child->name], 201);

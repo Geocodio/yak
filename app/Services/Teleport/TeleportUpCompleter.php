@@ -187,7 +187,7 @@ class TeleportUpCompleter
             if ($lockedThread->claude_account_id === null) {
                 $resolved = $this->accounts->forNewThread($teleport->user, $lockedThread->repo, null, null);
                 $account = $resolved->account ?? throw new TeleportError('no_claude_account', 'No Claude account is available for this thread.', 409);
-                $lockedThread->forceFill(['claude_account_id' => $account->id, 'model' => $resolved->model]);
+                $lockedThread->forceFill(['claude_account_id' => $account->id, 'model' => $resolved->model, 'effort' => $resolved->effort]);
             }
 
             $primary = $validated['repos'][0];

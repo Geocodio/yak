@@ -23,7 +23,7 @@ use Illuminate\Support\Str;
 final class ThreadMessagesData
 {
     /**
-     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
+     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
      */
     public static function for(Thread $thread, ?User $viewer = null): array
     {
@@ -78,6 +78,7 @@ final class ThreadMessagesData
                 'authorName' => $authorName,
                 'authorInitials' => self::initials($authorName),
                 'model' => $steer !== null ? $steer->model : $run->model,
+                'effort' => $steer !== null ? $steer->effort : $run->effort,
                 'state' => match ($row->state) {
                     TurnMessageState::Sent, TurnMessageState::Queued => 'pending',
                     TurnMessageState::Started, TurnMessageState::Completed => 'read',
@@ -123,6 +124,7 @@ final class ThreadMessagesData
                 'authorName' => $queued->author_name,
                 'authorInitials' => self::initials($queued->author_name),
                 'model' => $queued->model,
+                'effort' => $queued->effort,
                 'state' => 'pending',
                 'canEditText' => $queued->canEditTextBy($viewer),
                 'intent' => null,
@@ -140,7 +142,7 @@ final class ThreadMessagesData
     }
 
     /**
-     * @return array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
+     * @return array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
      */
     private static function initialMessage(YakTask $task): array
     {
@@ -154,6 +156,7 @@ final class ThreadMessagesData
             'authorName' => $task->author_name,
             'authorInitials' => self::initials($task->author_name),
             'model' => null,
+            'effort' => null,
             'state' => 'pending',
             'canEditText' => false,
             'intent' => null,

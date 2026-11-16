@@ -30,6 +30,7 @@ export function createYakTools({ write, timeoutMs = TOOL_CALL_TIMEOUT_MS, random
       brief: z.string(),
       kind: z.enum(['implement', 'mockup', 'research', 'general']).default('general'),
       model: z.string().optional(),
+      effort: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).optional(),
       repo: z.string().optional(),
     }),
     define('send_message', 'Send a message to another thread in this project.', { to: z.string(), text: z.string() }),

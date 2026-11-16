@@ -217,6 +217,7 @@ class OneShotRuns
             'start' => [
                 'type' => 'start',
                 'model' => $this->models->resolve($request->model),
+                'effort' => $this->models->clampEffort($request->model, $request->effort),
                 'appendSystemPrompt' => $request->systemPrompt,
                 'permissionMode' => 'bypassPermissions',
                 'cwd' => self::WORKING_DIRECTORY,

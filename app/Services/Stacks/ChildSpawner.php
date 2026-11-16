@@ -37,7 +37,7 @@ class ChildSpawner
         private readonly ChildCardPublisher $cards,
     ) {}
 
-    public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null, ?string $repo = null, ?User $actor = null, ?string $spawnKey = null): Thread
+    public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null, ?string $repo = null, ?User $actor = null, ?string $spawnKey = null, ?string $effort = null): Thread
     {
         if (! in_array($kind, self::SPAWNABLE_KINDS, true)) {
             throw new StackRuleViolation('A sub-thread must be research, implement, mockup or general.', personMessage: 'Choose research, implement, mockup or general.', field: 'kind');
@@ -56,7 +56,7 @@ class ChildSpawner
             throw new StackRuleViolation('Unknown model. Use one of: ' . implode(', ', ClaudeModelCatalog::FAMILIES) . ', or an exact model id.', personMessage: 'Choose one of the listed models.', field: 'model');
         }
 
-        $child = ShortLockWait::threadTransaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy, $repo, $actor, $spawnKey): Thread {
+        $child = ShortLockWait::threadTransaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy, $repo, $actor, $spawnKey, $effort): Thread {
             $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($parent->id);
             $root = $locked->rootThread();
             $creatorId = $actor->id ?? $root->owner_user_id;
@@ -94,6 +94,7 @@ class ChildSpawner
                 'spawned_by_task_run_id' => $spawnedBy?->id,
                 'claude_account_id' => $locked->claude_account_id,
                 'model' => $model ?? (string) config('yak.sandbox.default_child_model'),
+                'effort' => $effort,
                 'branch' => $branch,
                 'child_awake_limit' => (int) config('yak.threads.child_awake_limit'),
             ]);

@@ -1,5 +1,5 @@
 // Yak SDK runner: JSON lines on stdin, one JSON line per SDK message on stdout.
-// stdin:  {type:'start',...} first, then user | interrupt | set_model | end | tool_result.
+// stdin:  {type:'start',...} first, then user | interrupt | set_model | set_effort | end | tool_result.
 // stdout: every SDK message unchanged, plus {type:'runner', event} lifecycle lines.
 import readline from 'node:readline';
 import { sensitiveValues } from './environment.mjs';
@@ -74,6 +74,8 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
       activeQuery?.interrupt().then(() => runnerLine('interrupted'));
     } else if (command.type === 'set_model') {
       activeQuery?.setModel(command.model).catch((error) => runnerLine('error', { error: describe(error) }));
+    } else if (command.type === 'set_effort') {
+      activeQuery?.applyFlagSettings({ effortLevel: command.effort ?? null }).catch((error) => runnerLine('error', { error: describe(error) }));
     } else if (command.type === 'tool_result') {
       yak.resolveToolResult(command);
     } else if (command.type === 'end') {

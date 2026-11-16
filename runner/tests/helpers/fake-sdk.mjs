@@ -25,7 +25,7 @@ export function createHarness({ messages = [], throwAfter = null, environment = 
   const input = new PassThrough();
   const written = [];
   const output = { write: (chunk) => written.push(chunk) };
-  const calls = { options: null, prompts: [], setModel: [], interrupts: 0 };
+  const calls = { options: null, prompts: [], setModel: [], applyFlagSettings: [], interrupts: 0 };
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
 
@@ -38,6 +38,7 @@ export function createHarness({ messages = [], throwAfter = null, environment = 
       await gate;
     })();
     generator.setModel = async (model) => { calls.setModel.push(model); };
+    generator.applyFlagSettings = async (settings) => { calls.applyFlagSettings.push(settings); };
     generator.interrupt = async () => { calls.interrupts += 1; };
     return generator;
   };
