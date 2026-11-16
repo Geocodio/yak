@@ -5,6 +5,10 @@ import Foundation
 /// The state is one record: the last two-slot pair (the focused pane, its partner and the side the partner sits on),
 /// and the pane that the Overview panel covers. Nothing else is remembered, so any size shows the pair the same way
 /// and a fold, an unfold or a rotation changes nothing but how the pair is drawn.
+///
+/// One bit of history is kept on purpose: `secondLeads` while the panel is open. Opening the panel from
+/// [chat | preview] or from [preview | chat] draws the same plan, yet a later change to a stacked size orders the
+/// pair differently. Dropping the bit would leave a closing panel no side to put the covered pane back on.
 public struct PaneState: Codable, Equatable, Sendable {
     public var focused: PaneID
     /// The pane beside `focused`. Nil until a two-slot layout needs one.
@@ -239,18 +243,18 @@ public enum PaneLayoutRules {
         return tidy(next, plan: plan)
     }
 
-    /// Called when the arrangement changes (rotation, Split View, a window resize, fold, unfold, a pose). The pair is
+    /// Called whenever the layout inputs change (rotation, Split View, a window resize, fold, unfold, a pose), even
+    /// when the arrangement value stays the same: a side-by-side size can lose the panel to a short height. The pair is
     /// kept as it is, with two exceptions. A second pane that is missing is chosen. An open Overview panel that stops
     /// being a panel (the width drops) becomes the focused Overview pane, taking the pane that sat beside it as the
-    /// second pane on the same side, so nothing moves. `oldInputs` tells whether the old size had the panel; without
-    /// it the old arrangement alone decides.
+    /// second pane on the same side, so nothing moves. `oldInputs` are the inputs `old` was made from: the old size had
+    /// the panel only when they allow it.
     public static func arrangementChanged(
         from old: PaneArrangement, to new: PaneArrangement, state: PaneState, available: [PaneID], inputs: LayoutInputs,
-        oldInputs: LayoutInputs? = nil
+        oldInputs: LayoutInputs
     ) -> PaneState {
         var next = state
-        let wasPanel =
-            oldInputs.map { overviewIsPanel(arrangement: old, inputs: $0) } ?? (old == .sideBySide || old == .book)
+        let wasPanel = overviewIsPanel(arrangement: old, inputs: oldInputs)
         if wasPanel, !overviewIsPanel(arrangement: new, inputs: inputs), available.contains(.overview),
             next.second == .overview, next.focused != .overview
         {
