@@ -11,6 +11,17 @@ import XCTest
         XCTAssertTrue(app.otherElements["drawer"].waitForExistence(timeout: 10))
     }
 
+    /// Leaves the list for the drawer and opens it again, which reloads it.
+    private func reopen(_ tile: String, leaving threadsButton: String) {
+        element(threadsButton).tap()
+        let threads = app.buttons["threads.button"]
+        if threads.waitForExistence(timeout: 5), threads.isHittable { threads.tap() }
+        let button = app.buttons[tile]
+        let isReady = NSPredicate(format: "isHittable == true")
+        wait(for: [XCTNSPredicateExpectation(predicate: isReady, object: button)], timeout: 10)
+        button.tap()
+    }
+
     private func openTilesScreen(_ tile: String, scenario: String) throws {
         try start(scenario, paired: true)
         openDrawer()
@@ -61,8 +72,8 @@ import XCTest
 
     func testTasksLoading() throws {
         try openTilesScreen("drawer.tile.tasks", scenario: "tasks-slow")
-        XCTAssertTrue(element("tasks.loading").waitForExistence(timeout: 10))
-        Thread.sleep(forTimeInterval: 1)
+        XCTAssertTrue(element("tasks.threads").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 1.5)
         try shoot("tasks-loading")
         XCTAssertTrue(label("This is taking longer than usual").waitForExistence(timeout: 12))
         try shoot("tasks-slow")
@@ -71,11 +82,8 @@ import XCTest
     func testTasksOffline() throws {
         try openTilesScreen("drawer.tile.tasks", scenario: "changes")
         XCTAssertTrue(element("tasks.row.k3m9p2qa").waitForExistence(timeout: 15))
-        app.terminate()
         try stub.setOnline(false)
-        app.launch()
-        openDrawer()
-        app.buttons["drawer.tile.tasks"].tap()
+        reopen("drawer.tile.tasks", leaving: "tasks.threads")
         XCTAssertTrue(element("tasks.offlineNotice").waitForExistence(timeout: 25))
         try shoot("tasks-offline")
     }
@@ -224,5 +232,27 @@ import XCTest
         try openTilesScreen("drawer.tile.observations", scenario: "paired")
         XCTAssertTrue(element("observations.error").waitForExistence(timeout: 15))
         try shoot("observations-error")
+    }
+
+    func testObservationsLoading() throws {
+        try openTilesScreen("drawer.tile.observations", scenario: "tasks-slow")
+        XCTAssertTrue(element("observations.threads").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 1.5)
+        try shoot("observations-loading")
+    }
+
+    func testObservationsOffline() throws {
+        try openTilesScreen("drawer.tile.observations", scenario: "changes")
+        XCTAssertTrue(element("observations.row.301").waitForExistence(timeout: 15))
+        try stub.setOnline(false)
+        reopen("drawer.tile.observations", leaving: "observations.threads")
+        XCTAssertTrue(element("observations.offlineNotice").waitForExistence(timeout: 25))
+        try shoot("observations-offline")
+    }
+
+    func testListsWithNulls() throws {
+        try openTilesScreen("drawer.tile.tasks", scenario: "tasks-nulls")
+        XCTAssertTrue(element("tasks.row.k3m9p2qa").waitForExistence(timeout: 15))
+        try shoot("lists-nulls")
     }
 }

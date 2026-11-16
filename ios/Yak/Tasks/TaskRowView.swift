@@ -17,12 +17,8 @@ struct TaskRowView: View {
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
                 Text(Self.subtitle(TaskRowText.subtitle(row))).font(.footnote.weight(.medium))
                     .foregroundStyle(needsYou ? Color.yakAction : Color.yakMuted).multilineTextAlignment(.leading)
-                HStack(spacing: 8) {
-                    Text(row.repo).lineLimit(1)
-                    Text(verbatim: "·").accessibilityHidden(true)
-                    Text(row.createdAgo)
-                }
-                .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text(verbatim: "\(row.repo) · \(row.createdAgo)").multilineTextAlignment(.leading)
+                    .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
                 if !row.followUps.isEmpty {
                     Text("tasks.followUps \(row.followUps.count)").font(.footnote.weight(.medium))
                         .foregroundStyle(Color.yakMuted)

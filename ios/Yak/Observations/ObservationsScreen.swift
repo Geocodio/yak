@@ -85,21 +85,22 @@ struct ObservationsScreen: View {
 
     @ViewBuilder private func rowView(_ row: ObservationRow) -> some View {
         let label = rowContent(row)
-        if let taskID = row.taskId {
+        switch ObservationRowAction.of(row) {
+        case .task(let taskID):
             Button {
                 openTask(taskID)
             } label: {
                 label
             }.buttonStyle(.plain)
                 .accessibilityIdentifier("observations.row.\(row.id)")
-        } else if let text = row.referenceUrl, let url = URL(string: text) {
+        case .web(let url):
             Button {
                 openWeb(url)
             } label: {
                 label
             }.buttonStyle(.plain)
                 .accessibilityIdentifier("observations.row.\(row.id)")
-        } else {
+        case .none:
             label.accessibilityElement(children: .combine).accessibilityIdentifier("observations.row.\(row.id)")
         }
     }
@@ -216,5 +217,18 @@ struct ObservationsScreen: View {
         }
         .accessibilityLabel("tasks.filter")
         .accessibilityIdentifier("observations.filter")
+    }
+}
+
+/// What a tap on an observation does: open its task, open its reference, or nothing when it has neither.
+enum ObservationRowAction: Equatable {
+    case task(String)
+    case web(URL)
+    case none
+
+    static func of(_ row: ObservationRow) -> ObservationRowAction {
+        if let taskID = row.taskId { return .task(taskID) }
+        if let text = row.referenceUrl, let url = URL(string: text) { return .web(url) }
+        return .none
     }
 }

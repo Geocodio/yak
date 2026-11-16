@@ -66,7 +66,9 @@ import Testing
         #expect(status == 409 && error["error"] as? String == "already_resolved")
         #expect(error["message"] as? String == "This request was already decided.")
         let changes = try post("co-owner/request-changes", "task-refused")
-        guard case .reply(let changesStatus, _, let changesData) = changes.answer else { throw URLError(.badServerResponse) }
+        guard case .reply(let changesStatus, _, let changesData) = changes.answer else {
+            throw URLError(.badServerResponse)
+        }
         let changesError = try #require(try JSONSerialization.jsonObject(with: changesData) as? [String: Any])
         #expect(changesStatus == 422 && changesError["message"] as? String == "The feedback is too long.")
     }
