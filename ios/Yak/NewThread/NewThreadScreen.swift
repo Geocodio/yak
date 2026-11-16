@@ -34,6 +34,7 @@ struct NewThreadScreen: View {
             } else if let model {
                 NewThreadContent(
                     model: model, app: app, needsYouCount: needsYouCount, isCompactWidth: isCompactWidth,
+                    isSidebarOpen: scene.state.isDrawerOpen,
                     openDrawer: { scene.setDrawerOpen(true) }, openWeb: { openWeb(instanceURL) })
             } else {
                 Color(.systemBackground)
@@ -72,6 +73,8 @@ private struct NewThreadContent: View {
     let app: AppModel
     let needsYouCount: Int
     let isCompactWidth: Bool
+    /// The threads sidebar is showing; the field gives up the keyboard so the sidebar's own bar stays reachable.
+    let isSidebarOpen: Bool
     let openDrawer: () -> Void
     let openWeb: () -> Void
 
@@ -116,13 +119,12 @@ private struct NewThreadContent: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !scrollsBottom, !hasNoRepositories { bottom }
             }
+            .navigationTitle(Text("shell.newThreadTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if isCompactWidth {
+                // A wide window shows the sidebar beside the screen; with the sidebar hidden the button brings it back.
+                if isCompactWidth || !isSidebarOpen {
                     ToolbarItem(placement: .topBarLeading) { threadsButton }
-                }
-                ToolbarItem(placement: .principal) {
-                    Text("shell.newThreadTitle").font(.headline).accessibilityAddTraits(.isHeader)
                 }
                 ToolbarItem(placement: .topBarTrailing) { moreButton }
             }
@@ -134,6 +136,9 @@ private struct NewThreadContent: View {
         .sensoryFeedback(.warning, trigger: model.refusedSendCount)
         .task(id: model.load == .ready || model.load == .loading) { focusFieldWhenFree() }
         .onChange(of: model.pending == nil) { focusFieldWhenFree() }
+        .onChange(of: isSidebarOpen) { _, isOpen in
+            if isOpen { isFieldFocused = false } else { focusFieldWhenFree() }
+        }
         .onChange(of: app.network.isOnline) { _, isOnline in
             if isOnline, model.options == nil { Task { await model.retry() } }
         }
@@ -148,7 +153,9 @@ private struct NewThreadContent: View {
 
     private func focusFieldWhenFree() {
         // A short window keeps the keyboard down until the person taps the field; the keyboard would leave no room.
-        if !model.isLocked, !hasNoRepositories, verticalSizeClass != .compact { isFieldFocused = true }
+        if !model.isLocked, !hasNoRepositories, !isSidebarOpen, verticalSizeClass != .compact {
+            isFieldFocused = true
+        }
     }
 
     // MARK: Middle
