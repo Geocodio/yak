@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    # A push that changes only the iOS app builds no image and starts no deployment.
+    paths-ignore:
+      - 'ios/**'
+      - '.github/workflows/ios*.yml'
 
 permissions:
   contents: read
