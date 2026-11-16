@@ -111,10 +111,19 @@ import XCTest
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
-        let first = app.staticTexts["Looking at the importer."]
-        XCTAssertTrue(first.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Looking at the importer."].waitForExistence(timeout: 20))
+        // The first message is tracked: a day divider appears above the reply that is played now.
+        let first = app.staticTexts["Retry failed rows when the import times out"].firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
         app.descendants(matching: .any)["conversation"].firstMatch.swipeDown()
-        let before = first.frame.minY
+        // The swipe's momentum and bounce have ended when two reads a moment apart agree.
+        var before = first.frame.minY
+        for _ in 0..<20 {
+            Thread.sleep(forTimeInterval: 0.3)
+            let now = first.frame.minY
+            if abs(now - before) < 0.5 { break }
+            before = now
+        }
         try stub.hold(after: nil)
         XCTAssertTrue(app.staticTexts["Done. Failed rows now retry three times."].waitForExistence(timeout: 30))
         XCTAssertEqual(first.frame.minY, before, accuracy: 1)

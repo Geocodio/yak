@@ -84,6 +84,8 @@ struct ThreadScreen: View {
             .background(Color(.systemBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
+            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+            .toolbarBackground(Color(.systemBackground), for: .navigationBar)
             .toolbar {
                 if !placement.hidesTitle {
                     if isCompactWidth {
