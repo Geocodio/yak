@@ -2,12 +2,15 @@
 
 namespace App\Services\HealthCheck;
 
+use App\Services\SandboxPoolUsage;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Number;
 
 /**
  * Watches the host's root disk, which the container's root filesystem sits
- * on. When it fills, workers crash while writing logs and running tasks hang
- * without a trace, so this warns while there is still room to act.
+ * on, and every Incus storage pool, which holds the sandboxes. Either one
+ * filling up stalls tasks, so this warns while there is still room to act.
+ * The fullest of them sets the status.
  */
 class DiskSpaceCheck implements HealthCheck
 {
@@ -38,18 +41,39 @@ class DiskSpaceCheck implements HealthCheck
             return HealthResult::error('Could not read disk usage');
         }
 
-        $usedPercent = (int) $matches[4];
-        $freeGigabytes = round((int) $matches[3] / 1024 / 1024, 1);
-        $detail = "{$usedPercent}% used — {$freeGigabytes} GB free";
+        $rootPercent = (int) $matches[4];
+        $parts = [$this->describe('Root', $rootPercent, (int) $matches[3] * 1024)];
+        $worstPercent = $rootPercent;
+        $hint = $rootPercent >= self::ERROR_PERCENT
+            ? 'Prune old Docker images with `docker image prune -f` on the host'
+            : null;
 
-        if ($usedPercent >= self::ERROR_PERCENT) {
-            return HealthResult::error("{$detail}. Prune old Docker images with `docker image prune -f` on the host");
+        foreach (app(SandboxPoolUsage::class)->all() as $name => $pool) {
+            $poolPercent = (int) round($pool['usedBytes'] / $pool['totalBytes'] * 100);
+            $parts[] = $this->describe("Sandbox pool {$name}", $poolPercent, $pool['totalBytes'] - $pool['usedBytes']);
+
+            if ($poolPercent >= self::ERROR_PERCENT) {
+                $hint ??= 'Delete unused sandboxes and templates with `incus list` / `incus delete` on the host';
+            }
+
+            $worstPercent = max($worstPercent, $poolPercent);
         }
 
-        if ($usedPercent >= self::WARN_PERCENT) {
+        $detail = implode(' · ', $parts);
+
+        if ($worstPercent >= self::ERROR_PERCENT) {
+            return HealthResult::error($hint === null ? $detail : "{$detail}. {$hint}");
+        }
+
+        if ($worstPercent >= self::WARN_PERCENT) {
             return HealthResult::warn($detail);
         }
 
         return HealthResult::ok($detail);
+    }
+
+    private function describe(string $label, int $usedPercent, int $freeBytes): string
+    {
+        return "{$label}: {$usedPercent}% used, " . Number::fileSize($freeBytes, precision: 1) . ' free';
     }
 }
