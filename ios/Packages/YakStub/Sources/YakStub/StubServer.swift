@@ -172,6 +172,14 @@ final class StubServer: Sendable {
             let body = Data((featureScenario.get() ?? attachmentScenario.get() ?? current.get().rawValue).utf8)
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: body))
         }
+        if request.path == "/__stub/playback", request.method == "POST" {
+            let text = String(decoding: request.body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let milliseconds = Int(text), milliseconds > 0 else {
+                return StubReply(answer: Scenario.error(400, "unknown_playback", "Send milliseconds, not \(text)."))
+            }
+            socket.setPlaybackMilliseconds(milliseconds)
+            return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data(text.utf8)))
+        }
         if request.path == "/__stub/online" {
             if request.method == "POST" {
                 let text = String(decoding: request.body, as: UTF8.self)

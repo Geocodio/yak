@@ -77,6 +77,75 @@ import XCTest
         try audit()
     }
 
+    /// Smoke test 5, the composer's half: a send while a turn runs steers, and a long press on Send queues. The
+    /// "Sends after this turn" line under the bubble belongs to the chat.
+    func testSendWhileATurnRunsSteersAndLongPressQueues() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
+        try launch(scenario: "one-thread-working")
+        // The scripted turn must outlast the typing.
+        try stub.setPlaybackMilliseconds(3000)
+        defer { try? stub.setPlaybackMilliseconds(400) }
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        field.tap()
+        field.typeText("Also cover the empty file case")
+        let send = app.buttons["composer.send"]
+        XCTAssertTrue(send.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["composer.stop"].exists, "the scripted turn ended before the send")
+        send.tap()
+        waitForLastMessage(containing: "steer")
+        XCTAssertTrue(stub.lastMessage().contains("Also cover the empty file case"))
+        field.tap()
+        field.typeText("Then update the docs")
+        XCTAssertTrue(send.waitForExistence(timeout: 5))
+        send.press(forDuration: 1.0)
+        let afterTurn = app.descendants(matching: .any).matching(identifier: "composer.sendAfterTurn").firstMatch
+        XCTAssertTrue(afterTurn.waitForExistence(timeout: 5), app.debugDescription)
+        // The menu opens with an animation; its item has no frame until it settles.
+        wait(
+            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: afterTurn)],
+            timeout: 5)
+        afterTurn.tap()
+        waitForLastMessage(containing: "after_turn")
+        XCTAssertTrue(stub.lastMessage().contains("Then update the docs"))
+    }
+
+    /// Smoke test 6, the composer's half: a send while offline is kept and goes out when the connection returns.
+    /// The "Not sent" line under the bubble belongs to the chat.
+    func testADroppedConnectionShowsOfflineAndRecovers() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
+        try launch(scenario: "paired")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        try stub.setOnline(false)
+        field.tap()
+        field.typeText("Also update the changelog")
+        let offline = app.staticTexts["Offline. Showing a saved copy"]
+        XCTAssertTrue(offline.waitForExistence(timeout: 30), app.debugDescription)
+        app.buttons["composer.send"].tap()
+        XCTAssertFalse(stub.lastMessage().contains("Also update the changelog"))
+        try stub.setOnline(true)
+        waitForLastMessage(containing: "Also update the changelog", timeout: 20)
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: offline)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 20), .completed)
+    }
+
+    private func waitForLastMessage(containing text: String, timeout: TimeInterval = 10) {
+        let arrived = XCTNSPredicateExpectation(
+            predicate: NSPredicate { [stub] _, _ in stub.lastMessage().contains(text) }, object: nil)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [arrived], timeout: timeout), .completed,
+            "the stub never took a message with \(text)")
+    }
+
     private func audit() throws {
         let auditBars = AuditRules.Bars(app)
         try app.performAccessibilityAudit { [self, auditBars] issue in

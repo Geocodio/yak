@@ -16,6 +16,7 @@ public struct ComposerBarState: Equatable, Sendable {
     /// Non-nil: the reason replaces the field.
     public var unavailable: ComposerUnavailable?
     public var placeholder: Placeholder
+    /// Hidden while text is typed, so the field has room; kept while files are attached, so more can be added.
     public var showsPlus: Bool
     public var showsSend: Bool
     public var showsStop: Bool
@@ -44,10 +45,11 @@ public struct ComposerBarState: Equatable, Sendable {
                 unavailable: reason, placeholder: .messageYak, showsPlus: false, showsSend: false,
                 showsStop: false, offersSendAfterTurn: false, isTurnRunning: isRunning)
         }
-        let isTyping =
-            !typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || attachmentCount > 0
+        let hasText = !typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let isTyping = hasText || attachmentCount > 0
         return ComposerBarState(
-            unavailable: nil, placeholder: isRunning ? .steerYak : .messageYak, showsPlus: !isTyping,
+            unavailable: nil, placeholder: isRunning ? .steerYak : .messageYak,
+            showsPlus: !hasText,
             showsSend: isTyping, showsStop: isRunning, offersSendAfterTurn: isRunning && isTyping,
             isTurnRunning: isRunning)
     }

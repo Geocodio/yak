@@ -104,6 +104,7 @@ struct ComposerDraftTests {
             Data("bytes".utf8), fileName: "photo.jpg", contentType: "image/jpeg", reference: "Image #1", sendKey: key)
         let folder = "\(InstanceFolders.outbox(instance.id))/files/\(key.uuidString)"
         #expect(try files.list(folder) == ["photo.jpg"])
+        #expect(await session.attachmentData(stored) == Data("bytes".utf8))
         #expect(files.protection(of: stored.path) == .untilFirstUnlock)
         let outbox = try #require(await session.outbox())
         let deliveries = StreamRecorder(await outbox.deliveries())
