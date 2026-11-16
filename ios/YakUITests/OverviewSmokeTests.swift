@@ -139,6 +139,7 @@ import XCTest
         XCTAssertTrue(title.waitForExistence(timeout: 15))
         title.tap()
         XCTAssertTrue(app.staticTexts["Shared with 1 person"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["overview.shareButton"].exists)
         let change = app.buttons["overview.share"]
         for _ in 0..<6 where !change.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         change.tap()

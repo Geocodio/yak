@@ -100,6 +100,17 @@ private struct OverviewScroll: View {
             .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 96)
             .frame(maxWidth: 640).frame(maxWidth: .infinity)
         }
+        .paneBarRow(key: isOwner) {
+            if isOwner {
+                Button { isShareOpen = true } label: {
+                    Label("thread.menu.share", systemImage: "person.2").font(.body.weight(.medium))
+                        .frame(minHeight: 44).padding(.horizontal, 16)
+                }
+                .buttonStyle(.plain).foregroundStyle(.primary)
+                .background(Color(.secondarySystemBackground), in: .capsule)
+                .accessibilityIdentifier("overview.shareButton")
+            }
+        }
         .onAppear { model.onOpenThread = { scene.open(thread: $0, isCompactWidth: isCompact) } }
         .sheet(item: $browserTarget) { BrowserSheet(url: $0.url).ignoresSafeArea() }
         .sheet(isPresented: $isAddOpen) {
@@ -112,6 +123,8 @@ private struct OverviewScroll: View {
         }
         .sheet(item: $outputRow) { SetupOutputSheet(row: $0).presentationDetents([.medium, .large]) }
     }
+
+    private var isOwner: Bool { thread.snapshot?.show?.thread.isOwner == true }
 
     private var stackLoad: GroupLoad { .of(model.state?.stack, couldNotOpen: model.couldNotOpen) }
     private var environmentLoad: GroupLoad { .of(model.state?.environment, couldNotOpen: model.couldNotOpen) }
