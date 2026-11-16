@@ -40,6 +40,9 @@ struct StubControl {
         try send("GET", endpoint, body: nil)
     }
 
+    /// The last Overview action the stub received, as `<method> <path>` then the body, or empty.
+    func lastOverviewRequest() throws -> String { try get("overview/last-request") }
+
     private func send(_ method: String, _ endpoint: String, body: String?) throws -> String {
         var request = URLRequest(url: URL(string: "\(url)/__stub/\(endpoint)")!)
         request.httpMethod = method
