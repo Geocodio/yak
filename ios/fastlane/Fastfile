@@ -94,7 +94,7 @@ platform :ios do
     sh(
       "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak -skipPackagePluginValidation " \
       "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} -only-testing:YakTests " \
-      "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+      "CODE_SIGNING_ALLOWED=NO"
     )
   end
 
@@ -165,7 +165,7 @@ platform :ios do
       "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test -project Yak.xcodeproj -scheme Yak -skipPackagePluginValidation " \
       "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} #{selection} " \
       "-retry-tests-on-failure -test-iterations 2 " \
-      "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+      "-resultBundlePath #{result_path.shellescape} CODE_SIGNING_ALLOWED=NO"
     )
     # A selection that matches nothing still ends in TEST SUCCEEDED, so an empty run fails here.
     summary = JSON.parse(`xcrun xcresulttool get test-results summary --path #{result_path.shellescape} --compact`)

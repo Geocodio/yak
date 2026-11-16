@@ -4,7 +4,8 @@ public enum Panes {
     /// Panes this build has, one line per pane. Files exists only while a Files mode is built.
     public static let built: [PaneID] =
         [
-            .chat
+            .chat,
+            .terminal,
         ] + (FilesMode.built.isEmpty ? [] : [.files])
 
     /// In `PaneID.allCases` order: Chat always; Preview when `server.preview`; Files when `server.files || server.changes`;

@@ -20,9 +20,16 @@ final class ThreadModel {
     /// Counts opens and closes, so an open that finishes after a stop closes its own engine again.
     private var generation = 0
 
+    /// The sandbox restore the Terminal and Files panes share, so two taps in two panes send one request.
+    private(set) var restore: SandboxRestore = SandboxRestore { .failed(.offline) }
+
     init(threadID: String, session: InstanceSession) {
         self.threadID = threadID
         self.session = session
+        restore = SandboxRestore { [weak self] in
+            guard let engine = await self?.engine else { return .failed(.offline) }
+            return await engine.retryRestore()
+        }
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }

@@ -26,6 +26,7 @@ struct RootView: View {
                 }
             }
         }
+        .environment(\.isNetworkOnline, model.network.isOnline)
         .sensoryFeedback(.success, trigger: model.linkPairingSuccessCount)
         .animation(.spring, value: model.route)
         .animation(.spring, value: model.linkPairing?.state)
