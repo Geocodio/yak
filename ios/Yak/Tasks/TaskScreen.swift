@@ -209,15 +209,8 @@ struct TaskScreen: View {
     }
 
     @ViewBuilder private func questions(_ task: AppTask) -> some View {
-        if task.questionRound != nil, task.canDrive {
-            Button {
-                openWeb(webURL)
-            } label: {
-                row(
-                    title: String(localized: "task.questions"), detail: String(localized: "task.questions.detail"),
-                    isLink: true)
-            }
-            .buttonStyle(.plain).accessibilityIdentifier("task.questions")
+        if let flow = model.questionFlow {
+            TaskQuestionCard(model: model, flow: flow)
         }
     }
 

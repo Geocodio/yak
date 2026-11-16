@@ -31,6 +31,9 @@ final class TaskModel {
     var feedback = ""
     private(set) var feedbackError: String?
     private(set) var candidates: Candidates = .loading
+    /// The open round of clarification questions while the viewer can answer them.
+    private(set) var questionFlow: QuestionFlow?
+    private(set) var isSendingAnswers = false
     /// Counts what the views answer with a haptic.
     private(set) var successCount = 0
     private(set) var errorCount = 0
@@ -94,11 +97,62 @@ final class TaskModel {
 
     private func apply(_ next: TaskDetailFeed.Snapshot) {
         task = next.task
+        syncQuestions()
         load = next.load
         problem = next.problem
         isOffline = next.isOffline
         if let panel = next.task?.coOwner, panel.viewer.access != "write" || panel.status != "pending" {
             linkOverride = nil
+        }
+    }
+
+    // MARK: Questions
+
+    /// Starts a flow for a new round, from its saved draft, and drops it when the round is gone.
+    private func syncQuestions() {
+        guard let round = task?.questionRound, task?.canDrive == true else {
+            questionFlow = nil
+            return
+        }
+        guard questionFlow?.roundKey != round.roundKey, let feed else { return }
+        questionFlow = QuestionFlow(question: round, draft: nil)
+        Task { [weak self] in
+            let draft = await feed.questionDraft()
+            guard let self, self.questionFlow?.roundKey == round.roundKey, let draft else { return }
+            self.questionFlow = QuestionFlow(question: round, draft: draft)
+        }
+    }
+
+    /// Changes the flow and keeps its draft, so leaving the screen loses no answer.
+    func changeQuestions(_ change: (inout QuestionFlow) -> Void) {
+        guard var flow = questionFlow else { return }
+        change(&flow)
+        questionFlow = flow
+        let draft = flow.draft
+        Task { [feed] in await feed?.saveQuestionDraft(draft) }
+    }
+
+    /// Sends the reviewed answers once and reloads the task.
+    func sendAnswers() async {
+        guard let feed, let flow = questionFlow, flow.canSend, !isSendingAnswers, !isOffline else { return }
+        isSendingAnswers = true
+        message = nil
+        canRetryAfterMessage = false
+        await feed.saveQuestionDraft(flow.draft)
+        let outcome = await feed.answerQuestions()
+        isSendingAnswers = false
+        switch outcome {
+        case .done:
+            successCount += 1
+            didChange = true
+            questionFlow = nil
+            await feed.reload()
+        case .refused(_, let text, _, _):
+            errorCount += 1
+            message = text
+        case .failed(let failure):
+            errorCount += 1
+            message = Self.words(for: failure, action: nil)
         }
     }
 
@@ -139,8 +193,8 @@ final class TaskModel {
         }
     }
 
-    private static func words(for failure: ThreadProblem, action: TaskAction) -> String {
-        if case .approve = action, failure == .offline {
+    private static func words(for failure: ThreadProblem, action: TaskAction?) -> String {
+        if case .approve? = action, failure == .offline {
             return String(localized: "task.approve.stillOpening")
         }
         switch failure {

@@ -203,3 +203,33 @@ private final class Access: @unchecked Sendable {
     await model.stop()
     await fixture.session.stop()
 }
+
+@MainActor @Test func answeringTheQuestionsSendsOnceAndReloads() async throws {
+    let fixture = try await TasksFixture { route, _, _ in
+        switch route {
+        case "GET tasks/q5w8e2rt": return (200, ScenarioFile.data("scenario-task-question"))
+        case "POST tasks/q5w8e2rt/clarification-answers": return (200, try json(["status": "sent"]))
+        default: return nil
+        }
+    }
+    let (model, _) = model(fixture, id: "q5w8e2rt")
+    await model.start()
+    #expect(await fixture.eventually { model.questionFlow != nil })
+    let count = model.questionFlow?.questions.count ?? 0
+    for _ in 0..<count {
+        let label = model.questionFlow.flatMap { flow -> String? in
+            guard case .question(let index) = flow.step else { return nil }
+            return flow.questions[index].options.first?.label
+        }
+        model.changeQuestions { $0.pick(label ?? "") }
+        model.changeQuestions { $0.next() }
+    }
+    #expect(model.questionFlow?.canSend == true)
+    let reads = fixture.transport.count { $0 == "GET tasks/q5w8e2rt" }
+    await model.sendAnswers()
+    await model.sendAnswers()
+    #expect(fixture.transport.count { $0 == "POST tasks/q5w8e2rt/clarification-answers" } == 1)
+    #expect(fixture.transport.count { $0 == "GET tasks/q5w8e2rt" } > reads)
+    await model.stop()
+    await fixture.session.stop()
+}
