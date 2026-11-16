@@ -67,10 +67,10 @@ import XCTest
     func testAddingASubThreadSendsOnceAndShowsIt() throws {
         try launch(scenario: "overview-stack")
         openThread("s7ackr00")
-        let menu = app.buttons["thread.menu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 15))
-        menu.tap()
-        let addItem = app.buttons["thread.menu.addSubThread"]
+        let plus = app.buttons["composer.plus"]
+        XCTAssertTrue(plus.waitForExistence(timeout: 15))
+        plus.tap()
+        let addItem = app.buttons["composer.plusMenu.addSubThread"]
         XCTAssertTrue(addItem.waitForExistence(timeout: 5))
         addItem.tap()
         let name = app.textFields["addSubThread.name"]

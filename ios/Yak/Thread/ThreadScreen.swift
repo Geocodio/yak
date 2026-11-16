@@ -113,6 +113,7 @@ struct ThreadScreen: View {
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
             .background(Color(.systemBackground))
+            .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
             .animation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.3), value: isPanelShown)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)

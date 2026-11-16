@@ -7,6 +7,7 @@ struct ComposerBar: View {
     let thread: ThreadModel
     @Environment(SceneModel.self) private var scene
     @FocusState private var isFocused: Bool
+    @Environment(\.openAddSubThread) private var openAddSubThread
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var composer: ComposerModel { thread.composer }
@@ -31,7 +32,11 @@ struct ComposerBar: View {
                 }
             } else {
                 HStack(alignment: .bottom, spacing: 8) {
-                    if composer.bar.showsPlus { PlusMenu(composer: composer) }
+                    if composer.bar.showsPlus {
+                        PlusMenu(
+                            composer: composer,
+                            onAddSubThread: thread.snapshot?.show?.canDrive == true ? openAddSubThread : nil)
+                    }
                     field($composer.text)
                     if composer.bar.showsStop { stopButton }
                     if composer.bar.showsSend { sendControl }

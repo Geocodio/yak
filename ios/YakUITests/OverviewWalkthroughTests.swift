@@ -218,6 +218,19 @@ import XCTest
         try shoot("thread-menu-sub-thread", audits: false)
     }
 
+    func testPlusMenuWithSubThread() throws {
+        try start("overview-stack", paired: true)
+        if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        let row = app.descendants(matching: .any)["drawer.row.thread:s7ackr00"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let plus = app.buttons["composer.plus"]
+        XCTAssertTrue(plus.waitForExistence(timeout: 15))
+        plus.tap()
+        XCTAssertTrue(app.buttons["composer.plusMenu.addSubThread"].waitForExistence(timeout: 5))
+        try shoot("plus-menu-sub-thread")
+    }
+
     private func openAddSheet(_ scenario: String) throws {
         try openOverview(scenario)
         let add = app.buttons["overview.addSubThread"]

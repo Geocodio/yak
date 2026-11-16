@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 /// The plus button and everything behind it: the photo library, the camera, the file importer and the model picker.
 struct PlusMenu: View {
     let composer: ComposerModel
+    /// Set when the thread's show allows driving: adds the Add a sub-thread row.
+    var onAddSubThread: (@MainActor @Sendable () -> Void)?
     @State private var isPickingPhotos = false
     @State private var isPickingFiles = false
     @State private var isTakingPhoto = false
@@ -51,6 +53,12 @@ struct PlusMenu: View {
             }
             .disabled(composer.modelFamilies.isEmpty)
             .accessibilityIdentifier("composer.plusMenu.model")
+            if let onAddSubThread {
+                Button(action: onAddSubThread) {
+                    Label("thread.menu.addSubThread", systemImage: "arrow.triangle.branch")
+                }
+                .accessibilityIdentifier("composer.plusMenu.addSubThread")
+            }
         } label: {
             Image(systemName: "plus").font(.system(size: 20, weight: .medium)).frame(width: 44, height: 44)
                 .contentShape(.circle)
