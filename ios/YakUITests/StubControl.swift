@@ -32,6 +32,12 @@ struct StubControl {
     /// Holds the played events after `sequence`; nil lets them run on.
     func hold(after sequence: Int?) throws { try post("hold-after", sequence.map(String.init) ?? "none") }
 
+    /// The pause between the scripted events of a playing thread, for tests that need the turn to last.
+    func setPlaybackMilliseconds(_ milliseconds: Int) throws { try post("playback", String(milliseconds)) }
+
+    /// The body of the last message the stub took, or an empty string.
+    func lastMessage() -> String { (try? get("last-message")) ?? "" }
+
     /// Sends `body` to `/__stub/<endpoint>` and fails the test unless the stub answers 200. A feature's control
     /// route goes here as `<feature>/<route>`. Waits at most 30 seconds.
     func post(_ endpoint: String, _ body: String) throws {

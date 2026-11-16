@@ -214,6 +214,35 @@ public actor Cache {
         }
     }
 
+    /// The folder names (outbox item ids) that every saved composer draft keeps attachment files in. Nil when any
+    /// listing or draft cannot be read for a reason other than being missing, for example a `.complete` draft on a
+    /// locked device: the caller cannot account for every draft, so it must not treat any folder as unheld.
+    public func composerAttachmentFolders() -> Set<String>? {
+        let threads: [String]
+        do { threads = try files.list("\(root)/threads") } catch {
+            logFailure("draft folders not listed: \(Swift.type(of: error))")
+            return nil
+        }
+        var names: Set<String> = []
+        for path in threads.map({ "\(root)/threads/\($0)/composer.json" }) + [composerPath(.newThread)] {
+            let data: Data?
+            do { data = try files.read(path) } catch {
+                logFailure("draft not read: \(Swift.type(of: error))")
+                return nil
+            }
+            guard let data else { continue }
+            guard let draft = try? decoder.decode(ComposerDraft.self, from: data) else {
+                logFailure("draft not decodable")
+                return nil
+            }
+            if let key = draft.sendKey { names.insert(key.uuidString) }
+            for attachment in draft.attachments {
+                if let name = OutboxInbox.attachmentFolderName(of: attachment.path) { names.insert(name) }
+            }
+        }
+        return names
+    }
+
     // MARK: Widget snapshot
 
     public func widgetSnapshot() -> WidgetSnapshot? {

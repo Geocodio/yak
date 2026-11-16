@@ -219,7 +219,10 @@ public actor InstanceSession {
         currentOutbox = newOutbox
         feed = ThreadListFeed(
             instance: instance, client: client, cache: newCache, instances: instances, clock: environment.clock)
-        Task { await newOutbox.load() }
+        Task {
+            await newOutbox.load()
+            await newOutbox.sweepAttachmentFolders(keeping: await newCache.composerAttachmentFolders())
+        }
     }
 
     /// Stores what `me` says, then starts realtime and puts every open thread on it.
@@ -520,6 +523,20 @@ public actor InstanceSession {
         do { return try await currentOutbox.enqueue(draft) } catch { throw .notSaved }
     }
 
+    /// Edit on a refused or waiting item: the item leaves the outbox and its files stay for the caller. Unavailable
+    /// when the item is not there, is sending or may already be on the server; not saved when the disk refused the
+    /// change, so the item is still in the outbox.
+    public func takeOutboxItem(_ id: UUID) async -> OutboxTakeOutcome {
+        guard let currentOutbox else { return .unavailable }
+        do { return .taken(try await currentOutbox.take(id)) } catch {
+            if error == .notSaved {
+                logFailure("outbox item not taken, list not saved")
+                return .notSaved
+            }
+            return .unavailable
+        }
+    }
+
     // MARK: Composer drafts and new threads
 
     /// Drafts and stored attachments are local files, so they work before the session is active and offline.
@@ -567,11 +584,26 @@ public actor InstanceSession {
         }
     }
 
-    /// The stored bytes of an attachment, or nil when the file is gone or cannot be read now.
+    /// The stored bytes of a draft's attachment, or nil when the file is gone or cannot be read now.
     public func attachmentData(_ attachment: OutboxAttachment) async -> Data? {
         do { return try environment.files.read(attachment.path) } catch {
             logFailure("attachment not read: \(type(of: error))")
             return nil
+        }
+    }
+
+    /// Whether the stored file of a draft's attachment is there, without reading it. A file that cannot be checked
+    /// counts as there, so a draft is not trimmed on a failure that may pass.
+    public func attachmentExists(_ attachment: OutboxAttachment) async -> Bool {
+        do { return try environment.files.exists(attachment.path) } catch {
+            logFailure("attachment not checked: \(type(of: error))")
+            return true
+        }
+    }
+
+    public func discardAttachment(_ attachment: OutboxAttachment) async {
+        do { try environment.files.remove(attachment.path) } catch {
+            logFailure("attachment not removed: \(type(of: error))")
         }
     }
 

@@ -51,12 +51,20 @@ struct ThreadScreen: View {
         .onChange(of: model?.replacementThreadID) { _, replacement in
             if let replacement { scene.open(thread: replacement, isCompactWidth: isCompactWidth) }
         }
+        .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
     }
 
     /// Keeps one model per thread while the screen shows it, and stops it when the thread changes or the screen goes.
     private func run() async {
-        let next = ThreadModel(threadID: threadID, session: session)
+        // Text typed in the last moments before the model is replaced is saved first, then read back by the next one.
+        await model?.flushDraft()
+        // A change of `isSessionActive` runs this again for the same thread: the composer, and any send in flight in
+        // it, stays the only one for that thread.
+        let sameThreadComposer = model?.threadID == threadID ? model?.composer : nil
+        let next = ThreadModel(threadID: threadID, session: session, composer: sameThreadComposer)
         model = next
+        // Drafts are local files, so the field shows the saved text before the session is active.
+        await next.composer.load()
         guard isSessionActive else { return }
         await next.start(initialTitle: initialTitle)
         await next.setVisible(isVisible)
