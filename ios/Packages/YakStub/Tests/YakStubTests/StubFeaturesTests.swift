@@ -182,4 +182,28 @@ private let api = "/api/app/v1/"
         #expect(failure?.feature == "sample" && failure?.isTimeout == true)
         #expect(ContinuousClock.now - started < .seconds(8))
     }
+
+    @Test func finishedWorkCancelsItsTimer() async throws {
+        let sleepers = SleeperCount()
+        for _ in 0..<20 {
+            try await StubServer.bounded(
+                .seconds(3600),
+                sleep: { _ in
+                    sleepers.change(1)
+                    defer { sleepers.change(-1) }
+                    try await Task.sleep(for: .seconds(3600))
+                },
+                {}
+            )
+        }
+        for _ in 0..<100 where sleepers.count > 0 { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(sleepers.count == 0, "a timer is still sleeping after its work finished")
+    }
+}
+
+private final class SleeperCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var count: Int { lock.withLock { value } }
+    func change(_ delta: Int) { lock.withLock { value += delta } }
 }

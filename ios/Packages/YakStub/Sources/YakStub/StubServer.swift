@@ -82,8 +82,15 @@ final class StubServer: Sendable {
         }
     }
 
-    private static func bounded(_ limit: Duration, _ work: @escaping @Sendable () async throws -> Void) async throws {
+    /// Runs `work` and gives up after `limit`. The timer is cancelled when the work finishes first, so no task keeps
+    /// sleeping for the full limit; `sleep` is replaced in tests to see that.
+    static func bounded(
+        _ limit: Duration,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        _ work: @escaping @Sendable () async throws -> Void
+    ) async throws {
         let once = Once()
+        let timer = TaskHolder()
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let job = Task {
                 do {
@@ -92,14 +99,16 @@ final class StubServer: Sendable {
                 } catch {
                     if once.first() { continuation.resume(throwing: error) }
                 }
+                timer.cancel()
             }
-            Task {
-                try? await Task.sleep(for: limit)
-                if once.first() {
-                    job.cancel()
-                    continuation.resume(throwing: StubFeatureError(feature: "", isTimeout: true))
-                }
-            }
+            timer.set(
+                Task {
+                    do { try await sleep(limit) } catch { return }
+                    if once.first() {
+                        job.cancel()
+                        continuation.resume(throwing: StubFeatureError(feature: "", isTimeout: true))
+                    }
+                })
         }
     }
 
@@ -305,6 +314,25 @@ final class Locked<Value: Sendable>: @unchecked Sendable {
 }
 
 /// Lets only the first of several callbacks through.
+/// Holds the timer of `bounded` so the finished work can cancel it, even if it finishes before the timer is stored.
+final class TaskHolder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var task: Task<Void, Never>?
+    private var isCancelled = false
+    func set(_ new: Task<Void, Never>) {
+        lock.withLock {
+            task = new
+            if isCancelled { new.cancel() }
+        }
+    }
+    func cancel() {
+        lock.withLock {
+            isCancelled = true
+            task?.cancel()
+        }
+    }
+}
+
 final class Once: @unchecked Sendable {
     private let lock = NSLock()
     private var done = false

@@ -25,6 +25,8 @@ extension InstanceLifecycleObserver {
 struct InstanceObservers {
     let observers: [any InstanceLifecycleObserver]
     let timeout: Duration
+    /// Waits out `timeout`; replaced in tests to see that the timer is cancelled once the call has finished.
+    var sleep: @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
 
     func paired(_ instance: Instance) async {
         for observer in observers { await within(observer) { await observer.instancePaired(instance) } }
@@ -36,17 +38,13 @@ struct InstanceObservers {
         }
     }
 
-    private func within(
+    func within(
         _ observer: any InstanceLifecycleObserver, _ call: @escaping @MainActor () async -> Void
     ) async {
         let gate = Gate()
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            Task { @MainActor in
-                await call()
-                gate.finish(continuation)
-            }
-            Task { @MainActor [timeout] in
-                try? await Task.sleep(for: timeout)
+            let timer = Task { @MainActor [timeout, sleep] in
+                do { try await sleep(timeout) } catch { return }
                 if gate.finish(continuation) {
                     #if canImport(os)
                         Logger(subsystem: "Yak", category: "Lifecycle")
@@ -55,6 +53,11 @@ struct InstanceObservers {
                             )
                     #endif
                 }
+            }
+            Task { @MainActor in
+                await call()
+                gate.finish(continuation)
+                timer.cancel()
             }
         }
     }
