@@ -102,7 +102,7 @@ struct SubThreadsGroupView: View {
                     Label("overview.addSubThread", systemImage: "plus").font(.body.weight(.medium))
                         .frame(minHeight: 44).contentShape(.rect)
                 }
-                .buttonStyle(.plain).foregroundStyle(Color.accentColor).disabled(isRefused)
+                .buttonStyle(NeutralAddButtonStyle()).disabled(isRefused)
                 .accessibilityLabel(Text("overview.add")).accessibilityIdentifier("overview.addSubThread")
             }
         }
@@ -236,5 +236,16 @@ struct SubThreadsGroupView: View {
         .buttonStyle(.plain).disabled(isStopping || model.isOffline)
         .accessibilityHint(model.isOffline ? Text("overview.notOffline") : Text(""))
         .accessibilityIdentifier("overview.stopAll")
+    }
+}
+
+/// The summary row's Add: the primary text color, and the muted one while it is disabled. The plain style would dim
+/// the label to a contrast the accessibility audit rejects.
+private struct NeutralAddButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.foregroundStyle(isEnabled ? Color.primary : Color.yakMuted)
+            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
