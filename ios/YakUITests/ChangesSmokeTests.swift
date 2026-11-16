@@ -115,11 +115,16 @@ import XCTest
     }
 
     private func audit() throws {
-        try app.performAccessibilityAudit { [self] issue in
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [self, auditBars] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
             }
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            // Text behind a bar is covered by the bar.
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.lifetime = .keepAlways
             screenshot.name = "audit-failure"
