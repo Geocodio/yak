@@ -104,34 +104,37 @@ private struct ElapsedTimer: View {
     }
 }
 
-/// The lock screen and banner presentation.
+/// The lock screen and banner presentation, on an opaque background so its text reads the same over any wallpaper.
 struct ThreadActivityLockScreenView: View {
     let look: LiveActivityLook
     let host: String
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    /// The card is always dark, so its quiet lines are a fixed light gray: the system's secondary gray is too dim on it.
+    private static let quietText = Color.white.opacity(0.8)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 ThreadActivityGlyph(glyph: look.glyph)
                 Text(LiveActivityText.header(host: host)).font(.footnote.weight(.medium)).lineLimit(1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Self.quietText)
                 Spacer(minLength: 8)
                 if let start = look.timerStart {
-                    ElapsedTimer(start: start).font(.footnote.weight(.medium)).foregroundStyle(.secondary)
+                    ElapsedTimer(start: start).font(.footnote.weight(.medium)).foregroundStyle(Self.quietText)
                         .frame(maxWidth: 80, alignment: .trailing)
                 }
             }
             LiveActivityText.title(for: look.title).font(.system(size: 17, weight: .semibold)).lineLimit(2)
             Text(LiveActivityText.text(for: look.detail)).font(.subheadline.weight(.medium))
-                .foregroundStyle(look.glyph == .needsYou ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+                .foregroundStyle(
+                    look.glyph == .needsYou ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Self.quietText)
+                )
                 .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .foregroundStyle(.primary)
         .environment(\.colorScheme, .dark)
-        .background(reduceTransparency ? Color.black : Color.black.opacity(0.78))
+        .background(Color.black)
     }
 }
 

@@ -75,7 +75,7 @@
                                 .clipShape(RoundedRectangle(cornerRadius: 22))
                         }
                         section("Compact") { compact(limited: false) }
-                        section("Compact, limited width (Duo outer screen)") { narrowPill }
+                        section("Duo outer screen") { narrowPill }
                         section("Expanded") { expanded }
                         section("Minimal") {
                             ThreadActivityMinimal(look: look(limited: false))
@@ -98,10 +98,11 @@
             .environment(\.colorScheme, .dark)
         }
 
+        /// The system caps the text of a Live Activity at a large size whatever the person chose, so the previews do too.
         private func section(_ name: String, @ViewBuilder content: () -> some View) -> some View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(verbatim: name).font(.footnote.weight(.semibold)).foregroundStyle(Color.white)
-                content()
+                content().dynamicTypeSize(...DynamicTypeSize.xxLarge)
             }
         }
 
