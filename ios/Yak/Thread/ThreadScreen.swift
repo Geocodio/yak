@@ -25,8 +25,19 @@ struct ThreadScreen: View {
     @State private var slots = PaneSlots()
     /// The pane the title returns to when it leaves the Overview.
     @State private var paneBeforeOverview: PaneID = .chat
+    /// The width of the thread screen, which decides between the Overview pane and the side panel.
+    @State private var availableWidth: Double = 0
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var overviewPlacement: OverviewPlacement {
+        OverviewPlacement.choose(isCompactWidth: isCompactWidth, availableWidth: availableWidth)
+    }
+
+    private var isSidePanel: Bool {
+        if case .sidePanel = overviewPlacement { true } else { false }
+    }
 
     private var isVisible: Bool { scenePhase == .active && !isCoveredByDrawer }
     private var webURL: URL { instanceURL.appending(path: "threads").appending(path: threadID) }
@@ -49,6 +60,12 @@ struct ThreadScreen: View {
                 }
             }
         }
+        .onGeometryChange(for: Double.self) {
+            Double($0.size.width)
+        } action: {
+            availableWidth = $0
+        }
+        .onChange(of: isSidePanel) { moveOverviewBetweenPaneAndPanel() }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
     }
@@ -79,9 +96,16 @@ struct ThreadScreen: View {
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
                 }
+                if case .sidePanel(let width) = overviewPlacement, scene.state.isOverviewPanelOpen,
+                    thread.panes.contains(.overview)
+                {
+                    OverviewSidePanel(thread: thread, width: width) { scene.setOverviewPanelOpen(false) }
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
             .background(Color(.systemBackground))
+            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.3), value: isPanelShown)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
             .toolbar {
@@ -117,7 +141,9 @@ struct ThreadScreen: View {
 
     /// The title and Command I open the Overview; from the Overview they return to the pane before it.
     private func toggleOverview(_ focused: Binding<PaneID>) {
-        if focused.wrappedValue == .overview {
+        if isSidePanel {
+            scene.setOverviewPanelOpen(!scene.state.isOverviewPanelOpen)
+        } else if focused.wrappedValue == .overview {
             focused.wrappedValue = paneBeforeOverview
         } else {
             paneBeforeOverview = focused.wrappedValue
@@ -125,10 +151,34 @@ struct ThreadScreen: View {
         }
     }
 
+    /// With the side panel the Overview is never the focused pane: choosing it opens or closes the panel.
     private func focusedBinding(_ thread: ThreadModel) -> Binding<PaneID> {
         Binding(
-            get: { scene.shownPane(among: thread.panes) },
-            set: { scene.focus(pane: $0) })
+            get: {
+                let shown = scene.shownPane(among: thread.panes)
+                return isSidePanel && shown == .overview ? paneBeforeOverview : shown
+            },
+            set: { next in
+                if isSidePanel, next == .overview {
+                    scene.setOverviewPanelOpen(!scene.state.isOverviewPanelOpen)
+                } else {
+                    scene.focus(pane: next)
+                }
+            })
+    }
+
+    private var isPanelShown: Bool { isSidePanel && scene.state.isOverviewPanelOpen }
+
+    /// A window that grows or shrinks across the panel's width turns the open Overview into the other form.
+    private func moveOverviewBetweenPaneAndPanel() {
+        if isSidePanel {
+            guard scene.state.focusedPane == .overview else { return }
+            scene.focus(pane: paneBeforeOverview == .overview ? .chat : paneBeforeOverview)
+            scene.setOverviewPanelOpen(true)
+        } else if scene.state.isOverviewPanelOpen {
+            scene.setOverviewPanelOpen(false)
+            scene.focus(pane: .overview)
+        }
     }
 
     /// The app's own strip on the trailing edge: the threads button, the pane button and the menu, top to bottom.

@@ -458,7 +458,7 @@ struct PeopleGroupView: View {
         }
     }
 
-    private var startedByText: Text? {
+    var startedByText: Text? {
         guard let startedBy = people.startedBy else { return nil }
         let name: String?
         let date: Date?

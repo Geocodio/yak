@@ -11,17 +11,25 @@ extension PaneDescriptor {
 /// The Overview pane: the groups of one thread, in the order the contract names them.
 struct OverviewPane: View {
     let thread: ThreadModel
+    /// Set when the Overview is the side panel beside the conversation: the header and its close button show, and
+    /// the panel is visible for as long as it exists.
+    var onClosePanel: (() -> Void)?
 
     @State private var model: OverviewModel?
     @Environment(\.isPaneShown) private var isPaneShown
     @Environment(\.scenePhase) private var scenePhase
 
-    private var isVisible: Bool { isPaneShown && scenePhase == .active }
+    private var isVisible: Bool { (onClosePanel != nil || isPaneShown) && scenePhase == .active }
 
     var body: some View {
         Group {
             if let model, thread.snapshot?.show != nil {
-                OverviewScroll(model: model, thread: thread)
+                VStack(spacing: 0) {
+                    if let onClosePanel, let content = model.content {
+                        OverviewPanelHeader(content: content, close: onClosePanel)
+                    }
+                    OverviewScroll(model: model, thread: thread)
+                }
             } else {
                 ThreadLoadView(
                     presentation: thread.loadPresentation, retry: { Task { await thread.retry() } },
@@ -31,7 +39,7 @@ struct OverviewPane: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("overview")
+        .accessibilityIdentifier(onClosePanel == nil ? "overview" : "overview.panel")
         .task(id: thread.threadID) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
     }

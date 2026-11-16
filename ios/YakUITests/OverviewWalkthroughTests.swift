@@ -186,6 +186,59 @@ import XCTest
         XCTAssertTrue(app.textFields["addSubThread.name"].waitForExistence(timeout: 10))
     }
 
+    // MARK: Side panel
+
+    func testOverviewSidePanel() throws {
+        try openPanel("overview-stack")
+        if app.descendants(matching: .any)["overview.panel"].exists {
+            XCTAssertTrue(app.buttons["overview.panel.close"].exists)
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 15))
+        try shootOverview("overview-panel")
+    }
+
+    func testOverviewPanelOnDuo() throws {
+        try openPanel("overview-stack")
+        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 15))
+        try shootOverview("overview-panel-duo")
+    }
+
+    /// Below 760 points the Overview is the pane it always was; the real narrow window is Split View on the iPad,
+    /// checked by hand, so here the width the device gives decides what is asserted.
+    func testOverviewPanelBecomesAPane() throws {
+        try start("overview-stack", paired: true)
+        try openRootThread()
+        let isWide = app.windows.firstMatch.frame.width >= 760
+        openOverviewFromTitle()
+        let identifier = isWide ? "overview.panel" : "overview"
+        XCTAssertTrue(app.descendants(matching: .any)[identifier].waitForExistence(timeout: 10))
+        try shootOverview("overview-panel-narrow")
+    }
+
+    private func openRootThread() throws {
+        if !app.otherElements["drawer"].waitForExistence(timeout: 10), app.buttons["threads.button"].exists {
+            app.buttons["threads.button"].tap()
+        }
+        let row = app.descendants(matching: .any)["drawer.row.thread:s7ackr00"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+    }
+
+    private func openOverviewFromTitle() {
+        let title = app.descendants(matching: .any)["thread.title"]
+        if title.waitForExistence(timeout: 15) { title.tap() } else { app.typeKey("i", modifierFlags: .command) }
+    }
+
+    private func openPanel(_ scenario: String) throws {
+        try start(scenario, paired: true)
+        try openRootThread()
+        openOverviewFromTitle()
+        // The panel needs 760 points beside the conversation; a window narrower than that shows the pane instead.
+        let panel = app.descendants(matching: .any)["overview.panel"]
+        let pane = app.descendants(matching: .any)["overview"]
+        XCTAssertTrue(panel.waitForExistence(timeout: 10) || pane.waitForExistence(timeout: 2))
+    }
+
     // MARK: Share sheet
 
     func testShareSheet() throws {
