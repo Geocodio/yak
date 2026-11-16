@@ -77,7 +77,10 @@ struct ComposerBar: View {
             }
         }
         .accessibilityLabel("composer.send.label")
-        .accessibilityHint(composer.bar.offersSendAfterTurn ? Text("composer.send.hint") : Text(verbatim: ""))
+        .accessibilityHint(
+            composer.preparingCount > 0
+                ? Text("composer.send.preparing")
+                : composer.bar.offersSendAfterTurn ? Text("composer.send.hint") : Text(verbatim: ""))
         .accessibilityAction(named: Text("composer.sendAfterTurn")) {
             if composer.bar.offersSendAfterTurn { send(.afterTurn) }
         }

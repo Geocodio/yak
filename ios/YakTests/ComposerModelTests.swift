@@ -73,12 +73,17 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
     private var discarded: [OutboxAttachment] = []
     private var files: [String: Data] = [:]
     private var storeFailure: FileStoreError?
+    private var storeDelay: Duration?
     private var attachmentLimits: Me.AttachmentLimits? = try? JSONDecoder().decode(
         Me.AttachmentLimits.self, from: Data(#"{"maxFiles":8,"maxFileBytes":10485760}"#.utf8))
 
     var storageFailure: FileStoreError? {
         get { lock.withLock { storeFailure } }
         set { lock.withLock { storeFailure = newValue } }
+    }
+    var slowStore: Duration? {
+        get { lock.withLock { storeDelay } }
+        set { lock.withLock { storeDelay = newValue } }
     }
     func keep(_ data: Data, at path: String) { lock.withLock { files[path] = data } }
 
@@ -140,6 +145,7 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
     func storeAttachment(_ prepared: PreparedAttachment, reference: String, sendKey: UUID) async throws(FileStoreError)
         -> OutboxAttachment
     {
+        if let delay = slowStore { try? await Task.sleep(for: delay) }
         if let failure = storageFailure { throw failure }
         lock.withLock { stored.append((reference, sendKey)) }
         return OutboxAttachment(
@@ -403,6 +409,36 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         _ = await (first, second)
         #expect(Set(composer.attachments.map(\.reference)) == ["Image #1", "Image #2"])
         #expect(backend.storedSendKeys.count == 2 && Set(backend.storedSendKeys).count == 1)
+    }
+
+    @Test func sendWaitsForAnAttachmentThatIsStillBeingAdded() async throws {
+        let backend = FakeComposerBackend()
+        backend.slowStore = .milliseconds(300)
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        composer.text = "Hi"
+        let adding = Task { await composer.add(imageData(), fileName: "a.png", contentType: "image/png") }
+        while composer.preparingCount == 0 { await Task.yield() }
+        #expect(!composer.canSend)
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.isEmpty)
+        await adding.value
+        #expect(composer.canSend)
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.count == 1 && backend.sentDrafts[0].attachments.count == 1)
+    }
+
+    @Test func aFailedAddKeepsASendKeyItDidNotCreate() async throws {
+        let backend = FakeComposerBackend()
+        let key = UUID()
+        backend.seed(ComposerDraft(text: "Hi", model: nil, sendKey: key, attachments: []), for: .thread("d0e515ef"))
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        await composer.load()
+        backend.storageFailure = .unreadable
+        await composer.add(imageData(), fileName: "a.png", contentType: "image/png")
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.first?.sendKey == key)
     }
 
     @Test func aFullDiskIsNotCalledUnreadable() async {

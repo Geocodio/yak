@@ -2108,6 +2108,16 @@
         }
       }
     },
+    "composer.send.preparing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An attachment is still being added"
+          }
+        }
+      }
+    },
     "composer.send.hint": {
       "localizations": {
         "en": {

@@ -49,7 +49,7 @@ public struct ComposerBarState: Equatable, Sendable {
         let isTyping = hasText || attachmentCount > 0
         return ComposerBarState(
             unavailable: nil, placeholder: isRunning ? .steerYak : .messageYak,
-            showsPlus: !hasText || attachmentCount > 0,
+            showsPlus: !hasText,
             showsSend: isTyping, showsStop: isRunning, offersSendAfterTurn: isRunning && isTyping,
             isTurnRunning: isRunning)
     }

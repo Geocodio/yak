@@ -11,7 +11,7 @@ struct ComposerBarStateTests {
         ),
         (.idle, true, nil, "Hi", 0, false, true, false, false, .messageYak),
         (.idle, true, nil, "  ", 1, true, true, false, false, .messageYak),
-        (.idle, true, nil, "Hi", 1, true, true, false, false, .messageYak),
+        (.idle, true, nil, "Hi", 1, false, true, false, false, .messageYak),
         (.working, true, nil, "", 0, true, false, true, false, .steerYak),
         (.idle, true, .running, "", 0, true, false, true, false, .steerYak),
         (.working, true, .running, "Use the draft names", 0, false, true, true, true, .steerYak),

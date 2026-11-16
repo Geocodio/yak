@@ -120,7 +120,7 @@ final class ComposerModel {
 
     /// True when there is something to send.
     var canSend: Bool {
-        !isSending && (!typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty)
+        !isSending && preparingCount == 0 && (!typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty)
     }
 
     /// Reads the saved draft. Text typed before it arrives wins over the saved text.
@@ -144,7 +144,7 @@ final class ComposerModel {
     func use(backend: any ComposerBackend) { self.backend = backend }
 
     func send(delivery: MessageDelivery) async {
-        guard canSend, bar.unavailable == nil, delivery == .steer || bar.offersSendAfterTurn,
+        guard canSend, preparingCount == 0, bar.unavailable == nil, delivery == .steer || bar.offersSendAfterTurn,
             case .thread(let threadID) = key
         else { return }
         isSending = true
@@ -238,8 +238,8 @@ final class ComposerModel {
     }
 
     /// The send key was taken for an add that failed: it goes when no attachment and no other add uses it.
-    private func releaseUnusedSendKey() {
-        if attachments.isEmpty && preparingCount <= 1 { sendKey = nil }
+    private func releaseUnusedSendKey(tookKey: Bool) {
+        if tookKey && attachments.isEmpty && preparingCount <= 1 { sendKey = nil }
     }
 
     /// Files and photos are checked against the server's limits, prepared off the main actor, stored under the
@@ -251,6 +251,7 @@ final class ComposerModel {
         defer { preparingCount -= 1 }
         problem = nil
         let number = reserveAttachmentNumber()
+        let tookKey = sendKey == nil
         let key = sendKey ?? UUID()
         sendKey = key
         let prepared: PreparedAttachment
@@ -259,7 +260,7 @@ final class ComposerModel {
                 data, fileName: fileName, contentType: contentType, maximumBytes: maximumFileBytes)
         } catch {
             if highestReservedNumber == number { highestReservedNumber = number - 1 }
-            releaseUnusedSendKey()
+            releaseUnusedSendKey(tookKey: tookKey)
             problem = Self.message(for: error)
             refusalCount += 1
             return
@@ -272,7 +273,7 @@ final class ComposerModel {
             thumbnails[stored.reference] = thumbnail
         } catch {
             if highestReservedNumber == number { highestReservedNumber = number - 1 }
-            releaseUnusedSendKey()
+            releaseUnusedSendKey(tookKey: tookKey)
             problem = Self.message(for: .notStored)
             refusalCount += 1
             return
