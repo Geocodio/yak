@@ -28,8 +28,12 @@ do {
         scenario: scenario,
         scenarios: options["scenarios"].map { URL(fileURLWithPath: $0) })
     let actualPort = try await server.start()
+    try await server.startFeatures()
     FileHandle.standardOutput.write(Data("listening on 127.0.0.1:\(actualPort)\n".utf8))
     try await Task.sleep(for: .seconds(Int.max / 2))
+} catch let error as StubFeatureError {
+    log("yak-stub feature \(error.feature) \(error.isTimeout ? "did not start in time" : "failed to start")")
+    exit(1)
 } catch {
     log("yak-stub failed: \(Swift.type(of: error))")
     exit(1)

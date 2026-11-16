@@ -29,7 +29,7 @@ struct StubFixtures: Sendable {
     /// Server fixture name and scenario data name of every thread file the stub serves. A renamed file is a
     /// one-line change here. `thread-events`, `thread-event` and `thread-share` are not served: catch-up pages
     /// are computed from the event lists.
-    static let names: [(server: String, scenario: String)] = [
+    static let coreNames: [(server: String, scenario: String)] = [
         ("threads", "scenario-thread-list"),
         ("thread", "scenario-thread-show"),
         ("thread-question", "scenario-thread-question"),
@@ -46,6 +46,10 @@ struct StubFixtures: Sendable {
         ("events/stream-reset", "events/stream-reset"),
         ("events/pointer", "events/pointer"),
     ]
+    /// The core table and every feature's fixture pairs.
+    static var names: [(server: String, scenario: String)] {
+        coreNames + StubFeatures.all.flatMap(\.fixturePairs).map { ($0.server, $0.scenario) }
+    }
     private static let authorizationScenarioNames = [
         "scenario-broadcasting-auth-presence", "scenario-broadcasting-auth-private",
     ]
