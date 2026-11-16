@@ -35,6 +35,8 @@ final class SceneModel {
     private(set) var newThreadOpenCount = 0
     /// Counts the requests to put the cursor in the drawer's search field (Command K).
     private(set) var searchFocusRequest = 0
+    /// Counts the requests to put the cursor in the composer (the activity strip).
+    private(set) var composerFocusRequest = 0
 
     init(state: SceneState) {
         self.state = state
@@ -105,6 +107,17 @@ final class SceneModel {
     func requestSearchFocus() {
         state.isDrawerOpen = true
         searchFocusRequest += 1
+    }
+    /// The composer may not exist yet when the request comes (it lives in Chat's bar), so it also reads the pending
+    /// flag when it appears.
+    private(set) var isComposerFocusPending = false
+    func requestComposerFocus() {
+        isComposerFocusPending = true
+        composerFocusRequest += 1
+    }
+    func takeComposerFocus() -> Bool {
+        defer { isComposerFocusPending = false }
+        return isComposerFocusPending
     }
     func setFilter(_ filter: ThreadListFilter) { state.filter = filter }
 

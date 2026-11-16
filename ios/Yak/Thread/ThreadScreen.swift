@@ -148,9 +148,10 @@ struct ThreadScreen: View {
         focused == .chat ? nil : ActivityLine.make(thread.snapshot)
     }
 
-    /// The composer takes focus once the chat has one; until then this only shows Chat.
+    /// Shows Chat, and puts the cursor in the composer when asked.
     private func openChat(focusComposer: Bool) {
         scene.focus(pane: .chat)
+        if focusComposer { scene.requestComposerFocus() }
     }
 
     // MARK: Controls
