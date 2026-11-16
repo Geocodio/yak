@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup app
         uses: ./.github/actions/setup-php-app
@@ -40,7 +40,7 @@ jobs:
           flux-license-key: ${{ secrets.FLUX_LICENSE_KEY }}
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm

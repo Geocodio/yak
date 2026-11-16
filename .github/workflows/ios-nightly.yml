@@ -26,7 +26,7 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Select Xcode
         run: sudo xcode-select -s "/Applications/Xcode_$(cat .xcode-version).app"
       # The one job that calls no lane: it is a single swift command with no setup.
@@ -37,7 +37,7 @@ jobs:
           swift test --sanitize=thread 2>&1 | tee "$GITHUB_WORKSPACE/ios/build/thread-sanitizer.log"
       - name: Keep the sanitizer log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: thread-sanitizer-log
           path: ios/build/thread-sanitizer.log
@@ -55,7 +55,7 @@ jobs:
       YAK_DISPLAY_NAME: Example Yak
       YAK_SENTRY_DSN: https://public@sentry.example.invalid/1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Select Xcode
         run: sudo xcode-select -s "/Applications/Xcode_$(cat .xcode-version).app"
       - name: Install tools
@@ -73,7 +73,7 @@ jobs:
         run: bundle exec fastlane sentry_tests
       - name: Keep the result bundle
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sentry-build-results
           path: ios/build/*.xcresult
