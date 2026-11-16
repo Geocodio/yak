@@ -326,7 +326,7 @@ import XCTest
         try shootThread("chat-notice-continue")
     }
 
-||||||| 29cdd15a7
+||||||| /tmp/base.swift
 
     // MARK: New thread
 
