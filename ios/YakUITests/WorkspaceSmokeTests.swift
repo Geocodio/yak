@@ -103,8 +103,8 @@ extension XCUIApplication {
 
     private func element(_ identifier: String) -> XCUIElement { app.descendants(matching: .any)[identifier] }
 
-    private func openFile(_ scenario: String = "workspace") throws {
-        try launch(scenario: scenario)
+    private func openFile(_ scenario: String = "workspace", arguments: [String] = []) throws {
+        try launch(scenario: scenario, arguments: arguments)
         app.openThread("d0e515ef")
         app.openPane("Files")
         XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 15))
@@ -154,6 +154,26 @@ extension XCUIApplication {
             app.staticTexts["Saved. Claude reads the change at its next step."].waitForExistence(timeout: 10))
         XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 10))
         XCTAssertTrue(((element("files.viewer").value as? String) ?? "").contains("added by hand"))
+    }
+
+    func testUnsavedTextSurvivesARelaunch() throws {
+        try openFile(arguments: ["-yakTestKeepFiles", "fresh"])
+        element("files.viewer.edit").tap()
+        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 10))
+        typeIntoEditor("// not saved yet\n")
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 1)
+        app.terminate()
+        app.launchArguments = app.launchArguments.map { $0 == "fresh" ? "again" : $0 }
+        app.launch()
+        app.openThread("d0e515ef")
+        app.openPane("Files")
+        XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 15))
+        element("files.row.src").tap()
+        XCTAssertTrue(element("files.row.src/Importer.php").waitForExistence(timeout: 10))
+        element("files.row.src/Importer.php").tap()
+        XCTAssertTrue(app.staticTexts["Restored the text you had not saved."].waitForExistence(timeout: 15))
+        XCTAssertTrue(((app.textViews["files.editor"].value as? String) ?? "").contains("not saved yet"))
     }
 
     func testALostSaveIsSaved() throws {

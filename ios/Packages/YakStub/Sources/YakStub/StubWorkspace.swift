@@ -15,6 +15,14 @@ enum WorkspaceVariant: String, CaseIterable, Sendable {
     case filesReadOnly = "files-read-only"
     case filesSaveClosed = "files-save-closed"
     case filesSaveAsleep = "files-save-asleep"
+    /// The file tree answers after 14 seconds.
+    case filesSlow = "files-slow"
+    /// A file's text answers after 14 seconds.
+    case fileSlowRead = "file-slow-read"
+    /// A save answers after 14 seconds.
+    case fileSlowSave = "file-slow-save"
+    /// A save finds that the file was deleted meanwhile.
+    case filesConflictDeleted = "files-conflict-deleted"
 }
 
 struct WorkspaceRequest: Sendable {
@@ -185,7 +193,12 @@ final class StubWorkspace: @unchecked Sendable {
     private func tree(thread: String, request: WorkspaceRequest, canDrive: Bool) -> WorkspaceAnswer {
         let variant = state.variant
         if variant == .filesStates, let answer = filesState(thread: thread) { return answer }
-        let delay: Duration = variant == .terminalWaking ? .seconds(3) : .zero
+        let delay: Duration =
+            switch variant {
+            case .terminalWaking: .seconds(3)
+            case .filesSlow: .seconds(14)
+            default: .zero
+            }
         let path = request.query["path"] ?? ""
         if request.query["scope"] == "sandbox" {
             guard canDrive else { return error(403, "forbidden", "You do not have access to this.") }
@@ -273,6 +286,13 @@ final class StubWorkspace: @unchecked Sendable {
     private func content(request: WorkspaceRequest, canDrive: Bool) -> WorkspaceAnswer {
         let path = request.query["path"] ?? ""
         let readOnly = state.variant == .filesReadOnly
+        if state.variant == .fileSlowRead {
+            return withDelay(.seconds(14), contentAnswer(path: path, readOnly: readOnly))
+        }
+        return contentAnswer(path: path, readOnly: readOnly)
+    }
+
+    private func contentAnswer(path: String, readOnly: Bool) -> WorkspaceAnswer {
         switch path {
         case "src/logo.png": return scenario(200, "scenario-file-binary")
         case "src/sample.csv": return scenario(200, "scenario-file-too-large")
@@ -309,6 +329,10 @@ final class StubWorkspace: @unchecked Sendable {
         if !canDrive || state.variant == .filesReadOnly {
             return error(403, "forbidden", "You do not have access to this.")
         }
+        if state.variant == .filesConflictDeleted, !state.conflictSpent {
+            state.conflictSpent = true
+            return conflictDeleted()
+        }
         if state.variant == .filesConflict, !state.conflictSpent {
             state.conflictSpent = true
             return scenario(409, "scenario-file-conflict")
@@ -333,7 +357,17 @@ final class StubWorkspace: @unchecked Sendable {
         file["sha256"] = Self.savedHash
         file["size"] = text.utf8.count
         object["file"] = file
-        return WorkspaceAnswer(status: 200, body: encode(object), delay: .zero, dropsConnection: false)
+        let delay: Duration = state.variant == .fileSlowSave ? .seconds(14) : .zero
+        return WorkspaceAnswer(status: 200, body: encode(object), delay: delay, dropsConnection: false)
+    }
+
+    /// The conflict answer for a file that was deleted meanwhile: `details.file` is null.
+    private func conflictDeleted() -> WorkspaceAnswer {
+        guard var object = object("scenario-file-conflict") else { return missing("scenario-file-conflict") }
+        var details = object["details"] as? [String: Any] ?? [:]
+        details["file"] = NSNull()
+        object["details"] = details
+        return WorkspaceAnswer(status: 409, body: encode(object), delay: .zero, dropsConnection: false)
     }
 
     private func conflictHolding(text: String, path: String) -> WorkspaceAnswer {

@@ -64,6 +64,19 @@ import YakKit
     await fixture.finish()
 }
 
+/// The editor's hidden Command S button runs `document.save()`; this is that action on the shortcut the button carries.
+@MainActor @Test func commandSSaves() async throws {
+    #expect(AppShortcut.save.key == .character("s"))
+    #expect(AppShortcut.save.modifiers == [.command])
+    let fixture = try await FilesFixture()
+    let document = try await openedDocument(fixture, edit: true)
+    document.setText("typed\n")
+    #expect(await fixture.eventually { document.isDirty })
+    await document.save()
+    #expect(await fixture.eventually { if case .saved = document.snapshot.edit { true } else { false } })
+    await fixture.finish()
+}
+
 @MainActor @Test func aSaveShowsTheSavedLineAndAConflictOpensTheCompare() async throws {
     let fixture = try await FilesFixture()
     let document = try await openedDocument(fixture, edit: true)

@@ -25,14 +25,14 @@ import XCTest
         app.typeText("git status -s\n")
         waitForOutput("ImporterTest")
         if app.buttons["terminal.key.keyboard"].exists { app.buttons["terminal.key.keyboard"].tap() }
-        try shoot("terminal", audits: false)
+        try shootThread("terminal")
     }
 
     func testTerminalKeyboard() throws {
         try openTerminal("workspace")
         waitForOutput("stub$")
         output.tap()
-        try shoot("terminal-keyboard", audits: false)
+        try shootThread("terminal-keyboard")
     }
 
     func testTerminalShellMenu() throws {
@@ -43,26 +43,27 @@ import XCTest
         waitForOutput("stub$")
         app.buttons["terminal.key.shells"].tap()
         XCTAssertTrue(app.buttons["terminal.shells.row.main"].waitForExistence(timeout: 5))
+        // The shell menu is the system's own popover; the audit cannot judge text on it.
         try shoot("terminal-shells", audits: false)
     }
 
     func testTerminalWaking() throws {
         try openTerminal("terminal-waking")
         XCTAssertTrue(state("terminal.state").waitForExistence(timeout: 10))
-        try shoot("terminal-waking", audits: false)
+        try shootThread("terminal-waking")
     }
 
     func testTerminalSlow() throws {
         try openTerminal("terminal-slow-wake")
         XCTAssertTrue(state("terminal.state").waitForExistence(timeout: 10))
         XCTAssertTrue(label("This is taking longer than usual").waitForExistence(timeout: 45))
-        try shoot("terminal-slow", audits: false)
+        try shootThread("terminal-slow")
     }
 
     func testTerminalWaiting() throws {
         try openTerminal("terminal-waiting")
         XCTAssertTrue(label("Waiting for a free sandbox slot").waitForExistence(timeout: 10))
-        try shoot("terminal-waiting", audits: false)
+        try shootThread("terminal-waiting")
     }
 
     func testTerminalWaitedTooLong() throws {
@@ -70,7 +71,7 @@ import XCTest
         app.openThread("d0e515ef")
         app.openPane("Terminal")
         XCTAssertTrue(label("Still no free slot").waitForExistence(timeout: 20))
-        try shoot("terminal-waited", audits: false)
+        try shootThread("terminal-waited")
     }
 
     func testTerminalLost() throws {
@@ -78,7 +79,7 @@ import XCTest
         waitForOutput("stub$")
         try stub.post("terminal/close", "1011")
         XCTAssertTrue(state("terminal.banner").waitForExistence(timeout: 10))
-        try shoot("terminal-lost", audits: false)
+        try shootThread("terminal-lost")
     }
 
     func testTerminalOffline() throws {
@@ -88,7 +89,7 @@ import XCTest
         defer { try? stub.setOnline(true) }
         XCTAssertTrue(label("Offline. The shell reconnects").waitForExistence(timeout: 10))
         app.buttons["terminal.key.escape"].tap()
-        try shoot("terminal-offline", audits: false)
+        try shootThread("terminal-offline")
     }
 
     func testTerminalEnded() throws {
@@ -97,7 +98,7 @@ import XCTest
         output.tap()
         app.typeText("exit\n")
         XCTAssertTrue(label("The shell ended").waitForExistence(timeout: 10))
-        try shoot("terminal-ended", audits: false)
+        try shootThread("terminal-ended")
     }
 
     func testTerminalIdle() throws {
@@ -105,13 +106,13 @@ import XCTest
         waitForOutput("stub$")
         try stub.post("terminal/close", "4408")
         XCTAssertTrue(label("closed after 30 minutes").waitForExistence(timeout: 10))
-        try shoot("terminal-idle", audits: false)
+        try shootThread("terminal-idle")
     }
 
     private func statesCase(_ thread: String, expecting text: String, shot: String) throws {
         try openTerminal("terminal-states", thread: thread)
         XCTAssertTrue(label(text).waitForExistence(timeout: 15))
-        try shoot(shot, audits: false)
+        try shootThread(shot)
     }
 
     func testTerminalOrigin() throws {
@@ -138,7 +139,7 @@ import XCTest
         try openTerminal("terminal-states", thread: "termg0ne")
         state("terminal.state.action").tap()
         XCTAssertTrue(label("Restoring the sandbox").firstMatch.waitForExistence(timeout: 10))
-        try shoot("terminal-restoring", audits: false)
+        try shootThread("terminal-restoring")
     }
 
     func testTerminalStillRestoring() throws {
@@ -147,7 +148,7 @@ import XCTest
         app.openPane("Terminal")
         state("terminal.state.action").tap()
         XCTAssertTrue(label("Still restoring").waitForExistence(timeout: 25))
-        try shoot("terminal-still-restoring", audits: false)
+        try shootThread("terminal-still-restoring")
     }
 
     func testTerminalNoSandbox() throws {
@@ -177,8 +178,8 @@ import XCTest
         XCTAssertTrue(state("files.row.src/Importer.php").waitForExistence(timeout: 10))
     }
 
-    private func openImporter(_ scenario: String = "workspace") throws {
-        try openFiles(scenario)
+    private func openImporter(_ scenario: String = "workspace", arguments: [String] = []) throws {
+        try openFiles(scenario, arguments: arguments)
         XCTAssertTrue(state("files.row.src").waitForExistence(timeout: 15))
         state("files.row.src").tap()
         XCTAssertTrue(state("files.row.src/Importer.php").waitForExistence(timeout: 10))
@@ -195,7 +196,7 @@ import XCTest
         try openFiles("terminal-waking")
         XCTAssertTrue(state("files.state").waitForExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1)
-        try shoot("files-loading", audits: false)
+        try shootThread("files-loading")
     }
 
     func testFilesFind() throws {
@@ -205,7 +206,7 @@ import XCTest
         field.tap()
         field.typeText("import")
         XCTAssertTrue(state("files.result.src/Importer.php").waitForExistence(timeout: 10))
-        try shoot("files-find", audits: false)
+        try shootThread("files-find")
     }
 
     func testFilesFindNone() throws {
@@ -215,7 +216,7 @@ import XCTest
         field.tap()
         field.typeText("webhook")
         XCTAssertTrue(label("No file matches").waitForExistence(timeout: 10))
-        try shoot("files-find-none", audits: false)
+        try shootThread("files-find-none")
     }
 
     func testFilesEmptyFolder() throws {
@@ -236,7 +237,7 @@ import XCTest
     private func filesState(_ thread: String, expecting text: String, shot: String, arguments: [String] = []) throws {
         try openFiles("files-states", thread: thread, arguments: arguments)
         XCTAssertTrue(label(text).waitForExistence(timeout: 20))
-        try shoot(shot, audits: false)
+        try shootThread(shot)
     }
 
     func testFilesWaking() throws {
@@ -251,20 +252,20 @@ import XCTest
         try openFiles("files-states", thread: "fg0ne000")
         state("files.restore").tap()
         XCTAssertTrue(label("Restoring the sandbox").firstMatch.waitForExistence(timeout: 10))
-        try shoot("files-restoring", audits: false)
+        try shootThread("files-restoring")
     }
 
     func testFilesStillWaking() throws {
         try openFiles("files-states", thread: "fs10t000", arguments: ["-yakTestShortWaits", "YES"])
         XCTAssertTrue(label("Still waking").waitForExistence(timeout: 25))
-        try shoot("files-still-waking", audits: false)
+        try shootThread("files-still-waking")
     }
 
     func testFilesStillRestoring() throws {
         try openFiles("files-states", thread: "fr3st0re", arguments: ["-yakTestShortWaits", "YES"])
         XCTAssertTrue(label("Restoring the sandbox").firstMatch.waitForExistence(timeout: 15))
         XCTAssertTrue(label("Still restoring").waitForExistence(timeout: 30))
-        try shoot("files-still-restoring", audits: false)
+        try shootThread("files-still-restoring")
     }
 
     func testFilesAsleep() throws {
@@ -294,7 +295,14 @@ import XCTest
         defer { try? stub.setOnline(true) }
         state("files.row.src").tap()
         XCTAssertTrue(label("Offline. Showing what was loaded").waitForExistence(timeout: 15))
-        try shoot("files-offline-tree", audits: false)
+        try shootThread("files-offline-tree")
+    }
+
+    func testFilesSlow() throws {
+        try openFiles("files-slow")
+        XCTAssertTrue(state("files.state").waitForExistence(timeout: 5))
+        XCTAssertTrue(state("files.state.action").waitForExistence(timeout: 20))
+        try shootThread("files-slow")
     }
 
     func testFilesOfflineEmpty() throws {
@@ -305,42 +313,52 @@ import XCTest
         app.openThread("d0e515ef")
         app.openPane("Files")
         XCTAssertTrue(label("You are offline").firstMatch.waitForExistence(timeout: 20))
-        try shoot("files-offline-empty", audits: false)
+        try shootThread("files-offline-empty")
     }
 
     // MARK: File viewer
 
     func testFileViewer() throws {
         try openImporter()
-        try shoot("file-viewer", audits: false)
+        try shootThread("file-viewer")
+    }
+
+    func testFileViewerLoading() throws {
+        try openFiles("file-slow-read")
+        XCTAssertTrue(state("files.row.src").waitForExistence(timeout: 15))
+        state("files.row.src").tap()
+        XCTAssertTrue(state("files.row.src/Importer.php").waitForExistence(timeout: 10))
+        state("files.row.src/Importer.php").tap()
+        XCTAssertTrue(state("files.viewer.loading").waitForExistence(timeout: 10))
+        try shootThread("file-viewer-loading")
     }
 
     func testFileViewerWrapped() throws {
         try openImporter()
         state("files.viewer.menu").tap()
         app.buttons["Wrap lines"].tap()
-        try shoot("file-viewer-wrapped", audits: false)
+        try shootThread("file-viewer-wrapped")
     }
 
     func testFileBinary() throws {
         try openSource()
         state("files.row.src/logo.png").tap()
         XCTAssertTrue(label("This is a binary file").waitForExistence(timeout: 10))
-        try shoot("file-binary", audits: false)
+        try shootThread("file-binary")
     }
 
     func testFileTooLarge() throws {
         try openSource()
         state("files.row.src/sample.csv").tap()
         XCTAssertTrue(label("This file is too large to show").waitForExistence(timeout: 10))
-        try shoot("file-too-large", audits: false)
+        try shootThread("file-too-large")
     }
 
     func testFileNotFound() throws {
         try openSource()
         state("files.row.src/Gone.php").tap()
         XCTAssertTrue(label("This file is not there anymore").waitForExistence(timeout: 10))
-        try shoot("file-not-found", audits: false)
+        try shootThread("file-not-found")
     }
 
     func testFileOffline() throws {
@@ -350,19 +368,21 @@ import XCTest
         state("files.viewer.back").tap()
         XCTAssertTrue(state("files.row.src").waitForExistence(timeout: 10))
         state("files.row.src/Importer.php").tap()
-        try shoot("file-offline", audits: false)
+        try shootThread("file-offline")
     }
 
     func testFileReadOnly() throws {
         try openImporter("files-read-only")
         XCTAssertFalse(state("files.viewer.edit").exists)
-        try shoot("file-read-only", audits: false)
+        try shootThread("file-read-only")
     }
 
     // MARK: File editor
 
-    private func startEditing(_ scenario: String = "workspace", typing text: String = "// note\n") throws {
-        try openImporter(scenario)
+    private func startEditing(
+        _ scenario: String = "workspace", typing text: String = "// note\n", arguments: [String] = []
+    ) throws {
+        try openImporter(scenario, arguments: arguments)
         state("files.viewer.edit").tap()
         XCTAssertTrue(state("files.editor").waitForExistence(timeout: 10))
         let editor = app.textViews["files.editor"]
@@ -374,21 +394,54 @@ import XCTest
 
     func testFileEditor() throws {
         try startEditing()
-        try shoot("file-editor", audits: false)
+        try shootThread("file-editor")
     }
 
     func testFileSaved() throws {
         try startEditing()
         state("files.editor.save").tap()
         XCTAssertTrue(state("files.editor.savedLine").waitForExistence(timeout: 10))
-        try shoot("file-saved", audits: false)
+        try shootThread("file-saved")
+    }
+
+    func testFileEditorSaving() throws {
+        try startEditing("file-slow-save")
+        state("files.editor.save").tap()
+        Thread.sleep(forTimeInterval: 1)
+        XCTAssertFalse(state("files.editor.savedLine").exists)
+        try shootThread("file-editor-saving")
+    }
+
+    func testFileConflictDeleted() throws {
+        try startEditing("files-conflict-deleted")
+        state("files.editor.save").tap()
+        XCTAssertTrue(state("files.conflict").waitForExistence(timeout: 10))
+        XCTAssertTrue(label("The file was deleted since you opened it.").waitForExistence(timeout: 5))
+        try shootThread("file-conflict-deleted")
+    }
+
+    func testFileDraftRestored() throws {
+        try startEditing(arguments: ["-yakTestKeepFiles", "fresh"])
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 1)
+        app.terminate()
+        app.launchArguments = app.launchArguments.map { $0 == "fresh" ? "again" : $0 }
+        app.launch()
+        app.openThread("d0e515ef")
+        app.openPane("Files")
+        XCTAssertTrue(state("files.row.src").waitForExistence(timeout: 15))
+        state("files.row.src").tap()
+        XCTAssertTrue(state("files.row.src/Importer.php").waitForExistence(timeout: 10))
+        state("files.row.src/Importer.php").tap()
+        XCTAssertTrue(label("Restored the text you had not saved.").waitForExistence(timeout: 15))
+        try shootThread("file-draft-restored")
     }
 
     func testFileConflict() throws {
         try startEditing("files-conflict")
         state("files.editor.save").tap()
         XCTAssertTrue(state("files.conflict").waitForExistence(timeout: 10))
-        try shoot("file-conflict", audits: false)
+        try shootThread("file-conflict")
     }
 
     func testFileSaveOffline() throws {
@@ -397,27 +450,28 @@ import XCTest
         defer { try? stub.setOnline(true) }
         state("files.editor.save").tap()
         XCTAssertTrue(state("files.editor.failedLine").waitForExistence(timeout: 20))
-        try shoot("file-save-offline", audits: false)
+        try shootThread("file-save-offline")
     }
 
     func testFileSaveClosed() throws {
         try startEditing("files-save-closed")
         state("files.editor.save").tap()
         XCTAssertTrue(state("files.editor.failedLine").waitForExistence(timeout: 10))
-        try shoot("file-save-closed", audits: false)
+        try shootThread("file-save-closed")
     }
 
     func testFileSaveAsleep() throws {
         try startEditing("files-save-asleep")
         state("files.editor.save").tap()
         XCTAssertTrue(state("files.editor.failedLine").waitForExistence(timeout: 10))
-        try shoot("file-save-asleep", audits: false)
+        try shootThread("file-save-asleep")
     }
 
     func testFileDiscardConfirm() throws {
         try startEditing()
         state("files.editor.cancel").tap()
         XCTAssertTrue(app.buttons["Discard changes"].waitForExistence(timeout: 5))
+        // The confirmation dialog is the system's own surface; the audit cannot judge it.
         try shoot("file-discard-confirm", audits: false)
     }
 }

@@ -49,14 +49,14 @@
                 },
                 normalizeAddress: Self.normalize, parseLink: Self.parse, normalizeLinkAddress: Self.normalize,
                 makeEnvironment: {
-                    .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
+                    .app(version: version, system: system, files: Self.testFiles(), allowsInsecureRealtime: true)
                 },
                 prepare: { instances in
                     if let token = seed.token {
                         do {
                             _ = try await instances.add(
                                 url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",
-                                token: token)
+                                token: token, id: Self.keepsFiles() ? Self.keptInstanceID : nil)
                         } catch {
                             Logger(subsystem: "Yak", category: "TestMode").error(
                                 "seeding failed: \(String(describing: type(of: error)), privacy: .public)")
