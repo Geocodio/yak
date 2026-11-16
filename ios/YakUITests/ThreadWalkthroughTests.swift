@@ -256,6 +256,8 @@ import XCTest
         let list = app.descendants(matching: .any)["conversation"].firstMatch
         for _ in 0..<3 { list.swipeDown() }
         XCTAssertTrue(app.descendants(matching: .any)["chat.jumpToLatest"].firstMatch.waitForExistence(timeout: 5))
+        // The list is idle when the audit runs: the swipes' momentum has ended.
+        Thread.sleep(forTimeInterval: 3)
         try shootThread("chat-jump-to-latest")
         app.descendants(matching: .any)["chat.jumpToLatest"].firstMatch.tap()
         XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 5))
