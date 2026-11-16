@@ -260,7 +260,7 @@ struct AfterDelay<Content: View>: View {
     }
 
     var body: some View {
-        Group { if isShown { content.transition(.opacity) } }
+        ZStack { if isShown { content.transition(.opacity) } }
             .task {
                 do { try await Task.sleep(for: delay) } catch { return }
                 withAnimation { isShown = true }
