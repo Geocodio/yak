@@ -196,6 +196,9 @@ enum Scenario: String, CaseIterable, Sendable {
     case questionOpen = "question-open"
     /// One running thread whose events play over the socket, one every 400 ms from the first subscription.
     case oneThreadWorking = "one-thread-working"
+    /// `d0e515ef` has 60 earlier steps, then the turn of `one-thread-working` plays live after them (its sequences
+    /// are 60 higher).
+    case longTurn = "long-turn"
     /// The person has no threads of their own, the team has: `mine` is empty, `everyone` is the scenario list.
     case teamOnly = "team-only"
     /// Nobody has a thread.

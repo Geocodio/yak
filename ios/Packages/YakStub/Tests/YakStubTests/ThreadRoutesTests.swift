@@ -75,6 +75,20 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         }
     }
 
+    @Test func aLongTurnShowsSixtyStepsThenPlaysTheTurnAfterThem() throws {
+        let threads = StubThreads()
+        let before = try object(reply(.longTurn, "GET", "threads/d0e515ef/events?after=0&limit=500", threads: threads))
+        #expect(before["latestSequence"] as? Int == 60)
+        #expect(
+            try sequences(reply(.longTurn, "GET", "threads/d0e515ef/events?after=0&limit=500", threads: threads))
+                == Array(1...60))
+        threads.publish("d0e515ef", through: 63)
+        let after = try sequences(
+            reply(.longTurn, "GET", "threads/d0e515ef/events?after=58&limit=500", threads: threads))
+        #expect(after.first == 59)
+        #expect(after.last == 63)
+    }
+
     @Test func eventsAnswerOnlyWhatIsPublished() throws {
         let threads = StubThreads()
         let before = try reply(.oneThreadWorking, "GET", "threads/d0e515ef/events?after=0&limit=500", threads: threads)

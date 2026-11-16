@@ -103,13 +103,11 @@ import XCTest
         try audit()
     }
 
-    /// Someone who scrolled up to read keeps their place while the reply streams in below.
+    /// Someone who scrolled up to read keeps their place while the reply streams in below. The conversation has 60
+    /// earlier steps, so it is taller than two screens, and the turn plays after them.
     func testStreamingTextDoesNotMoveAReaderWhoScrolledUp() throws {
-        // The largest text size makes the conversation taller than the screen, so there is something to scroll.
-        try launch(
-            scenario: "one-thread-working",
-            extraArguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
-        try stub.hold(after: 7)
+        try launch(scenario: "long-turn")
+        try stub.hold(after: 67)
         openDrawerIfNeeded()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
@@ -117,23 +115,30 @@ import XCTest
         XCTAssertTrue(app.staticTexts["Looking at the importer."].waitForExistence(timeout: 20))
         let list = app.descendants(matching: .any)["conversation"].firstMatch
         list.swipeDown()
-        list.swipeDown()
-        // The first message is tracked: a day divider appears above the reply that is played now.
-        let first = app.staticTexts["Retry failed rows when the import times out"].firstMatch
-        XCTAssertTrue(first.waitForExistence(timeout: 5))
-        // The swipe's momentum and bounce have ended when two reads a moment apart agree.
-        var before = first.frame.minY
-        for _ in 0..<20 {
+        func firstStep() throws -> any XCUIElementSnapshot {
+            func steps(in node: any XCUIElementSnapshot) -> [any XCUIElementSnapshot] {
+                let own = node.label.wholeMatch(of: /Step \d+\./) != nil ? [node] : []
+                return own + node.children.flatMap { steps(in: $0) }
+            }
+            let top = list.frame.minY + 60
+            return try XCTUnwrap(
+                steps(in: try app.snapshot()).filter { $0.frame.minY > top && $0.frame.maxY < list.frame.maxY }
+                    .min { $0.frame.minY < $1.frame.minY })
+        }
+        // The swipe's momentum has ended when two reads a moment apart agree.
+        var tracked = try firstStep()
+        for _ in 0..<10 {
             Thread.sleep(forTimeInterval: 0.3)
-            let now = first.frame.minY
-            if abs(now - before) < 0.5 { break }
-            before = now
+            let now = try firstStep()
+            if now.label == tracked.label, abs(now.frame.minY - tracked.frame.minY) < 0.5 { break }
+            tracked = now
         }
         try stub.hold(after: nil)
-        // The rest of the turn plays one event every 400 ms; the end is below the screen, so it cannot be waited for.
+        // The rest of the turn plays one event every 400 ms; its end is below the screen, so it cannot be waited for.
         Thread.sleep(forTimeInterval: 8)
-        XCTAssertTrue(first.exists, "the tracked message left the screen")
-        XCTAssertEqual(first.frame.minY, before, accuracy: 1)
+        let moved = app.staticTexts[tracked.label]
+        XCTAssertTrue(moved.exists, "\(tracked.label) left the screen")
+        XCTAssertEqual(moved.frame.minY, tracked.frame.minY, accuracy: 1)
     }
 
     /// The row at the top of the screen stays where it is when earlier messages arrive above it.
