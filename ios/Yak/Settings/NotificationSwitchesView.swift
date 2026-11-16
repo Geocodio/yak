@@ -18,7 +18,7 @@ struct NotificationSwitchesView: View {
         } footer: {
             if model.canPush {
                 Text("settings.switches.footer").font(.footnote.weight(.medium))
-                    .foregroundStyle(Color.primary.opacity(0.85))
+                    .foregroundStyle(Color.primary)
             }
         }
         .task(id: isLoading) {
@@ -116,7 +116,7 @@ struct SettingsHeaderRow: View {
 
     var body: some View {
         Section {
-            text.font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.85))
+            text.font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                 .accessibilityAddTraits(.isHeader)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 0, trailing: 16))

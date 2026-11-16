@@ -25,7 +25,16 @@ import XCTest
     }
 
     private func audit() throws {
-        try app.performAccessibilityAudit()
+        try app.performAccessibilityAudit { [self] issue in
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.lifetime = .keepAlways
+            screenshot.name = "audit-failure"
+            add(screenshot)
+            XCTFail(
+                "audit: \(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "no element")"
+            )
+            return true
+        }
     }
 
     /// The thread screen's audit, with the allowances `ThreadSmokeTests` has for the same screen: the system caps

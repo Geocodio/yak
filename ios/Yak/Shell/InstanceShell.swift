@@ -49,6 +49,7 @@ struct InstanceShell: View {
                 SettingsScreen(app: model, push: push, active: instance, onClose: { showsAccount = false })
                     .linkPairingStatus(model, sheetDepth: 1)
                     .countsAsOpenSheet(model)
+                    .presentationBackground(Color(.systemGroupedBackground))
             }
         }
         .sheet(isPresented: $showsSwitcher) {
