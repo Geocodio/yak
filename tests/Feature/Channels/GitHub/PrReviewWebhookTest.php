@@ -446,3 +446,19 @@ it('holds a review for a PR opened while the repository is being set up, then ru
 
     Bus::assertDispatched(RunYakReviewJob::class, 1);
 });
+
+it('forces a full review from approval level 2 up', function () {
+    Bus::fake();
+    $repo = Repository::factory()->create(['slug' => 'geocodio/api', 'is_active' => true, 'pr_review_enabled' => true]);
+    $repo->setApproval(2, 'shadow', null);
+
+    $task = app(EnqueuePrReview::class)($repo, [
+        'html_url' => 'https://github.com/geocodio/api/pull/23', 'number' => 23,
+        'head' => ['ref' => 'x', 'sha' => 'new-sha'], 'base' => ['ref' => 'main', 'sha' => 'b'],
+        'user' => ['login' => 'm'],
+    ], 'incremental', 'old-sha');
+
+    $ctx = json_decode($task->context, true);
+    expect($ctx['review_scope'])->toBe('full')->and($ctx['incremental_base_sha'])->toBeNull()
+        ->and($ctx['author'])->toBe('m')->and($ctx['base_ref'])->toBe('main');
+});

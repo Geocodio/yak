@@ -316,9 +316,9 @@ class RepositoryConfigCheck
 
         foreach ($data as $file => $value) {
             $rows[] = "| `{$file}` | " . match ($file) {
-                'config.yml' => 'Valid. Co-owner gate: ' . $this->modeText($value['co_owner_gate']['mode'] ?? null) . '. Review approval: ' . $this->modeText($value['review']['approval']['mode'] ?? null) . '.',
+                'config.yml' => 'Valid. Co-owner gate: ' . $this->modeText($value['co_owner_gate']['mode'] ?? null) . '.',
                 'preview.yml' => "Valid. Port {$value['port']}, health probe " . MarkdownText::code((string) $value['health_probe_path']) . '.',
-                'risk-profile.yml' => 'Valid. ' . ($count = count($value['areas'] ?? [])) . ' ' . Str::plural('area', $count)
+                'risk-profile.yml' => ($value['version'] ?? 1) === 2 ? $this->concernsSummary($value) : 'Valid. ' . ($count = count($value['areas'] ?? [])) . ' ' . Str::plural('area', $count)
                     . (! $hasGlobNotes ? ', every glob matches at least one file' : '')
                     . ', ' . ($open = count($value['unknowns'] ?? [])) . ' open ' . Str::plural('question', $open) . '.',
                 'AGENTS.md' => 'Valid. ' . number_format(mb_strlen($contents[$file])) . ' characters.',
@@ -329,6 +329,18 @@ class RepositoryConfigCheck
         return "| File | Result |\n| --- | --- |\n" . implode("\n", $rows) . "\n"
             . implode('', array_map(fn (string $note): string => "\n{$note}\n", $notes))
             . "\nThese settings apply once this pull request merges into " . MarkdownText::code($defaultBranch) . '. ' . $this->link();
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     */
+    private function concernsSummary(array $value): string
+    {
+        $concerns = (array) ($value['concerns'] ?? []);
+        $alwaysHuman = count(array_filter($concerns, fn (mixed $concern): bool => ($concern['approval'] ?? 'always_human') === 'always_human'));
+
+        return 'Valid. ' . count($concerns) . ' ' . Str::plural('concern', count($concerns))
+            . " ({$alwaysHuman} always human, " . (count($concerns) - $alwaysHuman) . ' when tested).';
     }
 
     private function modeText(?string $mode): string

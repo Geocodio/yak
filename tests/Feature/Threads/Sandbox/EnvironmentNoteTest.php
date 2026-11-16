@@ -61,14 +61,14 @@ test('redacts nothing it was not given', function () {
 test('repository sections list extras, lost context edits, missing datasets and failed setups', function () {
     $thread = noteThread(['repo' => 'acme/app']);
     ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app']);
-    ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/lib', 'sandbox_path' => '/extras/lib']);
-    ThreadRepository::factory()->context()->failed('setup.sh exited with 2')->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs']);
+    ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/lib', 'sandbox_path' => '/home/yak/extras/lib']);
+    ThreadRepository::factory()->context()->failed('setup.sh exited with 2')->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/home/yak/extras/docs']);
     $library = Repository::factory()->create(['slug' => 'acme/lib']);
     Dataset::factory()->create(['repository_id' => $library->id]);
 
     $sections = app(EnvironmentNote::class)->sectionsForRepositories($thread);
 
-    expect($sections['Repositories'])->toContain('/workspace: acme/app (primary)')->toContain('/extras/lib: acme/lib (changes)')->toContain('/extras/docs: acme/docs (context)')
+    expect($sections['Repositories'])->toContain('/workspace: acme/app (primary)')->toContain('/home/yak/extras/lib: acme/lib (changes)')->toContain('/home/yak/extras/docs: acme/docs (context)')
         ->and($sections['Context edits'])->toContain('lost')
         ->and($sections['Datasets'])->toContain('acme/lib: dataset not attached')
         ->and($sections['Failed setups'])->toBe(['acme/docs: setup.sh exited with 2']);

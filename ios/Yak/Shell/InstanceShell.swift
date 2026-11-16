@@ -142,9 +142,15 @@ struct InstanceShell: View {
                 openWeb: { model.browserURL = $0 }
             )
             .id(threadID)
+        } else if scene.state.isNewThreadOpen {
+            NewThreadScreen(
+                app: model, session: session, scene: scene, instanceURL: instance.url,
+                needsYouCount: drawerModel?.needsYouCount ?? 0, isSessionActive: status == .active,
+                isCompactWidth: isCompactWidth, openWeb: { model.browserURL = $0 }
+            )
         } else {
             ThreadPlaceholder(
-                title: nil, isNewThread: scene.state.isNewThreadOpen, showsThreadsButton: isCompactWidth,
+                title: nil, isNewThread: false, showsThreadsButton: isCompactWidth,
                 openDrawer: { scene.setDrawerOpen(true) })
         }
     }

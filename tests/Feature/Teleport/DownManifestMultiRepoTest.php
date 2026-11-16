@@ -21,7 +21,7 @@ class ManifestRefreshSandbox extends FakeSandboxManager
         parent::exec($thread, $command, $stdin, $env);
 
         return match ($command[1] ?? null) {
-            '/extras/api/.yak/config.yml' => Process::result(output: "refresh:\n  composer.lock: composer install\n"),
+            '/home/yak/extras/api/.yak/config.yml' => Process::result(output: "refresh:\n  composer.lock: composer install\n"),
             '/workspace/.yak/config.yml' => Process::result(output: "refresh:\n  package-lock.json: npm ci\n"),
             default => Process::result(exitCode: 1),
         };
@@ -36,9 +36,9 @@ beforeEach(function () {
         Repository::factory()->create(['slug' => $slug, 'github_full_name' => $slug]);
     }
     ThreadRepository::factory()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/widgets', 'branch' => 'yak/fix-it']);
-    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/api', 'sandbox_path' => '/extras/api', 'branch' => 'yak/fix-it']);
-    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'sandbox_path' => '/extras/lib', 'branch' => 'yak/fix-it']);
-    ThreadRepository::factory()->role(RepositoryRole::Context)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs', 'branch' => null]);
+    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/api', 'sandbox_path' => '/home/yak/extras/api', 'branch' => 'yak/fix-it']);
+    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'sandbox_path' => '/home/yak/extras/lib', 'branch' => 'yak/fix-it']);
+    ThreadRepository::factory()->role(RepositoryRole::Context)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/home/yak/extras/docs', 'branch' => null]);
     $this->teleport = Teleport::factory()->down()->create([
         'thread_id' => $this->thread->id, 'device_id' => $this->device->id,
         'branch_heads' => ['acme/widgets' => 'aaa', 'acme/api' => 'bbb'],

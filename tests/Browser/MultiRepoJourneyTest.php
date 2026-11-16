@@ -62,8 +62,8 @@ it('shows the Environment rows, a role switch and the Changes sub-tabs', functio
 
     $thread = Thread::factory()->create(['repo' => 'acme/app', 'owner_user_id' => $owner->id]);
     ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app']);
-    ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web']);
-    ThreadRepository::factory()->context()->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs', 'added_by' => 'claude', 'add_reason' => 'Needs the docs', 'setup_status' => RepositorySetupStatus::Ready]);
+    ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/home/yak/extras/web']);
+    ThreadRepository::factory()->context()->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/home/yak/extras/docs', 'added_by' => 'claude', 'add_reason' => 'Needs the docs', 'setup_status' => RepositorySetupStatus::Ready]);
 
     $diff = ThreadDiff::factory()->for($thread)->create(['files_count' => 1, 'additions' => 1, 'deletions' => 0]);
     ThreadDiffFile::factory()->for($diff, 'diff')->create(['path' => 'app.php', 'additions' => 1, 'deletions' => 0]);
@@ -94,7 +94,7 @@ it('shows add-repo cards for a failed setup and a denied clone', function () {
 
     $thread = Thread::factory()->create(['repo' => 'acme/app', 'owner_user_id' => $owner->id]);
     ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app']);
-    $failed = ThreadRepository::factory()->changes()->failed()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'added_by' => 'claude', 'add_reason' => 'The change touches the web client']);
+    $failed = ThreadRepository::factory()->changes()->failed()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/home/yak/extras/web', 'added_by' => 'claude', 'add_reason' => 'The change touches the web client']);
     $publisher = app(RepositoryCardPublisher::class);
     $publisher->publish($failed);
     $publisher->publishDenied($thread->id, 'acme/secret', 'context', 'Needs the schema', 'Repository not found');
@@ -125,7 +125,7 @@ it('shows the add-repo card for a finished clone with its role and recovery acti
     $this->actingAs($owner);
 
     $thread = Thread::factory()->create(['repo' => 'acme/app', 'owner_user_id' => $owner->id]);
-    $done = ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'added_by' => 'claude', 'add_reason' => 'The change touches the web client']);
+    $done = ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/home/yak/extras/web', 'added_by' => 'claude', 'add_reason' => 'The change touches the web client']);
     app(RepositoryCardPublisher::class)->publish($done);
 
     visit(route('threads.show', $thread))

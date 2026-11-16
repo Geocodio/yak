@@ -1,6 +1,6 @@
 import type { StepView } from '@/components/activity/types';
 import type { ModelFamily, PickerAccount } from '@/types/claudeAccounts';
-import type { AttachmentData } from '@/types/tasks';
+import type { AttachmentData, QuestionData } from '@/types/tasks';
 export type ThreadRepositoryData = {
     repo: string;
     role: 'primary' | 'changes' | 'context';
@@ -151,6 +151,8 @@ export type ThreadPageData = {
     notice: ThreadNotice | null;
     capacity: ThreadCapacity | null;
     stackParent: { id: string; name: string; title: string } | null;
+    /** The open clarification of the head task, or null when nothing waits for answers. */
+    question: { taskId: string; expiresAt: string | null; questions: QuestionData[] } | null;
     /** Catalog label of each model id and family alias. */
     modelLabels: Record<string, string>;
 };

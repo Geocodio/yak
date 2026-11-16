@@ -83,7 +83,8 @@ trait StartsThreadTurns
             $thread->forceFill(['append_system_prompt' => YakPromptBuilder::threadSystemPrompt($this->task, $thread)])->save();
 
             $driver = $this->task->started_by_user_id === null ? null : User::query()->find($this->task->started_by_user_id);
-            $run = app(ThreadTurns::class)->start($this->task, $prompt, $driver, null);
+            $shownText = $this->task->clarificationAnswersAwaitingResume() === null ? null : YakPromptBuilder::clarificationAnswersShownText($this->task);
+            $run = app(ThreadTurns::class)->start($this->task, $prompt, $driver, null, shownText: $shownText);
 
             // The turn starter names a run by whether the thread has run before; the job knows which kind of turn it wrote.
             if ($run->kind !== $kind) {
