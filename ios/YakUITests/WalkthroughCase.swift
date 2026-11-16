@@ -61,6 +61,26 @@ import XCTest
         return UIGraphicsImageRenderer(size: turned.size, format: format).pngData { _ in turned.draw(at: .zero) }
     }
 
+    /// A screenshot of a thread screen, then the audit without the findings about text in the navigation bar,
+    /// whose size the system caps.
+    func shootThread(_ name: String) throws {
+        try shoot(name, audits: false)
+        try app.performAccessibilityAudit { [app] issue in
+            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                // The system caps the size of text in its bars, and draws its glass under the threads badge.
+                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
+            if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
+                return true
+            }
+            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
+            return true
+        }
+    }
+
     /// Saves the screenshot once animations settle, then audits the screen. `audits: false` is for screens
     /// that the system covers with its own UI, which the audit cannot reach.
     func shoot(_ name: String, audits: Bool = true) throws {

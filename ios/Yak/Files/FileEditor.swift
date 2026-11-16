@@ -89,9 +89,13 @@ struct FileEditor: View {
             Button("files.editor.cancel") {
                 Task { if await !document.cancel() { confirmsDiscard = true } }
             }
-            .font(.body).padding(.horizontal, 8).frame(minHeight: 44).accessibilityIdentifier("files.editor.cancel")
+            .font(.body.weight(.medium)).foregroundStyle(Color.yakAction).padding(.horizontal, 8).frame(minHeight: 44)
+            .accessibilityIdentifier("files.editor.cancel")
             Text(verbatim: (document.path as NSString).lastPathComponent).font(.headline.monospaced()).lineLimit(1)
-                .truncationMode(.middle).frame(maxWidth: .infinity).accessibilityAddTraits(.isHeader)
+                .truncationMode(.middle).frame(maxWidth: .infinity).accessibilityLabel(
+                    Text("files.editor.title \((document.path as NSString).lastPathComponent)")
+                )
+                .accessibilityAddTraits(.isHeader)
             Button {
                 Task { await document.save() }
             } label: {
@@ -102,7 +106,7 @@ struct FileEditor: View {
                 .padding(.horizontal, 16).frame(minHeight: 44)
                 .background(Color.primary.opacity(canSave ? 0.12 : 0.05), in: .capsule)
             }
-            .buttonStyle(.plain).disabled(!canSave).accessibilityIdentifier("files.editor.save")
+            .buttonStyle(.plain).disabled(!canSave && !document.isSaving).accessibilityIdentifier("files.editor.save")
         }
         .padding(.horizontal, 8)
     }

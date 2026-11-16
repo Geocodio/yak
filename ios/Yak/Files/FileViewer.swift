@@ -122,7 +122,9 @@ struct FileLine: View {
                 HStack(spacing: 16) {
                     ForEach(actions.indices, id: \.self) { index in
                         Button(actions[index].title, action: actions[index].run)
-                            .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).underline().frame(
+                                minHeight: 44
+                            ).contentShape(.rect)
                             .accessibilityIdentifier(actions[index].identifier)
                     }
                 }

@@ -1094,6 +1094,16 @@
         }
       }
     },
+    "files.editor.title %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editing %@"
+          }
+        }
+      }
+    },
     "files.empty.title" : {
       "localizations" : {
         "en" : {
