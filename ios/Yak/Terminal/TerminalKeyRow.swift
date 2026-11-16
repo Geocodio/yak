@@ -70,7 +70,7 @@ struct TerminalKeyRow: View {
                 model.toggleKeyboard()
             } label: {
                 Image(systemName: model.isKeyboardShown ? "keyboard.chevron.compact.down" : "keyboard")
-                    .frame(minWidth: 42, minHeight: 44).contentShape(.rect)
+                    .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(model.isKeyboardShown ? "terminal.key.keyboard.hide" : "terminal.key.keyboard.show")
@@ -89,6 +89,7 @@ struct TerminalKeyRow: View {
         .accessibilityLabel("terminal.key.control.label")
         .accessibilityValue(model.control.isOn ? Text("terminal.key.on") : Text("terminal.key.off"))
         .accessibilityIdentifier("terminal.key.control")
+        .disabled(!isConnected)
         .opacity(isConnected ? 1 : 0.45)
     }
 
@@ -100,7 +101,7 @@ struct TerminalKeyRow: View {
                 Image(systemName: symbol)
             }
         }
-        .frame(minWidth: 42, minHeight: 44).contentShape(.rect)
+        .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         .dynamicTypeSize(..<DynamicTypeSize.accessibility1)
     }
 
