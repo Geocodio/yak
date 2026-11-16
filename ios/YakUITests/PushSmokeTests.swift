@@ -62,7 +62,7 @@ import XCTest
 
     func testPairingOffersNotificationsAndTurningThemOnRegisters() throws {
         try stub.play("paired")
-        launch()
+        launch(extra: ["-yakTestHoldExplanation", "YES"])
         pair()
         let screen = app.descendants(matching: .any)["notify.screen"]
         XCTAssertTrue(screen.waitForExistence(timeout: 10))
