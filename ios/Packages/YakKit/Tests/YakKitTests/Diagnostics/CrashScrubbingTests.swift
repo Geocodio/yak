@@ -110,6 +110,12 @@ import Testing
         #expect(CrashScrubbing.scrub(input) == expected)
     }
 
+    @Test(arguments: ["Bearer:abc", "bearer: abc", "Bearer=abc", "Bearer abc", "Bearer   :  abc"])
+    func redactsBearerWithOrWithoutSpace(input: String) {
+        let result = CrashScrubbing.scrub("sent \(input) done")
+        #expect(!result.contains("abc"), "leaked in \(result)")
+    }
+
     @Test func removesInvisibleControlsBeforeMatching() {
         let hostile = "a\u{0}b\u{80}c\u{202E}evil\u{200B}text"
         #expect(CrashScrubbing.scrub(hostile) == "abceviltext")

@@ -26,7 +26,7 @@ public enum CrashScrubbing {
             #"(?i)\bAuthorization\b"?\s*[:=]?\s*"?(?:(?:Basic|Bearer|Token|Digest)\s+)?[^\s"]+"?"#,
             "Authorization <redacted>"
         ),
-        (#"(?i)\bBearer\s+\S+"#, "Bearer <token>"),
+        (#"(?i)\bBearer(?:\s+[:=]?|\s*[:=])\s*\S+"#, "Bearer <token>"),
         (#"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"#, "<email>"),
         (#""[^"]*(?:"|$)"#, "\"<text>\""),
         (#"\u{201C}[^\u{201D}]*(?:\u{201D}|$)"#, "\"<text>\""),
