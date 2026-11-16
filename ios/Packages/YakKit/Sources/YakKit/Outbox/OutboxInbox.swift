@@ -18,12 +18,18 @@ public enum OutboxInbox {
     public static func add(
         _ draft: OutboxDraft, instance: UUID, files: any FileStore, id: UUID, now: Date
     ) throws(FileStoreError) {
-        let item = OutboxItem(
-            id: id, target: draft.target, text: draft.text, model: draft.model, delivery: draft.delivery,
-            attachments: draft.attachments, createdAt: now)
+        let item = item(for: draft, id: id, now: now)
         let data: Data
         do { data = try JSONEncoder().encode(item) } catch { throw .unreadable }
         try files.write(data, to: itemPath(instance: instance, id: id), protection: .untilFirstUnlock)
+    }
+
+    /// The exact item `add` writes for `draft`. The share sender passes it to `UploadLedger.prepare`, so the record
+    /// and the inbox item have the same id, text and attachments.
+    public static func item(for draft: OutboxDraft, id: UUID, now: Date) -> OutboxItem {
+        OutboxItem(
+            id: id, target: draft.target, text: draft.text, model: draft.model, delivery: draft.delivery,
+            attachments: draft.attachments, createdAt: now, intent: draft.intent)
     }
 
     /// Where an attachment's bytes live. The file name loses any path part, so it cannot leave the folder.

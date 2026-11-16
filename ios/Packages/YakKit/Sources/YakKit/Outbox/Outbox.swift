@@ -26,6 +26,7 @@ public actor Outbox {
     private let files: any FileStore
     private let clock: any YakClock
     private let makeID: @Sendable () -> UUID
+    private let uploads: UploadLink?
 
     private var stored: [OutboxItem] = []
     private var hasLoadedList = false
@@ -37,18 +38,31 @@ public actor Outbox {
     private let changeBroadcast = Broadcast<[OutboxItem]>([])
     private var deliveryReceivers: [Int: AsyncStream<OutboxDelivery>.Continuation] = [:]
     private var nextReceiver = 0
+    private var completionTask: Task<Void, Never>?
+    /// Items whose background upload failed: waiting with no timer until a launch, a return to the foreground,
+    /// a background refresh or Retry.
+    private var failedUploads: Set<UUID> = []
+    /// Items that are sending only in the sense that a background task holds their upload.
+    private var waitingOnUpload: Set<UUID> = []
+    /// Items whose failed upload may start at the next attempt: set at launch and by an explicit retry.
+    private var startFailedUploads: Set<UUID> = []
+    /// Items whose answer is being applied right now.
+    private var handlingOutcomes: Set<UUID> = []
     private var updateReceivers: [Int: AsyncStream<OutboxUpdate>.Continuation] = [:]
 
     public init(
         instance: UUID, client: APIClient, files: any FileStore, clock: any YakClock,
-        makeID: @escaping @Sendable () -> UUID
+        makeID: @escaping @Sendable () -> UUID, uploads: UploadLink? = nil
     ) {
         self.instance = instance
         self.client = client
         self.files = files
         self.clock = clock
         self.makeID = makeID
+        self.uploads = uploads
     }
+
+    deinit { completionTask?.cancel() }
 
     // MARK: Reading
 
@@ -106,10 +120,11 @@ public actor Outbox {
 
     /// Reads `items.json`, takes in what other processes left, and starts sending. An item that was
     /// in flight when the app stopped is queued again and goes out with the same `send_key`.
-    public func load() {
+    public func load() async {
         guard !isShutDown else { return }
         loadSavedList()
-        importIncoming()
+        await importInbox(startingFailedUploads: true)
+        await settleAnsweredUploads()
     }
 
     /// Merges the saved list into memory once. Nothing is written until this has succeeded, so a change
@@ -128,7 +143,9 @@ public actor Outbox {
                         }
                     }
                     let known = Set(stored.map(\.id))
-                    stored += saved.filter { !known.contains($0.id) }
+                    let added = saved.filter { !known.contains($0.id) }
+                    stored += added
+                    startFailedUploads.formUnion(added.map(\.id))
                     sortByCreation()
                 } catch {
                     logFailure("outbox list does not decode: \(type(of: error))")
@@ -143,8 +160,13 @@ public actor Outbox {
     }
 
     /// Moves every inbox file into the list, in `createdAt` order, then removes the files.
-    public func importIncoming() {
+    public func importIncoming() async {
+        await importInbox(startingFailedUploads: false)
+    }
+
+    private func importInbox(startingFailedUploads: Bool) async {
         guard !isShutDown else { return }
+        subscribeToCompletions()
         let folder = OutboxInbox.folder(instance)
         let names: [String]
         do { names = try files.list(folder) } catch {
@@ -154,13 +176,20 @@ public actor Outbox {
             return
         }
         var taken: [String] = []
+        var incoming: [OutboxItem] = []
         for name in names where name.hasSuffix(".json") {
             let path = "\(folder)/\(name)"
             do {
                 guard let data = try files.read(path) else { continue }
                 var item = try JSONDecoder().decode(OutboxItem.self, from: data)
                 item.state = .queued
-                if !stored.contains(where: { $0.id == item.id }) { stored.append(item) }
+                // A share extension starts its upload before it adds the item, so an upload that is running or
+                // answered means the server may already have the message and its text can no longer change.
+                switch await uploads?.ledger.record(for: item.id)?.phase {
+                case .uploading?, .answered?: item.mayHaveReachedServer = true
+                default: break
+                }
+                incoming.append(item)
                 taken.append(path)
             } catch is DecodingError {
                 logFailure("outbox inbox file dropped: not an item")
@@ -168,6 +197,11 @@ public actor Outbox {
             } catch {
                 logFailure("outbox inbox file unreadable: \(type(of: error))")
             }
+        }
+        guard !isShutDown else { return }
+        for item in incoming where !stored.contains(where: { $0.id == item.id }) {
+            stored.append(item)
+            if startingFailedUploads { startFailedUploads.insert(item.id) }
         }
         sortByCreation()
         // The list is saved before the inbox files go, so a crash in between imports them once.
@@ -189,7 +223,10 @@ public actor Outbox {
         for timer in retryTimers.values { timer.cancel() }
         slowTimers = [:]
         retryTimers = [:]
+        for item in stored { dropRecord(of: item.id) }
         stored = []
+        failedUploads = []
+        waitingOnUpload = []
         removeFile(InstanceFolders.outbox(instance))
         announceItems()
     }
@@ -229,6 +266,7 @@ public actor Outbox {
         case .refused: break
         }
         stored[index].text = text
+        if case .refused = stored[index].state { dropRecord(of: id) }
         publish()
     }
 
@@ -240,8 +278,10 @@ public actor Outbox {
         }
         let item = stored.remove(at: index)
         retryTimers.removeValue(forKey: id)?.cancel()
+        failedUploads.remove(id)
         publish()
         removeAttachments(of: item)
+        dropRecord(of: id)
         pump()
         return item
     }
@@ -253,6 +293,8 @@ public actor Outbox {
         switch stored[index].state {
         case .refused, .waiting:
             retryTimers.removeValue(forKey: id)?.cancel()
+            failedUploads.remove(id)
+            startFailedUploads.insert(id)
             stored[index].state = .queued
             publish()
             pump()
@@ -279,6 +321,8 @@ public actor Outbox {
         for timer in slowTimers.values { timer.cancel() }
         for timer in retryTimers.values { timer.cancel() }
         for task in sendTasks.values { task.cancel() }
+        completionTask?.cancel()
+        completionTask = nil
         slowTimers = [:]
         retryTimers = [:]
         sendTasks = [:]
@@ -300,7 +344,7 @@ public actor Outbox {
     // MARK: Sending
 
     private func makeWaitingItemsQueued() {
-        for index in stored.indices where stored[index].state == .waiting {
+        for index in stored.indices where stored[index].state == .waiting && !failedUploads.contains(stored[index].id) {
             retryTimers.removeValue(forKey: stored[index].id)?.cancel()
             stored[index].state = .queued
         }
@@ -339,6 +383,10 @@ public actor Outbox {
 
     private func perform(_ id: UUID, attempt: Int) async {
         guard let item = stored.first(where: { $0.id == id }) else { return }
+        if let uploads, !item.attachments.isEmpty {
+            await performUpload(item, attempt: attempt, link: uploads)
+            return
+        }
         let outcome: Result<OutboxDelivery, APIFailure>
         let (parts, problem) = readAttachments(of: item)
         if let decision = problem {
@@ -472,4 +520,223 @@ public actor Outbox {
 
     private func dropReceiver(_ identifier: Int) { deliveryReceivers[identifier] = nil }
     private func dropUpdateReceiver(_ identifier: Int) { updateReceivers[identifier] = nil }
+
+    // MARK: Background uploads
+
+    /// Starts every item whose background upload failed, was lost or was left by a share extension long ago.
+    /// Called on launch (from `load`), when the app returns to the foreground and by background refresh; never
+    /// by the backoff timer.
+    public func retryFailedUploads() async {
+        guard let uploads, !isShutDown else { return }
+        let ids = Set(await uploads.ledger.retryable().map(\.itemID))
+        guard !isShutDown else { return }
+        for index in stored.indices where ids.contains(stored[index].id) {
+            let id = stored[index].id
+            switch stored[index].state {
+            case .waiting: if retryTimers[id] != nil { continue }
+            case .queued: break
+            case .sending, .slow: if !waitingOnUpload.contains(id) { continue }
+            case .refused: continue
+            }
+            retryTimers.removeValue(forKey: id)?.cancel()
+            slowTimers.removeValue(forKey: id)?.cancel()
+            failedUploads.remove(id)
+            waitingOnUpload.remove(id)
+            startFailedUploads.insert(id)
+            stored[index].state = .queued
+        }
+        publish()
+        pump()
+    }
+
+    private func subscribeToCompletions() {
+        guard completionTask == nil, let ledger = uploads?.ledger else { return }
+        completionTask = Task { [weak self] in
+            let completions = await ledger.completions()
+            await self?.settleAnsweredUploads()
+            for await id in completions { await self?.uploadCompleted(id) }
+        }
+    }
+
+    /// Applies answers that came while nobody listened and drops records whose item is gone.
+    private func settleAnsweredUploads() async {
+        guard let ledger = uploads?.ledger else { return }
+        for record in await ledger.records() {
+            await uploadCompleted(record.itemID)
+        }
+    }
+
+    private func uploadCompleted(_ id: UUID) async {
+        guard !isShutDown, let ledger = uploads?.ledger else { return }
+        guard let index = stored.firstIndex(where: { $0.id == id }) else {
+            guard let record = await ledger.record(for: id) else { return }
+            // A share extension adds its item after it starts the upload, so a fresh share record waits for the item.
+            // A record that no item claims within `shareLostAfter`, whatever its phase, is removed with its body file.
+            let age = Duration.seconds(clock.now().timeIntervalSince(record.updatedAt))
+            if age < UploadLedger.shareLostAfter {
+                guard case .answered = record.phase, record.origin != .share else { return }
+            }
+            await ledger.remove(id)
+            return
+        }
+        switch stored[index].state {
+        case .sending, .slow, .waiting: await applyUploadState(id)
+        case .queued, .refused: break
+        }
+    }
+
+    private func dropRecord(of id: UUID) {
+        guard let ledger = uploads?.ledger else { return }
+        Task { await ledger.remove(id) }
+    }
+
+    private func performUpload(_ item: OutboxItem, attempt: Int, link: UploadLink) async {
+        let id = item.id
+        func isCurrent() -> Bool {
+            !isShutDown && stored.contains { $0.id == id && $0.attemptCount == attempt }
+        }
+        var record = await link.ledger.record(for: id)
+        if case .uploading(let sessionIdentifier, _)? = record?.phase, sessionIdentifier == link.session.identifier {
+            await link.ledger.reconcile(session: sessionIdentifier, live: await link.session.liveTasks())
+            if case .failed(.lost)? = await link.ledger.record(for: id)?.phase { startFailedUploads.insert(id) }
+            record = await link.ledger.record(for: id)
+        }
+        guard isCurrent() else { return }
+        let mayStart = startFailedUploads.remove(id) != nil
+        let isStale = await link.ledger.retryable().contains { $0.itemID == id }
+        guard isCurrent() else { return }
+        switch record?.phase {
+        case .answered?:
+            await applyUploadState(id)
+        case .failed? where !mayStart:
+            await applyUploadState(id)
+        case .uploading? where !isStale:
+            waitingOnUpload.insert(id)
+            sendTasks[id] = nil
+        case .prepared? where record?.origin == .share && !isStale && !mayStart:
+            waitingOnUpload.insert(id)
+            sendTasks[id] = nil
+        default:
+            await startUpload(item, attempt: attempt, link: link, existing: record)
+        }
+    }
+
+    private func startUpload(_ item: OutboxItem, attempt: Int, link: UploadLink, existing: UploadRecord?) async {
+        let id = item.id
+        if let index = stored.firstIndex(where: { $0.id == id }) {
+            stored[index].mayHaveReachedServer = true
+            do { try persist() } catch { logFailure("outbox list not saved: \(type(of: error))") }
+        }
+        do throws(MultipartFileProblem) {
+            if existing == nil { _ = try await link.ledger.prepare(item, origin: .app) }
+        } catch {
+            let decision = decision(for: error, attempt: item.attemptCount)
+            slowTimers.removeValue(forKey: id)?.cancel()
+            sendTasks[id] = nil
+            guard let index = stored.firstIndex(where: { $0.id == id }), stored[index].attemptCount == attempt
+            else { return }
+            apply(decision, toItemAt: index, attempt: attempt)
+            pump()
+            return
+        }
+        waitingOnUpload.remove(id)
+        failedUploads.remove(id)
+        _ = await link.ledger.start(id, session: link.session, client: client)
+        sendTasks[id] = nil
+        guard !isShutDown, stored.contains(where: { $0.id == id && $0.attemptCount == attempt }) else { return }
+        switch await link.ledger.record(for: id)?.phase {
+        case .uploading?: waitingOnUpload.insert(id)
+        default: await applyUploadState(id)
+        }
+    }
+
+    private func decision(for problem: MultipartFileProblem, attempt: Int) -> OutboxDecision {
+        switch problem {
+        case .attachmentMissing(let fileName):
+            .refuse(
+                OutboxRefusal(code: "attachment_missing", message: "\(fileName) is no longer on this device."))
+        case .partCountMismatch:
+            .refuse(OutboxRefusal(code: "encoding_failed", message: ""))
+        case .locked, .notWritten:
+            OutboxRetryPolicy.decision(for: .network(.cannotOpenFile), attempt: attempt)
+        }
+    }
+
+    /// Reads the record of an item and applies what it says: an answer is delivered, refused, retried or paused
+    /// on; a failed upload holds the item, and so its thread, until the next trigger.
+    private func applyUploadState(_ id: UUID) async {
+        guard let ledger = uploads?.ledger, let record = await ledger.record(for: id) else { return }
+        switch record.phase {
+        case .failed:
+            guard let index = stored.firstIndex(where: { $0.id == id }), !isShutDown else { return }
+            slowTimers.removeValue(forKey: id)?.cancel()
+            retryTimers.removeValue(forKey: id)?.cancel()
+            sendTasks[id] = nil
+            waitingOnUpload.remove(id)
+            failedUploads.insert(id)
+            stored[index].state = .waiting
+            publish()
+            pump()
+        case .answered:
+            guard let outcome = await ledger.outcome(for: id) else { return }
+            await applyUploadOutcome(outcome, id: id, ledger: ledger)
+        case .prepared, .uploading: break
+        }
+    }
+
+    private func applyUploadOutcome(_ outcome: UploadOutcome, id: UUID, ledger: UploadLedger) async {
+        guard !isShutDown, handlingOutcomes.insert(id).inserted else { return }
+        defer { handlingOutcomes.remove(id) }
+        // Two callers can read the same answer; only the one that still finds it answered acts on it.
+        guard case .answered? = await ledger.record(for: id)?.phase,
+            let index = stored.firstIndex(where: { $0.id == id })
+        else { return }
+        let item = stored[index]
+        var decision: OutboxDecision
+        switch outcome {
+        case .delivered(let status, let messageUUID, let answeredThread):
+            var threadID = answeredThread
+            if threadID == nil, case .thread(let target) = item.target { threadID = target }
+            if let threadID {
+                finishWaiting(id)
+                let delivery = OutboxDelivery(
+                    sendKey: id, target: item.target, status: status, messageUUID: messageUUID, threadID: threadID,
+                    text: item.text, sentAt: clock.now())
+                for receiver in deliveryReceivers.values { receiver.yield(delivery) }
+                for receiver in updateReceivers.values { receiver.yield(.delivery(delivery)) }
+                stored.remove(at: index)
+                publish()
+                removeAttachments(of: item)
+                await ledger.remove(id)
+                pump()
+                return
+            }
+            decision = OutboxRetryPolicy.decision(for: .notYak, attempt: item.attemptCount)
+        case .decision(let answered):
+            decision = answered
+        }
+        switch decision {
+        case .refuse:
+            await ledger.remove(id)
+        default:
+            do throws(MultipartFileProblem) {
+                _ = try await ledger.renew(item)
+            } catch {
+                decision = self.decision(for: error, attempt: item.attemptCount)
+                if case .refuse = decision { await ledger.remove(id) }
+            }
+        }
+        guard !isShutDown, let current = stored.firstIndex(where: { $0.id == id }) else { return }
+        finishWaiting(id)
+        retryTimers.removeValue(forKey: id)?.cancel()
+        apply(decision, toItemAt: current, attempt: stored[current].attemptCount)
+        pump()
+    }
+
+    private func finishWaiting(_ id: UUID) {
+        slowTimers.removeValue(forKey: id)?.cancel()
+        sendTasks[id] = nil
+        waitingOnUpload.remove(id)
+        failedUploads.remove(id)
+    }
 }

@@ -1,0 +1,124 @@
+{
+  "thread": {
+    "id": "d0e515ef",
+    "name": "retry-failed-rows",
+    "title": "Retry failed rows when the import times out",
+    "repo": "example/api",
+    "kind": "root",
+    "status": "open",
+    "visibility": "team",
+    "branch": "yak/retry-failed-rows",
+    "sandboxState": "running",
+    "runnerState": "idle",
+    "ownerSide": "yak",
+    "blockedReason": null,
+    "parentThreadId": null,
+    "rootThreadId": null,
+    "lastActivityAt": "2026-11-15T09:30:00Z",
+    "pullRequestCount": 0,
+    "isOwner": true,
+    "isStarred": false
+  },
+  "canDrive": true,
+  "messages": [
+    {
+      "id": "turn-message-1",
+      "uuid": "00000000-0000-4000-8000-000000000001",
+      "sendKey": null,
+      "text": "Retry failed rows when the import times out",
+      "authorName": "Test Person",
+      "authorInitials": "TP",
+      "model": null,
+      "state": "read",
+      "mode": null,
+      "intent": null,
+      "sentAt": "2026-11-15T09:00:00Z",
+      "readAfterSequence": 2,
+      "bodyHtml": "<p>Retry failed rows when the import times out</p>",
+      "attachments": [
+        {
+          "id": 41,
+          "name": "screenshot.png",
+          "reference": "Image #1",
+          "url": "https://yak.example.com/app-media/task-attachments/41?expires=1790000000&signature=abc",
+          "downloadUrl": "https://yak.example.com/app-media/task-attachments/41?expires=1790000000&signature=abc&download=1",
+          "mimeType": "image/png",
+          "size": 245760,
+          "isImage": true,
+          "previewKind": "image"
+        },
+        {
+          "id": "42",
+          "name": "report.pdf",
+          "reference": "File #2",
+          "url": "https://yak.example.com/app-media/task-attachments/42?expires=1790000000&signature=def",
+          "downloadUrl": null,
+          "mimeType": "application/pdf",
+          "size": 1258291,
+          "isImage": false,
+          "previewKind": "pdf"
+        }
+      ]
+    },
+    {
+      "id": "turn-message-2",
+      "uuid": "00000000-0000-4000-8000-000000000002",
+      "sendKey": null,
+      "text": "Retry failed rows when the import times out",
+      "authorName": "Test Person",
+      "authorInitials": "TP",
+      "model": null,
+      "state": "read",
+      "mode": null,
+      "intent": null,
+      "sentAt": "2026-11-15T09:00:00Z",
+      "readAfterSequence": null,
+      "bodyHtml": "<p>Retry failed rows when the import times out</p>",
+      "attachments": [
+        {
+          "id": 43,
+          "name": "remote.png",
+          "reference": "Image #3",
+          "url": "https://cdn.example.net/app-media/task-attachments/43?expires=1790000000&signature=ghi",
+          "downloadUrl": null,
+          "mimeType": "image/png",
+          "size": 1024,
+          "isImage": true,
+          "previewKind": "image"
+        }
+      ]
+    }
+  ],
+  "composer": {
+    "state": "idle",
+    "model": "sonnet",
+    "accountName": "Test account",
+    "nextAttachmentNumber": 1,
+    "models": [
+      {
+        "family": "sonnet",
+        "latest": {
+          "value": "sonnet",
+          "label": "Sonnet 5.5",
+          "description": "Fast and capable"
+        },
+        "older": [
+          {
+            "value": "claude-sonnet-5-0",
+            "label": "Sonnet 5"
+          }
+        ]
+      }
+    ]
+  },
+  "notice": null,
+  "panes": {
+    "chat": true,
+    "preview": false,
+    "terminal": true,
+    "changes": true,
+    "files": true
+  },
+  "question": null,
+  "latestSequence": 14
+}

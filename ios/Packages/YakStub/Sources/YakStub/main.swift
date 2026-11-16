@@ -21,7 +21,8 @@ else {
 }
 do {
     let server = try StubServer(
-        port: port, fixtures: StubFixtures(directory: URL(fileURLWithPath: fixturesPath)), scenario: scenario)
+        port: port, fixtures: StubFixtures(directory: URL(fileURLWithPath: fixturesPath)), scenario: scenario,
+        scenarios: options["scenarios"].map { URL(fileURLWithPath: $0) })
     let actualPort = try await server.start()
     FileHandle.standardOutput.write(Data("listening on 127.0.0.1:\(actualPort)\n".utf8))
     try await Task.sleep(for: .seconds(Int.max / 2))

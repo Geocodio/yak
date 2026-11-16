@@ -54,7 +54,7 @@ public actor Cache {
 
     /// The instance's cache folder. A feature's `Cache+<Feature>.swift` stores under it, so `eraseAll()` removes it.
     let root: String
-    private let files: any FileStore
+    let files: any FileStore
     private let clock: any YakClock
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()

@@ -9,10 +9,22 @@ final class StubServer: Sendable {
     private let fixtures: StubFixtures
     private let current: Locked<Scenario>
     private let online = Locked(true)
+    private let attachments: StubAttachments
+    private let attachmentScenario = Locked<String?>(nil)
     private let listener: NWListener
 
-    init(port: UInt16, fixtures: StubFixtures, scenario: Scenario) throws {
+    /// `scenarios` is the folder of hand-written scenario files that the attachment scenarios read.
+    init(port: UInt16, fixtures: StubFixtures, scenario: Scenario, scenarios: URL? = nil) throws {
         self.fixtures = fixtures
+        attachments = StubAttachments { name in
+            guard let folder = scenarios else { return nil }
+            do {
+                return try Data(contentsOf: folder.appendingPathComponent("\(name).json"))
+            } catch {
+                FileHandle.standardError.write(Data("stub scenario \(name) unreadable: \(type(of: error))\n".utf8))
+                return nil
+            }
+        }
         self.current = Locked(scenario)
         let parameters = NWParameters.tcp
         parameters.requiredInterfaceType = .loopback
@@ -40,7 +52,14 @@ final class StubServer: Sendable {
     private func handle(_ connection: NWConnection) {
         connection.start(queue: .global())
         Task {
-            guard let request = await Self.readRequest(from: connection) else {
+            let request: StubRequest
+            switch await Self.readRequest(from: connection) {
+            case .request(let read): request = read
+            case .tooLarge:
+                let reply = StubReply(answer: .reply(status: 413, contentType: "text/plain", body: Data()))
+                Self.write(reply, for: StubRequest(method: "-", path: "-"), to: connection)
+                return
+            case .failed:
                 connection.cancel()
                 return
             }
@@ -54,13 +73,21 @@ final class StubServer: Sendable {
         if request.path == "/__stub/scenario" {
             if request.method == "POST" {
                 let name = String(decoding: request.body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-                guard let scenario = Scenario(rawValue: name) else {
-                    return StubReply(answer: Scenario.error(400, "unknown_scenario", "No scenario named \(name)."))
+                if StubAttachments.scenarioNames.contains(name) {
+                    current.set(.paired)
+                    attachmentScenario.set(name)
+                    attachments.begin()
+                } else {
+                    guard let scenario = Scenario(rawValue: name) else {
+                        return StubReply(answer: Scenario.error(400, "unknown_scenario", "No scenario named \(name)."))
+                    }
+                    current.set(scenario)
+                    attachmentScenario.set(nil)
                 }
-                current.set(scenario)
                 online.set(true)
+                attachments.setOnline(true)
             }
-            let body = Data(current.get().rawValue.utf8)
+            let body = Data((attachmentScenario.get() ?? current.get().rawValue).utf8)
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: body))
         }
         if request.path == "/__stub/online" {
@@ -72,11 +99,17 @@ final class StubServer: Sendable {
                         answer: Scenario.error(400, "unknown_online_state", "Send yes or no, not \(state)."))
                 }
                 online.set(state == "yes")
+                attachments.setOnline(state == "yes")
             }
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data((online.get() ? "yes" : "no").utf8)))
         }
         let host = request.headers["host"] ?? "127.0.0.1"
+        if let name = attachmentScenario.get(),
+            let reply = attachments.reply(to: request, scenario: name, baseURL: "http://\(host)")
+        {
+            return reply
+        }
         return current.get().reply(to: request, baseURL: "http://\(host)", fixtures: fixtures)
     }
 
@@ -95,16 +128,24 @@ final class StubServer: Sendable {
             completion: .contentProcessed { _ in connection.cancel() })
     }
 
-    /// Reads until the headers and the announced body have arrived.
-    private static func readRequest(from connection: NWConnection) async -> StubRequest? {
+    private enum ReadOutcome {
+        case request(StubRequest)
+        case tooLarge
+        case failed
+    }
+
+    /// Reads until the headers and the announced body have arrived. The headers come first, so the limit on the body
+    /// is chosen from the content type once they are parsed; a larger announced length is refused unread.
+    private static func readRequest(from connection: NWConnection) async -> ReadOutcome {
         var buffer = Data()
         let separator = Data("\r\n\r\n".utf8)
-        while buffer.count < 1_000_000 {
-            if let range = buffer.range(of: separator) {
+        var parsed: (start: [Substring], headers: [String: String], bodyStart: Data.Index, length: Int)?
+        while true {
+            if parsed == nil, let range = buffer.range(of: separator) {
                 let head = String(decoding: buffer[..<range.lowerBound], as: UTF8.self)
                 var lines = head.components(separatedBy: "\r\n")
                 let start = lines.removeFirst().split(separator: " ")
-                guard start.count >= 2 else { return nil }
+                guard start.count >= 2 else { return .failed }
                 var headers: [String: String] = [:]
                 for line in lines {
                     guard let colon = line.firstIndex(of: ":") else { continue }
@@ -112,17 +153,30 @@ final class StubServer: Sendable {
                         in: .whitespaces)
                 }
                 let length = Int(headers["content-length"] ?? "") ?? 0
-                let body = buffer[range.upperBound...]
-                if body.count >= length {
-                    return StubRequest(
-                        method: String(start[0]), path: String(start[1].prefix { $0 != "?" }), headers: headers,
-                        body: Data(body.prefix(length)))
-                }
+                guard length <= StubRequestLimits.limit(contentType: headers["content-type"]) else { return .tooLarge }
+                parsed = (start, headers, range.upperBound, length)
+            } else if parsed == nil, buffer.count >= StubRequestLimits.plain {
+                return .failed
             }
-            guard let chunk = await receive(from: connection) else { return nil }
+            if let parsed, buffer.count - parsed.bodyStart >= parsed.length {
+                let target = parseTarget(String(parsed.start[1]))
+                return .request(
+                    StubRequest(
+                        method: String(parsed.start[0]), path: target.path, query: target.query,
+                        headers: parsed.headers,
+                        body: Data(buffer[parsed.bodyStart...].prefix(parsed.length))))
+            }
+            guard let chunk = await receive(from: connection) else { return .failed }
             buffer += chunk
         }
-        return nil
+    }
+
+    /// The part of a request target before `?`, and its decoded query items.
+    static func parseTarget(_ target: String) -> (path: String, query: [String: String]) {
+        let path = String(target.prefix { $0 != "?" })
+        var query: [String: String] = [:]
+        for item in URLComponents(string: target)?.queryItems ?? [] { query[item.name] = item.value ?? "" }
+        return (path, query)
     }
 
     private static func receive(from connection: NWConnection) async -> Data? {

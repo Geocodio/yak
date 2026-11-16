@@ -130,7 +130,8 @@ public actor APIClient {
         return request
     }
 
-    private static func interpret<Response: Decodable>(data: Data, response: HTTPURLResponse) throws(APIFailure)
+    /// The reading of an answer that `send` uses; a background upload reads its stored answer the same way.
+    public static func interpret<Response: Decodable>(data: Data, response: HTTPURLResponse) throws(APIFailure)
         -> Response
     {
         if let header = response.value(forHTTPHeaderField: ClientProtocol.headerName),
@@ -168,5 +169,15 @@ public actor APIClient {
                     retryAfterSeconds: seconds.flatMap { (0...3600).contains($0) ? $0 : nil }))
         }
         throw .server(error)
+    }
+}
+
+extension APIClient {
+    /// The headers of every request (bearer token, protocol, accept, user agent), `POST`, the multipart
+    /// content type, and no body: a background upload sends the body from a file.
+    public func uploadRequest(path: String, contentType: String) throws(APIFailure) -> URLRequest {
+        var request = try makeRequest(Endpoint<EmptyResponse>(method: .post, path: path))
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        return request
     }
 }
