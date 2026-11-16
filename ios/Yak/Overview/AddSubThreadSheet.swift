@@ -228,7 +228,7 @@ private struct AddSubThreadForm: View {
             }
             .frame(minHeight: 44).contentShape(.rect)
         }
-        .disabled(isLocked || families.isEmpty).accessibilityIdentifier("addSubThread.model")
+        .tint(.primary).disabled(isLocked || families.isEmpty).accessibilityIdentifier("addSubThread.model")
     }
 
     @ViewBuilder private var footer: some View {
