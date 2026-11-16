@@ -72,7 +72,7 @@ struct PaneRow: View {
                 if let descriptor = PaneCatalog.descriptor(for: id) {
                     PaneRowButton(
                         descriptor: descriptor, isSelected: id == focused,
-                        hasBadge: descriptor.hasBadge(thread)
+                        badge: PaneBadge.make(descriptor, thread)
                     ) { focused = id }
                 }
             }
@@ -83,14 +83,14 @@ struct PaneRow: View {
 private struct PaneRowButton: View {
     let descriptor: PaneDescriptor
     let isSelected: Bool
-    let hasBadge: Bool
+    let badge: PaneBadge?
     let select: () -> Void
 
     var body: some View {
         Button(action: select) {
             VStack(spacing: 2) {
                 Image(systemName: descriptor.symbol).font(.body)
-                    .overlay(alignment: .topTrailing) { if hasBadge { QuestionBadge().offset(x: 6, y: -3) } }
+                    .overlay(alignment: .topTrailing) { badge.map { PaneBadgeView(badge: $0).offset(x: 6, y: -3) } }
                 Text(descriptor.name).font(.caption2).lineLimit(1).minimumScaleFactor(0.7)
             }
             .foregroundStyle(.primary)
@@ -101,9 +101,45 @@ private struct PaneRowButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(descriptor.name))
-        .accessibilityValue(hasBadge ? Text("pane.badge.question") : Text(""))
+        .accessibilityValue(badge?.accessibilityText ?? Text(""))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("pane.row.\(descriptor.id.rawValue)")
+    }
+}
+
+/// What a pane's button carries: the dot that asks for attention, or a number.
+enum PaneBadge: Equatable {
+    case question
+    case count(Int)
+
+    /// A number wins over the dot; a count of zero or less shows nothing.
+    @MainActor static func make(_ descriptor: PaneDescriptor, _ thread: ThreadModel) -> PaneBadge? {
+        if let count = descriptor.badgeCount(thread), count > 0 { return .count(count) }
+        return descriptor.hasBadge(thread) ? .question : nil
+    }
+
+    var accessibilityText: Text {
+        switch self {
+        case .question: Text("pane.badge.question")
+        case .count(let number): Text("pane.badge.count \(number)")
+        }
+    }
+}
+
+struct PaneBadgeView: View {
+    let badge: PaneBadge
+
+    var body: some View {
+        switch badge {
+        case .question:
+            QuestionBadge()
+        case .count(let number):
+            Text(number, format: .number).font(.caption2.weight(.bold)).foregroundStyle(.white)
+                .padding(.horizontal, 4).frame(minWidth: 14, minHeight: 14)
+                .background(Color.blue, in: .capsule)
+                .overlay(Capsule().stroke(Color(.systemBackground), lineWidth: 1.5))
+                .accessibilityHidden(true)
+        }
     }
 }
 
@@ -134,7 +170,9 @@ struct PaneStripToolbar: ToolbarContent {
                         VStack(spacing: 2) {
                             Image(systemName: descriptor.symbol)
                                 .overlay(alignment: .topTrailing) {
-                                    if descriptor.hasBadge(thread) { QuestionBadge().offset(x: 6, y: -3) }
+                                    PaneBadge.make(descriptor, thread).map {
+                                        PaneBadgeView(badge: $0).offset(x: 6, y: -3)
+                                    }
                                 }
                             // Fit: caption2 on one line passes the contrast audit and leaves room for a fifth caption ("Overview")
                             // when five panes share the strip; a longer name must shorten, not scale.
@@ -142,7 +180,7 @@ struct PaneStripToolbar: ToolbarContent {
                         }
                     }
                     .accessibilityLabel(Text(descriptor.name))
-                    .accessibilityValue(descriptor.hasBadge(thread) ? Text("pane.badge.question") : Text(""))
+                    .accessibilityValue(PaneBadge.make(descriptor, thread)?.accessibilityText ?? Text(""))
                     .accessibilityAddTraits(id == focused ? .isSelected : [])
                     .accessibilityIdentifier("pane.strip.\(id.rawValue)")
                 }

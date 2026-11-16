@@ -36,3 +36,8 @@ func placementFollowsSizeClassesAndTheStrip(
     #expect(Panes.neighbor(of: .chat, in: [.chat], step: 1) == nil)
     #expect(Panes.neighbor(of: .terminal, in: [.chat], step: 1) == nil)
 }
+
+@Test func filesIsBuiltOnlyWithAMode() {
+    #expect(Panes.built.contains(.files) == !FilesMode.built.isEmpty)
+    #expect(Panes.built.contains(.chat))
+}

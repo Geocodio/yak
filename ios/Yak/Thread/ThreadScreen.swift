@@ -20,6 +20,7 @@ struct ThreadScreen: View {
 
     @State private var model: ThreadModel?
     @State private var copiedLink = 0
+    @State private var slots = PaneSlots()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
@@ -69,10 +70,10 @@ struct ThreadScreen: View {
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     if placement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
-                    PaneHost(thread: thread, focused: focused.wrappedValue)
+                    PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    BottomBar(thread: thread, placement: placement, focused: focused)
+                    BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
                 }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
@@ -149,6 +150,7 @@ struct ThreadScreen: View {
 
     private var threadMenu: some View {
         Menu {
+            PaneMenuItems(slots: slots, focused: scene.state.focusedPane)
             Button {
                 openWeb(webURL)
             } label: {

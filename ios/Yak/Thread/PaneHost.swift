@@ -18,6 +18,8 @@ struct PaneHost: View {
                     descriptor.content(thread)
                         .opacity(isFocused ? 1 : 0)
                         .offset(x: reduceMotion || isFocused ? 0 : offset(of: id))
+                        .environment(\.paneID, id)
+                        .environment(\.isPaneShown, isFocused)
                         .allowsHitTesting(isFocused)
                         .accessibilityHidden(!isFocused)
                 }

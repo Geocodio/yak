@@ -13,6 +13,8 @@ struct PaneDescriptor {
     let barRow: @MainActor (ThreadModel) -> AnyView
     /// Whether the pane's button carries the dot that asks for attention.
     var hasBadge: @MainActor (ThreadModel) -> Bool = { _ in false }
+    /// The number on the pane's button, or nil.
+    var badgeCount: @MainActor (ThreadModel) -> Int? = { _ in nil }
 }
 
 /// The one list of the panes this build draws. A new pane is one view file of its own, a `PaneDescriptor` in it,
@@ -20,7 +22,8 @@ struct PaneDescriptor {
 @MainActor
 enum PaneCatalog {
     static let all: [PaneDescriptor] = [
-        .chat
+        .chat,
+        .files,
     ]
 
     static func descriptor(for id: PaneID) -> PaneDescriptor? { all.first { $0.id == id } }
