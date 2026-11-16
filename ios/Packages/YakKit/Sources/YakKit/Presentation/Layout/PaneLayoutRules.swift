@@ -184,7 +184,10 @@ public enum PaneLayoutRules {
     public static func select(_ pane: PaneID, from slot: SlotPosition?, state: PaneState, plan: SlotPlan) -> PaneState {
         guard plan.available.contains(pane) else { return state }
         var next = stateShown(by: plan, base: state)
-        if plan.overviewIsPanel { next.overviewWasSecond = false }
+        if plan.overviewIsPanel {
+            next.overviewWasSecond = false
+            next.overviewIsFirst = false
+        }
         if pane == .overview && plan.overviewIsPanel {
             next.isOverviewPanelOpen.toggle()
             return tidy(next, plan: plan)

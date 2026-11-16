@@ -505,4 +505,28 @@ private let bookInputs = LayoutInputs(
             }
         }
     }
+
+    @Test func theSameVisibleStateRotatesTheSameWhateverItsHistory() {
+        func changed(_ state: PaneState, _ old: PaneArrangement, _ new: PaneArrangement, _ inputs: LayoutInputs)
+            -> PaneState
+        {
+            PaneLayoutRules.arrangementChanged(from: old, to: new, state: state, available: all, inputs: inputs)
+        }
+        func toggledOverview(_ state: PaneState) -> PaneState {
+            let plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
+            return PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
+        }
+        var state = changed(
+            PaneState(focused: .chat, second: .overview, secondLeads: true), .stacked, .sideBySide, wide)
+        state = toggledOverview(toggledOverview(state))
+        let fresh = PaneState(focused: .chat, second: .preview, isOverviewPanelOpen: true)
+        #expect(
+            PaneLayoutRules.plan(state, available: all, inputs: wide)
+                == PaneLayoutRules.plan(fresh, available: all, inputs: wide))
+        let rotated = changed(state, .sideBySide, .stacked, upright)
+        let expected = changed(fresh, .sideBySide, .stacked, upright)
+        #expect(
+            PaneLayoutRules.plan(rotated, available: all, inputs: upright).slots
+                == PaneLayoutRules.plan(expected, available: all, inputs: upright).slots)
+    }
 }
