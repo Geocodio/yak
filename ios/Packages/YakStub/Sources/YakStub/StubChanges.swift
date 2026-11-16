@@ -23,6 +23,7 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         var decision: (status: String, by: String)?
         var tagged: String?
         var declinedEarlyWarning = false
+        var answeredQuestions = false
         var lastBody = ""
     }
     private let state = Locked(State())
@@ -111,7 +112,9 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         var body: [String: Any]
         switch id {
         case "k3m9p2qa": body = pending(context)
-        case "q5w8e2rt": body = context.fixtures.scenario("scenario-task-question")
+        case "q5w8e2rt":
+            body = context.fixtures.scenario("scenario-task-question")
+            if state.get().answeredQuestions { body["questions"] = NSNull() }
         case "r7t3w9yb", "r3d0n1yx": body = context.fixtures.scenario("scenario-task-read-only")
         case "m4n8r2tw", "p6s2v8xa", "t7u3x9yc":
             body = context.fixtures.scenario("scenario-task")
@@ -175,17 +178,17 @@ final class StubChanges: StubFeature, @unchecked Sendable {
             var reply = status("approved")
             if context.scenario == "task-refused" {
                 return StubReply(
-                    answer: Scenario.error(409, "github_failed", "GitHub could not open the pull request."))
+                    answer: Scenario.error(409, "already_resolved", "This request was already decided."))
             }
-            if context.scenario == "task-slow-approve" { reply.delay = .seconds(5) }
+            if context.scenario == "task-slow-approve" { reply.delay = .seconds(20) }
             state.mutate { $0.decision = ("approved", "Test person") }
             return reply
         case "co-owner/request-changes":
             if context.scenario == "task-refused" {
                 return StubReply(
                     answer: Scenario.error(
-                        422, "validation_failed", "The feedback is not valid.",
-                        details: ["errors": ["feedback": ["Keep the feedback under 5000 characters."]]]))
+                        422, "validation_failed", "The feedback is too long.",
+                        details: ["errors": ["feedback": ["The feedback is too long."]]]))
             }
             state.mutate { $0.decision = ("changes_requested", "Test person") }
             return status("changes_requested")
@@ -202,7 +205,9 @@ final class StubChanges: StubFeature, @unchecked Sendable {
             state.mutate { $0.declinedEarlyWarning = true }
             return status("declined")
         case "retry", "cancel", "rerun-review", "retry-render", "reroute": return status("queued")
-        case "clarification-answers": return status("answered")
+        case "clarification-answers":
+            state.mutate { $0.answeredQuestions = true }
+            return status("sent")
         default: return nil
         }
     }

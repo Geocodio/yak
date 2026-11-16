@@ -51,4 +51,41 @@ import Testing
         guard case .reply(let status, _, _)? = reply?.answer else { throw URLError(.badServerResponse) }
         #expect(status == 404)
     }
+
+    private func post(_ verb: String, _ scenario: String) throws -> StubReply {
+        try #require(
+            StubChanges().answer(
+                route: "POST tasks/k3m9p2qa/\(verb)", request: StubRequest(method: "POST", path: "x"),
+                context: try context(scenario)))
+    }
+
+    @Test func aRefusedApprovalAndFeedbackAnswerAsTheServerDoes() throws {
+        let approve = try post("co-owner/approve", "task-refused")
+        guard case .reply(let status, _, let data) = approve.answer else { throw URLError(.badServerResponse) }
+        let error = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(status == 409 && error["error"] as? String == "already_resolved")
+        #expect(error["message"] as? String == "This request was already decided.")
+        let changes = try post("co-owner/request-changes", "task-refused")
+        guard case .reply(let changesStatus, _, let changesData) = changes.answer else { throw URLError(.badServerResponse) }
+        let changesError = try #require(try JSONSerialization.jsonObject(with: changesData) as? [String: Any])
+        #expect(changesStatus == 422 && changesError["message"] as? String == "The feedback is too long.")
+    }
+
+    @Test func aSlowApprovalWaitsTwentySeconds() throws {
+        #expect(try post("co-owner/approve", "task-slow-approve").delay == .seconds(20))
+    }
+
+    @Test func answeringTheQuestionsSendsThemAndClearsThem() throws {
+        let feature = StubChanges()
+        let scenario = try context("changes")
+        let sent = try #require(
+            feature.answer(
+                route: "POST tasks/q5w8e2rt/clarification-answers", request: StubRequest(method: "POST", path: "x"),
+                context: scenario))
+        #expect(try body(sent)["status"] as? String == "sent")
+        let task = try body(
+            feature.answer(
+                route: "GET tasks/q5w8e2rt", request: StubRequest(method: "GET", path: "x"), context: scenario))
+        #expect(task["questions"] is NSNull)
+    }
 }
