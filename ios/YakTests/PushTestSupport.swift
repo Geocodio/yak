@@ -56,7 +56,7 @@ actor RecordingTransport: HTTPTransport {
 }
 
 extension InMemoryFileStore {
-    func exists(_ path: String) -> Bool { ((try? read(path)) ?? nil) != nil }
+    func has(_ path: String) -> Bool { ((try? read(path)) ?? nil) != nil }
 }
 
 final class FakePermission: NotificationPermission, @unchecked Sendable {

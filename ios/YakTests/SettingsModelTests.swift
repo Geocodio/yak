@@ -254,7 +254,7 @@ private func makeSettingsRig(isAvailable: Bool = true) async throws -> SettingsR
             .map(\.route)
         #expect(deletes.first == "DELETE push-tokens/alert")
         #expect(deletes.last == "DELETE device")
-        #expect(!rig.files.exists(recordFile))
+        #expect(!rig.files.has(recordFile))
         #expect(!(await rig.store.all()).contains { $0.id == rig.other.id })
     }
 

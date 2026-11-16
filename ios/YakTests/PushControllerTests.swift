@@ -30,11 +30,11 @@ private func delivered(_ identifier: String, instance: String) throws -> Deliver
             ])
         await rig.registrar.setToken(String(repeating: "0123456789abcdef", count: 4), kind: .alert)
         await rig.transport.on("PUT push-tokens/alert")
-        #expect(await eventually { rig.files.exists("instances/\(rig.home.id.uuidString)/push-registration.json") })
+        #expect(await eventually { rig.files.has("instances/\(rig.home.id.uuidString)/push-registration.json") })
         await rig.controller.instanceRemoved(rig.home)
         #expect(rig.center.identifiers == ["from-other"])
         #expect(rig.center.badge == 5)
-        #expect(!rig.files.exists("instances/\(rig.home.id.uuidString)/push-registration.json"))
+        #expect(!rig.files.has("instances/\(rig.home.id.uuidString)/push-registration.json"))
     }
 
     @Test func unpairingCleansUpPushState() async throws {
@@ -47,12 +47,12 @@ private func delivered(_ identifier: String, instance: String) throws -> Deliver
         let otherActivity = rig.activities.add(instance: "https://other.example.com", thread: "a0000002")
         await rig.transport.on("PUT push-tokens/alert")
         await rig.registrar.setToken(String(repeating: "0123456789abcdef", count: 4), kind: .alert)
-        #expect(await eventually { rig.files.exists("instances/\(rig.home.id.uuidString)/push-registration.json") })
+        #expect(await eventually { rig.files.has("instances/\(rig.home.id.uuidString)/push-registration.json") })
         await rig.controller.instanceRemoved(rig.home)
         #expect(rig.center.identifiers == ["from-other"])
         #expect(rig.activities.current.map(\.activityID) == [otherActivity])
         #expect(rig.center.badge == 5)
-        #expect(!rig.files.exists("instances/\(rig.home.id.uuidString)/push-registration.json"))
+        #expect(!rig.files.has("instances/\(rig.home.id.uuidString)/push-registration.json"))
     }
 
     @Test func aRefreshedAnswerUpdatesTheStatus() async throws {
@@ -124,9 +124,9 @@ private func delivered(_ identifier: String, instance: String) throws -> Deliver
             sentBeforeUnpair.map(\.route).sorted() == [
                 "DELETE push-tokens/alert", "DELETE push-tokens/live_activity_start",
             ])
-        #expect(rig.files.exists(recordFile))
+        #expect(rig.files.has(recordFile))
         await rig.controller.instanceRemoved(rig.home)
-        #expect(!rig.files.exists(recordFile))
+        #expect(!rig.files.has(recordFile))
         let touchedOther = await rig.transport.recorded.filter {
             $0.host == "other.example.com" && $0.route.hasPrefix("DELETE")
         }
@@ -148,6 +148,6 @@ private func delivered(_ identifier: String, instance: String) throws -> Deliver
         await rig.transport.setOffline(true)
         await rig.controller.instanceWillBeRemoved(rig.home)
         await rig.controller.instanceRemoved(rig.home)
-        #expect(!rig.files.exists("instances/\(rig.home.id.uuidString)/push-registration.json"))
+        #expect(!rig.files.has("instances/\(rig.home.id.uuidString)/push-registration.json"))
     }
 }

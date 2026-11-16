@@ -14,10 +14,30 @@ protocol ActivityHost: Sendable {
     func areActivitiesEnabled() -> Bool
 }
 
-/// `Activity<ThreadActivityAttributes>`.
-final class SystemActivityHost: ActivityHost, @unchecked Sendable {
+/// The start of each running activity: the turn's start from the content, or the time the activity was first seen.
+final class ActivityStartLedger: @unchecked Sendable {
     private let lock = NSLock()
     private var firstSeen: [String: Date] = [:]
+
+    func startedAt(of activityID: String, turnStartedAt: String, now: Date = Date()) -> Date {
+        for options: ISO8601DateFormatter.Options in [
+            [.withInternetDateTime, .withFractionalSeconds], [.withInternetDateTime],
+        ] {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = options
+            if let date = formatter.date(from: turnStartedAt) { return date }
+        }
+        return lock.withLock {
+            if let seen = firstSeen[activityID] { return seen }
+            firstSeen[activityID] = now
+            return now
+        }
+    }
+}
+
+/// `Activity<ThreadActivityAttributes>`.
+final class SystemActivityHost: ActivityHost, @unchecked Sendable {
+    private let ledger = ActivityStartLedger()
 
     func running() async -> [RunningActivity] {
         Activity<ThreadActivityAttributes>.activities.compactMap { activity in
@@ -26,7 +46,7 @@ final class SystemActivityHost: ActivityHost, @unchecked Sendable {
             else { return nil }
             return RunningActivity(
                 activityID: activity.id, instance: instance, threadID: activity.attributes.threadId,
-                startedAt: startedAt(of: activity))
+                startedAt: ledger.startedAt(of: activity.id, turnStartedAt: activity.content.state.turnStartedAt))
         }
     }
 
@@ -71,19 +91,6 @@ final class SystemActivityHost: ActivityHost, @unchecked Sendable {
     }
 
     func areActivitiesEnabled() -> Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
-
-    /// The turn's start from the content, or the time this host first saw the activity.
-    private func startedAt(of activity: Activity<ThreadActivityAttributes>) -> Date {
-        let text = activity.content.state.turnStartedAt
-        for options: ISO8601DateFormatter.Options in [
-            [.withInternetDateTime, .withFractionalSeconds], [.withInternetDateTime],
-        ] {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = options
-            if let date = formatter.date(from: text) { return date }
-        }
-        return lock.withLock { firstSeen[activity.id, default: Date()] }
-    }
 
     /// Reports each activity's state changes once, however many times it is seen.
     private final class Watcher: @unchecked Sendable {
