@@ -544,11 +544,9 @@ public actor InstanceSession {
         // A name already taken in this draft's folder gets "-2", "-3" and so on before the extension.
         var counter = 2
         while try environment.files.read(path) != nil {
-            let dot = safeName.lastIndex(of: ".").flatMap { $0 == safeName.startIndex ? nil : $0 }
-            let stem = dot.map { String(safeName[..<$0]) } ?? safeName
-            let ending = dot.map { String(safeName[$0...]) } ?? ""
             path = OutboxInbox.attachmentPath(
-                instance: instance.id, item: sendKey, fileName: "\(stem)-\(counter)\(ending)")
+                instance: instance.id, item: sendKey,
+                fileName: ComposerAttachments.numberedFileName(safeName, counter: counter))
             counter += 1
         }
         try environment.files.write(data, to: path, protection: .untilFirstUnlock)

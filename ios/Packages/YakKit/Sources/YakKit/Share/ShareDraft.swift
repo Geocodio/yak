@@ -144,10 +144,7 @@ public struct ShareDraft: Equatable, Sendable {
             var unique = safeName
             var counter = 2
             while !taken.insert(unique).inserted {
-                let dot = safeName.lastIndex(of: ".").flatMap { $0 == safeName.startIndex ? nil : $0 }
-                let stem = dot.map { String(safeName[..<$0]) } ?? safeName
-                let ending = dot.map { String(safeName[$0...]) } ?? ""
-                unique = "\(stem)-\(counter)\(ending)"
+                unique = ComposerAttachments.numberedFileName(safeName, counter: counter)
                 counter += 1
             }
             return OutboxAttachment(

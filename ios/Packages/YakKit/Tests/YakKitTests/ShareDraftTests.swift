@@ -170,3 +170,10 @@ private func readOnlyCopy(of show: ThreadShow) throws -> ThreadShow {
         typed: "Fix it please", inputs: [], target: .newThread, form: form, model: nil, context: context)
     #expect(draft.problem == .noRepository)
 }
+
+@Test func numberedFileNamesGoBeforeTheExtension() {
+    #expect(ComposerAttachments.numberedFileName("a.jpg", counter: 2) == "a-2.jpg")
+    #expect(ComposerAttachments.numberedFileName("a.tar.gz", counter: 3) == "a.tar-3.gz")
+    #expect(ComposerAttachments.numberedFileName("notes", counter: 2) == "notes-2")
+    #expect(ComposerAttachments.numberedFileName(".hidden", counter: 2) == ".hidden-2")
+}
