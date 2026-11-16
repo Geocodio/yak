@@ -7,6 +7,7 @@ struct ComposerBar: View {
     let thread: ThreadModel
     @Environment(SceneModel.self) private var scene
     @FocusState private var isFocused: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var composer: ComposerModel { thread.composer }
 
@@ -49,8 +50,12 @@ struct ComposerBar: View {
     // MARK: Controls
 
     private func field(_ text: Binding<String>) -> some View {
+        let isSteering = composer.bar.placeholder == .steerYak
+        // The short words fit the field at the largest text sizes, where the full ones are cut.
         let placeholder: LocalizedStringKey =
-            composer.bar.placeholder == .steerYak ? "composer.steer" : "composer.message"
+            dynamicTypeSize.isAccessibilitySize
+            ? (isSteering ? "composer.steer.short" : "composer.message.short")
+            : (isSteering ? "composer.steer" : "composer.message")
         return TextField(placeholder, text: text, axis: .vertical)
             .lineLimit(1...6)
             .focused($isFocused)

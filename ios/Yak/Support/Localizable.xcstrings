@@ -2058,6 +2058,26 @@
         }
       }
     },
+    "composer.message.short": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message"
+          }
+        }
+      }
+    },
+    "composer.steer.short": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steer"
+          }
+        }
+      }
+    },
     "composer.message": {
       "localizations": {
         "en": {
