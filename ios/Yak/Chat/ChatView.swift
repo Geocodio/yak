@@ -33,15 +33,7 @@ struct ChatView: View {
         var state: HistoryState
     }
 
-    /// A one point strip above and below the list keeps it from reaching under the bars, so no line of text is
-    /// ever half hidden behind their glass.
-    var body: some View {
-        VStack(spacing: 0) {
-            Color.clear.frame(height: 1).accessibilityHidden(true)
-            list
-            Color.clear.frame(height: 1).accessibilityHidden(true)
-        }
-    }
+    var body: some View { list }
 
     private var list: some View {
         ScrollView {
@@ -65,6 +57,7 @@ struct ChatView: View {
         .accessibilityIdentifier("chat.list")
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom, for: .initialOffset)
+        .scrollEdgeEffectStyle(.hard, for: [.top, .bottom])
         .onScrollGeometryChange(for: Metrics.self) { geometry in
             Metrics(
                 contentHeight: geometry.contentSize.height, contentOffset: geometry.contentOffset.y,
