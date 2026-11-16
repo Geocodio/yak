@@ -285,7 +285,8 @@ import XCTest
             app.launchEnvironment["YAK_TEST_GALLERY_STATE"] = state
             try start("paired", extraArguments: ["-yakTestScreen", "live-activity-gallery"])
             XCTAssertTrue(app.staticTexts["gallery.state"].waitForExistence(timeout: 10))
-            try shoot("live-\(state)")
+            // The gallery is a debug page of non-interactive previews, so its screenshots are not audited.
+            try shoot("live-\(state)", audits: false)
         }
     }
 }

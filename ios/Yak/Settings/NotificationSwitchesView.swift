@@ -16,7 +16,10 @@ struct NotificationSwitchesView: View {
                 status
             }
         } footer: {
-            if model.canPush { Text("settings.switches.footer") }
+            if model.canPush {
+                Text("settings.switches.footer").font(.footnote.weight(.medium))
+                    .foregroundStyle(Color.primary.opacity(0.85))
+            }
         }
         .task(id: isLoading) {
             showsSkeleton = false
