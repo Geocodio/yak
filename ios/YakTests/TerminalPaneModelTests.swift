@@ -394,3 +394,11 @@ private final class Counter: @unchecked Sendable {
     #expect(fixture.model.shells.shells.count == 1)
     await fixture.finish()
 }
+
+@MainActor @Test func remoteOutputNeverWritesTheClipboard() {
+    let surface = SwiftTermSurface()
+    UIPasteboard.general.string = "kept"
+    let payload = Data("stolen".utf8).base64EncodedString()
+    surface.feed(Data("\u{1B}]52;c;\(payload)\u{07}".utf8))
+    #expect(UIPasteboard.general.string == "kept")
+}

@@ -214,6 +214,12 @@ enum Scenario: String, CaseIterable, Sendable {
     case messageRefused = "message-refused"
     /// Starting a thread is refused: 422 `validation_failed`.
     case newThreadRefused = "new-thread-refused"
+    /// Nobody has a thread and the instance has no repositories: `threads/new` answers `repos: []`.
+    case noRepositories = "no-repositories"
+    /// Nobody has a thread, and the new-thread options answer after 14 seconds.
+    case slowNewThread = "slow-new-thread"
+    /// Nobody has a thread, and the new-thread options fail with 500.
+    case brokenNewThread = "broken-new-thread"
     /// The thread routes answer with the server's own fixtures.
     case serverFixtures = "server-fixtures"
 

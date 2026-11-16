@@ -111,9 +111,9 @@ final class SwiftTermSurface: NSObject, TerminalSurface, TerminalViewDelegate {
     nonisolated func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {}
     nonisolated func bell(source: TerminalView) {}
 
-    nonisolated func clipboardCopy(source: TerminalView, content: Data) {
-        MainActor.assumeIsolated { UIPasteboard.general.string = String(data: content, encoding: .utf8) }
-    }
+    /// Output from the remote machine (OSC 52) never writes the clipboard. Copying stays with the person's own
+    /// selection.
+    nonisolated func clipboardCopy(source: TerminalView, content: Data) {}
 
     nonisolated func iTermContent(source: TerminalView, content: ArraySlice<UInt8>) {}
     nonisolated func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
