@@ -92,7 +92,7 @@ platform :ios do
     sh("cd #{File.join(IOS_ROOT, "Packages/YakKit").shellescape} && swift test -Xswiftc -warnings-as-errors")
     sh("cd #{File.join(IOS_ROOT, "Packages/YakStub").shellescape} && swift test -Xswiftc -warnings-as-errors")
     sh(
-      "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+      "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak -skipPackagePluginValidation " \
       "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} -only-testing:YakTests " \
       "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
     )
@@ -162,7 +162,7 @@ platform :ios do
     sh("xcrun simctl bootstatus #{device.shellescape} -b")
     # A hosted simulator sometimes fails to launch the app at all, so a failed test gets one more try.
     sh(
-      "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+      "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test -project Yak.xcodeproj -scheme Yak -skipPackagePluginValidation " \
       "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} #{selection} " \
       "-retry-tests-on-failure -test-iterations 2 " \
       "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
