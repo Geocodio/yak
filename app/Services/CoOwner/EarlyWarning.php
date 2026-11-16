@@ -40,13 +40,22 @@ class EarlyWarning
             return null;
         }
 
-        $profile = RiskProfilePageData::effectiveProfile($repository, $settings);
-        if ($profile === null) {
-            return null;
+        $concerns = $settings->concerns();
+        if ($concerns !== null) {
+            $profileAreas = array_map(
+                fn (array $concern): array => ['name' => $concern['name'], 'risk' => 'critical', 'rationale' => $concern['description']],
+                $concerns,
+            );
+        } else {
+            $profile = RiskProfilePageData::effectiveProfile($repository, $settings);
+            if ($profile === null) {
+                return null;
+            }
+
+            /** @var list<array{name: string, risk: string, rationale: string}> $profileAreas */
+            $profileAreas = array_values((array) ($profile['areas'] ?? []));
         }
 
-        /** @var list<array{name: string, risk: string, rationale: string}> $profileAreas */
-        $profileAreas = array_values((array) ($profile['areas'] ?? []));
         $guessed = $this->guesser->guess((string) $task->description, $profileAreas);
 
         $areas = [];

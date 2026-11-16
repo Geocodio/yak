@@ -1,384 +1,286 @@
 <?php
 
-use App\Actions\EnqueuePrReview;
+use App\Ai\Agents\ConcernClassifier;
 use App\Channels\GitHub\AppService;
+use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
 use App\DataTransferObjects\ReviewFinding;
-use App\Jobs\RunYakReviewJob;
 use App\Models\PrReview;
+use App\Models\PrReviewComment;
 use App\Models\Repository;
-use App\Models\RiskProfile;
-use App\Models\YakTask;
-use App\Services\RepositoryRiskProfiles;
 use App\Services\ReviewApprovalPolicy;
+use Laravel\Ai\Ai;
 
-beforeEach(function () {
-    $this->repo = Repository::factory()->create(['slug' => 'acme/api', 'github_full_name' => 'acme/api', 'pr_review_enabled' => true, 'is_active' => true]);
-    $this->metadata = ['pr_number' => 42, 'head_sha' => 'head', 'base_sha' => 'base', 'base_ref' => 'main', 'review_scope' => 'full'];
-    $profiles = app(RepositoryRiskProfiles::class);
-    $draft = $profiles->draft('acme/api', str_repeat('a', 40), json_encode([
-        'areas' => [['name' => 'Docs', 'paths' => ['docs/**'], 'symbols' => [], 'risk' => 'low',
-            'rationale' => 'Documentation only.', 'evidence' => ['docs/guide.md:1']]], 'unknowns' => [],
-    ]));
-    $profiles->approve('acme/api', $draft['version'], 'reviewer');
-    $this->metadata['risk_profile_version'] = $draft['version'];
-    $this->files = [['filename' => 'docs/guide.md', 'status' => 'modified', 'additions' => 2, 'deletions' => 1, 'patch' => "@@ -1 +1,2 @@\n-old\n+new\n+extra"]];
-    $this->pr = [
-        'state' => 'open', 'draft' => false, 'changed_files' => 1,
-        'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']],
-        'base' => ['sha' => 'base', 'ref' => 'main'], 'user' => ['login' => 'alice'],
-    ];
-    $this->evidence = [
-        'dismiss_stale_reviews' => true, 'threads_clear' => true, 'total_count' => 1,
-        'statuses' => [], 'status_count' => 0,
-        'check_runs' => [['name' => 'ci', 'app' => ['id' => 15368], 'status' => 'completed', 'conclusion' => 'success']],
-    ];
-    $this->repo->update(['pr_review_policy' => [
-        'mode' => 'enforce', 'allowed_paths' => ['docs/**', 'app/**', 'tests/**', 'config/**'],
-        'required_checks' => [['name' => 'ci', 'app_id' => 15368]],
-    ]]);
-    $github = mock(AppService::class);
-    $github->shouldReceive('getPullRequest')->andReturnUsing(fn () => $this->pr);
-    $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
-    $github->shouldReceive('approvalEvidence')->andReturnUsing(fn () => $this->evidence);
-    app()->instance(AppService::class, $github);
-});
+const POLICY_PR_URL = 'https://github.com/acme/api/pull/42';
+const BILLING = 'Customer charges and Stripe writes';
+const METERING = 'Usage metering and credit accounting';
 
-function cleanApprovalReview(string $risk = 'low', array $findings = []): ParsedReview
+function policyReview(array $findings = [], array $priorFindings = [], string $verdict = 'Approve'): ParsedReview
 {
-    $signals = ['model_confidence' => 90, 'uncertainties' => [], 'human_review_reasons' => []];
-    foreach (['impact' => 1, 'blast_radius' => 1, 'behavior_change' => 0, 'verification_strength' => 3, 'context_completeness' => 3] as $key => $value) {
-        $signals[$key] = ['value' => $value, 'explanation' => 'Checked against code.', 'references' => ['docs/guide.md:1']];
-    }
-
-    return new ParsedReview('Small documentation fix.', 'Approve', 'Verified.', $findings, risk: $risk, signals: $signals);
+    return new ParsedReview('Summary.', $verdict, 'Verified.', $findings, $priorFindings);
 }
 
-it('approves only an opted-in fully verified low-risk PR', function () {
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-    expect($decision['event'])->toBe('APPROVE')->and($decision['reasons'])->toBe([]);
+function policyAnswer(string $kind = 'presentation_or_internal', array $touched = []): array
+{
+    return ['touched_concerns' => $touched, 'change_kind' => $kind, 'is_uncertain' => false];
+}
+
+function policyFiles(string ...$paths): array
+{
+    return array_map(fn (string $path): array => ['filename' => $path, 'status' => 'modified', 'patch' => '+x'], $paths ?: ['app/Thing.php']);
+}
+
+function policyEvaluate(array $files, ParsedReview $review, array $metadata = []): array
+{
+    return app(ReviewApprovalPolicy::class)->evaluate(
+        test()->repo, $review,
+        array_merge(['pr_number' => 42, 'head_sha' => 'head', 'base_ref' => 'main', 'review_scope' => 'full', 'author' => 'alice', 'pr_url' => POLICY_PR_URL], $metadata),
+        $files,
+    );
+}
+
+function fakePolicyClassifier(string $kind = 'presentation_or_internal', array $touched = []): void
+{
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer($kind, $touched), policyAnswer($kind, $touched)]);
+}
+
+beforeEach(function () {
+    config(['ai.providers.anthropic.key' => 'sk-ant-test']);
+    $this->repo = Repository::factory()->create(['slug' => 'acme/api', 'github_full_name' => 'acme/api', 'pr_review_enabled' => true, 'is_active' => true]);
+    $this->repo->setApproval(5, 'shadow', null);
+    fakeYakFiles(['risk-profile.yml' => concernsYaml()]);
+    $this->github = mock(AppService::class);
+    $this->github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
+    $this->livePullRequest = [
+        'state' => 'open', 'draft' => false, 'auto_merge' => null, 'changed_files' => 1,
+        'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']],
+        'base' => ['ref' => 'main', 'repo' => ['full_name' => 'acme/api']], 'user' => ['login' => 'alice'],
+    ];
+    $this->github->shouldReceive('getPullRequestOrFail')->andReturnUsing(fn () => $this->livePullRequest)->byDefault();
+    $this->github->shouldReceive('hasRequiredStatusChecks')->andReturn(true)->byDefault();
+    app()->instance(AppService::class, $this->github);
 });
 
-it('keeps shadow mode advisory', function () {
-    $this->repo->update(['pr_review_policy' => array_replace($this->repo->reviewPolicy(), ['mode' => 'shadow'])]);
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-    expect($decision['event'])->toBe('COMMENT')->and($decision['candidate'])->toBe('APPROVE');
+it('stays off at level 1 and for inactive repositories', function () {
+    $this->repo->setApproval(1, 'shadow', null);
+    $decision = policyEvaluate(policyFiles(), policyReview());
+    expect($decision['mode'])->toBe('off')->and($decision['event'])->toBe('COMMENT')->and($decision['reasons'])->toBe([]);
+
+    $this->repo->setApproval(5, 'enforce', null);
+    $this->repo->update(['is_active' => false]);
+    expect(policyEvaluate(policyFiles(), policyReview())['mode'])->toBe('off');
 });
 
-it('requires a matching approved profile and refuses expired profiles', function (string $case) {
-    if ($case === 'changed') {
-        $this->metadata['risk_profile_version'] = 'another-version';
-    } elseif ($case === 'expired') {
-        $this->travel(91)->days();
-    } else {
-        RiskProfile::where('repo', 'acme/api')->update(['approved_by' => null, 'approved_at' => null]);
-    }
-    $result = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-    expect($result['event'])->toBe('COMMENT');
-})->with(['changed', 'expired', 'missing']);
-
-it('uses the highest matching profile risk even with perfect confidence', function () {
-    $profiles = app(RepositoryRiskProfiles::class);
-    $draft = $profiles->draft('acme/api', str_repeat('b', 40), json_encode([
-        'areas' => [
-            ['name' => 'Broad', 'paths' => ['docs/**'], 'symbols' => [], 'risk' => 'low', 'rationale' => 'Docs', 'evidence' => ['docs/guide.md:1']],
-            ['name' => 'Critical', 'paths' => ['docs/guide.md'], 'symbols' => [], 'risk' => 'critical', 'rationale' => 'Executed instructions', 'evidence' => ['docs/guide.md:2']],
-        ], 'unknowns' => [],
-    ]));
-    $profiles->approve('acme/api', $draft['version'], 'Reviewer');
-    $this->metadata['risk_profile_version'] = $draft['version'];
-    $review = cleanApprovalReview();
-    $signals = $review->signals;
-    $signals['model_confidence'] = 100;
-    $review = new ParsedReview($review->summary, $review->verdict, $review->verdictDetail, [], risk: 'low', signals: $signals);
-    $result = app(ReviewApprovalPolicy::class)->evaluate($this->repo, $review, $this->metadata, $this->files);
-    expect($result['event'])->toBe('COMMENT')->and($result['risk_score'])->toBe(100);
+it('holds a Yak-opened pull request', function () {
+    $decision = policyEvaluate(policyFiles(), policyReview(), ['author' => 'Yak[bot]']);
+    expect($decision['reasons'])->toBe(['Yak opened this pull request.']);
 });
 
-it('does nothing without repository opt-in', function () {
-    $this->repo->update(['pr_review_policy' => null]);
-    app()->instance(AppService::class, mock(AppService::class));
-    expect(app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), [], [])['event'])->toBe('COMMENT');
+it('holds without a concerns file', function () {
+    fakeYakFiles([]);
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])
+        ->toBe(['No concerns file (risk-profile.yml version 2) on the default branch.']);
 });
 
-it('fails closed for unsafe or incomplete review inputs', function (string $case) {
-    $review = cleanApprovalReview();
-    switch ($case) {
-        case 'unknown risk': $review = cleanApprovalReview('unknown');
-            break;
-        case 'high risk': $review = cleanApprovalReview('high');
-            break;
-        case 'incremental': $this->metadata['review_scope'] = 'incremental';
-            break;
-        case 'stale head': $this->pr['head']['sha'] = 'new';
-            break;
-        case 'stale base': $this->pr['base']['sha'] = 'new';
-            break;
-        case 'self review': $this->pr['user']['login'] = 'yak[bot]';
-            break;
-        case 'draft': $this->pr['draft'] = true;
-            break;
-        case 'auto merge': $this->pr['auto_merge'] = ['enabled_by' => ['login' => 'alice']];
-            break;
-        case 'closed': $this->pr['state'] = 'closed';
-            break;
-        case 'fork': $this->pr['head']['repo']['full_name'] = 'outsider/api';
-            break;
-        case 'incomplete files': $this->pr['changed_files'] = 2;
-            break;
-        case 'unknown path': $this->files[0]['filename'] = 'src/foo.php';
-            break;
-        case 'blocked path': $this->files[0]['filename'] = 'config/yak.php';
-            break;
-        case 'excluded path': $this->repo->update(['pr_review_path_excludes' => ['docs/**']]);
-            break;
-        case 'rename': $this->files[0]['status'] = 'renamed';
-            break;
-        case 'deletion': $this->files[0]['status'] = 'removed';
-            break;
-        case 'binary': unset($this->files[0]['patch']);
-            break;
-        case 'empty diff': $this->files[0]['patch'] = '';
-            break;
-        case 'truncated diff': $this->files[0]['patch'] = "@@ -1 +1,2 @@\n-old\n+new";
-            break;
-        case 'large': $this->files[0]['additions'] = 151;
-            break;
-        case 'untested code': $this->files[0]['filename'] = 'app/Foo.php';
-            break;
-        case 'weakened tests': $this->files[0]['filename'] = 'tests/FooTest.php';
-            break;
-        case 'finding': $review = cleanApprovalReview(findings: [new ReviewFinding('docs/guide.md', 1, 'should_fix', 'Tests', 'Missing case.')]);
-            break;
-    }
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, $review, $this->metadata, $this->files);
-    expect($decision['event'])->toBe('COMMENT')->and($decision['reasons'])->not->toBeEmpty();
-})->with([
-    'unknown risk', 'high risk', 'incremental', 'stale head', 'stale base', 'self review',
-    'draft', 'auto merge', 'closed', 'fork', 'incomplete files', 'unknown path', 'blocked path',
-    'excluded path', 'rename', 'deletion', 'binary', 'empty diff', 'truncated diff', 'large', 'untested code', 'weakened tests', 'finding',
-]);
-
-it('requests changes for a concrete blocker even when the model verdict says approve', function () {
-    $review = cleanApprovalReview(findings: [new ReviewFinding('docs/guide.md', 1, 'must_fix', 'Correctness', 'Broken example.')]);
-    expect(app(ReviewApprovalPolicy::class)->evaluate($this->repo, $review, $this->metadata, $this->files)['event'])->toBe('REQUEST_CHANGES');
-});
-
-it('does not request changes on its own PR', function () {
-    $this->pr['user']['login'] = 'yak[bot]';
-    $review = cleanApprovalReview(findings: [new ReviewFinding('docs/guide.md', 1, 'must_fix', 'Correctness', 'Broken.')]);
-    expect(app(ReviewApprovalPolicy::class)->evaluate($this->repo, $review, $this->metadata, $this->files)['event'])->toBe('COMMENT');
-});
-
-it('fails closed when GitHub cannot provide evidence', function () {
-    $github = mock(AppService::class);
-    $github->shouldReceive('getPullRequest')->andThrow(new RuntimeException('403'));
-    app()->instance(AppService::class, $github);
-    expect(app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files)['event'])->toBe('COMMENT');
-});
-
-it('reloads repository settings so disabling reviews stops queued approvals', function () {
-    Repository::whereKey($this->repo->id)->update(['pr_review_enabled' => false]);
-    app()->instance(AppService::class, mock(AppService::class));
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-    expect($decision['event'])->toBe('COMMENT')->and($decision['mode'])->toBe('off');
-});
-
-it('requires complete successful CI from the configured app and stale-review dismissal', function (string $case) {
-    $required = ['ci' => 15368];
-    switch ($case) {
-        case 'no dismissal': $this->evidence['dismiss_stale_reviews'] = false;
-            break;
-        case 'unresolved threads': $this->evidence['threads_clear'] = false;
-            break;
-        case 'truncated checks': $this->evidence['total_count'] = 101;
-            break;
-        case 'unconfigured checks': $required = [];
-            break;
-        case 'missing check': $required['phpstan'] = 15368;
-            break;
-        case 'wrong app': $this->evidence['check_runs'][0]['app']['id'] = 99;
-            break;
-        case 'pending': $this->evidence['check_runs'][0]['status'] = 'in_progress';
-            break;
-        case 'failed': $this->evidence['check_runs'][0]['conclusion'] = 'failure';
-            break;
-        case 'skipped': $this->evidence['check_runs'][0]['conclusion'] = 'skipped';
-            break;
-    }
-    expect(app(ReviewApprovalPolicy::class)->evidenceReasons($this->evidence, $required))->not->toBeEmpty();
-})->with(['no dismissal', 'unresolved threads', 'truncated checks', 'unconfigured checks', 'missing check', 'wrong app', 'pending', 'failed', 'skipped']);
-
-it('upgrades re-review requests to full reviews for opted-in repositories', function () {
-    $payload = $this->pr + ['html_url' => 'https://github.com/acme/api/pull/42', 'number' => 42];
-    $payload['head']['ref'] = 'feature';
-    $task = app(EnqueuePrReview::class)($this->repo, $payload, 'incremental', 'previous');
-    $context = json_decode($task->context, true);
-    expect($context['review_scope'])->toBe('full')->and($context['incremental_base_sha'])->toBeNull();
-});
-
-it('accepts Drone statuses only from the configured creator', function () {
-    $this->evidence['check_runs'] = [];
-    $this->evidence['total_count'] = 0;
-    $this->evidence['statuses'] = [['context' => 'drone', 'state' => 'success', 'creator' => ['id' => 123]]];
-    $this->evidence['status_count'] = 1;
-    $policy = app(ReviewApprovalPolicy::class);
-    expect($policy->evidenceReasons($this->evidence, [], ['drone' => 123]))->toBe([])
-        ->and($policy->evidenceReasons($this->evidence, [], ['drone' => 456]))->not->toBeEmpty();
-    $this->evidence['statuses'][0]['state'] = 'pending';
-    expect($policy->evidenceReasons($this->evidence, [], ['drone' => 123]))->not->toBeEmpty();
-});
-
-it('posts the policy decision through the review job and preserves the SHA on fallback', function (bool $reject) {
-    $task = YakTask::factory()->create([
-        'repo' => $this->repo->slug, 'pr_url' => 'https://github.com/acme/api/pull/42',
-    ]);
-    $github = mock(AppService::class);
-    $github->shouldReceive('getPullRequest')->andReturn($this->pr);
-    $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
-    $github->shouldReceive('approvalEvidence')->andReturn($this->evidence);
-    $github->shouldReceive('listPullRequestFiles')->andReturn($this->files);
-    $submission = $github->shouldReceive('createPullRequestReview')->once()
-        ->withArgs(fn ($i, $repo, $pr, $body, $event, $comments, $sha): bool => $event === 'APPROVE'
-            && $sha === 'head' && str_contains($body, 'Yak review policy'));
-    if ($reject) {
-        $submission->andThrow(new RuntimeException('GitHub rejected review'));
-        $github->shouldReceive('createPullRequestReview')->once()
-            ->withArgs(fn ($i, $repo, $pr, $body, $event, $comments, $sha): bool => $event === 'COMMENT'
-                && $sha === 'head' && $comments === [] && str_contains($body, 'comment only'))
-            ->andReturn(['id' => 123]);
-    } else {
-        $submission->andReturn(['id' => 123]);
-    }
-    app()->instance(AppService::class, $github);
-
-    $method = new ReflectionMethod(RunYakReviewJob::class, 'postReview');
-    $method->invoke(new RunYakReviewJob($task), $this->repo, cleanApprovalReview(), $this->metadata, '', fn (string $path): ?string => null);
-    expect(PrReview::first()->commit_sha_reviewed)->toBe('head')
-        ->and(PrReview::first()->risk_assessment['risk_score'])->toBe(25)
-        ->and(PrReview::first()->risk_assessment['event'])->toBe($reject ? 'COMMENT' : 'APPROVE')
-        ->and(PrReview::first()->risk_assessment['signals']['model_confidence'])->toBe(90);
+it('holds without required status checks, including when the lookup throws', function (bool $throws) {
+    $this->github->shouldReceive('hasRequiredStatusChecks')->andReturnUsing(fn () => $throws ? throw new RuntimeException('403') : false);
+    $decision = policyEvaluate(policyFiles(), policyReview());
+    expect($decision['reasons'])->toBe(['Branch protection on main has no required status checks.'])
+        ->and($decision['observed']['required_checks_present'])->toBeFalse();
 })->with([false, true]);
 
-it('does not approve when the PR changes while CI evidence is fetched', function (string $change) {
-    $github = mock(AppService::class);
-    $github->shouldReceive('getPullRequest')->andReturnUsing(fn () => $this->pr);
-    $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
-    $github->shouldReceive('approvalEvidence')->once()->andReturnUsing(function () use ($change) {
-        if ($change === 'head') {
-            $this->pr['head']['sha'] = 'new-head';
-        } elseif ($change === 'base') {
-            $this->pr['base']['sha'] = 'new-base';
-        } else {
-            $this->pr['auto_merge'] = ['enabled_by' => ['login' => 'alice']];
-        }
-
-        return $this->evidence;
-    });
-    app()->instance(AppService::class, $github);
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-    expect($decision['event'])->toBe('COMMENT')
-        ->and($decision['reasons'])->toContain('PR changed while verifying CI; request a fresh review.');
-})->with(['head', 'base', 'auto_merge']);
-
-it('still approves when only volatile repository metadata changes between fetches', function () {
-    $github = mock(AppService::class);
-    $github->shouldReceive('getPullRequest')->andReturnUsing(fn () => $this->pr);
-    $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
-    $github->shouldReceive('approvalEvidence')->once()->andReturnUsing(function () {
-        // An unrelated push to the repository, or a new issue being filed, bumps
-        // these fields on the refetched PR's nested repo objects without the PR
-        // itself changing; that must not block approval.
-        $this->pr['head']['repo']['pushed_at'] = now()->addMinute()->toIso8601String();
-        $this->pr['base']['repo']['open_issues_count'] = 7;
-
-        return $this->evidence;
-    });
-    app()->instance(AppService::class, $github);
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-    expect($decision['event'])->toBe('APPROVE')->and($decision['reasons'])->toBe([]);
+it('holds a floor path and never calls the classifier', function () {
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    $decision = policyEvaluate(policyFiles('.env'), policyReview());
+    expect($decision['reasons'])->toBe(['Always needs a human: .env'])->and($decision['classification'])->toBeNull();
+    ConcernClassifier::assertNeverPrompted();
 });
 
-it('requires human review for the approval machinery itself', function (string $path) {
-    $this->files[0]['filename'] = $path;
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-    expect($decision['event'])->toBe('COMMENT')
-        ->and($decision['reasons'])->toContain("Path requires human review: {$path}");
+it('holds a file the review path excludes skip, and never calls the classifier', function () {
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    $this->livePullRequest['changed_files'] = 2;
+    $decision = policyEvaluate(policyFiles('app/Thing.php', 'public/build/app.js'), policyReview());
+    expect($decision['reasons'])->toBe(['Not reviewed by Yak: public/build/app.js'])->and($decision['classification'])->toBeNull();
+    ConcernClassifier::assertNeverPrompted();
+});
+
+it('holds a file the repository review path excludes skip', function () {
+    $this->repo->update(['pr_review_path_excludes' => ['generated/**']]);
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    expect(policyEvaluate(policyFiles('generated/schema.php'), policyReview())['reasons'])->toBe(['Not reviewed by Yak: generated/schema.php']);
+});
+
+it('holds an unclean review', function (ParsedReview $review, array $metadata, string $reason) {
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    expect(policyEvaluate(policyFiles(), $review, $metadata)['reasons'])->toContain($reason);
+    ConcernClassifier::assertNeverPrompted();
 })->with([
-    'app/Services/RepositoryRiskProfiles.php', 'app/YakPromptBuilder.php',
-    'app/Channels/GitHub/AppService.php', 'app/Jobs/ResearchYakJob.php', 'app/Support/PathMatcher.php',
+    'findings' => [fn () => policyReview([new ReviewFinding('app/Thing.php', 1, 'should_fix', 'Tests', 'Missing.')]), [], 'Review contains findings.'],
+    'verdict' => [fn () => policyReview(verdict: 'Request changes'), [], 'Review verdict is not a clean approval.'],
+    'scope' => [fn () => policyReview(), ['review_scope' => 'incremental'], 'Approval requires a full review; request another review.'],
+    'outstanding' => [fn () => policyReview(priorFindings: [new ParsedPriorFinding(1, 'still_outstanding', '')]), [], 'An earlier finding is still open.'],
+    'untouched' => [fn () => policyReview(priorFindings: [new ParsedPriorFinding(1, 'untouched', '')]), [], 'An earlier finding is still open.'],
 ]);
 
-it('holds a diff to .yak/ config for a human even when the repository allows the path', function () {
-    $this->repo->update(['pr_review_policy' => array_replace($this->repo->reviewPolicy(), ['allowed_paths' => ['.yak/**']])]);
-    $this->files[0]['filename'] = '.yak/config.yml';
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-
-    expect($decision['event'])->toBe('COMMENT')
-        ->and($decision['reasons'])->toContain('Path requires human review: .yak/config.yml');
+it('approves a second round whose prior findings are fixed or withdrawn', function () {
+    fakePolicyClassifier();
+    $review = policyReview(priorFindings: [new ParsedPriorFinding(1, 'fixed', ''), new ParsedPriorFinding(2, 'withdrawn', '')]);
+    expect(policyEvaluate(policyFiles(), $review)['candidate'])->toBe('APPROVE');
 });
 
-it('does not request changes for a must_fix the author never sees', function () {
-    $this->repo->update(['pr_review_path_excludes' => ['docs/**']]);
-    $review = cleanApprovalReview(findings: [new ReviewFinding('docs/guide.md', 1, 'must_fix', 'Correctness', 'Broken example.')]);
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, $review, $this->metadata, $this->files);
-    expect($decision['event'])->toBe('COMMENT')
-        ->and($decision['reasons'])->toContain('Review contains findings.');
+it('holds when the concern check is uncertain or failed', function () {
+    Ai::fakeAgent(ConcernClassifier::class, [['touched_concerns' => [], 'change_kind' => 'no_runtime_change', 'is_uncertain' => true], policyAnswer()]);
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Concern check is uncertain.']);
+
+    $files = [['filename' => 'a.php', 'status' => 'modified']];
+    expect(policyEvaluate($files, policyReview())['reasons'])->toBe(['Diff for a.php is not available.']);
 });
 
-it('recognises test coverage outside the Laravel tests directory', function (string $testFile) {
-    $profiles = app(RepositoryRiskProfiles::class);
-    $draft = $profiles->draft('acme/api', str_repeat('c', 40), json_encode([
-        'areas' => [['name' => 'Library', 'paths' => ['src/**', 'spec/**', '__tests__/**'], 'symbols' => [],
-            'risk' => 'low', 'rationale' => 'Isolated helper.', 'evidence' => ['src/slug.js:1']]], 'unknowns' => [],
-    ]));
-    $profiles->approve('acme/api', $draft['version'], 'reviewer');
-    $this->metadata['risk_profile_version'] = $draft['version'];
-    $this->repo->update(['pr_review_policy' => array_replace($this->repo->reviewPolicy(), [
-        'allowed_paths' => ['src/**', 'spec/**', '__tests__/**'],
-    ])]);
-    $this->pr['changed_files'] = 2;
-    $this->files = [
-        ['filename' => 'src/slug.js', 'status' => 'modified', 'additions' => 1, 'deletions' => 1, 'patch' => "@@ -1 +1 @@\n-old\n+new"],
-        ['filename' => $testFile, 'status' => 'added', 'additions' => 2, 'deletions' => 0, 'patch' => "@@ -0,0 +1,2 @@\n+describe\n+expect"],
-    ];
+it('approves a clean behavior change at level 5, only as a comment in shadow', function () {
+    fakePolicyClassifier('behavior_change');
+    $decision = policyEvaluate(policyFiles(), policyReview());
+    expect($decision['candidate'])->toBe('APPROVE')->and($decision['event'])->toBe('COMMENT')
+        ->and($decision['classification']['change_kind'])->toBe('behavior_change')
+        ->and($decision['level'])->toBe(5)->and($decision['concerns_version'])->not->toBeNull();
 
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-    expect($decision['reasons'])->toBe([])->and($decision['event'])->toBe('APPROVE');
-})->with(['spec/slug_spec.rb', '__tests__/slug.test.js']);
+    $this->repo->setApproval(5, 'enforce', null);
+    fakePolicyClassifier('behavior_change');
+    expect(policyEvaluate(policyFiles(), policyReview())['event'])->toBe('APPROVE');
+});
 
-it('fails closed with an exception when a blocked glob cannot be evaluated', function () {
-    $this->repo->update(['pr_review_policy' => array_replace($this->repo->reviewPolicy(), [
-        'allowed_paths' => ['a*'],
-        'blocked_paths' => [str_repeat('*a', 12) . '*b'],
-    ])]);
-    $this->files[0]['filename'] = str_repeat('a', 60) . 'bc';
-    $limit = ini_get('pcre.backtrack_limit');
-    $jit = ini_get('pcre.jit');
-    ini_set('pcre.jit', '0');
-    ini_set('pcre.backtrack_limit', '1000');
+it('allows behavior changes at level 4 only with a test file', function () {
+    $this->repo->setApproval(4, 'enforce', null);
+    fakePolicyClassifier('behavior_change');
+    $decision = policyEvaluate(policyFiles(), policyReview());
+    expect($decision['event'])->toBe('COMMENT')->and($decision['reasons'])->toBe(['DEFCON 4 does not cover behavior_change changes.']);
 
-    try {
-        app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
-    } finally {
-        ini_set('pcre.jit', $jit);
-        ini_set('pcre.backtrack_limit', $limit);
+    fakePolicyClassifier('behavior_change');
+    $this->livePullRequest['changed_files'] = 2;
+    $decision = policyEvaluate(policyFiles('app/Thing.php', 'tests/Feature/XTest.php'), policyReview());
+    expect($decision['event'])->toBe('APPROVE')->and($decision['observed']['has_test_change'])->toBeTrue();
+});
+
+it('does not count a removed test file as a test change', function () {
+    $this->repo->setApproval(4, 'enforce', null);
+    fakePolicyClassifier('behavior_change');
+    $files = [...policyFiles(), ['filename' => 'tests/Feature/XTest.php', 'status' => 'removed', 'patch' => '-x']];
+    expect(policyEvaluate($files, policyReview())['event'])->toBe('COMMENT');
+});
+
+it('fits the change kind to levels 2 and 3', function () {
+    $this->repo->setApproval(3, 'enforce', null);
+    fakePolicyClassifier('presentation_or_internal');
+    expect(policyEvaluate(policyFiles(), policyReview())['event'])->toBe('APPROVE');
+    fakePolicyClassifier('behavior_change');
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['DEFCON 3 does not cover behavior_change changes.']);
+
+    $this->repo->setApproval(2, 'enforce', null);
+    fakePolicyClassifier('presentation_or_internal');
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['DEFCON 2 does not cover presentation_or_internal changes.']);
+    fakePolicyClassifier('no_runtime_change');
+    expect(policyEvaluate(policyFiles(), policyReview())['event'])->toBe('APPROVE');
+});
+
+it('holds a touched always_human concern, and a when_tested one without a test change', function () {
+    $this->repo->setApproval(5, 'enforce', null);
+    fakePolicyClassifier('behavior_change', [['name' => BILLING, 'evidence' => 'charges']]);
+    expect(policyEvaluate(policyFiles('tests/Feature/XTest.php'), policyReview())['reasons'])->toBe(['Always needs a human: ' . BILLING]);
+
+    fakePolicyClassifier('behavior_change', [['name' => METERING, 'evidence' => 'meter']]);
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Touches ' . METERING . ' without a test change.']);
+
+    fakePolicyClassifier('behavior_change', [['name' => METERING, 'evidence' => 'meter']]);
+    $this->livePullRequest['changed_files'] = 2;
+    expect(policyEvaluate(policyFiles('app/Thing.php', 'tests/Feature/XTest.php'), policyReview())['event'])->toBe('APPROVE');
+});
+
+it('requests changes for a visible must_fix finding in enforce only', function () {
+    $review = policyReview([new ReviewFinding('app/Thing.php', 1, 'must_fix', 'Correctness', 'Broken.')]);
+    $this->repo->setApproval(5, 'enforce', null);
+    expect(policyEvaluate(policyFiles(), $review)['event'])->toBe('REQUEST_CHANGES');
+    expect(policyEvaluate(policyFiles(), $review, ['author' => 'yak[bot]'])['event'])->toBe('COMMENT');
+
+    $this->repo->setApproval(5, 'shadow', null);
+    $decision = policyEvaluate(policyFiles(), $review);
+    expect($decision['candidate'])->toBe('REQUEST_CHANGES')->and($decision['event'])->toBe('COMMENT');
+});
+
+it('holds when the pull request author is unknown', function (bool $keyPresent) {
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    $metadata = ['pr_number' => 42, 'head_sha' => 'head', 'base_ref' => 'main', 'review_scope' => 'full'];
+    if ($keyPresent) {
+        $metadata['author'] = '';
     }
-})->throws(RuntimeException::class, 'Could not evaluate glob');
+    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, policyReview(), $metadata, policyFiles());
+    expect($decision['candidate'])->not->toBe('APPROVE')->and($decision['reasons'])->toBe(['Pull request author is unknown.']);
+    ConcernClassifier::assertNeverPrompted();
+})->with([true, false]);
 
-it('never approves its own PR on an enforced repository', function () {
-    fakeYakFiles(['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n"]);
-    $this->pr['user']['login'] = 'yak[bot]';
+it('holds when the live pull request no longer matches the review', function (callable $change, string $reason) {
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    $change($this);
+    $decision = policyEvaluate(policyFiles(), policyReview());
+    expect($decision['candidate'])->not->toBe('APPROVE')->and($decision['reasons'])->toBe([$reason]);
+    ConcernClassifier::assertNeverPrompted();
+})->with([
+    'moved head' => [fn ($t) => $t->livePullRequest['head']['sha'] = 'new', 'Pull request changed since the review; Yak will review again.'],
+    'moved base ref' => [fn ($t) => $t->livePullRequest['base']['ref'] = 'dev', 'Pull request changed since the review; Yak will review again.'],
+    'closed' => [fn ($t) => $t->livePullRequest['state'] = 'closed', 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'],
+    'draft' => [fn ($t) => $t->livePullRequest['draft'] = true, 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'],
+    'auto merge' => [fn ($t) => $t->livePullRequest['auto_merge'] = ['enabled_by' => []], 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'],
+    'fork' => [fn ($t) => $t->livePullRequest['head']['repo']['full_name'] = 'x/api', 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'],
+    'file count' => [fn ($t) => $t->livePullRequest['changed_files'] = 2, 'Changed file list is incomplete.'],
+    'not found' => [fn ($t) => $t->github->shouldReceive('getPullRequestOrFail')->andReturn(null), 'Could not verify the pull request on GitHub.'],
+    'throws' => [fn ($t) => $t->github->shouldReceive('getPullRequestOrFail')->andThrow(new RuntimeException('500')), 'Could not verify the pull request on GitHub.'],
+    'live author is the bot' => [fn ($t) => $t->livePullRequest['user']['login'] = 'yak[bot]', 'Yak opened this pull request.'],
+    'live author empty' => [fn ($t) => $t->livePullRequest['user'] = [], 'Pull request author is unknown.'],
+]);
 
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
+function earlierComment(?string $status, int $commentId = 900): void
+{
+    $review = PrReview::factory()->create(['repo' => 'acme/api', 'pr_number' => 42, 'pr_url' => POLICY_PR_URL]);
+    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'github_comment_id' => $commentId, 'resolution_status' => $status]);
+}
 
-    expect($decision['event'])->not->toBe('APPROVE')->and($decision['event'])->toBe('COMMENT');
+function fakeThreads(bool $isResolved, int $commentId = 900): void
+{
+    test()->github->shouldReceive('listReviewThreads')->andReturn([['is_resolved' => $isResolved, 'comment_database_ids' => [$commentId]]]);
+}
+
+it('holds while an earlier finding the reviewer omitted is still open', function (?string $status) {
+    earlierComment($status);
+    fakeThreads(false);
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toContain('An earlier Yak finding is still open.');
+    ConcernClassifier::assertNeverPrompted();
+})->with([null, 'untouched', 'still_outstanding', 'fixed']);
+
+it('holds a sticky still_outstanding finding even when its thread is resolved', function () {
+    earlierComment('still_outstanding');
+    fakeThreads(true);
+
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toContain('An earlier Yak finding is still open.');
 });
 
-it('still approves other PRs on an enforced repository', function () {
-    fakeYakFiles(['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n"]);
+it('holds when the earlier finding threads cannot be fetched', function () {
+    earlierComment('fixed');
+    $this->github->shouldReceive('listReviewThreads')->andThrow(new RuntimeException('502'));
 
-    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Could not verify earlier findings on GitHub.']);
+});
 
-    expect($decision['event'])->toBe('APPROVE');
+it('approves when every earlier finding is closed and its thread resolved', function () {
+    earlierComment('fixed', 900);
+    earlierComment('still_outstanding', 901);
+    earlierComment(null, 902);
+    $this->github->shouldReceive('listReviewThreads')->andReturn([
+        ['is_resolved' => true, 'comment_database_ids' => [900]],
+        ['is_resolved' => true, 'comment_database_ids' => [901]],
+        ['is_resolved' => true, 'comment_database_ids' => [902]],
+    ]);
+    fakePolicyClassifier();
+    $review = policyReview(priorFindings: [new ParsedPriorFinding(901, 'fixed', '')]);
+
+    expect(policyEvaluate(policyFiles(), $review)['candidate'])->toBe('APPROVE');
 });

@@ -52,11 +52,8 @@ it('round trips every moved setting through fakeYakFiles', function () {
         ->and($settings->previewManifest())->toBe(['port' => 8080, 'health_probe_path' => '/up'])
         ->and($settings->largeChangeLines())->toBe((int) config('yak.large_change_threshold'));
 
-    $policy = $settings->reviewPolicy();
-    foreach (array_diff(array_keys($expectedPolicy), ['required_checks', 'required_statuses']) as $key) {
-        expect($policy[$key])->toBe($expectedPolicy[$key]);
-    }
-    expect(array_column($policy['required_checks'], 'name'))->toBe(['tests', 'drone'])
+    expect($settings->reviewPolicy())->toBe($expectedPolicy)
+        ->and($result['files']['.yak/config.yml'])->not->toContain('approval')
         ->and($result['checksLostAppPin'])->toBe(['tests', 'drone'])
         ->and($result['riskProfileUnapproved'])->toBeFalse()
         ->and($settings->riskProfile()['areas'][0]['name'])->toBe('Billing');

@@ -177,13 +177,3 @@ it('defaults priorFindings to empty when missing from structured output', functi
 
     expect($parsed->priorFindings)->toBe([]);
 });
-
-it('preserves structured risk signals without manufacturing missing evidence', function () {
-    $signals = ['model_confidence' => 91, 'uncertainties' => ['Caller context unavailable']];
-    $parser = new ReviewOutputParser(fakeStructurer([
-        'summary' => 's', 'verdict' => 'Approve', 'verdict_detail' => 'd',
-        'findings' => [], 'signals' => $signals,
-    ]));
-
-    expect($parser->parse('text')->signals)->toBe($signals);
-});
