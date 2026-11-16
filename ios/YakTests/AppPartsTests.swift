@@ -4,15 +4,28 @@ import Testing
 @testable import Yak
 
 @MainActor @Suite struct AppPartsTests {
+    private static func defaults() -> UserDefaults {
+        let suite = "tests.parts.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
+    }
+
+    @Test func thePreviewRecordsLiveInTheStoreItWasGiven() {
+        let given = Self.defaults()
+        let parts = AppParts.make(storage: nil, isTestMode: true, defaults: given)
+        #expect((parts.previewData.defaults as AnyObject) === given)
+    }
+
     @Test func partsObserveOnlyThePreviewData() {
-        let parts = AppParts.make(storage: nil, isTestMode: false)
+        let parts = AppParts.make(storage: nil, isTestMode: false, defaults: Self.defaults())
         #expect(parts.observers.count == 1)
         #expect(parts.storage == nil)
     }
 
     @Test func testModeAndReleaseBuildTheSameParts() {
-        let release = AppParts.make(storage: nil, isTestMode: false)
-        let test = AppParts.make(storage: nil, isTestMode: true)
+        let release = AppParts.make(storage: nil, isTestMode: false, defaults: Self.defaults())
+        let test = AppParts.make(storage: nil, isTestMode: true, defaults: Self.defaults())
         #expect(release.partTypeNames == test.partTypeNames)
     }
 }

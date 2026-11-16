@@ -23,8 +23,9 @@ final class AppParts {
     }
 
     /// Opens stores and builds objects only: no network and no disk work beyond that.
-    static func make(storage: SharedStorage?, isTestMode: Bool) -> AppParts {
-        let previewData = PreviewWebDataObserver(defaults: storage?.defaults ?? UserDefaults.standard)
+    /// `defaults` is the store the instance list uses, so the previews' records and the instances agree.
+    static func make(storage: SharedStorage?, isTestMode: Bool, defaults: any KeyValueStore) -> AppParts {
+        let previewData = PreviewWebDataObserver(defaults: defaults)
         return AppParts(
             storage: storage, isTestMode: isTestMode, previewData: previewData, observers: [previewData])
     }
