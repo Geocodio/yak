@@ -1,9 +1,7 @@
 import BackgroundTasks
 import Foundation
 
-#if canImport(os)
-    import os
-#endif
+import os
 
 /// One piece of the background refresh. Features add their own through `AppParts`; the pieces run one after
 /// another and their budgets together stay inside the task's time.
@@ -39,6 +37,7 @@ enum BackgroundRefresh {
             }
             refresh.expirationHandler = {
                 work.cancel()
+                handle.complete(success: false)
             }
         }
     }
@@ -56,10 +55,19 @@ enum BackgroundRefresh {
         }
     }
 
-    /// Hands the non-Sendable task to the work that completes it.
+    /// Hands the non-Sendable task to the work that completes it, and completes it only once: the expiration
+    /// handler and the finished work can both ask.
     private final class TaskHandle: @unchecked Sendable {
         private let task: BGAppRefreshTask
+        private let isCompleted = OSAllocatedUnfairLock(initialState: false)
         init(_ task: BGAppRefreshTask) { self.task = task }
-        func complete(success: Bool) { task.setTaskCompleted(success: success) }
+        func complete(success: Bool) {
+            let isFirst = isCompleted.withLock { isCompleted -> Bool in
+                if isCompleted { return false }
+                isCompleted = true
+                return true
+            }
+            if isFirst { task.setTaskCompleted(success: success) }
+        }
     }
 }
