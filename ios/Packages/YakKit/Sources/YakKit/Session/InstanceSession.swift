@@ -92,8 +92,8 @@ public actor InstanceSession {
     private var stopping: Task<Void, Never>?
     /// Counts starts and stops, so an answer that arrives after a stop is dropped.
     private var runID = 0
-    private var hasEnded = false
-    private var isUnpairing = false
+    private(set) var hasEnded = false
+    private(set) var isUnpairing = false
     /// Awaited before each outbox update reaches a thread engine; a test holds an update here.
     private var forwardingGate: (@Sendable (OutboxUpdate) async -> Void)?
     private var nextToken = 0
@@ -544,11 +544,9 @@ public actor InstanceSession {
         // A name already taken in this draft's folder gets "-2", "-3" and so on before the extension.
         var counter = 2
         while try environment.files.read(path) != nil {
-            let dot = safeName.lastIndex(of: ".").flatMap { $0 == safeName.startIndex ? nil : $0 }
-            let stem = dot.map { String(safeName[..<$0]) } ?? safeName
-            let ending = dot.map { String(safeName[$0...]) } ?? ""
             path = OutboxInbox.attachmentPath(
-                instance: instance.id, item: sendKey, fileName: "\(stem)-\(counter)\(ending)")
+                instance: instance.id, item: sendKey,
+                fileName: ComposerAttachments.numberedFileName(safeName, counter: counter))
             counter += 1
         }
         try environment.files.write(data, to: path, protection: .untilFirstUnlock)

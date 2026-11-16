@@ -38,4 +38,12 @@ public enum ComposerAttachments {
         }
         return String(result.prefix(maximumLength))
     }
+
+    /// The name with "-<counter>" before its extension, for a cleaned name that is already taken: "a.jpg" becomes "a-2.jpg".
+    public static func numberedFileName(_ safeName: String, counter: Int) -> String {
+        let dot = safeName.lastIndex(of: ".").flatMap { $0 == safeName.startIndex ? nil : $0 }
+        let stem = dot.map { String(safeName[..<$0]) } ?? safeName
+        let ending = dot.map { String(safeName[$0...]) } ?? ""
+        return "\(stem)-\(counter)\(ending)"
+    }
 }
