@@ -336,7 +336,7 @@ import XCTest
         let screen = app.windows.firstMatch.frame
         XCTAssertGreaterThan(code.frame.maxX, screen.maxX, "the line is wider than the screen")
         try shootThread("chat-code-wide")
-        block.swipeLeft()
+        for _ in 0..<12 where code.frame.maxX > screen.maxX + 1 { block.swipeLeft() }
         XCTAssertLessThanOrEqual(code.frame.maxX, screen.maxX + 1, "the end of the line is reached by scrolling")
         XCTAssertTrue(code.label.hasSuffix("ENDMARK"), "VoiceOver reads the whole line")
     }

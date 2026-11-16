@@ -103,8 +103,8 @@ import XCTest
         try audit()
     }
 
-    /// Someone who scrolled up to read keeps their place while the reply streams in below. The conversation has 60
-    /// earlier steps, so it is taller than two screens, and the turn plays after them.
+    /// Guards that a reader who scrolled up stays in place while a turn streams. The conversation has 60 earlier
+    /// steps, so it is taller than two screens, and the turn plays after them.
     func testStreamingTextDoesNotMoveAReaderWhoScrolledUp() throws {
         try launch(scenario: "long-turn")
         try stub.hold(after: 67)

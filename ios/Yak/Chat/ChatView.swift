@@ -14,18 +14,30 @@ struct ChatView: View {
     /// row's disappearance can reach this view late, after a page has pushed it far above, and that would ask for
     /// every page in a row.
     @State private var isHistoryVisible = false
-    /// The rows when a page of earlier messages started loading. When there are more and the last one is the same,
-    /// the page has arrived above, and the offset moves by the growth of the content. The lazy stack estimates the
-    /// height of rows it has not drawn, so the place can be off by that estimate's error.
-    @State private var rowsWhenLoadingStarted: (count: Int, lastID: String?)?
+    /// The row at the top of the screen when a page of earlier messages was asked for: where it was, how tall it
+    /// was, how tall the viewport was, and how many rows there were. When the page has arrived above it, the row is
+    /// scrolled back to the same place by its identity, so the estimated height of the new rows plays no part.
+    @State private var rowCountWhenRequested: Int?
+    /// The top row as of the last layout before the page arrived; once the rows have changed, it is not updated.
+    @State private var anchorBeforePage: PlaceAnchor?
+    @State private var rowFrames = RowFrames()
+    @State private var viewportHeight: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let stickDistance: CGFloat = 80
 
     private struct Metrics: Equatable {
         var contentHeight: CGFloat
-        var contentOffset: CGFloat
+        var viewportHeight: CGFloat
         var distanceFromBottom: CGFloat
+    }
+
+    private struct PlaceAnchor {
+        var id: String
+        var top: CGFloat
+        var height: CGFloat
+        var viewportHeight: CGFloat
+        var rowCount: Int
     }
 
     private struct HistoryTrigger: Equatable {
@@ -45,11 +57,21 @@ struct ChatView: View {
                 }
                 ForEach(thread.rows) { row in
                     ChatRowView(row: row, thread: thread, openThread: openThread).id(row.id)
+                        .onGeometryChange(for: CGRect.self) {
+                            $0.frame(in: .scrollView)
+                        } action: {
+                            rowFrames.frames[row.id] = ($0, CACurrentMediaTime())
+                            if let requested = rowCountWhenRequested, thread.rows.count == requested {
+                                anchorBeforePage = topRow()
+                            }
+                        }
+                        .onDisappear { rowFrames.frames[row.id] = nil }
                 }
                 if let notice = thread.notice {
                     NoticeCard(notice: notice, thread: thread)
                 }
             }
+            .scrollTargetLayout()
             .padding(.horizontal, 16).padding(.vertical, 12)
             .frame(maxWidth: 720).frame(maxWidth: .infinity)
             .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: thread.rows.count)
@@ -60,7 +82,7 @@ struct ChatView: View {
         .scrollEdgeEffectStyle(.hard, for: [.top, .bottom])
         .onScrollGeometryChange(for: Metrics.self) { geometry in
             Metrics(
-                contentHeight: geometry.contentSize.height, contentOffset: geometry.contentOffset.y,
+                contentHeight: geometry.contentSize.height, viewportHeight: geometry.containerSize.height,
                 distanceFromBottom: max(0, geometry.contentSize.height - geometry.visibleRect.maxY))
         } action: { old, new in
             follow(from: old, to: new)
@@ -68,9 +90,19 @@ struct ChatView: View {
         .onChange(of: HistoryTrigger(isVisible: isHistoryVisible, state: thread.historyState)) { _, trigger in
             guard trigger.isVisible, trigger.state == .available else { return }
             isHistoryVisible = false
+            rowCountWhenRequested = thread.rows.count
+            anchorBeforePage = topRow()
             Task { await thread.loadOlder() }
         }
-        .onChange(of: thread.historyState) { old, new in keepPlace(from: old, to: new) }
+        .onChange(of: thread.rows.count) { _, count in restorePlace(rowCount: count) }
+        .onChange(of: thread.historyState) { old, new in
+            guard old == .loading, new != .loading, let requested = rowCountWhenRequested else { return }
+            // The rows can reach the screen a moment after the state does.
+            Task {
+                try? await Task.sleep(for: .seconds(1))
+                if thread.rows.count == requested { rowCountWhenRequested = nil }
+            }
+        }
         .overlay { if thread.rows.isEmpty, thread.notice == nil, thread.snapshot?.load == .ready { EmptyChat() } }
         .overlay(alignment: .bottom) { floatingControls }
         .onChange(of: thread.announcementSerial) {
@@ -83,15 +115,9 @@ struct ChatView: View {
 
     /// New content keeps the end in view for someone who is at the end; for anyone else nothing moves.
     private func follow(from old: Metrics, to new: Metrics) {
+        viewportHeight = new.viewportHeight
         guard new.contentHeight != old.contentHeight else {
             isNearBottom = new.distanceFromBottom <= Self.stickDistance
-            return
-        }
-        if let started = rowsWhenLoadingStarted, thread.rows.count > started.count,
-            thread.rows.last?.id == started.lastID
-        {
-            rowsWhenLoadingStarted = nil
-            position.scrollTo(y: old.contentOffset + (new.contentHeight - old.contentHeight))
             return
         }
         if old.distanceFromBottom <= Self.stickDistance {
@@ -100,11 +126,33 @@ struct ChatView: View {
         }
     }
 
-    private func keepPlace(from old: HistoryState, to new: HistoryState) {
-        if new == .loading {
-            rowsWhenLoadingStarted = (thread.rows.count, thread.rows.last?.id)
-        } else if old == .loading, thread.rows.count == rowsWhenLoadingStarted?.count {
-            rowsWhenLoadingStarted = nil
+    /// The first row that is at least partly on screen, with where it is. A row that has left the screen can be slow
+    /// to be forgotten, so only rows that reported as recently as the newest one count.
+    private func topRow() -> PlaceAnchor? {
+        guard let newest = rowFrames.frames.values.map(\.time).max() else { return nil }
+        let current = rowFrames.frames.filter { $0.value.time > newest - 0.15 && $0.value.rect.maxY > 0 }
+        guard let top = current.min(by: { $0.value.rect.minY < $1.value.rect.minY }) else { return nil }
+        let frame = top.value.rect
+        return PlaceAnchor(
+            id: top.key, top: frame.minY, height: frame.height, viewportHeight: viewportHeight,
+            rowCount: thread.rows.count)
+    }
+
+    /// When the asked-for page has been added, puts the row that was at the top back where it was. The rows are
+    /// read before the new ones are laid out. The anchor lines the point `f * height` of the row up with the point
+    /// `f * viewport` of the viewport, which puts its top at the old place for `f = top / (viewport - height)`. The
+    /// lazy stack can correct its estimates after the first pass, so it is done once more a moment later.
+    private func restorePlace(rowCount: Int) {
+        guard let requested = rowCountWhenRequested, rowCount > requested, let anchor = anchorBeforePage else { return }
+        rowCountWhenRequested = nil
+        let room = anchor.viewportHeight - anchor.height
+        let fraction = room > 1 ? min(max(anchor.top / room, 0), 1) : 0
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { position.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0, y: fraction)) }
+        Task {
+            try? await Task.sleep(for: .milliseconds(60))
+            withTransaction(transaction) { position.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0, y: fraction)) }
         }
     }
 
@@ -145,6 +193,11 @@ struct ChatView: View {
         .padding(.horizontal, 16).padding(.bottom, 8)
         .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: isNearBottom)
     }
+}
+
+/// Where the rows on screen are, kept out of the view's state so that scrolling does not redraw the list.
+private final class RowFrames {
+    var frames: [String: (rect: CGRect, time: Double)] = [:]
 }
 
 /// The top of the list while there are earlier messages: a line that says they are loading, or that they could not be.
