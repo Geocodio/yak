@@ -220,6 +220,7 @@ final class SettingsModel {
 
     private func track(_ key: String, _ work: @escaping @MainActor () async -> Void) async {
         let task = Task { await work() }
+        tasks[key]?.cancel()
         tasks[key] = task
         await withTaskCancellationHandler {
             await task.value

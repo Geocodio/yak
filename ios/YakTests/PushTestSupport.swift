@@ -25,6 +25,14 @@ actor RecordingTransport: HTTPTransport {
         for continuation in all { continuation.resume() }
     }
 
+    /// How many held requests are waiting.
+    var waitingCount: Int { waiting.count }
+    /// Lets only the most recent held request go.
+    func releaseLast() {
+        guard let last = waiting.popLast() else { return }
+        last.resume()
+    }
+
     func on(_ route: String, status: Int = 204, body: String = "") { answers[route] = (status, body) }
     func setOffline(_ offline: Bool) { isOffline = offline }
     func routes() -> [String] { recorded.map(\.route) }
