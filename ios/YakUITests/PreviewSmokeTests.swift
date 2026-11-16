@@ -137,7 +137,8 @@ import XCTest
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
             // The page's own content is the app's, not ours to restyle.
-            if issue.element?.elementType == .webView || issue.element?.elementType == .link { return true }
+            let page = app.webViews.firstMatch
+            if page.exists, let element = issue.element, page.frame.contains(element.frame) { return true }
             if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
                 return true
             }
