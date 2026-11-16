@@ -252,8 +252,8 @@ private func makeItem(_ key: String, _ text: String, streaming: Bool = false) ->
     }
 
     @Test func aVeryLongDocumentParsesOffTheMainActor() async {
-        let paragraph = "A **line** with `code`, a [link](https://example.com) and more words.\n\n"
-        let text = String(repeating: paragraph, count: 1500)
+        let paragraph = "A **line** with `code` and more.\n\n"
+        let text = String(repeating: paragraph, count: 5_500)
         #expect(text.count > 100_000)
         let rowCount = await Task.detached { await AppMarkdownRenderer().parse(text).count }.value
         // The document budget cuts it; the rest is plain text in further rows.

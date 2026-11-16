@@ -23,45 +23,71 @@ struct MarkdownRowList: View {
     /// Only one page of the document is on screen at a time, so what a lazy stack keeps once built is one page
     /// however far the reader goes. A page break row ends each page.
     @State private var page: Int
+    @State private var listIdentifier = UUID()
+    @State private var scrollRequest: ScrollRequest?
 
     init(rows: [MarkdownRow], initialPage: Int = 0) {
         self.rows = rows
         _page = State(initialValue: initialPage)
     }
 
-    private var pages: [Range<Int>] {
-        var result: [Range<Int>] = []
-        var start = 0
-        for (index, row) in rows.enumerated() {
-            if case .pageBreak = row.kind {
-                result.append(start..<index)
-                start = index + 1
-            }
-        }
-        result.append(start..<rows.count)
-        return result
+    private struct RowIdentifier: Hashable {
+        let list: UUID
+        let row: Int
+    }
+
+    /// Where the view scrolls after the reader moved to another page. `sequence` makes two moves to the same row
+    /// two requests.
+    private struct ScrollRequest: Equatable {
+        let target: MarkdownPager.ScrollTarget
+        let sequence: Int
     }
 
     var body: some View {
-        let pages = self.pages
-        let current = min(page, pages.count - 1)
-        let range = pages[current]
-        if current > 0 {
-            Button("markdown.previous") { page = current - 1 }
+        let pager = MarkdownPager(rows: rows, page: page)
+        let range = pager.range
+        // Rows are not inside the reader, so the lazy stack keeps building only what is on screen.
+        ScrollViewReader { proxy in
+            Color.clear.frame(height: 0)
+                .onChange(of: scrollRequest) { _, request in
+                    guard let target = request?.target else { return }
+                    proxy.scrollTo(
+                        RowIdentifier(list: listIdentifier, row: target.row), anchor: target.isTop ? .top : .bottom)
+                }
+        }
+        if pager.hasPrevious {
+            Button("markdown.previous") { move(pager.showingPrevious) }
                 .font(.footnote)
                 .padding(.bottom, 12)
+                .accessibilityLabel("markdown.previous.label")
+                .accessibilityIdentifier("markdown-previous")
         }
         ForEach(range, id: \.self) { index in
             MarkdownRowView(
                 row: rows[index],
                 barsBelow: index + 1 < range.upperBound
-                    ? min(rows[index].decoration.quoteDepth, rows[index + 1].decoration.quoteDepth) : 0)
+                    ? min(rows[index].decoration.quoteDepth, rows[index + 1].decoration.quoteDepth) : 0
+            )
+            .id(RowIdentifier(list: listIdentifier, row: index))
         }
-        if current + 1 < pages.count {
-            Button("markdown.more") { page = current + 1 }
+        if pager.hasNext {
+            Button("markdown.more") { move(pager.showingNext) }
                 .font(.footnote)
                 .padding(.bottom, 12)
+                .accessibilityLabel("markdown.more.label")
+                .accessibilityIdentifier("markdown-more")
         }
+    }
+
+    private func move(_ result: (pager: MarkdownPager, target: MarkdownPager.ScrollTarget)?) {
+        guard let result else { return }
+        page = result.pager.current
+        scrollRequest = ScrollRequest(target: result.target, sequence: (scrollRequest?.sequence ?? 0) + 1)
+        AccessibilityNotification.Announcement(
+            String(
+                format: String(localized: "markdown.page.announcement"), result.pager.current + 1,
+                result.pager.pages.count)
+        ).post()
     }
 }
 

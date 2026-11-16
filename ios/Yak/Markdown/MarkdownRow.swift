@@ -45,68 +45,67 @@ struct MarkdownRow: Sendable {
         var spacing = Spacing.block
     }
 
-    /// Cost units one character takes on screen, relative to an ASCII character: memory follows the area a
-    /// glyph draws, and emoji take far more than letters.
-    nonisolated static let emojiCost = 168
-    nonisolated static let wideCost = 4
-    /// Cost units every text, code and table row takes of the page besides its content: a row is a view with its
-    /// own layout and selection (about 200 KB in measurements, however short its text).
-    nonisolated static let rowCost = 1500
-    /// Cost units one page of a document holds. A 400 KB ASCII document is one page.
-    nonisolated static let maximumDocumentCost = 400_000
+    /// Cost is memory in units of about 0.9 KB, which is what one character of a 4 000-character text row takes
+    /// in the layout of a lazy stack. Two costs are all the model has for characters: a scalar with the emoji
+    /// property costs `emojiCost` whatever its default presentation (a colour emoji draws into a bitmap of its
+    /// own area, about six times a letter; ASCII digits, `#` and `*` carry the property but draw as text), and
+    /// every other scalar costs 1. The combining keycap (U+20E3) counts as an emoji: it makes its digit draw as
+    /// one.
+    nonisolated static let emojiCost = 10
+    /// Cost units every row takes of its page besides its content: a row is a view with its own layout (about
+    /// 0.35 MB in measurements, however short its text).
+    nonisolated static let rowCost = 400
+    /// Cost units every cell of a table takes besides its text, which costs twice as much as in a paragraph: a
+    /// cell wraps in a narrow column, so it draws a taller box.
+    nonisolated static let tableCellCost = 50
+    /// Cost units every unit of styled-run weight (`InlineLimits.weight`) takes; a link weighs five and costs
+    /// about 100 KB.
+    nonisolated static let weightCost = 20
+    /// Cost units one page of a document holds. The page is the only memory control: a reader sees one page at a
+    /// time, and the lazy stack keeps what it built of that page. A page of 380 000 units grows the footprint by
+    /// about 300 MB at the most (measured with `scripts/markdown-isolated.sh`, a log of 300 000 units takes 286 MB);
+    /// an answer of 300 paragraphs, or
+    /// of 150 list items and a 600-line code block, costs about 250 000.
+    nonisolated static let maximumPageCost = 380_000
+    /// Code is one `Text` whose layer is as big as its widest line times its lines, so it costs by that area
+    /// (one unit a cell, `emojiAreaFactor` units on a line with an emoji) and every emoji scalar adds 60. A 600-line, 100-column log with an emoji on
+    /// every line costs about 300 000, one page holds one such log, and a code row never costs more than a page.
+    nonisolated static let maximumCodeRowCost = maximumPageCost
+    nonisolated static let emojiAreaFactor = 5
 
-    /// The most a single grapheme cluster may cost. Longer clusters (a chain of emoji joined by zero-width
-    /// joiners, a letter under thousands of combining marks) are cut by `withBoundedClusters`, so the cost of a
-    /// `Character` bounds the area it draws.
-    nonisolated static let maximumClusterCost = 1_000
+    /// A grapheme cluster of more scalars than this (a chain of emoji joined by zero-width joiners, a letter
+    /// under thousands of combining marks) is cut by `withBoundedClusters`. Real emoji sequences have fewer
+    /// than twenty scalars.
+    nonisolated static let maximumClusterScalars = 2_000
     nonisolated static let clusterSeparator: Character = "\u{200B}"
 
-    /// Joiners, selectors, skin tone modifiers and tag characters draw nothing of their own.
-    private nonisolated static func drawsNothing(_ scalar: Unicode.Scalar) -> Bool {
-        switch scalar.value {
-        case 0x200D, 0xFE00...0xFE0F, 0x20E3, 0x1F3FB...0x1F3FF, 0xE0020...0xE007F: true
-        default: false
-        }
-    }
-
-    /// A cluster costs the sum of what its scalars draw. A cluster with a variation selector or keycap mark
-    /// draws its base as a colour emoji.
-    private nonisolated static func cost(of scalar: Unicode.Scalar, isColour: Bool) -> Int {
-        if drawsNothing(scalar) { return 0 }
-        if isColour || scalar.value >= 0x1F000 || scalar.properties.isEmojiPresentation { return emojiCost }
-        return scalar.isASCII ? 1 : wideCost
-    }
-
-    private nonisolated static func isColour(_ character: Character) -> Bool {
-        character.unicodeScalars.contains { $0.value == 0xFE0F || $0.value == 0x20E3 }
+    nonisolated static func cost(of scalar: Unicode.Scalar) -> Int {
+        (scalar.properties.isEmoji && !scalar.isASCII) || scalar.value == 0x20E3 ? emojiCost : 1
     }
 
     nonisolated static func cost(of character: Character) -> Int {
         if character.isASCII { return 1 }
-        let isColour = isColour(character)
-        return max(1, character.unicodeScalars.reduce(0) { $0 + cost(of: $1, isColour: isColour) })
+        return character.unicodeScalars.reduce(0) { $0 + cost(of: $1) }
     }
 
-    /// `text` with a zero-width space after every stretch of an oversized cluster that costs the limit, so no
-    /// cluster costs more than `limit` (a single scalar may cost more). Ordinary text is returned as it is.
-    nonisolated static func withBoundedClusters(_ text: String, limit: Int = maximumClusterCost) -> String {
-        guard text.contains(where: { cost(of: $0) > limit }) else { return text }
+    nonisolated static func cost(of text: some StringProtocol) -> Int {
+        text.reduce(0) { $0 + cost(of: $1) }
+    }
+
+    /// `text` with a zero-width space after every `limit` scalars of a cluster that has more. Any other text is
+    /// returned as it is.
+    nonisolated static func withBoundedClusters(_ text: String, limit: Int = maximumClusterScalars) -> String {
+        guard text.contains(where: { $0.unicodeScalars.count > limit }) else { return text }
         var result = String.UnicodeScalarView()
         for character in text {
-            if cost(of: character) <= limit {
-                result.append(contentsOf: character.unicodeScalars)
-                continue
-            }
-            let isColour = isColour(character)
-            var stretchCost = 0
+            var count = 0
             for scalar in character.unicodeScalars {
-                let scalarCost = cost(of: scalar, isColour: isColour)
-                if scalarCost > 0, stretchCost > 0, stretchCost + scalarCost > limit {
+                if count == limit {
                     result.append(contentsOf: clusterSeparator.unicodeScalars)
-                    stretchCost = 0
+                    count = 0
                 }
                 result.append(scalar)
-                stretchCost += scalarCost
+                count += 1
             }
         }
         return String(result)
@@ -114,28 +113,27 @@ struct MarkdownRow: Sendable {
 
     /// Styling of a text with an oversized cluster is dropped; such text is not prose.
     nonisolated static func withBoundedClusters(_ text: AttributedString) -> AttributedString {
-        guard text.characters.contains(where: { cost(of: $0) > maximumClusterCost }) else { return text }
+        guard text.characters.contains(where: { $0.unicodeScalars.count > maximumClusterScalars }) else { return text }
         return AttributedString(withBoundedClusters(String(text.characters)))
     }
 
-    nonisolated static func cost(of text: some StringProtocol) -> Int {
-        text.reduce(0) { $0 + cost(of: $1) }
-    }
-
-    /// Cost units, line breaks and styled-run weight (`InlineLimits.weight`) one text row holds at most.
-    static let maximumCharacters = 2_000
+    /// Cost units, line breaks and styled-run weight (`InlineLimits.weight`) one text row holds at most. A row
+    /// may run past its cost by one cluster, which cannot be cut. A paragraph shows no break where two rows meet
+    /// unless it is longer than this.
+    static let maximumCharacters = 4_000
     static let maximumLines = 300
-    static let maximumWeight = 100
-    /// A code row holds at most this many characters and lines, and no line is longer than one piece.
-    static let maximumCodeCharacters = 4_000
-    static let maximumCodeLines = 200
-    static let maximumCodeLineCharacters = 100
+    static let maximumWeight = 400
+    /// A code row holds at most `maximumCodeRowCost` and this many lines, and no line is longer than
+    /// `maximumCodeLineScalars` plus one cluster.
+    static let maximumCodeLines = 2_000
+    static let maximumCodeLineScalars = 2_000
     /// A table row holds at most this many cells and characters per cell and in all, and styled-run weight per
-    /// cell (the weight of the row as a whole is `maximumWeight`).
-    static let maximumCells = 64
-    static let maximumCellCharacters = 500
-    static let maximumTableCharacters = 4_000
-    static let maximumCellWeight = 10
+    /// cell and in all (every cell has at least one run).
+    static let maximumCells = 500
+    static let maximumCellCharacters = 3_000
+    static let maximumTableCharacters = 8_000
+    static let maximumCellWeight = 40
+    static let maximumTableWeight = 1_200
     /// Indentation and quote bars past these levels are not drawn deeper, so text keeps its width.
     static let maximumDrawnLevel = 5
 
@@ -155,11 +153,19 @@ struct MarkdownRow: Sendable {
     /// Cost units the row takes of the document budget.
     var displayCost: Int {
         switch kind {
-        case .rule, .notice, .pageBreak: 1
-        case .text(let text): Self.rowCost + Size(text).cost
-        case .code(let text): Self.rowCost + Self.cost(of: text)
+        case .rule, .notice, .pageBreak:
+            return 1
+        case .text(let text):
+            let size = Size(text)
+            return Self.rowCost + size.cost + Self.weightCost * size.weight
+        case .code(let text):
+            return Self.rowCost + CodeSize(text).cost
         case .table(let header, let rows, _):
-            Self.rowCost + 8 * (header + rows.flatMap { $0 }).reduce(0) { $0 + Size($1).cost }
+            return Self.rowCost
+                + (header + rows.flatMap { $0 }).reduce(0) {
+                    let size = Size($1)
+                    return $0 + Self.tableCellCost + 2 * size.cost + Self.weightCost * size.weight
+                }
         }
     }
 
@@ -169,31 +175,21 @@ struct MarkdownRow: Sendable {
             return true
         case .text(let text):
             let size = Size(text)
-            return size.cost <= maximumCharacters && size.lines <= maximumLines
+            return (size.cost <= maximumCharacters || size.clusters == 1) && size.lines <= maximumLines
                 && size.weight <= maximumWeight
         case .code(let text):
-            var characters = 0
-            var lines = 1
-            var lineCharacters = 0
-            var lineGlyphs = 0
+            var lineScalars = 0
             for character in text {
-                let cost = cost(of: character)
-                characters += cost
                 if character.isNewline {
-                    lines += 1
-                    lineCharacters = 0
-                    lineGlyphs = 0
+                    lineScalars = 0
                 } else {
-                    // A separator belongs to the cluster before it and takes no room of its own.
-                    if character != clusterSeparator {
-                        lineCharacters += cost
-                        lineGlyphs += 1
-                    }
+                    // A line may run past its limit by one cluster.
+                    if lineScalars > maximumCodeLineScalars { return false }
+                    lineScalars += character.unicodeScalars.count
                 }
-                // A single cluster wider than a line still has to go somewhere.
-                if lineCharacters > maximumCodeLineCharacters, lineGlyphs > 1 { return false }
             }
-            return characters <= maximumCodeCharacters && lines <= maximumCodeLines
+            let size = CodeSize(text)
+            return size.lines <= maximumCodeLines && size.cost <= maximumCodeRowCost
         case .table(let header, let rows, let columnWidths):
             guard columnWidths.count <= maximumCells else { return false }
             var cells = 0
@@ -204,21 +200,84 @@ struct MarkdownRow: Sendable {
                 cells += 1
                 characters += size.cost
                 weight += size.weight
-                if size.cost > maximumCellCharacters || size.weight > maximumCellWeight { return false }
+                if size.cost > maximumCellCharacters && size.clusters > 1 || size.weight > maximumCellWeight {
+                    return false
+                }
             }
-            return cells <= maximumCells && characters <= maximumTableCharacters && weight <= maximumWeight
+            return cells <= maximumCells && characters <= maximumTableCharacters && weight <= maximumTableWeight
         }
+    }
+
+    /// What a piece of code costs to lay out: its lines, its widest line in cells (an emoji or East Asian wide
+    /// scalar takes two) and the emoji scalars.
+    struct CodeSize {
+        var lines = 1
+        var widest = 0
+        var emojiScalars = 0
+        var emojiLines = 0
+
+        nonisolated init(_ text: some StringProtocol) {
+            var width = 0
+            var lineHasEmoji = false
+            func endLine() {
+                widest = max(widest, width)
+                width = 0
+                if lineHasEmoji { emojiLines += 1 }
+                lineHasEmoji = false
+            }
+            for character in text {
+                if character.isNewline {
+                    endLine()
+                    lines += 1
+                } else if character.isASCII {
+                    width += 1
+                } else {
+                    // A chain of emoji joined by zero-width joiners draws every emoji, so scalars count.
+                    for scalar in character.unicodeScalars {
+                        if MarkdownRow.cost(of: scalar) >= MarkdownRow.emojiCost {
+                            width += 2
+                            emojiScalars += 1
+                            lineHasEmoji = true
+                        } else {
+                            width += Self.isEastAsianWide(scalar) ? 2 : 1
+                        }
+                    }
+                }
+            }
+            endLine()
+        }
+
+        /// Scalars with East Asian width Wide or Fullwidth (Hangul jamo, CJK, kana, Hangul syllables, fullwidth
+        /// forms, the supplementary ideographs), which draw two cells.
+        nonisolated static func isEastAsianWide(_ scalar: Unicode.Scalar) -> Bool {
+            switch scalar.value {
+            case 0x1100...0x115F, 0x2E80...0x303E, 0x3041...0x33FF, 0x3400...0x4DBF, 0x4E00...0x9FFF,
+                0xA000...0xA4CF, 0xA960...0xA97F, 0xAC00...0xD7A3, 0xF900...0xFAFF, 0xFE30...0xFE6F,
+                0xFF01...0xFF60, 0xFFE0...0xFFE6, 0x1B000...0x1B2FF, 0x20000...0x3FFFD:
+                true
+            default:
+                false
+            }
+        }
+
+        /// A line with an emoji takes about five times the memory of a plain one (a 600-line, 100-column log with
+        /// an emoji on every line takes 286 MB), so it is priced `emojiAreaFactor` times: the widest line's width
+        /// for each such line is added `emojiAreaFactor - 1` times. Every emoji scalar adds 60 (layout time follows
+        /// the number of emoji).
+        var cost: Int { widest * (lines + (MarkdownRow.emojiAreaFactor - 1) * emojiLines) + 60 * emojiScalars }
     }
 
     /// What a text costs to lay out.
     struct Size {
         var cost = 0
+        var clusters = 0
         var lines = 0
         var weight = 0
 
         nonisolated init(_ text: AttributedString) {
             for character in text.characters {
                 cost += MarkdownRow.cost(of: character)
+                clusters += 1
                 if character.isNewline { lines += 1 }
             }
             weight = InlineLimits.weight(of: text)
@@ -226,13 +285,19 @@ struct MarkdownRow: Sendable {
     }
 
     /// The most rows a document of `bytes` UTF-8 bytes may become: the document budget (twice, as the plain
-    /// path also budgets the lines of list items), the notice, the page breaks (a byte costs at most about 350
-    /// units), and the pieces of text, which hold at least half their limit unless a line limit cut them first (a byte costs at most 56 units, so the factor 112).
+    /// path also budgets the lines of list items), the notice, the pieces of text (cut by cost, by line and by
+    /// styled-run weight), the pieces of code (a piece takes at least 400 bytes unless it is the last), and the
+    /// page breaks. A byte costs at most 4 units of content, `weightCost` of styling and `tableCellCost / 2` of
+    /// table cell, every row at most `rowCost`, and a piece of code at most `maximumCodeRowCost`; a page holds at
+    /// least half of `maximumPageCost`.
     nonisolated static func maximumRowCount(forBytes bytes: Int) -> Int {
-        2 * MarkdownBlocks.maximumWeight + 2 + 700 * bytes / maximumDocumentCost + 112 * bytes
-            / maximumCharacters
-            + bytes / maximumLines
-            + 112 * bytes / maximumCodeCharacters + bytes / maximumCodeLines
+        let codeRows = bytes / 400 + 1
+        let rows =
+            2 * MarkdownBlocks.maximumWeight + 2 + 4 * bytes / maximumCharacters * 2 + bytes / maximumLines
+            + 2 * bytes / maximumWeight + codeRows
+        return rows + 2
+            * (rows * rowCost + (4 + weightCost + tableCellCost / 2) * bytes + codeRows * maximumCodeRowCost)
+            / maximumPageCost + 1
     }
 }
 
@@ -241,8 +306,6 @@ struct MarkdownRow: Sendable {
 enum InlineLimits {
     /// A run that is a link weighs this much, a plain run one.
     nonisolated static let linkWeight = 5
-    /// Weight all styled text of a document shares; text past it keeps its characters and loses its styling.
-    nonisolated static let maximumDocumentWeight = 1_000
     /// Inline nodes (text, links, emphasis) one text may have before its styling is skipped without being built.
     nonisolated static let maximumInlineNodes = 2_000
 
@@ -255,20 +318,11 @@ enum InlineLimits {
 /// text on screen.
 final class MarkdownRowBuilder {
     private(set) var rows: [MarkdownRow] = []
-    private var styleRemaining = InlineLimits.maximumDocumentWeight
-    private var costRemaining = MarkdownRow.maximumDocumentCost
+    private var costRemaining = MarkdownRow.maximumPageCost
 
-    /// Styled text, in as many rows as its size needs. Its styling is dropped once the document has spent its
-    /// styling weight.
+    /// Styled text, in as many rows as its size needs.
     func addText(_ text: AttributedString, _ decoration: MarkdownRow.Decoration) {
-        let text = MarkdownRow.withBoundedClusters(text)
-        let weight = InlineLimits.weight(of: text)
-        if weight > styleRemaining {
-            add(pieces(of: AttributedString(String(text.characters))), decoration)
-        } else {
-            styleRemaining -= weight
-            add(pieces(of: text), decoration)
-        }
+        add(pieces(of: MarkdownRow.withBoundedClusters(text)), decoration)
     }
 
     /// Text without styling.
@@ -280,23 +334,29 @@ final class MarkdownRowBuilder {
         append(.rule, decoration)
     }
 
-    /// Clusters in code are cut at the cost of one line, because code shows each scalar of a cluster the same
-    /// way it shows a character.
+    /// Code in rows of whole lines. A line is kept whole unless it is longer than `maximumCodeLineScalars`.
     func addCode(_ text: String, _ decoration: MarkdownRow.Decoration) {
         var lines: [Substring] = []
-        for line in MarkdownRow.withBoundedClusters(text, limit: MarkdownRow.maximumCodeLineCharacters)
-            .split(separator: "\n", omittingEmptySubsequences: false)
-        {
+        for line in MarkdownRow.withBoundedClusters(text).split(separator: "\n", omittingEmptySubsequences: false) {
             lines.append(contentsOf: wrapped(line))
         }
         var first = 0
         while first < lines.count {
             var last = first
-            var characters = 0
-            while last < lines.count, last - first < MarkdownRow.maximumCodeLines,
-                last == first || characters + MarkdownRow.cost(of: lines[last]) < MarkdownRow.maximumCodeCharacters
-            {
-                characters += MarkdownRow.cost(of: lines[last]) + 1
+            var widest = 0
+            var emojiScalars = 0
+            var emojiLines = 0
+            while last < lines.count, last - first < MarkdownRow.maximumCodeLines {
+                let line = MarkdownRow.CodeSize(lines[last])
+                var size = MarkdownRow.CodeSize("")
+                size.lines = last - first + 1
+                size.widest = max(widest, line.widest)
+                size.emojiScalars = emojiScalars + line.emojiScalars
+                size.emojiLines = emojiLines + line.emojiLines
+                if last > first, size.cost > MarkdownRow.maximumCodeRowCost { break }
+                widest = size.widest
+                emojiScalars = size.emojiScalars
+                emojiLines = size.emojiLines
                 last += 1
             }
             var piece = decoration
@@ -306,23 +366,21 @@ final class MarkdownRowBuilder {
         }
     }
 
-    /// `line` in pieces of at most one line's cost, in one pass. A piece takes at least one cluster, and keeps the
-    /// separators that follow it.
+    /// `line` in pieces that end at the first cluster boundary at or past `maximumCodeLineScalars` scalars, in one
+    /// pass, so a cluster is never cut and a line runs past its limit by one cluster.
     private func wrapped(_ line: Substring) -> [Substring] {
         var pieces: [Substring] = []
         var start = line.startIndex
-        var cost = 0
+        var scalars = 0
         var index = line.startIndex
         while index < line.endIndex {
-            let character = line[index]
-            let isSeparator = character == MarkdownRow.clusterSeparator
-            let characterCost = isSeparator ? 0 : MarkdownRow.cost(of: character)
-            if cost > 0, cost + characterCost > MarkdownRow.maximumCodeLineCharacters {
+            let clusterScalars = line[index].unicodeScalars.count
+            if scalars >= MarkdownRow.maximumCodeLineScalars {
                 pieces.append(line[start..<index])
                 start = index
-                cost = 0
+                scalars = 0
             }
-            cost += characterCost
+            scalars += clusterScalars
             index = line.index(after: index)
         }
         pieces.append(line[start...])
@@ -342,17 +400,19 @@ final class MarkdownRowBuilder {
             for (column, cell) in row.enumerated() {
                 let size = MarkdownRow.Size(cell)
                 characters += size.cost
-                if size.cost > MarkdownRow.maximumCellCharacters { return false }
+                if size.cost > MarkdownRow.maximumCellCharacters, size.clusters > 1 { return false }
                 if column < widths.count { widths[column] = max(widths[column], longestLine(of: cell)) }
             }
             if row.count > MarkdownRow.maximumCells || characters > MarkdownRow.maximumTableCharacters { return false }
         }
         let bounded = all.map { row in row.map { cellWithinWeight($0) } }
         var pieceHeader = bounded[0]
-        if pieceHeader.reduce(0, { $0 + MarkdownRow.Size($1).weight }) > MarkdownRow.maximumWeight {
+        if pieceHeader.reduce(0, { $0 + MarkdownRow.Size($1).weight }) > MarkdownRow.maximumTableWeight {
             pieceHeader = pieceHeader.map { AttributedString(String($0.characters)) }
         }
         var pieceRows: [[AttributedString]] = []
+        // A wide table lays out slower per cell, so its pieces are half as big.
+        let cellLimit = header.count <= 16 ? MarkdownRow.maximumCells : MarkdownRow.maximumCells / 2
         var cells = pieceHeader.count
         var characters = pieceHeader.reduce(0) { $0 + MarkdownRow.Size($1).cost }
         var weight = pieceHeader.reduce(0) { $0 + MarkdownRow.Size($1).weight }
@@ -373,13 +433,13 @@ final class MarkdownRowBuilder {
                 size.cost += cellSize.cost
                 size.weight += cellSize.weight
             }
-            if size.weight > MarkdownRow.maximumWeight {
+            if size.weight > MarkdownRow.maximumTableWeight {
                 row = row.map { AttributedString(String($0.characters)) }
                 size.weight = row.count
             }
-            if cells + row.count > MarkdownRow.maximumCells
+            if cells + row.count > cellLimit
                 || characters + size.cost > MarkdownRow.maximumTableCharacters
-                || weight + size.weight > MarkdownRow.maximumWeight
+                || weight + size.weight > MarkdownRow.maximumTableWeight
             {
                 flush(isLast: false)
             }
@@ -409,10 +469,11 @@ final class MarkdownRowBuilder {
             assertionFailure("a row was cut over its limits")
             return
         }
+        // A heading is set in a larger font, so it draws about twice the area.
         let cost = row.displayCost * (decoration.headingLevel > 0 ? 2 : 1)
-        if cost > costRemaining, costRemaining < MarkdownRow.maximumDocumentCost {
+        if cost > costRemaining, costRemaining < MarkdownRow.maximumPageCost {
             rows.append(MarkdownRow(kind: .pageBreak, decoration: MarkdownRow.Decoration())!)
-            costRemaining = MarkdownRow.maximumDocumentCost
+            costRemaining = MarkdownRow.maximumPageCost
         }
         costRemaining -= cost
         rows.append(row)

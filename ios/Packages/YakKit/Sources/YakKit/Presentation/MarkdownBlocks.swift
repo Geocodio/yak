@@ -66,7 +66,7 @@ public enum MarkdownBlocks {
 
     /// Blocks, list items and table cells a document may turn into rows: the document budget. What is left over
     /// is returned as `unformatted` text, so the rows and the main actor pay for a bounded document.
-    public static let maximumWeight = 600
+    public static let maximumWeight = 3_000
 
     /// The weight still free in the document. Quotes share it with the document around them.
     private final class ScanState {
@@ -221,6 +221,9 @@ public enum MarkdownBlocks {
         let ordered: Bool
         let number: Int
         let content: String
+        /// Columns the marker takes with its indentation and one space; a line of the item's own text is indented
+        /// by up to this many.
+        let contentColumn: Int
     }
 
     private static func listMarker(_ line: String) -> ListMarker? {
@@ -228,7 +231,9 @@ public enum MarkdownBlocks {
         if "-*+".contains(first) {
             let content = rest.dropFirst()
             guard content.isEmpty || content.first == " " else { return nil }
-            return ListMarker(ordered: false, number: 1, content: content.trimmingCharacters(in: .whitespaces))
+            return ListMarker(
+                ordered: false, number: 1, content: content.trimmingCharacters(in: .whitespaces),
+                contentColumn: line.count - rest.count + 2)
         }
         let digits = rest.prefix { $0.isASCII && $0.isNumber }
         guard (1...9).contains(digits.count), let number = Int(digits) else { return nil }
@@ -236,7 +241,9 @@ public enum MarkdownBlocks {
         guard let delimiter = afterDigits.first, delimiter == "." || delimiter == ")" else { return nil }
         let content = afterDigits.dropFirst()
         guard content.isEmpty || content.first == " " else { return nil }
-        return ListMarker(ordered: true, number: number, content: content.trimmingCharacters(in: .whitespaces))
+        return ListMarker(
+            ordered: true, number: number, content: content.trimmingCharacters(in: .whitespaces),
+            contentColumn: line.count - rest.count + digits.count + 2)
     }
 
     /// Whether the line at `index` ends a paragraph.
@@ -257,6 +264,7 @@ public enum MarkdownBlocks {
         _ lines: [String], at start: Int, first: ListMarker, state: ScanState
     ) -> (block: MarkdownBlock, next: Int) {
         var items = [[first.content]]
+        var contentColumn = first.contentColumn
         var index = start + 1
         while index < lines.count {
             let line = lines[index]
@@ -268,13 +276,22 @@ public enum MarkdownBlocks {
                     marker.ordered == first.ordered, state.remaining > items.count
                 else { break }
                 items.append([marker.content])
+                contentColumn = marker.contentColumn
                 index = peek + 1
             } else if !isRule(line), let marker = listMarker(line), line.prefix(while: { $0 == " " }).count < 2 {
                 guard marker.ordered == first.ordered, state.remaining > items.count else { break }
                 items.append([marker.content])
+                contentColumn = marker.contentColumn
                 index += 1
             } else if line.hasPrefix("  ") || line.hasPrefix("\t") || !startsBlock(lines, at: index, state: state) {
-                items[items.count - 1].append(line.trimmingCharacters(in: .whitespaces))
+                // The item's own indentation goes; deeper indentation stays, so nested lists keep their levels.
+                var text = Substring(line)
+                var removed = 0
+                while removed < contentColumn, let first = text.first, first == " " || first == "\t" {
+                    text = text.dropFirst()
+                    removed += 1
+                }
+                items[items.count - 1].append(String(text.reversed().drop { $0 == " " || $0 == "\t" }.reversed()))
                 index += 1
             } else {
                 break

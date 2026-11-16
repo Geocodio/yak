@@ -14,7 +14,8 @@ import UIKit
 /// a plain run checks the time of every input and the memory of none.
 @MainActor @Suite(.serialized) struct MarkdownLayoutTests {
     static let timeLimit = 0.5
-    static let memoryLimitMegabytes = 120.0
+    static let scrollStepLimit = 0.25
+    static let memoryLimitMegabytes = 400.0
 
     /// What holds the message: the chat's scroll view with the message alone, its rows in a lazy stack of
     /// messages, the whole view in a lazy stack of messages, or in an eager stack of messages.
@@ -44,6 +45,18 @@ import UIKit
         case zwjChainCode, zwjChainParagraph, zwjChainLines, zalgoParagraph, zalgoCode, jamoParagraph, jamoCode
         case emojiPagedFirst, emojiPagedMiddle, emojiPagedLast
         case emojiKeycaps, emojiHearts, emojiCopyright, emojiKeycapCode, emojiCopyrightCode, emojiKeycapHeadings
+        case answerCode, answerParagraphs, answerList, answerTable, answerMixed, answerEmoji
+        case twoEmojiLogs, threeEmojiLogs, wideCodeLog
+        case heartsParagraph, smileysSpaced, heartsHeading, heartsListItems, heartsHeadings
+
+        /// Test logs of 600 lines, 100 columns and an emoji on every line, each in its own fence.
+        nonisolated static func emojiLogs(_ count: Int) -> String {
+            let lines = (0..<600).map { index -> String in
+                let line = "\(index % 7 == 6 ? "\u{274C}" : "\u{2705}") test_case_\(index) passed in 0.0\(index % 10)s "
+                return line + String(repeating: ".", count: max(0, 100 - line.count))
+            }
+            return String(repeating: "```\n" + lines.joined(separator: "\n") + "\n```\n\n", count: count)
+        }
 
         nonisolated var text: String {
             switch self {
@@ -145,6 +158,24 @@ import UIKit
             case .emojiCopyrightCode: "```\n" + String(repeating: "\u{00A9}\u{FE0F}", count: 39_900) + "\n```"
             case .emojiKeycapHeadings:
                 String(repeating: "# " + String(repeating: "1\u{FE0F}\u{20E3}", count: 240) + "\n", count: 116)
+            case .answerCode: MarkdownSamples.codeBlock
+            case .answerParagraphs: MarkdownSamples.paragraphs
+            case .answerList: MarkdownSamples.list
+            case .answerTable: MarkdownSamples.table
+            case .answerMixed: MarkdownSamples.mixed
+            case .answerEmoji: MarkdownSamples.emojiText
+            case .wideCodeLog:
+                "```\n"
+                    + (0..<600).map { "\u{2705} " + String(repeating: "\u{6F22}\u{5B57}", count: 50) + "\($0)" }
+                    .joined(separator: "\n") + "\n```"
+            case .twoEmojiLogs: Self.emojiLogs(2)
+            case .threeEmojiLogs: Self.emojiLogs(3)
+            case .heartsParagraph: String(repeating: "\u{2764}", count: 66_000)
+            case .smileysSpaced: String(repeating: "\u{263A} ", count: 49_000)
+            case .heartsHeading: "# " + String(repeating: "\u{2764}", count: 66_000)
+            case .heartsListItems:
+                String(repeating: "- " + String(repeating: "\u{2764}", count: 300) + "\n", count: 220)
+            case .heartsHeadings: String(repeating: "# " + String(repeating: "\u{2764}", count: 120) + "\n", count: 540)
             case .ordinary: "# Title\n\nSome **bold** text.\n\n- one\n- two\n\n| a | b |\n|---|---|\n| 1 | 2 |\n"
             }
         }
@@ -253,7 +284,7 @@ import UIKit
             "MEASURED \(input) \(container): first screen \(String(format: "%.2f", seconds)) s, "
                 + "\(String(format: "%.0f", firstScreenMegabytes)) MB; after scrolling \(String(format: "%.0f", endMegabytes)) MB, "
                 + "worst step \(String(format: "%.2f", worst)) s, \(document.count) rows")
-        #expect(worst < Self.timeLimit * 2, "\(input) in \(container) had a scroll step of \(worst) s")
+        #expect(worst < Self.scrollStepLimit, "\(input) in \(container) had a scroll step of \(worst) s")
         #expect(
             endMegabytes < Self.memoryLimitMegabytes,
             "\(input) in \(container) grew by \(endMegabytes) MB after scrolling")

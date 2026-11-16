@@ -28,7 +28,9 @@
                         .padding(16)
                     }
                     .task {
-                        sampleDocument = await renderer.parse(Self.sample)
+                        sampleDocument = await renderer.parse(
+                            UserDefaults.standard.bool(forKey: "yakMarkdownGalleryPaged")
+                                ? Self.pagedSample : Self.sample)
                         let fraction = UserDefaults.standard.double(forKey: "yakMarkdownGalleryFraction")
                         if fraction > 0 {
                             try? await Task.sleep(for: .milliseconds(500))
@@ -57,6 +59,10 @@
                 isStreaming = false
             }
         }
+
+        /// The sample under a numbered title, many times over, so the document has several pages. Launch with
+        /// `-yakMarkdownGalleryPaged YES`.
+        static let pagedSample = (1...60).map { "# Part \($0)\n\n" + sample }.joined(separator: "\n\n")
 
         static let sample = """
             # Importer rate limits
@@ -105,6 +111,21 @@
                 try await withThrowingTaskGroup(of: Row.self) { group in group.waitForAll() }
             }
             ```
+
+            A second block, with emoji and a long line:
+
+            ```swift
+            report("done ✅")
+            let team = "👨‍👩‍👧‍👦 🇩🇰 👩‍💻"
+            let summary = "A line that is much longer than the screen is wide, so the block scrolls sideways instead of wrapping it"
+            ```
+
+            > A quote that holds a list:
+            >
+            > - First point, with a [link](https://example.com)
+            > - Second point
+            >
+            > And a closing line.
 
             ### Table
 

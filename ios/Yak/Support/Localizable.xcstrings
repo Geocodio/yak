@@ -3481,6 +3481,36 @@
           }
         }
       }
+    },
+    "markdown.more.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the next part of this message"
+          }
+        }
+      }
+    },
+    "markdown.previous.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the previous part of this message"
+          }
+        }
+      }
+    },
+    "markdown.page.announcement": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing part %1$lld of %2$lld"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

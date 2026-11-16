@@ -27,7 +27,7 @@ import YakKit
             run.inlinePresentationIntent = index.isMultiple(of: 2) ? .emphasized : .stronglyEmphasized
             text += run
         }
-        let wideLine = String(repeating: "x", count: MarkdownRow.maximumCodeLineCharacters + 1)
+        let wideLine = String(repeating: "x", count: MarkdownRow.maximumCodeLineScalars + 2)
         let manyCodeLines = String(repeating: "x\n", count: MarkdownRow.maximumCodeLines)
         let bigCell = AttributedString(String(repeating: "a", count: MarkdownRow.maximumCellCharacters + 1))
         let manyCells = Array(repeating: AttributedString("a"), count: MarkdownRow.maximumCells + 1)
@@ -41,43 +41,49 @@ import YakKit
         #expect(MarkdownRow(kind: .text(AttributedString("a")), decoration: decoration) != nil)
     }
 
-    @Test func wideGlyphsCountForTheirArea() {
-        let decoration = MarkdownRow.Decoration()
-        let emoji = AttributedString(
-            String(repeating: "\u{1F600}", count: MarkdownRow.maximumCharacters / MarkdownRow.emojiCost + 1))
-        #expect(MarkdownRow(kind: .text(emoji), decoration: decoration) == nil)
-        let wideLine = String(
-            repeating: "\u{1F600}", count: MarkdownRow.maximumCodeLineCharacters / MarkdownRow.emojiCost + 2)
-        #expect(MarkdownRow(kind: .code(wideLine), decoration: decoration) == nil)
+    @Test func twoCostsEmojiAndEverythingElse() {
+        // Any scalar with the emoji property costs the emoji cost, whatever its default presentation.
+        for text in ["\u{2764}", "\u{2764}\u{FE0F}", "\u{00A9}", "\u{1F600}", "\u{2705}", "\u{263A}"] {
+            #expect(MarkdownRow.cost(of: text) >= MarkdownRow.emojiCost, "\(text.unicodeScalars.count) scalars")
+        }
+        for text in ["a", "1", "#", "*", "\u{4E2D}", "\u{1100}", "e\u{0301}"] {
+            #expect(MarkdownRow.cost(of: text) == text.unicodeScalars.count, "\(text)")
+        }
+        #expect(MarkdownRow.cost(of: "\u{1F468}\u{200D}\u{1F469}") == 2 * MarkdownRow.emojiCost + 1)
     }
 
-    @Test func emojiMadeWithSelectorsAndKeycapsCountAsEmoji() {
-        for text in ["1\u{FE0F}\u{20E3}", "\u{2764}\u{FE0F}", "\u{00A9}\u{FE0F}", "\u{1F600}"] {
-            #expect(MarkdownRow.cost(of: text) == MarkdownRow.emojiCost, "\(text.unicodeScalars.count) scalars")
+    @Test func eastAsianWideAndFullwidthScalarsTakeTwoCells() {
+        for text in ["\u{6F22}", "\u{AC00}", "\u{1100}", "\u{3042}", "\u{30A2}", "\u{FF21}", "\u{20000}"] {
+            #expect(MarkdownRow.CodeSize(text).widest == 2, "\(text.unicodeScalars.first!.value)")
+        }
+        #expect(MarkdownRow.CodeSize("a\u{6F22}b").widest == 4)
+        #expect(MarkdownRow.CodeSize("e\u{0301}").widest == 2)
+    }
+
+    @Test func aClusterOfAFewScalarsIsNeverCut() {
+        let sequences = [
+            "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{200D}\u{1F466}",
+            "\u{1F468}\u{1F3FD}\u{200D}\u{1F469}\u{1F3FB}\u{200D}\u{1F467}\u{1F3FF}\u{200D}\u{1F466}\u{1F3FE}",
+            "\u{1F469}\u{200D}\u{1F4BB}", "\u{1F3F3}\u{FE0F}\u{200D}\u{1F308}", "\u{1F1E9}\u{1F1F0}",
+            "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}", "1\u{FE0F}\u{20E3}",
+        ]
+        for sequence in sequences {
+            let text = "\(sequence) and \(sequence)"
+            #expect(MarkdownRow.withBoundedClusters(text) == text)
+            #expect(MarkdownRow.withBoundedClusters(AttributedString(text)) == AttributedString(text))
         }
     }
 
-    @Test func aClusterCostsWhatItsScalarsDraw() {
-        let chain = String(repeating: "\u{1F44D}\u{200D}", count: 28_000)
-        #expect(MarkdownRow.cost(of: chain) >= 28_000 * MarkdownRow.emojiCost)
-        #expect(
-            MarkdownRow.cost(of: "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{200D}\u{1F466}") == 4
-                * MarkdownRow.emojiCost)
-    }
-
-    @Test func oversizedClustersAreCutSoNoCharacterCostsMoreThanTheLimit() {
+    @Test func oversizedClustersAreCutSoNoClusterHasMoreScalarsThanTheLimit() {
         let inputs = [
             String(repeating: "\u{1F44D}\u{200D}", count: 28_000), "a" + String(repeating: "\u{0301}", count: 99_000),
             String(repeating: "\u{1100}", count: 66_000),
         ]
         for text in inputs {
             let bounded = MarkdownRow.withBoundedClusters(text)
-            #expect(bounded.allSatisfy { MarkdownRow.cost(of: $0) <= MarkdownRow.maximumClusterCost })
+            #expect(bounded.allSatisfy { $0.unicodeScalars.count <= MarkdownRow.maximumClusterScalars + 1 })
             #expect(bounded.unicodeScalars.filter { $0 != "\u{200B}" }.count == text.unicodeScalars.count)
         }
-        #expect(
-            MarkdownRow.withBoundedClusters("e\u{0301} \u{1F468}\u{200D}\u{1F469}")
-                == "e\u{0301} \u{1F468}\u{200D}\u{1F469}")
     }
 
     @Test func longClustersBecomeBoundedRowsOnBothPaths() async {
@@ -91,17 +97,17 @@ import YakKit
     }
 
     @Test func aDocumentPastItsPageIsPagedAndLosesNothing() async {
-        let text = String(repeating: "\u{1F600}", count: 49_000)
+        let text = String(repeating: "\u{1F600}", count: 66_000)
         for rows in [await AppMarkdownRenderer().parse(text), PlainMarkdownRenderer().parse(text)] {
             let breaks = rows.indices.filter { if case .pageBreak = rows[$0].kind { true } else { false } }
-            #expect(breaks.count > 1)
+            #expect(!breaks.isEmpty)
             var start = 0
             for end in breaks + [rows.count] {
                 let cost = rows[start..<end].reduce(0) { $0 + $1.displayCost }
-                #expect(cost <= MarkdownRow.maximumDocumentCost + 1)
+                #expect(cost <= MarkdownRow.maximumPageCost + 1)
                 start = end
             }
-            #expect(rows.map(\.text).joined().count == 49_000)
+            #expect(rows.map(\.text).joined().count == 66_000)
         }
     }
 

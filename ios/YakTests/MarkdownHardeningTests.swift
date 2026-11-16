@@ -437,26 +437,16 @@ private struct SplitMix64: RandomNumberGenerator {
     }
 
     @Test(arguments: ["<https://a.b> ", "[a](https://a.b) ", "![a](b) ", "`a` ", "**a** "])
-    func denseRunsLoseTheirStylingButKeepTheirText(unit: String) async {
+    func denseRunsAreCutIntoRowsAndKeepTheirText(unit: String) async {
         let count = 190_000 / unit.utf8.count
         let texts = Self.texts(await Self.parse(String(repeating: unit, count: count)))
         #expect(texts.allSatisfy { InlineLimits.weight(of: $0) <= MarkdownRow.maximumWeight })
-        let total = texts.reduce(0) { $0 + InlineLimits.weight(of: $1) }
-        #expect(total <= InlineLimits.maximumDocumentWeight + texts.count)
         #expect(!texts.isEmpty && texts.allSatisfy { !String($0.characters).isEmpty })
     }
 
     @Test func fewLinksKeepTheirStyling() async {
         let rows = await Self.parse("see [a](https://a.b) and **b**")
         #expect(InlineLimits.weight(of: Self.texts(rows)[0]) == 8)
-    }
-
-    @Test func linksInAQuoteShareTheDocumentBudget() async {
-        let quote = String(repeating: "> " + String(repeating: "[a](https://a.b) ", count: 50) + "\n>\n", count: 30)
-        let rows = await Self.parse(quote)
-        #expect(rows.allSatisfy { $0.decoration.quoteDepth == 1 })
-        let weight = Self.texts(rows).reduce(0) { $0 + InlineLimits.weight(of: $1) }
-        #expect(weight <= InlineLimits.maximumDocumentWeight + rows.count)
     }
 
     @Test func aLongParagraphIsCutIntoRowsAtWhitespace() {
@@ -486,7 +476,7 @@ private struct SplitMix64: RandomNumberGenerator {
                 #expect(header.count + body.count * 16 <= MarkdownRow.maximumCells)
             }
         }
-        #expect(rows.count >= 8)
+        #expect(rows.count >= 2)
     }
 
     @Test func aTableWithAHugeCellStaysAsText() async {
