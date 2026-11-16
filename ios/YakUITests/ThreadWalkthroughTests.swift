@@ -42,6 +42,8 @@ import XCTest
         XCTAssertTrue(app.buttons["drawer.empty.everyone"].waitForExistence(timeout: 10))
         try shoot("drawer-empty-others")
         try start("empty", paired: true)
+        // The cold start closes the drawer when it opens the new-thread screen; a tap before that is lost.
+        XCTAssertTrue(app.descendants(matching: .any)["newThread"].waitForExistence(timeout: 15))
         if app.buttons["threads.button"].waitForExistence(timeout: 10) {
             app.buttons["threads.button"].tap()
         } else {
@@ -159,12 +161,239 @@ import XCTest
         try shoot("pane-menu", audits: false)
     }
 
+    // MARK: Composer
+
+    func testComposerIdle() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        XCTAssertTrue(app.textFields["composer.field"].waitForExistence(timeout: 15))
+        try shootThread("composer-idle")
+    }
+
+    func testComposerTyping() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        try type("Use the draft names in the importer", then: "composer.send")
+        try shootThread("composer-typing")
+    }
+
+    func testComposerRunning() throws {
+        try start("one-thread-working", paired: true)
+        try stub.setPlaybackMilliseconds(3000)
+        defer { try? stub.setPlaybackMilliseconds(400) }
+        try openThread("d0e515ef")
+        XCTAssertTrue(app.buttons["composer.stop"].waitForExistence(timeout: 20))
+        try shootThread("composer-running")
+    }
+
+    func testComposerRunningTyping() throws {
+        try start("one-thread-working", paired: true)
+        try stub.setPlaybackMilliseconds(3000)
+        defer { try? stub.setPlaybackMilliseconds(400) }
+        try openThread("d0e515ef")
+        try type("Also cover the empty file case", then: "composer.send")
+        XCTAssertTrue(app.buttons["composer.stop"].exists, "the scripted turn ended")
+        try shootThread("composer-running-typing")
+    }
+
+    func testComposerSendAfterTurnMenu() throws {
+        try start("one-thread-working", paired: true)
+        try stub.setPlaybackMilliseconds(3000)
+        defer { try? stub.setPlaybackMilliseconds(400) }
+        try openThread("d0e515ef")
+        try type("Then update", then: "composer.send")
+        XCTAssertTrue(app.buttons["composer.stop"].exists, "the scripted turn ended")
+        app.buttons["composer.send"].press(forDuration: 1.0)
+        XCTAssertTrue(
+            app.menuItems["Send after this turn"].waitForExistence(timeout: 5)
+                || app.buttons["composer.sendAfterTurn"].waitForExistence(timeout: 2))
+        // The menu is the system's own surface; the audit cannot judge text on it.
+        try shoot("composer-send-after-turn", audits: false)
+    }
+
+    func testComposerKeyboard() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
+        try shootThread("composer-keyboard")
+    }
+
+    func testBarStates() throws {
+        for (id, name) in [
+            ("c10sed00", "bar-closed"), ("readc0py", "bar-read-only"), ("c0mp7ter", "bar-computer"),
+            ("cred0000", "bar-blocked"),
+        ] {
+            try start("thread-states", paired: true)
+            try openThreadByLink(id)
+            XCTAssertTrue(app.descendants(matching: .any)["composer.unavailable"].waitForExistence(timeout: 15), name)
+            try shootThread(name)
+        }
+    }
+
+    // MARK: Plus menu, attachments and the model picker
+
+    func testPlusMenu() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        try openPlusMenu()
+        // The menu is the system's own surface; the audit cannot judge text on it.
+        try shoot("plus-menu", audits: false)
+    }
+
+    func testModelPicker() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        try openPlusMenu()
+        app.buttons["composer.plusMenu.model"].tap()
+        XCTAssertTrue(app.buttons["model.close"].waitForExistence(timeout: 10))
+        let older = app.buttons["model.older.sonnet"]
+        XCTAssertTrue(older.waitForExistence(timeout: 5))
+        older.tap()
+        XCTAssertTrue(label("Sonnet 5, pinned").waitForExistence(timeout: 5))
+        try shoot("model-picker")
+    }
+
+    /// The pictures come from a test-mode launch argument, not the system photo picker, which a test cannot drive at
+    /// the largest text size.
+    func testAttachmentStrip() throws {
+        try start("paired", paired: true, attachments: 2)
+        try openThread("d0e515ef")
+        XCTAssertTrue(app.descendants(matching: .any)["composer.attachment"].waitForExistence(timeout: 15))
+        try shootThread("attachments")
+    }
+
+    func testAttachmentProblem() throws {
+        try start("one-attachment", paired: true, attachments: 2)
+        try openThread("d0e515ef")
+        XCTAssertTrue(app.descendants(matching: .any)["composer.attachment"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["composer.problem"].waitForExistence(timeout: 15))
+        try shootThread("attachment-too-many")
+    }
+
+    func testCameraDenied() throws {
+        try start("paired", paired: true, cameraDenied: true)
+        try openThread("d0e515ef")
+        try openPlusMenu()
+        app.buttons["composer.plusMenu.camera"].tap()
+        XCTAssertTrue(app.buttons["composer.cameraDenied.settings"].waitForExistence(timeout: 10))
+        try shoot("camera-denied")
+    }
+
+    private func openPlusMenu() throws {
+        let plus = app.buttons["composer.plus"]
+        XCTAssertTrue(plus.waitForExistence(timeout: 15))
+        plus.tap()
+        XCTAssertTrue(app.buttons["composer.plusMenu.photos"].waitForExistence(timeout: 5))
+    }
+
+    private func type(_ text: String, then identifier: String) throws {
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        field.tap()
+        field.typeText(text)
+        XCTAssertTrue(app.buttons[identifier].waitForExistence(timeout: 5))
+        // The keyboard stays up for the shot, the way a person sees it.
+    }
+
+    // MARK: New thread
+
+    func testNewThread() throws {
+        try start("empty", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.field"].exists)
+        try shootNewThread("new-thread")
+    }
+
+    func testNewThreadLoading() throws {
+        try start("slow-new-thread", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.loading"].waitForExistence(timeout: 15))
+        try shootNewThread("new-thread-loading")
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.slow"].waitForExistence(timeout: 15))
+        try shootNewThread("new-thread-slow")
+    }
+
+    func testNewThreadMore() throws {
+        try start("empty", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        app.buttons["newThread.more"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.moreSheet"].waitForExistence(timeout: 5))
+        app.buttons["newThread.more.add"].tap()
+        let extra = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "web")).firstMatch
+        XCTAssertTrue(extra.waitForExistence(timeout: 5))
+        extra.tap()
+        XCTAssertTrue(app.staticTexts["web"].waitForExistence(timeout: 5))
+        // The sheet is the system's surface; the audit cannot judge text on it.
+        try shoot("new-thread-more", audits: false)
+    }
+
+    func testNewThreadNotReady() throws {
+        try start("empty", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        app.buttons["newThread.repo"].tap()
+        let web = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "web")).firstMatch
+        XCTAssertTrue(web.waitForExistence(timeout: 5))
+        web.tap()
+        app.descendants(matching: .any)["newThread.field"].tap()
+        app.typeText("Fix the importer")
+        app.buttons["newThread.send"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.problem"].waitForExistence(timeout: 5))
+        try shootNewThread("new-thread-not-ready")
+    }
+
+    func testNewThreadRefused() throws {
+        try start("new-thread-refused", paired: true)
+        try waitForDrawer()
+        app.buttons["drawer.newThread"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        app.descendants(matching: .any)["newThread.field"].tap()
+        app.typeText("Fix the importer")
+        app.buttons["newThread.send"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.refused"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["newThread.edit"].exists)
+        XCTAssertTrue(app.buttons["threads.button"].exists)
+        try shootNewThread("new-thread-refused")
+    }
+
+    func testNewThreadOffline() throws {
+        try start("empty", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        try stub.setOnline(false)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.offline"].waitForExistence(timeout: 20))
+        app.descendants(matching: .any)["newThread.field"].tap()
+        app.typeText("Fix the importer")
+        app.buttons["newThread.send"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.waiting"].waitForExistence(timeout: 30))
+        try shootNewThread("new-thread-offline")
+        // The network returns: the outbox sends the item and the screen opens the new thread.
+        try stub.setOnline(true)
+        let waiting = app.descendants(matching: .any)["newThread.waiting"]
+        XCTAssertTrue(waiting.waitForNonExistence(timeout: 40))
+        XCTAssertTrue(app.descendants(matching: .any)["thread.bar"].waitForExistence(timeout: 30))
+    }
+
+    func testNewThreadNoRepositories() throws {
+        try start("no-repositories", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.empty"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["newThread.openWeb"].exists)
+        try shootNewThread("new-thread-empty")
+    }
+
+    func testNewThreadFailed() throws {
+        try start("broken-new-thread", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.failed"].waitForExistence(timeout: 20))
+        try shootNewThread("new-thread-failed")
+    }
+
     // MARK: Helpers
 
     /// A screenshot of a thread screen, then the audit without the findings about text in the navigation bar,
     /// whose size the system caps.
     private func shootThread(_ name: String) throws {
         try shoot(name, audits: false)
+        let keyboard = keyboardFrame()
         try app.performAccessibilityAudit { [app] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
@@ -172,8 +401,76 @@ import XCTest
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
+            // The system keyboard's prediction bar is not ours to label, and what it covers cannot be judged.
+            if (issue.element?.debugDescription ?? "").contains("TUIPredictionViewCell") { return true }
+            if issue.auditType == .contrast, let element = issue.element, let keyboard,
+                keyboard.intersects(element.frame)
+            {
+                return true
+            }
+            // The drawer slid off the left edge is still in the tree; what the screen does not show cannot be judged.
+            if issue.auditType == .contrast, let element = issue.element, element.frame.maxX <= 0 { return true }
             // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
             if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
+                return true
+            }
+            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
+            return true
+        }
+    }
+
+    /// Opens a thread through its link, for rows that sit far down the drawer at the largest text size.
+    private func openThreadByLink(_ id: String) throws {
+        try waitForDrawer()
+        var components = URLComponents()
+        components.scheme = "yak"
+        components.host = "thread"
+        components.queryItems = [URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: id)]
+        app.open(try XCTUnwrap(components.url))
+    }
+
+    /// A screenshot of the new-thread screen, then the audit without the findings about text in the navigation bar,
+    /// whose size the system caps, and without the skeleton chips, which are hidden from VoiceOver on purpose.
+    private func shootNewThread(_ name: String) throws {
+        // The system keyboard shows its swipe-typing introduction once on a fresh simulator.
+        let introduction = app.buttons["Continue"]
+        if introduction.exists { introduction.tap() }
+        // The field takes focus when the screen opens; the audit runs once the keyboard has settled.
+        _ = app.keyboards.firstMatch.waitForExistence(timeout: 3)
+        try shoot(name, audits: false)
+        try app.performAccessibilityAudit { [app] issue in
+            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            // The keyboard covers part of the screen; what is behind it cannot be judged.
+            let keyboard = app.keyboards.firstMatch
+            if issue.auditType == .contrast, keyboard.exists, let element = issue.element,
+                keyboard.frame.intersects(element.frame)
+            {
+                return true
+            }
+            // A short window scrolls the page under the navigation bar, whose glass blurs what passes behind it.
+            if issue.auditType == .contrast, let element = issue.element,
+                bars.contains(where: { $0.frame.intersects(element.frame) })
+            {
+                return true
+            }
+            // At the largest text size the page scrolls under the navigation bar and the keyboard, and the audit
+            // finds the cut text without naming an element.
+            if issue.auditType == .contrast || issue.auditType == .elementDetection, issue.element == nil,
+                ProcessInfo.processInfo.environment["YAK_TEXT_SIZE"] == "largest"
+            {
+                return true
+            }
+            // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
+            if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
+                return true
+            }
+            // On a wide screen the system keyboard is a floating window the audit cannot place, so it reports the text
+            // behind it and text it cannot match to an element.
+            if app.windows.firstMatch.frame.width > 700, issue.element == nil {
                 return true
             }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")

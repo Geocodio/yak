@@ -8,18 +8,18 @@ use App\Models\ThreadRepository;
 use App\Models\YakTask;
 
 it('sandboxPathFor gives a colliding short name its owner prefix', function () {
-    expect(ThreadRepository::sandboxPathFor('other/lib', RepositoryRole::Changes, ['/extras/lib']))->toBe('/extras/other-lib')
-        ->and(ThreadRepository::sandboxPathFor('other/lib', RepositoryRole::Changes, []))->toBe('/extras/lib');
+    expect(ThreadRepository::sandboxPathFor('other/lib', RepositoryRole::Changes, ['/home/yak/extras/lib']))->toBe('/home/yak/extras/other-lib')
+        ->and(ThreadRepository::sandboxPathFor('other/lib', RepositoryRole::Changes, []))->toBe('/home/yak/extras/lib');
 });
 
 it('maps a slug to its sandbox path', function () {
-    expect(ThreadRepository::sandboxPathFor('acme/lib', RepositoryRole::Changes))->toBe('/extras/lib')
-        ->and(ThreadRepository::sandboxPathFor('acme/lib', RepositoryRole::Context))->toBe('/extras/lib')
+    expect(ThreadRepository::sandboxPathFor('acme/lib', RepositoryRole::Changes))->toBe('/home/yak/extras/lib')
+        ->and(ThreadRepository::sandboxPathFor('acme/lib', RepositoryRole::Context))->toBe('/home/yak/extras/lib')
         ->and(ThreadRepository::sandboxPathFor('acme/app', RepositoryRole::Primary))->toBe('/workspace');
 
     $extra = ThreadRepository::factory()->state(['repo' => 'acme/lib'])->changes()->make();
 
-    expect($extra->sandbox_path)->toBe('/extras/lib')
+    expect($extra->sandbox_path)->toBe('/home/yak/extras/lib')
         ->and($extra->shortName())->toBe('lib')
         ->and($extra->isExtra())->toBeTrue()
         ->and(ThreadRepository::factory()->make()->isPrimary())->toBeTrue();

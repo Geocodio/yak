@@ -240,7 +240,7 @@ func TestMultiRepoRoundTrip(t *testing.T) {
 	extraHead := *sent[1].HeadSHA
 	h.manifest.Repos = append(h.manifest.Repos, api.ManifestRepo{
 		Repo: "acme/api", Role: "changes", CloneURL: changesOrigin, DefaultBranch: "main", Branch: *sent[1].Branch, HeadSHA: extraHead,
-		SandboxPath: "/extras/api", Pushed: true,
+		SandboxPath: "/home/yak/extras/api", Pushed: true,
 	})
 	h.manifest.ContextRepos = []string{"acme/docs"}
 	h.srv.ScriptDownStates(res.ThreadID, h.manifest, "preparing", "ready")

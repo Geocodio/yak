@@ -53,17 +53,21 @@ export function FindingsBlock({ findings }: { findings: FindingsData }) {
                         <p className="text-muted">Shadow mode. Policy recommendation: {findings.riskAssessment.candidate.replace(/_/g, ' ').toLowerCase()}.</p>
                     )}
                     {findings.riskAssessment.mode === 'off' && <p className="text-muted">Automatic approval is disabled.</p>}
-                    <p className="text-muted">Risk: {findings.riskAssessment.risk_score === null ? 'Unknown' : `${findings.riskAssessment.risk_score}/100 (higher means more risk)`}</p>
-                    <p className="text-muted">Model confidence: {findings.riskAssessment.model_confidence === null ? 'Unknown' : `${findings.riskAssessment.model_confidence}/100`}. Self-reported, not a measured probability.</p>
+                    {findings.riskAssessment.risk_score != null && <p className="text-muted">Risk: {findings.riskAssessment.risk_score}/100 (higher means more risk)</p>}
+                    {findings.riskAssessment.model_confidence != null && <p className="text-muted">Model confidence: {findings.riskAssessment.model_confidence}/100. Self-reported, not a measured probability.</p>}
                     {findings.riskAssessment.reasons.length > 0 && (
                         <ul className="mt-2 list-disc space-y-1 pl-4 text-muted">
                             {findings.riskAssessment.reasons.map((reason, index) => <li key={index}>{reason}</li>)}
                         </ul>
                     )}
                     <details className="mt-2 text-muted">
-                        <summary className="cursor-pointer">Signals and evidence</summary>
-                        <p className="mt-2 break-all">Profile: {findings.riskAssessment.profile_version ?? 'No approved profile'}</p>
-                        <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px]">{JSON.stringify({ signals: findings.riskAssessment.signals, observed: findings.riskAssessment.observed, score_components: findings.riskAssessment.score_components }, null, 2)}</pre>
+                        <summary className="cursor-pointer">Evidence</summary>
+                        {findings.riskAssessment.profile_version != null && <p className="mt-2 break-all">Profile: {findings.riskAssessment.profile_version}</p>}
+                        <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px]">{JSON.stringify(
+                            findings.riskAssessment.level !== undefined
+                                ? { level: findings.riskAssessment.level, classification: findings.riskAssessment.classification, concerns_version: findings.riskAssessment.concerns_version, observed: findings.riskAssessment.observed }
+                                : { signals: findings.riskAssessment.signals, observed: findings.riskAssessment.observed, score_components: findings.riskAssessment.score_components },
+                            null, 2)}</pre>
                     </details>
                 </div>
             )}

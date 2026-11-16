@@ -16,12 +16,15 @@ final class ThreadSharedFilesData
      */
     public static function for(Thread $thread): array
     {
-        return Artifact::query()
+        $files = Artifact::query()
             ->shared()
             ->whereIn('yak_task_id', $thread->tasks()->select('id'))
             ->orderBy('id')
-            ->get()
-            ->map(fn (Artifact $file): array => [
+            ->get();
+        $shared = [];
+
+        foreach ($files as $file) {
+            $shared[] = [
                 'id' => (string) $file->public_id,
                 'name' => $file->filename,
                 'kind' => $file->sharedKind(),
@@ -30,7 +33,9 @@ final class ThreadSharedFilesData
                 'sharedWithTeam' => $file->shared_with_team,
                 'anchorSequence' => $file->anchor_sequence === null ? null : (int) $file->anchor_sequence,
                 'createdAt' => $file->created_at?->toIso8601String() ?? '',
-            ])
-            ->all();
+            ];
+        }
+
+        return $shared;
     }
 }

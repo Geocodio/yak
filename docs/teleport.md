@@ -184,7 +184,7 @@ Each directory that is a repo on Yak is classified before anything is sent:
 | Role | When | What Yak does |
 | --- | --- | --- |
 | Changes | Detached HEAD, uncommitted changes, commits not on GitHub, or a branch other than the default | Commits, branches and pushes it like the primary repo. Claude can change it. |
-| Context | Nothing to carry | Clones it on Yak under `/extras/<name>`. Claude reads it only. |
+| Context | Nothing to carry | Clones it on Yak under `/home/yak/extras/<name>`. Claude reads it only. |
 
 The command prints each directory with its role and reason, then asks "Bring <repo> (<role>) to Yak?" for each. A directory you decline, or one that is not on Yak, is listed as "Not uploaded (not on Yak)" and does not travel.
 

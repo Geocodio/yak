@@ -37,7 +37,7 @@ class ThreadArtifacts
             return;
         }
 
-        $workspacePath = $thread->primaryRepository?->sandbox_path ?? '/workspace';
+        $workspacePath = $thread->primaryRepository->sandbox_path ?? '/workspace';
         $container = (string) $thread->sandbox_container;
         $shell = ThreadShell::for($thread);
 
@@ -71,7 +71,7 @@ class ThreadArtifacts
             ->where('intent', 'record_walkthrough_and_open_pr')
             ->exists();
         $task = $thread->pullRequestTask();
-        $branch = $task?->branch_name ?? $thread->branch;
+        $branch = $task->branch_name ?? $thread->branch;
 
         if (! $isRequested || $task === null || blank($branch) || $task->pr_url !== null) {
             return;

@@ -18,30 +18,33 @@ class PriorFindingsHydrator
      * the GraphQL fetch failed.
      *
      * @param  array<int, string>  $changedFiles
+     * @param  bool  $includeResolved  Keep findings whose thread is resolved; approval rounds need every stored finding
      * @return array<int, array{comment_id: int, file: string, line: int, severity: string, category: string, body: string, file_changed_in_this_push: bool}>
      */
-    public function hydrate(string $repoSlug, int $prNumber, string $prUrl, array $changedFiles): array
+    public function hydrate(string $repoSlug, int $prNumber, string $prUrl, array $changedFiles, bool $includeResolved = false): array
     {
         $installationId = (int) config('yak.channels.github.installation_id');
 
-        try {
-            $threads = $this->github->listReviewThreads($installationId, $repoSlug, $prNumber);
-        } catch (\Throwable $e) {
-            Log::warning('PriorFindingsHydrator: GraphQL fetch failed, dropping prior-findings section', [
-                'pr_url' => $prUrl,
-                'error' => $e->getMessage(),
-            ]);
-
-            return [];
-        }
-
         $resolvedCommentIds = [];
-        foreach ($threads as $thread) {
-            if (! $thread['is_resolved']) {
-                continue;
+        if (! $includeResolved) {
+            try {
+                $threads = $this->github->listReviewThreads($installationId, $repoSlug, $prNumber);
+            } catch (\Throwable $e) {
+                Log::warning('PriorFindingsHydrator: GraphQL fetch failed, dropping prior-findings section', [
+                    'pr_url' => $prUrl,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return [];
             }
-            foreach ($thread['comment_database_ids'] as $cid) {
-                $resolvedCommentIds[$cid] = true;
+
+            foreach ($threads as $thread) {
+                if (! $thread['is_resolved']) {
+                    continue;
+                }
+                foreach ($thread['comment_database_ids'] as $cid) {
+                    $resolvedCommentIds[$cid] = true;
+                }
             }
         }
 

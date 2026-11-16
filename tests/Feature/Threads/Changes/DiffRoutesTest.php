@@ -96,7 +96,7 @@ it('hides a private thread from everyone but its owner', function (bool $isAdmin
 it('reports each repository branch and pull request url', function () {
     $thread = Thread::factory()->create(['repo' => 'acme/app', 'branch' => 'yak/main-branch']);
     ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app', 'branch' => 'yak/app', 'pull_request_url' => 'https://github.com/acme/app/pull/1']);
-    ThreadRepository::factory()->context()->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs']);
+    ThreadRepository::factory()->context()->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/home/yak/extras/docs']);
     $diff = ThreadDiff::factory()->for($thread)->create();
     $diff->repositories()->create(['repo' => 'acme/docs', 'role' => 'context', 'base_sha' => 'a', 'head_sha' => 'b', 'files_count' => 0, 'is_throwaway' => true]);
 

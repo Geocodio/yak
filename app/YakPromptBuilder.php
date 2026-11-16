@@ -9,6 +9,7 @@ use App\Facades\Prompts;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\ThreadBuilder;
 use App\Services\Threads\Repos\ThreadRepositoryPrompt;
 
 class YakPromptBuilder
@@ -172,6 +173,26 @@ class YakPromptBuilder
             'isLastRound' => $task->clarificationRoundCount() >= YakTask::MAX_CLARIFICATION_ROUNDS,
             'otherRepositories' => self::otherRepositories($task),
         ]);
+    }
+
+    /**
+     * The person's answers as the message the thread shows, one line per question.
+     */
+    public static function clarificationAnswersShownText(YakTask $task): string
+    {
+        $round = $task->clarificationAnswersAwaitingResume() ?? [];
+        $lines = [];
+
+        foreach (ThreadBuilder::answerItems($round) as $item) {
+            $answer = collect([$item['answer'], $item['other']])->filter(fn (?string $part): bool => $part !== null && trim($part) !== '')->implode('; ');
+            $lines[] = "**{$item['header']}**: " . ($answer !== '' ? $answer : '_Skipped_');
+        }
+
+        if (is_string($round['note'] ?? null) && trim($round['note']) !== '') {
+            $lines[] = $round['note'];
+        }
+
+        return implode("\n\n", $lines);
     }
 
     /**
@@ -391,7 +412,6 @@ class YakPromptBuilder
     private static function reviewPrompt(array $metadata): string
     {
         return Prompts::render('tasks-review', [
-            'approvedRiskProfile' => $metadata['approvedRiskProfile'] ?? null,
             'reviewBase' => $metadata['reviewBase'] ?? null,
             'prNumber' => (int) ($metadata['prNumber'] ?? 0),
             'prTitle' => (string) ($metadata['prTitle'] ?? ''),

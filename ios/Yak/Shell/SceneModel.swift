@@ -48,6 +48,11 @@ final class SceneModel {
     /// Shows "Signed in as <name>" in the drawer once after a pairing.
     var justPairedUserName: String?
     var newThreadPrefill: (repo: String?, text: String?)?
+    /// The outbox item of an unsent new thread the person opened from the drawer.
+    var newThreadItem: UUID?
+    /// Counts the requests to open the new-thread screen, so a screen that is already open starts again for an
+    /// unsent item or a link.
+    private(set) var newThreadOpenCount = 0
     /// Counts the requests to put the cursor in the drawer's search field (Command K).
     private(set) var searchFocusRequest = 0
 
@@ -85,6 +90,7 @@ final class SceneModel {
         state = SceneState(instanceID: instanceID)
         hasAppliedColdStart = false
         newThreadPrefill = nil
+        newThreadItem = nil
     }
 
     func open(thread id: String, isCompactWidth: Bool) {
@@ -95,8 +101,10 @@ final class SceneModel {
         justPairedUserName = nil
     }
 
-    func openNewThread(repo: String?, text: String?) {
+    func openNewThread(repo: String?, text: String?, item: UUID? = nil) {
         newThreadPrefill = (repo, text)
+        newThreadItem = item
+        if item != nil || repo != nil || text != nil { newThreadOpenCount += 1 }
         state.isNewThreadOpen = true
         state.isDrawerOpen = false
         justPairedUserName = nil

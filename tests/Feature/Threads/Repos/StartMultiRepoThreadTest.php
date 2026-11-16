@@ -48,7 +48,7 @@ it('creates a primary, a changes and a context row', function () {
     $rows = $thread->repositories()->orderBy('id')->get();
     expect($rows->pluck('repo')->all())->toBe(['acme/app', 'acme/web', 'acme/docs'])
         ->and($rows->pluck('role')->all())->toBe([RepositoryRole::Primary, RepositoryRole::Changes, RepositoryRole::Context])
-        ->and($rows->pluck('sandbox_path')->all())->toBe(['/workspace', '/extras/web', '/extras/docs'])
+        ->and($rows->pluck('sandbox_path')->all())->toBe(['/workspace', '/home/yak/extras/web', '/home/yak/extras/docs'])
         ->and($rows[1]->added_by)->toBe('start')
         ->and($rows[1]->setup_status)->toBe(RepositorySetupStatus::Pending);
 });
@@ -61,7 +61,7 @@ it('gives extras with the same short name distinct sandbox paths', function () {
 
     $thread = Thread::query()->latest('id')->firstOrFail();
 
-    expect($thread->repositories()->orderBy('id')->pluck('sandbox_path')->all())->toBe(['/workspace', '/extras/web', '/extras/other-web']);
+    expect($thread->repositories()->orderBy('id')->pluck('sandbox_path')->all())->toBe(['/workspace', '/home/yak/extras/web', '/home/yak/extras/other-web']);
 });
 
 it('rejects an extra Yak cannot reach and creates nothing', function () {

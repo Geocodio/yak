@@ -61,6 +61,7 @@ use App\Services\Teleport\LocalTurns;
  *     notice: array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null,
  *     modelLabels: array<string, string>,
  *     stackParent: array{id: string, name: string, title: string}|null,
+ *     question: ?array{taskId: string, expiresAt: ?string, questions: list<array{id: string, header: string, question: string, options: list<array{label: string, description: string}>, multiSelect: bool}>},
  * }
  */
 final class ThreadShowData
@@ -81,6 +82,7 @@ final class ThreadShowData
             'notice' => ThreadNoticeData::for($thread, $viewer),
             'modelLabels' => self::modelLabels(),
             'stackParent' => self::stackParent($thread),
+            'question' => ThreadQuestionData::for($thread),
         ]);
     }
 

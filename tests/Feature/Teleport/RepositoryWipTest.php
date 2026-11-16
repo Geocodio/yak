@@ -31,7 +31,7 @@ class RepositoryWipSandbox extends FakeSandboxManager
         return match (true) {
             str_contains($line, 'status --porcelain') => Process::result(output: $this->isDirty ? " M app.php\n" : ''),
             $this->hasLocalLink && str_contains($line, 'diff --cached --name-only') => Process::result(output: "composer.json\napp.php\n"),
-            $this->hasLocalLink && str_contains($line, 'diff --cached -- composer.json') => Process::result(output: "+  \"url\": \"/extras/lib\"\n"),
+            $this->hasLocalLink && str_contains($line, 'diff --cached -- composer.json') => Process::result(output: "+  \"url\": \"/home/yak/extras/lib\"\n"),
             str_contains($line, 'rev-list') => Process::result(output: "{$this->ahead}\n"),
             str_contains($line, 'rev-parse HEAD') => Process::result(output: "abc123\n"),
             str_contains($line, 'remote get-url') => Process::result(output: "https://x:secret@github.com/acme/api.git\n"),
@@ -46,7 +46,7 @@ beforeEach(function () {
     $this->thread = Thread::factory()->paused()->create(['repo' => 'acme/widgets', 'git_author_name' => 'Ada', 'git_author_email' => 'ada@example.com']);
     $this->sandboxes = new RepositoryWipSandbox;
     $this->extra = ThreadRepository::factory()->role(RepositoryRole::Changes)->create([
-        'thread_id' => $this->thread->id, 'repo' => 'acme/api', 'sandbox_path' => '/extras/api', 'branch' => 'yak/x',
+        'thread_id' => $this->thread->id, 'repo' => 'acme/api', 'sandbox_path' => '/home/yak/extras/api', 'branch' => 'yak/x',
     ]);
     $this->commands = fn (): array => collect($this->sandboxes->calls)->where('operation', 'exec')->map(fn (array $call): string => implode(' ', $call['arguments']['command']))->all();
 });
@@ -56,16 +56,16 @@ it('commits a dirty extra with the person identity and the Yak trailer', functio
 
     expect($result)->toEqual(new WipResult(true, true, 'abc123'));
     $commands = ($this->commands)();
-    expect($commands)->toContain('git -C /extras/api add -A')
-        ->toContain("git -C /extras/api -c user.name=Ada -c user.email=ada@example.com commit -m WIP: teleport to local machine\n\nCo-authored-by: Yak <yak@trailer.test>")
-        ->toContain('git -C /extras/api push origin HEAD:refs/heads/yak/x');
+    expect($commands)->toContain('git -C /home/yak/extras/api add -A')
+        ->toContain("git -C /home/yak/extras/api -c user.name=Ada -c user.email=ada@example.com commit -m WIP: teleport to local machine\n\nCo-authored-by: Yak <yak@trailer.test>")
+        ->toContain('git -C /home/yak/extras/api push origin HEAD:refs/heads/yak/x');
 });
 
 it('does nothing for a clean extra with nothing ahead', function () {
     $this->sandboxes->isDirty = false;
 
     expect((new RepositoryWip($this->sandboxes))->preserve($this->thread, $this->extra))->toEqual(new WipResult(false, false, null));
-    expect(($this->commands)())->not->toContain('git -C /extras/api add -A');
+    expect(($this->commands)())->not->toContain('git -C /home/yak/extras/api add -A');
 });
 
 it('pushes a clean extra that is ahead without committing', function () {
@@ -98,5 +98,5 @@ it('leaves a manifest linking a sandbox path out of the WIP commit', function ()
 
     (new RepositoryWip($this->sandboxes))->preserve($this->thread, $this->extra);
 
-    expect(($this->commands)())->toContain('git -C /extras/api reset -q -- composer.json');
+    expect(($this->commands)())->toContain('git -C /home/yak/extras/api reset -q -- composer.json');
 });

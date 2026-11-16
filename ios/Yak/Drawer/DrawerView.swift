@@ -339,7 +339,7 @@ struct DrawerView: View {
                 scene.openNewThread(repo: nil, text: nil)
                 return
             }
-            scene.openNewThread(repo: draft.repo, text: item.text)
+            scene.openNewThread(repo: draft.repo, text: item.text, item: item.id)
         }
     }
 
