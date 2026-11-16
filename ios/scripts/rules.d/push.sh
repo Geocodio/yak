@@ -18,3 +18,11 @@ for key in com.apple.security.application-groups keychain-access-groups; do
     widget_groups=$(perl -0777 -ne 'while (/<key>\Q'"$key"'\E<\/key>\s*<array>(.*?)<\/array>/sg) { print "$_\n" for sort ($1 =~ m{<string>(.*?)</string>}g) }' YakWidgets/YakWidgets.entitlements 2>/dev/null)
     [ "$app_groups" = "$widget_groups" ] || fail "YakWidgets.entitlements differs from Yak.entitlements for $key"
 done
+
+# The debug push tap exists only in test mode and the UI tests.
+test_push_hits=$(grep -rnF --include='*.swift' 'test-push' Yak Shared YakWidgets Packages/*/Sources YakTests 2>/dev/null \
+    | grep -v '/TestMode' || true)
+if [ -n "$test_push_hits" ]; then
+    echo "$test_push_hits"
+    fail 'test-push outside TestMode and YakUITests'
+fi

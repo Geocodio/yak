@@ -62,6 +62,11 @@ extension View {
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
         onOpenURL { url in Task { await model.handle(url: url) } }
             .modifier(PushRoot(push: parts.push, model: model))
+            #if DEBUG
+                .onOpenURL { url in
+                    if let payload = TestMode.pushTap(url: url) { Task { await parts.push.didTap(payload) } }
+                }
+            #endif
     }
 }
 
@@ -83,6 +88,9 @@ private struct PushRoot: ViewModifier {
             }
             .onChange(of: model.network.isOnline) { _, isOnline in
                 Task { await push.networkChanged(isOnline: isOnline) }
+            }
+            .task {
+                for await link in push.links() { await model.handle(url: link) }
             }
     }
 }

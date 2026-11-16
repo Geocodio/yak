@@ -105,7 +105,9 @@ import XCTest
             NSPredicate(format: "identifier BEGINSWITH 'settings.instance.'")
         ).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        XCTAssertTrue(row.label.contains("No push. This build has no key for it."), row.label)
+        let explained = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS 'No push. This build has no key for it.'"), object: row)
+        XCTAssertEqual(XCTWaiter().wait(for: [explained], timeout: 10), .completed, row.label)
         XCTAssertTrue(
             app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'cannot send notifications to this build'"))
                 .firstMatch.waitForExistence(timeout: 10))
@@ -123,5 +125,34 @@ import XCTest
         XCTAssertFalse(app.descendants(matching: .any)["notify.screen"].waitForExistence(timeout: 5))
         let tokens = try XCTUnwrap(try stub.pushState()["tokens"] as? [String: Any])
         XCTAssertTrue(tokens.isEmpty)
+    }
+
+    func testAPushTapOpensTheThreadFromAColdLaunch() throws {
+        try stub.play("question-open")
+        launch(paired: true, notifications: "authorized", extra: ["-yakTestPushTap", try stub.pushPayload("scenario-push-alert-question")])
+        XCTAssertTrue(
+            app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.otherElements["conversation"].waitForExistence(timeout: 10))
+        try audit()
+    }
+
+    func testAPushTapWhileRunningOpensTheThread() throws {
+        try stub.play("paired")
+        launch(paired: true, notifications: "authorized")
+        XCTAssertTrue(
+            app.buttons["drawer.account"].waitForExistence(timeout: 15)
+                || app.buttons["threads.button"].waitForExistence(timeout: 5))
+        var components = URLComponents()
+        components.scheme = "yak"
+        components.host = "test-push"
+        components.percentEncodedQueryItems = [
+            URLQueryItem(
+                name: "payload",
+                value: try stub.pushPayload("scenario-push-alert-question")
+                    .addingPercentEncoding(withAllowedCharacters: .alphanumerics))
+        ]
+        app.open(try XCTUnwrap(components.url))
+        XCTAssertTrue(
+            app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 10))
     }
 }

@@ -6,6 +6,12 @@ import YakKit
     import os
 #endif
 
+/// What a push tap asks the shell to show.
+enum PushPending: Equatable {
+    case pairing(URL)
+    case webPage(URL)
+}
+
 /// Everything push does for the app: permission, registration with every instance that can push to this build,
 /// the badge, the foreground rule and the cleanup after an instance goes.
 @MainActor @Observable
@@ -15,6 +21,11 @@ final class PushController: InstanceLifecycleObserver {
     private(set) var liveActivitiesEnabled = true
     /// Set by `didPair` when the explanation screen shows.
     var explanation: NotificationExplanationRequest?
+    /// What a tap asks the shell to show; the shell clears it with `clearPending()` once it shows it.
+    private(set) var pending: PushPending?
+    /// Makes an instance the active one and shows it; the app sets it so the shell follows, and the default
+    /// only stores the choice.
+    @ObservationIgnored var activate: (@MainActor (Instance) async -> Void)?
 
     @ObservationIgnored let registrar: PushRegistrar
     @ObservationIgnored let instances: InstanceStore
@@ -23,6 +34,7 @@ final class PushController: InstanceLifecycleObserver {
     @ObservationIgnored private let normalize: @Sendable (String) -> URL?
     @ObservationIgnored private var visible: Set<VisibleThread> = []
     @ObservationIgnored private var statusTask: Task<Void, Never>?
+    @ObservationIgnored private let linkChannel = AsyncStream<URL>.makeStream(bufferingPolicy: .unbounded)
 
     init(
         instances: InstanceStore, registrar: PushRegistrar, permission: any NotificationPermission,
@@ -136,7 +148,9 @@ final class PushController: InstanceLifecycleObserver {
         await instanceRemoved(instance)
     }
 
+    /// A fresh `me` answer can change what the instance can do for this build, so the registrar applies it.
     func instanceRefreshed(_ instance: Instance) async {
+        await registrar.sync()
         await refreshBadge()
     }
 
@@ -155,10 +169,44 @@ final class PushController: InstanceLifecycleObserver {
         await refreshBadge()
     }
 
-    /// A tap on a notification: the payload's count is stored and the badge follows.
+    /// The links taps produce. A link yielded before anyone listens is delivered to the first listener, so a
+    /// tap that launched the app is not lost; one window group listens.
+    func links() -> AsyncStream<URL> { linkChannel.stream }
+
+    func clearPending() { pending = nil }
+
+    /// A tap on a notification: the payload's count is stored, the badge follows, and the destination opens
+    /// through the same link path as an opened link.
     func didTap(_ payload: PushPayload) async {
-        await applyCount(of: payload, among: await instances.all())
+        let paired = await instances.all()
+        await applyCount(of: payload, among: paired)
         await refreshBadge()
+        guard !paired.isEmpty else {
+            pending = nil
+            return
+        }
+        guard let destination = PushDestination.make(payload, instances: paired, normalize: normalize) else { return }
+        switch destination {
+        case .thread, .task:
+            if let link = destination.linkURL { linkChannel.continuation.yield(link) }
+        case .unknownInstance(let address):
+            pending = .pairing(address)
+        case .webPage(let instance, let url):
+            await makeActive(instance)
+            pending = .webPage(url)
+        case .instance(let instance):
+            await makeActive(instance)
+        }
+    }
+
+    private func makeActive(_ instance: Instance) async {
+        if let activate {
+            await activate(instance)
+            return
+        }
+        do { try await instances.setActive(instance.id) } catch {
+            logFailure("Switching instance failed: \(String(describing: type(of: error)))")
+        }
     }
 
     private func logFailure(_ message: String) {

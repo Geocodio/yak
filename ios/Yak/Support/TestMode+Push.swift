@@ -4,8 +4,29 @@
 
     /// The push arguments of test mode: `-yakTestNotifications notDetermined|authorized|denied`,
     /// `-yakTestNotificationRequest granted|denied|failed|slow`, `-yakTestPushToken fail`,
-    /// `-yakTestLiveActivities off` and `-yakTestPushBuild <bundle id>/<environment>`.
+    /// `-yakTestLiveActivities off`, `-yakTestPushBuild <bundle id>/<environment>` and `-yakTestPushTap <base64>`.
     extension TestMode {
+        /// A push payload from a base64 text; nil when the text is not one.
+        static func pushPayload(base64 text: String) -> PushPayload? {
+            guard let data = Data(base64Encoded: text) else { return nil }
+            return try? PushPayload(json: data)
+        }
+
+        /// `-yakTestPushTap <base64 payload>`: the tap that launched the app. The payload is longer than the other
+        /// arguments' values, so it is read directly.
+        static func launchPushTap(in defaults: UserDefaults = .standard) -> PushPayload? {
+            defaults.string(forKey: "yakTestPushTap").flatMap { pushPayload(base64: $0) }
+        }
+
+        /// `yak://test-push?payload=<base64 payload>`: a tap while the app runs.
+        static func pushTap(url: URL) -> PushPayload? {
+            guard url.scheme?.lowercased() == "yak", url.host?.lowercased() == "test-push",
+                let text = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
+                    .first(where: { $0.name == "payload" })?.value
+            else { return nil }
+            return pushPayload(base64: text)
+        }
+
         static func pushBuild() -> PushBuild {
             let fallback = PushBuild(bundleID: "com.example.yak", environment: .production)
             guard let value = value("yakTestPushBuild") else { return fallback }

@@ -43,6 +43,7 @@ struct InstanceShell: View {
         .onChange(of: scene.state.filter) { Task { await drawerModel?.syncFilter() } }
         .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
+        .onChange(of: model.push?.pending, initial: true) { _, pending in showPending(pending) }
         .sheet(isPresented: $showsAccount) {
             if let push = model.push {
                 SettingsScreen(app: model, push: push, active: instance, onClose: { showsAccount = false })
@@ -75,6 +76,16 @@ struct InstanceShell: View {
             if let url = model.browserURL { BrowserSheet(url: url).ignoresSafeArea() }
         }
         .background { shortcuts }
+    }
+
+    /// A push tap that needs a screen of its own: the connect flow or the browser.
+    private func showPending(_ pending: PushPending?) {
+        guard let pending else { return }
+        switch pending {
+        case .pairing(let address): model.addressToConnect = address
+        case .webPage(let url): model.browserURL = url
+        }
+        model.push?.clearPending()
     }
 
     // MARK: Layout

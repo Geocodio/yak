@@ -51,6 +51,7 @@
                     instances: instances, tokens: lockable, makeEnvironment: environment,
                     permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize))
             doubles.permission.controller = parts.push
+            let push = parts.push
             let model = AppModel(
                 instances: instances, tokens: lockable,
                 makeClient: { url in
@@ -73,6 +74,7 @@
                         }
                     }
                     if seed.isKeychainLocked { lockable.lockReads() }
+                    if let tap = Self.launchPushTap() { await push.didTap(tap) }
                 },
                 network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }),
                 observers: parts.observers, push: parts.push)

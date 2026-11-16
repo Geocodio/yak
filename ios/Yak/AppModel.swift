@@ -92,6 +92,17 @@ final class AppModel {
         self.makeClient = makeClient
         self.pairing = Pairing(
             makeClient: makeClient, instances: instances, sleep: { try await Task.sleep(for: $0) })
+        push?.activate = { [weak self] instance in await self?.activate(instance) }
+    }
+
+    /// A push tap names another instance: it becomes the active one and the route follows.
+    func activate(_ instance: Instance) async {
+        guard await instances.active()?.id != instance.id else { return }
+        do { try await instances.setActive(instance.id) } catch {
+            logFailure("Switching instance failed")
+            return
+        }
+        await reloadRoute()
     }
 
     /// The model for a pairing screen; it refreshes the route once pairing succeeds.
@@ -116,6 +127,7 @@ final class AppModel {
 
     /// A `yak://pair` link starts pairing up to the confirmation; the other links go to the window.
     func handle(url: URL) async {
+        let url = InstanceMatch.pairedLink(url, instances: await instances.all(), normalize: normalizeLinkAddress)
         if let link = parseLink(url) {
             await pair(link: link)
         } else if let link = DeepLink(url: url, normalize: normalizeLinkAddress, parsePair: parseLink) {
