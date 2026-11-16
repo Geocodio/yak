@@ -214,7 +214,7 @@ import XCTest
         XCTAssertTrue(isLoading)
         // The row that says so sits just above the first loaded one.
         list.swipeDown()
-        try shoot("chat-history-loading", audits: false)
+        try shootThread("chat-history-loading")
     }
 
     func testChatEmpty() throws {
@@ -256,7 +256,7 @@ import XCTest
         let list = app.descendants(matching: .any)["conversation"].firstMatch
         for _ in 0..<3 { list.swipeDown() }
         XCTAssertTrue(app.descendants(matching: .any)["chat.jumpToLatest"].firstMatch.waitForExistence(timeout: 5))
-        try shoot("chat-jump-to-latest", audits: false)
+        try shootThread("chat-jump-to-latest")
         app.descendants(matching: .any)["chat.jumpToLatest"].firstMatch.tap()
         XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 5))
     }
