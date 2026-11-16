@@ -62,6 +62,17 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         #expect(try object(missing)["error"] as? String == "not_found")
     }
 
+    @Test func storedEventsAreOlderThanNowByAFixedOffset() throws {
+        let page = try object(reply(.paired, "GET", "threads/d0e515ef/events?after=0&limit=500"))
+        let events = try #require(page["events"] as? [[String: Any]])
+        let stamps = events.compactMap { $0["createdAt"] as? String }.compactMap { ISO8601DateFormatter().date(from: $0) }
+        #expect(!stamps.isEmpty)
+        for stamp in stamps {
+            let age = Date().timeIntervalSince(stamp)
+            #expect(age > StubThreads.seededHistoryAge - 30 && age < StubThreads.seededHistoryAge + 30)
+        }
+    }
+
     @Test func eventsAnswerOnlyWhatIsPublished() throws {
         let threads = StubThreads()
         let before = try reply(.oneThreadWorking, "GET", "threads/d0e515ef/events?after=0&limit=500", threads: threads)

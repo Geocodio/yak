@@ -3,6 +3,9 @@ import Foundation
 /// What the stub remembers about threads between requests: how far each event list is published, whether a
 /// question was answered, whether a turn was stopped, and the last message body. A new scenario resets it.
 final class StubThreads: @unchecked Sendable {
+    /// How long ago the seeded history of a thread happened, in seconds.
+    static let seededHistoryAge: TimeInterval = 3600
+
     private let lock = NSLock()
     private var publishedCounts: [String: Int] = [:]
     private var answeredThreads: Set<String> = []
@@ -222,7 +225,12 @@ extension Scenario {
     private func events(_ id: String, _ fixtures: StubFixtures, _ baseURL: String, _ threads: StubThreads)
         -> (events: [[String: Any]], published: Int)
     {
-        let stored = storedEvents(id, fixtures, baseURL)
+        let seededAt = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-StubThreads.seededHistoryAge))
+        let stored = storedEvents(id, fixtures, baseURL).map { event -> [String: Any] in
+            var event = event
+            if event["createdAt"] != nil { event["createdAt"] = seededAt }
+            return event
+        }
         let total = stored.compactMap { $0["sequence"] as? Int }.max() ?? 0
         let published = threads.published(id) ?? (playsLive ? 0 : total)
         let all = (stored + threads.extraEvents(id)).filter { ($0["sequence"] as? Int ?? .max) <= published }
