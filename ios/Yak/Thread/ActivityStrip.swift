@@ -22,7 +22,8 @@ struct ActivityStrip: View {
         case .working, .question: String(localized: "activity.working")
         case .step(let category, let label, let isFailed):
             switch category {
-            case .command: String(localized: isFailed ? "activity.running.failed \(label)" : "activity.running \(label)")
+            case .command:
+                String(localized: isFailed ? "activity.running.failed \(label)" : "activity.running \(label)")
             case .read: String(localized: isFailed ? "activity.reading.failed \(label)" : "activity.reading \(label)")
             case .search:
                 String(localized: isFailed ? "activity.searching.failed \(label)" : "activity.searching \(label)")
@@ -33,7 +34,9 @@ struct ActivityStrip: View {
     }
 
     private var strip: some View {
-        Button { openChat(true) } label: {
+        Button {
+            openChat(true)
+        } label: {
             HStack(spacing: 10) {
                 ProgressView().controlSize(.small).accessibilityHidden(true)
                 Text(verbatim: text).font(.subheadline).lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
@@ -52,7 +55,9 @@ struct ActivityStrip: View {
     }
 
     private func questionChip(_ count: Int) -> some View {
-        Button { openChat(false) } label: {
+        Button {
+            openChat(false)
+        } label: {
             HStack(spacing: 8) {
                 Circle().fill(Color.primary).frame(width: 8, height: 8).accessibilityHidden(true)
                 Text("question.chip \(count)").font(.subheadline.weight(.medium)).lineLimit(2)
@@ -74,7 +79,9 @@ struct ActivityStripButton: View {
     let openChat: (_ focusComposer: Bool) -> Void
 
     var body: some View {
-        Button { openChat({ if case .question = line { false } else { true } }()) } label: {
+        Button {
+            openChat({ if case .question = line { false } else { true } }())
+        } label: {
             Image(systemName: isQuestion ? "questionmark.bubble" : "arrow.triangle.2.circlepath")
                 .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
