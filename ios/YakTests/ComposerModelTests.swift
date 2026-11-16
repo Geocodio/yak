@@ -395,12 +395,14 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
     }
 
     @Test func twoAddsInFlightGetDifferentNumbers() async throws {
-        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
         composer.update(snapshot: try snapshot(state: "idle"))
         async let first: Void = composer.add(imageData(), fileName: "a.png", contentType: "image/png")
         async let second: Void = composer.add(imageData(), fileName: "b.png", contentType: "image/png")
         _ = await (first, second)
         #expect(Set(composer.attachments.map(\.reference)) == ["Image #1", "Image #2"])
+        #expect(backend.storedSendKeys.count == 2 && Set(backend.storedSendKeys).count == 1)
     }
 
     @Test func aFullDiskIsNotCalledUnreadable() async {

@@ -6,6 +6,7 @@ struct ModelPicker: View {
     let composer: ComposerModel
     @Environment(\.dismiss) private var dismiss
     @State private var expanded: Set<String> = []
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var selected: String? {
         let value = composer.effectiveModel
@@ -32,17 +33,12 @@ struct ModelPicker: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
         .accessibilityIdentifier("model.picker")
     }
 
     private var list: some View {
         List {
-            Section {
-                Text("model.footer").font(.footnote).foregroundStyle(.primary.opacity(0.85))
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
-            }
             Section {
                 ForEach(ModelChoices.rows(families: composer.modelFamilies, selected: selected, expanded: expanded)) {
                     row in
@@ -53,6 +49,11 @@ struct ModelPicker: View {
                         dismiss()
                     }
                 }
+            }
+            Section {
+                Text("model.footer").font(.footnote).foregroundStyle(.primary.opacity(0.85))
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
             }
         }
         .listSectionSpacing(.compact)

@@ -237,6 +237,11 @@ final class ComposerModel {
         return number
     }
 
+    /// The send key was taken for an add that failed: it goes when no attachment and no other add uses it.
+    private func releaseUnusedSendKey() {
+        if attachments.isEmpty && preparingCount <= 1 { sendKey = nil }
+    }
+
     /// Files and photos are checked against the server's limits, prepared off the main actor, stored under the
     /// draft's send key and numbered from the server's next number. A problem leaves the draft as it was.
     func add(_ data: Data, fileName: String, contentType: String) async {
@@ -246,26 +251,28 @@ final class ComposerModel {
         defer { preparingCount -= 1 }
         problem = nil
         let number = reserveAttachmentNumber()
+        let key = sendKey ?? UUID()
+        sendKey = key
         let prepared: PreparedAttachment
         do {
             prepared = try await AttachmentPreparer.prepare(
                 data, fileName: fileName, contentType: contentType, maximumBytes: maximumFileBytes)
         } catch {
             if highestReservedNumber == number { highestReservedNumber = number - 1 }
+            releaseUnusedSendKey()
             problem = Self.message(for: error)
             refusalCount += 1
             return
         }
         let thumbnail = prepared.isImage ? await AttachmentPreparer.thumbnail(of: prepared.data) : nil
-        let key = sendKey ?? UUID()
         let reference = ComposerAttachments.references(isImage: [prepared.isImage], next: number)[0]
         do {
             let stored = try await backend.storeAttachment(prepared, reference: reference, sendKey: key)
-            sendKey = key
             attachments.append(stored)
             thumbnails[stored.reference] = thumbnail
         } catch {
             if highestReservedNumber == number { highestReservedNumber = number - 1 }
+            releaseUnusedSendKey()
             problem = Self.message(for: .notStored)
             refusalCount += 1
             return

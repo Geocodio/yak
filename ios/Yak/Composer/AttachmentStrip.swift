@@ -46,7 +46,7 @@ private struct AttachmentTile: View {
                 .accessibilityIdentifier("composer.attachment.remove")
             }
             Text(attachment.reference).font(.caption2).foregroundStyle(.primary).lineLimit(1)
-                .fixedSize()
+                .dynamicTypeSize(...DynamicTypeSize.accessibility2).frame(maxWidth: side)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("composer.attachment")
