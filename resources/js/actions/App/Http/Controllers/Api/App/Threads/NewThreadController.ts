@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\App\Threads\NewThreadController::create
-* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:21
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:24
 * @route '/api/app/v1/threads/new'
 */
 export const create = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ create.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\NewThreadController::create
-* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:21
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:24
 * @route '/api/app/v1/threads/new'
 */
 create.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ create.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\NewThreadController::create
-* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:21
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:24
 * @route '/api/app/v1/threads/new'
 */
 create.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ create.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\NewThreadController::create
-* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:21
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:24
 * @route '/api/app/v1/threads/new'
 */
 create.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ create.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\NewThreadController::store
-* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:29
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:32
 * @route '/api/app/v1/threads'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -60,7 +60,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\NewThreadController::store
-* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:29
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:32
 * @route '/api/app/v1/threads'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\NewThreadController::store
-* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:29
+* @see app/Http/Controllers/Api/App/Threads/NewThreadController.php:32
 * @route '/api/app/v1/threads'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
