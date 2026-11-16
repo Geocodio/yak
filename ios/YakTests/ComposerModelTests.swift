@@ -174,7 +174,17 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
             path: "attachments/\(sendKey)/\(prepared.fileName)")
     }
 
-    func attachmentData(_ attachment: OutboxAttachment) async -> Data? { lock.withLock { files[attachment.path] } }
+    private var dataReadCount = 0
+    /// How many times a whole attachment was read.
+    var attachmentReads: Int { lock.withLock { dataReadCount } }
+    func attachmentData(_ attachment: OutboxAttachment) async -> Data? {
+        lock.withLock {
+            dataReadCount += 1
+            return files[attachment.path]
+        }
+    }
+
+    func attachmentExists(_ attachment: OutboxAttachment) async -> Bool { lock.withLock { files[attachment.path] != nil } }
 
     func discardAttachment(_ attachment: OutboxAttachment) async { lock.withLock { discarded.append(attachment) } }
 
@@ -234,6 +244,7 @@ private final class OutboxBackedComposerBackend: ComposerBackend, @unchecked Sen
             reference: reference, fileName: prepared.fileName, contentType: prepared.contentType, path: path)
     }
     func attachmentData(_ attachment: OutboxAttachment) async -> Data? { try? files.read(attachment.path) }
+    func attachmentExists(_ attachment: OutboxAttachment) async -> Bool { (try? files.exists(attachment.path)) ?? true }
     func discardAttachment(_ attachment: OutboxAttachment) async { try? files.remove(attachment.path) }
     func limits() async -> Me.AttachmentLimits? { nil }
     func takeOutboxItem(_ id: UUID) async -> OutboxTakeOutcome {
@@ -405,6 +416,21 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         composer.update(snapshot: try snapshot(state: "working"))
         await composer.send(delivery: .afterTurn)
         #expect(backend.sentDrafts.map(\.delivery) == [.afterTurn])
+    }
+
+    @Test func loadingChecksThatAFileExistsWithoutReadingIt() async throws {
+        let backend = FakeComposerBackend()
+        let kept = OutboxAttachment(
+            reference: "File #1", fileName: "a.pdf", contentType: "application/pdf", path: "attachments/a.pdf")
+        let gone = OutboxAttachment(
+            reference: "File #2", fileName: "b.pdf", contentType: "application/pdf", path: "attachments/b.pdf")
+        backend.keep(Data("pdf".utf8), at: kept.path)
+        backend.seed(ComposerDraft(text: "Hi", attachments: [kept, gone]), for: .thread("d0e515ef"))
+        let composer = makeModel(backend: backend, clock: StepClock())
+        await composer.load()
+        #expect(composer.attachments == [kept])
+        #expect(composer.problem == "An attachment of this draft is gone from this device, so it was removed.")
+        #expect(backend.attachmentReads == 0)
     }
 
     @Test func aFlushBeforeTheLoadKeepsTheSavedDraft() async {

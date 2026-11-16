@@ -578,6 +578,15 @@ public actor InstanceSession {
         }
     }
 
+    /// Whether the stored file of a draft's attachment is there, without reading it. A file that cannot be checked
+    /// counts as there, so a draft is not trimmed on a failure that may pass.
+    public func attachmentExists(_ attachment: OutboxAttachment) async -> Bool {
+        do { return try environment.files.exists(attachment.path) } catch {
+            logFailure("attachment not checked: \(type(of: error))")
+            return true
+        }
+    }
+
     public func discardAttachment(_ attachment: OutboxAttachment) async {
         do { try environment.files.remove(attachment.path) } catch {
             logFailure("attachment not removed: \(type(of: error))")

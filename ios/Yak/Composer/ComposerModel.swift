@@ -12,6 +12,7 @@ protocol ComposerBackend: Sendable {
     func storeAttachment(_ prepared: PreparedAttachment, reference: String, sendKey: UUID) async throws(FileStoreError)
         -> OutboxAttachment
     func attachmentData(_ attachment: OutboxAttachment) async -> Data?
+    func attachmentExists(_ attachment: OutboxAttachment) async -> Bool
     func discardAttachment(_ attachment: OutboxAttachment) async
     func limits() async -> Me.AttachmentLimits?
     /// Gives a refused or waiting item up with its files.
@@ -45,6 +46,8 @@ struct LiveComposerBackend: ComposerBackend {
     }
 
     func attachmentData(_ attachment: OutboxAttachment) async -> Data? { await session.attachmentData(attachment) }
+
+    func attachmentExists(_ attachment: OutboxAttachment) async -> Bool { await session.attachmentExists(attachment) }
 
     func discardAttachment(_ attachment: OutboxAttachment) async { await session.discardAttachment(attachment) }
 
@@ -147,7 +150,7 @@ final class ComposerModel {
         guard let saved else { return }
         if !hasEdited { typedText = saved.text }
         var kept: [OutboxAttachment] = []
-        for attachment in saved.attachments where await backend.attachmentData(attachment) != nil {
+        for attachment in saved.attachments where await backend.attachmentExists(attachment) {
             kept.append(attachment)
         }
         let known = Set(attachments.map(\.path))
