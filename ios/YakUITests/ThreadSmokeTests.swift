@@ -28,7 +28,7 @@ import XCTest
     func testColdStartWithOneThreadThatNeedsYouOpensIt() throws {
         try launch(scenario: "question-open")
         XCTAssertTrue(app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.otherElements["conversation"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 10))
         try audit()
     }
 
@@ -63,7 +63,7 @@ import XCTest
             XCTAssertFalse(app.staticTexts[text].exists, text)
         }
         rows.firstMatch.tap()
-        XCTAssertTrue(app.otherElements["conversation"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 15))
         let gone = NSPredicate(format: "exists == false")
         for identifier in ["thread.loading", "thread.slow", "thread.notFound", "thread.offline", "thread.error"] {
             let element = app.descendants(matching: .any)[identifier]
@@ -113,7 +113,7 @@ import XCTest
         row.tap()
         let first = app.staticTexts["Looking at the importer."]
         XCTAssertTrue(first.waitForExistence(timeout: 20))
-        app.descendants(matching: .any)["chat.list"].firstMatch.swipeDown()
+        app.descendants(matching: .any)["conversation"].firstMatch.swipeDown()
         let before = first.frame.minY
         try stub.hold(after: nil)
         XCTAssertTrue(app.staticTexts["Done. Failed rows now retry three times."].waitForExistence(timeout: 30))
@@ -128,7 +128,7 @@ import XCTest
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
         XCTAssertTrue(app.staticTexts["Step 1200."].waitForExistence(timeout: 20))
-        let list = app.descendants(matching: .any)["chat.list"].firstMatch
+        let list = app.descendants(matching: .any)["conversation"].firstMatch
         let loading = app.staticTexts["Loading earlier messages"]
         var isLoading = false
         for _ in 0..<80 where !isLoading {

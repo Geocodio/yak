@@ -205,7 +205,7 @@ import XCTest
         XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 20))
         // Fast swipes reach the first loaded row, where the older page is asked for and takes a few seconds.
         let loading = label("Loading earlier messages")
-        let list = app.descendants(matching: .any)["chat.list"].firstMatch
+        let list = app.descendants(matching: .any)["conversation"].firstMatch
         var isLoading = false
         for _ in 0..<80 where !isLoading {
             list.swipeDown(velocity: .fast)
