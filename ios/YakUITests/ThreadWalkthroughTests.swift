@@ -311,7 +311,7 @@ import XCTest
             }
             // The system keyboard's prediction bar is not ours to label, and what it covers cannot be judged.
             if (issue.element?.debugDescription ?? "").contains("TUIPredictionViewCell") { return true }
-            if let element = issue.element, app.keyboards.firstMatch.exists,
+            if issue.auditType == .contrast, let element = issue.element, app.keyboards.firstMatch.exists,
                 app.keyboards.firstMatch.frame.intersects(element.frame)
             {
                 return true
