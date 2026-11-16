@@ -661,6 +661,7 @@ it('records the level-based decision and approves a clean docs change at level 2
         'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']], 'base' => ['sha' => 'base', 'ref' => 'main', 'repo' => ['full_name' => 'acme/api']], 'user' => ['login' => 'alice']]);
     $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
     $github->shouldReceive('hasRequiredStatusChecks')->andReturn(true);
+    $github->shouldReceive('dismissesStaleReviews')->andReturn(true);
     $github->shouldReceive('createPullRequestReview')->once()
         ->with(12345, 'acme/api', 42, Mockery::on(fn (string $body): bool => str_contains($body, 'Mode: enforce. DEFCON 2. Decision: APPROVE.')
             && str_contains($body, 'Approval is not merge authorization.')), 'APPROVE', [], 'head')
@@ -722,6 +723,7 @@ function approvalHardeningSetup(): array
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
     $github->shouldReceive('hasRequiredStatusChecks')->andReturn(true);
+    $github->shouldReceive('dismissesStaleReviews')->andReturn(true);
 
     return [$task, $agent, $github];
 }

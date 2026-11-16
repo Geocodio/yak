@@ -30,9 +30,11 @@ it('lets ordinary files and dependency manifests through', function (string $pat
     'app/Http/Controllers/HomeController.php',
     'resources/views/home.blade.php',
     'tests/Feature/HomeTest.php',
-    'composer.lock',
-    'package.json',
 ]);
+
+it('holds dependency manifests, routes, config and authorization paths', function (string $path) {
+    expect(ApprovalFloor::heldPaths([['filename' => $path]]))->toBe([$path]);
+})->with(['composer.lock', 'composer.json', 'package.json', 'package-lock.json', 'routes/web.php', 'config/services.php', 'bootstrap/app.php', 'app/AuthGuard.php', 'app/InvoicePolicy.php', 'app/Permissions.php', 'CODEOWNERS']);
 
 it('returns exactly the held paths from a mixed list, deduplicated', function () {
     $files = [
@@ -44,5 +46,5 @@ it('returns exactly the held paths from a mixed list, deduplicated', function ()
         ['filename' => 'composer.lock'],
     ];
 
-    expect(ApprovalFloor::heldPaths($files))->toBe(['Dockerfile', '.yak/config.yml']);
+    expect(ApprovalFloor::heldPaths($files))->toBe(['Dockerfile', '.yak/config.yml', 'composer.lock']);
 });

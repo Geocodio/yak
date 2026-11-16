@@ -51,11 +51,10 @@ class ApprovalSettingsController extends Controller
     private function ensureRequiredChecks(Repository $repository): void
     {
         try {
-            $hasChecks = app(AppService::class)->hasRequiredStatusChecks(
-                (int) config('yak.channels.github.installation_id'),
-                $repository->github_full_name,
-                $repository->default_branch,
-            );
+            $github = app(AppService::class);
+            $installationId = (int) config('yak.channels.github.installation_id');
+            $hasChecks = $github->hasRequiredStatusChecks($installationId, $repository->github_full_name, $repository->default_branch);
+            $dismissesStale = $github->dismissesStaleReviews($installationId, $repository->github_full_name, $repository->default_branch);
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -64,6 +63,10 @@ class ApprovalSettingsController extends Controller
 
         if (! $hasChecks) {
             throw ValidationException::withMessages(['mode' => "Arming is locked: {$repository->default_branch} has no required status checks."]);
+        }
+
+        if (! $dismissesStale) {
+            throw ValidationException::withMessages(['mode' => "Arming is locked: {$repository->default_branch} must dismiss stale approvals when new commits are pushed."]);
         }
     }
 }

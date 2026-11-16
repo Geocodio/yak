@@ -1446,6 +1446,35 @@ GRAPHQL;
         return false;
     }
 
+    /**
+     * Whether new commits on a pull request dismiss existing approvals on the
+     * branch, through classic protection (`dismiss_stale_reviews`) or a ruleset
+     * pull_request rule (`dismiss_stale_reviews_on_push`). A 404 from protection
+     * means none is configured; any other failure throws.
+     */
+    public function dismissesStaleReviews(int $installationId, string $repoSlug, string $branch): bool
+    {
+        $client = $this->installationClient($installationId)->timeout(20);
+        $encodedBranch = self::encodeRef($branch);
+
+        $protection = $client->get("https://api.github.com/repos/{$repoSlug}/branches/{$encodedBranch}/protection");
+
+        if ($protection->status() !== 404
+            && $protection->throw()->json('required_pull_request_reviews.dismiss_stale_reviews') === true) {
+            return true;
+        }
+
+        $rules = $client->get("https://api.github.com/repos/{$repoSlug}/rules/branches/{$encodedBranch}")->throw()->json();
+
+        foreach ((array) $rules as $rule) {
+            if (($rule['type'] ?? null) === 'pull_request' && ($rule['parameters']['dismiss_stale_reviews_on_push'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** A ref for a URL path: every segment is percent-encoded and the slashes are too. */
     public static function encodeRef(string $ref): string
     {
