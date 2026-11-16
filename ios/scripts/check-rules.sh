@@ -4,7 +4,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 failed=0
-targets=(Yak Packages/*/Sources)
+targets=(Yak Shared Packages/*/Sources)
 extension_targets=()
 deferred_checks=()
 # Folders where no rust-colored token may appear, and the files inside them that may name one on purpose.

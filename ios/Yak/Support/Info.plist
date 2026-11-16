@@ -33,6 +33,8 @@
 	<false/>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>YakAppBundleID</key>
+	<string>$(YAK_BUNDLE_ID)</string>
 	<key>YakAppGroup</key>
 	<string>$(YAK_APP_GROUP)</string>
 </dict>
