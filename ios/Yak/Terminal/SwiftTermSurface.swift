@@ -115,6 +115,9 @@ final class SwiftTermSurface: NSObject, TerminalSurface, TerminalViewDelegate {
     /// selection.
     nonisolated func clipboardCopy(source: TerminalView, content: Data) {}
 
+    /// Output from the remote machine (OSC 52 query) never reads the clipboard either.
+    nonisolated func clipboardRead(source: TerminalView) -> Data? { nil }
+
     nonisolated func iTermContent(source: TerminalView, content: ArraySlice<UInt8>) {}
     nonisolated func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
 }

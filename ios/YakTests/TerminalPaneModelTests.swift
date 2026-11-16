@@ -395,10 +395,18 @@ private final class Counter: @unchecked Sendable {
     await fixture.finish()
 }
 
-@MainActor @Test func remoteOutputNeverWritesTheClipboard() {
+@MainActor @Test func remoteOutputNeverWritesOrReadsTheClipboard() async {
     let surface = SwiftTermSurface()
+    var sent: [UInt8] = []
+    surface.onInput = { sent += $0 }
     UIPasteboard.general.string = "kept"
     let payload = Data("stolen".utf8).base64EncodedString()
     surface.feed(Data("\u{1B}]52;c;\(payload)\u{07}".utf8))
+    surface.feed(Data("\u{1B}]52;c;?\u{07}".utf8))
+    // The terminal view hands clipboard requests to its delegate through a main queue hop, so drain it first.
+    for _ in 0..<2 {
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+    }
     #expect(UIPasteboard.general.string == "kept")
+    #expect(!String(decoding: sent, as: UTF8.self).contains("]52;"))
 }
