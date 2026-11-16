@@ -2,4 +2,4 @@ Hand-written scenario data for the engine tests. Kept for good. Server contract 
 
 Widget scenarios use the prefix `scenario-widgets-` (`scenario-widgets-thread-list-busy.json`, `scenario-widgets-thread-list-empty.json`).
 
-The attachment decode test is `AttachmentFixtureDecodingTests.swift`; it reads the server fixture `thread-attachments` and skips while that fixture does not exist yet. `scenario-thread-attachments.json` is hand-written.
+The attachment decode test is `AttachmentFixtureDecodingTests.swift`; it reads the server fixture `thread-attachments` and fails when that fixture is missing. `scenario-thread-attachments.json` is hand-written.
