@@ -359,7 +359,14 @@ public actor UploadLedger {
             return nil
         }
         guard let data else { return nil }
-        guard let record = try? JSONDecoder().decode(UploadRecord.self, from: data), record.itemID == item,
+        let decoded: UploadRecord?
+        do {
+            decoded = try JSONDecoder().decode(UploadRecord.self, from: data)
+        } catch {
+            logUpload("upload record does not decode: \(type(of: error))")
+            decoded = nil
+        }
+        guard let record = decoded, record.itemID == item,
             data.count - answerSize(record) <= Self.recordLimit, record.bodyPath == bodyPath(item),
             isUploadPath(record.path)
         else {

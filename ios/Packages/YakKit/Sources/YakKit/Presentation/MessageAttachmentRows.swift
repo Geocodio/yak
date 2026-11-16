@@ -48,7 +48,8 @@ public enum MessageAttachmentRows {
     public static func isAppSafe(_ link: URL, instance: URL, canonical: URL?) -> Bool {
         guard let scheme = link.scheme?.lowercased(), let host = link.host?.lowercased(),
             scheme == "https" || (scheme == "http" && instance.scheme?.lowercased() == "http"),
-            link.path.hasPrefix("/app-media/"),
+            link.path.hasPrefix("/app-media/"), !link.pathComponents.contains(".."),
+            !link.absoluteString.lowercased().contains("%2e"),
             URLComponents(url: link, resolvingAgainstBaseURL: false)?.queryItems?
                 .contains(where: { $0.name == "signature" && ($0.value?.isEmpty == false) }) == true
         else { return false }

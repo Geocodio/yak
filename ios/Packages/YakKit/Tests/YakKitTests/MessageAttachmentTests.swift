@@ -27,6 +27,8 @@ struct MessageAttachmentTests {
             "https://yak.example.com/task-attachments/41?signature=a",
             "https://yak.example.com/app-media/task-attachments/41",
             "https://cdn.example.net/app-media/x?signature=a",
+            "https://yak.example.com/app-media/../api/app/v1/threads?signature=a",
+            "https://yak.example.com/app-media/%2e%2e/api/app/v1/threads?signature=a",
         ] {
             #expect(!MessageAttachmentRows.isAppSafe(URL(string: link)!, instance: instance, canonical: nil))
         }

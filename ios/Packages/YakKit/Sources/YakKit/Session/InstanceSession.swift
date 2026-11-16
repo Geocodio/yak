@@ -32,7 +32,10 @@ public struct SessionEnvironment: Sendable {
     public let systemDescription: String
     /// True only in the app's Debug test mode: the realtime socket and the terminal socket may then use `ws`.
     public let allowsInsecureRealtime: Bool
-    /// The background upload link of an instance; nil sends files with foreground requests.
+    /// The background upload link of an instance; nil sends files with foreground requests. The closure runs on every
+    /// use (the outbox and the upload summaries each call it) and must return the same link, and so the same ledger,
+    /// for one instance every time. The background session's delegate must report to that same ledger. A new ledger
+    /// per call would never hear completions or progress of the other.
     public let uploads: (@Sendable (UUID) -> UploadLink?)?
 
     public init(

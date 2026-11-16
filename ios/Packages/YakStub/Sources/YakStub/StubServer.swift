@@ -17,7 +17,13 @@ final class StubServer: Sendable {
     init(port: UInt16, fixtures: StubFixtures, scenario: Scenario, scenarios: URL? = nil) throws {
         self.fixtures = fixtures
         attachments = StubAttachments { name in
-            scenarios.flatMap { try? Data(contentsOf: $0.appendingPathComponent("\(name).json")) }
+            guard let folder = scenarios else { return nil }
+            do {
+                return try Data(contentsOf: folder.appendingPathComponent("\(name).json"))
+            } catch {
+                FileHandle.standardError.write(Data("stub scenario \(name) unreadable: \(type(of: error))\n".utf8))
+                return nil
+            }
         }
         self.current = Locked(scenario)
         let parameters = NWParameters.tcp

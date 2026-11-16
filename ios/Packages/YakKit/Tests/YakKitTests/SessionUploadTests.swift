@@ -125,6 +125,19 @@ private func waitUntil(
         await rig.session.stop()
     }
 
+    @Test func theSummariesAndTheOutboxShareOneLedger() async throws {
+        let rig = try await makeUploadRig()
+        await rig.session.start()
+        let summaries = StreamRecorder(try #require(await rig.session.uploadSummaries()))
+        let item = try await rig.session.send(try attachmentDraft(rig, item: UUID(), text: "With file"))
+        await waitUntil { rig.uploadSession.started.count == 1 }
+        await rig.ledger.completed(
+            UploadTaskDescription(item: item.id, attempt: 1), session: rig.uploadSession.identifier, task: 1,
+            status: nil, headers: [:], failed: true)
+        _ = try await summaries.next { $0.failed.contains(item.id) }
+        await rig.session.stop()
+    }
+
     @Test func withoutALinkThereAreNoSummaries() async throws {
         let rig = try await makeUploadRig(withUploads: false)
         await rig.session.start()

@@ -368,6 +368,25 @@ private final class UploadWorld: @unchecked Sendable {
         #expect(world.session.started.last?.description.attempt == 2)
     }
 
+    @Test func aRecordWithoutAnItemIsRemovedOnceItIsLost() async throws {
+        let world = UploadWorld()
+        let id = UUID()
+        let attachment = try world.storedAttachment("crashed.jpg", id: id)
+        let draft = OutboxDraft(target: .thread("d0e515ef"), text: "Crashed", attachments: [attachment])
+        let record = try await world.ledger.prepare(
+            OutboxInbox.item(for: draft, id: id, now: world.clock.now()), origin: .share)
+
+        await world.outbox.load()
+        await world.settle()
+        #expect(await world.ledger.records().count == 1)
+
+        await world.clock.advance(by: UploadLedger.shareLostAfter + .seconds(1))
+        await world.outbox.load()
+        await world.settle()
+        #expect(await world.ledger.records().isEmpty)
+        #expect(try world.files.read(record.bodyPath) == nil)
+    }
+
     @Test func aFreshShareAnswerWaitsForItsItem() async throws {
         let world = UploadWorld()
         let id = UUID()

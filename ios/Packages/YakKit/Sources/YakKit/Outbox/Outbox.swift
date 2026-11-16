@@ -569,10 +569,13 @@ public actor Outbox {
     private func uploadCompleted(_ id: UUID) async {
         guard !isShutDown, let ledger = uploads?.ledger else { return }
         guard let index = stored.firstIndex(where: { $0.id == id }) else {
-            guard let record = await ledger.record(for: id), case .answered = record.phase else { return }
-            // A share extension adds its item after it starts the upload, so a fresh share answer waits for the item.
+            guard let record = await ledger.record(for: id) else { return }
+            // A share extension adds its item after it starts the upload, so a fresh share record waits for the item.
+            // A record that no item claims within `shareLostAfter`, whatever its phase, is removed with its body file.
             let age = Duration.seconds(clock.now().timeIntervalSince(record.updatedAt))
-            if record.origin == .share, age < UploadLedger.shareLostAfter { return }
+            if age < UploadLedger.shareLostAfter {
+                guard case .answered = record.phase, record.origin != .share else { return }
+            }
             await ledger.remove(id)
             return
         }
