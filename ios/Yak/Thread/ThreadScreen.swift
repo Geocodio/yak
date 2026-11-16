@@ -177,7 +177,7 @@ struct ThreadScreen: View {
 
     /// Command 1 focuses Chat.
     private func shortcuts(_ focused: Binding<PaneID>) -> some View {
-        Button("pane.chat") { focused.wrappedValue = .chat }.keyboardShortcut("1")
+        Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
             .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }
 }
