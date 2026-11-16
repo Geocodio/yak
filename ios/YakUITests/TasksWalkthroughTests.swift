@@ -161,7 +161,7 @@ import XCTest
         try openTask("k3m9p2qa", scenario: "task-early-warning")
         element("task.earlyWarning").tap()
         XCTAssertTrue(element("task.tag.decline").waitForExistence(timeout: 10))
-        try shoot("task-tag", audits: false)
+        try shoot("task-tag")
     }
 
     func testTaskAsked() throws {

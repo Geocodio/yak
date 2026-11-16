@@ -31,12 +31,12 @@ struct TaskScreen: View {
             }
             .sheet(isPresented: $isRequestingChanges) {
                 RequestChangesSheet(model: model, close: { isRequestingChanges = false })
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.medium, .large]).presentationBackground(Color(.systemBackground))
             }
             .sheet(isPresented: $isTagging) {
                 if case .pick(let fallbackName) = model.earlyWarning {
                     TagCoOwnerSheet(model: model, fallbackName: fallbackName, close: { isTagging = false })
-                        .presentationDetents([.medium, .large])
+                        .presentationDetents([.large]).presentationBackground(Color(.systemBackground))
                 }
             }
             .sheet(isPresented: $isShowingVideo) {
