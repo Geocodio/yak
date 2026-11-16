@@ -37,13 +37,21 @@ final class StubServer: Sendable {
         }
         let current = Locked(scenario)
         let online = self.online
+        let featureScenario = self.featureScenario
         self.current = current
         socket = try PusherSocket(
             fixtures: fixtures, threads: threads, playbackInterval: playbackInterval,
-            scenario: { current.get() }, isOnline: { online.get() })
+            scenario: { current.get() }, isOnline: { online.get() },
+            onSubscribe: { id in
+                let name = featureScenario.get() ?? current.get().rawValue
+                for feature in features { feature.subscribed(thread: id, scenario: name, fixtures: fixtures) }
+            })
         let parameters = NWParameters.tcp
         parameters.requiredInterfaceType = .loopback
         listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port) ?? .any)
+        for feature in features {
+            feature.attach { [socket] thread, json in socket.publish(json, thread: thread) }
+        }
     }
 
     /// The port of the WebSocket listener, known after `start()`.

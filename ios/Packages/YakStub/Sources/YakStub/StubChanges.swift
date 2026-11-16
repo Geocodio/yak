@@ -8,7 +8,7 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         "changes", "tasks-empty", "tasks-nulls", "tasks-slow", "task-slow-approve", "task-refused", "task-not-linked",
         "task-access-error", "task-early-warning", "task-early-warning-tagged", "observations-declined",
         "changes-none", "changes-private", "changes-replaced", "changes-gone", "changes-working", "changes-slow",
-        "pull-request-open", "pull-request-held", "pull-request-failed", "pull-request-refused",
+        "pull-request-open", "pull-request-slow", "pull-request-held", "pull-request-failed", "pull-request-refused",
     ]
     let fixturePairs = [
         StubFixturePair(server: "tasks", scenario: "scenario-tasks"),
@@ -31,6 +31,7 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         StubFixturePair(server: "pull-request-held", scenario: "scenario-pull-request-held"),
         StubFixturePair(server: "pull-requests", scenario: "scenario-pull-requests"),
         StubFixturePair(server: "pull-requests-none", scenario: "scenario-pull-requests-none"),
+        StubFixturePair(server: "events/diff-updated", scenario: "events/scenario-diff-updated"),
     ]
 
     struct State {
@@ -45,10 +46,66 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         /// When the person asked Yak to open the pull request; it is open two seconds later.
         var openingStartedAt: Date?
         var openingRefused = false
+        /// The sequence of the next event the stub publishes; the paired thread's show ends at 14.
+        var nextSequence = 15
+        /// The playing of `changes-working` reached its `diff.updated`: the turn is over.
+        var turnEnded = false
+        var isOnline = true
     }
     let state = Locked(State())
+    private let publisher = Locked<(@Sendable (String, String) -> Void)?>(nil)
+    private let playing = Locked<Set<String>>([])
+    let playbacks = Locked<[Task<Void, Never>]>([])
 
-    func reset() { state.set(State()) }
+    func attach(publish: @escaping @Sendable (_ thread: String, _ json: String) -> Void) { publisher.set(publish) }
+
+    func setOnline(_ isOnline: Bool) { state.mutate { $0.isOnline = isOnline } }
+
+    func reset() {
+        for task in playbacks.mutate({ tasks -> [Task<Void, Never>] in defer { tasks = [] }; return tasks }) {
+            task.cancel()
+        }
+        playing.set([])
+        state.set(State())
+    }
+
+    /// `changes-working`: the first subscription to the thread plays `events/scenario-diff-updated` after the
+    /// paired show's events, one item every 400 ms; at its `diff.updated` the files are captured again.
+    func subscribed(thread id: String, scenario: String, fixtures: StubFixtures) {
+        guard scenario == "changes-working", id == Self.changesThreadID, playing.mutate({ $0.insert(id).inserted })
+        else { return }
+        let items = fixtures.scenario("events/scenario-diff-updated")["broadcasts"] as? [[String: Any]] ?? []
+        let task = Task { [self] in
+            for item in items {
+                if (try? await Task.sleep(for: .milliseconds(400))) == nil { return }
+                while !state.get().isOnline {
+                    if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
+                }
+                if item["type"] as? String == "diff.updated" {
+                    state.mutate {
+                        $0.recaptured = true
+                        $0.turnEnded = true
+                    }
+                }
+                emit(thread: id, type: item["type"] as? String ?? "", data: item["data"] ?? [String: Any]())
+            }
+        }
+        playbacks.mutate { $0.append(task) }
+    }
+
+    /// Publishes one event with the next sequence of the thread.
+    func emit(thread id: String, type: String, data: Any) {
+        let sequence = state.mutate { state -> Int in
+            defer { state.nextSequence += 1 }
+            return state.nextSequence
+        }
+        let event: [String: Any] = [
+            "sequence": sequence, "type": type, "data": data,
+            "createdAt": ISO8601DateFormatter().string(from: Date()),
+        ]
+        guard let bytes = try? JSONSerialization.data(withJSONObject: event, options: [.sortedKeys]) else { return }
+        publisher.get()?(id, String(decoding: bytes, as: UTF8.self))
+    }
 
     func control(_ request: StubRequest) -> StubReply? {
         text(request.path.hasSuffix("last-pull-request") ? state.get().lastPullRequestBody : state.get().lastBody)
@@ -101,12 +158,13 @@ final class StubChanges: StubFeature, @unchecked Sendable {
             }
         }
         if scenario == "tasks-nulls" {
-            rows = rows.map { row in
+            rows = rows.enumerated().map { index, row in
                 var row = row
-                if var pr = row["pr"] as? [String: Any] {
+                if index == 0, var pr = row["pr"] as? [String: Any] {
                     pr["url"] = NSNull()
                     row["pr"] = pr
                 }
+                if index == 1 { row["createdAt"] = NSNull() }
                 return row
             }
         }
@@ -123,6 +181,7 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         var rows = body["observations"] as? [[String: Any]] ?? []
         if let outcome = request.query["outcome"] { rows = rows.filter { ($0["outcome"] as? String) == outcome } }
         if let repo = request.query["repo"] { rows = rows.filter { ($0["repo"] as? String) == repo } }
+        if context.scenario == "tasks-nulls", !rows.isEmpty { rows[0]["repo"] = NSNull() }
         body["observations"] = rows
         return json(body)
     }

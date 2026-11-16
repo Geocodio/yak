@@ -31,6 +31,10 @@ extension StubChanges {
                 : StubReply(answer: Scenario.error(409, "ci_not_failing", "CI is not failing on this pull request."))
         default: return nil
         }
+        if context.scenario == "pull-request-slow", var slowed = reply, method == "GET", rest == ["pull-requests"] {
+            slowed.delay = .seconds(14)
+            return slowed
+        }
         if context.scenario == "changes-slow", var slowed = reply, method == "GET", rest.first == "diff" {
             slowed.delay = .seconds(14)
             return slowed
@@ -39,7 +43,7 @@ extension StubChanges {
     }
 
     private func isOpen(_ context: StubContext) -> Bool {
-        if context.scenario == "pull-request-open" { return true }
+        if ["pull-request-open", "pull-request-slow"].contains(context.scenario) { return true }
         guard let started = state.get().openingStartedAt, !state.get().openingRefused else { return false }
         return context.scenario != "pull-request-held" && Date().timeIntervalSince(started) >= Self.openingDuration
     }
@@ -87,6 +91,7 @@ extension StubChanges {
             thread["pullRequestOpening"] = ["state": "held", "error": NSNull(), "at": NSNull()]
         }
         show["thread"] = thread
+        show["latestSequence"] = state.get().nextSequence - 1
         return json(show)
     }
 
@@ -110,7 +115,7 @@ extension StubChanges {
         }
         diff["files"] = files
         diff["filesCount"] = files.count
-        if context.scenario == "changes-working" { diff["isTurnRunning"] = true }
+        if context.scenario == "changes-working" { diff["isTurnRunning"] = !state.get().turnEnded }
         body["diff"] = diff
         return body
     }
@@ -119,7 +124,9 @@ extension StubChanges {
 
     private func diffFile(_ id: Int?, _ context: StubContext) -> StubReply {
         let missing = StubReply(answer: Scenario.error(404, "not_found", "This file is not in the changes."))
-        if context.scenario == "changes-replaced", id == 501, !state.get().recaptured {
+        let isFirstReadOfTheLeavingFile =
+            (context.scenario == "changes-replaced" && id == 501) || (context.scenario == "changes-gone" && id == 503)
+        if isFirstReadOfTheLeavingFile, !state.get().recaptured {
             state.mutate { $0.recaptured = true }
             return missing
         }
@@ -156,6 +163,15 @@ extension StubChanges {
                     details: ["errors": ["acknowledged_private_publish": ["Confirm the publish."]]]))
         }
         state.mutate { $0.openingStartedAt = Date() }
+        if context.scenario != "pull-request-held" {
+            let task = Task { [self] in
+                if (try? await Task.sleep(for: .seconds(Self.openingDuration))) == nil { return }
+                emit(
+                    thread: Self.changesThreadID, type: "thread",
+                    data: ["status": "open", "sandboxState": "running", "runnerState": "idle", "blockedReason": NSNull()])
+            }
+            playbacks.mutate { $0.append(task) }
+        }
         if context.scenario == "pull-request-held" {
             return json(context.fixtures.scenario("scenario-pull-request-held"))
         }

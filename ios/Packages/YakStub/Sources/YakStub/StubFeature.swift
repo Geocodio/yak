@@ -36,6 +36,11 @@ protocol StubFeature: Sendable {
     func reset()
     /// Sockets close while offline.
     func setOnline(_ isOnline: Bool)
+    /// Called once when the server starts: `publish` sends one `thread.event` frame (the event's JSON text) to every
+    /// client subscribed to the thread.
+    func attach(publish: @escaping @Sendable (_ thread: String, _ json: String) -> Void)
+    /// A client subscribed to `private-thread.<id>`; `scenario` is the name being played.
+    func subscribed(thread id: String, scenario: String, fixtures: StubFixtures)
 }
 
 extension StubFeature {
@@ -46,6 +51,8 @@ extension StubFeature {
     func start() async throws {}
     func reset() {}
     func setOnline(_ isOnline: Bool) {}
+    func attach(publish: @escaping @Sendable (_ thread: String, _ json: String) -> Void) {}
+    func subscribed(thread id: String, scenario: String, fixtures: StubFixtures) {}
 }
 
 enum StubFeatures {
