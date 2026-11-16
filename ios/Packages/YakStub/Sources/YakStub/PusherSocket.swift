@@ -150,7 +150,8 @@ final class PusherSocket: Sendable {
     private func startPlayback(_ id: String) {
         let current = scenario()
         guard current.playsLive else { return }
-        let items = current.broadcasts(id, fixtures, "http://127.0.0.1")
+        let played = current.broadcasts(id, fixtures, "http://127.0.0.1")
+        let items = current == .oneThreadHeld ? Array(played.dropLast()) : played
         state.mutate { state in
             guard state.playing.insert(id).inserted else { return }
             state.playbacks.append(

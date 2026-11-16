@@ -156,4 +156,16 @@ import XCTest
         XCTAssertTrue(app.buttons["Copy address"].waitForExistence(timeout: 5))
         try shoot("preview-menu", audits: false)
     }
+
+    func testPreviewActivity() throws {
+        try show("preview-working")
+        XCTAssertTrue(app.buttons["activity.strip"].waitForExistence(timeout: 10))
+        try shoot("preview-activity", audits: false)
+    }
+
+    func testPreviewQuestionChip() throws {
+        try show("preview-question")
+        XCTAssertTrue(app.buttons["question.chip"].waitForExistence(timeout: 10))
+        try shoot("preview-question-chip", audits: false)
+    }
 }

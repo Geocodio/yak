@@ -14,7 +14,8 @@ import XCTest
         waitForDrawer()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        row.tap()
+        // A scenario with a question opens its thread by itself, so the drawer is already away.
+        if !app.buttons["pane.menu"].exists { row.tap() }
         let menu = app.buttons["pane.menu"]
         if menu.waitForExistence(timeout: 15) {
             menu.tap()

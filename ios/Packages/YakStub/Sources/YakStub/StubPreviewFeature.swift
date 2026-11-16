@@ -40,7 +40,7 @@ final class StubPreviewFeature: StubFeature, @unchecked Sendable {
     /// Only a scenario that plays a core scenario other than `paired` names one.
     func coreScenario(for scenario: String) -> String? {
         switch StubPreviewPlay(rawValue: scenario) {
-        case .working: "one-thread-working"
+        case .working: "one-thread-held"
         case .question: "question-open"
         default: nil
         }

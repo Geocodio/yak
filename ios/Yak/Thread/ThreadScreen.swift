@@ -73,7 +73,13 @@ struct ThreadScreen: View {
                     PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
+                    VStack(spacing: 6) {
+                        if let line = activityLine(thread, focused: focused.wrappedValue) {
+                            ActivityStrip(line: line) { openChat(focusComposer: $0) }
+                        }
+                        BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: activityLine(thread, focused: focused.wrappedValue))
                 }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
@@ -113,6 +119,9 @@ struct ThreadScreen: View {
             if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
             PaneMenuButton(panes: thread.panes, focused: focused)
             Spacer(minLength: 0)
+            if let line = activityLine(thread, focused: focused.wrappedValue) {
+                ActivityStripButton(line: line) { openChat(focusComposer: $0) }
+            }
             threadMenu(focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
         }
         .tint(.primary)
@@ -122,6 +131,16 @@ struct ThreadScreen: View {
         .padding(.vertical, 8).padding(.trailing, 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("thread.strip")
+    }
+
+    /// The line above the bar in every pane but Chat.
+    private func activityLine(_ thread: ThreadModel, focused: PaneID) -> ActivityLine? {
+        focused == .chat ? nil : ActivityLine.make(thread.snapshot)
+    }
+
+    /// The composer takes focus once the chat has one; until then this only shows Chat.
+    private func openChat(focusComposer: Bool) {
+        scene.focus(pane: .chat)
     }
 
     // MARK: Controls

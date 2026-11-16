@@ -3137,6 +3137,158 @@
           }
         }
       }
+    },
+    "activity.working": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is working"
+          }
+        }
+      }
+    },
+    "activity.steer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steer"
+          }
+        }
+      }
+    },
+    "activity.running %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running %@"
+          }
+        }
+      }
+    },
+    "activity.reading %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading %@"
+          }
+        }
+      }
+    },
+    "activity.searching %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching for %@"
+          }
+        }
+      }
+    },
+    "activity.fetching %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetching %@"
+          }
+        }
+      }
+    },
+    "activity.running.failed %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running %@. Failed"
+          }
+        }
+      }
+    },
+    "activity.reading.failed %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading %@. Failed"
+          }
+        }
+      }
+    },
+    "activity.searching.failed %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching for %@. Failed"
+          }
+        }
+      }
+    },
+    "activity.fetching.failed %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetching %@. Failed"
+          }
+        }
+      }
+    },
+    "activity.strip.label %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is working: %@. Steer"
+          }
+        }
+      }
+    },
+    "activity.strip.compact": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is working. Steer"
+          }
+        }
+      }
+    },
+    "question.chip.strip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak has a question"
+          }
+        }
+      }
+    },
+    "question.chip %lld": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld question waiting"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld questions waiting"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "version": "1.0"

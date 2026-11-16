@@ -109,6 +109,26 @@ import XCTest
         XCTAssertTrue(pageShows("Path: /", timeout: 5))
     }
 
+    func testTheStripSteersFromThePreview() throws {
+        try launch(scenario: "preview-working")
+        openPreview()
+        let strip = app.buttons["activity.strip"]
+        XCTAssertTrue(strip.waitForExistence(timeout: 10))
+        strip.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 5))
+        XCTAssertFalse(strip.exists)
+    }
+
+    func testTheQuestionChipOpensChat() throws {
+        try launch(scenario: "preview-question")
+        openPreview()
+        let chip = app.buttons["question.chip"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 10))
+        XCTAssertEqual(chip.label, "2 questions waiting")
+        chip.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 5))
+    }
+
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
