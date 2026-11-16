@@ -118,6 +118,7 @@ struct ThreadScreen: View {
         VStack(spacing: 8) {
             if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
             PaneMenuButton(panes: thread.panes, focused: focused)
+            PaneStripRow(slots: slots, focused: focused.wrappedValue)
             Spacer(minLength: 0)
             if let line = activityLine(thread, focused: focused.wrappedValue) {
                 ActivityStripButton(line: line) { openChat(focusComposer: $0) }

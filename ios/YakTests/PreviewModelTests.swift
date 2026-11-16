@@ -202,6 +202,21 @@ private func snapshot(
         #expect(model.isPerforming == nil)
     }
 
+    @Test func aRefusedIntentShowsALineWithRetryThatSendsItAgain() async throws {
+        let (model, backend, _, _) = make()
+        await model.start()
+        backend.send(snapshot(.failing, url: nil))
+        await settle { model.card != nil }
+        await model.perform(.ask(.fixPreview, isPending: false))
+        backend.send(PreviewIntentState(pending: [], refused: [.fixPreview: "Too long."]))
+        await settle { model.actionLine != nil }
+        #expect(model.actionLine == "Not sent. Too long.")
+        #expect(model.actionLineRetry == .ask(.fixPreview, isPending: false))
+        let before = backend.count("ask")
+        await model.perform(try #require(model.actionLineRetry))
+        #expect(backend.count("ask") == before + 1)
+    }
+
     @Test func copyNeverCarriesATicket() async throws {
         let (model, backend, driver, _) = make()
         await model.start()

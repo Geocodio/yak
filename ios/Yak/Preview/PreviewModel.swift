@@ -66,6 +66,8 @@ final class PreviewModel {
     private(set) var address = "/"
     private(set) var isSecure = false
     private(set) var actionLine: String?
+    /// What the action line's Retry sends again, when the line has one.
+    private(set) var actionLineRetry: PreviewAction?
     private(set) var isPerforming: PreviewAction?
     private(set) var intents = PreviewIntentState()
     /// A saved sign-in could not be erased; nothing loads until the app restarts.
@@ -199,7 +201,9 @@ final class PreviewModel {
         intents = next
         if case .ask(let intent, _) = isPerforming, next.pending.contains(intent) || next.refused[intent] != nil {
             isPerforming = nil
-            if let message = next.refused[intent] { setLine("Not sent. \(message)") }
+            if let message = next.refused[intent] {
+                setLine(String(localized: "drawer.unsent.refused \(message)"), retry: .ask(intent, isPending: false))
+            }
         }
         if snapshot.status != nil { apply(snapshot) }
     }
@@ -350,12 +354,14 @@ final class PreviewModel {
 
     // MARK: Action line
 
-    private func setLine(_ text: String) {
+    private func setLine(_ text: String, retry: PreviewAction? = nil) {
         actionLine = text
+        actionLineRetry = retry
         lineTask?.cancel()
         lineTask = Task { [weak self, clock] in
             do { try await clock.sleep(for: Self.actionLineLifetime) } catch { return }
             self?.actionLine = nil
+            self?.actionLineRetry = nil
         }
     }
 

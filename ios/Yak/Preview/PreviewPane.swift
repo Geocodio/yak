@@ -43,7 +43,10 @@ struct PreviewPane: View {
                     PreviewWebView(model: model, dataStore: dataStore)
                         .accessibilityHidden(model.card?.kind != .page)
                 }
-                layer(model)
+                // A card or page change fades; the fade is opacity only, so it also suits Reduce Motion.
+                Group { layer(model) }
+                    .animation(.easeInOut(duration: 0.2), value: model.card)
+                    .animation(.easeInOut(duration: 0.2), value: model.page)
             } else if couldNotOpen {
                 PreviewMessageCard(
                     symbol: "wifi.exclamationmark", title: "preview.notOpen.title",
@@ -117,7 +120,7 @@ struct PreviewPane: View {
             Color.clear
         } else if let card = model.card {
             if card.kind == .page {
-                pageLayer(model)
+                pageLayer(model).transition(.opacity)
             } else {
                 PreviewCardView(model: model, card: card).transition(.opacity)
             }
@@ -275,7 +278,16 @@ private struct PreviewLines: View {
     var body: some View {
         VStack(spacing: 6) {
             if let line = model.actionLine {
-                row(Text(line), identifier: "preview.actionLine")
+                row(Text(line), identifier: "preview.actionLine") {
+                    if let retry = model.actionLineRetry {
+                        Button {
+                            Task { await model.perform(retry) }
+                        } label: {
+                            Text("common.retry")
+                        }
+                        .accessibilityIdentifier("preview.actionLine.retry")
+                    }
+                }
             }
             if model.page == .slow {
                 row(Text("preview.line.slow"), identifier: "preview.slow") {
@@ -332,6 +344,9 @@ private struct PreviewBarSlots: ViewModifier {
             content
                 .paneBarRow(key: "preview.row.\(model.card?.kind == .page)") {
                     PreviewBarRow(model: model, axis: .horizontal)
+                }
+                .paneStripRow(key: "preview.strip.\(model.card?.kind == .page)") {
+                    PreviewBarRow(model: model, axis: .vertical)
                 }
                 .paneMenuItems(key: "preview.menu") { PreviewMenuItems(model: model) }
         } else {

@@ -21,6 +21,37 @@ struct PreviewBarRow: View {
     }
 
     var body: some View {
+        if axis == .vertical { strip } else { row }
+    }
+
+    /// The trailing strip of a short window: reload, then the lock that opens the address in a popover.
+    private var strip: some View {
+        VStack(spacing: 4) {
+            reloadButton
+            Button {
+                guard canEdit else { return }
+                draft = model.address
+                isEditing = true
+            } label: {
+                Image(systemName: model.isSecure ? "lock.fill" : "lock.open")
+                    .foregroundStyle(model.isSecure ? Color.green : Color.yakMuted)
+                    .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+            }
+            .opacity(canEdit ? 1 : 0.55)
+            .accessibilityLabel(Text("preview.address.label \(model.address)"))
+            .accessibilityValue(Text(model.isSecure ? "preview.secure" : "preview.testConnection"))
+            .accessibilityIdentifier("preview.address")
+            .popover(isPresented: $isEditing) {
+                field.padding(12).frame(minWidth: 280)
+                    .presentationCompactAdaptation(.popover)
+                    .onAppear { isFocused = true }
+            }
+        }
+        .background { reloadShortcut }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var row: some View {
         VStack(spacing: 2) {
             HStack(spacing: 4) {
                 if isEditing { field } else { addressButton }
