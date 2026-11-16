@@ -288,6 +288,49 @@ public actor Outbox {
         return item
     }
 
+    /// Gives an editable item up to its owner without deleting its attachment files: the caller now owns them and
+    /// may send them again under the same id. An item the server may already hold stays.
+    public func take(_ id: UUID) throws(OutboxEditProblem) -> OutboxItem {
+        guard !isShutDown, let index = stored.firstIndex(where: { $0.id == id }) else { throw .notFound }
+        switch stored[index].state {
+        case .sending, .slow: throw .alreadySending
+        case .queued, .waiting: if stored[index].mayHaveReachedServer { throw .mayAlreadyBeSent }
+        case .refused: break
+        }
+        let item = stored.remove(at: index)
+        do {
+            try persist()
+        } catch {
+            stored.insert(item, at: min(index, stored.count))
+            throw .notSaved
+        }
+        retryTimers.removeValue(forKey: id)?.cancel()
+        failedUploads.remove(id)
+        publish()
+        dropRecord(of: id)
+        pump()
+        return item
+    }
+
+    /// Removes the attachment folders that no item here and no name in `draftFolders` holds: what a stop between
+    /// storing a file and saving its draft left behind. An item waiting in the inbox keeps its folder.
+    public func sweepAttachmentFolders(keeping draftFolders: Set<String>) {
+        guard !isShutDown, hasLoadedList else { return }
+        let folder = "\(InstanceFolders.outbox(instance))/files"
+        let names: [String]
+        do { names = try files.list(folder) } catch { return }
+        var held = draftFolders
+        for item in stored {
+            held.insert(item.id.uuidString)
+            for attachment in item.attachments {
+                if let name = OutboxInbox.attachmentFolderName(of: attachment.path) { held.insert(name) }
+            }
+        }
+        let waiting = (try? files.list(OutboxInbox.folder(instance))) ?? []
+        for name in waiting where name.hasSuffix(".json") { held.insert(String(name.dropLast(5))) }
+        for name in names where !held.contains(name) { removeFile("\(folder)/\(name)") }
+    }
+
     /// A refused or waiting item is sent again now.
     public func retry(_ id: UUID) {
         guard !isShutDown else { return }

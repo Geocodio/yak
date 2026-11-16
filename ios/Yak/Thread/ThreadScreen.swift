@@ -54,7 +54,10 @@ struct ThreadScreen: View {
     private func run() async {
         // Text typed in the last moments before the model is replaced is saved first, then read back by the next one.
         await model?.flushDraft()
-        let next = ThreadModel(threadID: threadID, session: session)
+        // A change of `isSessionActive` runs this again for the same thread: the composer, and any send in flight in
+        // it, stays the only one for that thread.
+        let sameThreadComposer = model?.threadID == threadID ? model?.composer : nil
+        let next = ThreadModel(threadID: threadID, session: session, composer: sameThreadComposer)
         model = next
         // Drafts are local files, so the field shows the saved text before the session is active.
         await next.composer.load()

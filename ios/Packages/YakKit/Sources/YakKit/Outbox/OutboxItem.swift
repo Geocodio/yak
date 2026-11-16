@@ -176,4 +176,6 @@ public enum OutboxEditProblem: Error, Equatable, Sendable {
     case alreadySending
     /// The server may hold this `send_key` with the old text already.
     case mayAlreadyBeSent
+    /// The list could not be written, so nothing changed.
+    case notSaved
 }

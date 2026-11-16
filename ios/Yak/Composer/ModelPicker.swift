@@ -102,7 +102,7 @@ private struct ModelRow: View {
                 }
                 .buttonStyle(.borderless).foregroundStyle(.secondary)
                 .accessibilityLabel(Text("model.older \(row.label)"))
-                .accessibilityAddTraits(isExpanded ? .isSelected : [])
+                .accessibilityValue(Text(isExpanded ? "model.older.expanded" : "model.older.collapsed"))
                 .accessibilityIdentifier("model.older.\(row.id)")
             }
         }

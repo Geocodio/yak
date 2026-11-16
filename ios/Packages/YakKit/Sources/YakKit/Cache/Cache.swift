@@ -214,6 +214,26 @@ public actor Cache {
         }
     }
 
+    /// The folder names (outbox item ids) that every saved composer draft keeps attachment files in.
+    public func composerAttachmentFolders() -> Set<String> {
+        var drafts: [ComposerDraft] = []
+        let threads = (try? files.list("\(root)/threads")) ?? []
+        for name in threads {
+            if let draft = load(ComposerDraft.self, at: "\(root)/threads/\(name)/composer.json") {
+                drafts.append(draft)
+            }
+        }
+        if let draft = composerDraft(.newThread) { drafts.append(draft) }
+        var names: Set<String> = []
+        for draft in drafts {
+            if let key = draft.sendKey { names.insert(key.uuidString) }
+            for attachment in draft.attachments {
+                if let name = OutboxInbox.attachmentFolderName(of: attachment.path) { names.insert(name) }
+            }
+        }
+        return names
+    }
+
     // MARK: Widget snapshot
 
     public func widgetSnapshot() -> WidgetSnapshot? {

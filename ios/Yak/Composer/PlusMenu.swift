@@ -9,6 +9,7 @@ struct PlusMenu: View {
     @State private var isPickingFiles = false
     @State private var isTakingPhoto = false
     @State private var isChoosingModel = false
+    @State private var isShowingCameraDenied = false
     @State private var pickedPhotos: [PhotosPickerItem] = []
 
     var body: some View {
@@ -20,12 +21,16 @@ struct PlusMenu: View {
             }
             .accessibilityIdentifier("composer.plusMenu.photos")
             Button {
-                isTakingPhoto = true
+                if CameraPicker.access == .denied { isShowingCameraDenied = true } else { isTakingPhoto = true }
             } label: {
                 Label("plus.camera", systemImage: "camera")
-                if !CameraPicker.isAvailable { Text("plus.cameraUnavailable") }
+                switch CameraPicker.access {
+                case .unavailable: Text("plus.cameraUnavailable")
+                case .denied: Text("plus.cameraDenied.short")
+                case .available: EmptyView()
+                }
             }
-            .disabled(!CameraPicker.isAvailable)
+            .disabled(CameraPicker.access == .unavailable)
             .accessibilityIdentifier("composer.plusMenu.camera")
             Button {
                 isPickingFiles = true
@@ -60,34 +65,75 @@ struct PlusMenu: View {
         .onChange(of: pickedPhotos) { _, items in
             guard !items.isEmpty else { return }
             pickedPhotos = []
+            // Send stays off from the pick itself, not from the first item that has loaded.
+            composer.reservePicks(items.count)
             Task { await addPhotos(items) }
         }
         .fileImporter(isPresented: $isPickingFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) {
             result in
             switch result {
-            case .success(let urls): Task { for url in urls { await composer.addFile(at: url) } }
+            case .success(let urls):
+                composer.reservePicks(urls.count)
+                Task { for url in urls { await composer.addFile(at: url, isReserved: true) } }
             case .failure: composer.reportUnreadable()
             }
         }
         .fullScreenCover(isPresented: $isTakingPhoto) {
             CameraPicker { data in
-                Task { await composer.add(data, fileName: "Photo.jpg", contentType: "image/jpeg") }
+                composer.reservePicks(1)
+                Task { await composer.add(data, fileName: "Photo.jpg", contentType: "image/jpeg", isReserved: true) }
             }
             .ignoresSafeArea()
         }
         .sheet(isPresented: $isChoosingModel) { ModelPicker(composer: composer) }
+        .sheet(isPresented: $isShowingCameraDenied) { CameraDeniedSheet() }
     }
 
     private func addPhotos(_ items: [PhotosPickerItem]) async {
         for item in items {
             guard let data = try? await item.loadTransferable(type: Data.self) else {
-                composer.reportUnreadable()
+                composer.releasePick()
                 continue
             }
             let type = item.supportedContentTypes.first { $0.conforms(to: .image) }
             await composer.add(
                 data, fileName: "Photo.\(type?.preferredFilenameExtension ?? "jpg")",
-                contentType: type?.preferredMIMEType ?? "image/jpeg")
+                contentType: type?.preferredMIMEType ?? "image/jpeg", isReserved: true)
         }
+    }
+}
+
+/// What the Camera row opens when access to the camera is off: why, and the way to Settings.
+private struct CameraDeniedSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    Image(systemName: "camera.fill").font(.system(size: 40)).foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    Text("plus.cameraDenied.title").font(.title3.weight(.semibold)).multilineTextAlignment(.center)
+                    Text("plus.cameraDenied.body").font(.body).foregroundStyle(.primary.opacity(0.85))
+                        .multilineTextAlignment(.center)
+                    Button("plus.cameraDenied.settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    }
+                    .buttonStyle(.borderedProminent).tint(.primary).controlSize(.large)
+                    .accessibilityIdentifier("composer.cameraDenied.settings")
+                }
+                .padding(24).frame(maxWidth: .infinity)
+            }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("plus.cameraDenied.close") { dismiss() }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium])
+        .accessibilityIdentifier("composer.cameraDenied")
     }
 }

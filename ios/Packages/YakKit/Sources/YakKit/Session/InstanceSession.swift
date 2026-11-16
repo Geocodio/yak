@@ -219,7 +219,10 @@ public actor InstanceSession {
         currentOutbox = newOutbox
         feed = ThreadListFeed(
             instance: instance, client: client, cache: newCache, instances: instances, clock: environment.clock)
-        Task { await newOutbox.load() }
+        Task {
+            await newOutbox.load()
+            await newOutbox.sweepAttachmentFolders(keeping: await newCache.composerAttachmentFolders())
+        }
     }
 
     /// Stores what `me` says, then starts realtime and puts every open thread on it.
@@ -518,6 +521,13 @@ public actor InstanceSession {
     public func send(_ draft: OutboxDraft) async throws(SendProblem) -> OutboxItem {
         guard isActive, let currentOutbox else { throw .notActive }
         do { return try await currentOutbox.enqueue(draft) } catch { throw .notSaved }
+    }
+
+    /// Edit on a refused or waiting item: the item leaves the outbox and its files stay for the caller. Nil when the
+    /// item is not there, is sending or may already be on the server.
+    public func takeOutboxItem(_ id: UUID) async -> OutboxItem? {
+        guard let currentOutbox else { return nil }
+        return try? await currentOutbox.take(id)
     }
 
     // MARK: Composer drafts and new threads

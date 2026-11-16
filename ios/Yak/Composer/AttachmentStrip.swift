@@ -54,8 +54,8 @@ private struct AttachmentTile: View {
 
     @ViewBuilder private var content: some View {
         if let thumbnail, let image = UIImage(data: thumbnail) {
-            Image(uiImage: image).resizable().scaledToFill()
-                .accessibilityLabel(Text(verbatim: attachment.reference))
+            // The reference under the tile names it, so the picture itself says nothing more.
+            Image(uiImage: image).resizable().scaledToFill().accessibilityHidden(true)
         } else {
             VStack(spacing: 4) {
                 Image(systemName: "doc").font(.title3)

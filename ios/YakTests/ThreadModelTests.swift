@@ -152,3 +152,11 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
     await unreachable.stop()
     await fixture.session.stop()
 }
+
+@MainActor @Test func aLaterModelOfTheSameThreadKeepsTheComposerOfTheEarlierOne() async throws {
+    let fixture = try await Fixture()
+    let first = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    let second = ThreadModel(threadID: "d0e515ef", session: fixture.session, composer: first.composer)
+    #expect(second.composer === first.composer)
+    await fixture.session.stop()
+}

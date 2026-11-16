@@ -22,12 +22,15 @@ final class ThreadModel {
     /// Counts opens and closes, so an open that finishes after a stop closes its own engine again.
     private var generation = 0
 
-    init(threadID: String, session: InstanceSession) {
+    /// `composer` is the one an earlier model of the same thread made, so a thread never has two.
+    init(threadID: String, session: InstanceSession, composer: ComposerModel? = nil) {
         self.threadID = threadID
         self.session = session
-        composer = ComposerModel(
-            key: .thread(threadID),
-            backend: LiveComposerBackend(session: session, engine: nil, threadID: threadID), clock: SystemClock())
+        self.composer =
+            composer
+            ?? ComposerModel(
+                key: .thread(threadID),
+                backend: LiveComposerBackend(session: session, engine: nil, threadID: threadID), clock: SystemClock())
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }

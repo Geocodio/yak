@@ -74,6 +74,8 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
     private var files: [String: Data] = [:]
     private var storeFailure: FileStoreError?
     private var storeDelay: Duration?
+    private var saveDelay: Duration?
+    private var limitsDelay: Duration?
     private var attachmentLimits: Me.AttachmentLimits? = try? JSONDecoder().decode(
         Me.AttachmentLimits.self, from: Data(#"{"maxFiles":8,"maxFileBytes":10485760}"#.utf8))
 
@@ -85,6 +87,18 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
         get { lock.withLock { storeDelay } }
         set { lock.withLock { storeDelay = newValue } }
     }
+    /// Delays the write of every non-empty draft, so such a save can land after a later one.
+    var slowSave: Duration? {
+        get { lock.withLock { saveDelay } }
+        set { lock.withLock { saveDelay = newValue } }
+    }
+    var slowLimits: Duration? {
+        get { lock.withLock { limitsDelay } }
+        set { lock.withLock { limitsDelay = newValue } }
+    }
+    private var held: [UUID: OutboxItem] = [:]
+    func hold(_ item: OutboxItem) { lock.withLock { held[item.id] = item } }
+    func takeOutboxItem(_ id: UUID) async -> OutboxItem? { lock.withLock { held.removeValue(forKey: id) } }
     func keep(_ data: Data, at path: String) { lock.withLock { files[path] = data } }
 
     var sendFailure: SendProblem? {
@@ -130,6 +144,8 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
     }
 
     func saveDraft(_ draft: ComposerDraft?, for key: ComposerDraftKey) async {
+        // A write already under way is not cut short by the caller's cancellation.
+        if draft != nil, let delay = slowSave { await Task.detached { try? await Task.sleep(for: delay) }.value }
         lock.withLock { drafts[key] = draft }
     }
 
@@ -157,12 +173,73 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
 
     func discardAttachment(_ attachment: OutboxAttachment) async { lock.withLock { discarded.append(attachment) } }
 
-    func limits() async -> Me.AttachmentLimits? { lock.withLock { attachmentLimits } }
+    func limits() async -> Me.AttachmentLimits? {
+        if let delay = slowLimits { try? await Task.sleep(for: delay) }
+        return lock.withLock { attachmentLimits }
+    }
 
     func stop() async -> ThreadActionOutcome {
         lock.withLock { stopCalls += 1 }
         if let delay = slowStop { try? await Task.sleep(for: delay) }
         return stopResult
+    }
+}
+
+/// The real outbox and cache over an in-memory file store; the transport refuses every message, so an item that is
+/// sent ends up refused and waits for Edit.
+private final class OutboxBackedComposerBackend: ComposerBackend, @unchecked Sendable {
+    struct RefusingTransport: HTTPTransport {
+        func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 409, httpVersion: nil, headerFields: ["Content-Type": "application/json"]
+            )!
+            return (Data(#"{"error":"thread_closed","message":"Closed"}"#.utf8), response)
+        }
+    }
+
+    let files = InMemoryFileStore()
+    let instance = UUID()
+    let outbox: Outbox
+    private let cache: Cache
+
+    init() {
+        outbox = Outbox(
+            instance: instance,
+            client: APIClient(
+                baseURL: URL(string: "https://example.test")!, token: "test-token", transport: RefusingTransport(),
+                appVersion: "1.0", systemDescription: "Test phone"),
+            files: files, clock: SystemClock(), makeID: { UUID() })
+        cache = Cache(instance: instance, files: files, clock: SystemClock())
+    }
+
+    func draft(_ key: ComposerDraftKey) async -> ComposerDraft? { await cache.composerDraft(key) }
+    func saveDraft(_ draft: ComposerDraft?, for key: ComposerDraftKey) async {
+        await cache.saveComposerDraft(draft, for: key)
+    }
+    func send(_ draft: OutboxDraft) async throws(SendProblem) -> OutboxItem {
+        do { return try await outbox.enqueue(draft) } catch { throw .notSaved }
+    }
+    func stop() async -> ThreadActionOutcome { .done }
+    func storeAttachment(_ prepared: PreparedAttachment, reference: String, sendKey: UUID) async throws(FileStoreError)
+        -> OutboxAttachment
+    {
+        let path = OutboxInbox.attachmentPath(instance: instance, item: sendKey, fileName: prepared.fileName)
+        try files.write(prepared.data, to: path, protection: .untilFirstUnlock)
+        return OutboxAttachment(
+            reference: reference, fileName: prepared.fileName, contentType: prepared.contentType, path: path)
+    }
+    func attachmentData(_ attachment: OutboxAttachment) async -> Data? { try? files.read(attachment.path) }
+    func discardAttachment(_ attachment: OutboxAttachment) async { try? files.remove(attachment.path) }
+    func limits() async -> Me.AttachmentLimits? { nil }
+    func takeOutboxItem(_ id: UUID) async -> OutboxItem? { try? await outbox.take(id) }
+
+    /// Waits until the outbox has answered the item with a refusal.
+    func waitForRefusal() async -> OutboxItem? {
+        for _ in 0..<500 {
+            if let item = await outbox.items().first, case .refused = item.state { return item }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return nil
     }
 }
 
@@ -227,8 +304,10 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         again.update(snapshot: try snapshot(state: "readonly"))
         #expect(again.bar.unavailable == .readOnly)
         #expect(again.text == "Use the draft names")
-        again.restore(refusedItem(text: "Old text", attachments: [attachment("Image #1")]))
-        #expect(again.text == "Old text")
+        let refused = refusedItem(text: "Old text", attachments: [attachment("Image #1")])
+        backend.hold(refused)
+        await again.restore(refused)
+        #expect(again.text == "Old text\nUse the draft names")
         #expect(again.attachments.map(\.reference) == ["Image #1"])
     }
 
@@ -236,6 +315,7 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         let backend = FakeComposerBackend()
         let clock = StepClock()
         let sendKey = UUID()
+        backend.keep(imageData(), at: attachment("Image #1").path)
         backend.seed(
             ComposerDraft(
                 text: "  Add the test  ", model: "opus", sendKey: sendKey, attachments: [attachment("Image #1")]),
@@ -337,10 +417,12 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         composer.text = "First"
         async let inFlight: Void = composer.send(delivery: .steer)
         while !composer.isSending { await Task.yield() }
-        composer.text = "First and more"
+        #expect(composer.text == "")
+        composer.text = " and more"
         await inFlight
-        #expect(composer.text == "First and more")
-        #expect(backend.savedDraft(.thread("d0e515ef"))?.text == "First and more")
+        #expect(composer.text == " and more")
+        #expect(backend.sentDrafts.map(\.text) == ["First"])
+        #expect(backend.savedDraft(.thread("d0e515ef"))?.text == " and more")
     }
 
     @Test func aLateLoadDoesNotOverwriteTyping() async {
@@ -505,5 +587,193 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         await composer.send(delivery: .steer)
         #expect(backend.sentDrafts.first?.model == "opus")
         #expect(composer.effectiveModel == "sonnet")
+    }
+
+    // MARK: One draft, one in-flight send
+
+    @Test func attachmentsAddedWhileSendingBelongToTheNextDraft() async throws {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        composer.text = "First"
+        await composer.add(imageData(), fileName: "a.png", contentType: "image/png")
+        let sentKey = try #require(backend.storedSendKeys.first)
+        backend.slowSend = .milliseconds(100)
+        async let inFlight: Void = composer.send(delivery: .steer)
+        while !composer.isSending { await Task.yield() }
+        #expect(composer.attachments.isEmpty)
+        await composer.add(imageData(), fileName: "b.png", contentType: "image/png")
+        await inFlight
+        #expect(backend.sentDrafts.map(\.sendKey) == [sentKey])
+        #expect(backend.storedSendKeys.count == 2 && backend.storedSendKeys[1] != sentKey)
+        #expect(composer.attachments.count == 1)
+        backend.slowSend = nil
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.count == 2)
+        #expect(
+            backend.sentDrafts[1].sendKey == backend.storedSendKeys[1] && backend.sentDrafts[1].attachments.count == 1)
+    }
+
+    @Test func aFailedSendBringsTheTakenDraftBackInFrontOfWhatWasTyped() async throws {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        composer.text = "First"
+        await composer.add(imageData(), fileName: "a.png", contentType: "image/png")
+        let first = composer.attachments[0]
+        let sentKey = try #require(backend.storedSendKeys.first)
+        backend.slowSend = .milliseconds(100)
+        backend.sendFailure = .notSaved
+        async let inFlight: Void = composer.send(delivery: .steer)
+        while !composer.isSending { await Task.yield() }
+        composer.text = "more"
+        await composer.add(imageData(), fileName: "b.png", contentType: "image/png")
+        await inFlight
+        #expect(composer.text == "First\nmore")
+        #expect(composer.attachments.first == first && composer.attachments.count == 2)
+        #expect(composer.thumbnails[first.reference] != nil)
+        #expect(composer.problem == "This message could not be saved. Try again.")
+        backend.sendFailure = nil
+        backend.slowSend = nil
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.count == 1 && backend.sentDrafts[0].sendKey == sentKey)
+        #expect(backend.sentDrafts[0].attachments.count == 2)
+    }
+
+    @Test func aRemoveCannotReachTheFilesOfAnInFlightSend() async throws {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        composer.text = "First"
+        await composer.add(imageData(), fileName: "a.png", contentType: "image/png")
+        let inFlightAttachment = composer.attachments[0]
+        backend.slowSend = .milliseconds(100)
+        async let inFlight: Void = composer.send(delivery: .steer)
+        while !composer.isSending { await Task.yield() }
+        await composer.remove(inFlightAttachment)
+        await inFlight
+        #expect(backend.discardedReferences.isEmpty)
+        #expect(backend.sentDrafts.first?.attachments == [inFlightAttachment])
+    }
+
+    @Test func aDraftHasItsSendKeyFromTheFirstCharacter() async {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.text = "a"
+        await composer.flush()
+        let key = backend.savedDraft(.thread("d0e515ef"))?.sendKey
+        #expect(key != nil)
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.first?.sendKey == key)
+        composer.text = "b"
+        await composer.flush()
+        #expect(backend.savedDraft(.thread("d0e515ef"))?.sendKey != key)
+    }
+
+    @Test func aLateSaveCannotBringASentDraftBack() async {
+        let backend = FakeComposerBackend()
+        backend.slowSave = .milliseconds(150)
+        let clock = StepClock()
+        let composer = makeModel(backend: backend, clock: clock)
+        composer.text = "Sent soon"
+        await clock.advance(by: .milliseconds(500))
+        try? await Task.sleep(for: .milliseconds(30))
+        await composer.send(delivery: .steer)
+        try? await Task.sleep(for: .milliseconds(400))
+        #expect(backend.sentDrafts.count == 1)
+        #expect(backend.savedDraft(.thread("d0e515ef")) == nil)
+    }
+
+    @Test func aDraftThatLoadsWithMissingFilesDropsThemAndSaysSo() async {
+        let backend = FakeComposerBackend()
+        let kept = OutboxAttachment(
+            reference: "Image #2", fileName: "k.jpg", contentType: "image/jpeg", path: "a/k.jpg")
+        backend.keep(imageData(), at: kept.path)
+        backend.seed(
+            ComposerDraft(text: "Hi", sendKey: UUID(), attachments: [attachment("Image #1"), kept]),
+            for: .thread("d0e515ef"))
+        let composer = makeModel(backend: backend, clock: StepClock())
+        await composer.load()
+        #expect(composer.attachments == [kept])
+        #expect(composer.problem == "An attachment of this draft is gone from this device, so it was removed.")
+        #expect(backend.savedDraft(.thread("d0e515ef"))?.attachments == [kept])
+    }
+
+    @Test func anAddThatWaitsForTheLimitsAlreadyCountsAsBeingAdded() async throws {
+        let backend = FakeComposerBackend()
+        backend.slowLimits = .milliseconds(150)
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.text = "Hi"
+        let adding = Task { await composer.add(imageData(), fileName: "a.png", contentType: "image/png") }
+        await Task.yield()
+        await Task.yield()
+        #expect(composer.preparingCount == 1 && !composer.canSend)
+        await adding.value
+        #expect(composer.preparingCount == 0 && composer.canSend)
+    }
+
+    // MARK: Picks and Edit
+
+    @Test func aPickCountsAsBeingAddedFromThePickUntilEveryItemIsDone() async throws {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        composer.text = "Hi"
+        composer.reservePicks(3)
+        #expect(composer.preparingCount == 3 && !composer.canSend)
+        await composer.add(imageData(), fileName: "a.png", contentType: "image/png", isReserved: true)
+        #expect(composer.preparingCount == 2 && !composer.canSend)
+        composer.releasePick()
+        #expect(composer.preparingCount == 1 && !composer.canSend && composer.problem == "This file could not be read.")
+        await composer.add(imageData(), fileName: "b.png", contentType: "image/png", isReserved: true)
+        #expect(composer.preparingCount == 0 && composer.canSend)
+        #expect(composer.attachments.count == 2)
+    }
+
+    @Test func aReservedPickStillHonorsTheFileLimit() async throws {
+        let backend = FakeComposerBackend()
+        backend.maximumFiles = 1
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.reservePicks(2)
+        await composer.add(imageData(), fileName: "a.png", contentType: "image/png", isReserved: true)
+        await composer.add(imageData(), fileName: "b.png", contentType: "image/png", isReserved: true)
+        #expect(composer.attachments.count == 1 && composer.preparingCount == 0)
+        #expect(composer.problem == "You can attach up to 1 file.")
+    }
+
+    @Test func editOnARefusedItemMovesItsFilesIntoTheDraftAndTheNextSendReallySendsThem() async throws {
+        let backend = OutboxBackedComposerBackend()
+        let composer = ComposerModel(key: .thread("d0e515ef"), backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        composer.text = "Look at this"
+        await composer.add(imageData(), fileName: "a.png", contentType: "image/png")
+        let sentAttachment = try #require(composer.attachments.first)
+        await composer.send(delivery: .steer)
+        #expect(composer.text == "" && composer.attachments.isEmpty)
+        let refused = try #require(await backend.waitForRefusal())
+
+        composer.text = "Typed meanwhile"
+        let isRestored = await composer.restore(refused)
+        #expect(isRestored)
+        #expect(await backend.outbox.items().isEmpty)
+        #expect(composer.text == "Look at this\nTyped meanwhile")
+        #expect(composer.attachments == [sentAttachment])
+        #expect(try backend.files.read(sentAttachment.path) != nil)
+
+        await composer.send(delivery: .steer)
+        let again = try #require(await backend.outbox.items().first)
+        #expect(again.text == "Look at this\nTyped meanwhile" && again.attachments == [sentAttachment])
+        #expect(again.id == refused.id)
+        #expect(try backend.files.read(sentAttachment.path) != nil)
+    }
+
+    @Test func editOnAnItemTheOutboxHasNotGivenUpChangesNothing() async throws {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.text = "Mine"
+        let isRestored = await composer.restore(refusedItem(text: "Gone", attachments: [attachment("Image #1")]))
+        #expect(!isRestored)
+        #expect(composer.text == "Mine" && composer.attachments.isEmpty)
+        #expect(composer.problem == "This message cannot be edited any more.")
     }
 }

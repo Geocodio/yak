@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -6,7 +7,19 @@ struct CameraPicker: UIViewControllerRepresentable {
     let onPhoto: (Data) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    static var isAvailable: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
+    enum Access { case available, denied, unavailable }
+
+    /// No camera on this device, access refused in Settings (or by a profile), or ready to use.
+    static var access: Access {
+        #if DEBUG
+            if UserDefaults.standard.string(forKey: "yakTestCamera") == "denied" { return .denied }
+        #endif
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else { return .unavailable }
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .denied, .restricted: return .denied
+        default: return .available
+        }
+    }
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()

@@ -14,6 +14,8 @@ protocol ComposerBackend: Sendable {
     func attachmentData(_ attachment: OutboxAttachment) async -> Data?
     func discardAttachment(_ attachment: OutboxAttachment) async
     func limits() async -> Me.AttachmentLimits?
+    /// Gives a refused or waiting item up with its files; nil when it cannot be edited any more.
+    func takeOutboxItem(_ id: UUID) async -> OutboxItem?
 }
 
 struct LiveComposerBackend: ComposerBackend {
@@ -47,10 +49,16 @@ struct LiveComposerBackend: ComposerBackend {
     func discardAttachment(_ attachment: OutboxAttachment) async { await session.discardAttachment(attachment) }
 
     func limits() async -> Me.AttachmentLimits? { await session.me()?.attachments }
+
+    func takeOutboxItem(_ id: UUID) async -> OutboxItem? { await session.takeOutboxItem(id) }
 }
 
 /// The text, attachments and model of one message being written, and the rules for sending, stopping and keeping
 /// the draft. The bar's controls come from `bar`; the typed text is never cleared by anything but a send.
+///
+/// A draft has a send key from its first character or attachment. A send takes the draft out of the field before
+/// anything is awaited, so what is typed or added next belongs to a new draft with a new key; when the outbox
+/// refuses the send, the taken draft comes back in front of that. Saves run one after another.
 @MainActor @Observable
 final class ComposerModel {
     let key: ComposerDraftKey
@@ -72,11 +80,15 @@ final class ComposerModel {
     private var typedText = ""
     private var snapshot: ConversationSnapshot?
     private var sendKey: UUID?
+    /// The draft a send has taken out of the field and the outbox has not accepted yet.
+    private var inFlight: ComposerDraft?
+    private var inFlightThumbnails: [String: Data] = [:]
     private var hasLoaded = false
     private var hasEdited = false
     /// The highest attachment number handed out, so two adds in flight never share one.
     private var highestReservedNumber = 0
     private var saveTask: Task<Void, Never>?
+    private var saveChain: Task<Void, Never>?
     @ObservationIgnored private var backend: any ComposerBackend
     @ObservationIgnored private let clock: any YakClock
     @ObservationIgnored private static let saveDelay = Duration.milliseconds(500)
@@ -107,6 +119,7 @@ final class ComposerModel {
             typedText = newValue
             hasEdited = true
             problem = nil
+            refreshSendKey()
             scheduleSave()
         }
     }
@@ -133,9 +146,19 @@ final class ComposerModel {
         hasLoaded = true
         guard let saved else { return }
         if !hasEdited { typedText = saved.text }
-        if attachments.isEmpty { attachments = saved.attachments }
+        var kept: [OutboxAttachment] = []
+        for attachment in saved.attachments where await backend.attachmentData(attachment) != nil {
+            kept.append(attachment)
+        }
+        let known = Set(attachments.map(\.path))
+        attachments = kept.filter { !known.contains($0.path) } + attachments
         if model == nil { model = saved.model }
         sendKey = sendKey ?? saved.sendKey
+        refreshSendKey()
+        if kept.count != saved.attachments.count {
+            problem = String(localized: "composer.problem.filesGone")
+            await saveNow()
+        }
         await fillMissingThumbnails()
     }
 
@@ -150,35 +173,77 @@ final class ComposerModel {
         else { return }
         isSending = true
         defer { isSending = false }
-        let trimmed = typedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let taken = takeDraft()
         let draft = OutboxDraft(
-            target: .thread(threadID), text: trimmed, model: model, delivery: delivery, attachments: attachments,
-            sendKey: sendKey)
+            target: .thread(threadID), text: taken.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            model: taken.model, delivery: delivery, attachments: taken.attachments, sendKey: taken.sendKey)
         do {
             _ = try await backend.send(draft)
         } catch {
+            putBack(taken)
             problem =
                 error == .notSaved
                 ? String(localized: "composer.problem.notSaved") : String(localized: "composer.problem.notActive")
             refusalCount += 1
+            await saveNow()
             return
         }
+        // The outbox owns the sent draft's files now.
+        inFlight = nil
+        inFlightThumbnails = [:]
+        problem = nil
+        await saveNow()
+    }
+
+    /// Empties the field and hands its draft over: what is typed or added next starts a new draft.
+    private func takeDraft() -> ComposerDraft {
+        let taken = ComposerDraft(
+            text: typedText, model: model, sendKey: sendKey ?? UUID(), attachments: attachments)
         saveTask?.cancel()
         hasEdited = true
-        problem = nil
-        // Text typed while the send was in flight belongs to the next message and stays.
-        let isUnchanged =
-            typedText.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed && attachments == draft.attachments
+        inFlight = taken
+        inFlightThumbnails = thumbnails
+        typedText = ""
+        attachments = []
+        thumbnails = [:]
+        model = nil
         sendKey = nil
-        if isUnchanged {
-            typedText = ""
-            attachments = []
-            thumbnails = [:]
-            model = nil
-            await backend.saveDraft(nil, for: key)
+        problem = nil
+        return taken
+    }
+
+    /// The draft a refused send took comes back in front of whatever was typed or added meanwhile.
+    private func putBack(_ taken: ComposerDraft) {
+        let merged = merge(front: taken, with: field)
+        typedText = merged.text
+        attachments = merged.attachments
+        model = merged.model
+        sendKey = merged.sendKey
+        thumbnails.merge(inFlightThumbnails) { current, _ in current }
+        inFlight = nil
+        inFlightThumbnails = [:]
+    }
+
+    private var field: ComposerDraft {
+        ComposerDraft(text: typedText, model: model, sendKey: sendKey, attachments: attachments)
+    }
+
+    private func merge(front: ComposerDraft, with back: ComposerDraft) -> ComposerDraft {
+        let frontIsBlank = front.text.allSatisfy(\.isWhitespace)
+        let backIsBlank = back.text.allSatisfy(\.isWhitespace)
+        let text: String
+        if frontIsBlank {
+            text = back.text
+        } else if backIsBlank {
+            text = front.text
+        } else if front.text.last?.isWhitespace == true || back.text.first?.isWhitespace == true {
+            text = front.text + back.text
         } else {
-            await backend.saveDraft(currentDraft, for: key)
+            text = front.text + "\n" + back.text
         }
+        return ComposerDraft(
+            text: text, model: back.model ?? front.model, sendKey: front.sendKey ?? back.sendKey,
+            attachments: front.attachments + back.attachments)
     }
 
     func stop() async {
@@ -206,17 +271,28 @@ final class ComposerModel {
         }
     #endif
 
-    /// A refused item's Edit: its text, model and attachments come back into the field.
-    func restore(_ item: OutboxItem) {
-        typedText = item.text
-        model = item.model
-        attachments = item.attachments
-        thumbnails = [:]
-        sendKey = item.id
+    /// Edit on a refused or waiting item: the outbox gives the item up with its files, and its text and attachments
+    /// go in front of what the field already holds. False, with a line above the field, when it cannot be edited.
+    @discardableResult
+    func restore(_ item: OutboxItem) async -> Bool {
+        guard let taken = await backend.takeOutboxItem(item.id) else {
+            problem = String(localized: "composer.problem.notEditable")
+            refusalCount += 1
+            return false
+        }
+        let ownKey = attachments.isEmpty ? taken.id : sendKey
+        let merged = merge(
+            front: ComposerDraft(text: taken.text, model: taken.model, sendKey: ownKey, attachments: taken.attachments),
+            with: field)
+        typedText = merged.text
+        attachments = merged.attachments
+        model = merged.model
+        sendKey = merged.sendKey
         hasEdited = true
         problem = nil
-        scheduleSave()
-        Task { await fillMissingThumbnails() }
+        await saveNow()
+        await fillMissingThumbnails()
+        return true
     }
 
     /// Pictures of images that came back from disk: made from the stored file, off the main actor.
@@ -238,21 +314,49 @@ final class ComposerModel {
         return number
     }
 
-    /// The send key was taken for an add that failed: it goes when no attachment and no other add uses it.
-    private func releaseUnusedSendKey(tookKey: Bool) {
-        if tookKey && attachments.isEmpty && preparingCount <= 1 { sendKey = nil }
+    /// The send key was made for an add that failed: it goes when nothing else holds the draft.
+    private func releaseUnusedSendKey() {
+        if attachments.isEmpty && typedText.allSatisfy(\.isWhitespace) && preparingCount <= 1 { sendKey = nil }
+    }
+
+    /// A draft has a key from its first character or attachment, and none while it is empty.
+    private func refreshSendKey() {
+        if typedText.allSatisfy(\.isWhitespace) && attachments.isEmpty && preparingCount == 0 {
+            sendKey = nil
+        } else if sendKey == nil {
+            sendKey = UUID()
+        }
+    }
+
+    /// Takes the places of picked items before anything is awaited, so Send stays off from the pick until each one is
+    /// added or has failed. Each item then ends in `add(isReserved: true)`, `addFile(at:isReserved: true)` or
+    /// `releasePick()`.
+    func reservePicks(_ count: Int) {
+        preparingCount += count
+        problem = nil
+        refreshSendKey()
+    }
+
+    /// A reserved item that could not be loaded.
+    func releasePick() {
+        preparingCount = max(preparingCount - 1, 0)
+        reportUnreadable()
+        releaseUnusedSendKey()
     }
 
     /// Files and photos are checked against the server's limits, prepared off the main actor, stored under the
     /// draft's send key and numbered from the server's next number. A problem leaves the draft as it was.
-    func add(_ data: Data, fileName: String, contentType: String) async {
-        await readLimits()
-        guard hasRoomForAnother() else { return }
-        preparingCount += 1
+    func add(_ data: Data, fileName: String, contentType: String, isReserved: Bool = false) async {
+        if !isReserved { preparingCount += 1 }
         defer { preparingCount -= 1 }
+        refreshSendKey()
+        await readLimits()
+        guard hasRoomForAnother() else {
+            releaseUnusedSendKey()
+            return
+        }
         problem = nil
         let number = reserveAttachmentNumber()
-        let tookKey = sendKey == nil
         let key = sendKey ?? UUID()
         sendKey = key
         let prepared: PreparedAttachment
@@ -261,7 +365,7 @@ final class ComposerModel {
                 data, fileName: fileName, contentType: contentType, maximumBytes: maximumFileBytes)
         } catch {
             if highestReservedNumber == number { highestReservedNumber = number - 1 }
-            releaseUnusedSendKey(tookKey: tookKey)
+            releaseUnusedSendKey()
             problem = Self.message(for: error)
             refusalCount += 1
             return
@@ -270,38 +374,49 @@ final class ComposerModel {
         let reference = ComposerAttachments.references(isImage: [prepared.isImage], next: number)[0]
         do {
             let stored = try await backend.storeAttachment(prepared, reference: reference, sendKey: key)
+            guard attachments.count < maximumFiles else {
+                await backend.discardAttachment(stored)
+                releaseUnusedSendKey()
+                problem = Self.message(for: .tooMany(maximum: maximumFiles))
+                refusalCount += 1
+                return
+            }
             attachments.append(stored)
             thumbnails[stored.reference] = thumbnail
         } catch {
             if highestReservedNumber == number { highestReservedNumber = number - 1 }
-            releaseUnusedSendKey(tookKey: tookKey)
+            releaseUnusedSendKey()
             problem = Self.message(for: .notStored)
             refusalCount += 1
             return
         }
         hasEdited = true
-        saveTask?.cancel()
-        await backend.saveDraft(currentDraft, for: self.key)
+        await saveNow()
     }
 
     /// A file from the file importer: its size is checked before it is read.
-    func addFile(at url: URL) async {
+    func addFile(at url: URL, isReserved: Bool = false) async {
+        if !isReserved { preparingCount += 1 }
+        refreshSendKey()
         await readLimits()
-        guard hasRoomForAnother() else { return }
-        preparingCount += 1
+        guard hasRoomForAnother() else {
+            preparingCount -= 1
+            releaseUnusedSendKey()
+            return
+        }
         let data: Data
         do {
             data = try await AttachmentPreparer.read(url, maximumBytes: maximumFileBytes)
         } catch {
             preparingCount -= 1
+            releaseUnusedSendKey()
             problem = Self.message(for: error)
             refusalCount += 1
             return
         }
-        preparingCount -= 1
         let name = url.lastPathComponent
         let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-        await add(data, fileName: name, contentType: type)
+        await add(data, fileName: name, contentType: type, isReserved: true)
     }
 
     /// A picker that could not hand over its file.
@@ -319,8 +434,9 @@ final class ComposerModel {
         maximumFileBytes = limits.maxFileBytes
     }
 
+    /// Items being added take their places in the order they finish, so only the files already in the draft count.
     private func hasRoomForAnother() -> Bool {
-        guard attachmentSlotsLeft > 0 else {
+        guard attachments.count < maximumFiles else {
             problem = Self.message(for: .tooMany(maximum: maximumFiles))
             refusalCount += 1
             return false
@@ -335,9 +451,9 @@ final class ComposerModel {
         thumbnails[attachment.reference] = nil
         hasEdited = true
         problem = nil
+        refreshSendKey()
         await backend.discardAttachment(attachment)
-        saveTask?.cancel()
-        await backend.saveDraft(currentDraft, for: key)
+        await saveNow()
     }
 
     /// nil sends with the thread's own model.
@@ -362,13 +478,12 @@ final class ComposerModel {
     func flush() async {
         // Before the saved draft is read and before any edit, the field only looks empty; writing it would delete the draft.
         guard hasLoaded || hasEdited else { return }
-        saveTask?.cancel()
-        saveTask = nil
-        await backend.saveDraft(currentDraft, for: key)
+        await saveNow()
     }
 
+    /// What is on disk if the app stops now: a draft the outbox has not accepted yet is still part of it.
     private var currentDraft: ComposerDraft? {
-        let draft = ComposerDraft(text: typedText, model: model, sendKey: sendKey, attachments: attachments)
+        let draft = inFlight.map { merge(front: $0, with: field) } ?? field
         return draft.isEmpty ? nil : draft
     }
 
@@ -376,8 +491,27 @@ final class ComposerModel {
         saveTask?.cancel()
         saveTask = Task { [weak self, clock] in
             do { try await clock.sleep(for: Self.saveDelay) } catch { return }
-            guard let self, !Task.isCancelled, self.hasLoaded || self.hasEdited else { return }
+            guard let self, !Task.isCancelled else { return }
+            await self.enqueueSave().value
+        }
+    }
+
+    private func saveNow() async {
+        saveTask?.cancel()
+        saveTask = nil
+        await enqueueSave().value
+    }
+
+    /// Saves run one after another, and each writes the draft as it is when its turn comes, so a save that was
+    /// slow cannot land after a later one and bring a sent draft back.
+    private func enqueueSave() -> Task<Void, Never> {
+        let previous = saveChain
+        let next = Task { [weak self] in
+            await previous?.value
+            guard let self, self.hasLoaded || self.hasEdited else { return }
             await self.backend.saveDraft(self.currentDraft, for: self.key)
         }
+        saveChain = next
+        return next
     }
 }
