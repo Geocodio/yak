@@ -124,11 +124,21 @@ struct CodeTextView: UIViewRepresentable {
                         view?.indentation ?? "\t"
                     }))
             host.sizingOptions = [.intrinsicContentSize]
-            host.view.backgroundColor = .secondarySystemBackground
-            host.view.frame = CGRect(x: 0, y: 0, width: 320, height: 52)
-            host.view.autoresizingMask = .flexibleWidth
+            let container = UIInputView(frame: CGRect(x: 0, y: 0, width: 320, height: 52), inputViewStyle: .keyboard)
+            container.allowsSelfSizing = true
+            host.view.backgroundColor = .clear
+            host.view.translatesAutoresizingMaskIntoConstraints = false
+            container.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(host.view)
+            NSLayoutConstraint.activate([
+                host.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                host.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                host.view.topAnchor.constraint(equalTo: container.topAnchor),
+                host.view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+                container.heightAnchor.constraint(equalToConstant: 52),
+            ])
             keyRow = host
-            view.inputAccessoryView = host.view
+            view.inputAccessoryView = container
             view.reloadInputViews()
         }
     }
@@ -241,17 +251,39 @@ final class CodeUITextView: UITextView {
             textContainer.lineBreakMode = .byWordWrapping
         } else {
             textContainer.widthTracksTextView = false
-            textContainer.lineBreakMode = .byClipping
+            textContainer.lineBreakMode = .byWordWrapping
             let advance = ("8" as NSString).size(withAttributes: [.font: codeFont]).width
             let longest = text.split(separator: "\n", omittingEmptySubsequences: false).map(\.count).max() ?? 0
-            let wanted = CGFloat(longest) * advance + 16
+            let wanted = CGFloat(longest) * advance + 40
             let available = max(bounds.width - left - 8, 0)
-            textContainer.size = CGSize(width: min(max(wanted, available), 40_000), height: .greatestFiniteMagnitude)
+            desiredContainerWidth = min(max(wanted, available), 40_000)
+            textContainer.size = CGSize(width: desiredContainerWidth, height: .greatestFiniteMagnitude)
+            relayout()
         }
     }
 
+    private var laidOutWidth: CGFloat = 0
+
+    /// A new container size leaves the old line breaks in place until the layout is thrown away.
+    private func relayout() {
+        let whole = NSRange(location: 0, length: textStorage.length)
+        layoutManager.invalidateLayout(forCharacterRange: whole, actualCharacterRange: nil)
+        layoutManager.ensureLayout(for: textContainer)
+    }
+    private var desiredContainerWidth: CGFloat = 0
+
     override func layoutSubviews() {
         super.layoutSubviews()
+        if bounds.width != laidOutWidth {
+            laidOutWidth = bounds.width
+            updateGeometry()
+        }
+        if !wraps, desiredContainerWidth > 0, textContainer.size.width != desiredContainerWidth {
+            textContainer.widthTracksTextView = false
+            textContainer.lineBreakMode = .byWordWrapping
+            textContainer.size = CGSize(width: desiredContainerWidth, height: .greatestFiniteMagnitude)
+            relayout()
+        }
         gutter.frame = CGRect(x: contentOffset.x, y: contentOffset.y, width: gutterWidth, height: bounds.height)
         bringSubviewToFront(gutter)
         gutter.setNeedsDisplay()

@@ -101,6 +101,88 @@ extension XCUIApplication {
         XCTAssertTrue((output.value as? String ?? "").contains("stub$"))
     }
 
+    private func element(_ identifier: String) -> XCUIElement { app.descendants(matching: .any)[identifier] }
+
+    private func openFile(_ scenario: String = "workspace") throws {
+        try launch(scenario: scenario)
+        app.openThread("d0e515ef")
+        app.openPane("Files")
+        XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 15))
+        element("files.row.src").tap()
+        XCTAssertTrue(element("files.row.src/Importer.php").waitForExistence(timeout: 10))
+        element("files.row.src/Importer.php").tap()
+        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 10))
+    }
+
+    private func typeIntoEditor(_ text: String) {
+        let editor = app.textViews["files.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.05)).tap()
+        app.typeText(text)
+    }
+
+    func testFilesTreeOpensAFolderAndAFile() throws {
+        try launch(scenario: "workspace")
+        app.openThread("d0e515ef")
+        app.openPane("Files")
+        XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 15))
+        element("files.row.src").tap()
+        let file = element("files.row.src/Importer.php")
+        XCTAssertTrue(file.waitForExistence(timeout: 10))
+        XCTAssertTrue(file.label.contains("modified"))
+        try audit()
+        file.tap()
+        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 10))
+        try audit()
+    }
+
+    func testFilesEverythingKeepsItsStateAcrossPanes() throws {
+        try openFile()
+        app.openPane("Chat")
+        app.openPane("Files")
+        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 10))
+        XCTAssertTrue(((element("files.viewer").value as? String) ?? "").contains("Importer"))
+    }
+
+    func testEditAndSave() throws {
+        try openFile()
+        element("files.viewer.edit").tap()
+        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 10))
+        typeIntoEditor("// added by hand\n")
+        element("files.editor.save").tap()
+        XCTAssertTrue(
+            app.staticTexts["Saved. Claude reads the change at its next step."].waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 10))
+        XCTAssertTrue(((element("files.viewer").value as? String) ?? "").contains("added by hand"))
+    }
+
+    func testALostSaveIsSaved() throws {
+        try openFile("files-lost-save")
+        element("files.viewer.edit").tap()
+        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 10))
+        typeIntoEditor("// kept\n")
+        element("files.editor.save").tap()
+        XCTAssertTrue(element("files.editor.again").waitForExistence(timeout: 15))
+        element("files.editor.again").tap()
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Saved'")).firstMatch.waitForExistence(
+                timeout: 10))
+        XCTAssertEqual(try stub.get("files/puts"), "2")
+    }
+
+    func testAConflictKeepsTheText() throws {
+        try openFile("files-conflict")
+        element("files.viewer.edit").tap()
+        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 10))
+        typeIntoEditor("// mine\n")
+        element("files.editor.save").tap()
+        XCTAssertTrue(element("files.conflict").waitForExistence(timeout: 10))
+        element("files.conflict.keepMine").tap()
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Saved'")).firstMatch.waitForExistence(
+                timeout: 10))
+    }
+
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex

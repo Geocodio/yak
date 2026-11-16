@@ -1876,6 +1876,16 @@
         }
       }
     },
+    "files.row.file %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, file"
+          }
+        }
+      }
+    },
     "files.row.modified %@": {
       "localizations": {
         "en": {

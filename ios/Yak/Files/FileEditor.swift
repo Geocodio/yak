@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import YakKit
 
 /// The editor: Cancel, the name and Save on top, the lines that say what happened, the text and, over the keyboard,
@@ -11,6 +12,7 @@ struct FileEditor: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var keyboard = HardwareKeyboardMonitor()
     @State private var confirmsDiscard = false
+    @State private var isSoftwareKeyboardShown = false
     @State private var dismissedConflict = false
 
     private var edit: EditPhase { document.snapshot.edit }
@@ -35,7 +37,8 @@ struct FileEditor: View {
                 lines
                 CodeTextView(
                     text: document.text, isEditable: true, wrapsLines: document.wrapsLines,
-                    showsKeyRow: !keyboard.isAttached, accessibilityIdentifier: "files.editor",
+                    showsKeyRow: !keyboard.isAttached || isSoftwareKeyboardShown,
+                    accessibilityIdentifier: "files.editor",
                     accessibilityLabel: "files.editor.label", onChange: { document.setText($0) })
             }
             if isRegular, let theirs {
@@ -54,6 +57,13 @@ struct FileEditor: View {
         .confirmationDialog("files.editor.discardTitle", isPresented: $confirmsDiscard, titleVisibility: .visible) {
             Button("files.editor.discard", role: .destructive) { Task { await document.discard() } }
             Button("files.editor.keepEditing", role: .cancel) {}
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
+            let frame = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect) ?? .zero
+            isSoftwareKeyboardShown = frame.height > 120
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isSoftwareKeyboardShown = false
         }
         .onChange(of: scenePhase) { _, phase in Task { await document.scenePhaseChanged(phase) } }
         .onChange(of: isShown) { _, shown in if !shown { Task { await document.flushDraft() } } }

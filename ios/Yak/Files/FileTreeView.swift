@@ -116,7 +116,7 @@ struct FileTreeView: View {
         case .modified: return Text("files.row.modified \(row.name)")
         case .added: return Text("files.row.added \(row.name)")
         case .containsChanges: return Text("files.row.containsChanges \(row.name)")
-        case nil: return Text(verbatim: row.name)
+        case nil: return Text("files.row.file \(row.name)")
         }
     }
 }
