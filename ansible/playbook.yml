@@ -81,6 +81,9 @@
     - role: base
       tags: [base]
 
+    - role: admin-users
+      tags: [admin-users]
+
     - role: docker
       tags: [docker]
 
