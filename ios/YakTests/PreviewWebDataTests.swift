@@ -101,8 +101,14 @@ private final class PreviewDefaults: KeyValueStore, @unchecked Sendable {
         await setCookie("gone", for: gone, defaults: defaults)
         let foreignID = UUID()
         await WKWebsiteDataStore(forIdentifier: foreignID).httpCookieStore.setCookie(cookie("foreign"))
-        await PreviewWebData.sweep(instances: instances, defaults: defaults)
-        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+        // WebKit lets go of a released store a moment later, so a store still in use is swept again.
+        var existing: [UUID] = []
+        for _ in 0..<10 {
+            await PreviewWebData.sweep(instances: instances, defaults: defaults)
+            existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+            if !existing.contains(PreviewDataStoreID.for(instanceID: gone)) { break }
+            try await Task.sleep(for: .milliseconds(300))
+        }
         #expect(existing.contains(PreviewDataStoreID.for(instanceID: kept.id)))
         #expect(!existing.contains(PreviewDataStoreID.for(instanceID: gone)))
         #expect(existing.contains(foreignID))
