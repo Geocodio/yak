@@ -26,11 +26,13 @@ private final class AddTransport: HTTPTransport, @unchecked Sendable {
     private var answers: [Answer] = []
     private(set) var addBodies: [String] = []
     var stackName = "busy-stack"
+    var isOffline = false
 
     func queue(_ answer: Answer) { lock.withLock { answers.append(answer) } }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let url = request.url!
+        if isOffline { throw URLError(.notConnectedToInternet) }
         var status = 200
         var body = ""
         if url.path.hasSuffix("/stack/children") {
@@ -171,11 +173,94 @@ private let created = AddTransport.Answer.json(201, #"{"id":"n3wch11d","name":"c
 }
 
 @MainActor @Test func aSubThreadParentOffersTheParent() async {
+    let rig = Rig()
+    rig.transport.queue(
+        refusal(
+            409, "sub_thread_cannot_spawn", "A sub-thread cannot start sub-threads.",
+            details: #"{"parentId":"s7ackr00"}"#))
+    let model = rig.model()
+    await model.start()
+    rig.fill(model)
+    #expect(await model.add() == false)
+    #expect(model.refusedParentID == "s7ackr00")
+    #expect(model.parentToOpen == "s7ackr00")
+    #expect(model.offersParent)
+    #expect(model.problem == "A sub-thread cannot start sub-threads.")
+}
+
+@MainActor @Test func aServerNamedParentWorksWhenTheStackDidNotLoad() async {
+    let rig = Rig(stackName: "not-a-scenario")
+    rig.transport.queue(
+        refusal(409, "sub_thread_cannot_spawn", "No.", details: #"{"parentId":"s7ackr00"}"#))
+    let model = rig.model()
+    await model.start()
+    #expect(model.stack == nil)
+    #expect(model.offersParent == false)
+    rig.fill(model)
+    #expect(await model.add() == false)
+    #expect(model.offersParent)
+    #expect(model.parentToOpen == "s7ackr00")
+}
+
+@MainActor @Test func aSubThreadsStackOffersTheParentWithoutAnAdd() async {
     let rig = Rig(stackName: "child-view")
     let model = rig.model()
     await model.start()
-    #expect(model.parentOfOpenThread != nil)
     #expect(model.isAddRefused)
+    #expect(model.offersParent)
+    #expect(model.parentToOpen == "s7ackr00")
+    #expect(model.refusalSentence != nil)
+}
+
+private func sendKeys(_ bodies: [String]) -> [String] {
+    bodies.compactMap { body in
+        (try? JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any])?["send_key"] as? String
+    }
+}
+
+@MainActor @Test func aSendKeyRefusalIsRetriedWithANewKey() async {
+    let rig = Rig()
+    let sendKeyRefusal = refusal(
+        422, "validation_failed", "The send key has already been used.",
+        details: #"{"errors":{"send_key":["The send key has already been used."]}}"#)
+    rig.transport.queue(sendKeyRefusal)
+    rig.transport.queue(created)
+    let model = rig.model()
+    await model.start()
+    rig.fill(model)
+    #expect(await model.add() == true)
+    let keys = sendKeys(rig.transport.addBodies)
+    #expect(keys.count == 2)
+    #expect(Set(keys).count == 2)
+}
+
+@MainActor @Test func twoSendKeyRefusalsShowTheMessageWithoutAField() async {
+    let rig = Rig()
+    let sendKeyRefusal = refusal(
+        422, "validation_failed", "The send key has already been used.",
+        details: #"{"errors":{"send_key":["The send key has already been used."]}}"#)
+    rig.transport.queue(sendKeyRefusal)
+    rig.transport.queue(sendKeyRefusal)
+    let model = rig.model()
+    await model.start()
+    rig.fill(model)
+    #expect(await model.add() == false)
+    #expect(model.problem == "The send key has already been used.")
+    #expect(model.fieldErrors["send_key"] == nil)
+    #expect(rig.transport.addBodies.count == 2)
+}
+
+@MainActor @Test func aDoubleTapAddsOnce() async {
+    let rig = Rig()
+    rig.transport.queue(created)
+    let model = rig.model()
+    await model.start()
+    rig.fill(model)
+    async let first = model.add()
+    async let second = model.add()
+    let results = await [first, second]
+    #expect(results.filter { $0 }.count == 1)
+    #expect(rig.transport.addBodies.count == 1)
 }
 
 @MainActor @Test func aCannotSpawnRefusalKeepsItsCode() async {
@@ -195,4 +280,13 @@ private let created = AddTransport.Answer.json(201, #"{"id":"n3wch11d","name":"c
     #expect(model.isAddRefused)
     #expect(model.canAdd == false)
     #expect(model.refusalSentence != nil)
+}
+
+@MainActor @Test func offlineLeavesAddEnabledAndTheLoadOffline() async {
+    let rig = Rig()
+    rig.transport.isOffline = true
+    let model = rig.model()
+    await model.start()
+    #expect(model.load == .failed(.offline))
+    #expect(model.canAdd)
 }
