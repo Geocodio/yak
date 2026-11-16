@@ -37,7 +37,7 @@ private struct ComposerPlaceholder: View {
     var body: some View {
         Text("chat.composerPlaceholder").foregroundStyle(Color.yakMuted)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(.horizontal, 12)
-            .background(Color.primary.opacity(0.06), in: .capsule)
+            .background(Color(.secondarySystemBackground), in: .capsule)
             .accessibilityIdentifier("composer.placeholder")
     }
 }
