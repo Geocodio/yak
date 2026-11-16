@@ -67,7 +67,7 @@ struct TaskDecisionBar: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("task.decision.link").font(.subheadline.weight(.medium))
                 button("task.decision.linkButton", identifier: "task.decision.link") {
-                    if let url = URL(string: connectURL) { openWeb(url) }
+                    if let url = WebLinkRule.safeURL(connectURL) { openWeb(url) }
                 }
             }
         case .noWriteAccess:

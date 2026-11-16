@@ -227,7 +227,7 @@ enum ObservationRowAction: Equatable {
 
     static func of(_ row: ObservationRow) -> ObservationRowAction {
         if let taskID = row.taskId { return .task(taskID) }
-        if let text = row.referenceUrl, let url = URL(string: text) { return .web(url) }
+        if let url = WebLinkRule.safeURL(row.referenceUrl) { return .web(url) }
         return .none
     }
 }

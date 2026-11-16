@@ -25,6 +25,8 @@ final class TaskModel {
     private(set) var sending: TaskAction?
     /// The last refusal or failure, shown above the decision bar.
     private(set) var message: String?
+    /// The walkthrough video the player may open, or nil when there is none or its address is not safe.
+    var playableVideoURL: URL? { session.playableVideoURL(task?.walkthrough?.videoUrl) }
     /// True when the refusal behind `message` is one a reload can clear (GitHub failed or the access check failed).
     private(set) var canRetryAfterMessage = false
     /// Kept across a refusal, so typed words are never lost.

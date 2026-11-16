@@ -141,7 +141,7 @@ struct PullRequestCardSheet: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("pullRequest.row.\(row.id)")
-            if let url = URL(string: row.url) {
+            if let url = WebLinkRule.safeURL(row.url) {
                 Button {
                     webLink = WebLink(url: url)
                 } label: {

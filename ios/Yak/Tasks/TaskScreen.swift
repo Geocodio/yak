@@ -40,7 +40,7 @@ struct TaskScreen: View {
                 }
             }
             .sheet(isPresented: $isShowingVideo) {
-                if let text = model.task?.walkthrough?.videoUrl, let url = URL(string: text) {
+                if let url = model.playableVideoURL {
                     WalkthroughVideoSheet(url: url, close: { isShowingVideo = false })
                 }
             }
@@ -144,7 +144,7 @@ struct TaskScreen: View {
             let detail = task.coOwner?.stat.map {
                 String(localized: "task.pr.stat \($0.additions) \($0.deletions)")
             }
-            if let text = pr.url, let url = URL(string: text) {
+            if let url = WebLinkRule.safeURL(pr.url) {
                 Button {
                     openWeb(url)
                 } label: {
@@ -178,7 +178,7 @@ struct TaskScreen: View {
                 row(title: String(localized: "task.walkthrough.failed"), detail: walkthrough.error, isLink: false)
                     .accessibilityIdentifier("task.walkthrough")
             default:
-                if walkthrough.videoUrl != nil {
+                if model.playableVideoURL != nil {
                     Button {
                         isShowingVideo = true
                     } label: {

@@ -39,3 +39,15 @@ private func observationFixture() async throws -> TasksFixture {
     #expect(
         ObservationRowAction.of(withReference.observations[0]) == .web(URL(string: "https://example.test/issues/1")!))
 }
+
+@Test func aReferenceThatIsNotHTTPSIsNotAButton() throws {
+    var object = ScenarioFile.object("scenario-observations")
+    var rows = object["observations"] as? [[String: Any]] ?? []
+    rows[0]["taskId"] = NSNull()
+    rows[0]["taskUrl"] = NSNull()
+    rows[0]["referenceUrl"] = "javascript:alert(1)"
+    object["observations"] = rows
+    let page = try JSONDecoder().decode(
+        ObservationPage.self, from: try JSONSerialization.data(withJSONObject: object))
+    #expect(ObservationRowAction.of(page.observations[0]) == .none)
+}
