@@ -149,6 +149,43 @@ import XCTest
         try shootOverview("overview-busy")
     }
 
+    // MARK: Add a sub-thread
+
+    func testAddSubThreadSheet() throws {
+        try openAddSheet("overview-stack")
+        XCTAssertTrue(app.textFields["addSubThread.name"].exists)
+        try shoot("add-sub-thread")
+    }
+
+    func testAddSubThreadProblems() throws {
+        try openAddSheet("overview-stack")
+        app.buttons["addSubThread.add"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.name.error"].waitForExistence(timeout: 5))
+        try shoot("add-sub-thread-problems")
+    }
+
+    func testAddSubThreadRefused() throws {
+        try openAddSheet("overview-refusals")
+        let name = app.textFields["addSubThread.name"]
+        name.tap()
+        name.typeText("check-the-cache")
+        let brief = app.textFields["addSubThread.brief"]
+        brief.tap()
+        brief.typeText("Look at the cache keys.")
+        app.buttons["addSubThread.add"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.problem"].waitForExistence(timeout: 10))
+        try shoot("add-sub-thread-refused")
+    }
+
+    private func openAddSheet(_ scenario: String) throws {
+        try openOverview(scenario)
+        let add = app.buttons["overview.add"]
+        XCTAssertTrue(add.waitForExistence(timeout: 15))
+        for _ in 0..<6 where !add.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
+        add.tap()
+        XCTAssertTrue(app.textFields["addSubThread.name"].waitForExistence(timeout: 10))
+    }
+
     // MARK: Helpers
 
     private func chooseFromMenu(of childID: String, _ item: String) throws {

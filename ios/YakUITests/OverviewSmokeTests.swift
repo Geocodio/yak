@@ -64,6 +64,37 @@ import XCTest
         try audit()
     }
 
+    func testAddingASubThreadSendsOnceAndShowsIt() throws {
+        try launch(scenario: "overview-stack")
+        openThread("s7ackr00")
+        let menu = app.buttons["thread.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 15))
+        menu.tap()
+        let addItem = app.buttons["thread.menu.addSubThread"]
+        XCTAssertTrue(addItem.waitForExistence(timeout: 5))
+        addItem.tap()
+        let name = app.textFields["addSubThread.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        name.tap()
+        name.typeText("check-the-cache")
+        let brief = app.textFields["addSubThread.brief"]
+        brief.tap()
+        brief.typeText("Look at the cache keys.")
+        app.segmentedControls["addSubThread.kind"].buttons["Research"].tap()
+        try audit()
+        app.buttons["addSubThread.add"].tap()
+        let gone = NSPredicate(format: "exists == false")
+        wait(for: [XCTNSPredicateExpectation(predicate: gone, object: name)], timeout: 15)
+        let request = try stub.lastOverviewRequest()
+        XCTAssertTrue(request.contains("\"kind\":\"research\""), request)
+        XCTAssertTrue(request.contains("send_key"), request)
+        let title = app.descendants(matching: .any)["thread.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        title.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["overview.child.n3wch11d"].waitForExistence(timeout: 15))
+        try audit()
+    }
+
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
