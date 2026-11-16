@@ -4039,6 +4039,16 @@
           }
         }
       }
+    },
+    "addSubThread.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are offline. The sub-thread is added when you tap Add again online."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

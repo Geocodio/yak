@@ -29,6 +29,8 @@ final class AddSubThreadModel {
     private(set) var fieldErrors: [String: String] = [:]
     /// The server's code of the last refusal, for the sentence's extra button.
     private(set) var refusedCode: String?
+    /// The parent the server named in a `sub_thread_cannot_spawn` refusal.
+    private(set) var refusedParentID: String?
     /// Counts refusals and failures, for the error haptic.
     private(set) var refusalCount = 0
 
@@ -61,8 +63,14 @@ final class AddSubThreadModel {
 
     var parentAccountName: String? { stack?.parentAccountName }
 
-    /// The parent thread of a thread that cannot start sub-threads.
-    var parentOfOpenThread: String? { stack?.parent?.id }
+    /// The parent thread of a thread that cannot start sub-threads: the server's answer to an add, else the stack's.
+    var parentToOpen: String? { refusedParentID ?? stack?.parent?.id }
+
+    /// True when the thread is a sub-thread, by the stack or by the server's refusal, and its parent is known.
+    var offersParent: Bool {
+        let code = "sub_thread_cannot_spawn"
+        return (refusedCode == code || stack?.addChild.error == code) && parentToOpen != nil
+    }
 
     var modelLabel: String? { ModelChoices.label(for: draft.model, in: stack?.models ?? []) }
 
@@ -118,6 +126,7 @@ final class AddSubThreadModel {
         guard canAdd else { return false }
         problem = nil
         refusedCode = nil
+        refusedParentID = nil
         fieldErrors = [:]
         saveTask?.cancel()
         if !isUnsure, let local = draft.problem {
@@ -134,6 +143,11 @@ final class AddSubThreadModel {
         switch outcome {
         case .added:
             return true
+        case .cannotSpawn(let message, let parentID):
+            refusalCount += 1
+            refusedCode = "sub_thread_cannot_spawn"
+            refusedParentID = parentID
+            problem = message
         case .notAdded(.refused(let code, let message, let errors)):
             refusalCount += 1
             refusedCode = code

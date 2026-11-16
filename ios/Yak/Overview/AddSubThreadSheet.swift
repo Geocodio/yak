@@ -62,7 +62,10 @@ private struct AddSubThreadForm: View {
     var body: some View {
         Form {
             if let sentence = model.refusalSentence {
-                Section { notice(sentence, identifier: "addSubThread.refused") }
+                Section {
+                    notice(sentence, identifier: "addSubThread.refused")
+                    openParentButton
+                }
             }
             Section {
                 nameField
@@ -79,13 +82,7 @@ private struct AddSubThreadForm: View {
                 }
                 if let problem = model.problem {
                     notice(problem, identifier: "addSubThread.problem")
-                    if model.refusedCode == "sub_thread_cannot_spawn", let parent = model.parentOfOpenThread {
-                        Button("addSubThread.openParent") {
-                            close()
-                            openThread(parent)
-                        }
-                        .accessibilityIdentifier("addSubThread.openParent")
-                    }
+                    if model.refusalSentence == nil { openParentButton }
                 }
             }
             .listRowBackground(Color.clear)
@@ -111,6 +108,16 @@ private struct AddSubThreadForm: View {
         .task {
             try? await Task.sleep(for: .milliseconds(400))
             if !isLocked { focus = .name }
+        }
+    }
+
+    @ViewBuilder private var openParentButton: some View {
+        if model.offersParent, let parent = model.parentToOpen {
+            Button("addSubThread.openParent") {
+                close()
+                openThread(parent)
+            }
+            .accessibilityIdentifier("addSubThread.openParent")
         }
     }
 
@@ -235,6 +242,9 @@ private struct AddSubThreadForm: View {
                 Text("common.slow")
                 Button("common.retry") { Task { await model.retry() } }.accessibilityIdentifier("addSubThread.retry")
             }
+        case .failed(.offline):
+            Text("addSubThread.offline").font(.footnote.weight(.medium)).foregroundStyle(Color.primary)
+                .accessibilityIdentifier("addSubThread.offline")
         case .failed:
             HStack {
                 Text("addSubThread.stackFailed")
