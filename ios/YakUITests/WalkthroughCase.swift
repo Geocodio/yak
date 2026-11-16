@@ -93,7 +93,7 @@ import XCTest
             }
             // The audit cannot match some text under the dimming of a sheet to an element.
             if issue.auditType == .elementDetection, issue.element == nil,
-                ["signed-in-add-sheet", "pair-again-address-sheet"].contains(name)
+                ["signed-in-add-sheet", "pair-again-address-sheet", "model-picker"].contains(name)
             {
                 return true
             }
