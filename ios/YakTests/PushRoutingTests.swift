@@ -91,7 +91,7 @@ private func firstLink(of controller: PushController) async -> URL? {
         #expect(outcome == .handled)
     }
 
-    @Test func aWidgetLinkByTheServersAddressIsRewritten() async throws {
+    @Test func aLinkFromOutsideNamingTheServersOwnAddressIsNotMatched() async throws {
         let rig = try await makePushRig()
         let alias = try JSONDecoder().decode(
             Me.self,
@@ -110,7 +110,10 @@ private func firstLink(of controller: PushController) async -> URL? {
             push: rig.controller)
         await app.handle(
             url: URL(string: "yak://thread?instance=https%3A%2F%2Falias.example.com&id=d0e515ef")!)
-        #expect(app.takeLaunchLink() == .thread(instance: URL(string: "https://yak.example.com")!, id: "d0e515ef"))
+        // The address is the server's own claim, not one the app verified at pairing: the link stays as it came.
+        #expect(app.takeLaunchLink() == .thread(instance: URL(string: "https://alias.example.com")!, id: "d0e515ef"))
+        await app.handle(url: URL(string: "yak://thread?instance=https%3A%2F%2Fnobody.example.com&id=d0e515ef")!)
+        #expect(app.takeLaunchLink() == .thread(instance: URL(string: "https://nobody.example.com")!, id: "d0e515ef"))
     }
 
     @Test func anAccountPushOpensTheBrowserOnItsInstance() async throws {
