@@ -119,11 +119,9 @@ struct ComposerBar: View {
     /// Command Return sends, Command Shift Return sends after this turn, Command period stops.
     private var shortcuts: some View {
         Group {
-            Button("composer.shortcut.send") { send(.steer) }.keyboardShortcut(.return, modifiers: .command)
-            Button("composer.shortcut.sendAfterTurn") { send(.afterTurn) }.keyboardShortcut(
-                .return, modifiers: [.command, .shift])
-            Button("composer.shortcut.stop") { Task { await composer.stop() } }.keyboardShortcut(
-                ".", modifiers: .command)
+            Button("composer.shortcut.send") { send(.steer) }.yakShortcut(.send)
+            Button("composer.shortcut.sendAfterTurn") { send(.afterTurn) }.yakShortcut(.sendAfterTurn)
+            Button("composer.shortcut.stop") { Task { await composer.stop() } }.yakShortcut(.stop)
         }
         .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }
