@@ -89,6 +89,7 @@ struct ThreadActivityGlyph: View {
         }
         .frame(width: 18, height: 18)
         .accessibilityElement()
+        .accessibilityAddTraits(.isImage)
         .accessibilityLabel(Text(LiveActivityText.label(for: glyph)))
     }
 }

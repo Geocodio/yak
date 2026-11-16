@@ -86,7 +86,8 @@
                         } label: {
                             Text(verbatim: "Start a sample activity")
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.borderedProminent).tint(Color(red: 0.05, green: 0.3, blue: 0.75))
+                        .fontWeight(.semibold)
                         .accessibilityIdentifier("gallery.startSample")
                     }
                     .padding(16)
@@ -99,7 +100,7 @@
 
         private func section(_ name: String, @ViewBuilder content: () -> some View) -> some View {
             VStack(alignment: .leading, spacing: 8) {
-                Text(verbatim: name).font(.footnote.weight(.semibold)).foregroundStyle(Color.white.opacity(0.85))
+                Text(verbatim: name).font(.footnote.weight(.semibold)).foregroundStyle(Color.white)
                 content()
             }
         }
