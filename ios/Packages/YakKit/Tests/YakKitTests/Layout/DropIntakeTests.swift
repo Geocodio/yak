@@ -39,6 +39,8 @@ private func file(_ bytes: Int?, image: Bool = false) -> DroppedItem { DroppedIt
         #expect(
             DropIntake.decide([file(Int.max)], attached: 0, maxFiles: 5, maxFileBytes: 100) == [.tooLarge])
         #expect(DropIntake.decide([file(1)], attached: 9, maxFiles: 5, maxFileBytes: 100) == [.tooMany])
+        #expect(DropIntake.decide([file(1)], attached: -1, maxFiles: Int.max, maxFileBytes: 100) == [.accept])
+        #expect(DropIntake.decide([file(1)], attached: Int.min, maxFiles: Int.max, maxFileBytes: 100) == [.accept])
         #expect(DropIntake.decide([file(1)], attached: 0, maxFiles: -1, maxFileBytes: 100) == [.tooMany])
         #expect(DropIntake.decide([file(1)], attached: 0, maxFiles: 5, maxFileBytes: -1) == [.tooLarge])
     }

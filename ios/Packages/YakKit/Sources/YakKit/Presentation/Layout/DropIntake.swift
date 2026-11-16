@@ -38,7 +38,7 @@ public enum DropIntake {
     public static func decide(
         _ items: [DroppedItem], attached: Int, maxFiles: Int, maxFileBytes: Int
     ) -> [DropDecision] {
-        let places = (maxFiles < 0 || maxFileBytes < 0) ? 0 : max(0, maxFiles - attached)
+        let places = (maxFiles < 0 || maxFileBytes < 0) ? 0 : maxFiles - max(0, attached)
         var accepted = 0
         return items.prefix(maximumItemsLooked).map { item in
             guard let bytes = item.byteCount, bytes >= 0 else { return .unreadable }

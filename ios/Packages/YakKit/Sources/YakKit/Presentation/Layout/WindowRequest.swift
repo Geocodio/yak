@@ -13,7 +13,7 @@ public enum WindowRequest: Codable, Hashable, Sendable {
 
     /// SwiftUI restores and passes a `WindowGroup(for:)` value through this initializer, so this is where the value
     /// is checked: the kind is "blank" or "thread", the instance is a UUID and the id is exactly 8 ASCII letters or
-    /// digits. Anything else throws `DecodingError.dataCorrupted`.
+    /// digits. Anything else throws a `DecodingError`.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(String.self, forKey: .kind)

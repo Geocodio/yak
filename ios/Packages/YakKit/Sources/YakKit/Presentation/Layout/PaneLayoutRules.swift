@@ -105,6 +105,7 @@ public enum PaneLayoutRules {
         return PaneID.allCases.filter { available.contains($0) && !(panel && $0 == .overview) }
     }
 
+    /// `available` always contains `.chat` (the thread's pane list guarantees it); an empty set falls back to Chat.
     public static func plan(_ state: PaneState, available: [PaneID], inputs: LayoutInputs) -> SlotPlan {
         let size = ThreadLayout.arrangement(inputs, slotPaneCount: Set(available).count)
         let resolved = resolve(state, available: available, arrangement: size, inputs: inputs)
@@ -209,9 +210,12 @@ public enum PaneLayoutRules {
             next.second = nil
             next.secondLeads = false
         } else if old.slotCount == 1 && new.slotCount == 2 {
-            next.second = defaultSecond(
-                focused: next.focused, lastSecond: next.lastSecond,
-                candidates: slotPanes(available: available, arrangement: new, inputs: inputs))
+            let candidates = slotPanes(available: available, arrangement: new, inputs: inputs)
+            if next.focused == .overview, let beside = next.second, candidates.contains(beside) {
+                // Folded from an open panel: the pane that sat beside it comes back, `lastSecond` stays hidden.
+            } else {
+                next.second = defaultSecond(focused: next.focused, lastSecond: next.lastSecond, candidates: candidates)
+            }
             next.secondLeads = false
         }
         next = resolve(next, available: available, arrangement: new, inputs: inputs)
@@ -298,6 +302,7 @@ public enum PaneLayoutRules {
         if panel {
             if next.focused == .overview {
                 next.isOverviewPanelOpen = true
+                next.secondLeads = false
                 let replacement = next.second.flatMap { candidates.contains($0) ? $0 : nil }
                 next.focused =
                     replacement
@@ -306,16 +311,16 @@ public enum PaneLayoutRules {
             }
         } else {
             if next.isOverviewPanelOpen && hasOverview {
-                // The panel becomes the focused Overview pane; the pane it sat beside is kept as the second pane
-                // (or remembered when only one slot fits) so that opening the panel again brings it back.
+                // The panel becomes the focused Overview pane; the pane it sat beside is kept as the second pane so
+                // that opening the panel again brings it back. A hidden second pane moves to `lastSecond` (when two
+                // slots show both) or stays in `lastSecond` already (when one slot shows neither).
                 let beside = next.focused
                 if beside != .overview {
-                    if arrangement.slotCount == 2 {
-                        next.second = beside
-                        next.secondLeads = true
-                    } else {
-                        next.lastSecond = beside
+                    if arrangement.slotCount == 2, let hidden = next.second, hidden != beside {
+                        next.lastSecond = hidden
                     }
+                    next.second = beside
+                    next.secondLeads = arrangement.slotCount == 2
                 }
                 next.focused = .overview
             }

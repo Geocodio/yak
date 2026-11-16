@@ -240,6 +240,28 @@ private let bookInputs = LayoutInputs(
         #expect(PaneLayoutRules.plan(unfolded, available: all, inputs: wide).slots == startShown)
     }
 
+    @Test func aHiddenSecondPaneSurvivesAnOpenPanelAcrossAFoldOrARotation() {
+        let start = PaneState(focused: .chat, second: .terminal, isOverviewPanelOpen: true)
+        func closedSlots(_ state: PaneState) -> [PaneSlot] {
+            let plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
+            let closed = PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
+            return PaneLayoutRules.plan(closed, available: all, inputs: wide).slots
+        }
+        let expected = closedSlots(start)
+        #expect(
+            expected == [
+                PaneSlot(position: .leading, content: .pane(.chat)),
+                PaneSlot(position: .trailing, content: .pane(.terminal)),
+            ])
+        for (middle, middleInputs) in [(PaneArrangement.single, outer), (.stacked, upright)] {
+            let there = PaneLayoutRules.arrangementChanged(
+                from: .sideBySide, to: middle, state: start, available: all, inputs: middleInputs)
+            let back = PaneLayoutRules.arrangementChanged(
+                from: middle, to: .sideBySide, state: there, available: all, inputs: wide)
+            #expect(closedSlots(back) == expected, "\(middle)")
+        }
+    }
+
     @Test func defaultSecondOrder() {
         #expect(PaneLayoutRules.defaultSecond(focused: .chat, lastSecond: .terminal, candidates: all) == .terminal)
         #expect(PaneLayoutRules.defaultSecond(focused: .files, lastSecond: nil, candidates: all) == .chat)
