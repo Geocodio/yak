@@ -35,6 +35,16 @@ import YakKit
         #expect(Set(modes).count == modes.count)
     }
 
+    @Test func eachPaneSeesWhetherItIsShown() {
+        let panes: [PaneID] = [.chat, .files]
+        let scene = SceneModel(state: SceneState())
+        #expect(panes.map { scene.isShown($0, among: panes) } == [true, false])
+        scene.focus(pane: .files)
+        #expect(panes.map { scene.isShown($0, among: panes) } == [false, true])
+        scene.focus(pane: .terminal)
+        #expect(panes.map { scene.isShown($0, among: panes) } == [true, false], "a pane the thread lacks shows chat")
+    }
+
     @Test func aViewOutsideAPaneHostCountsAsShown() {
         #expect(EnvironmentValues().isPaneShown)
         #expect(EnvironmentValues().paneID == nil)

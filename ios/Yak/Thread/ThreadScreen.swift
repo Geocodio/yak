@@ -103,7 +103,7 @@ struct ThreadScreen: View {
 
     private func focusedBinding(_ thread: ThreadModel) -> Binding<PaneID> {
         Binding(
-            get: { thread.panes.contains(scene.state.focusedPane) ? scene.state.focusedPane : .chat },
+            get: { scene.shownPane(among: thread.panes) },
             set: { scene.focus(pane: $0) })
     }
 

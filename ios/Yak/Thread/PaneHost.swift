@@ -8,6 +8,7 @@ struct PaneHost: View {
     let focused: PaneID
 
     @State private var opened: [PaneID] = []
+    @Environment(SceneModel.self) private var scene
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -19,7 +20,7 @@ struct PaneHost: View {
                         .opacity(isFocused ? 1 : 0)
                         .offset(x: reduceMotion || isFocused ? 0 : offset(of: id))
                         .environment(\.paneID, id)
-                        .environment(\.isPaneShown, isFocused)
+                        .environment(\.isPaneShown, scene.isShown(id, among: thread.panes))
                         .allowsHitTesting(isFocused)
                         .accessibilityHidden(!isFocused)
                 }

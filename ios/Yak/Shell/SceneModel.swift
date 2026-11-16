@@ -88,7 +88,12 @@ final class SceneModel {
     func focus(pane: PaneID) { state.focusedPane = pane }
     /// Whether `pane` is on screen. A pane or its model that pauses work, polls or shows a chip only while visible
     /// asks this, never `focusedPane` itself, so a layout that shows two panes changes only this body.
-    func isShown(_ pane: PaneID) -> Bool { state.focusedPane == pane }
+    /// With `panes`, a focused pane the thread does not have counts as chat, the pane the thread screen then shows.
+    func isShown(_ pane: PaneID, among panes: [PaneID]? = nil) -> Bool { shownPane(among: panes) == pane }
+    func shownPane(among panes: [PaneID]?) -> PaneID {
+        guard let panes else { return state.focusedPane }
+        return panes.contains(state.focusedPane) ? state.focusedPane : .chat
+    }
     func requestSearchFocus() {
         state.isDrawerOpen = true
         searchFocusRequest += 1
