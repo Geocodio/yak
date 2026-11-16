@@ -80,11 +80,11 @@ it('keeps a manifest that links a sandbox path out of the stray work commit', fu
     Repository::factory()->create(['slug' => 'acme/web', 'github_full_name' => 'acme/web', 'default_branch' => 'main', 'ci_system' => 'none']);
     $thread = Thread::factory()->create(['title' => 'Rename the widget', 'sandbox_state' => ThreadSandboxState::Running]);
     ThreadRepository::factory()->for($thread)->create(['repo' => 'acme/api', 'branch' => 'yak/rename']);
-    $web = ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'branch' => 'yak/rename-web']);
+    $web = ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/web', 'sandbox_path' => '/home/yak/extras/web', 'branch' => 'yak/rename-web']);
 
     $sandboxes = app(SandboxManager::class);
     $sandboxes->queueExecResult(Process::result("composer.json\nsrc/Widget.php\n"));
-    $sandboxes->queueExecResult(Process::result("+        \"url\": \"/extras/lib\"\n"));
+    $sandboxes->queueExecResult(Process::result("+        \"url\": \"/home/yak/extras/lib\"\n"));
     $sandboxes->queueExecResult(Process::result());
     $sandboxes->queueExecResult(Process::result());
     $sandboxes->queueExecResult(Process::result('1'));
@@ -92,5 +92,5 @@ it('keeps a manifest that links a sandbox path out of the stray work commit', fu
     app(ThreadRepositoryPullRequests::class)->publishChangedRepositories($thread);
 
     $commands = collect($sandboxes->calls)->where('operation', 'exec')->map(fn (array $call): string => implode(' ', $call['arguments']['command']))->all();
-    expect($commands)->toContain('git -C /extras/web add -- src/Widget.php');
+    expect($commands)->toContain('git -C /home/yak/extras/web add -- src/Widget.php');
 });

@@ -20,7 +20,7 @@ function extraAheadOfOrigin(?FakeSandboxManager $shell = null): array
     $shell->setCommitCount(0);
     fakeAfterTurnCollaborators(shell: $shell);
     [$task, $run, $thread] = endedTurn(kind: TaskRunKind::Initial);
-    $web = ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'branch' => 'yak/x-web']);
+    $web = ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/web', 'sandbox_path' => '/home/yak/extras/web', 'branch' => 'yak/x-web']);
     $sandboxes = app(SandboxManager::class);
     $sandboxes->queueExecResult(Process::result());
     $sandboxes->queueExecResult(Process::result('1'));

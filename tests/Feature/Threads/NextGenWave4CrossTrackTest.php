@@ -130,8 +130,8 @@ it('carries a three repo thread from start to close with one retry on the change
             $line = implode(' ', $command);
 
             return match (true) {
-                str_contains($line, '/extras/docs') && str_contains($line, 'ls-files') => Process::result("README.md\n"),
-                str_contains($line, '/extras/web') && str_contains($line, 'rev-list') => Process::result('1'),
+                str_contains($line, '/home/yak/extras/docs') && str_contains($line, 'ls-files') => Process::result("README.md\n"),
+                str_contains($line, '/home/yak/extras/web') && str_contains($line, 'rev-list') => Process::result('1'),
                 default => Process::result(),
             };
         }
@@ -150,8 +150,8 @@ it('carries a three repo thread from start to close with one retry on the change
     (new FinishRunYakTurnJob($run->id))->handle(app(ThreadSandbox::class), app(SandboxManager::class));
 
     $calls = collect($sandbox->calls)->where('operation', 'exec')->map(fn ($call) => implode(' ', $call['arguments']['command'] ?? []));
-    expect($calls->contains(fn ($line) => str_contains($line, '/extras/web') && str_contains($line, 'push origin')))->toBeTrue()
-        ->and($calls->contains(fn ($line) => str_contains($line, '/extras/docs') && (str_contains($line, 'push') || str_contains($line, 'commit'))))->toBeFalse();
+    expect($calls->contains(fn ($line) => str_contains($line, '/home/yak/extras/web') && str_contains($line, 'push origin')))->toBeTrue()
+        ->and($calls->contains(fn ($line) => str_contains($line, '/home/yak/extras/docs') && (str_contains($line, 'push') || str_contains($line, 'commit'))))->toBeFalse();
 
     // CI is off, so both repos go straight to their pull request step.
     Queue::assertPushed(ProcessCIResultJob::class);

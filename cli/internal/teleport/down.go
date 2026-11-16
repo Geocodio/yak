@@ -730,7 +730,7 @@ func writeNote(d Deps, m api.DownManifest, applied []AppliedRepo, resumeDir, pro
 			in.NotBroughtDown = append(in.NotBroughtDown, NotBroughtDown{Repo: a.Repo, Reason: a.Reason})
 			continue
 		}
-		mapping := CheckoutMapping{SandboxPath: strings.ReplaceAll(firstNonEmpty(env.ExtrasPathPattern, "/extras/<repo>"), "<repo>", repoName(a.Repo)), LocalPath: a.Path}
+		mapping := CheckoutMapping{SandboxPath: strings.ReplaceAll(firstNonEmpty(env.ExtrasPathPattern, "/home/yak/extras/<repo>"), "<repo>", repoName(a.Repo)), LocalPath: a.Path}
 		for _, r := range m.Repos {
 			if r.Repo == a.Repo {
 				if r.SandboxPath != "" {
