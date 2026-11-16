@@ -9,9 +9,11 @@ let package = Package(
     name: "Pins",
     platforms: [.iOS("27.0")],
     products: [.library(name: "Pins", targets: ["Pins"])],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.99.2")
+    ],
     targets: [
-        .target(name: "Pins")
+        .target(name: "Pins", dependencies: [.product(name: "SwiftTerm", package: "SwiftTerm")])
     ],
     swiftLanguageModes: [.v6]
 )

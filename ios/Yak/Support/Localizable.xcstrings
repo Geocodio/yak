@@ -2067,6 +2067,16 @@
           }
         }
       }
+    },
+    "terminal.output.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminal output"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -17,6 +17,9 @@ settings:
 packages:
   YakKit:
     path: Packages/YakKit
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm
+    exactVersion: 1.99.2
 targets:
   Yak:
     type: application
@@ -26,6 +29,7 @@ targets:
       - path: Shared
     dependencies:
       - package: YakKit
+      - package: SwiftTerm
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(YAK_BUNDLE_ID)
