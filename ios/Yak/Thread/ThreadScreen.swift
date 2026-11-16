@@ -172,7 +172,7 @@ struct ThreadScreen: View {
     /// A window that grows or shrinks across the panel's width turns the open Overview into the other form.
     private func moveOverviewBetweenPaneAndPanel() {
         if isSidePanel {
-            guard scene.state.focusedPane == .overview else { return }
+            guard scene.isShown(.overview) else { return }
             scene.focus(pane: paneBeforeOverview == .overview ? .chat : paneBeforeOverview)
             scene.setOverviewPanelOpen(true)
         } else if scene.state.isOverviewPanelOpen {
