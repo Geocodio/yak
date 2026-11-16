@@ -56,6 +56,7 @@ private struct OverviewScroll: View {
     @Environment(SceneModel.self) private var scene
     @State private var browserTarget: BrowserTarget?
     @State private var outputRow: RepositoryRow?
+    @State private var isAddOpen = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
@@ -68,7 +69,8 @@ private struct OverviewScroll: View {
                     if content.subThreads != nil || shouldShowSubThreadsPlaceholder {
                         SubThreadsGroupView(
                             group: content.subThreads, load: stackLoad, model: model, retry: retry,
-                            openThreads: openThreads)
+                            openThreads: openThreads,
+                            onAdd: thread.snapshot?.show?.canDrive == true ? { isAddOpen = true } : nil)
                     }
                     StatusGroupView(status: content.status)
                     LinksGroupView(
@@ -85,6 +87,11 @@ private struct OverviewScroll: View {
         }
         .onAppear { model.onOpenThread = { scene.open(thread: $0, isCompactWidth: isCompact) } }
         .sheet(item: $browserTarget) { BrowserSheet(url: $0.url).ignoresSafeArea() }
+        .sheet(isPresented: $isAddOpen) {
+            AddSubThreadSheet(session: thread.session, parentID: thread.threadID) {
+                scene.open(thread: $0, isCompactWidth: isCompact)
+            }
+        }
         .sheet(item: $outputRow) { SetupOutputSheet(row: $0).presentationDetents([.medium, .large]) }
     }
 

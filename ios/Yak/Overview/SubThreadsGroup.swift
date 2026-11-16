@@ -9,6 +9,8 @@ struct SubThreadsGroupView: View {
     let model: OverviewModel
     let retry: () -> Void
     let openThreads: () -> Void
+    /// Opens the add sheet; nil when the person cannot drive this thread.
+    var onAdd: (() -> Void)?
 
     @State private var dropTarget: SubThreadRow?
     @State private var isStopAskOpen = false
@@ -58,6 +60,8 @@ struct SubThreadsGroupView: View {
             if group.total > 0 || group.parent == nil { rows.append(AnyView(summary(group))) }
             if case .refused(_, let message) = group.add {
                 rows.append(AnyView(refusal(message)))
+            } else if let onAdd {
+                rows.append(AnyView(addRow(onAdd)))
             }
             for row in group.rows {
                 rows.append(AnyView(SubThreadRowView(row: row, model: model) { dropTarget = $0 }))
@@ -88,6 +92,18 @@ struct SubThreadsGroupView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain).accessibilityElement(children: .combine).accessibilityIdentifier("overview.parent")
+    }
+
+    private func addRow(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus").accessibilityHidden(true)
+                Text("overview.add")
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10).frame(minHeight: 44).contentShape(.rect)
+        }
+        .buttonStyle(.plain).disabled(model.isOffline).accessibilityIdentifier("overview.add")
     }
 
     private func summary(_ group: SubThreadsGroup) -> some View {

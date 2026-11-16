@@ -20,6 +20,7 @@ struct ThreadScreen: View {
 
     @State private var model: ThreadModel?
     @State private var copiedLink = 0
+    @State private var isAddSubThreadOpen = false
     @State private var slots = PaneSlots()
     /// The pane the title returns to when it leaves the Overview.
     @State private var paneBeforeOverview: PaneID = .chat
@@ -92,10 +93,15 @@ struct ThreadScreen: View {
                             title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine,
                             action: thread.panes.contains(.overview) ? { toggleOverview(focused) } : nil)
                     }
-                    ToolbarItem(placement: .topBarTrailing) { threadMenu(focused.wrappedValue) }
+                    ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }
                 }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {
                     PaneStripToolbar(panes: thread.panes, focused: focused, thread: thread)
+                }
+            }
+            .sheet(isPresented: $isAddSubThreadOpen) {
+                AddSubThreadSheet(session: session, parentID: threadID) {
+                    scene.open(thread: $0, isCompactWidth: isCompactWidth)
                 }
             }
             .overlay(alignment: .top) { copiedToast }
@@ -127,7 +133,7 @@ struct ThreadScreen: View {
             if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
             PaneMenuButton(panes: thread.panes, focused: focused)
             Spacer(minLength: 0)
-            threadMenu(focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
+            threadMenu(thread, shownPane: focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
         }
         .tint(.primary)
         .padding(.vertical, 8).padding(.horizontal, 6)
@@ -162,8 +168,16 @@ struct ThreadScreen: View {
         .accessibilityIdentifier("threads.button")
     }
 
-    private func threadMenu(_ shownPane: PaneID) -> some View {
+    private func threadMenu(_ thread: ThreadModel, shownPane: PaneID) -> some View {
         Menu {
+            if thread.snapshot?.show?.canDrive == true {
+                Button {
+                    isAddSubThreadOpen = true
+                } label: {
+                    Label("thread.menu.addSubThread", systemImage: "arrow.triangle.branch")
+                }
+                .accessibilityIdentifier("thread.menu.addSubThread")
+            }
             PaneMenuItems(slots: slots, focused: shownPane)
             Button {
                 openWeb(webURL)

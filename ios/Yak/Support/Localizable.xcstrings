@@ -3459,6 +3459,286 @@
           }
         }
       }
+    },
+    "overview.add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a sub-thread"
+          }
+        }
+      }
+    },
+    "thread.menu.addSubThread": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a sub-thread"
+          }
+        }
+      }
+    },
+    "addSubThread.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a sub-thread"
+          }
+        }
+      }
+    },
+    "addSubThread.cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "addSubThread.add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        }
+      }
+    },
+    "addSubThread.notAllowed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This thread cannot start sub-threads."
+          }
+        }
+      }
+    },
+    "addSubThread.offlineFailure": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not added. Check the connection and try again. Your text is kept."
+          }
+        }
+      }
+    },
+    "addSubThread.unsure": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not sure this was added. Tap Add to check."
+          }
+        }
+      }
+    },
+    "addSubThread.problem.noName": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Give it a name."
+          }
+        }
+      }
+    },
+    "addSubThread.problem.nameTooLong": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use at most 60 characters."
+          }
+        }
+      }
+    },
+    "addSubThread.problem.noBrief": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Describe what it should do."
+          }
+        }
+      }
+    },
+    "addSubThread.problem.briefTooLong": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The description is too long."
+          }
+        }
+      }
+    },
+    "addSubThread.name.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "addSubThread.name.prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "short-name-for-it"
+          }
+        }
+      }
+    },
+    "addSubThread.name.count %lld %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "addSubThread.brief.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What should it do?"
+          }
+        }
+      }
+    },
+    "addSubThread.brief.prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Describe the work. The sub-thread sees only this."
+          }
+        }
+      }
+    },
+    "addSubThread.kind.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kind"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.implement": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Implement"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.research": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Research"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.mockup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mockup"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.general": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.researchNote": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reads and reports. It does not change files."
+          }
+        }
+      }
+    },
+    "addSubThread.model.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model"
+          }
+        }
+      }
+    },
+    "addSubThread.model.same": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same as this thread"
+          }
+        }
+      }
+    },
+    "addSubThread.runsOn %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Runs on %@."
+          }
+        }
+      }
+    },
+    "addSubThread.stackFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check this thread. You can still try to add."
+          }
+        }
+      }
+    },
+    "addSubThread.openParent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the parent thread"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
