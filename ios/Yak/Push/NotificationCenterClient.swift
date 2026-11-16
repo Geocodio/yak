@@ -1,4 +1,5 @@
 import UIKit
+import os
 import UserNotifications
 import YakKit
 
@@ -24,7 +25,12 @@ struct SystemNotificationCenter: NotificationCenterClient {
     }
 
     func setBadge(_ count: Int) async {
-        try? await UNUserNotificationCenter.current().setBadgeCount(count)
+        do {
+            try await UNUserNotificationCenter.current().setBadgeCount(count)
+        } catch {
+            Logger(subsystem: "Yak", category: "Push")
+                .error("The badge was not set: \(String(describing: type(of: error)), privacy: .public)")
+        }
     }
 }
 
