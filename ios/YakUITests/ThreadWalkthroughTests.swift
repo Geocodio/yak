@@ -42,6 +42,8 @@ import XCTest
         XCTAssertTrue(app.buttons["drawer.empty.everyone"].waitForExistence(timeout: 10))
         try shoot("drawer-empty-others")
         try start("empty", paired: true)
+        // The cold start closes the drawer when it opens the new-thread screen; a tap before that is lost.
+        XCTAssertTrue(app.descendants(matching: .any)["newThread"].waitForExistence(timeout: 15))
         if app.buttons["threads.button"].waitForExistence(timeout: 10) {
             app.buttons["threads.button"].tap()
         } else {

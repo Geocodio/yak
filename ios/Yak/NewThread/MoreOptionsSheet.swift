@@ -47,7 +47,8 @@ struct MoreOptionsSheet: View {
                         Button(repository.name) { model.addExtraRepository(repository.slug, role: "context") }
                     }
                 } label: {
-                    Label("newThread.more.add", systemImage: "plus.circle").frame(minHeight: 44)
+                    Label("newThread.more.add", systemImage: "plus.circle")
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(.rect)
                 }
                 .disabled(model.isLocked)
                 .accessibilityIdentifier("newThread.more.add")
