@@ -81,12 +81,16 @@ struct StubFixtures: Sendable {
         self.files = files
         var scenarioFiles: [String: Data] = [:]
         if let scenariosDirectory {
-            for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames {
+            for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames
+                + StubFeatures.all.flatMap(\.scenarioDataNames)
+            {
                 do {
                     scenarioFiles[name] = try Data(
                         contentsOf: scenariosDirectory.appendingPathComponent("\(name).json"))
                 } catch {
-                    let owner = StubFeatures.all.first { $0.fixturePairs.contains { $0.scenario == name } }?.name
+                    let owner = StubFeatures.all.first {
+                        $0.fixturePairs.contains { $0.scenario == name } || $0.scenarioDataNames.contains(name)
+                    }?.name
                     throw StubFixtureError(scenario: name, feature: owner)
                 }
             }
