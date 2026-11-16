@@ -22,7 +22,10 @@ struct AddSubThreadSheet: View {
             }
             .navigationTitle(Text("addSubThread.title"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(.systemGroupedBackground), for: .navigationBar)
+            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
         }
+        .presentationBackground(Color(.systemGroupedBackground))
         .presentationDetents([.medium, .large])
         .interactiveDismissDisabled(model?.isSending ?? false)
         .accessibilityIdentifier("addSubThread.sheet")
@@ -68,7 +71,6 @@ private struct AddSubThreadForm: View {
             Section {
                 kindPicker
                 modelPicker
-            } footer: {
                 footer
             }
             Section {
@@ -98,9 +100,12 @@ private struct AddSubThreadForm: View {
                     }
                 }
                 .yakShortcut(.cancel).disabled(model.isSending)
+                .foregroundStyle(Color.primary)
                 .accessibilityIdentifier("addSubThread.cancel")
             }
+            .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .confirmationAction) { addButton }
+                .sharedBackgroundVisibility(.hidden)
         }
         .sensoryFeedback(.error, trigger: model.refusalCount)
         .task {
@@ -116,6 +121,7 @@ private struct AddSubThreadForm: View {
             if model.isSending { ProgressView() } else { Text("addSubThread.add") }
         }
         .yakShortcut(.addSubThread).disabled(!model.canAdd)
+        .fontWeight(.semibold).foregroundStyle(Color.primary)
         .accessibilityIdentifier("addSubThread.add")
     }
 
@@ -221,7 +227,9 @@ private struct AddSubThreadForm: View {
     @ViewBuilder private var footer: some View {
         switch model.load {
         case .ready:
-            if let account = model.parentAccountName { Text("addSubThread.runsOn \(account)") }
+            if let account = model.parentAccountName {
+                Text("addSubThread.runsOn \(account)").font(.footnote.weight(.medium)).foregroundStyle(Color.primary)
+            }
         case .slow:
             HStack {
                 Text("common.slow")
