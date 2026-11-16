@@ -22,14 +22,18 @@ final class ThreadModel {
 
     /// Told each time the thread starts or stops counting as seen, so a push for it can stay quiet.
     private let onVisibilityChange: @MainActor (Bool) -> Void
+    /// Told each snapshot, so a running turn can start a Live Activity.
+    private let onSnapshot: @MainActor (ConversationSnapshot) -> Void
 
     init(
         threadID: String, session: InstanceSession,
-        onVisibilityChange: @escaping @MainActor (Bool) -> Void = { _ in }
+        onVisibilityChange: @escaping @MainActor (Bool) -> Void = { _ in },
+        onSnapshot: @escaping @MainActor (ConversationSnapshot) -> Void = { _ in }
     ) {
         self.threadID = threadID
         self.session = session
         self.onVisibilityChange = onVisibilityChange
+        self.onSnapshot = onSnapshot
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }
@@ -91,6 +95,7 @@ final class ThreadModel {
             for await next in await opened.snapshots() {
                 guard let self, !Task.isCancelled else { return }
                 self.snapshot = next
+                self.onSnapshot(next)
             }
         }
     }

@@ -57,6 +57,10 @@ struct ThreadScreen: View {
             threadID: threadID, session: session,
             onVisibilityChange: { [push, instanceURL, threadID] isVisible in
                 push?.setVisible(thread: threadID, instance: instanceURL, isVisible: isVisible)
+            },
+            onSnapshot: { [push, instanceURL, threadID] snapshot in
+                // The start may wait on the network, so the snapshot loop does not wait for it.
+                Task { await push?.observe(thread: threadID, instanceURL: instanceURL, snapshot: snapshot) }
             })
         model = next
         guard isSessionActive else { return }

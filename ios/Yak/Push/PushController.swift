@@ -29,6 +29,7 @@ final class PushController: InstanceLifecycleObserver {
 
     @ObservationIgnored let registrar: PushRegistrar
     @ObservationIgnored let instances: InstanceStore
+    @ObservationIgnored let liveActivities: LiveActivityController
     @ObservationIgnored private let permission: any NotificationPermission
     @ObservationIgnored private let center: any NotificationCenterClient
     @ObservationIgnored private let normalize: @Sendable (String) -> URL?
@@ -38,10 +39,11 @@ final class PushController: InstanceLifecycleObserver {
 
     init(
         instances: InstanceStore, registrar: PushRegistrar, permission: any NotificationPermission,
-        center: any NotificationCenterClient,
+        center: any NotificationCenterClient, activityHost: any ActivityHost = SystemActivityHost(),
         normalize: @escaping @Sendable (String) -> URL? = InstanceAddress.normalize
     ) {
         self.instances = instances
+        self.liveActivities = LiveActivityController(host: activityHost, registrar: registrar, instances: instances)
         self.registrar = registrar
         self.permission = permission
         self.center = center
@@ -59,6 +61,7 @@ final class PushController: InstanceLifecycleObserver {
             }
         }
         await registrar.start()
+        await liveActivities.start()
         await readSystemState()
         await registerIfAllowed()
         await refreshBadge()
@@ -150,12 +153,14 @@ final class PushController: InstanceLifecycleObserver {
 
     /// A fresh `me` answer can change what the instance can do for this build, so the registrar applies it.
     func instanceRefreshed(_ instance: Instance) async {
+        liveActivities.instanceRefreshed(instance)
         await registrar.sync()
         await refreshBadge()
     }
 
     /// Local cleanup, also after the server revoked this phone.
     func instanceRemoved(_ instance: Instance) async {
+        await liveActivities.endAll(instance: instance)
         let delivered = await center.delivered()
         let identifiers = PushCleanup.identifiers(in: delivered, from: instance)
         if !identifiers.isEmpty { center.remove(identifiers) }
@@ -172,6 +177,12 @@ final class PushController: InstanceLifecycleObserver {
     /// The links taps produce. A link yielded before anyone listens is delivered to the first listener, so a
     /// tap that launched the app is not lost; one window group listens.
     func links() -> AsyncStream<URL> { linkChannel.stream }
+
+    /// A snapshot of an open thread: a turn that runs may start a Live Activity.
+    func observe(thread id: String, instanceURL: URL, snapshot: ConversationSnapshot) async {
+        guard let instance = InstanceMatch.instance(forNormalized: instanceURL, in: await instances.all()) else { return }
+        await liveActivities.observe(threadID: id, instance: instance, snapshot: snapshot)
+    }
 
     func clearPending() { pending = nil }
 

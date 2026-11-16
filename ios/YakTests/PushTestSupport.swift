@@ -12,6 +12,7 @@ actor RecordingTransport: HTTPTransport {
 
     private var answers: [String: (status: Int, body: String)] = [:]
     private(set) var recorded: [Recorded] = []
+    private(set) var bodies: [(route: String, body: String)] = []
     private var isOffline = false
     private var held: Set<String> = []
     private var waiting: [CheckedContinuation<Void, Never>] = []
@@ -36,11 +37,14 @@ actor RecordingTransport: HTTPTransport {
     func on(_ route: String, status: Int = 204, body: String = "") { answers[route] = (status, body) }
     func setOffline(_ offline: Bool) { isOffline = offline }
     func routes() -> [String] { recorded.map(\.route) }
+    /// The bodies sent to `route`, oldest first.
+    func bodies(of route: String) -> [String] { bodies.filter { $0.route == route }.map(\.body) }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let path = request.url?.path.replacingOccurrences(of: "/api/app/v1/", with: "") ?? ""
         let route = "\(request.httpMethod ?? "GET") \(path)"
         recorded.append(Recorded(route: route, host: request.url?.host() ?? ""))
+        bodies.append((route, request.httpBody.map { String(decoding: $0, as: UTF8.self) } ?? ""))
         if isOffline { throw URLError(.notConnectedToInternet) }
         if held.contains(route) { await withCheckedContinuation { waiting.append($0) } }
         let answer = answers[route] ?? (404, "{\"error\":\"not_found\",\"message\":\"Not found.\"}")
@@ -101,6 +105,69 @@ final class FakeCenter: NotificationCenterClient, @unchecked Sendable {
     var identifiers: [String] { lock.withLock { notifications.map(\.identifier) } }
 }
 
+/// The activities of the system, kept in memory, with the starts and ends recorded.
+final class FakeActivityHost: ActivityHost, @unchecked Sendable {
+    private let lock = NSLock()
+    private var activities: [RunningActivity] = []
+    private var counter = 0
+    private var changeContinuation: AsyncStream<Void>.Continuation?
+    private var tokenContinuation: AsyncStream<Data>.Continuation?
+    private(set) var started: [(values: ThreadActivityStartValues, channel: String)] = []
+    private(set) var ended: [String] = []
+    var isEnabled = true
+    var startFailure: (any Error)?
+
+    var current: [RunningActivity] { lock.withLock { activities } }
+
+    /// An activity that is already running, as one a push started.
+    @discardableResult
+    func add(instance: String, thread: String, startedAt: Date = Date()) -> String {
+        lock.withLock {
+            counter += 1
+            let id = "activity-\(counter)"
+            activities.append(
+                RunningActivity(activityID: id, instance: URL(string: instance)!, threadID: thread, startedAt: startedAt))
+            return id
+        }
+    }
+
+    func emitChange() { lock.withLock { changeContinuation }?.yield() }
+    func emitToken(_ token: Data) { lock.withLock { tokenContinuation }?.yield(token) }
+
+    func running() async -> [RunningActivity] { current }
+
+    func start(_ values: ThreadActivityStartValues, channel: String) async throws -> String {
+        if let startFailure { throw startFailure }
+        return lock.withLock {
+            counter += 1
+            let id = "activity-\(counter)"
+            started.append((values, channel))
+            activities.append(
+                RunningActivity(
+                    activityID: id, instance: URL(string: values.instance)!, threadID: values.threadID,
+                    startedAt: Date().addingTimeInterval(Double(counter))))
+            return id
+        }
+    }
+
+    func end(_ activityID: String) async {
+        lock.withLock {
+            ended.append(activityID)
+            activities.removeAll { $0.activityID == activityID }
+        }
+    }
+
+    func changes() -> AsyncStream<Void> {
+        AsyncStream { continuation in lock.withLock { changeContinuation = continuation } }
+    }
+
+    func pushToStartTokens() -> AsyncStream<Data> {
+        AsyncStream { continuation in lock.withLock { tokenContinuation = continuation } }
+    }
+
+    func areActivitiesEnabled() -> Bool { isEnabled }
+}
+
 final class PushMemoryDefaults: KeyValueStore, @unchecked Sendable {
     private let lock = NSLock()
     private var values: [String: Data] = [:]
@@ -116,6 +183,7 @@ struct PushRig {
     let transport: RecordingTransport
     let permission: FakePermission
     let center: FakeCenter
+    let activities: FakeActivityHost
     let files: InMemoryFileStore
     let tokens: InMemoryTokenStore
     let environment: SessionEnvironment
@@ -149,10 +217,12 @@ func makePushRig(
     let registrar = PushRegistrar(instances: store, tokens: tokens, environment: environment)
     let permission = FakePermission(authorization)
     let center = FakeCenter(delivered)
-    let controller = PushController(instances: store, registrar: registrar, permission: permission, center: center)
+    let activities = FakeActivityHost()
+    let controller = PushController(
+        instances: store, registrar: registrar, permission: permission, center: center, activityHost: activities)
     return PushRig(
         controller: controller, registrar: registrar, store: store, transport: transport, permission: permission,
-        center: center, files: files, tokens: tokens, environment: environment,
+        center: center, activities: activities, files: files, tokens: tokens, environment: environment,
         home: await store.all().first { $0.id == home.id }!,
         other: await store.all().first { $0.id == other.id }!)
 }

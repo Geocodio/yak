@@ -8,6 +8,7 @@ struct AppPartsContext {
     let makeEnvironment: @Sendable () -> SessionEnvironment
     var permission: any NotificationPermission = SystemNotificationPermission()
     var center: any NotificationCenterClient = SystemNotificationCenter()
+    var activityHost: any ActivityHost = SystemActivityHost()
     var normalizeAddress: @Sendable (String) -> URL? = InstanceAddress.normalize
 }
 
@@ -41,7 +42,7 @@ final class AppParts {
             instances: context.instances, tokens: context.tokens, environment: context.makeEnvironment())
         let push = PushController(
             instances: context.instances, registrar: registrar, permission: context.permission,
-            center: context.center, normalize: context.normalizeAddress)
+            center: context.center, activityHost: context.activityHost, normalize: context.normalizeAddress)
         let steps = [
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in
                 await push.refreshInstances(budget: budget)

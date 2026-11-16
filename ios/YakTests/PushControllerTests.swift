@@ -37,6 +37,36 @@ private func delivered(_ identifier: String, instance: String) throws -> Deliver
         #expect(!rig.files.exists("instances/\(rig.home.id.uuidString)/push-registration.json"))
     }
 
+    @Test func unpairingCleansUpPushState() async throws {
+        let rig = try await makePushRig(
+            delivered: [
+                try delivered("from-home", instance: "https://yak.example.com"),
+                try delivered("from-other", instance: "https://other.example.com"),
+            ])
+        rig.activities.add(instance: "https://yak.example.com", thread: "a0000001")
+        let otherActivity = rig.activities.add(instance: "https://other.example.com", thread: "a0000002")
+        await rig.transport.on("PUT push-tokens/alert")
+        await rig.registrar.setToken(String(repeating: "0123456789abcdef", count: 4), kind: .alert)
+        #expect(await eventually { rig.files.exists("instances/\(rig.home.id.uuidString)/push-registration.json") })
+        await rig.controller.instanceRemoved(rig.home)
+        #expect(rig.center.identifiers == ["from-other"])
+        #expect(rig.activities.current.map(\.activityID) == [otherActivity])
+        #expect(rig.center.badge == 5)
+        #expect(!rig.files.exists("instances/\(rig.home.id.uuidString)/push-registration.json"))
+    }
+
+    @Test func aRefreshedAnswerUpdatesTheStatus() async throws {
+        let rig = try await makePushRig()
+        await rig.controller.start()
+        #expect(await eventually { rig.controller.statuses[rig.home.id] != nil })
+        let other = try JSONDecoder().decode(
+            Me.self, from: Data(meJSON.replacingOccurrences(of: "com.example.yak", with: "com.example.other").utf8))
+        try await rig.store.update(rig.home.id, from: other)
+        let refreshed = await rig.store.all().first { $0.id == rig.home.id }!
+        await rig.controller.instanceRefreshed(refreshed)
+        #expect(await eventually { rig.controller.statuses[rig.home.id] == .unavailable(.otherBuild) })
+    }
+
     @Test func theBadgeIsTheSumOfEveryInstance() async throws {
         let rig = try await makePushRig()
         await rig.controller.refreshBadge()
@@ -73,7 +103,7 @@ private func delivered(_ identifier: String, instance: String) throws -> Deliver
         await rig.controller.start()
         rig.controller.didFailToRegister(URLError(.cannotConnectToHost))
         #expect(await eventually { rig.controller.statuses[rig.home.id] == .waitingForToken })
-        #expect(await rig.transport.routes().isEmpty)
+        #expect(await rig.transport.routes().filter { $0.hasPrefix("PUT push-tokens") }.isEmpty)
     }
 
     @Test func removalTellsTheServerBeforeForgetting() async throws {
