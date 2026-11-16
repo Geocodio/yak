@@ -2258,26 +2258,6 @@
         }
       }
     },
-    "settings.device.paired %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paired %@. Remove it on the web."
-          }
-        }
-      }
-    },
-    "settings.device.pairedUnknown": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paired. Remove it on the web."
-          }
-        }
-      }
-    },
     "settings.instances": {
       "localizations": {
         "en": {
@@ -2744,16 +2724,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apple did not answer in time. Try again."
-          }
-        }
-      }
-    },
-    "settings.thisDevice %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This %@"
           }
         }
       }

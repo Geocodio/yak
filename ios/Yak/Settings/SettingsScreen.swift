@@ -33,7 +33,6 @@ struct SettingsScreen: View {
                 NotificationSwitchesView(model: model)
                 permission
                 if model.canPush { TestNotificationRow(model: model) }
-                deviceSection
             }
             .tint(Color.yakAction)
             .frame(maxWidth: 640)
@@ -254,25 +253,5 @@ struct SettingsScreen: View {
             .buttonStyle(SecondaryButtonStyle())
         }
         .accessibilityIdentifier(identifier)
-    }
-
-    // MARK: This device
-
-    private var deviceSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("settings.thisDevice \(UIDevice.current.model)")
-                if let pairedAt = app.devicePairedAt[model.active.id] {
-                    Text("settings.device.paired \(pairedAt.formatted(.dateTime.day().month(.abbreviated)))")
-                        .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
-                } else {
-                    Text("settings.device.pairedUnknown").font(.footnote.weight(.medium))
-                        .foregroundStyle(Color.yakMuted)
-                }
-            }
-            .frame(minHeight: 44, alignment: .leading)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("settings.device")
-        }
     }
 }

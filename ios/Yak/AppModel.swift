@@ -25,8 +25,6 @@ final class AppModel {
     private(set) var activeSession: InstanceSession?
     private(set) var refreshState: RefreshState = .idle
     private(set) var hasLoaded = false
-    /// When each instance paired this device, from the last `me` answer; Settings shows it.
-    private(set) var devicePairedAt: [UUID: Date] = [:]
     /// The pairing in progress for a scanned or opened link, kept while it shows a problem.
     private(set) var linkPairing: PairingModel?
     private var linkToPair: PairingLink?
@@ -260,7 +258,6 @@ final class AppModel {
         do {
             let me = try await makeClient(instance.url).authenticated(token: token).send(.me())
             try await instances.update(instance.id, from: me)
-            devicePairedAt[instance.id] = ThisDeviceLine.make(device: me.device).pairedAt
             show(.idle)
             if let updated = await instances.all().first(where: { $0.id == instance.id }) {
                 if !isBackground { route = .signedIn(updated) }
