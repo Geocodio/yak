@@ -87,7 +87,7 @@ it('echoes a non-default branch and gives context repos no branch', function () 
         ->assertJsonPath('repos.0.create_branch', false)
         ->assertJsonPath('repos.1.branch', null)
         ->assertJsonPath('repos.1.create_branch', false)
-        ->assertJsonPath('repos.1.sandbox_path', '/extras/lib');
+        ->assertJsonPath('repos.1.sandbox_path', '/home/yak/extras/lib');
 });
 
 it('treats a branch equal to the default branch as on the default branch whatever the client says', function () {
@@ -242,7 +242,7 @@ it('syncRepositories gives extras with the same short name distinct sandbox path
         [$acme, $other],
     );
 
-    expect($thread->repositories()->orderBy('id')->pluck('sandbox_path')->all())->toBe(['/extras/lib', '/extras/other-lib']);
+    expect($thread->repositories()->orderBy('id')->pluck('sandbox_path')->all())->toBe(['/home/yak/extras/lib', '/home/yak/extras/other-lib']);
 });
 
 it('gives a teleported thread the visual capture instructions', function () {

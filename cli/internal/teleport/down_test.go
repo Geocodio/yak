@@ -538,7 +538,7 @@ func (h *harness) addExtra(s *downSetup, slug string, files map[string]string, r
 	yak.Git("push", "-q", "origin", "yak/fix")
 	s.manifest.Repos = append(s.manifest.Repos, api.ManifestRepo{
 		Repo: slug, Role: "changes", CloneURL: origin, DefaultBranch: "main", Branch: "yak/fix", HeadSHA: head,
-		SandboxPath: "/extras/" + slug[strings.LastIndex(slug, "/")+1:], Pushed: true, Refresh: refresh,
+		SandboxPath: "/home/yak/extras/" + slug[strings.LastIndex(slug, "/")+1:], Pushed: true, Refresh: refresh,
 	})
 	h.srv.ScriptDownStates(42, s.manifest, "preparing", "ready")
 	return origin, head
@@ -777,8 +777,8 @@ func TestExtraFolderFollowsSandboxPath(t *testing.T) {
 		repo api.ManifestRepo
 		want string
 	}{
-		{api.ManifestRepo{Repo: "other/lib", SandboxPath: "/extras/other-lib"}, "other-lib"},
-		{api.ManifestRepo{Repo: "acme/lib", SandboxPath: "/extras/lib"}, "lib"},
+		{api.ManifestRepo{Repo: "other/lib", SandboxPath: "/home/yak/extras/other-lib"}, "other-lib"},
+		{api.ManifestRepo{Repo: "acme/lib", SandboxPath: "/home/yak/extras/lib"}, "lib"},
 		{api.ManifestRepo{Repo: "acme/lib"}, "lib"},
 	}
 	for _, c := range cases {

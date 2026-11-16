@@ -13,8 +13,8 @@ beforeEach(function (): void {
 
     $this->thread = Thread::factory()->create(['repo' => 'acme/app', 'owner_user_id' => $this->owner->id]);
     ThreadRepository::factory()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/app']);
-    ThreadRepository::factory()->changes()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web']);
-    ThreadRepository::factory()->context()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs']);
+    ThreadRepository::factory()->changes()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/home/yak/extras/web']);
+    ThreadRepository::factory()->context()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/home/yak/extras/docs']);
 
     $diff = ThreadDiff::factory()->for($this->thread)->create(['files_count' => 1, 'additions' => 1, 'deletions' => 0]);
     ThreadDiffFile::factory()->for($diff, 'diff')->create(['path' => 'app.php', 'additions' => 1, 'deletions' => 0]);

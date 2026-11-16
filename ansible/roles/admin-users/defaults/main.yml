@@ -1,0 +1,12 @@
+---
+# People (and CI identities) who administer this host over SSH. Each user gets
+# an account, their public keys and passwordless sudo. Empty by default; set it
+# in your private inventory or vars, never in this public repository.
+#
+# yak_admin_users:
+#   - name: alice
+#     ssh_keys:
+#       - "ssh-ed25519 AAAA... alice@laptop"
+#   - name: bob
+#     state: absent   # removes the account, its home directory and its sudo rule
+yak_admin_users: []

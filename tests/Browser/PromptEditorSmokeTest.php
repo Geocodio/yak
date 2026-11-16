@@ -18,7 +18,6 @@ test('repository settings show policy controls and draft generation', function (
     $repo = Repository::factory()->create(['pr_review_enabled' => true]);
     visit(route('repos.edit', $repo))
         ->assertSee('Risk-based approval')
-        ->assertSee('Approval mode')
         ->assertSee('Generate draft with Claude')
         ->assertSee('Edit risk profile prompt')
         ->assertNoJavaScriptErrors();
@@ -98,9 +97,7 @@ test('a human can activate an exact profile and save shadow mode from repository
         ->assertSee('Active: ' . $draft['version'])
         ->assertNoJavaScriptErrors();
     expect($profiles->active($repo->slug)['approved_by'])->toBe('user:' . $user->id . ' (' . $user->name . ')');
-    $page->click('button:has-text("Off: comments only")')
-        ->click('[role="option"]:has-text("Shadow: evaluate without approving")')
+    $page->assertDontSee('Approval mode')
         ->click('Save repository')
         ->assertNoJavaScriptErrors();
-    expect($repo->fresh()->reviewPolicy()['mode'])->toBe('shadow');
 });

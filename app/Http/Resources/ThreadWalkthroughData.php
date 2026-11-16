@@ -57,15 +57,15 @@ final class ThreadWalkthroughData
                 'url' => $cut->signedUrl(),
                 'thumbnailUrl' => $thumbnail?->publicUrl() ?? $thumbnail?->signedUrl(),
                 'durationSeconds' => $durationSeconds,
-                'chapters' => array_map(
+                'chapters' => array_values(array_map(
                     fn (array $chapter): array => ['title' => $chapter['title'], 'startSeconds' => $chapter['startSeconds']],
                     WalkthroughPrSection::chaptersForTask($task),
-                ),
+                )),
             ],
-            'screenshots' => $screenshots->map(fn (Artifact $artifact): array => [
+            'screenshots' => array_values($screenshots->map(fn (Artifact $artifact): array => [
                 'url' => $artifact->publicUrl() ?? $artifact->signedUrl(),
                 'caption' => $artifact->caption,
-            ])->all(),
+            ])->all()),
             'isInPullRequest' => $task->pr_url !== null,
         ];
     }

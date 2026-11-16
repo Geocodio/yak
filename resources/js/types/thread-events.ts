@@ -104,6 +104,8 @@ export type ThreadEventState = {
     streamingBlocks: Record<string, { kind: string; text: string }>;
     turn: { turnId: number; state: TurnState } | null;
     thread: ThreadEventDataMap['thread'] | null;
+    /** Whether the head task has questions open, from the latest `question` event; null before one arrives. */
+    questionOpen: boolean | null;
     /** Latest event per sub-thread, with the sequence of its first event. */
     children: Record<string, { sequence: number; data: ChildCardData }>;
     /** Latest event per added repository, keyed by slug, with the sequence of its first event. */

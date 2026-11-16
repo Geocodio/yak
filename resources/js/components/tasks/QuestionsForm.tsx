@@ -7,7 +7,7 @@ import type { QuestionData } from '@/types/tasks';
 
 type Answer = { choices: string[]; other: string | null; otherOpen: boolean };
 
-export function QuestionsForm({ taskId, questions }: { taskId: string; questions: QuestionData[] }) {
+export function QuestionsForm({ taskId, questions, who = 'Yak', footer = 'Yak continues the task with your answers. Skipped questions are left to its judgment.' }: { taskId: string; questions: QuestionData[]; who?: string; footer?: string }) {
     const form = useForm<{ answers: Record<string, { choices: string[]; other: string | null }>; note: string }>({ answers: {}, note: '' });
     const [answers, setAnswers] = useState<Record<string, Answer>>(() =>
         Object.fromEntries(questions.map((question) => [question.id, { choices: [], other: null, otherOpen: false }])),
@@ -43,7 +43,7 @@ export function QuestionsForm({ taskId, questions }: { taskId: string; questions
         form.post(storeAnswers.url(taskId), { preserveScroll: true });
     };
 
-    const title = questions.length === 1 ? 'Yak has a question before it can continue' : `Yak has ${questions.length} questions before it can continue`;
+    const title = questions.length === 1 ? `${who} has a question before it can continue` : `${who} has ${questions.length} questions before it can continue`;
 
     return (
         <section id="questions" aria-labelledby="questions-title" className="rounded-card border border-hair-strong bg-panel shadow-card" data-testid="questions-form">
@@ -86,7 +86,7 @@ export function QuestionsForm({ taskId, questions }: { taskId: string; questions
                                     maxLength={2000}
                                     value={answers[question.id].other ?? ''}
                                     onChange={(event) => setAnswers({ ...answers, [question.id]: { ...answers[question.id], other: event.target.value } })}
-                                    placeholder="Tell Yak what you want instead…"
+                                    placeholder={`Tell ${who} what you want instead…`}
                                     data-testid={`question-${question.id}-other`}
                                 />
                             </label>
@@ -105,7 +105,7 @@ export function QuestionsForm({ taskId, questions }: { taskId: string; questions
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-b-card bg-app px-6 py-3.5">
-                <span className="text-[12px] text-muted">Yak continues the task with your answers. Skipped questions are left to its judgment.</span>
+                <span className="text-[12px] text-muted">{footer}</span>
                 <Button variant="primary" onClick={submit} pending={form.processing} disabled={answeredCount === 0} data-testid="questions-submit">
                     Send answers
                 </Button>

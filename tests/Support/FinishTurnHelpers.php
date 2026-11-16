@@ -1,11 +1,14 @@
 <?php
 
 use App\DataTransferObjects\SandboxWake;
+use App\Enums\TaskMode;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
+use App\Jobs\AfterTurn\FinishResearchTurnJob;
 use App\Jobs\AfterTurn\FinishRunYakTurnJob;
+use App\Jobs\ResearchYakJob;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -13,6 +16,8 @@ use App\Models\YakTask;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadShell;
+use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Support\Facades\Process;
 use Mockery\MockInterface;
 use Tests\Support\FakeSandboxManager;
 
@@ -146,4 +151,46 @@ function finishTaskTurn(string $job, YakTask $task, FakeSandboxManager $shell, s
     runFinisher($run, $job);
 
     return $run;
+}
+
+/**
+ * A shell that answers `git rev-parse HEAD` with a fixed revision.
+ */
+function revisionShell(string $revision): FakeSandboxManager
+{
+    return new class($revision) extends FakeSandboxManager
+    {
+        public function __construct(private string $revision) {}
+
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
+        {
+            if (str_contains($command, 'git rev-parse HEAD')) {
+                return Process::result($this->revision);
+            }
+
+            return parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
+        }
+    };
+}
+
+/**
+ * Writes a research turn for a task and finishes it with the given answer.
+ *
+ * @param  array<string, mixed>  $taskAttributes
+ * @param  array<string, mixed>  $repositoryAttributes
+ */
+function researchTurn(string $summary, array $taskAttributes = [], array $repositoryAttributes = [], ?FakeSandboxManager $shell = null): YakTask
+{
+    $context = pendingRunYak(['mode' => TaskMode::Research, ...$taskAttributes], $shell);
+    Repository::query()->where('slug', 'test-repo')->update($repositoryAttributes);
+    $slug = (string) ($repositoryAttributes['slug'] ?? 'test-repo');
+    $context['task']->update(['repo' => $slug]);
+
+    (new ResearchYakJob($context['task']->refresh()))->handle();
+
+    $run = TaskRun::query()->where('yak_task_id', $context['task']->id)->sole();
+    $run->forceFill(['turn_state' => TurnState::Completed, 'last_result_event' => resultEvent($summary), 'assistant_turns' => 1])->save();
+    runFinisher($run, FinishResearchTurnJob::class);
+
+    return $context['task']->fresh();
 }

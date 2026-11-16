@@ -232,6 +232,18 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         #expect(try object(reply(.empty, "GET", "threads"))["hasAnyThreads"] as? Bool == false)
     }
 
+    @Test func newThreadOptionsPerScenario() throws {
+        let normal = try object(reply(.paired, "GET", "threads/new"))
+        #expect((normal["repos"] as? [Any])?.count == 2)
+        let none = try object(reply(.noRepositories, "GET", "threads/new"))
+        #expect((none["repos"] as? [Any])?.isEmpty == true)
+        #expect(none["defaultRepo"] is NSNull)
+        #expect(try object(reply(.noRepositories, "GET", "threads"))["hasAnyThreads"] as? Bool == false)
+        #expect(try status(reply(.brokenNewThread, "GET", "threads/new")) == 500)
+        #expect(try reply(.slowNewThread, "GET", "threads/new").delay == .seconds(14))
+        #expect(try reply(.slowNewThread, "GET", "threads").delay == .zero)
+    }
+
     @Test func refusalsAndRepositoryAccess() throws {
         #expect(try status(reply(.threadMissing, "GET", "threads/d0e515ef")) == 404)
         #expect(
