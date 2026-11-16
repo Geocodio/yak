@@ -12,7 +12,6 @@ struct TaskScreen: View {
     /// Leaves the task screens for the open thread.
     let didOpenThread: () -> Void
 
-    @State private var bodyHeight: CGFloat = 40
     @State private var isRequestingChanges = false
     @State private var isTagging = false
     @State private var isConfirmingCancel = false
@@ -73,9 +72,12 @@ struct TaskScreen: View {
                     }
                     header(task)
                     if !task.thread.isEmpty {
-                        TaskBodyView(entries: task.thread, openLink: openWeb, height: $bodyHeight)
-                            .frame(height: max(bodyHeight, 40))
-                            .accessibilityIdentifier("task.body")
+                        VStack(alignment: .leading, spacing: 16) {
+                            ForEach(Array(task.thread.enumerated()), id: \.offset) { _, entry in
+                                TaskEntryView(entry: entry, openLink: openWeb)
+                            }
+                        }
+                        .accessibilityIdentifier("task.body")
                     }
                     pullRequest(task)
                     links(task)

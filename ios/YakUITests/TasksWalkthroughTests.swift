@@ -91,6 +91,8 @@ import XCTest
     func testTask() throws {
         try openTask("k3m9p2qa", scenario: "changes")
         XCTAssertTrue(element("task.decision.approve").waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.webViews.staticTexts["Yak moved the SDK to the new major version."].waitForExistence(timeout: 10))
         try shoot("task")
     }
 

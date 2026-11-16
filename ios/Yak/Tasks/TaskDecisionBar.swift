@@ -110,9 +110,12 @@ struct TaskDecisionBar: View {
                 }
                 .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("task.decision.reject")
             }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { buttons }.fixedSize(horizontal: false, vertical: true)
-                VStack(spacing: 8) { buttons }
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(spacing: 8) { buttons }
+                } else {
+                    HStack(spacing: 8) { buttons }.fixedSize(horizontal: false, vertical: true)
+                }
             }
             .disabled(blocked)
         }
