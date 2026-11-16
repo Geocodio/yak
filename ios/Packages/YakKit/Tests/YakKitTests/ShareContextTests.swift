@@ -72,17 +72,22 @@ private func base() throws -> [String: Any] {
     #expect(back == ShareLimits(maxFiles: 8, maxFileBytes: 10_485_760))
 }
 
-@Test func theSavedListMovesUnderTheShareName() async throws {
-    let old = MemoryValues()
-    let new = MemoryValues()
-    old.set(Data("[]".utf8), forKey: "instances.v1")
-    InstanceStore.moveSavedList(from: old, to: new)
-    #expect(new.data(forKey: "instances.v1") != nil && old.data(forKey: "instances.v1") == nil)
-}
-
-private final class MemoryValues: KeyValueStore, @unchecked Sendable {
-    private let lock = NSLock()
-    private var values: [String: Data] = [:]
-    func data(forKey key: String) -> Data? { lock.withLock { values[key] } }
-    func set(_ value: Data?, forKey key: String) { lock.withLock { values[key] = value } }
+@Test func anAttachmentNumberOutsideTheRangeDropsTheLastThread() throws {
+    let files = InMemoryFileStore()
+    for number in [0, -3, 10_001, Int.max] {
+        var object = try base()
+        var last = try #require(object["lastThread"] as? [String: Any])
+        last["nextAttachmentNumber"] = number
+        object["lastThread"] = last
+        try store(object, files: files)
+        let read = try #require(ShareContextStore.read(instance: instanceID, files: files))
+        #expect(read.lastThread == nil)
+    }
+    var show = try decoded(ThreadShow.self, "scenario-thread-show")
+    show = try changedShow(show) { object in
+        var composer = object["composer"] as! [String: Any]
+        composer["nextAttachmentNumber"] = Int.max
+        object["composer"] = composer
+    }
+    #expect(ShareContextStore.lastThread(from: show).nextAttachmentNumber == 10_000)
 }

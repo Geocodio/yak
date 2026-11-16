@@ -7,7 +7,7 @@ import Testing
     let clock = ManualClock()
     let files = InMemoryFileStore()
     let tokens = InMemoryTokenStore()
-    let instances = InstanceStore(defaults: NotesDefaults(), tokens: tokens, now: { clock.now() })
+    let instances = InstanceStore(defaults: InMemoryKeyValueStore(), tokens: tokens, now: { clock.now() })
     let instance = try await instances.add(
         url: URL(string: "https://example.test")!, name: "Example Yak", userName: "Test person", token: "test-token")
     let transport = ScriptedTransport()
@@ -28,11 +28,4 @@ import Testing
     #expect(context.lastThread?.id == show.thread.id && context.options == options && context.lastRepo == "example/api")
     #expect(context.limits == ShareLimits(maxFiles: 8, maxFileBytes: 10_485_760))
     #expect(files.protection(of: InstanceFolders.shareContext(instance.id)) == .untilFirstUnlock)
-}
-
-private final class NotesDefaults: KeyValueStore, @unchecked Sendable {
-    private let lock = NSLock()
-    private var values: [String: Data] = [:]
-    func data(forKey key: String) -> Data? { lock.withLock { values[key] } }
-    func set(_ value: Data?, forKey key: String) { lock.withLock { values[key] = value } }
 }

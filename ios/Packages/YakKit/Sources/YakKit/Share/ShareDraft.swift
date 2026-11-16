@@ -79,13 +79,28 @@ public struct ShareDraft: Equatable, Sendable {
         if let context, allImages.count > context.limits.maxFiles {
             result.append(.tooManyFiles(maximum: context.limits.maxFiles))
         }
-        if uncutText.count > textLimit { result.append(.textCut(limit: textLimit)) }
+        if Self.codePointCount(uncutText) > textLimit { result.append(.textCut(limit: textLimit)) }
         if keptLinks.count != allLinks.count { result.append(.linksDropped) }
         return result
     }
 
     /// What is sent: the typed text, then the links (one per line), then the shared text.
-    public var text: String { String(uncutText.prefix(textLimit)) }
+    public var text: String { Self.cut(uncutText, toCodePoints: textLimit) }
+
+    /// The server counts Unicode code points, so the limit does too; whole characters are kept.
+    static func codePointCount(_ text: String) -> Int { text.unicodeScalars.count }
+
+    static func cut(_ text: String, toCodePoints limit: Int) -> String {
+        var result = ""
+        var used = 0
+        for character in text {
+            let size = character.unicodeScalars.count
+            if used + size > limit { break }
+            result.append(character)
+            used += size
+        }
+        return result
+    }
 
     /// File names, at most `limits.maxFiles`.
     public var attachedImages: [String] {
@@ -99,7 +114,8 @@ public struct ShareDraft: Equatable, Sendable {
         case .lastThread:
             guard let last = context.lastThread else { return .noLastThread }
             if !last.canSend { return .cannotSendToLastThread(title: last.title) }
-            return text.isEmpty && attachedImages.isEmpty ? .textTooShort(minimum: 1) : nil
+            // The server requires a message, also when images are attached.
+            return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .textTooShort(minimum: 1) : nil
         case .newThread:
             guard let slug = form?.repo else { return .noRepository }
             if let options = context.options {

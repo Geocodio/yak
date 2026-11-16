@@ -64,6 +64,7 @@ public enum ShareContextStore {
     static let maximumRepositories = 200
     static let maximumModelFamilies = 50
     static let maximumStringLength = 200
+    static let attachmentNumbers = 1...10_000
 
     /// Nil when missing, unreadable, too large or not a context. Bounds lists and strings on the way in.
     public static func read(instance: UUID, files: any FileStore) -> ShareContext? {
@@ -77,8 +78,12 @@ public enum ShareContextStore {
             logFailure("share context not read: \(type(of: error))")
             return nil
         }
-        guard data.count <= byteLimit, var object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return nil }
+        let parsed: Any
+        do { parsed = try JSONSerialization.jsonObject(with: data) } catch {
+            logFailure("share context not parsed: \(type(of: error))")
+            return nil
+        }
+        guard data.count <= byteLimit, var object = parsed as? [String: Any] else { return nil }
         if var options = object["options"] as? [String: Any] {
             if let repos = options["repos"] as? [Any] { options["repos"] = Array(repos.prefix(maximumRepositories)) }
             if let models = options["models"] as? [Any] {
@@ -86,10 +91,20 @@ public enum ShareContextStore {
             }
             object["options"] = options
         }
-        guard let bounded = try? JSONSerialization.data(withJSONObject: cut(object)),
-            let context = try? JSONDecoder().decode(ShareContext.self, from: bounded),
-            (1...50).contains(context.limits.maxFiles), (1...104_857_600).contains(context.limits.maxFileBytes)
+        var context: ShareContext
+        do {
+            context = try JSONDecoder().decode(
+                ShareContext.self, from: JSONSerialization.data(withJSONObject: cut(object)))
+        } catch {
+            logFailure("share context not decoded: \(type(of: error))")
+            return nil
+        }
+        guard (1...50).contains(context.limits.maxFiles), (1...104_857_600).contains(context.limits.maxFileBytes)
         else { return nil }
+        // A number outside the range would crash or break the attachment references.
+        if let last = context.lastThread, !attachmentNumbers.contains(last.nextAttachmentNumber) {
+            context.lastThread = nil
+        }
         return context
     }
 
@@ -109,7 +124,8 @@ public enum ShareContextStore {
         return ShareLastThread(
             id: show.thread.id, title: isPrivate ? nil : String(show.thread.title.prefix(maximumStringLength)),
             isPrivate: isPrivate, canSend: bar.unavailable == nil,
-            nextAttachmentNumber: show.composer.nextAttachmentNumber)
+            nextAttachmentNumber: min(
+                max(show.composer.nextAttachmentNumber, attachmentNumbers.lowerBound), attachmentNumbers.upperBound))
     }
 
     private static func cut(_ value: Any) -> Any {

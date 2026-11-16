@@ -9,14 +9,14 @@ public enum ShareStaging {
         "\(InstanceFolders.shareStaging)/\(Int(now.timeIntervalSince1970))-\(id.uuidString)"
     }
 
-    /// Staging folders older than one hour, by the time in their name; names that do not parse are expired.
+    /// Staging folders older than one hour, by the time in their name; names that do not parse, or lie more than an hour ahead, are expired.
     public static func expired(_ names: [String], now: Date) -> [String] {
         names.filter { name in
             guard
                 let seconds = name.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false).first
                     .flatMap({ Int($0) })
             else { return true }
-            return now.timeIntervalSince1970 - Double(seconds) > lifetime
+            return abs(now.timeIntervalSince1970 - Double(seconds)) > lifetime
         }
     }
 }

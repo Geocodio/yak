@@ -54,7 +54,7 @@ private func options(_ context: ShareContext) -> NewThreadOptions { context.opti
             && draft.outboxDraft(sendKey: key, attachmentPath: { $0 }) == nil)
 }
 
-private func changedShow(_ show: ThreadShow, _ change: (inout [String: Any]) -> Void) throws -> ThreadShow {
+func changedShow(_ show: ThreadShow, _ change: (inout [String: Any]) -> Void) throws -> ThreadShow {
     var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(show)) as? [String: Any])
     change(&object)
     return try JSONDecoder().decode(ThreadShow.self, from: JSONSerialization.data(withJSONObject: object))
@@ -117,5 +117,30 @@ private func readOnlyCopy(of show: ThreadShow) throws -> ThreadShow {
             "abc", "-1-x", "99999999999999999999-\(id)",
         ])
     #expect(ShareStaging.expired(names, now: now.addingTimeInterval(61 * 60)) == names)
+    let ahead = ["1700007200-\(id)"]
+    #expect(ShareStaging.expired(ahead, now: now) == ahead)
+    #expect(ShareStaging.expired(["1700001800-\(id)"], now: now).isEmpty)
     #expect(ShareStaging.folder(now: now, id: key) == "share-staging/1700000000-\(key.uuidString)")
+}
+
+@Test func textIsCutByCodePointsLikeTheServer() throws {
+    let context = try decoded(ShareContext.self, "scenario-share-context")
+    let thumbs = String(repeating: "\u{1F44D}\u{1F3FD}", count: 15_000)
+    let last = ShareDraft(typed: thumbs, inputs: [], target: .lastThread, form: nil, model: nil, context: context)
+    #expect(last.notices == [.textCut(limit: 20_000)])
+    #expect(last.text.unicodeScalars.count == 20_000 && last.text.count == 10_000)
+    let accents = String(repeating: "e\u{0301}", count: 6_000)
+    let form = NewThreadForm(options: options(context), saved: nil, lastUsedRepo: nil, linkRepo: nil)
+    let new = ShareDraft(typed: accents, inputs: [], target: .newThread, form: form, model: nil, context: context)
+    #expect(new.notices == [.textCut(limit: 10_000)] && new.text.unicodeScalars.count == 10_000)
+}
+
+@Test func aLastThreadShareNeedsTextEvenWithImages() throws {
+    let context = try decoded(ShareContext.self, "scenario-share-context")
+    let images = [ShareInput.image(fileName: "IMG_1.jpg")]
+    let bare = ShareDraft(typed: "  ", inputs: images, target: .lastThread, form: nil, model: nil, context: context)
+    #expect(bare.problem == .textTooShort(minimum: 1) && bare.outboxDraft(sendKey: key, attachmentPath: { $0 }) == nil)
+    let typed = ShareDraft(
+        typed: "See this", inputs: images, target: .lastThread, form: nil, model: nil, context: context)
+    #expect(typed.problem == nil)
 }
