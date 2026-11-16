@@ -212,10 +212,8 @@ public enum PaneLayoutRules {
     ) -> PaneState {
         var next = state
         if old.slotCount == 2 && new.slotCount == 1 {
-            if let second = next.second {
-                next.lastSecond = second
-                next.lastSecondLeads = next.secondLeads
-            }
+            if let second = next.second { next.lastSecond = second }
+            next.lastSecondLeads = next.secondLeads
             next.second = nil
             next.secondLeads = false
         } else if old.slotCount == 1 && new.slotCount == 2 {
@@ -301,11 +299,19 @@ public enum PaneLayoutRules {
         var next = state
         next.stackedFraction = clampedFraction(next.stackedFraction)
         if !present.contains(next.focused) { next.focused = present.contains(.chat) ? .chat : (present.first ?? .chat) }
-        if let last = next.lastSecond, !present.contains(last) { next.lastSecond = nil }
+        if let last = next.lastSecond, !present.contains(last) {
+            next.lastSecond = nil
+            next.lastSecondLeads = false
+        }
         let hasOverview = present.contains(.overview)
         let panel = hasOverview && overviewIsPanel(arrangement: arrangement, inputs: inputs)
         let candidates = slotPanes(available: present, arrangement: arrangement, inputs: inputs)
         if next.second == next.focused { next.second = nil }
+        if panel, next.second == .overview, next.focused != .overview {
+            // The Overview was the second pane and is now the panel: open it beside the focused pane.
+            next.isOverviewPanelOpen = true
+            next.second = nil
+        }
         let secondIsGone = next.second.map { !candidates.contains($0) } ?? false
 
         if panel {
@@ -325,8 +331,8 @@ public enum PaneLayoutRules {
                 // slots show both) or stays in `lastSecond` already (when one slot shows neither).
                 let beside = next.focused
                 if beside != .overview {
-                    if arrangement.slotCount == 2, let hidden = next.second, hidden != beside {
-                        next.lastSecond = hidden
+                    if arrangement.slotCount == 2 {
+                        if let hidden = next.second, hidden != beside { next.lastSecond = hidden }
                         next.lastSecondLeads = next.secondLeads
                     }
                     next.second = beside

@@ -260,6 +260,39 @@ private let bookInputs = LayoutInputs(
         }
     }
 
+    @Test(arguments: [false, true])
+    func anOpenPanelWithoutASecondPaneDoesNotRestoreAStaleSide(secondLeads: Bool) {
+        let start = PaneState(
+            focused: .chat, second: nil, secondLeads: false, lastSecond: .chat, lastSecondLeads: !secondLeads,
+            isOverviewPanelOpen: true)
+        func closedSlots(_ state: PaneState) -> [SlotContent] {
+            let plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
+            let closed = PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
+            return PaneLayoutRules.plan(closed, available: all, inputs: wide).slots.map(\.content)
+        }
+        let expected = closedSlots(start)
+        let there = PaneLayoutRules.arrangementChanged(
+            from: .sideBySide, to: .stacked, state: start, available: all, inputs: upright)
+        let back = PaneLayoutRules.arrangementChanged(
+            from: .stacked, to: .sideBySide, state: there, available: all, inputs: wide)
+        #expect(closedSlots(back) == expected)
+    }
+
+    @Test func aGoneRememberedPaneTakesItsSideWithIt() {
+        let state = PaneLayoutRules.availableChanged(
+            state: PaneState(focused: .chat, lastSecond: .terminal, lastSecondLeads: true),
+            available: all.filter { $0 != .terminal }, inputs: wide)
+        #expect(state.lastSecond == nil && !state.lastSecondLeads)
+    }
+
+    @Test func anOverviewSecondPaneBecomesThePanelOnRotation() {
+        let start = PaneState(focused: .preview, second: .overview)
+        let there = PaneLayoutRules.arrangementChanged(
+            from: .stacked, to: .sideBySide, state: start, available: all, inputs: wide)
+        #expect(PaneLayoutRules.plan(there, available: all, inputs: wide).slots.map(\.content).contains(.overviewPanel))
+        #expect(there.focused == .preview)
+    }
+
     @Test func atOneSlotTheSecondPaneDoesNotOutliveTheOverviewFocus() {
         let open = PaneState(focused: .chat, second: .files, isOverviewPanelOpen: true)
         var state = PaneLayoutRules.arrangementChanged(
@@ -402,8 +435,6 @@ private let bookInputs = LayoutInputs(
             for focused in available {
                 for second in [nil] + available.filter({ $0 != focused }).map(Optional.some) {
                     for secondLeads in [false, true] {
-                        // A side without a second pane never occurs in a stored state.
-                        if second == nil && secondLeads { continue }
                         for panelOpen in [false, true] {
                             // The scene resolves a stored state before it shows it.
                             let state = PaneLayoutRules.availableChanged(
