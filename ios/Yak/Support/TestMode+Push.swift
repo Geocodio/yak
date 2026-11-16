@@ -30,6 +30,8 @@
                 case "slow": .slow
                 default: .granted
                 }
+            // `-yakTestHoldExplanation YES` keeps "Notifications are on" long enough to be photographed.
+            if flag("yakTestHoldExplanation") { NotificationExplanationModel.closingDelay = .seconds(6) }
             let permission = TestNotificationPermission(
                 authorization: authorization, request: request,
                 tokenFails: value("yakTestPushToken") == "fail",

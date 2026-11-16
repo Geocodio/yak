@@ -13,9 +13,11 @@ final class PushController: InstanceLifecycleObserver {
     private(set) var authorization: NotificationAuthorization = .notDetermined
     private(set) var statuses: [UUID: PushRegistrationStatus] = [:]
     private(set) var liveActivitiesEnabled = true
+    /// Set by `didPair` when the explanation screen shows.
+    var explanation: NotificationExplanationRequest?
 
     @ObservationIgnored let registrar: PushRegistrar
-    @ObservationIgnored private let instances: InstanceStore
+    @ObservationIgnored let instances: InstanceStore
     @ObservationIgnored private let permission: any NotificationPermission
     @ObservationIgnored private let center: any NotificationCenterClient
     @ObservationIgnored private let normalize: @Sendable (String) -> URL?
@@ -56,12 +58,12 @@ final class PushController: InstanceLifecycleObserver {
         await refreshBadge()
     }
 
-    private func readSystemState() async {
+    func readSystemState() async {
         authorization = await permission.authorization()
         liveActivitiesEnabled = permission.liveActivitiesEnabled()
     }
 
-    private func registerIfAllowed() async {
+    func registerIfAllowed() async {
         guard authorization.allowsRegistration else { return }
         permission.registerForRemoteNotifications()
         await registrar.sync()
@@ -122,7 +124,7 @@ final class PushController: InstanceLifecycleObserver {
     // MARK: Instances
 
     func instancePaired(_ instance: Instance) async {
-        await registrar.sync()
+        await didPair(instance)
     }
 
     /// The server is told before the bearer token goes: each stored token is deleted, at most 5 seconds in all.

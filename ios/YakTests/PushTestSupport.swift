@@ -43,6 +43,8 @@ final class FakePermission: NotificationPermission, @unchecked Sendable {
     private(set) var registerCount = 0
     var liveActivities = true
 
+    func setResult(_ next: NotificationRequestResult) { lock.withLock { result = next } }
+
     init(_ state: NotificationAuthorization, result: NotificationRequestResult = .granted) {
         self.state = state
         self.result = result

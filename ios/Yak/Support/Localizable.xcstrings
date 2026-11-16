@@ -2067,6 +2067,196 @@
           }
         }
       }
+    },
+    "notify.paired %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paired with %@"
+          }
+        }
+      }
+    },
+    "notify.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Know when Yak needs you"
+          }
+        }
+      }
+    },
+    "notify.text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak works while you do other things. A notification brings you back at the right moment."
+          }
+        }
+      }
+    },
+    "notify.row.needsYou.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A thread needs you"
+          }
+        }
+      }
+    },
+    "notify.row.needsYou.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak asked a question or is blocked"
+          }
+        }
+      }
+    },
+    "notify.row.finished.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A turn finished"
+          }
+        }
+      }
+    },
+    "notify.row.finished.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready for you to look at"
+          }
+        }
+      }
+    },
+    "notify.row.pullRequest.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A PR opened or its checks changed"
+          }
+        }
+      }
+    },
+    "notify.footnote": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private threads never show their text on the lock screen. You can change each kind later in Settings."
+          }
+        }
+      }
+    },
+    "notify.turnOn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on notifications"
+          }
+        }
+      }
+    },
+    "notify.notNow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
+          }
+        }
+      }
+    },
+    "notify.on": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications are on"
+          }
+        }
+      }
+    },
+    "notify.on.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak registers this device when the connection returns."
+          }
+        }
+      }
+    },
+    "notify.off.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications are off"
+          }
+        }
+      }
+    },
+    "notify.off.text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can turn them on in iOS Settings at any time."
+          }
+        }
+      }
+    },
+    "notify.failed.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications are still off"
+          }
+        }
+      }
+    },
+    "notify.failed.text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS did not turn on notifications. You can try again from Settings."
+          }
+        }
+      }
+    },
+    "notify.openSettings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open iOS Settings"
+          }
+        }
+      }
+    },
+    "notify.continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
