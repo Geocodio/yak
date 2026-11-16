@@ -5,7 +5,7 @@ public enum Panes {
     public static let built: [PaneID] =
         [
             .chat
-        ] + (FilesMode.built.isEmpty ? [] : [.files])
+        ] + (FilesMode.built.isEmpty ? [] : [.files]) + [.overview]
 
     /// In `PaneID.allCases` order: Chat always; Preview when `server.preview`; Files when `server.files || server.changes`;
     /// Terminal when `server.terminal`; Overview always. Then filtered by `built`. A nil `server` gives Chat.

@@ -111,6 +111,7 @@ private struct Played {
         #expect(environment["branch"] is NSNull && environment["pullRequest"] is NSNull)
         #expect((environment["repositories"] as? [Any])?.count == 1)
         #expect(try played.children().isEmpty)
+        #expect((try played.call("GET", "threads/s7ackr00").1["thread"] as? [String: Any])?["branch"] is NSNull)
     }
 
     @Test func aSettingUpRepositoryIsReadyFromTheThirdRead() throws {
@@ -140,7 +141,9 @@ private struct Played {
         #expect(add.0 == 409 && add.1["error"] as? String == "stack_full")
         let drop = try played.call("POST", "threads/q7adapt0/stack/drop")
         #expect(drop.0 == 409 && drop.1["error"] as? String == "child_not_failed")
-        #expect(try played.call("POST", "threads/s7ackr00/repositories/22/retry").1["error"] as? String == "nothing_to_retry")
+        #expect(
+            try played.call("POST", "threads/s7ackr00/repositories/22/retry").1["error"] as? String
+                == "nothing_to_retry")
         #expect(try played.repositoryStatus(22) == "failed")
     }
 
@@ -160,7 +163,9 @@ private struct Played {
     @Test func sharingFollowsTheSentMode() throws {
         let played = try Played("overview-stack")
         _ = try played.call("PUT", "threads/s7ackr00/share", ["mode": "everyone", "user_ids": [Int]()])
-        #expect((try played.call("GET", "threads/s7ackr00").1["thread"] as? [String: Any])?["visibility"] as? String == "team")
+        #expect(
+            (try played.call("GET", "threads/s7ackr00").1["thread"] as? [String: Any])?["visibility"] as? String
+                == "team")
         _ = try played.call("PUT", "threads/s7ackr00/share", ["mode": "people", "user_ids": [7, 8]])
         let thread = try played.call("GET", "threads/s7ackr00").1["thread"] as? [String: Any]
         #expect(thread?["sharedWithCount"] as? Int == 2)

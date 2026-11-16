@@ -108,7 +108,9 @@ final class StubOverview: StubFeature, @unchecked Sendable {
     // MARK: Routes
 
     private enum Action: Equatable {
-        case stack, addChild, stop, limit, takeOver, split, drop, environment, retry(String), share, updateShare
+        case stack, addChild, stop, limit, takeOver, split, drop, environment
+        case retry(String)
+        case share, updateShare
 
         /// The key under which a busy scenario counts its answers; reads never count.
         var isRead: Bool { self == .stack || self == .environment || self == .share }
@@ -202,15 +204,18 @@ final class StubOverview: StubFeature, @unchecked Sendable {
             lock.withLock { state.isStopped = true }
             return json(["status": "stopping"])
         case .limit:
-            let max = (stack(id: id, scenario: scenario, fixtures: fixtures, baseURL: baseURL)["limit"] as? [String: Any])?[
-                "max"] as? Int ?? 4
+            let max =
+                (stack(id: id, scenario: scenario, fixtures: fixtures, baseURL: baseURL)["limit"] as? [String: Any])?[
+                    "max"] as? Int ?? 4
             guard let value = body["limit"] as? Int, (1...max).contains(value) else {
                 return error(
                     422, "validation_failed", "Choose between 1 and \(max).",
                     details: ["errors": ["limit": ["Choose between 1 and \(max)."]]])
             }
             lock.withLock { state.limit = value }
-            var limit = (stack(id: id, scenario: scenario, fixtures: fixtures, baseURL: baseURL)["limit"] as? [String: Any]) ?? [:]
+            var limit =
+                (stack(id: id, scenario: scenario, fixtures: fixtures, baseURL: baseURL)["limit"] as? [String: Any])
+                ?? [:]
             limit["current"] = value
             return json(["status": "updated", "limit": limit])
         case .takeOver, .split, .drop:
@@ -384,6 +389,8 @@ final class StubOverview: StubFeature, @unchecked Sendable {
             }
             show["canDrive"] = false
             update("composer") { $0["state"] = "readonly" }
+        case "overview-new-thread":
+            update("thread") { $0["branch"] = NSNull() }
         case "overview-private":
             update("thread") {
                 $0["visibility"] = "private"

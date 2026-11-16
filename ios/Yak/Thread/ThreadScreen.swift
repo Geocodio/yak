@@ -21,6 +21,8 @@ struct ThreadScreen: View {
     @State private var model: ThreadModel?
     @State private var copiedLink = 0
     @State private var slots = PaneSlots()
+    /// The pane the title returns to when it leaves the Overview.
+    @State private var paneBeforeOverview: PaneID = .chat
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
@@ -86,7 +88,9 @@ struct ThreadScreen: View {
                         ToolbarItem(placement: .topBarLeading) { threadsButton }
                     }
                     ToolbarItem(placement: .principal) {
-                        ThreadTitle(title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine)
+                        ThreadTitle(
+                            title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine,
+                            action: thread.panes.contains(.overview) ? { toggleOverview(focused) } : nil)
                     }
                     ToolbarItem(placement: .topBarTrailing) { threadMenu(focused.wrappedValue) }
                 }
@@ -99,6 +103,16 @@ struct ThreadScreen: View {
         }
         .environment(scene)
         .sensoryFeedback(.success, trigger: copiedLink)
+    }
+
+    /// The title and Command I open the Overview; from the Overview they return to the pane before it.
+    private func toggleOverview(_ focused: Binding<PaneID>) {
+        if focused.wrappedValue == .overview {
+            focused.wrappedValue = paneBeforeOverview
+        } else {
+            paneBeforeOverview = focused.wrappedValue
+            focused.wrappedValue = .overview
+        }
     }
 
     private func focusedBinding(_ thread: ThreadModel) -> Binding<PaneID> {
@@ -175,10 +189,19 @@ struct ThreadScreen: View {
         }
     }
 
-    /// Command 1 focuses Chat.
+    /// Command 1 focuses Chat; Command I and Command 5 open the Overview.
     private func shortcuts(_ focused: Binding<PaneID>) -> some View {
-        Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
-            .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
+        ZStack {
+            Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
+            if model?.panes.contains(.overview) == true {
+                Button("pane.overview") { toggleOverview(focused) }.yakShortcut(.overview)
+                Button("pane.overview") {
+                    if focused.wrappedValue != .overview { paneBeforeOverview = focused.wrappedValue }
+                    focused.wrappedValue = .overview
+                }.yakShortcut(.focusOverview)
+            }
+        }
+        .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }
 }
 
