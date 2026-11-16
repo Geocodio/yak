@@ -31,6 +31,7 @@ struct TerminalStateView: View {
         var detail: Text?
         var action: (title: LocalizedStringKey, run: () -> Void)?
         var showsSteps = false
+        var waitingSince: Date?
     }
 
     var body: some View {
@@ -43,6 +44,7 @@ struct TerminalStateView: View {
                 if let detail = state.detail {
                     detail.font(.body).foregroundStyle(Color.terminalMuted).multilineTextAlignment(.center)
                 }
+                if let since = state.waitingSince { WaitingElapsed(since: since) }
                 if let message = model.restoreMessage {
                     Text(message).font(.subheadline.weight(.medium)).foregroundStyle(Color.terminalMuted)
                         .multilineTextAlignment(.center)
@@ -101,8 +103,9 @@ struct TerminalStateView: View {
                 content.action = ("terminal.retry", retry)
             }
             return content
-        case .waitingForSlot(let limit, _):
-            return Content(title: "terminal.waiting.title", detail: waitingDetail(limit), showsSteps: true)
+        case .waitingForSlot(let limit, let began):
+            return Content(
+                title: "terminal.waiting.title", detail: waitingDetail(limit), showsSteps: true, waitingSince: began)
         case .waitedTooLong:
             return Content(
                 title: "terminal.waited.title", detail: Text("terminal.waited.detail"),
@@ -221,8 +224,8 @@ private struct StepRows: View {
         case .opening(let current, let began, _):
             step = current == .sandbox ? 0 : (current == .link ? 1 : 2)
             since = began
-        case .waitingForSlot(_, let began):
-            since = began
+        case .waitingForSlot:
+            break
         case .restoring(let began):
             since = began
             isRestoring = true
@@ -245,6 +248,25 @@ private struct StepRows: View {
 
     private static func format(_ seconds: TimeInterval, minutes: Bool) -> String {
         let total = Int(seconds)
-        return minutes ? String(format: "%d:%02d", total / 60, total % 60) : "\(total)s"
+        return minutes ? TerminalElapsed.minutes(total) : String(localized: "terminal.step.seconds \(total)")
+    }
+}
+
+/// Elapsed time as m:ss.
+enum TerminalElapsed {
+    static func minutes(_ total: Int) -> String { String(format: "%d:%02d", total / 60, total % 60) }
+}
+
+/// "Waiting m:ss" under the steps while the shell waits for a sandbox slot.
+private struct WaitingElapsed: View {
+    let since: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+            let elapsed = TerminalElapsed.minutes(max(0, Int(timeline.date.timeIntervalSince(since))))
+            Text("terminal.waiting.elapsed \(elapsed)").font(.subheadline.weight(.medium)).monospacedDigit()
+                .foregroundStyle(Color.terminalMuted)
+        }
+        .accessibilityIdentifier("terminal.waiting.elapsed")
     }
 }

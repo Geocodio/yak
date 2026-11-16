@@ -2248,6 +2248,26 @@
         }
       }
     },
+    "terminal.waiting.elapsed %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting %@"
+          }
+        }
+      }
+    },
+    "terminal.step.seconds %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld s"
+          }
+        }
+      }
+    },
     "terminal.waiting.global": {
       "localizations": {
         "en": {
