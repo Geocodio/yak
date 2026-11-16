@@ -25,6 +25,8 @@ protocol StubFeature: Sendable {
     /// Scenario names this feature owns; each plays the core `paired` scenario underneath.
     var scenarios: [String] { get }
     var fixturePairs: [StubFixturePair] { get }
+    /// Scenario data files the feature reads that have no server fixture; each must exist.
+    var scenarioFileNames: [String] { get }
     /// Called for every API request in every scenario, before the core routes. `route` is the method and the path
     /// after the API prefix ("GET threads/abc"). Nil: not this feature's (the feature may still note the request).
     func answer(route: String, request: StubRequest, context: StubContext) -> StubReply?
@@ -41,6 +43,7 @@ protocol StubFeature: Sendable {
 extension StubFeature {
     var scenarios: [String] { [] }
     var fixturePairs: [StubFixturePair] { [] }
+    var scenarioFileNames: [String] { [] }
     func answer(route: String, request: StubRequest, context: StubContext) -> StubReply? { nil }
     func control(_ request: StubRequest) -> StubReply? { nil }
     func start() async throws {}
@@ -50,7 +53,10 @@ extension StubFeature {
 
 enum StubFeatures {
     /// One line per feature.
-    static let all: [any StubFeature] = []
+    static let all: [any StubFeature] = [
+        StubTerminalFeature.shared,
+        StubFilesControl(),
+    ]
 }
 
 /// A feature's listener that did not start, or did not start in time.

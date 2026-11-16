@@ -81,7 +81,9 @@ struct StubFixtures: Sendable {
         self.files = files
         var scenarioFiles: [String: Data] = [:]
         if let scenariosDirectory {
-            for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames {
+            for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames
+                + StubFeatures.all.flatMap(\.scenarioFileNames)
+            {
                 do {
                     scenarioFiles[name] = try Data(
                         contentsOf: scenariosDirectory.appendingPathComponent("\(name).json"))
