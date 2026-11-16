@@ -14,17 +14,22 @@ struct ComposerBar: View {
         @Bindable var composer = composer
         VStack(alignment: .leading, spacing: 6) {
             if let problem = composer.problem {
-                Text(problem).font(.footnote).foregroundStyle(Color.yakDanger)
-                    .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 12)
-                    .accessibilityIdentifier("composer.problem")
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.yakDanger)
+                        .accessibilityHidden(true)
+                    Text(problem).font(.footnote).foregroundStyle(.primary)
+                }
+                .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 12)
+                .accessibilityElement(children: .combine).accessibilityIdentifier("composer.problem")
             }
+            AttachmentStrip(composer: composer)
             if let reason = composer.bar.unavailable {
                 UnavailableRow(reason: reason, repo: thread.snapshot?.show?.thread.repo) {
                     scene.openNewThread(repo: thread.snapshot?.show?.thread.repo, text: nil)
                 }
             } else {
                 HStack(alignment: .bottom, spacing: 8) {
-                    if composer.bar.showsPlus { plusButton }
+                    if composer.bar.showsPlus || !composer.attachments.isEmpty { PlusMenu(composer: composer) }
                     field($composer.text)
                     if composer.bar.showsStop { stopButton }
                     if composer.bar.showsSend { sendControl }
@@ -34,6 +39,7 @@ struct ComposerBar: View {
         .background { shortcuts }
         .sensoryFeedback(.error, trigger: composer.refusalCount)
         .animation(.smooth(duration: 0.2), value: composer.bar)
+        .animation(.smooth(duration: 0.2), value: composer.attachments.count)
     }
 
     // MARK: Controls
@@ -50,18 +56,6 @@ struct ComposerBar: View {
             .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 22))
             .accessibilityLabel("composer.field.label")
             .accessibilityIdentifier("composer.field")
-    }
-
-    /// The menu behind it arrives with the attachments and the model picker.
-    private var plusButton: some View {
-        Button {
-        } label: {
-            Image(systemName: "plus").font(.system(size: 20, weight: .medium)).frame(width: 44, height: 44)
-                .contentShape(.circle)
-        }
-        .tint(.primary).disabled(true)
-        .accessibilityLabel("composer.plus.label")
-        .accessibilityIdentifier("composer.plus")
     }
 
     /// A tap steers; a long press offers "Send after this turn" while a turn runs.

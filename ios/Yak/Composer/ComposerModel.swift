@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UniformTypeIdentifiers
 import YakKit
 
 /// What the composer needs from the session and the engine, so its rules are tested without them.
@@ -8,6 +9,10 @@ protocol ComposerBackend: Sendable {
     func saveDraft(_ draft: ComposerDraft?, for key: ComposerDraftKey) async
     func send(_ draft: OutboxDraft) async throws(SendProblem) -> OutboxItem
     func stop() async -> ThreadActionOutcome
+    func storeAttachment(_ prepared: PreparedAttachment, reference: String, sendKey: UUID) async throws(FileStoreError)
+        -> OutboxAttachment
+    func discardAttachment(_ attachment: OutboxAttachment) async
+    func limits() async -> Me.AttachmentLimits?
 }
 
 struct LiveComposerBackend: ComposerBackend {
@@ -27,6 +32,18 @@ struct LiveComposerBackend: ComposerBackend {
         guard let engine else { return .failed(.offline) }
         return await engine.stopTurn()
     }
+
+    func storeAttachment(_ prepared: PreparedAttachment, reference: String, sendKey: UUID) async throws(FileStoreError)
+        -> OutboxAttachment
+    {
+        try await session.storeAttachment(
+            prepared.data, fileName: prepared.fileName, contentType: prepared.contentType, reference: reference,
+            sendKey: sendKey)
+    }
+
+    func discardAttachment(_ attachment: OutboxAttachment) async { await session.discardAttachment(attachment) }
+
+    func limits() async -> Me.AttachmentLimits? { await session.me()?.attachments }
 }
 
 /// The text, attachments and model of one message being written, and the rules for sending, stopping and keeping
@@ -41,6 +58,13 @@ final class ComposerModel {
     private(set) var isSending = false
     /// Counts refused sends, so the view can play the error haptic once per refusal.
     private(set) var refusalCount = 0
+    /// Files being read and stored, which the strip shows as placeholders.
+    private(set) var preparingCount = 0
+    /// The server's limits once `me` is known; the defaults until then.
+    private(set) var maximumFiles = 8
+    private(set) var maximumFileBytes = 10 * 1024 * 1024
+    /// Small pictures for the strip, by reference. A draft restored from disk has none and shows a file chip.
+    private(set) var thumbnails: [String: Data] = [:]
 
     private var typedText = ""
     private var snapshot: ConversationSnapshot?
@@ -51,6 +75,17 @@ final class ComposerModel {
     @ObservationIgnored private var backend: any ComposerBackend
     @ObservationIgnored private let clock: any YakClock
     @ObservationIgnored private static let saveDelay = Duration.milliseconds(500)
+    private static func message(for problem: AttachmentProblem) -> String {
+        switch problem {
+        case .tooMany(let maximum): String(localized: "composer.problem.tooMany \(maximum)")
+        case .tooLarge(let bytes):
+            String(
+                localized:
+                    "composer.problem.tooLarge \(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))"
+            )
+        case .unreadable: String(localized: "composer.problem.unreadable")
+        }
+    }
 
     init(key: ComposerDraftKey, backend: any ComposerBackend, clock: any YakClock) {
         self.key = key
@@ -85,6 +120,7 @@ final class ComposerModel {
     /// Reads the saved draft. Text typed before it arrives wins over the saved text.
     func load() async {
         guard !hasLoaded else { return }
+        await readLimits()
         let saved = await backend.draft(key)
         guard !hasLoaded else { return }
         hasLoaded = true
@@ -129,6 +165,7 @@ final class ComposerModel {
         if isUnchanged {
             typedText = ""
             attachments = []
+            thumbnails = [:]
             model = nil
             await backend.saveDraft(nil, for: key)
         } else {
@@ -153,11 +190,122 @@ final class ComposerModel {
         typedText = item.text
         model = item.model
         attachments = item.attachments
+        thumbnails = [:]
         sendKey = item.id
         hasEdited = true
         problem = nil
         scheduleSave()
     }
+
+    /// Files and photos are checked against the server's limits, prepared off the main actor, stored under the
+    /// draft's send key and numbered from the server's next number. A problem leaves the draft as it was.
+    func add(_ data: Data, fileName: String, contentType: String) async {
+        await readLimits()
+        guard hasRoomForAnother() else { return }
+        preparingCount += 1
+        defer { preparingCount -= 1 }
+        problem = nil
+        let prepared: PreparedAttachment
+        do {
+            prepared = try await AttachmentPreparer.prepare(
+                data, fileName: fileName, contentType: contentType, maximumBytes: maximumFileBytes)
+        } catch {
+            problem = Self.message(for: error)
+            refusalCount += 1
+            return
+        }
+        let thumbnail = prepared.isImage ? await AttachmentPreparer.thumbnail(of: prepared.data) : nil
+        let key = sendKey ?? UUID()
+        let number = (snapshot?.show?.composer.nextAttachmentNumber ?? 1) + attachments.count
+        let reference = ComposerAttachments.references(isImage: [prepared.isImage], next: number)[0]
+        do {
+            let stored = try await backend.storeAttachment(prepared, reference: reference, sendKey: key)
+            sendKey = key
+            attachments.append(stored)
+            thumbnails[stored.reference] = thumbnail
+        } catch {
+            problem = Self.message(for: .unreadable)
+            refusalCount += 1
+            return
+        }
+        hasEdited = true
+        saveTask?.cancel()
+        await backend.saveDraft(currentDraft, for: self.key)
+    }
+
+    /// A file from the file importer: its size is checked before it is read.
+    func addFile(at url: URL) async {
+        await readLimits()
+        guard hasRoomForAnother() else { return }
+        preparingCount += 1
+        let data: Data
+        do {
+            data = try await AttachmentPreparer.read(url, maximumBytes: maximumFileBytes)
+        } catch {
+            preparingCount -= 1
+            problem = Self.message(for: error)
+            refusalCount += 1
+            return
+        }
+        preparingCount -= 1
+        let name = url.lastPathComponent
+        let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        await add(data, fileName: name, contentType: type)
+    }
+
+    /// A picker that could not hand over its file.
+    func reportUnreadable() {
+        problem = Self.message(for: .unreadable)
+        refusalCount += 1
+    }
+
+    /// How many more files the draft takes.
+    var attachmentSlotsLeft: Int { max(maximumFiles - attachments.count - preparingCount, 0) }
+
+    private func readLimits() async {
+        guard let limits = await backend.limits() else { return }
+        maximumFiles = limits.maxFiles
+        maximumFileBytes = limits.maxFileBytes
+    }
+
+    private func hasRoomForAnother() -> Bool {
+        guard attachmentSlotsLeft > 0 else {
+            problem = Self.message(for: .tooMany(maximum: maximumFiles))
+            refusalCount += 1
+            return false
+        }
+        problem = nil
+        return true
+    }
+
+    func remove(_ attachment: OutboxAttachment) async {
+        guard let index = attachments.firstIndex(of: attachment) else { return }
+        attachments.remove(at: index)
+        thumbnails[attachment.reference] = nil
+        hasEdited = true
+        problem = nil
+        await backend.discardAttachment(attachment)
+        saveTask?.cancel()
+        await backend.saveDraft(currentDraft, for: key)
+    }
+
+    /// nil sends with the thread's own model.
+    func selectModel(_ value: String?) {
+        guard value != model else { return }
+        model = value
+        hasEdited = true
+        scheduleSave()
+    }
+
+    /// The label of the chosen model, or of the thread's own when none was chosen.
+    var modelLabel: String? {
+        ModelChoices.label(for: model ?? snapshot?.show?.composer.model, in: modelFamilies)
+    }
+
+    var modelFamilies: [ModelFamily] { snapshot?.show?.composer.models ?? [] }
+
+    /// The model the next message uses: the chosen one, else the thread's own.
+    var effectiveModel: String? { model ?? snapshot?.show?.composer.model }
 
     /// Saves now; called when the thread closes or the app goes to the background.
     func flush() async {

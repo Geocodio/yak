@@ -231,6 +231,73 @@ import XCTest
         }
     }
 
+    // MARK: Plus menu, attachments and the model picker
+
+    func testPlusMenu() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        try openPlusMenu()
+        // The menu is the system's own surface; the audit cannot judge text on it.
+        try shoot("plus-menu", audits: false)
+    }
+
+    func testModelPicker() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        try openPlusMenu()
+        app.buttons["composer.plusMenu.model"].tap()
+        XCTAssertTrue(app.buttons["model.close"].waitForExistence(timeout: 10))
+        let older = app.buttons["model.older.sonnet"]
+        XCTAssertTrue(older.waitForExistence(timeout: 5))
+        older.tap()
+        XCTAssertTrue(label("Sonnet 5, pinned").waitForExistence(timeout: 5))
+        try shoot("model-picker")
+    }
+
+    func testAttachmentStrip() throws {
+        try start("paired", paired: true)
+        try openThread("d0e515ef")
+        try addPhoto()
+        XCTAssertTrue(app.descendants(matching: .any)["composer.attachment"].waitForExistence(timeout: 15))
+        try shootThread("attachments")
+    }
+
+    func testAttachmentProblem() throws {
+        try start("one-attachment", paired: true)
+        try openThread("d0e515ef")
+        try addPhoto()
+        XCTAssertTrue(app.descendants(matching: .any)["composer.attachment"].waitForExistence(timeout: 15))
+        try addPhoto()
+        XCTAssertTrue(app.descendants(matching: .any)["composer.problem"].waitForExistence(timeout: 15))
+        try shootThread("attachment-too-many")
+    }
+
+    private func openPlusMenu() throws {
+        let plus = app.buttons["composer.plus"]
+        XCTAssertTrue(plus.waitForExistence(timeout: 15))
+        plus.tap()
+        XCTAssertTrue(app.buttons["composer.plusMenu.photos"].waitForExistence(timeout: 5))
+    }
+
+    /// Picks the first photo of the simulator's library through the system picker.
+    private func addPhoto() throws {
+        try openPlusMenu()
+        app.buttons["composer.plusMenu.photos"].tap()
+        let photos = app.images.matching(NSPredicate(format: "label BEGINSWITH 'Photo'"))
+        XCTAssertTrue(
+            app.buttons["Cancel"].waitForExistence(timeout: 20) || photos.firstMatch.waitForExistence(timeout: 5))
+        _ = photos.firstMatch.waitForExistence(timeout: 10)
+        // The grid is the system's; its thumbnails are the large images on the sheet.
+        let thumbnails = photos.count > 0 ? photos : app.images
+        let photo = thumbnails.allElementsBoundByIndex.first { $0.frame.height > 80 } ?? thumbnails.firstMatch
+        XCTAssertTrue(photo.exists, "the simulator's library has no photo")
+        photo.tap()
+        for name in ["Add", "Done"] where app.buttons[name].waitForExistence(timeout: 2) {
+            app.buttons[name].tap()
+            break
+        }
+    }
+
     private func type(_ text: String, then identifier: String) throws {
         let field = app.textFields["composer.field"]
         XCTAssertTrue(field.waitForExistence(timeout: 15))

@@ -94,6 +94,10 @@ import XCTest
             {
                 return true
             }
+            // The thread screen under the model sheet is dimmed, and its text has no element the audit can name.
+            if name == "model-picker", issue.element == nil {
+                return true
+            }
             // Text below the screen on a scrolling page, or a finding without an element, cannot be judged by
             // the pixels shown.
             let screenBottom = app.windows.firstMatch.frame.maxY

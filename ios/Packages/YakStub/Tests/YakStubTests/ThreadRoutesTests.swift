@@ -249,6 +249,18 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         #expect(try reply(.slowThread, "GET", "threads").delay == .zero)
     }
 
+    @Test func oneAttachmentLimitsTheMessage() throws {
+        func limit(_ scenario: Scenario) throws -> Int? {
+            let request = StubRequest(
+                method: "GET", path: "/api/app/v1/me", headers: ["authorization": "Bearer stub-token"])
+            let answer = scenario.reply(
+                to: request, baseURL: "http://127.0.0.1:1", fixtures: try StubTestSupport.fixtures())
+            return (try object(answer)["attachments"] as? [String: Any])?["maxFiles"] as? Int
+        }
+        #expect(try limit(.oneAttachment) == 1)
+        #expect(try limit(.paired) == 8)
+    }
+
     @Test func longHistoryHas1200Events() throws {
         let page = try reply(.longHistory, "GET", "threads/d0e515ef/events?after=1100&limit=500")
         #expect(try sequences(page).count == 100)
