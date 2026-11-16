@@ -77,6 +77,32 @@ import XCTest
         try audit()
     }
 
+    /// Smoke test 3: a turn streams in, and its texts end up in the order they were written with the tool group
+    /// between them. The composer's stop button belongs to the composer, so the end of the turn is the last text.
+    func testAStreamedTurnAppearsInOrderAndEnds() throws {
+        try launch(scenario: "one-thread-working")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let first = app.staticTexts["Looking at the importer."]
+        let last = app.staticTexts["Done. Failed rows now retry three times."]
+        XCTAssertTrue(first.waitForExistence(timeout: 15))
+        XCTAssertTrue(last.waitForExistence(timeout: 15))
+        let group = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS %@", "Read 1 file, Ran 1 command")
+        ).firstMatch
+        XCTAssertTrue(group.waitForExistence(timeout: 5))
+        XCTAssertLessThan(first.frame.minY, group.frame.minY)
+        XCTAssertLessThan(group.frame.minY, last.frame.minY)
+        // No step is still running once the turn has ended.
+        let running = app.descendants(matching: .any)["step.current"]
+        wait(
+            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: running)],
+            timeout: 15)
+        try audit()
+    }
+
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex

@@ -47,6 +47,10 @@ struct ThreadScreen: View {
         }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
+        // A `/clear` starts a new thread; the window follows it.
+        .onChange(of: model?.replacementThreadID) { _, replacement in
+            if let replacement { scene.open(thread: replacement, isCompactWidth: isCompactWidth) }
+        }
     }
 
     /// Keeps one model per thread while the screen shows it, and stops it when the thread changes or the screen goes.

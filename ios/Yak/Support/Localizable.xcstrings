@@ -2127,6 +2127,640 @@
           }
         }
       }
+    },
+    "common.cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "chat.day.today": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        }
+      }
+    },
+    "chat.day.yesterday": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yesterday"
+          }
+        }
+      }
+    },
+    "chat.message.sendsAfterTurn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sends after this turn"
+          }
+        }
+      }
+    },
+    "chat.message.waitingToBeRead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for Yak to read it"
+          }
+        }
+      }
+    },
+    "chat.message.menu": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message options"
+          }
+        }
+      }
+    },
+    "chat.message.edit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        }
+      }
+    },
+    "chat.message.sendNow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send now"
+          }
+        }
+      }
+    },
+    "chat.message.sendAfterTurn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send after this turn"
+          }
+        }
+      }
+    },
+    "chat.message.remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
+    "chat.message.alreadySent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This message was already sent."
+          }
+        }
+      }
+    },
+    "chat.message.editTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit message"
+          }
+        }
+      }
+    },
+    "chat.message.editField": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message text"
+          }
+        }
+      }
+    },
+    "chat.message.save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "chat.message.from %@ %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ said: %2$@"
+          }
+        }
+      }
+    },
+    "chat.unsent.queued": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting to send"
+          }
+        }
+      }
+    },
+    "chat.unsent.sending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending"
+          }
+        }
+      }
+    },
+    "chat.unsent.slow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Still sending"
+          }
+        }
+      }
+    },
+    "chat.unsent.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not sent. It sends when you are back online."
+          }
+        }
+      }
+    },
+    "chat.unsent.trying": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not sent yet. Trying again."
+          }
+        }
+      }
+    },
+    "chat.unsent.refused %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not sent. %@"
+          }
+        }
+      }
+    },
+    "chat.attachment.image %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image %@"
+          }
+        }
+      }
+    },
+    "chat.thinking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thinking"
+          }
+        }
+      }
+    },
+    "chat.expanded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expanded"
+          }
+        }
+      }
+    },
+    "chat.collapsed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapsed"
+          }
+        }
+      }
+    },
+    "chat.step.command.running %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running %@"
+          }
+        }
+      }
+    },
+    "chat.step.command.done %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ran %@"
+          }
+        }
+      }
+    },
+    "chat.step.read.running %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading %@"
+          }
+        }
+      }
+    },
+    "chat.step.read.done %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read %@"
+          }
+        }
+      }
+    },
+    "chat.step.search.running %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching for %@"
+          }
+        }
+      }
+    },
+    "chat.step.search.done %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searched for %@"
+          }
+        }
+      }
+    },
+    "chat.step.fetch.running %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetching %@"
+          }
+        }
+      }
+    },
+    "chat.step.fetch.done %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetched %@"
+          }
+        }
+      }
+    },
+    "chat.step.failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed"
+          }
+        }
+      }
+    },
+    "chat.step.showOutput": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows the output"
+          }
+        }
+      }
+    },
+    "chat.output.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Output"
+          }
+        }
+      }
+    },
+    "chat.output.cut": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The output is longer than this. Only the start is shown."
+          }
+        }
+      }
+    },
+    "chat.edits.counts %lld %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%1$lld −%2$lld"
+          }
+        }
+      }
+    },
+    "chat.result.failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The turn failed"
+          }
+        }
+      }
+    },
+    "chat.child.open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens the sub-thread"
+          }
+        }
+      }
+    },
+    "chat.repository.changes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes"
+          }
+        }
+      }
+    },
+    "chat.repository.context": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Context"
+          }
+        }
+      }
+    },
+    "chat.waiting.active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is working"
+          }
+        }
+      }
+    },
+    "chat.waiting.queued": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for Yak to start"
+          }
+        }
+      }
+    },
+    "chat.notice.continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
+    },
+    "chat.notice.resets %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resets in %@"
+          }
+        }
+      }
+    },
+    "chat.notice.resetsNow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resetting now"
+          }
+        }
+      }
+    },
+    "chat.history.loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading earlier messages"
+          }
+        }
+      }
+    },
+    "chat.history.failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not load earlier messages"
+          }
+        }
+      }
+    },
+    "chat.jumpToLatest": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jump to latest"
+          }
+        }
+      }
+    },
+    "chat.empty.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No messages yet"
+          }
+        }
+      }
+    },
+    "chat.empty.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write what Yak should do. It starts when you send."
+          }
+        }
+      }
+    },
+    "chat.announce.finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak finished"
+          }
+        }
+      }
+    },
+    "chat.announce.finishedWith %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak finished. %@"
+          }
+        }
+      }
+    },
+    "chat.action.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are offline. Try again when the connection returns."
+          }
+        }
+      }
+    },
+    "chat.action.failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak could not do that. Try again."
+          }
+        }
+      }
+    },
+    "chat.action.refused": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak could not do that."
+          }
+        }
+      }
+    },
+    "chat.action.sendingNow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This message is sending now. Try again in a moment."
+          }
+        }
+      }
+    },
+    "chat.edits.summary %lld": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Edited %lld file"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Edited %lld files"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "chat.child.files %lld": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld file changed"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld files changed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "chat.edits.file %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

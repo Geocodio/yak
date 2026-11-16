@@ -1,8 +1,8 @@
 import SwiftUI
 import YakKit
 
-/// The Chat pane. Until the chat itself arrives it shows the load states and an empty conversation area, and its
-/// bar row is a placeholder for the composer.
+/// The Chat pane: the conversation once the thread has one to show, the load states before, and a placeholder for
+/// the composer in the bar.
 extension PaneDescriptor {
     static let chat = PaneDescriptor(
         id: .chat, name: "pane.chat", symbol: "bubble.left",
@@ -17,6 +17,9 @@ private struct ChatPane: View {
 
     var body: some View {
         ZStack {
+            if case .conversation = thread.loadPresentation {
+                ChatView(thread: thread, openThread: openThread)
+            }
             ThreadLoadView(
                 presentation: thread.loadPresentation, retry: { Task { await thread.retry() } },
                 openThreads: {
@@ -29,6 +32,10 @@ private struct ChatPane: View {
         .background(Color(.systemBackground))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("conversation")
+    }
+
+    private func openThread(_ id: String) {
+        scene.open(thread: id, isCompactWidth: horizontalSizeClass == .compact)
     }
 }
 

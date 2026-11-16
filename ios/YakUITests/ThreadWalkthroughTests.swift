@@ -159,6 +159,163 @@ import XCTest
         try shoot("pane-menu", audits: false)
     }
 
+    // MARK: Chat
+
+    /// Opens `d0e515ef` of a scenario and waits for the chat to show.
+    private func openChat(_ scenario: String, thread: String = "d0e515ef", holdAfter: Int? = nil) throws {
+        try start(scenario, paired: true)
+        // The playback starts when the thread opens, so the hold set here applies from its first event.
+        try stub.hold(after: holdAfter)
+        try openThread(thread)
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 15))
+    }
+
+    func testChatStreaming() throws {
+        // The stub plays the first deltas and holds, so the reply is half written.
+        try openChat("one-thread-working", holdAfter: 7)
+        XCTAssertTrue(label("Looking at the importer.").waitForExistence(timeout: 20))
+        try shootThread("chat-streaming")
+    }
+
+    func testChatWorking() throws {
+        // Held after the tool calls start and before their results: the current step is tinted and timed.
+        try openChat("one-thread-working", holdAfter: 8)
+        XCTAssertTrue(app.descendants(matching: .any)["step.current"].waitForExistence(timeout: 20))
+        try shootThread("chat-working")
+    }
+
+    func testChatFinished() throws {
+        try openChat("paired")
+        XCTAssertTrue(label("Done. Failed rows now retry three times.").waitForExistence(timeout: 15))
+        try shootThread("chat-finished")
+    }
+
+    func testChatToolsExpanded() throws {
+        try openChat("paired")
+        let group = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Read 1 file, Ran 1 command"))
+            .firstMatch
+        XCTAssertTrue(group.waitForExistence(timeout: 15))
+        group.tap()
+        XCTAssertTrue(label("Ran php artisan test").waitForExistence(timeout: 5))
+        try shootThread("chat-tools-expanded")
+    }
+
+    func testChatHistory() throws {
+        try openChat("long-history")
+        XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 20))
+        // Fast swipes reach the first loaded row, where the older page is asked for and takes a few seconds.
+        let loading = label("Loading earlier messages")
+        let list = app.descendants(matching: .any)["chat.list"].firstMatch
+        var isLoading = false
+        for _ in 0..<80 where !isLoading {
+            list.swipeDown(velocity: .fast)
+            isLoading = loading.waitForExistence(timeout: 0.5)
+        }
+        XCTAssertTrue(isLoading)
+        // The row that says so sits just above the first loaded one.
+        list.swipeDown()
+        try shoot("chat-history-loading", audits: false)
+    }
+
+    func testChatEmpty() throws {
+        try openChat("thread-states", thread: "n0events")
+        XCTAssertTrue(label("No messages yet").waitForExistence(timeout: 15))
+        try shootThread("chat-empty")
+    }
+
+    func testChatNotices() throws {
+        let notices: [(id: String, name: String, text: String)] = [
+            ("vsage000", "notice-usage-limit", "Usage limit reached"),
+            ("g7ard000", "notice-guard", "Claude stopped after 50 steps"),
+            ("rest0re0", "notice-restore-failed", "Rebuilding the sandbox stopped at step 2"),
+            ("acc07nt0", "notice-account", "The account needs attention"),
+            ("cred0000", "notice-credential", "A credential was exposed"),
+            ("wa17ng00", "notice-waiting", "Waiting for a free sandbox"),
+        ]
+        for notice in notices {
+            // Each notice starts from a fresh launch, so the drawer is the same on every pass and in every orientation.
+            app.terminate()
+            try start("thread-states", paired: true)
+            try openThread(notice.id)
+            XCTAssertTrue(label(notice.text).waitForExistence(timeout: 15), notice.name)
+            try shootThread(notice.name)
+        }
+    }
+
+    func testChatOffline() throws {
+        try openChat("paired")
+        XCTAssertTrue(label("Done. Failed rows now retry three times.").waitForExistence(timeout: 15))
+        try stub.setOnline(false)
+        XCTAssertTrue(label("Offline. Showing a saved copy").waitForExistence(timeout: 60))
+        try shootThread("chat-offline")
+    }
+
+    func testChatJumpToLatest() throws {
+        try openChat("long-history")
+        XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 20))
+        let list = app.descendants(matching: .any)["conversation"].firstMatch
+        for _ in 0..<3 { list.swipeDown() }
+        XCTAssertTrue(app.descendants(matching: .any)["chat.jumpToLatest"].firstMatch.waitForExistence(timeout: 5))
+        try shoot("chat-jump-to-latest", audits: false)
+        app.descendants(matching: .any)["chat.jumpToLatest"].firstMatch.tap()
+        XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 5))
+    }
+
+    /// The debug gallery draws the chat from canned snapshots: states the stub cannot reach, such as a refused unsent
+    /// message, a queued message and every kind of activity.
+    private func openGallery(_ page: String) throws {
+        try start("paired", paired: true, extraArguments: ["-yakChatGallery", page])
+        XCTAssertTrue(app.descendants(matching: .any)["chat.list"].firstMatch.waitForExistence(timeout: 20))
+    }
+
+    func testChatMessages() throws {
+        try openGallery("messages-a")
+        XCTAssertTrue(app.descendants(matching: .any)["message.menu.u3"].waitForExistence(timeout: 10))
+        try shootThread("chat-queued")
+    }
+
+    func testChatUnsent() throws {
+        try openGallery("messages-b")
+        XCTAssertTrue(label("This one takes a while.").waitForExistence(timeout: 10))
+        try shootThread("chat-unsent-states")
+    }
+
+    func testChatRefused() throws {
+        try openGallery("messages-c")
+        XCTAssertTrue(app.buttons["unsent.edit"].waitForExistence(timeout: 10))
+        try shootThread("chat-unsent")
+    }
+
+    func testChatUnsentPhoto() throws {
+        try openGallery("messages-d")
+        XCTAssertTrue(label("Here is the photo.").waitForExistence(timeout: 10))
+        try shootThread("chat-unsent-photo")
+    }
+
+    func testChatActivity() throws {
+        try openGallery("activity")
+        XCTAssertTrue(app.descendants(matching: .any)["step.current"].waitForExistence(timeout: 10))
+        try shootThread("chat-activity")
+    }
+
+    func testChatCards() throws {
+        try openGallery("activity-b")
+        XCTAssertTrue(label("The turn failed").waitForExistence(timeout: 10))
+        try shootThread("chat-cards")
+    }
+
+    func testChatActivityOpen() throws {
+        try openGallery("activity-open")
+        XCTAssertTrue(label("Ran php artisan test").waitForExistence(timeout: 10))
+        try shootThread("chat-activity-open")
+    }
+
+    func testChatNoticeWithGuard() throws {
+        try openGallery("notice")
+        XCTAssertTrue(app.buttons["notice.continue"].waitForExistence(timeout: 10))
+        try shootThread("chat-notice-continue")
+    }
+
     // MARK: Helpers
 
     /// A screenshot of a thread screen, then the audit without the findings about text in the navigation bar,

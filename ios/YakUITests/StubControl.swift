@@ -29,6 +29,9 @@ struct StubControl {
     /// Takes the app offline or back online; the app in test mode reads this as its network state.
     func setOnline(_ isOnline: Bool) throws { try post("online", isOnline ? "yes" : "no") }
 
+    /// Holds the played events after `sequence`; nil lets them run on.
+    func hold(after sequence: Int?) throws { try post("hold-after", sequence.map(String.init) ?? "none") }
+
     /// Sends `body` to `/__stub/<endpoint>` and fails the test unless the stub answers 200. A feature's control
     /// route goes here as `<feature>/<route>`. Waits at most 30 seconds.
     func post(_ endpoint: String, _ body: String) throws {

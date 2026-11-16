@@ -10,6 +10,13 @@ final class StubThreads: @unchecked Sendable {
     private var clearedNotices: Set<String> = []
     private var interruptions: [String: [[String: Any]]] = [:]
     private var lastBody = ""
+    private var heldAfter: Int?
+
+    /// Playback publishes nothing past this sequence while it is set, so a screen can be looked at mid-turn.
+    var holdAfter: Int? {
+        get { lock.withLock { heldAfter } }
+        set { lock.withLock { heldAfter = newValue } }
+    }
 
     func reset() {
         lock.withLock {
@@ -19,6 +26,7 @@ final class StubThreads: @unchecked Sendable {
             clearedNotices = []
             interruptions = [:]
             lastBody = ""
+            heldAfter = nil
         }
     }
 
@@ -68,6 +76,7 @@ private let statesOfThreads: [(id: String, title: String)] = [
     ("acc07nt0", "A thread with an account problem"),
     ("cred0000", "A thread with an exposed credential"),
     ("wa17ng00", "A thread waiting for a sandbox"),
+    ("n0events", "A thread with no messages yet"),
 ]
 
 private func update(_ dictionary: inout [String: Any], _ key: String, _ change: (inout [String: Any]) -> Void) {
@@ -179,6 +188,7 @@ extension Scenario {
                 ]
             }
         }
+        if self == .threadStates, id == "n0events" { return [] }
         let name = self == .questionOpen ? "events/question" : "events/simple-turn"
         let source =
             self == .serverFixtures
@@ -229,6 +239,7 @@ extension Scenario {
         let total = storedEvents(id, fixtures, baseURL).compactMap { $0["sequence"] as? Int }.max() ?? 0
         show["latestSequence"] = published
         if self == .serverFixtures { return show }
+        if self == .threadStates, id == "n0events" { show["messages"] = [[String: Any]]() }
         update(&show, "thread") {
             $0["id"] = id
             $0["title"] = row["title"]

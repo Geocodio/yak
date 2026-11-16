@@ -10,6 +10,8 @@ host_allowed_files=(
     Packages/YakKit/Sources/YakKit/Uploads/UploadLedger.swift
     # The debug-only Markdown gallery renders a sample document with an example.com link; no request is made.
     Yak/Markdown/MarkdownGallery.swift
+    # The debug-only chat gallery names example.test and example.com in canned data; no request is made.
+    Yak/Chat/ChatGallery.swift
 )
 
 release_swift_files() {

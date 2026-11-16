@@ -218,6 +218,7 @@ enum Scenario: String, CaseIterable, Sendable {
     static let apiPrefix = "/api/app/v1/"
     static let slowDelay = Duration.seconds(10)
     static let slowerDelay = Duration.seconds(14)
+    static let olderPageDelay = Duration.seconds(6)
 
     func reply(
         to request: StubRequest, baseURL: String, fixtures: StubFixtures, threads: StubThreads = StubThreads(),
@@ -242,6 +243,11 @@ enum Scenario: String, CaseIterable, Sendable {
             ?? StubReply(
                 answer: answer(
                     route: route, request: request, baseURL: baseURL, fixtures: fixtures, realtimePort: realtimePort))
+        // The older page of a long history takes a while, so its loading row can be looked at.
+        if self == .longHistory, route.hasSuffix("/events"), let after = Int(request.query["after"] ?? ""), after < 700
+        {
+            reply.delay = Self.olderPageDelay
+        }
         if self == .slow { reply.delay = Self.slowDelay }
         if self == .slower { reply.delay = Self.slowerDelay }
         if self == .serverTooOld { reply.protocolHeader = 0 }

@@ -188,6 +188,12 @@ final class StubServer: Sendable {
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data((online.get() ? "yes" : "no").utf8)))
         }
+        if request.path == "/__stub/hold-after", request.method == "POST" {
+            // A sequence number holds the playback after that event; anything else lets it run on.
+            let text = String(decoding: request.body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            threads.holdAfter = Int(text)
+            return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data(text.utf8)))
+        }
         if request.path == "/__stub/last-message" {
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data(threads.lastMessage.utf8)))

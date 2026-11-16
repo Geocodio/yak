@@ -55,6 +55,8 @@ struct YakApp: App {
             #if DEBUG
                 if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
                     MarkdownGallery()
+                } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {
+                    ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
                 } else {
                     rootView.preferredColorScheme(TestMode.colorScheme())
                 }

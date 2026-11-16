@@ -163,6 +163,9 @@ final class PusherSocket: Sendable {
                         while !isOnline() {
                             if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
                         }
+                        while let limit = threads.holdAfter, item.sequence > limit, !threads.isStopped(id) {
+                            if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
+                        }
                         if Task.isCancelled || threads.isStopped(id) { return }
                         threads.publish(id, through: item.sequence)
                         publish(item.json, thread: id)
