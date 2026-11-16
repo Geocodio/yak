@@ -134,6 +134,22 @@ private func makeSettingsRig(isAvailable: Bool = true) async throws -> SettingsR
         #expect(rig.model.switches.load == .loaded)
     }
 
+    @Test func aRetryIsNotOverwrittenByTheLoadItReplaced() async throws {
+        let rig = try await makeSettingsRig()
+        await rig.rig.transport.hold("GET notifications")
+        let first = Task { await rig.model.start() }
+        #expect(await eventually { await rig.rig.transport.waitingCount == 1 })
+        let retrying = Task { await rig.model.retry() }
+        #expect(await eventually { await rig.rig.transport.waitingCount == 2 })
+        await rig.rig.transport.releaseLast()
+        await retrying.value
+        #expect(rig.model.switches.load == .loaded)
+        await rig.rig.transport.on("GET notifications", status: 503, body: unavailableJSON)
+        await rig.rig.transport.release()
+        await first.value
+        #expect(rig.model.switches.load == .loaded)
+    }
+
     @Test func offlineReloadsWhenTheNetworkReturns() async throws {
         let rig = try await makeSettingsRig()
         await rig.rig.transport.setOffline(true)
@@ -210,6 +226,36 @@ private func makeSettingsRig(isAvailable: Bool = true) async throws -> SettingsR
         await removing.value
         #expect(rig.model.removing.isEmpty)
         #expect(!rig.model.instances.contains { $0.id == other.id })
+    }
+
+    @Test func removingAnInstanceRunsTheCleanup() async throws {
+        let rig = try await makePushRig()
+        let transport = rig.transport
+        await transport.on("PUT push-tokens/alert")
+        await transport.on("DELETE push-tokens/alert")
+        await transport.on("DELETE push-tokens/live_activity_start")
+        await transport.on("DELETE device")
+        let environment = rig.environment
+        let app = AppModel(
+            instances: rig.store, tokens: rig.tokens,
+            makeClient: { url in
+                APIClient(
+                    baseURL: url, token: nil, transport: transport, appVersion: "1.0.0", systemDescription: "Test")
+            },
+            makeEnvironment: { environment }, observers: [rig.controller], push: rig.controller)
+        let model = SettingsModel(
+            app: app, push: rig.controller, registrar: rig.registrar, active: rig.home, clock: StepClock())
+        await rig.controller.start()
+        await rig.registrar.setToken(String(repeating: "0123456789abcdef", count: 4), kind: .alert)
+        #expect(await eventually { await transport.routes().contains("PUT push-tokens/alert") })
+        let recordFile = "instances/\(rig.other.id.uuidString)/push-registration.json"
+        await model.remove(rig.other)
+        let deletes = await transport.recorded.filter { $0.route.hasPrefix("DELETE") && $0.host == "other.example.com" }
+            .map(\.route)
+        #expect(deletes.first == "DELETE push-tokens/alert")
+        #expect(deletes.last == "DELETE device")
+        #expect(!rig.files.exists(recordFile))
+        #expect(!(await rig.store.all()).contains { $0.id == rig.other.id })
     }
 
     @Test func everyStatusHasItsSubtitle() {
