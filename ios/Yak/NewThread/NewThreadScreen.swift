@@ -457,7 +457,7 @@ private struct NewThreadContent: View {
         }
         .disabled(model.isLocked)
         .opacity(model.isLocked ? 0.4 : 1)
-        .keyboardShortcut(.return, modifiers: .command)
+        .yakShortcut(.send)
         .accessibilityLabel("newThread.send").accessibilityIdentifier("newThread.send")
         .accessibilityShowsLargeContentViewer { Label("newThread.send", systemImage: "arrow.up") }
     }
