@@ -8,4 +8,4 @@ This thread works in more than one repository. Use absolute paths between them.
 
 The primary repository is at `/workspace` and is where you start. Repositories marked `changes` get a pull request. Repositories marked `context` are for reading; edits there are throwaway, are discarded with the sandbox and never get a pull request.
 
-To link one repository into another, use absolute paths, for example a composer `path` repository with `url: /extras/lib` or `npm install --no-save /extras/lib`. Never commit those local links, and never push from a `context` repository.
+To link one repository into another, use absolute paths, for example a composer `path` repository with `url: /home/yak/extras/lib` or `npm install --no-save /home/yak/extras/lib`. Never commit those local links, and never push from a `context` repository.

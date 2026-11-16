@@ -2,6 +2,7 @@
 
 namespace App\Services\Threads;
 
+use App\Agents\ClaudeCodeOutputParser;
 use App\Support\Markdown;
 
 /**
@@ -52,19 +53,39 @@ class ThreadEventProjector
     public function withHtml(array $data): array
     {
         if (($data['role'] ?? null) === 'result' && is_string($data['text'] ?? null)) {
+            $data['text'] = self::withoutQuestionsBlock($data['text']);
             $data['html'] = Markdown::toHtml($data['text']);
         }
 
         if (($data['role'] ?? null) === 'assistant') {
             $data['blocks'] = array_map(
                 fn (mixed $block): mixed => is_array($block) && ($block['type'] ?? null) === 'text' && ! isset($block['html'])
-                    ? $block + ['html' => Markdown::toHtml((string) ($block['text'] ?? ''))]
+                    ? self::withHtmlBlock($block)
                     : $block,
                 (array) ($data['blocks'] ?? []),
             );
         }
 
         return $data;
+    }
+
+    /**
+     * The text without its clarification block when the block parses as questions, which the page shows as a form.
+     */
+    private static function withoutQuestionsBlock(string $text): string
+    {
+        return ClaudeCodeOutputParser::extractClarificationQuestions($text) === [] ? $text : ClaudeCodeOutputParser::stripClarificationBlock($text);
+    }
+
+    /**
+     * @param  array<string, mixed>  $block
+     * @return array<string, mixed>
+     */
+    private static function withHtmlBlock(array $block): array
+    {
+        $text = self::withoutQuestionsBlock((string) ($block['text'] ?? ''));
+
+        return array_merge($block, ['text' => $text, 'html' => Markdown::toHtml($text)]);
     }
 
     /**

@@ -19,7 +19,7 @@ beforeEach(function () {
     $this->row = ThreadRepository::factory()->changes()->create([
         'thread_id' => $this->thread->id,
         'repo' => 'acme/docs',
-        'sandbox_path' => '/extras/docs',
+        'sandbox_path' => '/home/yak/extras/docs',
         'added_by' => 'claude',
         'add_reason' => 'Needs the docs',
         'setup_status' => RepositorySetupStatus::Pending,
@@ -35,7 +35,7 @@ it('publishes one event per state transition', function () {
     $cards = cardsOf($this->thread);
 
     expect(array_column($cards, 'state'))->toBe(['running', 'setup', 'done'])
-        ->and($cards[2])->toMatchArray(['repo' => 'acme/docs', 'role' => 'changes', 'path' => '/extras/docs', 'reason' => 'Needs the docs', 'error' => null]);
+        ->and($cards[2])->toMatchArray(['repo' => 'acme/docs', 'role' => 'changes', 'path' => '/home/yak/extras/docs', 'reason' => 'Needs the docs', 'error' => null]);
 });
 
 it('carries the failure text and output', function () {

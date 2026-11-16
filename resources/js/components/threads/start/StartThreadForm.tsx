@@ -8,7 +8,7 @@ import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/compone
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { RunsOnStrip } from './RunsOnStrip';
-import { StartHints } from './StartHints';
+import { AtRepositoryMenu, filterRepositories, findAtMention } from './AtRepositoryMenu';
 import { StartErrorBanner } from './StartErrorBanner';
 import { BrokenDefaultNote, NoOwnAccountNote, resolveAccountNote } from './accountNotes';
 import { RepositoryPicker, type PickerRepository } from './RepositoryPicker';
@@ -21,9 +21,9 @@ import type { NewThreadPageData } from '@/types/threads';
 
 type Mode = 'fix' | 'research';
 
-const MODES: { mode: Mode; label: string; icon: typeof Wrench; hint: string }[] = [
-    { mode: 'fix', label: 'Change', icon: Wrench, hint: 'Yak makes the change and opens a pull request for you to review. With several repos, one pull request per repo that changed.' },
-    { mode: 'research', label: 'Research', icon: Search, hint: 'Yak investigates and writes a report. No pull request.' },
+const MODES: { mode: Mode; label: string; icon: typeof Wrench }[] = [
+    { mode: 'fix', label: 'Change', icon: Wrench },
+    { mode: 'research', label: 'Research', icon: Search },
 ];
 
 /**
@@ -114,8 +114,34 @@ export function StartThreadForm({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [example?.id]);
 
+    const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const mentionSlugs = mention ? filterRepositories(repos.map((repo) => repo.slug), mention.query) : [];
+
+    /** Makes the slug the primary repository and removes the `@query` that asked for it. */
+    const pickMention = (slug: string) => {
+        if (!mention) {
+            return;
+        }
+        const before = form.data.description.slice(0, mention.start);
+        const after = form.data.description.slice(mention.start + 1 + mention.query.length);
+        const next = before.endsWith(' ') && after.startsWith(' ') ? before + after.slice(1) : before + after;
+        form.setData((data) => ({ ...data, repo: slug, description: next, repositories: data.repositories.filter((extra) => extra.repo !== slug) }));
+        lastLength.current = next.length;
+        setMention(null);
+        requestAnimationFrame(() => {
+            textareaRef.current?.focus();
+            textareaRef.current?.setSelectionRange(before.length, before.length);
+        });
+    };
+
     const changeDescription = (value: string) => {
         form.setData('description', value);
+        const nextMention = findAtMention(value, textareaRef.current?.selectionStart ?? value.length);
+        if (nextMention?.query !== mention?.query) {
+            setActiveIndex(0);
+        }
+        setMention(nextMention);
         if (value.length > lastLength.current && value.length % CONTOUR.typeEvery === 0) {
             field?.wave();
         }
@@ -147,6 +173,25 @@ export function StartThreadForm({
     };
 
     const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+        if (mention && !event.metaKey && !event.ctrlKey) {
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                const step = event.key === 'ArrowDown' ? 1 : -1;
+                setActiveIndex((index) => (mentionSlugs.length === 0 ? 0 : (index + step + mentionSlugs.length) % mentionSlugs.length));
+                return;
+            }
+            if ((event.key === 'Enter' || event.key === 'Tab') && mentionSlugs.length > 0) {
+                event.preventDefault();
+                pickMention(mentionSlugs[Math.min(activeIndex, mentionSlugs.length - 1)]);
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                setMention(null);
+                return;
+            }
+        }
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
             event.preventDefault();
             submit();
@@ -185,6 +230,7 @@ export function StartThreadForm({
                         data-testid="start-thread-description"
                     />
                 </div>
+                {mention && !noRepos && <AtRepositoryMenu slugs={mentionSlugs} activeIndex={Math.min(activeIndex, Math.max(mentionSlugs.length - 1, 0))} onPick={pickMention} />}
                 <DraftAttachments draft={draft} errors={errors} progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null} onOpenMedia={() => {}} />
                 <div className="flex flex-wrap items-center gap-2 px-3 pb-3 pt-2">
                     <div className="inline-flex gap-0.5 rounded-[10px] border border-hair bg-panel-2/60 p-0.5" role="group" aria-label="Mode">
@@ -283,7 +329,6 @@ export function StartThreadForm({
                     )
                 )}
                 {error && <StartErrorBanner message={error} />}
-                <StartHints isResearch={isResearch} />
             </div>
 
             {startedThreadId === null && !noRepos && extras.length > 0 && (

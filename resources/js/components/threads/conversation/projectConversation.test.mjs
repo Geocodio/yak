@@ -128,7 +128,7 @@ const repositoryEvent = (sequence, repo, state, extra = {}) => ({
     sequence,
     type: 'repository',
     createdAt: at,
-    data: { repo, role: 'changes', state, path: '/extras/docs', reason: null, cloneSeconds: null, setupSeconds: null, output: null, error: null, ...extra },
+    data: { repo, role: 'changes', state, path: '/home/yak/extras/docs', reason: null, cloneSeconds: null, setupSeconds: null, output: null, error: null, ...extra },
 });
 
 test('a later repository event replaces the earlier card at its first position', () => {

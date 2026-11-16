@@ -69,7 +69,7 @@ it('still submits with Cmd/Ctrl+Enter', function (string $chord) {
         ->assertPathBeginsWith('/threads/');
 })->with(['Meta+Enter', 'Control+Enter']);
 
-it('shows How accounts work and the mode hint', function () {
+it('shows How accounts work and no input tips under the composer', function () {
     $user = User::factory()->create();
     Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
     ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
@@ -77,10 +77,29 @@ it('shows How accounts work and the mode hint', function () {
 
     visit(route('threads.new'))
         ->assertSee('How accounts work')
-        ->assertSee('Yak makes the change and opens a pull request for you to review.')
-        ->assertSee('Type @ to pick a repo.')
-        ->click('[data-testid="start-mode-research"]')
-        ->assertSee('No pull request.');
+        ->assertDontSee('Yak makes the change and opens a pull request for you to review.')
+        ->assertDontSee('Type @ to pick a repo.')
+        ->assertDontSee('Paste or drop screenshots and files.')
+        ->assertMissing('[data-testid="start-thread-footer"]');
+});
+
+it('opens a repository picker when @ is typed and applies the pick', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    Repository::factory()->create(['slug' => 'acme/gadgets']);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('home'))
+        ->assertSeeIn('[data-testid="start-thread-repo"]', 'widgets')
+        ->type('[data-testid="start-thread-description"]', 'Fix the cart @')
+        ->assertVisible('[data-testid="at-repo-menu"]')
+        ->assertSeeIn('[data-testid="at-repo-menu"]', 'acme/gadgets')
+        ->type('[data-testid="start-thread-description"]', 'Fix the cart @gad')
+        ->click('[data-testid="at-repo-option"]')
+        ->assertMissing('[data-testid="at-repo-menu"]')
+        ->assertSeeIn('[data-testid="start-thread-repo"]', 'gadgets')
+        ->assertValue('[data-testid="start-thread-description"]', 'Fix the cart ');
 });
 
 it('falls back to the shared account when the user has none of their own', function () {

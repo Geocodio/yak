@@ -29,7 +29,7 @@ After you start the thread, the page shows each repository as Queued, Cloning, R
 
 ## Where the repositories live in the sandbox
 
-The primary repository is at `/workspace`. Every extra repository is cloned to `/extras/<name>`, for example `/extras/api`. If two repositories share a name, the second uses `/extras/<owner>-<name>`. Claude works across them by absolute path.
+The primary repository is at `/workspace`. Every extra repository is cloned to `/home/yak/extras/<name>`, for example `/home/yak/extras/api`. If two repositories share a name, the second uses `/home/yak/extras/<owner>-<name>`. Claude works across them by absolute path.
 
 ## Claude adds a repository during a thread
 

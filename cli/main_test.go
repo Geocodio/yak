@@ -29,10 +29,10 @@ func TestVersionCommand(t *testing.T) {
 }
 
 func TestUserAgentMapsArch(t *testing.T) {
-	if got := version.UserAgent("darwin", "amd64"); got != "yak-cli/0.1.0 (darwin; x86_64)" {
+	if got := version.UserAgent("darwin", "amd64"); got != "yak-cli/"+version.Version+" (darwin; x86_64)" {
 		t.Fatal(got)
 	}
-	if got := version.UserAgent("linux", "arm64"); got != "yak-cli/0.1.0 (linux; arm64)" {
+	if got := version.UserAgent("linux", "arm64"); got != "yak-cli/"+version.Version+" (linux; arm64)" {
 		t.Fatal(got)
 	}
 }

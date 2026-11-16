@@ -1,0 +1,62 @@
+---
+- name: Install sudo
+  ansible.builtin.apt:
+    name: sudo
+    state: present
+
+- name: Create admin users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    shell: /bin/bash
+    groups: [sudo]
+    append: true
+    # A locked password still allows key logins: sshd only refuses "!" accounts when PAM is off.
+    password: "*"
+    update_password: on_create
+    state: present
+  loop: "{{ yak_admin_users }}"
+  when: item.state | default('present') == 'present'
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Install admin users' SSH keys
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_keys | join('\n') }}"
+    exclusive: true
+  loop: "{{ yak_admin_users }}"
+  when: item.state | default('present') == 'present'
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Give admin users passwordless sudo
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-yak-admin-{{ item.name }}"
+    content: "{{ item.name }} ALL=(ALL:ALL) NOPASSWD: ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+  loop: "{{ yak_admin_users }}"
+  when: item.state | default('present') == 'present'
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Remove sudo rules of removed admin users
+  ansible.builtin.file:
+    path: "/etc/sudoers.d/90-yak-admin-{{ item.name }}"
+    state: absent
+  loop: "{{ yak_admin_users }}"
+  when: item.state | default('present') == 'absent'
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Remove admin users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    state: absent
+    remove: true
+  loop: "{{ yak_admin_users }}"
+  when: item.state | default('present') == 'absent'
+  loop_control:
+    label: "{{ item.name }}"
