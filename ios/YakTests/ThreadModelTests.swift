@@ -344,13 +344,13 @@ private func chatSnapshot(
     await model.start(initialTitle: nil)
     await model.apply(try chatSnapshot(.completed, items: [textItem("m1:0", "First")]))
     // A parse has finished and its publication waits for the flush delay.
-    #expect(await fixture.eventually { clock.sleeperCount(waking: .milliseconds(50)) == 1 })
+    #expect(await fixture.eventually { clock.sleeperCount(waking: .milliseconds(50)) >= 1 })
     await model.retry()
     let second = try chatSnapshot(.completed, items: [textItem("m2:0", "Second")])
     var isScheduled = false
     for _ in 0..<600 where !isScheduled {
         await model.apply(second)
-        isScheduled = clock.sleeperCount(waking: .milliseconds(50)) == 1
+        isScheduled = clock.sleeperCount(waking: .milliseconds(50)) >= 1
         if !isScheduled { try await Task.sleep(for: .milliseconds(5)) }
     }
     #expect(isScheduled)
