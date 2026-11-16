@@ -310,6 +310,12 @@ import XCTest
         try shootThread("chat-activity-open")
     }
 
+    func testChatHistoryFailed() throws {
+        try openGallery("history-failed")
+        XCTAssertTrue(app.buttons["chat.history.retry"].waitForExistence(timeout: 10))
+        try shootThread("chat-history-failed")
+    }
+
     func testChatNoticeWithGuard() throws {
         try openGallery("notice")
         XCTAssertTrue(app.buttons["notice.continue"].waitForExistence(timeout: 10))

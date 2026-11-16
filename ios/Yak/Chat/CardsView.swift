@@ -14,12 +14,25 @@ extension View {
     fileprivate func cardSurface() -> some View { modifier(CardSurface()) }
 }
 
-/// The words for a server state such as `needs_input`: capitalized, with spaces.
+/// The words for a server state such as `needs_input`: the catalog's for the states the app knows, and for any
+/// other the raw text capitalized, with spaces.
 enum StateWording {
     static func text(_ raw: String) -> String {
-        let spaced = raw.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
-        guard let first = spaced.first else { return "" }
-        return first.uppercased() + spaced.dropFirst()
+        switch raw {
+        case "queued": return String(localized: "state.queued")
+        case "working": return String(localized: "state.working")
+        case "waiting": return String(localized: "state.waiting")
+        case "done": return String(localized: "state.done")
+        case "failed": return String(localized: "state.failed")
+        case "closed": return String(localized: "state.closed")
+        case "running": return String(localized: "state.running")
+        case "completed": return String(localized: "state.completed")
+        case "needs_input": return String(localized: "state.needs_input")
+        default:
+            let spaced = raw.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
+            guard let first = spaced.first else { return "" }
+            return first.uppercased() + spaced.dropFirst()
+        }
     }
 }
 

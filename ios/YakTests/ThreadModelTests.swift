@@ -318,8 +318,11 @@ private func chatSnapshot(
     #expect(model.historyState == .available)
     await model.apply(ConversationSnapshot(load: .ready, hasOlderHistory: true, isLoadingOlder: true))
     #expect(model.historyState == .loading)
-    await model.apply(ConversationSnapshot(load: .ready, isOffline: true, hasOlderHistory: true))
+    await model.apply(ConversationSnapshot(load: .ready, hasOlderHistory: true, didOlderFail: true))
     #expect(model.historyState == .failed)
+    // A problem elsewhere is not a history problem.
+    await model.apply(ConversationSnapshot(load: .ready, isOffline: true, hasOlderHistory: true, problem: .offline))
+    #expect(model.historyState == .available)
     await model.apply(ConversationSnapshot(load: .ready, isOffline: true))
     #expect(model.historyState == .hidden)
     await fixture.session.stop()

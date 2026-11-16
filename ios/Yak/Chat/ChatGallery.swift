@@ -5,7 +5,7 @@
 
     /// A Debug-only screen that draws the chat from canned snapshots, so states the stub cannot reach (an unsent
     /// message that was refused, a queued message, every kind of activity) can be looked at in light, dark and at
-    /// the largest text size. Launch with `-yakChatGallery messages|activity|activity-open|notice`.
+    /// the largest text size. Launch with `-yakChatGallery messages-a|messages-b|messages-c|messages-d|activity|activity-b|activity-open|notice|history-failed`.
     struct ChatGallery: View {
         let page: String
         @State private var thread: ThreadModel?
@@ -240,6 +240,7 @@
             case "activity-open", "activity-open-a":
                 entries = [activityEntries[1], activityEntries[3], activityEntries[4]]
             case "notice": entries = [activityEntries[2]]
+            case "history-failed": entries = Array(messageEntries[0..<2])
             default:
                 entries = Array(activityEntries[0..<5])
                 turn = TurnChange(turnId: LenientID("41"), state: .running)
@@ -249,7 +250,8 @@
                 ConversationSnapshot(
                     load: .ready, show: show, entries: entries, currentStepKey: "tools:m3:0", waiting: waiting,
                     turn: turn,
-                    connection: .live))
+                    connection: .live, hasOlderHistory: page == "history-failed", didOlderFail: page == "history-failed"
+                ))
             return thread
         }
     }

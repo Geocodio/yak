@@ -85,7 +85,7 @@ final class ThreadModel {
     var historyState: HistoryState {
         guard let snapshot, snapshot.hasOlderHistory else { return .hidden }
         if snapshot.isLoadingOlder { return .loading }
-        return snapshot.problem != nil || snapshot.isOffline ? .failed : .available
+        return snapshot.didOlderFail ? .failed : .available
     }
     var isTurnActive: Bool { Self.isTurnActive(snapshot) }
 

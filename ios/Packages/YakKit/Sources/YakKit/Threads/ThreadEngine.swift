@@ -72,6 +72,7 @@ public actor ThreadEngine {
     private var slowTask: Task<Void, Never>?
     private var olderTask: Task<Void, Never>?
     private var isLoadingOlder = false
+    private var didOlderFail = false
     /// Counts the times the loaded window was replaced, so a page fetched for an earlier window is dropped.
     private var windowGeneration = 0
 
@@ -198,6 +199,7 @@ public actor ThreadEngine {
     public func loadOlder() async {
         guard !isClosed, isOpenFinished, load == .ready, firstLoadedAfter > 0, !isLoadingOlder else { return }
         isLoadingOlder = true
+        didOlderFail = false
         changed(isStored: false)
         let task = Task { await self.runLoadOlder() }
         olderTask = task
@@ -307,6 +309,7 @@ public actor ThreadEngine {
             page = try await client.send(.events(threadID, after: after, limit: Self.historyPage))
         } catch {
             isLoadingOlder = false
+            didOlderFail = true
             guard !isClosed, !Task.isCancelled else { return }
             fail(ThreadProblem(error), what: "history")
             return
@@ -584,6 +587,7 @@ public actor ThreadEngine {
                 waiting: ConversationMerge.waitingRow(in: entries, turn: state.turn), turn: state.turn,
                 thread: state.thread, connection: connection, isShowingCachedCopy: isShowingCachedCopy,
                 isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: isLoadingOlder,
+                didOlderFail: didOlderFail,
                 replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem,
                 lastDiffUpdateSequence: lastDiffUpdateSequence))
     }

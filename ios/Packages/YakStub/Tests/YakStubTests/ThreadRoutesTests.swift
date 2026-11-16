@@ -65,7 +65,9 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
     @Test func storedEventsAreOlderThanNowByAFixedOffset() throws {
         let page = try object(reply(.paired, "GET", "threads/d0e515ef/events?after=0&limit=500"))
         let events = try #require(page["events"] as? [[String: Any]])
-        let stamps = events.compactMap { $0["createdAt"] as? String }.compactMap { ISO8601DateFormatter().date(from: $0) }
+        let stamps = events.compactMap { $0["createdAt"] as? String }.compactMap {
+            ISO8601DateFormatter().date(from: $0)
+        }
         #expect(!stamps.isEmpty)
         for stamp in stamps {
             let age = Date().timeIntervalSince(stamp)
