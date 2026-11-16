@@ -50,7 +50,7 @@ extension StubFeature {
 
 enum StubFeatures {
     /// One line per feature.
-    static let all: [any StubFeature] = []
+    static let all: [any StubFeature] = [StubPush()]
 }
 
 /// A feature's listener that did not start, or did not start in time.
