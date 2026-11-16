@@ -313,9 +313,14 @@ public actor Outbox {
     }
 
     /// Removes the attachment folders that no item here and no name in `draftFolders` holds: what a stop between
-    /// storing a file and saving its draft left behind. An item waiting in the inbox keeps its folder.
-    public func sweepAttachmentFolders(keeping draftFolders: Set<String>) {
-        guard !isShutDown, hasLoadedList else { return }
+    /// storing a file and saving its draft left behind. An item waiting in the inbox keeps its folder. Does nothing
+    /// unless every holder is accounted for: `draftFolders` is nil when a draft could not be read, and an unreadable
+    /// inbox listing or an item list that did not decode stops the sweep.
+    public func sweepAttachmentFolders(keeping draftFolders: Set<String>?) {
+        guard !isShutDown, hasLoadedList, let draftFolders else { return }
+        do {
+            if try files.read(OutboxInbox.unreadableItemsPath(instance)) != nil { return }
+        } catch { return }
         let folder = "\(InstanceFolders.outbox(instance))/files"
         let names: [String]
         do { names = try files.list(folder) } catch { return }
@@ -326,7 +331,11 @@ public actor Outbox {
                 if let name = OutboxInbox.attachmentFolderName(of: attachment.path) { held.insert(name) }
             }
         }
-        let waiting = (try? files.list(OutboxInbox.folder(instance))) ?? []
+        let waiting: [String]
+        do { waiting = try files.list(OutboxInbox.folder(instance)) } catch {
+            logFailure("sweep skipped, inbox unreadable: \(type(of: error))")
+            return
+        }
         for name in waiting where name.hasSuffix(".json") { held.insert(String(name.dropLast(5))) }
         for name in names where !held.contains(name) { removeFile("\(folder)/\(name)") }
     }
