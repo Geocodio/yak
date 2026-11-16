@@ -13,11 +13,13 @@ public struct NewThreadForm: Equatable, Sendable {
     public private(set) var repo: String?
     public var mode: NewThreadMode
     public private(set) var model: String?
+    public private(set) var effort: EffortLevel?
     public private(set) var accountID: LenientID?
     public private(set) var extraRepositories: [NewThreadDraft.ExtraRepository]
 
     private var hasPickedAccount: Bool
     private var hasPickedModel: Bool
+    private var hasPickedEffort = false
     private let hasSavedRepository: Bool
 
     public init(options: NewThreadOptions?, saved: NewThreadDraft?, lastUsedRepo: String?, linkRepo: String?) {
@@ -34,6 +36,8 @@ public struct NewThreadForm: Equatable, Sendable {
         if let saved {
             accountID = saved.claudeAccountId.map { LenientID(String($0)) }
             model = saved.model
+            effort = saved.effort
+            hasPickedEffort = saved.effort != nil
             hasPickedAccount = saved.claudeAccountId != nil
             hasPickedModel = saved.model != nil
         } else {
@@ -61,6 +65,9 @@ public struct NewThreadForm: Equatable, Sendable {
         if !hasPickedModel {
             model = defaults?.model ?? accounts.first { $0.id == accountID }?.defaultModel
         }
+        if !hasPickedEffort {
+            effort = defaults?.effort ?? accounts.first { $0.id == accountID }?.defaultEffort
+        }
     }
 
     public mutating func selectRepository(_ slug: String, options: NewThreadOptions) {
@@ -69,9 +76,18 @@ public struct NewThreadForm: Equatable, Sendable {
         applyDefaults(for: slug, options: options)
     }
 
-    public mutating func selectModel(_ value: String?) {
+    /// Lowers the effort to the highest level the new model supports, or clears it when there is none.
+    public mutating func selectModel(_ value: String?, families: [ModelFamily] = []) {
         model = value
         hasPickedModel = true
+        if let current = effort {
+            effort = current.clamped(to: ModelChoices.efforts(for: value, in: families))
+        }
+    }
+
+    public mutating func selectEffort(_ value: EffortLevel?) {
+        effort = value
+        hasPickedEffort = true
     }
 
     public mutating func selectAccount(_ id: LenientID?) {
@@ -120,6 +136,6 @@ public struct NewThreadForm: Equatable, Sendable {
         guard let repo else { return nil }
         return NewThreadDraft(
             repo: repo, mode: mode.rawValue, repositories: extraRepositories,
-            claudeAccountId: accountID.flatMap { Int($0.value) }, model: model)
+            claudeAccountId: accountID.flatMap { Int($0.value) }, model: model, effort: effort)
     }
 }

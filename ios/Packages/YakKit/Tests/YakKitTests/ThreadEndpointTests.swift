@@ -123,6 +123,18 @@ private func jsonBody<R>(_ endpoint: Endpoint<R>) throws -> [String: Any] {
     #expect(repositories == [["repo": "example/web", "role": "context"]])
 }
 
+@Test func startThreadSendsEffort() throws {
+    let draft = NewThreadDraft(repo: "example/api", mode: "fix", model: "opus", effort: .max)
+    let endpoint = Endpoint<ThreadCreated>.startThread(
+        draft, description: "d", sendKey: sendKey, attachments: [], references: [])
+    #expect(try jsonBody(endpoint)["effort"] as? String == "max")
+    let multipart = Endpoint<ThreadCreated>.startThread(
+        draft, description: "d", sendKey: sendKey,
+        attachments: [.file(name: "x", fileName: "a.png", contentType: "image/png", data: Data())], references: [])
+    let text = String(decoding: try #require(multipart.multipart).encoded(), as: UTF8.self)
+    #expect(text.contains("name=\"effort\"\r\n\r\nmax"))
+}
+
 @Test func startThreadIndexesExtraRepositoriesInMultipart() throws {
     let draft = NewThreadDraft(
         repo: "example/api", mode: "ask", repositories: [.init(repo: "example/web", role: "context")])

@@ -2238,6 +2238,26 @@
         }
       }
     },
+    "newThread.effort.auto": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto"
+          }
+        }
+      }
+    },
+    "newThread.effort.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effort"
+          }
+        }
+      }
+    },
     "newThread.model.older": {
       "localizations": {
         "en": {
