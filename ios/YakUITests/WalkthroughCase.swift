@@ -69,7 +69,8 @@ import XCTest
         try upright(XCUIScreen.main.screenshot()).write(to: URL(fileURLWithPath: "\(directory)/\(name).png"))
         // The remove confirmation is the system's own dialog; the audit reports only its fixed text sizes.
         guard audits, !name.hasSuffix("remove-confirmation") else { return }
-        try app.performAccessibilityAudit { [self, app] issue in
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [self, app, auditBars] issue in
             let description = issue.element?.debugDescription ?? ""
             // The system keyboard's prediction bar is not ours to label.
             if (description + issue.detailedDescription).contains("TUIPredictionViewCell") { return true }
@@ -83,7 +84,9 @@ import XCTest
                 return true
             }
             // An element entirely outside the screen shows no pixels to measure.
-            if AuditRules.isContrastOfAnElementOffScreen(issue, in: app) { return true }
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            // Text behind a bar is covered by the bar.
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             // The keyboard covers part of a screen that scrolls; what is behind it cannot be judged.
             if issue.auditType == .contrast, let element = issue.element, app.keyboards.firstMatch.exists,
                 app.keyboards.firstMatch.frame.intersects(element.frame)

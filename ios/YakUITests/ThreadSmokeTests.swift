@@ -78,7 +78,8 @@ import XCTest
     }
 
     private func audit() throws {
-        try app.performAccessibilityAudit { [self] issue in
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [self, auditBars] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 // The system caps the size of text in its bars, and draws its glass under the threads badge.
@@ -88,7 +89,9 @@ import XCTest
             // On a wide screen the audit reports contrast on the thread screen without naming an element.
             if issue.auditType == .contrast, issue.element == nil { return true }
             // An element entirely outside the screen shows no pixels to measure.
-            if AuditRules.isContrastOfAnElementOffScreen(issue, in: app) { return true }
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            // Text behind a bar is covered by the bar.
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             // A search field is one line by design.
             if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
             let screenshot = XCTAttachment(screenshot: app.screenshot())

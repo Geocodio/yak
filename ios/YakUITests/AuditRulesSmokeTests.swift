@@ -10,4 +10,12 @@ final class AuditRulesSmokeTests: XCTestCase {
         XCTAssertFalse(AuditRules.isOffScreen(.zero, window: window))
         XCTAssertFalse(AuditRules.isOffScreen(CGRect(x: -500, y: 10, width: 0, height: 0), window: window))
     }
+
+    func testBehindABarGeometry() {
+        let bar = CGRect(x: 0, y: 0, width: 400, height: 100)
+        XCTAssertTrue(AuditRules.isBehind(CGRect(x: 10, y: 70, width: 50, height: 40), bar: bar))
+        XCTAssertFalse(AuditRules.isBehind(CGRect(x: 10, y: 90, width: 50, height: 40), bar: bar))
+        XCTAssertFalse(AuditRules.isBehind(CGRect(x: 10, y: 50, width: 0, height: 0), bar: bar))
+        XCTAssertFalse(AuditRules.isBehind(CGRect(x: 10, y: 50, width: 50, height: 20), bar: .zero))
+    }
 }
