@@ -88,7 +88,7 @@ struct ThreadScreen: View {
                     ToolbarItem(placement: .principal) {
                         ThreadTitle(title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine)
                     }
-                    ToolbarItem(placement: .topBarTrailing) { threadMenu }
+                    ToolbarItem(placement: .topBarTrailing) { threadMenu(focused.wrappedValue) }
                 }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {
                     PaneStripToolbar(panes: thread.panes, focused: focused, thread: thread)
@@ -113,7 +113,7 @@ struct ThreadScreen: View {
             if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
             PaneMenuButton(panes: thread.panes, focused: focused)
             Spacer(minLength: 0)
-            threadMenu.background(Color.primary.opacity(0.08), in: .circle)
+            threadMenu(focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
         }
         .tint(.primary)
         .padding(.vertical, 8).padding(.horizontal, 6)
@@ -148,9 +148,9 @@ struct ThreadScreen: View {
         .accessibilityIdentifier("threads.button")
     }
 
-    private var threadMenu: some View {
+    private func threadMenu(_ shownPane: PaneID) -> some View {
         Menu {
-            PaneMenuItems(slots: slots, focused: scene.shownPane(among: thread.panes))
+            PaneMenuItems(slots: slots, focused: shownPane)
             Button {
                 openWeb(webURL)
             } label: {

@@ -80,7 +80,8 @@ import YakKit
     @Test func aPaneRenderedTwiceWithTheSameContentPushesOneValue() async throws {
         let counter = Counter()
         let controller = UIHostingController(rootView: Host(tick: 0, counter: counter))
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 300))
+        let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: scene)
         window.rootViewController = controller
         window.makeKeyAndVisible()
         controller.view.layoutIfNeeded()
