@@ -22,7 +22,8 @@ private func reply(
     _ scenario: Scenario, _ method: String, _ path: String, body: String = "", threads: StubThreads = StubThreads(),
     fixtures: StubFixtures? = nil
 ) throws -> StubReply {
-    let request = StubRequest(method: method, path: "/api/app/v1/\(path)", body: Data(body.utf8))
+    let target = StubServer.parseTarget("/api/app/v1/\(path)")
+    let request = StubRequest(method: method, path: target.path, query: target.query, body: Data(body.utf8))
     return scenario.reply(
         to: request, baseURL: "http://127.0.0.1:1", fixtures: try fixtures ?? StubTestSupport.fixtures(),
         threads: threads)
