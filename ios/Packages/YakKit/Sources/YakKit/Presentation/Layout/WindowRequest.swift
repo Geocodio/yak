@@ -60,7 +60,11 @@ public enum WindowRequest: Codable, Hashable, Sendable {
     }
 
     private static func isValidThreadID(_ id: String) -> Bool {
-        id.utf8.count == 8 && id.utf8.allSatisfy { ($0 >= 48 && $0 <= 57) || ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) }
+        id.utf8.count == 8 && id.utf8.allSatisfy(isASCIILetterOrDigit)
+    }
+
+    private static func isASCIILetterOrDigit(_ byte: UInt8) -> Bool {
+        (48...57).contains(byte) || (65...90).contains(byte) || (97...122).contains(byte)
     }
 }
 
