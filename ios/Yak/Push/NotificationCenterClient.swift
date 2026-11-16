@@ -1,7 +1,7 @@
 import UIKit
-import os
 import UserNotifications
 import YakKit
+import os
 
 /// The delivered notifications and the icon badge, behind a seam tests replace.
 protocol NotificationCenterClient: Sendable {

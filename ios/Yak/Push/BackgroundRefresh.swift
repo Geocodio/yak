@@ -1,6 +1,5 @@
 import BackgroundTasks
 import Foundation
-
 import os
 
 /// One piece of the background refresh. Features add their own through `AppParts`; the pieces run one after

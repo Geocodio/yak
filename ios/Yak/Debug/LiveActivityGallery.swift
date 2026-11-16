@@ -41,7 +41,8 @@
             case "private": return content(.working, step: "Reading the notes", isPrivate: true)
             case "long-title":
                 let base = content(.working, step: "Running a command")
-                return Sample(content: base.content, title: String(repeating: "Retry failed rows. ", count: 7), isStale: false)
+                return Sample(
+                    content: base.content, title: String(repeating: "Retry failed rows. ", count: 7), isStale: false)
             default: return content(.working, step: "Running a command")
             }
         }
@@ -61,8 +62,10 @@
 
         var body: some View {
             ZStack {
-                LinearGradient(colors: [Color(red: 0.08, green: 0.1, blue: 0.2), .black], startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
+                LinearGradient(
+                    colors: [Color(red: 0.08, green: 0.1, blue: 0.2), .black], startPoint: .top, endPoint: .bottom
+                )
+                .ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
                         Text(verbatim: stateName).font(.title2.weight(.semibold)).foregroundStyle(.white)
@@ -78,9 +81,13 @@
                             ThreadActivityMinimal(look: look(limited: false))
                                 .frame(width: 44, height: 36).background(Color.black, in: Capsule())
                         }
-                        Button("Start a sample activity") { Self.startSample(sample) }
-                            .buttonStyle(.borderedProminent)
-                            .accessibilityIdentifier("gallery.startSample")
+                        Button {
+                            Self.startSample(sample)
+                        } label: {
+                            Text(verbatim: "Start a sample activity")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("gallery.startSample")
                     }
                     .padding(16)
                     .frame(maxWidth: 520, alignment: .leading)

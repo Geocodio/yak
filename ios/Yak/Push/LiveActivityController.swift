@@ -43,7 +43,9 @@ final class LiveActivityController {
         if tokensTask == nil {
             let tokens = host.pushToStartTokens()
             tokensTask = Task { [registrar] in
-                for await token in tokens { await registrar.setToken(PushRegistrar.hex(token), kind: .liveActivityStart) }
+                for await token in tokens {
+                    await registrar.setToken(PushRegistrar.hex(token), kind: .liveActivityStart)
+                }
             }
         }
         await reconcile()

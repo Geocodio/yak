@@ -17,7 +17,8 @@ struct ThreadLiveActivity: Widget {
                     ThreadActivityContextView(context: context) { look, _ in ThreadActivityExpandedLeading(look: look) }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    ThreadActivityContextView(context: context) { look, _ in ThreadActivityExpandedTrailing(look: look) }
+                    ThreadActivityContextView(context: context) { look, _ in ThreadActivityExpandedTrailing(look: look)
+                    }
                 }
                 DynamicIslandExpandedRegion(.center) {
                     ThreadActivityContextView(context: context) { look, _ in ThreadActivityExpandedCenter(look: look) }
@@ -42,7 +43,8 @@ struct ThreadLiveActivity: Widget {
         var components = URLComponents()
         components.scheme = "yak"
         components.host = "thread"
-        let address = attributes.instance.addingPercentEncoding(withAllowedCharacters: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~")))
+        let address = attributes.instance.addingPercentEncoding(
+            withAllowedCharacters: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~")))
         components.percentEncodedQueryItems = [
             URLQueryItem(name: "instance", value: address), URLQueryItem(name: "id", value: attributes.threadId),
         ]

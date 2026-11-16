@@ -76,11 +76,13 @@ private func firstLink(of controller: PushController) async -> URL? {
             Me.self,
             from: Data(
                 meJSON.replacingOccurrences(
-                    of: "\"url\":\"https://yak.example.com\"", with: "\"url\":\"https://alias.example.com\"").utf8))
+                    of: "\"url\":\"https://yak.example.com\"", with: "\"url\":\"https://alias.example.com\""
+                ).utf8))
         try await rig.store.update(rig.home.id, from: alias)
         let home = try #require(await rig.store.all().first { $0.id == rig.home.id })
         #expect(home.canonicalURL == URL(string: "https://alias.example.com"))
-        await rig.controller.didTap(try scenarioPayload("scenario-push-alert-question", instance: "https://alias.example.com"))
+        await rig.controller.didTap(
+            try scenarioPayload("scenario-push-alert-question", instance: "https://alias.example.com"))
         let link = try #require(await firstLink(of: rig.controller))
         #expect(link.absoluteString == "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=d0e515ef")
         let scene = SceneModel(state: SceneState())
@@ -95,13 +97,15 @@ private func firstLink(of controller: PushController) async -> URL? {
             Me.self,
             from: Data(
                 meJSON.replacingOccurrences(
-                    of: "\"url\":\"https://yak.example.com\"", with: "\"url\":\"https://alias.example.com\"").utf8))
+                    of: "\"url\":\"https://yak.example.com\"", with: "\"url\":\"https://alias.example.com\""
+                ).utf8))
         try await rig.store.update(rig.home.id, from: alias)
         let transport = rig.transport
         let app = AppModel(
             instances: rig.store, tokens: rig.tokens,
             makeClient: { url in
-                APIClient(baseURL: url, token: nil, transport: transport, appVersion: "1.0.0", systemDescription: "Test")
+                APIClient(
+                    baseURL: url, token: nil, transport: transport, appVersion: "1.0.0", systemDescription: "Test")
             },
             push: rig.controller)
         await app.handle(

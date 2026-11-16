@@ -180,7 +180,9 @@ final class PushController: InstanceLifecycleObserver {
 
     /// A snapshot of an open thread: a turn that runs may start a Live Activity.
     func observe(thread id: String, instanceURL: URL, snapshot: ConversationSnapshot) async {
-        guard let instance = InstanceMatch.instance(forNormalized: instanceURL, in: await instances.all()) else { return }
+        guard let instance = InstanceMatch.instance(forNormalized: instanceURL, in: await instances.all()) else {
+            return
+        }
         await liveActivities.observe(threadID: id, instance: instance, snapshot: snapshot)
     }
 

@@ -50,19 +50,25 @@ private func makeActivityRig() async throws -> ActivityRig {
     @Test func startsWhenATurnStartsWhileTheThreadIsOpen() async throws {
         let rig = try await makeActivityRig()
         let thread = try show()
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: false))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: false))
         #expect(rig.host.started.isEmpty)
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
         #expect(rig.host.started.count == 1)
         #expect(rig.host.started.first?.channel == "c2NlbmFyaW8tY2hhbm5lbA")
         #expect(!(await rig.transport.routes().contains("POST threads/d0e515ef/live-activity-channel")))
-        #expect(await eventually { await rig.transport.bodies(of: "PUT live-activities").contains { $0.contains("d0e515ef") } })
+        #expect(
+            await eventually {
+                await rig.transport.bodies(of: "PUT live-activities").contains { $0.contains("d0e515ef") }
+            })
     }
 
     @Test func asksForTheChannelWhenTheShowHasNone() async throws {
         let rig = try await makeActivityRig()
         let thread = try show(channel: nil)
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
         let posts = await rig.transport.routes().filter { $0 == "POST threads/d0e515ef/live-activity-channel" }
         #expect(posts.count == 1)
         #expect(rig.host.started.first?.channel == "c2NlbmFyaW8tY2hhbm5lbA")
@@ -78,18 +84,23 @@ private func makeActivityRig() async throws -> ActivityRig {
     @Test func noSecondStartForTheSameThread() async throws {
         let rig = try await makeActivityRig()
         let thread = try show()
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
         #expect(rig.host.started.count == 1)
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: false))
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: false))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
         #expect(rig.host.started.count == 1)
     }
 
     @Test func theFourthEndsTheOldest() async throws {
         let rig = try await makeActivityRig()
         let now = Date()
-        let oldest = rig.host.add(instance: "https://yak.example.com", thread: "a0000001", startedAt: now.addingTimeInterval(-300))
+        let oldest = rig.host.add(
+            instance: "https://yak.example.com", thread: "a0000001", startedAt: now.addingTimeInterval(-300))
         rig.host.add(instance: "https://yak.example.com", thread: "a0000002", startedAt: now.addingTimeInterval(-200))
         rig.host.add(instance: "https://other.example.com", thread: "a0000003", startedAt: now.addingTimeInterval(-100))
         await rig.controller.observe(
@@ -111,7 +122,8 @@ private func makeActivityRig() async throws -> ActivityRig {
         let rig = try await makeActivityRig()
         var home = rig.rig.home
         home.push = .otherBuild
-        await rig.controller.observe(threadID: "d0e515ef", instance: home, snapshot: snapshot(try show(), running: true))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: home, snapshot: snapshot(try show(), running: true))
         #expect(rig.host.started.isEmpty)
     }
 
@@ -139,9 +151,12 @@ private func makeActivityRig() async throws -> ActivityRig {
             "POST threads/d0e515ef/live-activity-channel", status: 409,
             body: #"{"error":"push_unavailable","message":"This Yak cannot send notifications."}"#)
         let thread = try show(channel: nil)
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: false))
-        await rig.controller.observe(threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: false))
+        await rig.controller.observe(
+            threadID: "d0e515ef", instance: rig.rig.home, snapshot: snapshot(thread, running: true))
         let posts = await rig.transport.routes().filter { $0 == "POST threads/d0e515ef/live-activity-channel" }
         #expect(posts.count == 1)
     }
@@ -151,7 +166,10 @@ private func makeActivityRig() async throws -> ActivityRig {
         await rig.controller.start()
         rig.host.add(instance: "https://yak.example.com", thread: "d0e515ef")
         rig.host.emitChange()
-        #expect(await eventually { await rig.transport.bodies(of: "PUT live-activities").contains { $0.contains("d0e515ef") } })
+        #expect(
+            await eventually {
+                await rig.transport.bodies(of: "PUT live-activities").contains { $0.contains("d0e515ef") }
+            })
     }
 
     @Test func aDuplicateFromAPushIsEndedAndReportedOnce() async throws {
@@ -160,7 +178,8 @@ private func makeActivityRig() async throws -> ActivityRig {
             Me.self,
             from: Data(
                 meJSON.replacingOccurrences(
-                    of: "\"url\":\"https://yak.example.com\"", with: "\"url\":\"https://alias.example.com\"").utf8))
+                    of: "\"url\":\"https://yak.example.com\"", with: "\"url\":\"https://alias.example.com\""
+                ).utf8))
         try await rig.rig.store.update(rig.rig.home.id, from: alias)
         let now = Date()
         rig.host.add(instance: "https://yak.example.com", thread: "d0e515ef", startedAt: now.addingTimeInterval(-60))
@@ -177,7 +196,8 @@ private func makeActivityRig() async throws -> ActivityRig {
     @Test func fourRemoteStartsAreCutToThree() async throws {
         let rig = try await makeActivityRig()
         let now = Date()
-        let oldest = rig.host.add(instance: "https://yak.example.com", thread: "a0000001", startedAt: now.addingTimeInterval(-400))
+        let oldest = rig.host.add(
+            instance: "https://yak.example.com", thread: "a0000001", startedAt: now.addingTimeInterval(-400))
         rig.host.add(instance: "https://yak.example.com", thread: "a0000002", startedAt: now.addingTimeInterval(-300))
         rig.host.add(instance: "https://other.example.com", thread: "a0000003", startedAt: now.addingTimeInterval(-200))
         rig.host.add(instance: "https://other.example.com", thread: "a0000004", startedAt: now.addingTimeInterval(-100))

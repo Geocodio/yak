@@ -152,7 +152,9 @@ import XCTest
 
     func testAPushTapOpensTheThreadFromAColdLaunch() throws {
         try stub.play("question-open")
-        launch(paired: true, notifications: "authorized", extra: ["-yakTestPushTap", try stub.pushPayload("scenario-push-alert-question")])
+        launch(
+            paired: true, notifications: "authorized",
+            extra: ["-yakTestPushTap", try stub.pushPayload("scenario-push-alert-question")])
         XCTAssertTrue(
             app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.otherElements["conversation"].waitForExistence(timeout: 10))

@@ -126,7 +126,8 @@ final class FakeActivityHost: ActivityHost, @unchecked Sendable {
             counter += 1
             let id = "activity-\(counter)"
             activities.append(
-                RunningActivity(activityID: id, instance: URL(string: instance)!, threadID: thread, startedAt: startedAt))
+                RunningActivity(
+                    activityID: id, instance: URL(string: instance)!, threadID: thread, startedAt: startedAt))
             return id
         }
     }
