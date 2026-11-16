@@ -78,7 +78,7 @@ private struct OverviewScroll: View {
         let content = model.content
         let isCompact = horizontalSizeClass == .compact
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            LazyVStack(alignment: .leading, spacing: 20) {
                 topLines
                 if let content {
                     if content.subThreads != nil || shouldShowSubThreadsPlaceholder {
@@ -97,9 +97,11 @@ private struct OverviewScroll: View {
                     PeopleGroupView(people: content.people, now: Date()) { isShareOpen = true }
                 }
             }
-            .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 96)
+            .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
             .frame(maxWidth: 640).frame(maxWidth: .infinity)
         }
+        // The page stops above the floating bar, so no row's text sits under its glass or on the screen edge.
+        .padding(.bottom, 96)
         .paneBarRow(key: isOwner) {
             if isOwner {
                 Button {
