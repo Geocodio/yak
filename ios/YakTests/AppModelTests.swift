@@ -293,6 +293,30 @@ func refreshingAnInstanceThatIsNotActiveOnlyUpdatesItsStoredCount(isCancelled: B
     }
 }
 
+private final class SleeperCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var count: Int { lock.withLock { value } }
+    func change(_ delta: Int) { lock.withLock { value += delta } }
+}
+
+@MainActor @Test func aFinishedObserverCallCancelsItsTimer() async throws {
+    let sleepers = SleeperCount()
+    let observers = InstanceObservers(
+        observers: [RecordingObserver()], timeout: .seconds(3600),
+        sleep: { _ in
+            sleepers.change(1)
+            defer { sleepers.change(-1) }
+            try await Task.sleep(for: .seconds(3600))
+        })
+    let (_, instances) = makeLinkModel()
+    let instance = try await instances.add(
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
+    for _ in 0..<20 { await observers.paired(instance) }
+    for _ in 0..<100 where sleepers.count > 0 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(sleepers.count == 0, "a timer is still sleeping after its call finished")
+}
+
 @MainActor @Test func observersHearAPairing() async {
     let observer = RecordingObserver()
     let (model, _) = makeLinkModel(observers: [observer])
@@ -305,7 +329,7 @@ func refreshingAnInstanceThatIsNotActiveOnlyUpdatesItsStoredCount(isCancelled: B
     let observer = RecordingObserver()
     let (model, instances) = makeLinkModel(observers: [observer])
     let instance = try await instances.add(
-        url: URL(string: "https://first.example.com")!, name: "Acme", userName: "Ada", token: "secret")
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
     await model.remove(instance)
     #expect(observer.events == ["removed first.example.com unpaired"])
     #expect(await instances.all().isEmpty)
@@ -315,7 +339,7 @@ func refreshingAnInstanceThatIsNotActiveOnlyUpdatesItsStoredCount(isCancelled: B
     let observer = RecordingObserver()
     let (model, instances) = makeLinkModel(observers: [observer])
     let instance = try await instances.add(
-        url: URL(string: "https://first.example.com")!, name: "Acme", userName: "Ada", token: "secret")
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
     await model.markRevoked(instance)
     #expect(observer.events == ["removed first.example.com revoked"])
 }
@@ -325,7 +349,7 @@ func refreshingAnInstanceThatIsNotActiveOnlyUpdatesItsStoredCount(isCancelled: B
     let (model, instances) = makeLinkModel(
         observers: [StuckObserver(), recorder], observerTimeout: .milliseconds(50))
     let instance = try await instances.add(
-        url: URL(string: "https://first.example.com")!, name: "Acme", userName: "Ada", token: "secret")
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
     await model.reloadRoute()
     let started = ContinuousClock.now
     await model.remove(instance)
