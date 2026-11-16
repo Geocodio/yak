@@ -225,23 +225,37 @@ import XCTest
         try shootThread("chat-empty")
     }
 
-    func testChatNotices() throws {
-        let notices: [(id: String, name: String, text: String)] = [
-            ("vsage000", "notice-usage-limit", "Usage limit reached"),
-            ("g7ard000", "notice-guard", "Claude stopped after 50 steps"),
-            ("rest0re0", "notice-restore-failed", "Rebuilding the sandbox stopped at step 2"),
-            ("acc07nt0", "notice-account", "The account needs attention"),
-            ("cred0000", "notice-credential", "A credential was exposed"),
-            ("wa17ng00", "notice-waiting", "Waiting for a free sandbox"),
-        ]
-        for notice in notices {
-            // Each notice starts from a fresh launch, so the drawer is the same on every pass and in every orientation.
-            app.terminate()
-            try start("thread-states", paired: true)
-            try openThread(notice.id)
-            XCTAssertTrue(label(notice.text).waitForExistence(timeout: 15), notice.name)
-            try shootThread(notice.name)
-        }
+    /// One notice per test: six launches and audits in one test ran the audit out of time.
+    private func shootNotice(id: String, name: String, text: String) throws {
+        try start("thread-states", paired: true)
+        try openThread(id)
+        XCTAssertTrue(label(text).waitForExistence(timeout: 15), name)
+        try shootThread(name)
+    }
+
+    func testChatNoticeUsageLimit() throws {
+        try shootNotice(id: "vsage000", name: "notice-usage-limit", text: "Usage limit reached")
+    }
+
+    func testChatNoticeGuard() throws {
+        try shootNotice(id: "g7ard000", name: "notice-guard", text: "Claude stopped after 50 steps")
+    }
+
+    func testChatNoticeRestoreFailed() throws {
+        try shootNotice(
+            id: "rest0re0", name: "notice-restore-failed", text: "Rebuilding the sandbox stopped at step 2")
+    }
+
+    func testChatNoticeAccount() throws {
+        try shootNotice(id: "acc07nt0", name: "notice-account", text: "The account needs attention")
+    }
+
+    func testChatNoticeCredential() throws {
+        try shootNotice(id: "cred0000", name: "notice-credential", text: "A credential was exposed")
+    }
+
+    func testChatNoticeWaiting() throws {
+        try shootNotice(id: "wa17ng00", name: "notice-waiting", text: "Waiting for a free sandbox")
     }
 
     func testChatOffline() throws {
