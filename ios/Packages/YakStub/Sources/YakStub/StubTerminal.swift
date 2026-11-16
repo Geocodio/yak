@@ -216,13 +216,16 @@ final class StubTerminalFeature: StubFeature, @unchecked Sendable {
                 copy["children"] = [[String: Any]]()
                 return copy
             } ?? [:]
+        var added: [[String: Any]] = []
         for row in rows {
             var entry = template
             entry["id"] = row.id
             entry["title"] = row.title
             entry["status"] = row.status == "closed" ? "closed" : "stopped"
-            threads.append(entry)
+            added.append(entry)
         }
+        // The state rows lead the list, so every one is in reach without scrolling.
+        threads.insert(contentsOf: added, at: 0)
         list["threads"] = threads
         list["hasAnyThreads"] = true
         return json(list)
