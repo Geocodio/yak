@@ -56,15 +56,19 @@ private struct OverviewScroll: View {
     @Environment(SceneModel.self) private var scene
     @State private var browserTarget: BrowserTarget?
     @State private var outputRow: RepositoryRow?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         let content = model.content
+        let isCompact = horizontalSizeClass == .compact
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 topLines
                 if let content {
                     if content.subThreads != nil || shouldShowSubThreadsPlaceholder {
-                        subThreads(content)
+                        SubThreadsGroupView(
+                            group: content.subThreads, load: stackLoad, model: model, retry: retry,
+                            openThreads: openThreads)
                     }
                     StatusGroupView(status: content.status)
                     LinksGroupView(
@@ -79,6 +83,7 @@ private struct OverviewScroll: View {
             .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 96)
             .frame(maxWidth: 640).frame(maxWidth: .infinity)
         }
+        .onAppear { model.onOpenThread = { scene.open(thread: $0, isCompactWidth: isCompact) } }
         .sheet(item: $browserTarget) { BrowserSheet(url: $0.url).ignoresSafeArea() }
         .sheet(item: $outputRow) { SetupOutputSheet(row: $0).presentationDetents([.medium, .large]) }
     }
@@ -93,20 +98,6 @@ private struct OverviewScroll: View {
         case .ready: false
         case .loading: model.showsSkeleton
         case .slow, .failed: true
-        }
-    }
-
-    @ViewBuilder
-    private func subThreads(_ content: OverviewContent) -> some View {
-        OverviewGroupCard(kind: .subThreads, title: "overview.group.subThreads") {
-            if let group = content.subThreads {
-                OverviewRow(title: Text("drawer.children \(group.total) \(group.working)")) {
-                    EmptyView()
-                } trailing: {
-                    EmptyView()
-                }
-            }
-            GroupNotice(load: stackLoad, showsSkeleton: model.showsSkeleton, retry: retry, openThreads: openThreads)
         }
     }
 
@@ -134,7 +125,7 @@ private struct OverviewScroll: View {
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
-        .accessibilityElement(children: .contain).accessibilityIdentifier(identifier)
+        .accessibilityElement(children: showsRetry ? .contain : .combine).accessibilityIdentifier(identifier)
     }
 
     private func retry() { Task { await model.retry() } }

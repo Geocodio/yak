@@ -18,6 +18,7 @@ final class OverviewModel {
     static let actionLineLifetime: Duration = .seconds(6)
     static let copiedLifetime: Duration = .seconds(2)
     static let enginePollInterval: Duration = .milliseconds(250)
+    static let awakeLimitDelay: Duration = .milliseconds(600)
 
     let threadID: String
     private(set) var state: OverviewState?
@@ -29,6 +30,12 @@ final class OverviewModel {
     /// What was copied last, so its row shows "Copied" for two seconds.
     private(set) var copiedKey: String?
     private(set) var couldNotOpen = false
+    /// The stepper's value while a change waits to be sent or is on its way; nil when the server's value shows.
+    private(set) var pendingAwakeLimit: Int?
+    /// Counts refused or failed actions, for the error haptic.
+    private(set) var refusalCount = 0
+    /// Opens another thread of this instance; set by the pane.
+    var onOpenThread: (@MainActor (String) -> Void)?
 
     private let session: InstanceSession
     private let thread: ThreadModel
@@ -42,6 +49,7 @@ final class OverviewModel {
     private var skeletonTask: Task<Void, Never>?
     private var lineTask: Task<Void, Never>?
     private var copiedTask: Task<Void, Never>?
+    private var limitTask: Task<Void, Never>?
 
     init(threadID: String, session: InstanceSession, thread: ThreadModel, clock: any YakClock) {
         self.threadID = threadID
@@ -106,7 +114,9 @@ final class OverviewModel {
     func stop() async {
         guard isStarted else { return }
         isStarted = false
-        for task in [readingTask, skeletonTask, lineTask, copiedTask] { task?.cancel() }
+        for task in [readingTask, skeletonTask, lineTask, copiedTask, limitTask] { task?.cancel() }
+        limitTask = nil
+        pendingAwakeLimit = nil
         readingTask = nil
         skeletonTask = nil
         lineTask = nil
@@ -152,6 +162,82 @@ final class OverviewModel {
             }
         case .failed(let problem):
             setActionLine(Self.sentence(for: problem))
+        }
+    }
+
+    // MARK: Sub-threads
+
+    func open(_ childID: String) { onOpenThread?(childID) }
+
+    func openParent() {
+        if let parent = content?.subThreads?.parent { onOpenThread?(parent.id) }
+    }
+
+    func stopAll() async {
+        guard let actions, runningAction == nil else { return }
+        runningAction = .stop
+        setActionLine(nil)
+        let outcome = await actions.stopStack(threadID)
+        await feed?.refresh([.stack])
+        runningAction = nil
+        report(outcome)
+    }
+
+    func perform(_ action: SubThreadAction, on childID: String) async {
+        guard action != .open else {
+            open(childID)
+            return
+        }
+        guard let actions, runningAction == nil else { return }
+        runningAction = .override(childID)
+        setActionLine(nil)
+        let outcome: ThreadActionOutcome
+        switch action {
+        case .takeOver: outcome = await actions.takeOver(childID)
+        case .split: outcome = await actions.split(childID)
+        default: outcome = await actions.drop(childID)
+        }
+        await feed?.refresh([.stack])
+        runningAction = nil
+        report(outcome)
+    }
+
+    /// A tap on the stepper shows at once and is sent 600 ms after the last one.
+    func proposeAwakeLimit(_ value: Int) {
+        guard let stepper = content?.subThreads?.awake else { return }
+        let next = stepper.clamped(value)
+        pendingAwakeLimit = next == stepper.value ? nil : next
+        limitTask?.cancel()
+        guard pendingAwakeLimit != nil else { return }
+        limitTask = Task { [weak self, clock] in
+            do { try await clock.sleep(for: Self.awakeLimitDelay) } catch { return }
+            await self?.sendAwakeLimit()
+        }
+    }
+
+    private func sendAwakeLimit() async {
+        guard let actions, let value = pendingAwakeLimit else { return }
+        runningAction = .limit
+        setActionLine(nil)
+        let answer = await actions.setAwakeLimit(threadID, limit: value)
+        await feed?.refresh([.stack])
+        runningAction = nil
+        // A refusal puts the old value back; a success shows the server's value, which the reload carried.
+        if pendingAwakeLimit == value { pendingAwakeLimit = nil }
+        report(answer.outcome)
+    }
+
+    /// A refused or failed action says why in place and plays the error haptic.
+    private func report(_ outcome: ThreadActionOutcome) {
+        switch outcome {
+        case .done, .alreadySent: break
+        case .refused(_, let message, _):
+            refusalCount += 1
+            setActionLine(message)
+        case .failed(let problem):
+            refusalCount += 1
+            setActionLine(
+                problem == .offline ? String(localized: "overview.action.notSent") : Self.sentence(for: problem))
         }
     }
 

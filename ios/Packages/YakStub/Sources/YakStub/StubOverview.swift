@@ -296,6 +296,7 @@ final class StubOverview: StubFeature, @unchecked Sendable {
         let snapshot = lock.withLock { state }
         let file: String
         switch scenario {
+        case "overview-stopped": file = "scenario-overview-stopped-stack"
         case "overview-full": file = "scenario-overview-full-stack"
         case "overview-recipient": file = "scenario-overview-recipient-stack"
         case "overview-no-sub-threads", "overview-new-thread": file = "scenario-overview-no-sub-threads"

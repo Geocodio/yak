@@ -68,7 +68,105 @@ import XCTest
         try shootOverview("overview-recipient")
     }
 
+    // MARK: Sub-threads
+
+    func testSubThreadsGroup() throws {
+        try openOverview("overview-stack")
+        XCTAssertTrue(app.descendants(matching: .any)["overview.child.q7adapt0"].waitForExistence(timeout: 15))
+        try shootOverview("overview-subthreads")
+    }
+
+    func testSubThreadMenu() throws {
+        try openOverview("overview-stack")
+        let menu = app.buttons["overview.child.q7adapt0.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 15))
+        menu.tap()
+        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 5))
+        // The menu is the system's own surface; the audit cannot judge text on it.
+        try shoot("overview-child-menu", audits: false)
+    }
+
+    func testDropConfirmation() throws {
+        try openOverview("overview-stack")
+        try chooseFromMenu(of: "q7adapt0", "Drop it")
+        XCTAssertTrue(app.staticTexts["The sub-thread closes and its work is not used."].waitForExistence(timeout: 5))
+        try shoot("overview-drop-confirm", audits: false)
+    }
+
+    func testStopAllConfirmation() throws {
+        try openOverview("overview-stack")
+        try scrollToStopAll().tap()
+        XCTAssertTrue(app.staticTexts["Stop all sub-threads?"].waitForExistence(timeout: 5))
+        try shoot("overview-stop-confirm", audits: false)
+    }
+
+    func testStoppedStack() throws {
+        try openOverview("overview-stopped")
+        XCTAssertTrue(
+            app.staticTexts["This stack was stopped, so it cannot start sub-threads."].waitForExistence(timeout: 15))
+        try shootOverview("overview-stopped")
+    }
+
+    func testFullStack() throws {
+        try openOverview("overview-full")
+        XCTAssertTrue(app.descendants(matching: .any)["overview.addRefusal"].waitForExistence(timeout: 15))
+        try shootOverview("overview-full")
+    }
+
+    func testChildOverview() throws {
+        try openOverview("overview-stack")
+        let child = app.descendants(matching: .any)["overview.child.b4ckf111"]
+        XCTAssertTrue(child.waitForExistence(timeout: 15))
+        child.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["thread.title"].waitForExistence(timeout: 15))
+        app.descendants(matching: .any)["thread.title"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["overview.parent"].waitForExistence(timeout: 15))
+        try shootOverview("overview-child")
+    }
+
+    func testSubThreadMessages() throws {
+        try openOverview("overview-stack")
+        let folded = app.buttons["overview.messages"]
+        XCTAssertTrue(folded.waitForExistence(timeout: 15))
+        for _ in 0..<6 where !folded.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
+        folded.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["overview.message.51"].waitForExistence(timeout: 5))
+        try shootOverview("overview-messages")
+    }
+
+    func testActionRefused() throws {
+        try openOverview("overview-refusals")
+        try chooseFromMenu(of: "q7adapt0", "Drop it")
+        app.buttons["Drop it"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["overview.actionLine"].waitForExistence(timeout: 10))
+        try shootOverview("overview-refused", auditFirst: true)
+    }
+
+    func testActionBusy() throws {
+        try openOverview("overview-busy")
+        try chooseFromMenu(of: "q7adapt0", "Take over")
+        Thread.sleep(forTimeInterval: 1)
+        try shootOverview("overview-busy")
+    }
+
     // MARK: Helpers
+
+    private func chooseFromMenu(of childID: String, _ item: String) throws {
+        let menu = app.buttons["overview.child.\(childID).menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 15))
+        menu.tap()
+        // A row with a subtitle reads "Take over, You drive it".
+        let button = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", item)).firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        button.tap()
+    }
+
+    private func scrollToStopAll() throws -> XCUIElement {
+        let stop = app.buttons["overview.stopAll"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 15))
+        for _ in 0..<6 where !stop.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
+        return stop
+    }
 
     /// Plays the scenario, opens the root thread from the drawer and the Overview from the title.
     private func openOverview(_ scenario: String) throws {
@@ -88,13 +186,23 @@ import XCTest
     }
 
     /// A screenshot, then the audit without the findings about text in the navigation bar, whose size the system caps.
-    private func shootOverview(_ name: String) throws {
+    /// `auditFirst` audits before the screenshot, for a line that leaves by itself after six seconds.
+    private func shootOverview(_ name: String, auditFirst: Bool = false) throws {
+        if auditFirst { try auditOverview(name) }
         try shoot(name, audits: false)
+        if !auditFirst { try auditOverview(name) }
+    }
+
+    private func auditOverview(_ name: String) throws {
         try app.performAccessibilityAudit { [app] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            // A disabled control is dimmed on purpose, as in the other walkthroughs.
+            if issue.auditType == .contrast, issue.element?.debugDescription.contains("Disabled") == true {
+                return true
             }
             if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
                 return true

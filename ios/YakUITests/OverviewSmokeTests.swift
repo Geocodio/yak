@@ -44,6 +44,26 @@ import XCTest
         try audit()
     }
 
+    func testStopAllAsksFirstAndHidesItself() throws {
+        try launch(scenario: "overview-stack")
+        openThread("s7ackr00")
+        let title = app.descendants(matching: .any)["thread.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 15))
+        title.tap()
+        let stop = app.buttons["overview.stopAll"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 15))
+        for _ in 0..<6 where !stop.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
+        stop.tap()
+        XCTAssertTrue(app.staticTexts["Stop all sub-threads?"].waitForExistence(timeout: 5))
+        app.buttons["Stop all"].tap()
+        let gone = NSPredicate(format: "exists == false")
+        wait(for: [XCTNSPredicateExpectation(predicate: gone, object: stop)], timeout: 10)
+        XCTAssertTrue(
+            app.staticTexts["This stack was stopped, so it cannot start sub-threads."].waitForExistence(timeout: 10))
+        XCTAssertTrue(try stub.lastOverviewRequest().hasPrefix("POST threads/s7ackr00/stack/stop"))
+        try audit()
+    }
+
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex

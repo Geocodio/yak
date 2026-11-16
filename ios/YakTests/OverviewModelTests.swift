@@ -40,6 +40,13 @@ private final class OverviewTransport: HTTPTransport, @unchecked Sendable {
     /// What the environment answers after the retry was sent.
     var settlesAfterRetry = false
     private var retried = false
+    /// The scenario file the stack answers with.
+    var stackName = "no-sub-threads"
+    /// Makes the limit and the child actions answer with the server's refusals.
+    var refusesActions = false
+    private var bodies: [String: String] = [:]
+
+    func lastBody(for path: String) -> String? { lock.withLock { bodies[path] } }
 
     static let me = """
         {"user":{"id":7,"name":"Test Person","email":"person@example.test","initials":"TP","isAdmin":false},
@@ -56,7 +63,10 @@ private final class OverviewTransport: HTTPTransport, @unchecked Sendable {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let url = request.url!
         let path = url.path.replacingOccurrences(of: "/api/app/v1/", with: "")
-        lock.withLock { paths.append(path) }
+        lock.withLock {
+            paths.append(path)
+            bodies[path] = request.httpBody.map { String(decoding: $0, as: UTF8.self) }
+        }
         var status = 200
         var body: String
         if path.hasSuffix("me") {
@@ -65,8 +75,27 @@ private final class OverviewTransport: HTTPTransport, @unchecked Sendable {
             body = scenario("thread-show")
         } else if path.hasSuffix("events") {
             body = #"{"events":[],"latestSequence":14,"source":"database"}"#
+        } else if path.hasSuffix("/stack/limit") {
+            if refusesActions {
+                status = 422
+                body =
+                    #"{"error":"validation_failed","message":"Choose between 1 and 4.","details":{"errors":{"limit":["Choose between 1 and 4."]}}}"#
+            } else {
+                let sent =
+                    (request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Int])?[
+                        "limit"] ?? 2
+                body = "{\"status\":\"updated\",\"limit\":{\"current\":\(sent),\"max\":4,\"awake\":1,\"waiting\":0}}"
+            }
+        } else if path.contains("/stack/") {
+            try await Task.sleep(for: .milliseconds(30))
+            if refusesActions {
+                status = 409
+                body = #"{"error":"child_not_failed","message":"Only a sub-thread that failed can be dropped."}"#
+            } else {
+                body = #"{"status":"stopping"}"#
+            }
         } else if path.hasSuffix("/stack") {
-            body = scenario("no-sub-threads")
+            body = scenario(stackName)
         } else if path.hasSuffix("/environment") {
             body = scenario("environment-setup-failed")
             if lock.withLock({ retried }), settlesAfterRetry {
@@ -215,5 +244,91 @@ private final class OverviewTransport: HTTPTransport, @unchecked Sendable {
     async let second: Void = fixture.model.retryRepositorySetup(LenientID("22"))
     _ = await (first, second)
     #expect(fixture.transport.requestCount(for: "threads/s7ackr00/repositories/22/retry") == 1)
+    await fixture.finish()
+}
+
+@MainActor @Test func stopAllAsksTheServerOnce() async throws {
+    let fixture = try await Fixture()
+    fixture.transport.stackName = "busy-stack"
+    await fixture.openThread()
+    await fixture.model.setVisible(true)
+    await fixture.model.start()
+    #expect(await fixture.eventually { fixture.model.content?.subThreads?.canStop == true })
+    async let first: Void = fixture.model.stopAll()
+    async let second: Void = fixture.model.stopAll()
+    _ = await (first, second)
+    #expect(fixture.transport.requestCount(for: "threads/s7ackr00/stack/stop") == 1)
+    #expect(fixture.model.runningAction == nil)
+    await fixture.finish()
+}
+
+@MainActor @Test func aLimitSendsOnceAfterTheTapsStop() async throws {
+    let fixture = try await Fixture()
+    fixture.transport.stackName = "busy-stack"
+    await fixture.openThread()
+    await fixture.model.setVisible(true)
+    await fixture.model.start()
+    #expect(await fixture.eventually { fixture.model.content?.subThreads?.awake != nil })
+    fixture.model.proposeAwakeLimit(3)
+    fixture.model.proposeAwakeLimit(4)
+    fixture.model.proposeAwakeLimit(3)
+    #expect(fixture.model.pendingAwakeLimit == 3)
+    #expect(await fixture.eventually { fixture.transport.requestCount(for: "threads/s7ackr00/stack/limit") == 1 })
+    #expect(fixture.transport.lastBody(for: "threads/s7ackr00/stack/limit")?.contains("3") == true)
+    #expect(await fixture.eventually { fixture.model.runningAction == nil && fixture.model.pendingAwakeLimit == nil })
+    #expect(fixture.transport.requestCount(for: "threads/s7ackr00/stack/limit") == 1)
+    await fixture.finish()
+}
+
+@MainActor @Test func aRefusedLimitPutsTheOldValueBack() async throws {
+    let fixture = try await Fixture()
+    fixture.transport.stackName = "busy-stack"
+    fixture.transport.refusesActions = true
+    await fixture.openThread()
+    await fixture.model.setVisible(true)
+    await fixture.model.start()
+    #expect(await fixture.eventually { fixture.model.content?.subThreads?.awake != nil })
+    fixture.model.proposeAwakeLimit(4)
+    #expect(await fixture.eventually { fixture.model.actionLine == "Choose between 1 and 4." })
+    #expect(fixture.model.pendingAwakeLimit == nil)
+    #expect(fixture.model.content?.subThreads?.awake?.value == 2)
+    #expect(fixture.model.refusalCount == 1)
+    await fixture.finish()
+}
+
+@MainActor @Test func aDropRefusalShowsTheSentence() async throws {
+    let fixture = try await Fixture()
+    fixture.transport.stackName = "busy-stack"
+    fixture.transport.refusesActions = true
+    await fixture.openThread()
+    await fixture.model.setVisible(true)
+    await fixture.model.start()
+    #expect(await fixture.eventually { fixture.model.content?.subThreads != nil })
+    await fixture.model.perform(.drop, on: "q7adapt0")
+    #expect(fixture.model.actionLine == "Only a sub-thread that failed can be dropped.")
+    #expect(fixture.model.runningAction == nil)
+    await fixture.finish()
+}
+
+@MainActor @Test func openingAChildOpensItsThread() async throws {
+    let fixture = try await Fixture()
+    var opened: [String] = []
+    fixture.model.onOpenThread = { opened.append($0) }
+    fixture.model.open("b4ckf111")
+    await fixture.model.perform(.open, on: "q7adapt0")
+    #expect(opened == ["b4ckf111", "q7adapt0"])
+    await fixture.finish()
+}
+
+@MainActor @Test func aRecipientHasNoActions() async throws {
+    let fixture = try await Fixture()
+    fixture.transport.stackName = "recipient-stack"
+    await fixture.openThread()
+    await fixture.model.setVisible(true)
+    await fixture.model.start()
+    #expect(await fixture.eventually { fixture.model.content?.subThreads != nil })
+    let group = try #require(fixture.model.content?.subThreads)
+    #expect(group.awake == nil && group.canStop == false)
+    #expect(group.rows.allSatisfy { $0.actions == [.open] })
     await fixture.finish()
 }
