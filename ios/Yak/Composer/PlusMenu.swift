@@ -134,6 +134,7 @@ private struct CameraDeniedSheet: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium])
+        .presentationBackground(Color(.systemBackground))
         .accessibilityIdentifier("composer.cameraDenied")
     }
 }
