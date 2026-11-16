@@ -129,7 +129,10 @@ import XCTest
     func testPreviewThreadOffline() throws {
         try start("preview-ready", paired: true)
         PreviewScreen(app: app).waitForDrawer()
-        XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:d0e515ef"].waitForExistence(timeout: 10))
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        XCTAssertTrue(app.buttons["pane.menu"].waitForExistence(timeout: 15))
         try stub.setOnline(false)
         PreviewScreen(app: app).open()
         XCTAssertTrue(card("problem").waitForExistence(timeout: 60))
