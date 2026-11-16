@@ -240,11 +240,25 @@ public enum PaneLayoutRules {
     }
 
     /// Called when the arrangement changes (rotation, Split View, a window resize, fold, unfold, a pose). The pair is
-    /// kept as it is; only a second pane that is missing is chosen.
+    /// kept as it is, with two exceptions. A second pane that is missing is chosen. An open Overview panel that stops
+    /// being a panel (the width drops) becomes the focused Overview pane, taking the pane that sat beside it as the
+    /// second pane on the same side, so nothing moves. `oldInputs` tells whether the old size had the panel; without
+    /// it the old arrangement alone decides.
     public static func arrangementChanged(
-        from old: PaneArrangement, to new: PaneArrangement, state: PaneState, available: [PaneID], inputs: LayoutInputs
+        from old: PaneArrangement, to new: PaneArrangement, state: PaneState, available: [PaneID], inputs: LayoutInputs,
+        oldInputs: LayoutInputs? = nil
     ) -> PaneState {
-        resolve(state, available: available, arrangement: new, inputs: inputs)
+        var next = state
+        let wasPanel =
+            oldInputs.map { overviewIsPanel(arrangement: old, inputs: $0) } ?? (old == .sideBySide || old == .book)
+        if wasPanel, !overviewIsPanel(arrangement: new, inputs: inputs), available.contains(.overview),
+            next.second == .overview, next.focused != .overview
+        {
+            next.second = next.focused
+            next.focused = .overview
+            next.secondLeads.toggle()
+        }
+        return resolve(next, available: available, arrangement: new, inputs: inputs)
     }
 
     /// Called when the thread's panes change (a pane hidden by the server, a pane plan merged).

@@ -218,7 +218,7 @@ private let bookInputs = LayoutInputs(
         #expect(PaneLayoutRules.plan(closed, available: all, inputs: laptopInputs) == before)
     }
 
-    @Test func foldingOrRotatingAwayFromAnOpenPanelKeepsThePaneBesideIt() {
+    @Test func foldingOrRotatingAwayFromAnOpenPanelFocusesTheOverviewAndKeepsTheSides() {
         let start = PaneState(focused: .preview, second: .overview, behind: .chat)
         let startShown = PaneLayoutRules.plan(start, available: all, inputs: wide).slots
         #expect(
@@ -228,16 +228,19 @@ private let bookInputs = LayoutInputs(
             ])
         let upended = PaneLayoutRules.arrangementChanged(
             from: .sideBySide, to: .stacked, state: start, available: all, inputs: upright)
+        let upendedPlan = PaneLayoutRules.plan(upended, available: all, inputs: upright)
         #expect(
-            PaneLayoutRules.plan(upended, available: all, inputs: upright).shownPanes.sorted {
-                $0.rawValue < $1.rawValue
-            } == [.overview, .preview])
+            upendedPlan.slots == [
+                PaneSlot(position: .upper, content: .pane(.overview)),
+                PaneSlot(position: .lower, content: .pane(.preview)),
+            ])
+        #expect(upendedPlan.focusedPosition == .upper)
         let back = PaneLayoutRules.arrangementChanged(
             from: .stacked, to: .sideBySide, state: upended, available: all, inputs: wide)
         #expect(PaneLayoutRules.plan(back, available: all, inputs: wide).slots == startShown)
         let folded = PaneLayoutRules.arrangementChanged(
             from: .sideBySide, to: .single, state: start, available: all, inputs: outer)
-        #expect(PaneLayoutRules.plan(folded, available: all, inputs: outer).shownPanes == [.preview])
+        #expect(PaneLayoutRules.plan(folded, available: all, inputs: outer).shownPanes == [.overview])
         let unfolded = PaneLayoutRules.arrangementChanged(
             from: .single, to: .sideBySide, state: folded, available: all, inputs: wide)
         #expect(PaneLayoutRules.plan(unfolded, available: all, inputs: wide).slots == startShown)
@@ -298,13 +301,13 @@ private let bookInputs = LayoutInputs(
         let open = PaneState(focused: .chat, second: .overview, behind: .files)
         var state = PaneLayoutRules.arrangementChanged(
             from: .sideBySide, to: .single, state: open, available: all, inputs: outer)
-        #expect(state.focused == .chat && state.second == .overview)
+        #expect(state.focused == .overview && state.second == .chat)
         var plan = PaneLayoutRules.plan(state, available: all, inputs: outer)
-        state = PaneLayoutRules.select(.files, from: nil, state: state, plan: plan)
-        #expect(state.focused == .files && state.second == .overview && state.behind == nil)
+        state = PaneLayoutRules.select(.chat, from: nil, state: state, plan: plan)
+        #expect(state.focused == .chat && state.second == .overview)
         plan = PaneLayoutRules.plan(state, available: all, inputs: outer)
         state = PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
-        #expect(state.focused == .overview && state.second == .files)
+        #expect(state.focused == .overview && state.second == .chat)
     }
 
     @Test func defaultSecondOrder() {
@@ -435,7 +438,10 @@ private let bookInputs = LayoutInputs(
                     let after = PaneLayoutRules.plan(back, available: all, inputs: upright)
                     let note = "\(focused) \(second) \(secondLeads)"
                     #expect(after.slots == before.slots, "\(note)")
-                    #expect(after.focusedPosition == before.focusedPosition, "\(note)")
+                    // An Overview in the pair takes the focus when it turns into a pane.
+                    if focused != .overview && second != .overview {
+                        #expect(after.focusedPosition == before.focusedPosition, "\(note)")
+                    }
                 }
             }
         }

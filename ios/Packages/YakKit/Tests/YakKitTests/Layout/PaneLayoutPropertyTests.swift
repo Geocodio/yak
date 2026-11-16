@@ -64,7 +64,7 @@ private func plan(_ state: PaneState, _ size: Size, _ available: [PaneID]) -> Sl
 private func changed(_ state: PaneState, from old: Size, to new: Size, _ available: [PaneID]) -> PaneState {
     PaneLayoutRules.arrangementChanged(
         from: arrangement(old, available), to: arrangement(new, available), state: state, available: available,
-        inputs: new.inputs)
+        inputs: new.inputs, oldInputs: old.inputs)
 }
 
 private func isFirstOfPair(_ position: SlotPosition) -> Bool { position == .leading || position == .lower }
@@ -118,11 +118,10 @@ extension SlotContent {
         var failures: [String] = []
         // Plans seen per (size, plan key): the first state that showed it, and what it does next.
         var representatives: [String: [String: SlotPlan]] = [:]
-        var visibleBehaviour: [String: [String: SlotPlan]] = [:]
 
         for seed in Self.seeds {
             var generator = SplitMix64(state: seed)
-            let available = availableSets[Int(seed) % availableSets.count]
+            var available = availableSets[Int(seed) % availableSets.count]
             var size = sizes[Int(seed) % sizes.count]
             func randomPane() -> PaneID? {
                 Bool.random(using: &generator) ? nil : PaneID.allCases.randomElement(using: &generator)
@@ -141,7 +140,8 @@ extension SlotContent {
             for _ in 0..<Self.stepsPerSeed {
                 let before = plan(state, size, available)
                 let sizeBefore = size
-                switch Int.random(in: 0..<5, using: &generator) {
+                let availableBefore = available
+                switch Int.random(in: 0..<6, using: &generator) {
                 case 0, 1:
                     let pane = PaneID.allCases.randomElement(using: &generator)!
                     let from = ([nil] + before.slots.map { Optional($0.position) }).randomElement(using: &generator)!
@@ -151,6 +151,10 @@ extension SlotContent {
                     let slot = before.slots.randomElement(using: &generator)!.position
                     trace.append("focus \(slot)")
                     state = PaneLayoutRules.focus(slot, state: state, plan: before)
+                case 5:
+                    available = availableSets.randomElement(using: &generator)!
+                    trace.append("available \(available)")
+                    state = PaneLayoutRules.availableChanged(state: state, available: available, inputs: size.inputs)
                 default:
                     let new = sizes.randomElement(using: &generator)!
                     trace.append("change \(size.name) to \(new.name)")
@@ -158,6 +162,13 @@ extension SlotContent {
                     size = new
                 }
                 let after = plan(state, size, available)
+
+                // (4) a pane that is still available stays shown when the available set changes.
+                if trace.last!.hasPrefix("available"), before.slots.count == 2, after.slots.count == 2,
+                    !shownSet(before).intersection(available).isSubset(of: shownSet(after))
+                {
+                    fail("a pane was lost when \(availableBefore) became \(available): \(key(before)) -> \(key(after))")
+                }
 
                 // (4) a pane is never shown twice, only available panes are shown, and the focused pane is shown.
                 let panes = after.slots.map { $0.content.pane }
@@ -217,7 +228,9 @@ extension SlotContent {
                     for other in sizes {
                         let there = changed(state, from: size, to: other, available)
                         let back = plan(changed(there, from: other, to: size, available), size, available)
-                        if back.slots != after.slots || back.focusedPosition != after.focusedPosition {
+                        // An Overview in the pair takes the focus when it turns into a pane, so only its places hold.
+                        let focusHolds = state.isOverviewInPair || back.focusedPosition == after.focusedPosition
+                        if back.slots != after.slots || !focusHolds {
                             fail("a change to \(other.name) and back changed the plan: \(key(after)) -> \(key(back))")
                         }
                     }
@@ -227,37 +240,26 @@ extension SlotContent {
                 let decoded = try JSONDecoder().decode(PaneState.self, from: JSONEncoder().encode(state))
                 if decoded != state { fail("the encoded state decoded to another state") }
 
-                // (2) two states that show the same plan, and hold the same pair, behave the same under every next
-                // step. The pair is the whole record, so nothing else may matter.
-                let record =
-                    "\(state.focused) \(String(describing: state.second)) \(state.secondLeads) "
-                    + "\(String(describing: state.behind))"
-                let planKey = "\(available.map(\.rawValue))" + size.name + "|" + key(after)
+                // (2) two states that show the same plan, plus only the documented hidden bits, behave the same
+                // under every next step, size changes included. The hidden bits are the pane the panel covers; while
+                // the panel is open, the Overview's side and whether it has the focus; and the pair's side in the
+                // laptop pose.
                 if after.slots.count == 2 {
-                    let next = nextPlans(state, size, available, includingSizeChanges: true)
-                    if let known = representatives[planKey + record] {
-                        for (label, plan) in next.sorted(by: { $0.key < $1.key }) where known[label] != plan {
-                            fail("same plan and pair \(planKey) \(record), different next step \(label)")
-                            break
-                        }
-                    } else {
-                        representatives[planKey + record] = next
-                    }
-                    // (2b) a pick or a tap depends on what is shown (and the pane the panel covers), not on the
-                    // history behind it.
-                    var visibleKey = planKey
+                    var hidden = "behind:\(String(describing: state.behind))"
                     if after.slots.contains(where: { $0.content == .overviewPanel }) {
                         let isOverviewFirst = state.focused == .overview ? !state.secondLeads : state.secondLeads
-                        visibleKey += "|behind:\(String(describing: state.behind))|overviewFirst:\(isOverviewFirst)"
+                        hidden += "|overviewFirst:\(isOverviewFirst)|overviewFocused:\(state.focused == .overview)"
                     }
-                    let picks = nextPlans(state, size, available, includingSizeChanges: false)
-                    if let known = visibleBehaviour[visibleKey] {
-                        for (label, plan) in picks.sorted(by: { $0.key < $1.key }) where known[label] != plan {
-                            fail("same plan, different pick \(visibleKey), \(label)")
+                    if arrangement(size, available) == .laptop { hidden += "|secondLeads:\(state.secondLeads)" }
+                    let planKey = "\(available.map(\.rawValue))" + size.name + "|" + key(after) + "|" + hidden
+                    let next = nextPlans(state, size, available, includingSizeChanges: true)
+                    if let known = representatives[planKey] {
+                        for (label, plan) in next.sorted(by: { $0.key < $1.key }) where known[label] != plan {
+                            fail("same plan and hidden bits \(planKey), different next step \(label)")
                             break
                         }
                     } else {
-                        visibleBehaviour[visibleKey] = picks
+                        representatives[planKey] = next
                     }
                 }
             }
