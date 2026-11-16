@@ -585,6 +585,7 @@ test('Claude accounts lists Add Claude account and it opens the add dialog', fun
     openPalette($page);
 
     $page->type('[data-testid="app-palette"]', 'add claude')
+        ->assertVisible('[data-testid="palette-action-claude-accounts-add"]')
         ->keys('[data-testid="app-palette"]', 'Enter')
         ->assertVisible('[data-testid="account-save"]');
 });
