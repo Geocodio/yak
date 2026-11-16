@@ -44,7 +44,13 @@ enum PreviewWebData {
     }
 
     /// At launch: erases the stores this feature handed out whose instance is gone, needs pairing or is pending.
-    static func sweep(instances: InstanceStore, defaults: any KeyValueStore) async {
+    static func sweep(
+        instances: InstanceStore, defaults: any KeyValueStore,
+        listStores: @escaping @MainActor @Sendable () async -> [UUID] = {
+            await WKWebsiteDataStore.allDataStoreIdentifiers
+        },
+        limit: Duration = eraseLimit
+    ) async {
         let all = await instances.all()
         var keep: [UUID] = []
         for instance in all {
@@ -59,7 +65,11 @@ enum PreviewWebData {
         }
         // Listing the stores before WebKit has made any object crashes in WebKit; making one of ours starts it.
         _ = WKWebsiteDataStore(forIdentifier: firstStore)
-        let existing = await bounded(returning: []) { await WKWebsiteDataStore.allDataStoreIdentifiers }
+        // A listing that times out says nothing about which stores exist, so both records stay as they are.
+        guard let existing = await bounded(returning: nil, limit: limit, { Optional(await listStores()) }) else {
+            log("The preview data stores could not be listed")
+            return
+        }
         let doomed = PreviewDataStoreID.toErase(existing: existing, known: known, keep: keep, pending: pending)
         for storeID in doomed {
             let isRemoved = await bounded { try await WKWebsiteDataStore.remove(forIdentifier: storeID) }
@@ -104,7 +114,8 @@ enum PreviewWebData {
     }
 
     private static func bounded<Value: Sendable>(
-        returning fallback: Value, _ work: @escaping @MainActor @Sendable () async -> Value
+        returning fallback: Value, limit: Duration = eraseLimit,
+        _ work: @escaping @MainActor @Sendable () async -> Value
     ) async -> Value {
         await withCheckedContinuation { (continuation: CheckedContinuation<Value, Never>) in
             let gate = Gate()
@@ -113,7 +124,7 @@ enum PreviewWebData {
                 if gate.first() { continuation.resume(returning: value) }
             }
             Task { @MainActor in
-                do { try await Task.sleep(for: eraseLimit) } catch { return }
+                do { try await Task.sleep(for: limit) } catch { return }
                 if gate.first() { continuation.resume(returning: fallback) }
             }
         }

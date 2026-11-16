@@ -12,6 +12,13 @@ private final class PreviewDefaults: KeyValueStore, @unchecked Sendable {
     func set(_ value: Data?, forKey key: String) { lock.withLock { values[key] = value } }
 }
 
+private struct UnreadableTokenStore: TokenStore {
+    struct Unreadable: Error {}
+    func token(for instance: UUID) throws -> String? { throw Unreadable() }
+    func setToken(_ token: String, for instance: UUID) throws {}
+    func removeToken(for instance: UUID) throws {}
+}
+
 @MainActor @Suite(.serialized) struct PreviewWebDataTests {
     private func cookie(_ name: String) -> HTTPCookie {
         HTTPCookie(properties: [
@@ -93,26 +100,69 @@ private final class PreviewDefaults: KeyValueStore, @unchecked Sendable {
 
     @Test func theSweepErasesGoneInstancesAndLeavesOtherStores() async throws {
         let defaults = PreviewDefaults()
-        let instances = InstanceStore(defaults: PreviewDefaults(), tokens: InMemoryTokenStore(), now: { Date() })
+        let tokens = InMemoryTokenStore()
+        let instances = InstanceStore(defaults: PreviewDefaults(), tokens: tokens, now: { Date() })
         let kept = try await instances.add(
             url: URL(string: "https://yak.example.test")!, name: "Example Yak", userName: "Test person", token: "t")
         let gone = UUID()
+        let needsPairing = try await instances.add(
+            url: URL(string: "https://pairing.example.test")!, name: "Example Yak", userName: "Test person", token: "t")
+        try tokens.removeToken(for: needsPairing.id)
+        await setCookie("pairing", for: needsPairing.id, defaults: defaults)
         await setCookie("kept", for: kept.id, defaults: defaults)
         await setCookie("gone", for: gone, defaults: defaults)
         let foreignID = UUID()
         await WKWebsiteDataStore(forIdentifier: foreignID).httpCookieStore.setCookie(cookie("foreign"))
         // WebKit lets go of a released store a moment later, so a store still in use is swept again.
         var existing: [UUID] = []
-        for _ in 0..<10 {
+        for _ in 0..<20 {
             await PreviewWebData.sweep(instances: instances, defaults: defaults)
             existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-            if !existing.contains(PreviewDataStoreID.for(instanceID: gone)) { break }
+            if !existing.contains(PreviewDataStoreID.for(instanceID: gone)),
+                !existing.contains(PreviewDataStoreID.for(instanceID: needsPairing.id))
+            {
+                break
+            }
             try await Task.sleep(for: .milliseconds(300))
         }
         #expect(existing.contains(PreviewDataStoreID.for(instanceID: kept.id)))
         #expect(!existing.contains(PreviewDataStoreID.for(instanceID: gone)))
+        #expect(!existing.contains(PreviewDataStoreID.for(instanceID: needsPairing.id)))
         #expect(existing.contains(foreignID))
         _ = await PreviewWebData.erase(instanceID: kept.id, defaults: defaults)
         try await WKWebsiteDataStore.remove(forIdentifier: foreignID)
+    }
+
+    @Test func theSweepKeepsTheStoreOfAnInstanceWhoseTokenIsUnreadable() async throws {
+        let defaults = PreviewDefaults()
+        let store = InstanceStore(
+            defaults: PreviewDefaults(), tokens: UnreadableTokenStore(), now: { Date() })
+        let added = try await store.add(
+            url: URL(string: "https://yak.example.test")!, name: "Example Yak", userName: "Test person", token: "t")
+        #expect(await store.state(of: added.id) == .tokenUnreadable)
+        await setCookie("kept", for: added.id, defaults: defaults)
+        for _ in 0..<3 { await PreviewWebData.sweep(instances: store, defaults: defaults) }
+        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+        #expect(existing.contains(PreviewDataStoreID.for(instanceID: added.id)))
+        _ = await PreviewWebData.erase(instanceID: added.id, defaults: defaults)
+    }
+
+    @Test func aListingThatTimesOutLeavesTheRecordsAlone() async throws {
+        let defaults = PreviewDefaults()
+        let instances = InstanceStore(defaults: PreviewDefaults(), tokens: InMemoryTokenStore(), now: { Date() })
+        let waiting = UUID()
+        let handedOut = UUID()
+        _ = PreviewWebData.store(for: handedOut, defaults: defaults)
+        defaults.set(try JSONEncoder().encode([waiting]), forKey: PreviewWebData.pendingKey)
+        await PreviewWebData.sweep(
+            instances: instances, defaults: defaults,
+            listStores: {
+                try? await Task.sleep(for: .seconds(30))
+                return []
+            }, limit: .milliseconds(100))
+        let pending = try JSONDecoder().decode(
+            [UUID].self, from: try #require(defaults.data(forKey: PreviewWebData.pendingKey)))
+        #expect(pending == [waiting])
+        #expect(try known(defaults) == [PreviewDataStoreID.for(instanceID: handedOut)])
     }
 }
