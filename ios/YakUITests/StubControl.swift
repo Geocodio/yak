@@ -29,17 +29,32 @@ struct StubControl {
     /// Takes the app offline or back online; the app in test mode reads this as its network state.
     func setOnline(_ isOnline: Bool) throws { try post("online", isOnline ? "yes" : "no") }
 
-    private func post(_ endpoint: String, _ body: String) throws {
+    /// Sends `body` to `/__stub/<endpoint>` and fails the test unless the stub answers 200. A feature's control
+    /// route goes here as `<feature>/<route>`. Waits at most 30 seconds.
+    func post(_ endpoint: String, _ body: String) throws {
+        _ = try send("POST", endpoint, body: body)
+    }
+
+    /// The text `/__stub/<endpoint>` answers with 200. Waits at most 30 seconds.
+    func get(_ endpoint: String) throws -> String {
+        try send("GET", endpoint, body: nil)
+    }
+
+    private func send(_ method: String, _ endpoint: String, body: String?) throws -> String {
         var request = URLRequest(url: URL(string: "\(url)/__stub/\(endpoint)")!)
-        request.httpMethod = "POST"
-        request.httpBody = Data(body.utf8)
-        let done = XCTestExpectation(description: "stub \(endpoint) set")
+        request.httpMethod = method
+        request.httpBody = body.map { Data($0.utf8) }
+        request.timeoutInterval = 30
+        let done = XCTestExpectation(description: "stub \(endpoint) answered")
         nonisolated(unsafe) var status = 0
-        URLSession.shared.dataTask(with: request) { _, response, _ in
+        nonisolated(unsafe) var text = ""
+        URLSession.shared.dataTask(with: request) { data, response, _ in
             status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            text = data.map { String(decoding: $0, as: UTF8.self) } ?? ""
             done.fulfill()
         }.resume()
         XCTWaiter().wait(for: [done], timeout: 30)
-        XCTAssertEqual(status, 200, "the stub did not accept \(endpoint) \(body)")
+        XCTAssertEqual(status, 200, "the stub did not accept \(method) \(endpoint)")
+        return text
     }
 }

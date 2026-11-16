@@ -7,6 +7,9 @@ failed=0
 targets=(Yak Packages/*/Sources)
 extension_targets=()
 deferred_checks=()
+# Folders where no rust-colored token may appear, and the files inside them that may name one on purpose.
+no_rust_folders=(Yak/Thread Yak/Chat Yak/Composer Yak/Questions)
+rust_allowed_files=()
 
 fail() {
     echo "rule broken: $1"
@@ -23,6 +26,8 @@ check() {
         fail "$label"
     fi
 }
+
+for rules in scripts/rules.d/*.sh; do [ -e "$rules" ] && . "$rules"; done
 
 check 'UIScreen.main' 'UIScreen.main'
 check 'userInterfaceIdiom' 'userInterfaceIdiom'
@@ -42,9 +47,13 @@ if [ -n "$ats_hits" ]; then
     fail 'NSAllowsArbitraryLoads'
 fi
 
-# Only "Open PR" is rust-colored on a thread screen.
+# Only "Open PR" is rust-colored on a thread screen. A feature's rules.d file adds its folders to
+# no_rust_folders and the files that may name a token to rust_allowed_files.
 for token in yakRust yakOnRust PrimaryButtonStyle; do
-    hits=$(grep -rnF --include='*.swift' "$token" Yak/Thread Yak/Chat Yak/Composer Yak/Questions 2>/dev/null || true)
+    hits=$(grep -rnF --include='*.swift' "$token" "${no_rust_folders[@]}" 2>/dev/null || true)
+    for allowed in ${rust_allowed_files[@]+"${rust_allowed_files[@]}"}; do
+        hits=$(printf '%s\n' "$hits" | grep -vF "$allowed:" || true)
+    done
     if [ -n "$hits" ]; then
         echo "$hits"
         fail "$token in a thread screen"
@@ -54,7 +63,6 @@ done
 [ -f Yak/Support/PrivacyInfo.xcprivacy ] || fail 'Yak/Support/PrivacyInfo.xcprivacy is missing'
 grep -q 'UILaunchScreen' project.yml || fail 'project.yml does not name the launch screen key'
 
-for rules in scripts/rules.d/*.sh; do [ -e "$rules" ] && . "$rules"; done
 for deferred in ${deferred_checks[@]+"${deferred_checks[@]}"}; do "$deferred"; done
 
 exit "$failed"

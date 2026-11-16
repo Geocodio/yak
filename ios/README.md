@@ -24,6 +24,8 @@ Debug builds understand the launch arguments `-yakTestInstance <url>` (test mode
 
 `bundle exec fastlane ui_smoke only:testName` runs one test of `PairingSmokeTests`. Add `device:"iPhone Duo"` for another simulator.
 
+Features add files and no lines: `ui_smoke` runs every class in `YakUITests/*SmokeTests.swift` and the core classes listed in `CORE_SMOKE_CLASSES` in the Fastfile, `walkthrough` every class in `YakUITests/*WalkthroughTests.swift`, and `only:` takes `Class/test` or a bare test name that must be in exactly one class. A feature smoke test runs on the iPhone row only, and `core_only:true` (the iPad and the Duo rows) runs the core classes, so a feature that wants those rows adds its class there. A feature's project rules live in `scripts/rules.d/<feature>.sh`, which may add to `targets`, `no_rust_folders` and `rust_allowed_files`; its stub helpers go in `StubControl+<Feature>.swift`, which uses `StubControl.post(_:_:)` and `get(_:)`.
+
 The launch argument `-yakTestSkipWebSession YES` keeps the system web sign-in sheet closed, so the waiting screen of the typed-address flow can be seen and tested.
 
 ## Walkthrough
