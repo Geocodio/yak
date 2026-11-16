@@ -7,6 +7,7 @@ private struct NotesRig {
     let session: InstanceSession
     let instance: Instance
     let files: InMemoryFileStore
+    let transport: ScriptedTransport
 }
 
 private func notesRig(answerMe: Bool = true) async throws -> NotesRig {
@@ -26,7 +27,7 @@ private func notesRig(answerMe: Bool = true) async throws -> NotesRig {
         appVersion: "1.0.0", systemDescription: "Test", allowsInsecureRealtime: false)
     let session = InstanceSession(instance: instance, instances: instances, tokens: tokens, environment: environment)
     if answerMe { await session.start() }
-    return NotesRig(session: session, instance: instance, files: files)
+    return NotesRig(session: session, instance: instance, files: files, transport: transport)
 }
 
 @Test func notesWriteTheContext() async throws {
@@ -70,4 +71,40 @@ private func notesRig(answerMe: Bool = true) async throws -> NotesRig {
     let rig = try await notesRig(answerMe: false)
     await rig.session.noteOpenedThread(try decoded(ThreadShow.self, "scenario-thread-show"))
     #expect(ShareContextStore.read(instance: rig.instance.id, files: rig.files) == nil)
+}
+
+@Test func aNoteAfterTheSessionEndsWritesNothing() async throws {
+    let rig = try await notesRig()
+    await rig.session.handle(.serverTooOld)
+    await rig.session.noteOpenedThread(try decoded(ThreadShow.self, "scenario-thread-show"))
+    #expect(ShareContextStore.read(instance: rig.instance.id, files: rig.files) == nil)
+}
+
+@Test func aNoteWhileUnpairingIsSuspendedWritesNothing() async throws {
+    let rig = try await notesRig()
+    await rig.transport.hold("DELETE device")
+    let unpairing = Task { await rig.session.unpair() }
+    await rig.transport.waitForRequests(1, on: "DELETE device")
+    await rig.session.noteOpenedThread(try decoded(ThreadShow.self, "scenario-thread-show"))
+    #expect(ShareContextStore.read(instance: rig.instance.id, files: rig.files) == nil)
+    await rig.transport.release("DELETE device")
+    await unpairing.value
+}
+
+@Test func aRevokeErasesWhatWasNoted() async throws {
+    let rig = try await notesRig()
+    await rig.session.noteOpenedThread(try decoded(ThreadShow.self, "scenario-thread-show"))
+    await rig.session.noteNewThreadOptions(
+        try decoded(NewThreadOptions.self, "scenario-thread-new"), lastRepo: "example/api")
+    #expect(ShareContextStore.read(instance: rig.instance.id, files: rig.files) != nil)
+    await rig.session.handle(.unauthorized(code: "device_revoked"))
+    #expect(ShareContextStore.read(instance: rig.instance.id, files: rig.files) == nil)
+    #expect(try rig.files.list(InstanceFolders.cache(rig.instance.id)).isEmpty)
+}
+
+@Test func unpairingLeavesNothingInTheInstanceFolder() async throws {
+    let rig = try await notesRig()
+    await rig.session.noteOpenedThread(try decoded(ThreadShow.self, "scenario-thread-show"))
+    await rig.session.unpair()
+    #expect(try rig.files.list("instances/\(rig.instance.id.uuidString)").isEmpty)
 }
