@@ -1,42 +1,38 @@
 import Foundation
 
 /// Which panes a thread shows and where, kept in the scene so a layout change can keep or restore them.
+///
+/// The state is one record: the last two-slot pair (the focused pane, its partner and the side the partner sits on),
+/// and the pane that the Overview panel covers. Nothing else is remembered, so any size shows the pair the same way
+/// and a fold, an unfold or a rotation changes nothing but how the pair is drawn.
 public struct PaneState: Codable, Equatable, Sendable {
     public var focused: PaneID
-    /// Nil until a two-slot layout needs one.
+    /// The pane beside `focused`. Nil until a two-slot layout needs one.
     public var second: PaneID?
     /// The second pane sits in the first position (leading or lower).
     public var secondLeads: Bool
-    public var lastSecond: PaneID?
-    /// The side `lastSecond` had when it was last shown.
-    public var lastSecondLeads: Bool
-    /// While the Overview is a panel: it sat in the first position of the pair (leading or lower) when it last was a pane.
-    public var overviewIsFirst: Bool
-    /// While the Overview is a panel: it was the second pane, not the focused one, when it last was a pane.
-    public var overviewWasSecond: Bool
-    public var isOverviewPanelOpen: Bool
+    /// While the Overview is in the pair: the pane that sat in the Overview's place before the panel opened, and
+    /// comes back when it closes.
+    public var behind: PaneID?
     /// The upper slot's share of the height, clamped on use.
     public var stackedFraction: Double
 
+    /// The Overview is one of the pair: a pane where it is a pane, the side panel where it is a panel.
+    public var isOverviewInPair: Bool { focused == .overview || second == .overview }
+
     public init(
-        focused: PaneID = .chat, second: PaneID? = nil, secondLeads: Bool = false, lastSecond: PaneID? = nil,
-        lastSecondLeads: Bool = false, overviewIsFirst: Bool = false, overviewWasSecond: Bool = false,
-        isOverviewPanelOpen: Bool = false, stackedFraction: Double = 0.5
+        focused: PaneID = .chat, second: PaneID? = nil, secondLeads: Bool = false, behind: PaneID? = nil,
+        stackedFraction: Double = 0.5
     ) {
         self.focused = focused
         self.second = second
         self.secondLeads = secondLeads
-        self.lastSecond = lastSecond
-        self.lastSecondLeads = lastSecondLeads
-        self.overviewIsFirst = overviewIsFirst
-        self.overviewWasSecond = overviewWasSecond
-        self.isOverviewPanelOpen = isOverviewPanelOpen
+        self.behind = behind
         self.stackedFraction = stackedFraction
     }
 
     private enum CodingKeys: String, CodingKey {
-        case focused, second, secondLeads, lastSecond, lastSecondLeads, overviewIsFirst, overviewWasSecond
-        case isOverviewPanelOpen, stackedFraction
+        case focused, second, secondLeads, behind, stackedFraction
     }
 
     /// Restored state is untrusted: a missing key takes its default and a pane name this build does not know is dropped.
@@ -49,15 +45,7 @@ public struct PaneState: Codable, Equatable, Sendable {
             focused: pane(.focused) ?? .chat,
             second: pane(.second),
             secondLeads: (try? container.decodeIfPresent(Bool.self, forKey: .secondLeads)).flatMap { $0 } ?? false,
-            lastSecond: pane(.lastSecond),
-            lastSecondLeads: (try? container.decodeIfPresent(Bool.self, forKey: .lastSecondLeads)).flatMap { $0 }
-                ?? false,
-            overviewIsFirst: (try? container.decodeIfPresent(Bool.self, forKey: .overviewIsFirst)).flatMap { $0 }
-                ?? false,
-            overviewWasSecond: (try? container.decodeIfPresent(Bool.self, forKey: .overviewWasSecond)).flatMap { $0 }
-                ?? false,
-            isOverviewPanelOpen: (try? container.decodeIfPresent(Bool.self, forKey: .isOverviewPanelOpen))
-                .flatMap { $0 } ?? false,
+            behind: pane(.behind),
             stackedFraction: (try? container.decodeIfPresent(Double.self, forKey: .stackedFraction)).flatMap { $0 }
                 ?? 0.5)
     }
@@ -126,18 +114,28 @@ public enum PaneLayoutRules {
     public static func plan(_ state: PaneState, available: [PaneID], inputs: LayoutInputs) -> SlotPlan {
         let size = ThreadLayout.arrangement(inputs, slotPaneCount: Set(available).count)
         let resolved = resolve(state, available: available, arrangement: size, inputs: inputs)
-        let focused = resolved.focused
+        let shownFocus = besideOfPanel(resolved, size: size, inputs: inputs) ?? resolved.focused
+        let focused = shownFocus
         var arrangement = size
         var slots: [PaneSlot]
         if size.slotCount == 1 {
             slots = []
-        } else if resolved.isOverviewPanelOpen {
+        } else if besideOfPanel(resolved, size: size, inputs: inputs) != nil {
             slots = [
                 PaneSlot(position: .leading, content: .pane(focused)),
                 PaneSlot(position: .trailing, content: .overviewPanel),
             ]
         } else if let second = resolved.second {
-            let pair = resolved.secondLeads ? [second, focused] : [focused, second]
+            var secondLeads = resolved.secondLeads
+            if size == .laptop {
+                // The laptop pose draws Chat in the lower slot; the pair itself is not changed.
+                if focused == .chat {
+                    secondLeads = false
+                } else if second == .chat {
+                    secondLeads = true
+                }
+            }
+            let pair = secondLeads ? [second, focused] : [focused, second]
             if size == .stacked || size == .laptop {
                 slots = [
                     PaneSlot(position: .upper, content: .pane(pair[1])),
@@ -184,19 +182,39 @@ public enum PaneLayoutRules {
     public static func select(_ pane: PaneID, from slot: SlotPosition?, state: PaneState, plan: SlotPlan) -> PaneState {
         guard plan.available.contains(pane) else { return state }
         var next = stateShown(by: plan, base: state)
-        if plan.overviewIsPanel {
-            next.overviewWasSecond = false
-            next.overviewIsFirst = false
-        }
+        let isPanelOpen = plan.slots.contains { $0.content == .overviewPanel }
         if pane == .overview && plan.overviewIsPanel {
-            next.isOverviewPanelOpen.toggle()
+            if isPanelOpen {
+                // The pane beside the panel keeps the focus.
+                let beside = plan.slots.first { $0.position == .leading }?.content.paneID ?? next.focused
+                let isOverviewFirst = next.focused == .overview ? !next.secondLeads : next.secondLeads
+                next.focused = beside
+                let covered = next.behind
+                next.second =
+                    covered
+                    ?? defaultSecond(
+                        focused: beside, lastSecond: nil, candidates: plan.available.filter { $0 != .overview })
+                // A covered pane returns on the side the Overview had; a default pane takes the trailing slot.
+                next.secondLeads = covered != nil && isOverviewFirst
+            } else {
+                next.behind = next.second
+                next.second = .overview
+                if next.behind == nil { next.secondLeads = false }
+            }
             return tidy(next, plan: plan)
         }
         if let shown = plan.slots.first(where: { $0.content == .pane(pane) }) {
             return focus(shown.position, state: state, plan: plan)
         }
         let target = plan.slots.first { $0.position == slot && $0.content != .overviewPanel }?.position
-        if plan.slots.count == 1 || next.isOverviewPanelOpen || target == nil || target == plan.focusedPosition {
+        if plan.slots.count == 1 {
+            // A picked partner trades places with the focused pane; any other pane takes the focus.
+            if next.second == pane { next.second = next.focused }
+            next.focused = pane
+        } else if isPanelOpen {
+            // The shown pane beside the panel is replaced; the record keeps which of the pair had the focus.
+            if next.focused == .overview { next.second = pane } else { next.focused = pane }
+        } else if target == nil || target == plan.focusedPosition {
             // The focused slot takes the pane; the other slot keeps its pane and its side.
             next.focused = pane
         } else {
@@ -204,7 +222,6 @@ public enum PaneLayoutRules {
             next.secondLeads = isFirstOfPair(plan.focusedPosition)
             next.focused = pane
         }
-        if plan.slots.count == 1 { next.second = nil }
         return tidy(next, plan: plan)
     }
 
@@ -219,40 +236,15 @@ public enum PaneLayoutRules {
         next.second = next.focused
         next.secondLeads = isFirstOfPair(plan.focusedPosition)
         next.focused = pane
-        return next
+        return tidy(next, plan: plan)
     }
 
-    /// Called when the arrangement changes (rotation, Split View, a window resize, fold, unfold, a pose).
+    /// Called when the arrangement changes (rotation, Split View, a window resize, fold, unfold, a pose). The pair is
+    /// kept as it is; only a second pane that is missing is chosen.
     public static func arrangementChanged(
         from old: PaneArrangement, to new: PaneArrangement, state: PaneState, available: [PaneID], inputs: LayoutInputs
     ) -> PaneState {
-        var next = state
-        if old.slotCount == 2 && new.slotCount == 1 {
-            if next.focused != .overview {
-                if let second = next.second { next.lastSecond = second }
-                next.lastSecondLeads = next.secondLeads
-                next.second = nil
-                next.secondLeads = false
-            }
-            // A focused Overview keeps the pane beside it and its side; `lastSecond` keeps the pane hidden behind both.
-        } else if old.slotCount == 1 && new.slotCount == 2 {
-            let candidates = slotPanes(available: available, arrangement: new, inputs: inputs)
-            if next.focused == .overview, let beside = next.second, candidates.contains(beside) {
-                // The pane that sat beside the Overview comes back on its side; `lastSecond` stays hidden.
-            } else {
-                next.second = defaultSecond(focused: next.focused, lastSecond: next.lastSecond, candidates: candidates)
-                next.secondLeads = false
-            }
-        }
-        next = resolve(next, available: available, arrangement: new, inputs: inputs)
-        if new == .laptop, next.second != nil {
-            if next.focused == .chat {
-                next.secondLeads = false
-            } else if next.second == .chat {
-                next.secondLeads = true
-            }
-        }
-        return next
+        resolve(state, available: available, arrangement: new, inputs: inputs)
     }
 
     /// Called when the thread's panes change (a pane hidden by the server, a pane plan merged).
@@ -309,8 +301,17 @@ public enum PaneLayoutRules {
 
     private static func isFirstOfPair(_ position: SlotPosition) -> Bool { position == .leading || position == .lower }
 
-    /// The state with every self-contradiction repaired for `arrangement`: gone panes replaced, the Overview made a
-    /// panel or a pane as the size says, and a second pane present wherever two pane slots need one.
+    /// The pane beside the Overview panel, when `state` shows the panel at this size.
+    private static func besideOfPanel(_ state: PaneState, size: PaneArrangement, inputs: LayoutInputs) -> PaneID? {
+        guard size.slotCount == 2, state.isOverviewInPair, overviewIsPanel(arrangement: size, inputs: inputs) else {
+            return nil
+        }
+        return state.focused == .overview ? state.second : state.focused
+    }
+
+    /// The state with every self-contradiction repaired for `arrangement`: gone panes replaced and a second pane
+    /// present wherever two slots need one. The Overview stays in the pair wherever it is; the size decides whether
+    /// it is drawn as a pane or as the panel.
     private static func resolve(
         _ state: PaneState, available: [PaneID], arrangement: PaneArrangement, inputs: LayoutInputs
     ) -> PaneState {
@@ -318,77 +319,38 @@ public enum PaneLayoutRules {
         var next = state
         next.stackedFraction = clampedFraction(next.stackedFraction)
         if !present.contains(next.focused) { next.focused = present.contains(.chat) ? .chat : (present.first ?? .chat) }
-        if let last = next.lastSecond, !present.contains(last) {
-            next.lastSecond = nil
-            next.lastSecondLeads = false
-        }
-        let hasOverview = present.contains(.overview)
-        let panel = hasOverview && overviewIsPanel(arrangement: arrangement, inputs: inputs)
+        if let second = next.second, second == next.focused || !present.contains(second) { next.second = nil }
+        next = cleaned(next, available: present)
+        guard arrangement.slotCount == 2 else { return next }
         let candidates = slotPanes(available: present, arrangement: arrangement, inputs: inputs)
-        if next.second == next.focused { next.second = nil }
-        if panel, next.second == .overview, next.focused != .overview {
-            // The Overview was the second pane and is now the panel: open it beside the focused pane and remember its
-            // place. The hidden pane's side takes over `secondLeads`.
-            next.isOverviewPanelOpen = true
-            next.overviewIsFirst = next.secondLeads
-            next.overviewWasSecond = true
-            next.second = nil
-            next.secondLeads = next.lastSecondLeads
-        }
-        let secondIsGone = next.second.map { !candidates.contains($0) } ?? false
-
-        if panel {
-            if next.focused == .overview {
-                next.isOverviewPanelOpen = true
-                next.overviewWasSecond = false
-                if next.second != nil { next.overviewIsFirst = !next.secondLeads }
-                next.secondLeads = next.lastSecondLeads
-                let replacement = next.second.flatMap { candidates.contains($0) ? $0 : nil }
-                next.focused =
-                    replacement
-                    ?? defaultSecond(focused: .overview, lastSecond: next.lastSecond, candidates: candidates) ?? .chat
-                if next.second == next.focused { next.second = nil }
+        let isPanelShown =
+            present.contains(.overview) && overviewIsPanel(arrangement: arrangement, inputs: inputs)
+            && next.isOverviewInPair
+        if isPanelShown {
+            // The pane beside the panel is a pane slot's pane; the Overview itself needs none.
+            if next.focused == .overview, next.second.map({ !candidates.contains($0) }) ?? true {
+                next.second = defaultSecond(focused: .overview, lastSecond: nil, candidates: candidates)
             }
-        } else {
-            if next.isOverviewPanelOpen && hasOverview {
-                // The panel becomes the focused Overview pane; the pane it sat beside is kept as the second pane so
-                // that opening the panel again brings it back. A hidden second pane moves to `lastSecond` (when two
-                // slots show both) or stays in `lastSecond` already (when one slot shows neither).
-                let beside = next.focused
-                if beside != .overview {
-                    if arrangement.slotCount == 2 {
-                        if let hidden = next.second, hidden != beside { next.lastSecond = hidden }
-                        next.lastSecondLeads = next.secondLeads
-                    }
-                    if arrangement.slotCount == 2 && next.overviewWasSecond {
-                        // Both panes return to the places they had before the Overview became the panel.
-                        next.second = .overview
-                        next.secondLeads = next.overviewIsFirst
-                    } else {
-                        next.second = beside
-                        next.secondLeads = arrangement.slotCount == 2 && !next.overviewIsFirst
-                        next.focused = .overview
-                    }
-                } else {
-                    next.focused = .overview
-                }
-            }
-            next.isOverviewPanelOpen = false
-            if next.second == next.focused { next.second = nil }
+        } else if next.second.map({ !candidates.contains($0) }) ?? true {
+            next.second = defaultSecond(focused: next.focused, lastSecond: nil, candidates: candidates)
         }
-        if !hasOverview { next.isOverviewPanelOpen = false }
-
-        let needsSecond = arrangement.slotCount == 2 && !next.isOverviewPanelOpen
-        if secondIsGone || (needsSecond && next.second == nil) {
-            next.second = defaultSecond(focused: next.focused, lastSecond: next.lastSecond, candidates: candidates)
-        }
-        return next
+        return cleaned(next, available: present)
     }
 
-    /// The state that describes what `plan` shows.
+    /// The state that describes what `plan` shows, keeping what the plan cannot show: which of the pair holds the
+    /// focus while the Overview is the panel, and the pane the panel covers.
     private static func stateShown(by plan: SlotPlan, base: PaneState) -> PaneState {
         var next = base
-        next.isOverviewPanelOpen = plan.slots.contains { $0.content == .overviewPanel }
+        if plan.slots.contains(where: { $0.content == .overviewPanel }) {
+            let beside = plan.slots.first { $0.position == .leading }?.content.paneID ?? next.focused
+            if next.focused == .overview {
+                next.second = beside
+            } else {
+                next.focused = beside
+                next.second = .overview
+            }
+            return tidy(next, plan: plan)
+        }
         guard let focusedSlot = plan.slots.first(where: { $0.position == plan.focusedPosition }),
             case .pane(let focused) = focusedSlot.content
         else {
@@ -404,14 +366,29 @@ public enum PaneLayoutRules {
         return tidy(next, plan: plan)
     }
 
-    /// A second pane that duplicates the focused one, is gone, or would be the panel is dropped.
+    /// A second pane that duplicates the focused one or is gone is dropped.
     private static func tidy(_ state: PaneState, plan: SlotPlan) -> PaneState {
         var next = state
-        if let second = next.second,
-            second == next.focused || !plan.available.contains(second) || (second == .overview && plan.overviewIsPanel)
+        if let second = next.second, second == next.focused || !plan.available.contains(second) { next.second = nil }
+        return cleaned(next, available: plan.available)
+    }
+
+    /// `behind` is only kept while the Overview is in the pair and the pane is still there and not shown.
+    private static func cleaned(_ state: PaneState, available: [PaneID]) -> PaneState {
+        var next = state
+        if let behind = next.behind,
+            !next.isOverviewInPair || !available.contains(behind) || behind == .overview || behind == next.focused
+                || behind == next.second
         {
-            next.second = nil
+            next.behind = nil
         }
         return next
+    }
+}
+
+extension SlotContent {
+    fileprivate var paneID: PaneID? {
+        if case .pane(let pane) = self { return pane }
+        return nil
     }
 }
