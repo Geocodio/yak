@@ -77,7 +77,7 @@ Quality-bar walkthrough, screenshots in build/screenshots/<device>/<appearance>/
 [bundle exec] fastlane ios test
 ```
 
-YakKit package tests and app unit tests
+YakKit package tests and app unit tests: fastlane test device:"iPhone 18 Pro"
 
 ----
 

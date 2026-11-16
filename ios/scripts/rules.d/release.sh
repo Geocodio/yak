@@ -8,6 +8,8 @@ host_allowed_files=(
     Packages/YakKit/Sources/YakKit/Intents/QuickActionItems.swift
     # The reserved .invalid domain builds a response object for a stored answer; no request is made.
     Packages/YakKit/Sources/YakKit/Uploads/UploadLedger.swift
+    # The debug-only Markdown gallery renders a sample document with an example.com link; no request is made.
+    Yak/Markdown/MarkdownGallery.swift
 )
 
 release_swift_files() {

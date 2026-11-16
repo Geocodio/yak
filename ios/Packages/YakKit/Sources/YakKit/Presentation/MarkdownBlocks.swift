@@ -12,25 +12,94 @@ public enum MarkdownBlock: Equatable, Sendable {
     case code(language: String?, text: String)
     case table(header: [String], rows: [[String]])
     case rule
+    /// Source text past the document's weight budget, kept whole so nothing is lost.
+    case unformatted(String)
 }
 
 /// Splits Markdown into blocks in one pass over the lines. Text that matches nothing is a
 /// paragraph, so nothing is dropped, and a fence that is still streaming runs to the end.
 public enum MarkdownBlocks {
     public static func parse(_ markdown: String) -> [MarkdownBlock] {
-        let lines = markdown.replacingOccurrences(of: "\r\n", with: "\n")
-            .split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        return parse(lines: lines, depth: 0)
+        parse(lines: lines(of: markdown), depth: 0, state: ScanState())
     }
+
+    /// Like `parse`, and also the number of table rows that were split into cells, which is the work the table
+    /// scan does. It stays within a small multiple of the line count however the table rows are laid out.
+    static func parseCountingCellSplits(_ markdown: String) -> (blocks: [MarkdownBlock], cellSplits: Int) {
+        let state = ScanState()
+        let blocks = parse(lines: lines(of: markdown), depth: 0, state: state)
+        return (blocks, state.cellSplits)
+    }
+
+    private static func lines(of markdown: String) -> [String] {
+        normalizingLineBreaks(markdown).split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+    }
+
+    /// `text` with every line break written as LF. Besides LF, CR and CRLF, text drawing breaks lines at vertical
+    /// tab, form feed, next line, line separator and paragraph separator, so those count as line ends everywhere
+    /// lines are counted.
+    public static func normalizingLineBreaks(_ text: String) -> String {
+        let scalars = text.unicodeScalars
+        guard scalars.contains(where: { isLineBreak($0) && $0 != "\n" }) else { return text }
+        var result = String.UnicodeScalarView()
+        var previousWasCarriageReturn = false
+        for scalar in scalars {
+            let isLineFeedAfterCarriageReturn = scalar == "\n" && previousWasCarriageReturn
+            previousWasCarriageReturn = scalar == "\r"
+            if isLineFeedAfterCarriageReturn { continue }
+            result.append(isLineBreak(scalar) ? "\n" : scalar)
+        }
+        return String(result)
+    }
+
+    private static func isLineBreak(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x0A...0x0D, 0x85, 0x2028, 0x2029: true
+        default: false
+        }
+    }
+
+    /// The number of line breaks in `text`, counting every kind text drawing honours (CRLF counts once).
+    public static func lineBreakCount(in text: String) -> Int {
+        text.reduce(0) { $0 + ($1.isNewline ? 1 : 0) }
+    }
+
+    /// Blocks, list items and table cells a document may turn into rows: the document budget. What is left over
+    /// is returned as `unformatted` text, so the rows and the main actor pay for a bounded document.
+    public static let maximumWeight = 600
+
+    /// The weight still free in the document. Quotes share it with the document around them.
+    private final class ScanState {
+        var remaining = MarkdownBlocks.maximumWeight
+        var cellSplits = 0
+    }
+
+    /// A table with a line longer than this, in UTF-8 bytes, is not a table; its lines stay paragraphs, which the
+    /// views split. A cell that wraps over thousands of characters costs far more than the cell count says.
+    public static let maximumTableLineBytes = 10_000
+
+    /// A table with more columns than this is not a table; its lines stay paragraphs.
+    public static let maximumTableColumns = 64
+
+    /// A table with more cells than this (header included) is not a table; its lines stay paragraphs. Rows are
+    /// padded to the header width, so the cell count is what the parse and the view pay for.
+    public static let maximumTableCells = maximumWeight
 
     /// Quotes nest at most this deep, so hostile input cannot exhaust a small thread stack.
     private static let maximumQuoteDepth = 8
 
-    private static func parse(lines: [String], depth: Int) -> [MarkdownBlock] {
+    private static func parse(lines: [String], depth: Int, state: ScanState) -> [MarkdownBlock] {
         var blocks: [MarkdownBlock] = []
         var index = 0
+        var counted = 0
         while index < lines.count {
+            state.remaining -= blocks.count - counted
+            counted = blocks.count
             let line = lines[index]
+            if state.remaining <= 0, !isBlank(line) {
+                blocks.append(.unformatted(lines[index...].joined(separator: "\n")))
+                break
+            }
             if isBlank(line) {
                 index += 1
             } else if let fence = fenceOpening(line) {
@@ -57,19 +126,24 @@ public enum MarkdownBlocks {
                 if depth >= maximumQuoteDepth {
                     blocks.append(.paragraph(inner.joined(separator: "\n")))
                 } else {
-                    blocks.append(.quote(parse(lines: inner, depth: depth + 1)))
+                    blocks.append(.quote(parse(lines: inner, depth: depth + 1, state: state)))
                 }
-            } else if let table = table(lines, at: index) {
+            } else if let table = table(lines, at: index, state: state) {
                 blocks.append(table.block)
                 index = table.next
+            } else if let skipped = overCapTableEnd(lines, at: index, state: state) {
+                blocks.append(.paragraph(lines[index..<skipped].joined(separator: "\n")))
+                index = skipped
             } else if let marker = listMarker(line) {
-                let list = list(lines, at: index, first: marker)
+                let list = list(lines, at: index, first: marker, state: state)
                 blocks.append(list.block)
                 index = list.next
             } else {
                 var paragraph = [line]
                 index += 1
-                while index < lines.count, !isBlank(lines[index]), !startsBlock(lines, at: index) {
+                while index < lines.count, !isBlank(lines[index]),
+                    !startsBlock(lines, at: index, state: state)
+                {
                     paragraph.append(lines[index])
                     index += 1
                 }
@@ -166,7 +240,7 @@ public enum MarkdownBlocks {
     }
 
     /// Whether the line at `index` ends a paragraph.
-    private static func startsBlock(_ lines: [String], at index: Int) -> Bool {
+    private static func startsBlock(_ lines: [String], at index: Int, state: ScanState) -> Bool {
         let line = lines[index]
         if fenceOpening(line) != nil || heading(line) != nil || isRule(line) || quoteContent(line) != nil {
             return true
@@ -174,13 +248,15 @@ public enum MarkdownBlocks {
         if let marker = listMarker(line), !marker.ordered || marker.number == 1 {
             return !marker.content.isEmpty
         }
-        return table(lines, at: index) != nil
+        return tableHeader(lines, at: index, state: state) != nil
     }
 
     // MARK: Lists
 
-    private static func list(_ lines: [String], at start: Int, first: ListMarker) -> (block: MarkdownBlock, next: Int) {
-        var items = [first.content]
+    private static func list(
+        _ lines: [String], at start: Int, first: ListMarker, state: ScanState
+    ) -> (block: MarkdownBlock, next: Int) {
+        var items = [[first.content]]
         var index = start + 1
         while index < lines.count {
             let line = lines[index]
@@ -189,43 +265,77 @@ public enum MarkdownBlocks {
                 var peek = index
                 while peek < lines.count, isBlank(lines[peek]) { peek += 1 }
                 guard peek < lines.count, !isRule(lines[peek]), let marker = listMarker(lines[peek]),
-                    marker.ordered == first.ordered
+                    marker.ordered == first.ordered, state.remaining > items.count
                 else { break }
-                items.append(marker.content)
+                items.append([marker.content])
                 index = peek + 1
             } else if !isRule(line), let marker = listMarker(line), line.prefix(while: { $0 == " " }).count < 2 {
-                guard marker.ordered == first.ordered else { break }
-                items.append(marker.content)
+                guard marker.ordered == first.ordered, state.remaining > items.count else { break }
+                items.append([marker.content])
                 index += 1
-            } else if line.hasPrefix("  ") || line.hasPrefix("\t") || !startsBlock(lines, at: index) {
-                items[items.count - 1] += "\n" + line.trimmingCharacters(in: .whitespaces)
+            } else if line.hasPrefix("  ") || line.hasPrefix("\t") || !startsBlock(lines, at: index, state: state) {
+                items[items.count - 1].append(line.trimmingCharacters(in: .whitespaces))
                 index += 1
             } else {
                 break
             }
         }
-        return (.list(ordered: first.ordered, start: first.number, items: items), index)
+        state.remaining -= items.count
+        let joined = items.map { $0.joined(separator: "\n") }
+        return (.list(ordered: first.ordered, start: first.number, items: joined), index)
     }
 
     // MARK: Tables
 
-    private static func table(_ lines: [String], at index: Int) -> (block: MarkdownBlock, next: Int)? {
+    /// The header cells when the line and the one after it form a header and delimiter row.
+    private static func tableHeader(_ lines: [String], at index: Int, state: ScanState) -> [String]? {
         guard index + 1 < lines.count, lines[index].contains("|") else { return nil }
+        state.cellSplits += 2
         let header = cells(lines[index])
         let delimiter = cells(lines[index + 1])
         guard delimiter.count == header.count, !header.isEmpty, delimiter.allSatisfy(isDelimiterCell) else {
             return nil
         }
+        return header
+    }
+
+    /// A table, cut where the document's weight budget runs out. Nil when there is no table or it is over the
+    /// cell cap; `overCapTableEnd` then finds the end of its lines.
+    private static func table(
+        _ lines: [String], at index: Int, state: ScanState
+    ) -> (block: MarkdownBlock, next: Int)? {
+        guard let header = tableHeader(lines, at: index, state: state), header.count <= maximumTableColumns,
+            lines[index].utf8.count <= maximumTableLineBytes
+        else { return nil }
         var rows: [[String]] = []
         var next = index + 2
+        var weight = header.count
         while next < lines.count, !isBlank(lines[next]), lines[next].contains("|") {
+            guard header.count * (rows.count + 2) <= maximumTableCells,
+                lines[next].utf8.count <= maximumTableLineBytes
+            else { return nil }
+            if weight + header.count > state.remaining {
+                weight = state.remaining
+                break
+            }
+            state.cellSplits += 1
             var row = cells(lines[next])
             if row.count > header.count { row.removeLast(row.count - header.count) }
             while row.count < header.count { row.append("") }
             rows.append(row)
+            weight += header.count
             next += 1
         }
+        state.remaining -= weight
         return (.table(header: header, rows: rows), next)
+    }
+
+    /// The line after the rows of a table that is over the cell cap, found without reading the cells again.
+    private static func overCapTableEnd(_ lines: [String], at index: Int, state: ScanState) -> Int? {
+        guard tableHeader(lines, at: index, state: state) != nil else { return nil }
+        var next = index + 2
+        while next < lines.count, !isBlank(lines[next]), lines[next].contains("|") { next += 1 }
+        return next
     }
 
     private static func isDelimiterCell(_ cell: String) -> Bool {

@@ -2067,6 +2067,66 @@
           }
         }
       }
+    },
+    "markdown.more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show more"
+          }
+        }
+      }
+    },
+    "markdown.previous": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show previous"
+          }
+        }
+      }
+    },
+    "markdown.unformatted.notice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shown as plain text from here, because this message is very long."
+          }
+        }
+      }
+    },
+    "markdown.task.done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done, "
+          }
+        }
+      }
+    },
+    "markdown.task.notDone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not done, "
+          }
+        }
+      }
+    },
+    "Markdown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markdown"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

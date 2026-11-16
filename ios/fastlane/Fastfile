@@ -34,6 +34,10 @@ platform :ios do
     ENV["YAK_MARKETING_VERSION"] = version
     UI.message("Generating the project for version #{version}")
     sh("cd #{IOS_ROOT.shellescape} && xcodegen generate")
+    # The generated project is not tracked, so the pinned package versions live beside project.yml.
+    resolved_directory = File.join(IOS_ROOT, "Yak.xcodeproj/project.xcworkspace/xcshareddata/swiftpm")
+    FileUtils.mkdir_p(resolved_directory)
+    FileUtils.cp(File.join(IOS_ROOT, "Package.resolved"), resolved_directory)
   end
 
   desc "Format check and project rules"
@@ -85,7 +89,7 @@ platform :ios do
     end
   end
 
-  desc "YakKit package tests and app unit tests"
+  desc "YakKit package tests and app unit tests: fastlane test device:\"iPhone 18 Pro\""
   lane :test do |options|
     device = options[:device] || "iPhone 18 Pro"
     generate
@@ -94,7 +98,7 @@ platform :ios do
     sh(
       "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
       "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} -only-testing:YakTests " \
-      "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+      "CODE_SIGNING_ALLOWED=NO"
     )
   end
 
@@ -165,7 +169,7 @@ platform :ios do
       "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
       "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} #{selection} " \
       "-retry-tests-on-failure -test-iterations 2 " \
-      "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+      "-resultBundlePath #{result_path.shellescape} CODE_SIGNING_ALLOWED=NO"
     )
     # A selection that matches nothing still ends in TEST SUCCEEDED, so an empty run fails here.
     summary = JSON.parse(`xcrun xcresulttool get test-results summary --path #{result_path.shellescape} --compact`)

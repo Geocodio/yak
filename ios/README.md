@@ -16,6 +16,10 @@ Each company builds its own copy. Nothing in this folder holds a team ID, bundle
 
 `YakKit` holds all logic and imports no UIKit or SwiftUI. The app target only shows its models.
 
+## Licenses
+
+The app target uses Apple's [swift-markdown](https://github.com/swiftlang/swift-markdown) 0.9.0 (Apache 2.0, with `swift-cmark` under BSD-2-Clause) to parse chat Markdown. It is pinned to an exact version in `project.yml`. No other Swift package is used by the app target.
+
 ## UI tests and the stub server
 
 `bundle exec fastlane ui_smoke device:"iPhone 18 Pro"` builds `Packages/YakStub`, starts `yak-stub` on a free port, runs `YakUITests` against it and stops it. The stub replays the contract fixtures in `fixtures/`; a test picks the scenario with `StubControl.play(_:)`, which posts the name to `/__stub/scenario`. Scenarios: `paired`, `revoked`, `server-too-new`, `server-too-old`, `not-yak`, `slow` (every answer after 10 seconds), `slower` (14 seconds, so the slow-connection hint shows before the answer arrives), `down` (connections closed), `broken` (500 everywhere), `code-used`, `code-expired`, `approval-pending` (`device/token` answers `authorization_pending` for ever), `approval-denied`, `approval-expired`, `approval-slow-down`. `POST /__stub/online` with `no` or `yes` takes the app offline and back in test mode (a new scenario resets it); `StubControl.setOnline(_:)` does this from a test.

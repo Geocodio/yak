@@ -9,6 +9,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
     TARGETED_DEVICE_FAMILY: "1,2"
     DEVELOPMENT_TEAM: $(YAK_TEAM_ID)
     CODE_SIGN_STYLE: Automatic
@@ -17,6 +18,9 @@ settings:
 packages:
   YakKit:
     path: Packages/YakKit
+  swift-markdown:
+    url: https://github.com/swiftlang/swift-markdown
+    exactVersion: 0.9.0
 targets:
   Yak:
     type: application
@@ -26,6 +30,8 @@ targets:
       - path: Shared
     dependencies:
       - package: YakKit
+      - package: swift-markdown
+        product: Markdown
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(YAK_BUNDLE_ID)

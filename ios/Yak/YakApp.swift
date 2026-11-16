@@ -52,11 +52,20 @@ struct YakApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(model: model)
-                .appRoot(parts, model: model)
-                #if DEBUG
-                    .preferredColorScheme(TestMode.colorScheme())
-                #endif
+            #if DEBUG
+                if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
+                    MarkdownGallery()
+                } else {
+                    rootView.preferredColorScheme(TestMode.colorScheme())
+                }
+            #else
+                rootView
+            #endif
         }
+    }
+
+    private var rootView: some View {
+        RootView(model: model)
+            .appRoot(parts, model: model)
     }
 }
