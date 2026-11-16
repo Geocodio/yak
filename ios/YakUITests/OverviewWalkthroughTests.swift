@@ -177,6 +177,47 @@ import XCTest
         try shoot("add-sub-thread-refused")
     }
 
+    func testAddSubThreadKeyboard() throws {
+        try openAddSheet("overview-stack")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
+        try shoot("add-sub-thread-keyboard")
+    }
+
+    /// A full stack disables the Overview's Add, so the sheet opens from the top menu and shows the server's sentence.
+    func testAddSubThreadFull() throws {
+        try openOverview("overview-full")
+        let add = app.buttons["overview.addSubThread"]
+        XCTAssertTrue(add.waitForExistence(timeout: 15))
+        XCTAssertFalse(add.isEnabled)
+        app.buttons["thread.menu"].tap()
+        let item = app.buttons["thread.menu.addSubThread"]
+        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        item.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.refused"].waitForExistence(timeout: 15))
+        try shoot("add-sub-thread-full")
+    }
+
+    func testAddSubThreadOffline() throws {
+        try openOverview("overview-stack")
+        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 15))
+        try stub.setOnline(false)
+        // The sheet reads a stack the app fetched in the last ten seconds as it is, so it waits for the offline line.
+        XCTAssertTrue(app.descendants(matching: .any)["overview.offline"].waitForExistence(timeout: 40))
+        let add = app.buttons["overview.addSubThread"]
+        for _ in 0..<6 where !add.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
+        add.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.offline"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["addSubThread.add"].isEnabled)
+        try shoot("add-sub-thread-offline")
+    }
+
+    func testTopMenuWithSubThread() throws {
+        try openOverview("overview-stack")
+        app.buttons["thread.menu"].tap()
+        XCTAssertTrue(app.buttons["thread.menu.addSubThread"].waitForExistence(timeout: 5))
+        try shoot("thread-menu-sub-thread", audits: false)
+    }
+
     private func openAddSheet(_ scenario: String) throws {
         try openOverview(scenario)
         let add = app.buttons["overview.addSubThread"]
