@@ -4,9 +4,9 @@ import Testing
 @testable import Yak
 
 @MainActor @Suite struct AppPartsTests {
-    @Test func emptyPartsHaveNoObservers() {
+    @Test func partsObserveOnlyThePreviewData() {
         let parts = AppParts.make(storage: nil, isTestMode: false)
-        #expect(parts.observers.isEmpty)
+        #expect(parts.observers.count == 1)
         #expect(parts.storage == nil)
     }
 

@@ -7,18 +7,26 @@ import YakKit
 final class AppParts {
     let storage: SharedStorage?
     let isTestMode: Bool
+    /// Erases an instance's preview web data when it is unpaired or revoked, and sweeps leftovers at launch.
+    let previewData: PreviewWebDataObserver
     /// One line per observer; `AppModel` tells each after a pairing, a removal and a revoke.
     private(set) var observers: [any InstanceLifecycleObserver]
 
-    private init(storage: SharedStorage?, isTestMode: Bool, observers: [any InstanceLifecycleObserver]) {
+    private init(
+        storage: SharedStorage?, isTestMode: Bool, previewData: PreviewWebDataObserver,
+        observers: [any InstanceLifecycleObserver]
+    ) {
         self.storage = storage
         self.isTestMode = isTestMode
+        self.previewData = previewData
         self.observers = observers
     }
 
     /// Opens stores and builds objects only: no network and no disk work beyond that.
     static func make(storage: SharedStorage?, isTestMode: Bool) -> AppParts {
-        AppParts(storage: storage, isTestMode: isTestMode, observers: [])
+        let previewData = PreviewWebDataObserver(defaults: storage?.defaults ?? UserDefaults.standard)
+        return AppParts(
+            storage: storage, isTestMode: isTestMode, previewData: previewData, observers: [previewData])
     }
 
     /// The type of every part this build made, so a test can compare test mode with a release build.
@@ -32,5 +40,6 @@ extension View {
     /// Every scene-root modifier, one line per feature, in one place.
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
         onOpenURL { url in Task { await model.handle(url: url) } }
+            .task { await parts.previewData.sweep(instances: model.instances) }
     }
 }
