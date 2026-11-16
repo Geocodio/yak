@@ -13,9 +13,9 @@ import XCTest
         XCUIDevice.shared.orientation = .portrait
     }
 
-    private func launch(scenario: String) throws {
+    private func launch(scenario: String, extraArguments: [String] = []) throws {
         try stub.play(scenario)
-        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
+        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"] + extraArguments
         app.launch()
     }
 
@@ -105,17 +105,22 @@ import XCTest
 
     /// Someone who scrolled up to read keeps their place while the reply streams in below.
     func testStreamingTextDoesNotMoveAReaderWhoScrolledUp() throws {
-        try launch(scenario: "one-thread-working")
+        // The largest text size makes the conversation taller than the screen, so there is something to scroll.
+        try launch(
+            scenario: "one-thread-working",
+            extraArguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         try stub.hold(after: 7)
         openDrawerIfNeeded()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
         XCTAssertTrue(app.staticTexts["Looking at the importer."].waitForExistence(timeout: 20))
+        let list = app.descendants(matching: .any)["conversation"].firstMatch
+        list.swipeDown()
+        list.swipeDown()
         // The first message is tracked: a day divider appears above the reply that is played now.
         let first = app.staticTexts["Retry failed rows when the import times out"].firstMatch
         XCTAssertTrue(first.waitForExistence(timeout: 5))
-        app.descendants(matching: .any)["conversation"].firstMatch.swipeDown()
         // The swipe's momentum and bounce have ended when two reads a moment apart agree.
         var before = first.frame.minY
         for _ in 0..<20 {
@@ -125,7 +130,9 @@ import XCTest
             before = now
         }
         try stub.hold(after: nil)
-        XCTAssertTrue(app.staticTexts["Done. Failed rows now retry three times."].waitForExistence(timeout: 30))
+        // The rest of the turn plays one event every 400 ms; the end is below the screen, so it cannot be waited for.
+        Thread.sleep(forTimeInterval: 8)
+        XCTAssertTrue(first.exists, "the tracked message left the screen")
         XCTAssertEqual(first.frame.minY, before, accuracy: 1)
     }
 
