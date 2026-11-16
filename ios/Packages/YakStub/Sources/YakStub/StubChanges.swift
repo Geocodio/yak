@@ -7,6 +7,8 @@ final class StubChanges: StubFeature, @unchecked Sendable {
     let scenarios = [
         "changes", "tasks-empty", "tasks-nulls", "tasks-slow", "task-slow-approve", "task-refused", "task-not-linked",
         "task-access-error", "task-early-warning", "task-early-warning-tagged", "observations-declined",
+        "changes-none", "changes-private", "changes-replaced", "changes-gone", "changes-working", "changes-slow",
+        "pull-request-open", "pull-request-held", "pull-request-failed", "pull-request-refused",
     ]
     let fixturePairs = [
         StubFixturePair(server: "tasks", scenario: "scenario-tasks"),
@@ -17,21 +19,39 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         StubFixturePair(server: "task-co-owner-candidates", scenario: "scenario-task-co-owner-candidates"),
         StubFixturePair(server: "observations", scenario: "scenario-observations"),
         StubFixturePair(server: "observations-empty", scenario: "scenario-observations-empty"),
+        StubFixturePair(server: "thread-diff", scenario: "scenario-thread-diff"),
+        StubFixturePair(server: "thread-diff-none", scenario: "scenario-thread-diff-none"),
+        StubFixturePair(server: "diff-file", scenario: "scenario-diff-file"),
+        StubFixturePair(server: "diff-file-binary", scenario: "scenario-diff-file-binary"),
+        StubFixturePair(server: "diff-file-too-large", scenario: "scenario-diff-file-too-large"),
+        StubFixturePair(server: "thread-with-changes", scenario: "scenario-thread-with-changes"),
+        StubFixturePair(server: "thread-with-pull-request", scenario: "scenario-thread-with-pull-request"),
+        StubFixturePair(server: "pull-request-opening", scenario: "scenario-pull-request-opening"),
+        StubFixturePair(server: "pull-request-open", scenario: "scenario-pull-request-open"),
+        StubFixturePair(server: "pull-request-held", scenario: "scenario-pull-request-held"),
+        StubFixturePair(server: "pull-requests", scenario: "scenario-pull-requests"),
+        StubFixturePair(server: "pull-requests-none", scenario: "scenario-pull-requests-none"),
     ]
 
-    private struct State {
+    struct State {
         var decision: (status: String, by: String)?
         var tagged: String?
         var declinedEarlyWarning = false
         var answeredQuestions = false
         var lastBody = ""
+        var lastPullRequestBody = ""
+        /// The thread's files were captured again: their ids are 100 higher.
+        var recaptured = false
+        /// When the person asked Yak to open the pull request; it is open two seconds later.
+        var openingStartedAt: Date?
+        var openingRefused = false
     }
-    private let state = Locked(State())
+    let state = Locked(State())
 
     func reset() { state.set(State()) }
 
     func control(_ request: StubRequest) -> StubReply? {
-        text(state.get().lastBody)
+        text(request.path.hasSuffix("last-pull-request") ? state.get().lastPullRequestBody : state.get().lastBody)
     }
 
     func answer(route: String, request: StubRequest, context: StubContext) -> StubReply? {
@@ -40,6 +60,7 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         guard parts.count == 2 else { return nil }
         let path = parts[1].split(separator: "?", maxSplits: 1).first.map(String.init) ?? parts[1]
         let segments = path.split(separator: "/").map(String.init)
+        if segments.first == "threads", let reply = threadReply(parts[0], segments, request, context) { return reply }
         guard let first = segments.first, first == "tasks" || first == "observations" else { return nil }
         var reply: StubReply?
         if first == "observations", parts[0] == "GET" {
@@ -214,13 +235,13 @@ final class StubChanges: StubFeature, @unchecked Sendable {
 
     // MARK: Replies
 
-    private func status(_ word: String) -> StubReply { json(["status": word]) }
+    func status(_ word: String) -> StubReply { json(["status": word]) }
 
-    private func text(_ body: String) -> StubReply {
+    func text(_ body: String) -> StubReply {
         StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data(body.utf8)))
     }
 
-    private func json(_ object: [String: Any]) -> StubReply {
+    func json(_ object: [String: Any]) -> StubReply {
         let data = (try? JSONSerialization.data(withJSONObject: object)) ?? Data("{}".utf8)
         return StubReply(answer: .reply(status: 200, contentType: "application/json", body: data))
     }
