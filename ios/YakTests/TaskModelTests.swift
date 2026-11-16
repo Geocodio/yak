@@ -233,3 +233,9 @@ private final class Access: @unchecked Sendable {
     await model.stop()
     await fixture.session.stop()
 }
+
+@Test func aKnownStatusUsesTheCatalogAndAnUnknownOneTheServerLabel() {
+    #expect(
+        TaskRowView.statusTitle(.awaitingCoOwner, serverLabel: "awaiting co owner") == "Waiting for the co-owner")
+    #expect(TaskRowView.statusTitle(TaskStatus(rawValue: "paused"), serverLabel: "on hold") == "on hold")
+}

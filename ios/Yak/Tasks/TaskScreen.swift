@@ -119,7 +119,7 @@ struct TaskScreen: View {
     private func header(_ task: AppTask) -> some View {
         let needsYou = model.decision == .decide || task.task.status == .awaitingClarification
         return VStack(alignment: .leading, spacing: 6) {
-            Text(task.task.statusLabel.capitalized).font(.subheadline.weight(.semibold))
+            Text(TaskRowView.statusTitle(task.task.status, serverLabel: task.task.statusLabel)).font(.subheadline.weight(.semibold))
                 .foregroundStyle(needsYou ? Color.yakAction : Color.yakMuted)
                 .accessibilityIdentifier("task.status")
             Text(task.task.headline ?? task.task.summary).font(.title2.bold())

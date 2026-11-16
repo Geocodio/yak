@@ -144,7 +144,7 @@ struct TaskDecisionBar: View {
         case "changes_requested": String(localized: "task.decided.changesRequested")
         case "rejected": String(localized: "task.decided.rejected")
         case "withdrawn": String(localized: "task.decided.withdrawn")
-        default: status.replacingOccurrences(of: "_", with: " ")
+        default: status
         }
     }
 }

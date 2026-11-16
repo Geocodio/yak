@@ -34,6 +34,24 @@ struct TaskRowView: View {
         .accessibilityIdentifier("tasks.row.\(row.id)")
     }
 
+    /// The task screen's status line: a catalog string for every status the app knows, the server's own label,
+    /// unchanged, for any other.
+    static func statusTitle(_ status: TaskStatus, serverLabel: String) -> String {
+        switch status {
+        case .pending: String(localized: "task.status.pending")
+        case .running: String(localized: "task.status.running")
+        case .awaitingClarification: String(localized: "task.status.awaitingClarification")
+        case .awaitingCI: String(localized: "task.status.awaitingCI")
+        case .retrying: String(localized: "task.status.retrying")
+        case .awaitingCoOwner: String(localized: "task.status.awaitingCoOwner")
+        case .success: String(localized: "task.status.success")
+        case .failed: String(localized: "task.status.failed")
+        case .expired: String(localized: "task.status.expired")
+        case .cancelled: String(localized: "task.status.cancelled")
+        default: serverLabel
+        }
+    }
+
     static func subtitle(_ subtitle: TaskSubtitle) -> String {
         switch subtitle {
         case .waitsForCoOwner: String(localized: "tasks.status.waitsForCoOwner")
@@ -51,7 +69,7 @@ struct TaskRowView: View {
         case .expired: String(localized: "tasks.status.expired")
         case .cancelled: String(localized: "tasks.status.cancelled")
         case .pending: String(localized: "tasks.status.pending")
-        case .other(let status): status.replacingOccurrences(of: "_", with: " ")
+        case .other(let status): status
         }
     }
 
