@@ -46,6 +46,8 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
                         if !isOpen {
                             Color.clear.frame(width: edgeWidth).contentShape(.rect)
                                 .gesture(dragGesture(width: width))
+                                // In landscape the side inset would move the strip under the toolbar's leading button.
+                                .ignoresSafeArea(edges: .leading)
                         }
                     }
                 if isOpen {
