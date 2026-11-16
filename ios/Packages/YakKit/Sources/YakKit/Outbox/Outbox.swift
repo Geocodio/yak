@@ -353,10 +353,15 @@ public actor Outbox {
         let unheld = Set(names).subtracting(held)
         let doomed = unheld.intersection(previous)
         for name in doomed { removeFile("\(folder)/\(name)") }
+        let candidates = unheld.subtracting(doomed)
+        // With none left the file goes, so a sweep that runs while the outbox is erased leaves nothing behind.
+        if candidates.isEmpty {
+            removeFile(candidatesPath)
+            return
+        }
         do {
             try files.write(
-                JSONEncoder().encode(unheld.subtracting(doomed).sorted()), to: candidatesPath,
-                protection: .untilFirstUnlock)
+                JSONEncoder().encode(candidates.sorted()), to: candidatesPath, protection: .untilFirstUnlock)
         } catch { logFailure("sweep candidates not saved: \(type(of: error))") }
     }
 
