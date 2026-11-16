@@ -42,6 +42,8 @@ import XCTest
         XCTAssertTrue(app.buttons["drawer.empty.everyone"].waitForExistence(timeout: 10))
         try shoot("drawer-empty-others")
         try start("empty", paired: true)
+        // The cold start closes the drawer when it opens the new-thread screen; a tap before that is lost.
+        XCTAssertTrue(app.descendants(matching: .any)["newThread"].waitForExistence(timeout: 15))
         if app.buttons["threads.button"].waitForExistence(timeout: 10) {
             app.buttons["threads.button"].tap()
         } else {
@@ -324,6 +326,97 @@ import XCTest
         try shootThread("chat-notice-continue")
     }
 
+||||||| 29cdd15a7
+
+    // MARK: New thread
+
+    func testNewThread() throws {
+        try start("empty", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.field"].exists)
+        try shootNewThread("new-thread")
+    }
+
+    func testNewThreadLoading() throws {
+        try start("slow-new-thread", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.loading"].waitForExistence(timeout: 15))
+        try shootNewThread("new-thread-loading")
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.slow"].waitForExistence(timeout: 15))
+        try shootNewThread("new-thread-slow")
+    }
+
+    func testNewThreadMore() throws {
+        try start("empty", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        app.buttons["newThread.more"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.moreSheet"].waitForExistence(timeout: 5))
+        app.buttons["newThread.more.add"].tap()
+        let extra = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "web")).firstMatch
+        XCTAssertTrue(extra.waitForExistence(timeout: 5))
+        extra.tap()
+        XCTAssertTrue(app.staticTexts["web"].waitForExistence(timeout: 5))
+        // The sheet is the system's surface; the audit cannot judge text on it.
+        try shoot("new-thread-more", audits: false)
+    }
+
+    func testNewThreadNotReady() throws {
+        try start("empty", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        app.buttons["newThread.repo"].tap()
+        let web = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "web")).firstMatch
+        XCTAssertTrue(web.waitForExistence(timeout: 5))
+        web.tap()
+        app.descendants(matching: .any)["newThread.field"].tap()
+        app.typeText("Fix the importer")
+        app.buttons["newThread.send"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.problem"].waitForExistence(timeout: 5))
+        try shootNewThread("new-thread-not-ready")
+    }
+
+    func testNewThreadRefused() throws {
+        try start("new-thread-refused", paired: true)
+        try waitForDrawer()
+        app.buttons["drawer.newThread"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        app.descendants(matching: .any)["newThread.field"].tap()
+        app.typeText("Fix the importer")
+        app.buttons["newThread.send"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.refused"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["newThread.edit"].exists)
+        XCTAssertTrue(app.buttons["threads.button"].exists)
+        try shootNewThread("new-thread-refused")
+    }
+
+    func testNewThreadOffline() throws {
+        try start("empty", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 15))
+        try stub.setOnline(false)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.offline"].waitForExistence(timeout: 20))
+        app.descendants(matching: .any)["newThread.field"].tap()
+        app.typeText("Fix the importer")
+        app.buttons["newThread.send"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.waiting"].waitForExistence(timeout: 30))
+        try shootNewThread("new-thread-offline")
+        // The network returns: the outbox sends the item and the screen opens the new thread.
+        try stub.setOnline(true)
+        let waiting = app.descendants(matching: .any)["newThread.waiting"]
+        XCTAssertTrue(waiting.waitForNonExistence(timeout: 40))
+        XCTAssertTrue(app.descendants(matching: .any)["thread.bar"].waitForExistence(timeout: 30))
+    }
+
+    func testNewThreadNoRepositories() throws {
+        try start("no-repositories", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.empty"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["newThread.openWeb"].exists)
+        try shootNewThread("new-thread-empty")
+    }
+
+    func testNewThreadFailed() throws {
+        try start("broken-new-thread", paired: true)
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.failed"].waitForExistence(timeout: 20))
+        try shootNewThread("new-thread-failed")
+    }
+
     // MARK: Helpers
 
     /// A screenshot of a thread screen, then the audit without the findings about text in the navigation bar,
@@ -339,6 +432,55 @@ import XCTest
             }
             // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
             if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
+                return true
+            }
+            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
+            return true
+        }
+    }
+
+    /// A screenshot of the new-thread screen, then the audit without the findings about text in the navigation bar,
+    /// whose size the system caps, and without the skeleton chips, which are hidden from VoiceOver on purpose.
+    private func shootNewThread(_ name: String) throws {
+        // The system keyboard shows its swipe-typing introduction once on a fresh simulator.
+        let introduction = app.buttons["Continue"]
+        if introduction.exists { introduction.tap() }
+        // The field takes focus when the screen opens; the audit runs once the keyboard has settled.
+        _ = app.keyboards.firstMatch.waitForExistence(timeout: 3)
+        try shoot(name, audits: false)
+        try app.performAccessibilityAudit { [app] issue in
+            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            // The keyboard covers part of the screen; what is behind it cannot be judged.
+            let keyboard = app.keyboards.firstMatch
+            if issue.auditType == .contrast, keyboard.exists, let element = issue.element,
+                keyboard.frame.intersects(element.frame)
+            {
+                return true
+            }
+            // A short window scrolls the page under the navigation bar, whose glass blurs what passes behind it.
+            if issue.auditType == .contrast, let element = issue.element,
+                bars.contains(where: { $0.frame.intersects(element.frame) })
+            {
+                return true
+            }
+            // At the largest text size the page scrolls under the navigation bar and the keyboard, and the audit
+            // finds the cut text without naming an element.
+            if issue.auditType == .contrast || issue.auditType == .elementDetection, issue.element == nil,
+                ProcessInfo.processInfo.environment["YAK_TEXT_SIZE"] == "largest"
+            {
+                return true
+            }
+            // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
+            if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
+                return true
+            }
+            // On a wide screen the system keyboard is a floating window the audit cannot place, so it reports the text
+            // behind it and text it cannot match to an element.
+            if app.windows.firstMatch.frame.width > 700, issue.element == nil {
                 return true
             }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")

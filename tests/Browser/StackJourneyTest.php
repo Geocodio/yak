@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\StackThreadMessageKind;
+use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Models\StackThreadMessage;
 use App\Models\TaskRun;
@@ -72,7 +73,7 @@ it('shows the sub-thread count in the header and the awake total in the Stack gr
     $this->actingAs(User::factory()->create());
     $parent = Thread::factory()->create();
     foreach (range(1, 3) as $index) {
-        $child = Thread::factory()->child($parent)->create();
+        $child = Thread::factory()->child($parent)->create(['sandbox_state' => ThreadSandboxState::Running]);
         $task = YakTask::factory()->create(['thread_id' => $child->id]);
         TaskRun::factory()->create(['thread_id' => $child->id, 'yak_task_id' => $task->id, 'turn_state' => TurnState::Running]);
     }

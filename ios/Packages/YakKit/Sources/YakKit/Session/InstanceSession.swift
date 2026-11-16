@@ -567,6 +567,14 @@ public actor InstanceSession {
         }
     }
 
+    /// The stored bytes of an attachment, or nil when the file is gone or cannot be read now.
+    public func attachmentData(_ attachment: OutboxAttachment) async -> Data? {
+        do { return try environment.files.read(attachment.path) } catch {
+            logFailure("attachment not read: \(type(of: error))")
+            return nil
+        }
+    }
+
     public func newThreadOptions() async throws(APIFailure) -> NewThreadOptions {
         guard let client else { throw .network(.notConnectedToInternet) }
         return try await client.send(.newThreadOptions())

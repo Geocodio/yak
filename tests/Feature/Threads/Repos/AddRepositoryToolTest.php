@@ -75,7 +75,7 @@ it('adds a changes repository and returns its path', function () {
 
     $row = $this->thread->repositories()->where('repo', 'acme/docs')->first();
     expect($result->isError)->toBeFalse()
-        ->and($result->content)->toContain('/extras/docs')
+        ->and($result->content)->toContain('/home/yak/extras/docs')
         ->and($row->role)->toBe(RepositoryRole::Changes)
         ->and($row->added_by)->toBe('claude')
         ->and($row->add_reason)->toBe('Needs the docs')
@@ -83,7 +83,7 @@ it('adds a changes repository and returns its path', function () {
 });
 
 it('gives a repository with a colliding short name an owner-prefixed path', function () {
-    ThreadRepository::factory()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'role' => RepositoryRole::Changes, 'sandbox_path' => '/extras/docs']);
+    ThreadRepository::factory()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'role' => RepositoryRole::Changes, 'sandbox_path' => '/home/yak/extras/docs']);
     Repository::factory()->create(['slug' => 'other/docs']);
     fakeReachableRepositories(['other/docs']);
     queueSetup();
@@ -91,8 +91,8 @@ it('gives a repository with a colliding short name an owner-prefixed path', func
     $result = app(YakToolRouter::class)->handle($this->thread, addRepositoryCall(['repo' => 'other/docs', 'reason' => 'Needs it']));
 
     expect($result->isError)->toBeFalse()
-        ->and($result->content)->toContain('/extras/other-docs')
-        ->and($this->thread->repositories()->where('repo', 'other/docs')->value('sandbox_path'))->toBe('/extras/other-docs');
+        ->and($result->content)->toContain('/home/yak/extras/other-docs')
+        ->and($this->thread->repositories()->where('repo', 'other/docs')->value('sandbox_path'))->toBe('/home/yak/extras/other-docs');
 });
 
 it('stores the context role', function () {
@@ -142,13 +142,13 @@ it('keeps a repository whose setup failed and tells Claude to stop and ask', fun
 });
 
 it('returns the existing path for a duplicate without recloning', function () {
-    ThreadRepository::factory()->changes()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs']);
+    ThreadRepository::factory()->changes()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/home/yak/extras/docs']);
     Http::fake();
 
     $result = app(YakToolRouter::class)->handle($this->thread, addRepositoryCall(['repo' => 'acme/docs']));
 
     expect($result->isError)->toBeFalse()
-        ->and($result->content)->toContain('/extras/docs')
+        ->and($result->content)->toContain('/home/yak/extras/docs')
         ->and($this->thread->repositories()->count())->toBe(2);
     Http::assertNothingSent();
     expect(collect(app(SandboxManager::class)->calls)->where('operation', 'exec'))->toBeEmpty();

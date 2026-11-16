@@ -114,7 +114,7 @@ it('succeeds with a summary of what each file sets', function () {
         ->and($payload['output']['title'])->toBe('.yak/ is valid')
         ->and($payload['output']['annotations'])->toBe([])
         ->and($payload['output']['summary'])
-        ->toContain('| `config.yml` | Valid. Co-owner gate: **enforce**. Review approval: **shadow**. |')
+        ->toContain('| `config.yml` | Valid. Co-owner gate: **enforce**. |')
         ->toContain('| `preview.yml` | Valid. Port 80, health probe `/up`. |')
         ->toContain('| `risk-profile.yml` | Valid. 2 areas, every glob matches at least one file, 1 open question. |')
         ->toContain('| `AGENTS.md` | Valid. 1,240 characters. |')
@@ -152,7 +152,15 @@ it('says a key absent from config.yml is not set', function () {
 
     expect(app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA)['output']['summary'])
         ->toContain('Co-owner gate: **not set** (keeps its current value).')
-        ->toContain('Review approval: **not set** (keeps its current value).');
+        ->not->toContain('Review approval');
+});
+
+it('describes a version 2 risk profile by its concerns', function () {
+    fakeConfigCheck(['risk-profile.yml' => concernsYaml()]);
+
+    expect(app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA)['output']['summary'])
+        ->toContain('| `risk-profile.yml` | Valid. 2 concerns (1 always human, 1 when tested). |')
+        ->not->toContain('areas');
 });
 
 it('throws when the pull request file listing fails', function (string $failingUrl) {

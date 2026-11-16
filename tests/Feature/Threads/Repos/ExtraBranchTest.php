@@ -48,11 +48,11 @@ test('assigns the thread branch to every changes row without one', function () {
 
 test('restore keeps a pushed extra branch', function () {
     $directory = $this->extrasDirectory;
-    $row = ThreadRepository::factory()->changes()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'branch' => null, 'sandbox_path' => "{$directory}/extras/lib", 'setup_status' => RepositorySetupStatus::Pending]);
+    $row = ThreadRepository::factory()->changes()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'branch' => null, 'sandbox_path' => "{$directory}/home/yak/extras/lib", 'setup_status' => RepositorySetupStatus::Pending]);
 
     app(ExtraRepositorySetup::class)->setUpAll($this->thread, collect([$row]));
 
-    $path = "{$directory}/extras/lib";
+    $path = "{$directory}/home/yak/extras/lib";
     file_put_contents("{$path}/work.txt", "pushed\n");
     Process::path($path)->run(['git', 'add', '-A'])->throw();
     Process::path($path)->run(['git', '-c', 'user.name=T', '-c', 'user.email=t@example.com', 'commit', '-m', 'work'])->throw();
@@ -67,10 +67,10 @@ test('restore keeps a pushed extra branch', function () {
 
 test('setup never overwrites an existing row branch', function () {
     $directory = $this->extrasDirectory;
-    $row = ThreadRepository::factory()->changes()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'branch' => 'yak/own', 'sandbox_path' => "{$directory}/extras/lib", 'setup_status' => RepositorySetupStatus::Pending]);
+    $row = ThreadRepository::factory()->changes()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'branch' => 'yak/own', 'sandbox_path' => "{$directory}/home/yak/extras/lib", 'setup_status' => RepositorySetupStatus::Pending]);
 
     app(ExtraRepositorySetup::class)->setUpAll($this->thread, collect([$row]));
 
     expect($row->fresh()->branch)->toBe('yak/own')
-        ->and(branchOf("{$directory}/extras/lib"))->toBe('yak/own');
+        ->and(branchOf("{$directory}/home/yak/extras/lib"))->toBe('yak/own');
 });

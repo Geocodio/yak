@@ -138,7 +138,7 @@ extension Scenario {
             list["needsYouCount"] = 0
         case .teamOnly:
             if filter != "everyone" { emptied(hasAnyThreads: true) }
-        case .empty:
+        case .empty, .noRepositories, .slowNewThread, .brokenNewThread:
             emptied(hasAnyThreads: false)
         case .threadStates:
             let template =
@@ -333,7 +333,19 @@ extension Scenario {
                 }
                 return json(data("scenario-thread-store", fixtures, baseURL), status: 201)
             case ("GET", 2, "new", _):
-                return json(data("scenario-thread-new", fixtures, baseURL))
+                if self == .brokenNewThread {
+                    return Self.error(500, "server_error", "Yak could not handle this request. Try again.")
+                }
+                var options = data("scenario-thread-new", fixtures, baseURL)
+                if self == .noRepositories {
+                    options["repos"] = [[String: Any]]()
+                    options["defaultRepo"] = NSNull()
+                    if var picker = options["picker"] as? [String: Any] {
+                        picker["defaultsByRepo"] = [String: Any]()
+                        options["picker"] = picker
+                    }
+                }
+                return json(options)
             case ("GET", 3, "new", "repository-access"):
                 var access = data("scenario-thread-repository-access", fixtures, baseURL)
                 if request.query["repo"] == "example/secret" {
@@ -397,6 +409,7 @@ extension Scenario {
         }
         var reply = StubReply(answer: answer())
         if self == .slowThread, method == "GET", path.count == 2, path[1] != "new" { reply.delay = .seconds(14) }
+        if self == .slowNewThread, method == "GET", path == ["threads", "new"] { reply.delay = .seconds(14) }
         return reply
     }
 }

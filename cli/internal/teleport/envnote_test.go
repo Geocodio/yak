@@ -102,10 +102,10 @@ func TestMissingFilesInExtraCheckout(t *testing.T) {
 	extra := testrepo.New(t)
 	extra.Commit(map[string]string{".gitignore": ".env\n"}, "init")
 	in := baseInput(primary.Dir)
-	in.Extras = []CheckoutMapping{{SandboxPath: "/extras/api", LocalPath: extra.Dir}}
-	in.TouchedPaths = []string{"/extras/api/.env"}
+	in.Extras = []CheckoutMapping{{SandboxPath: "/home/yak/extras/api", LocalPath: extra.Dir}}
+	in.TouchedPaths = []string{"/home/yak/extras/api/.env"}
 	note := BuildLocalNote(in)
-	if !strings.Contains(note, "  /extras/api is now "+extra.Dir+".\n") || !strings.Contains(note, "  "+filepath.Join(extra.Dir, ".env")+"\n") {
+	if !strings.Contains(note, "  /home/yak/extras/api is now "+extra.Dir+".\n") || !strings.Contains(note, "  "+filepath.Join(extra.Dir, ".env")+"\n") {
 		t.Errorf("extras not mapped:\n%s", note)
 	}
 }
@@ -161,7 +161,7 @@ func TestNoteSuggestsRefreshForEachFreshExtra(t *testing.T) {
 	repo := testrepo.New(t)
 	repo.Commit(map[string]string{"a.txt": "a"}, "init")
 	in := baseInput(repo.Dir)
-	in.Extras = []CheckoutMapping{{SandboxPath: "/extras/api", LocalPath: "/work/p-x/api", Refresh: []RefreshRule{
+	in.Extras = []CheckoutMapping{{SandboxPath: "/home/yak/extras/api", LocalPath: "/work/p-x/api", Refresh: []RefreshRule{
 		{Glob: "composer.lock", Command: "composer install"}, {Glob: "package-lock.json", Command: "npm ci"},
 	}}}
 	note := BuildLocalNote(in)

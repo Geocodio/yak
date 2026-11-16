@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\ArtifactFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -11,6 +12,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
+/**
+ * @property CarbonImmutable|null $created_at
+ */
 class Artifact extends Model
 {
     /** @use HasFactory<ArtifactFactory> */
@@ -94,6 +98,8 @@ class Artifact extends Model
 
     /**
      * What a shared file is, from its extension: `report` (HTML), `image`, `csv`, `pdf`, `text` or `file`.
+     *
+     * @return 'report'|'image'|'csv'|'pdf'|'text'|'file'
      */
     public function sharedKind(): string
     {
