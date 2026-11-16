@@ -23,13 +23,14 @@ import XCTest
 
     func start(
         _ scenario: String, paired: Bool = false, keychainLocked: Bool = false, skipsWebSession: Bool = false,
-        attachments: Int = 0
+        attachments: Int = 0, cameraDenied: Bool = false
     ) throws {
         try stub.play(scenario)
         var arguments = ["-yakTestInstance", stub.url]
         if paired { arguments += ["-yakTestToken", "stub-token"] }
         if keychainLocked { arguments += ["-yakTestKeychainLocked", "YES"] }
         if skipsWebSession { arguments += ["-yakTestSkipWebSession", "YES"] }
+        if cameraDenied { arguments += ["-yakTestCamera", "denied"] }
         if attachments > 0 { arguments += ["-yakTestAttachments", String(attachments)] }
         // The device appearance alone is not honoured on every iPad run, so the app is also told directly.
         arguments += ["-yakTestAppearance", environment["YAK_APPEARANCE"] == "dark" ? "dark" : "light"]
@@ -96,8 +97,11 @@ import XCTest
             {
                 return true
             }
-            // The thread screen under the model sheet is dimmed, and its text has no element the audit can name.
-            if name == "model-picker", issue.element == nil {
+            // The thread screen under a small sheet is dimmed, and its truncated title and badge have no element the audit can
+            // name; the sheet's own content is judged.
+            if ["model-picker", "camera-denied"].contains(name), [.contrast, .textClipped].contains(issue.auditType),
+                issue.element == nil
+            {
                 return true
             }
             // Text below the screen on a scrolling page, or a finding without an element, cannot be judged by

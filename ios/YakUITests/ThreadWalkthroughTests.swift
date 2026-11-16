@@ -216,7 +216,7 @@ import XCTest
         XCTAssertTrue(field.waitForExistence(timeout: 15))
         field.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
-        try shoot("composer-keyboard", audits: false)
+        try shootThread("composer-keyboard")
     }
 
     func testBarStates() throws {
@@ -271,6 +271,15 @@ import XCTest
         try shootThread("attachment-too-many")
     }
 
+    func testCameraDenied() throws {
+        try start("paired", paired: true, cameraDenied: true)
+        try openThread("d0e515ef")
+        try openPlusMenu()
+        app.buttons["composer.plusMenu.camera"].tap()
+        XCTAssertTrue(app.buttons["composer.cameraDenied.settings"].waitForExistence(timeout: 10))
+        try shoot("camera-denied")
+    }
+
     private func openPlusMenu() throws {
         let plus = app.buttons["composer.plus"]
         XCTAssertTrue(plus.waitForExistence(timeout: 15))
@@ -300,14 +309,15 @@ import XCTest
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
-            // The drawer slid off the left edge is still in the tree; what the screen does not show cannot be judged.
-            if issue.auditType == .contrast, let element = issue.element, element.frame.maxX <= 0 { return true }
-            // The audit cannot match some text on the bar's glass in dark mode to an element; the shot was read by eye.
-            if issue.auditType == .contrast, issue.element == nil, name.hasPrefix("bar-"),
-                ProcessInfo.processInfo.environment["YAK_APPEARANCE"] == "dark"
+            // The system keyboard's prediction bar is not ours to label, and what it covers cannot be judged.
+            if (issue.element?.debugDescription ?? "").contains("TUIPredictionViewCell") { return true }
+            if let element = issue.element, app.keyboards.firstMatch.exists,
+                app.keyboards.firstMatch.frame.intersects(element.frame)
             {
                 return true
             }
+            // The drawer slid off the left edge is still in the tree; what the screen does not show cannot be judged.
+            if issue.auditType == .contrast, let element = issue.element, element.frame.maxX <= 0 { return true }
             // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
             if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
                 return true

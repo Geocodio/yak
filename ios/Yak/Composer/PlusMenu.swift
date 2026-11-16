@@ -121,7 +121,7 @@ private struct CameraDeniedSheet: View {
                     Button("plus.cameraDenied.settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
-                    .buttonStyle(.borderedProminent).tint(.primary).controlSize(.large)
+                    .buttonStyle(.bordered).tint(.primary).controlSize(.large)
                     .accessibilityIdentifier("composer.cameraDenied.settings")
                 }
                 .padding(24).frame(maxWidth: .infinity)
