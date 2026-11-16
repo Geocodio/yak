@@ -96,6 +96,18 @@ private final class MinimalStore: FileStore, @unchecked Sendable {
         #expect(try store.read("f") == Data("a".utf8))
     }
 
+    @Test func creatingACompleteFileFailsWhileLocked() throws {
+        let store = InMemoryFileStore()
+        store.isLocked = true
+        let data = Data("a".utf8)
+        #expect(throws: FileStoreError.unreadable) { try store.write(data, to: "new", protection: .complete) }
+        #expect(throws: FileStoreError.unreadable) { try store.append(data, to: "new", protection: .complete) }
+        try store.write(Data("a".utf8), to: "open", protection: .untilFirstUnlock)
+        store.isLocked = false
+        #expect(try store.read("new") == nil)
+        #expect(try store.read("open") == Data("a".utf8))
+    }
+
     @Test func aMoveOfAMissingFileLeavesNoFolderBehind() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

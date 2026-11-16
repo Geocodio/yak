@@ -204,7 +204,7 @@ public final class InMemoryFileStore: FileStore, @unchecked Sendable {
 
     public init() {}
 
-    /// While true, reading a `.complete` file throws `.unreadable`.
+    /// While true, reading, creating, writing or appending a `.complete` file throws `.unreadable`, as on a locked device.
     public var isLocked: Bool {
         get { lock.withLock { locked } }
         set { lock.withLock { locked = newValue } }
@@ -229,13 +229,18 @@ public final class InMemoryFileStore: FileStore, @unchecked Sendable {
 
     public func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
         let key = try validatedComponents(path).joined(separator: "/")
-        lock.withLock { files[key] = (data, protection) }
+        let isBlocked = lock.withLock { () -> Bool in
+            if locked, protection == .complete || files[key]?.protection == .complete { return true }
+            files[key] = (data, protection)
+            return false
+        }
+        if isBlocked { throw .unreadable }
     }
 
     public func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
         let key = try validatedComponents(path).joined(separator: "/")
         let isBlocked = lock.withLock { () -> Bool in
-            if locked, files[key]?.protection == .complete { return true }
+            if locked, protection == .complete || files[key]?.protection == .complete { return true }
             files[key] = ((files[key]?.data ?? Data()) + data, files[key]?.protection ?? protection)
             return false
         }
