@@ -139,3 +139,12 @@ private func list(
         #expect(RelativeAge.parse(nil) == nil)
     }
 }
+
+@Test func parseReadsPlainFractionalAndOffsetTimestamps() {
+    let expected = Date(timeIntervalSince1970: 1_794_744_000)
+    #expect(RelativeAge.parse("2026-11-15T12:00:00Z") == expected)
+    #expect(RelativeAge.parse("2026-11-15T12:00:00.250Z") == expected.addingTimeInterval(0.25))
+    #expect(RelativeAge.parse("2026-11-15T13:00:00+01:00") == expected)
+    #expect(RelativeAge.parse("not a date") == nil)
+    #expect(RelativeAge.parse(nil) == nil)
+}
