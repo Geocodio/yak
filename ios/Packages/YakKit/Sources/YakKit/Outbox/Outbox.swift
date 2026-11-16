@@ -338,6 +338,7 @@ public actor Outbox {
         }
         for name in waiting where name.hasSuffix(".json") { held.insert(String(name.dropLast(5))) }
         if let records = await uploads?.ledger.records() { for record in records { held.insert(record.itemID.uuidString) } }
+        guard !isShutDown else { return }
         // A folder is removed only when it was also unheld at the previous sweep, so a file stored a moment before
         // its draft or item is saved is never taken.
         let candidatesPath = "\(InstanceFolders.outbox(instance))/sweep-candidates.json"

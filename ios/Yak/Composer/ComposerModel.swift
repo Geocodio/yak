@@ -14,8 +14,8 @@ protocol ComposerBackend: Sendable {
     func attachmentData(_ attachment: OutboxAttachment) async -> Data?
     func discardAttachment(_ attachment: OutboxAttachment) async
     func limits() async -> Me.AttachmentLimits?
-    /// Gives a refused or waiting item up with its files; nil when it cannot be edited any more.
-    func takeOutboxItem(_ id: UUID) async -> OutboxItem?
+    /// Gives a refused or waiting item up with its files.
+    func takeOutboxItem(_ id: UUID) async -> OutboxTakeOutcome
 }
 
 struct LiveComposerBackend: ComposerBackend {
@@ -50,7 +50,7 @@ struct LiveComposerBackend: ComposerBackend {
 
     func limits() async -> Me.AttachmentLimits? { await session.me()?.attachments }
 
-    func takeOutboxItem(_ id: UUID) async -> OutboxItem? { await session.takeOutboxItem(id) }
+    func takeOutboxItem(_ id: UUID) async -> OutboxTakeOutcome { await session.takeOutboxItem(id) }
 }
 
 /// The text, attachments and model of one message being written, and the rules for sending, stopping and keeping
@@ -275,8 +275,15 @@ final class ComposerModel {
     /// go in front of what the field already holds. False, with a line above the field, when it cannot be edited.
     @discardableResult
     func restore(_ item: OutboxItem) async -> Bool {
-        guard let taken = await backend.takeOutboxItem(item.id) else {
+        let taken: OutboxItem
+        switch await backend.takeOutboxItem(item.id) {
+        case .taken(let found): taken = found
+        case .unavailable:
             problem = String(localized: "composer.problem.notEditable")
+            refusalCount += 1
+            return false
+        case .notSaved:
+            problem = String(localized: "composer.problem.editNotSaved")
             refusalCount += 1
             return false
         }

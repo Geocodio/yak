@@ -523,11 +523,18 @@ public actor InstanceSession {
         do { return try await currentOutbox.enqueue(draft) } catch { throw .notSaved }
     }
 
-    /// Edit on a refused or waiting item: the item leaves the outbox and its files stay for the caller. Nil when the
-    /// item is not there, is sending or may already be on the server.
-    public func takeOutboxItem(_ id: UUID) async -> OutboxItem? {
-        guard let currentOutbox else { return nil }
-        return try? await currentOutbox.take(id)
+    /// Edit on a refused or waiting item: the item leaves the outbox and its files stay for the caller. Unavailable
+    /// when the item is not there, is sending or may already be on the server; not saved when the disk refused the
+    /// change, so the item is still in the outbox.
+    public func takeOutboxItem(_ id: UUID) async -> OutboxTakeOutcome {
+        guard let currentOutbox else { return .unavailable }
+        do { return .taken(try await currentOutbox.take(id)) } catch {
+            if error == .notSaved {
+                logFailure("outbox item not taken, list not saved")
+                return .notSaved
+            }
+            return .unavailable
+        }
     }
 
     // MARK: Composer drafts and new threads

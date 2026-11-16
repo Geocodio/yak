@@ -2600,6 +2600,16 @@
         }
       }
     },
+    "composer.problem.editNotSaved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This message could not be edited because saving failed on this device. It is still waiting in the outbox. Try again."
+          }
+        }
+      }
+    },
     "composer.problem.notEditable": {
       "localizations": {
         "en": {

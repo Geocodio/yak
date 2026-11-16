@@ -171,6 +171,14 @@ public enum OutboxPause: Equatable, Sendable {
     case appTooOld(minimum: Int)
 }
 
+/// What an edit on an outbox item got: the item with its files, nothing because it cannot be edited any more, or
+/// nothing because the outbox list could not be saved, so the item is still there.
+public enum OutboxTakeOutcome: Equatable, Sendable {
+    case taken(OutboxItem)
+    case unavailable
+    case notSaved
+}
+
 public enum OutboxEditProblem: Error, Equatable, Sendable {
     case notFound
     case alreadySending

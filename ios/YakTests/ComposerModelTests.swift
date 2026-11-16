@@ -97,8 +97,13 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
         set { lock.withLock { limitsDelay = newValue } }
     }
     private var held: [UUID: OutboxItem] = [:]
+    /// The outbox could not save the list, so an edit gives nothing up.
+    var takeFailsToSave = false
     func hold(_ item: OutboxItem) { lock.withLock { held[item.id] = item } }
-    func takeOutboxItem(_ id: UUID) async -> OutboxItem? { lock.withLock { held.removeValue(forKey: id) } }
+    func takeOutboxItem(_ id: UUID) async -> OutboxTakeOutcome {
+        if takeFailsToSave { return .notSaved }
+        return lock.withLock { held.removeValue(forKey: id) }.map { .taken($0) } ?? .unavailable
+    }
     func keep(_ data: Data, at path: String) { lock.withLock { files[path] = data } }
 
     var sendFailure: SendProblem? {
@@ -231,7 +236,9 @@ private final class OutboxBackedComposerBackend: ComposerBackend, @unchecked Sen
     func attachmentData(_ attachment: OutboxAttachment) async -> Data? { try? files.read(attachment.path) }
     func discardAttachment(_ attachment: OutboxAttachment) async { try? files.remove(attachment.path) }
     func limits() async -> Me.AttachmentLimits? { nil }
-    func takeOutboxItem(_ id: UUID) async -> OutboxItem? { try? await outbox.take(id) }
+    func takeOutboxItem(_ id: UUID) async -> OutboxTakeOutcome {
+        (try? await outbox.take(id)).map { .taken($0) } ?? .unavailable
+    }
 
     /// Waits until the outbox has answered the item with a refusal.
     func waitForRefusal() async -> OutboxItem? {
@@ -785,5 +792,16 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         #expect(!isRestored)
         #expect(composer.text == "Mine" && composer.attachments.isEmpty)
         #expect(composer.problem == "This message cannot be edited any more.")
+    }
+
+    @Test func editWhenTheOutboxCannotSaveSaysSavingFailedAndChangesNothing() async throws {
+        let backend = FakeComposerBackend()
+        backend.takeFailsToSave = true
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.text = "Mine"
+        let isRestored = await composer.restore(refusedItem(text: "Kept", attachments: []))
+        #expect(!isRestored)
+        #expect(composer.text == "Mine")
+        #expect(composer.problem?.contains("saving failed") == true)
     }
 }
