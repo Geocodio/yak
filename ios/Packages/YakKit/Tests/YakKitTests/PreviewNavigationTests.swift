@@ -54,7 +54,7 @@ private func decide(_ text: String, main: Bool, user: Bool = true) -> PreviewNav
 
 @Test func aScriptCannotThrowThePersonOut() {
     for text in [
-        "https://other.example.com/docs", "https://yak.example.com/login"
+        "https://other.example.com/docs", "https://yak.example.com/login",
     ] {
         #expect(decide(text, main: true, user: false) == .cancelUnrequestedOpen)
     }

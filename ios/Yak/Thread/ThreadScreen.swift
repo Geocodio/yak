@@ -74,6 +74,7 @@ struct ThreadScreen: View {
 
     private func content(_ thread: ThreadModel, placement: PaneControlPlacement) -> some View {
         let focused = focusedBinding(thread)
+        let activity = activityLine(thread, focused: focused.wrappedValue)
         return NavigationStack {
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
@@ -82,12 +83,12 @@ struct ThreadScreen: View {
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(spacing: 6) {
-                        if let line = activityLine(thread, focused: focused.wrappedValue) {
+                        if let line = activity {
                             ActivityStrip(line: line) { openChat(focusComposer: $0) }
                         }
                         BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
                     }
-                    .animation(.easeInOut(duration: 0.2), value: activityLine(thread, focused: focused.wrappedValue))
+                    .animation(.easeInOut(duration: 0.2), value: activity)
                 }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
