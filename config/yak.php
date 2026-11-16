@@ -725,4 +725,8 @@ return [
         'ios_supported' => (bool) env('YAK_PUSH_IOS_SUPPORTED', true),
     ],
 
+    'e2e' => [
+        'enabled' => (bool) env('YAK_E2E', false),
+    ],
+
 ];
