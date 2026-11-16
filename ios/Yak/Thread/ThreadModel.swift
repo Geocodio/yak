@@ -43,6 +43,7 @@ final class ThreadModel {
     let session: InstanceSession
     /// Day dividers follow this calendar; a test sets another.
     var calendar = Calendar.current
+    @ObservationIgnored var buildRows: RowsBuilder = ThreadModel.defaultRowsBuilder
     @ObservationIgnored private var markdownCache: MarkdownCache<AppMarkdownRenderer>?
     @ObservationIgnored private var markdownItems: [String: ConversationItem] = [:]
     @ObservationIgnored private var pendingMarkdown: [ConversationItem]?
@@ -135,7 +136,7 @@ final class ThreadModel {
         readingTask = Task { [weak self] in
             for await next in await opened.snapshots() {
                 guard let self, !Task.isCancelled else { return }
-                self.apply(next)
+                await self.apply(next)
             }
         }
     }
@@ -169,15 +170,31 @@ extension ThreadModel {
         return snapshot.turn?.state.isActive ?? (snapshot.show?.composer.state == .working)
     }
 
+    /// Builds the rows of a snapshot; a test replaces it to see where it runs.
+    typealias RowsBuilder = @Sendable (ConversationSnapshot, Date, Calendar) -> [ConversationRow]
+
+    nonisolated static let defaultRowsBuilder: RowsBuilder = { snapshot, now, calendar in
+        ConversationRows.make(
+            entries: snapshot.entries, currentStepKey: snapshot.currentStepKey, waiting: snapshot.waiting,
+            now: now, calendar: calendar)
+    }
+
     /// Takes a newer snapshot: the rows, the Markdown parses and the announcement when a turn has just ended.
-    func apply(_ next: ConversationSnapshot) {
+    /// The rows are built before the main actor takes the snapshot, so a long history never holds up scrolling.
+    func apply(_ next: ConversationSnapshot) async {
+        let builtRows = await Self.makeRows(next, now: session.clock.now(), calendar: calendar, using: buildRows)
+        guard !Task.isCancelled else { return }
         let wasActive = Self.isTurnActive(snapshot)
         snapshot = next
-        rows = ConversationRows.make(
-            entries: next.entries, currentStepKey: next.currentStepKey, waiting: next.waiting,
-            now: session.clock.now(), calendar: calendar)
+        rows = builtRows
         if wasActive, !Self.isTurnActive(next), next.load == .ready { announceTurnEnd(next) }
         requestMarkdown(for: next.entries)
+    }
+
+    @concurrent private nonisolated static func makeRows(
+        _ snapshot: ConversationSnapshot, now: Date, calendar: Calendar, using builder: RowsBuilder
+    ) async -> [ConversationRow] {
+        builder(snapshot, now, calendar)
     }
 
     private func announceTurnEnd(_ snapshot: ConversationSnapshot) {

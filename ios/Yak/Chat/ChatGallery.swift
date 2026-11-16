@@ -245,7 +245,7 @@
                 turn = TurnChange(turnId: LenientID("41"), state: .running)
             }
             let thread = ThreadModel(threadID: "d0e515ef", session: session)
-            thread.apply(
+            await thread.apply(
                 ConversationSnapshot(
                     load: .ready, show: show, entries: entries, currentStepKey: "tools:m3:0", waiting: waiting,
                     turn: turn,
