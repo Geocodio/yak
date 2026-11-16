@@ -28,10 +28,23 @@ final class FilesModel {
     @ObservationIgnored private var openingTask: Task<Void, Never>?
     @ObservationIgnored private var isStarted = false
     @ObservationIgnored private var restoring: DiffFileKey?
+    /// The file each thread's pane was last on; the scene saves it as `positionsData` and gives it back through
+    /// `restorePositions`.
+    private var filesPosition: [String: DiffFileKey] = [:]
 
     init(thread: ThreadModel, restoring key: DiffFileKey? = nil) {
         self.thread = thread
         restoring = key
+    }
+
+    /// `filesPosition` encoded for the scene's `yak.files` storage; nil while no file has been shown.
+    var positionsData: Data? { filesPosition.isEmpty ? nil : try? JSONEncoder().encode(filesPosition) }
+
+    /// Takes the scene's saved positions. Called before `start`; the saved file of this thread is opened first.
+    func restorePositions(_ data: Data?) {
+        guard let data, let saved = try? JSONDecoder().decode([String: DiffFileKey].self, from: data) else { return }
+        filesPosition = saved.merging(filesPosition) { _, current in current }
+        if restoring == nil { restoring = saved[thread.threadID] }
     }
 
     var show: ThreadShow? { thread.snapshot?.show }
@@ -61,6 +74,9 @@ final class FilesModel {
             for await next in stream {
                 guard let self, !Task.isCancelled else { return }
                 self.snapshot = next
+                if let key = next.pager.current, self.filesPosition[self.thread.threadID] != key {
+                    self.filesPosition[self.thread.threadID] = key
+                }
                 if next.load == .ready, !next.isShowingCachedCopy, !next.isOffline { self.loadedAt = Date() }
             }
         }

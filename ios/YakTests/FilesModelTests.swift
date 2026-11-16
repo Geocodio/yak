@@ -141,3 +141,31 @@ private func routes(_ flags: Flags, post: (@Sendable () throws -> (status: Int, 
     await thread.stop()
     await fixture.session.stop()
 }
+
+@MainActor @Test func aSavedPositionReopensOnThatFileInANewModel() async throws {
+    let fixture = try await TasksFixture(answer: routes(Flags()))
+    let key = DiffFileKey(repo: "example/web", path: "src/uploads.ts")
+    let saved = try JSONEncoder().encode(["d0e515ef": key, "other": DiffFileKey(repo: "example/web", path: "x")])
+    let (thread, files) = await model(fixture)
+    files.restorePositions(saved)
+    await files.start()
+    #expect(await fixture.eventually { files.currentKey == key })
+    await files.stop()
+    await thread.stop()
+    await fixture.session.stop()
+}
+
+@MainActor @Test func everyMoveIsWrittenToTheSavedPositions() async throws {
+    let fixture = try await TasksFixture(answer: routes(Flags()))
+    let (thread, files) = await model(fixture)
+    await files.start()
+    #expect(await fixture.eventually { files.currentKey != nil && files.positionsData != nil })
+    let key = DiffFileKey(repo: "example/web", path: "src/uploads.ts")
+    await files.show(key)
+    #expect(await fixture.eventually { files.currentKey == key })
+    let positions = try JSONDecoder().decode([String: DiffFileKey].self, from: try #require(files.positionsData))
+    #expect(positions["d0e515ef"] == key)
+    await files.stop()
+    await thread.stop()
+    await fixture.session.stop()
+}

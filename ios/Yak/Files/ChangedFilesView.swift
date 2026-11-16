@@ -9,6 +9,7 @@ struct ChangedFilesView: FilesModeView {
     @Environment(\.isPaneShown) private var isPaneShown
     @State private var isShowingWeb = false
     @State private var movedNotice: String?
+    @SceneStorage("yak.files") private var storedPositions: Data?
 
     init(thread: ThreadModel, scene: SceneModel) {
         self.thread = thread
@@ -18,7 +19,11 @@ struct ChangedFilesView: FilesModeView {
 
     var body: some View {
         content
-            .task { await model.start() }
+            .task {
+                model.restorePositions(storedPositions)
+                await model.start()
+            }
+            .onChange(of: model.positionsData) { _, data in storedPositions = data }
             .task(id: thread.snapshot?.lastDiffUpdateSequence) {
                 if let snapshot = thread.snapshot { await model.threadChanged(snapshot) }
             }
