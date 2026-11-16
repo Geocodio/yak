@@ -64,12 +64,14 @@ struct BottomBar: View {
     }
 }
 
-/// The glass behind the bar and the trailing strip. Under Reduce Transparency the text sits on an opaque surface.
+/// The glass behind the bar and the trailing strip. Under Reduce Transparency, and at accessibility text sizes, the text sits on an opaque surface.
 struct BarSurface: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        if reduceTransparency {
+        // At accessibility text sizes the bar covers much of the screen and the thread's text would show through glass.
+        if reduceTransparency || dynamicTypeSize.isAccessibilitySize {
             RoundedRectangle(cornerRadius: 28).fill(Color(.secondarySystemBackground))
                 .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
         } else {
