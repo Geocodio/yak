@@ -41,7 +41,7 @@ struct SettingsScreen: View {
             .navigationTitle("settings.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("common.close", action: onClose) }
+                ToolbarItem(placement: .cancellationAction) { Button(role: .close, action: onClose) }
             }
         }
         .accessibilityIdentifier("settings.screen")

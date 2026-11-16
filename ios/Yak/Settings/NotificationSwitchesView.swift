@@ -59,7 +59,7 @@ struct NotificationSwitchesView: View {
             .disabled(isDisabled || isSaving)
             .frame(minHeight: 44)
             .redacted(reason: showsSkeleton && isLoading ? .placeholder : [])
-            .accessibilityValue(isSaving ? Text("settings.saving") : Text(""))
+            .accessibilityHint(isSaving ? Text("settings.saving") : Text(verbatim: ""))
             .accessibilityIdentifier("settings.switch.\(event.rawValue)")
         }
     }

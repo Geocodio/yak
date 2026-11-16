@@ -28,6 +28,29 @@ import XCTest
         try app.performAccessibilityAudit()
     }
 
+    /// The thread screen's audit, with the allowances `ThreadSmokeTests` has for the same screen: the system caps
+    /// text in its own bars, and on some screens a contrast finding names no element.
+    private func auditThread() throws {
+        try app.performAccessibilityAudit { [self] issue in
+            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            if issue.auditType == .contrast, issue.element == nil { return true }
+            if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
+            XCTFail("audit: \(issue.compactDescription) | \(issue.detailedDescription)")
+            return true
+        }
+    }
+
+    /// Waits until a control is enabled; Settings shows its switches disabled until they have loaded.
+    private func waitUntilEnabled(_ element: XCUIElement) {
+        XCTAssertTrue(element.waitForExistence(timeout: 10))
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 10), .completed)
+    }
+
     func testPairingOffersNotificationsAndTurningThemOnRegisters() throws {
         try stub.play("paired")
         launch()
@@ -76,8 +99,8 @@ import XCTest
         let registered = XCTNSPredicateExpectation(predicate: pushOn, object: row)
         XCTAssertEqual(XCTWaiter().wait(for: [registered], timeout: 10), .completed)
         let finished = app.switches["settings.switch.turn_finished"]
-        XCTAssertTrue(finished.waitForExistence(timeout: 10))
-        finished.tap()
+        waitUntilEnabled(finished)
+        finished.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         let saved = XCTNSPredicateExpectation(
             predicate: NSPredicate { _, _ in
                 let preferences = (try? self.stub.pushState()["preferences"] as? [String: Bool]) ?? [:]
@@ -87,9 +110,9 @@ import XCTest
         try audit()
         try stub.play("notifications-failing")
         let usage = app.switches["settings.switch.stack_usage"]
-        XCTAssertTrue(usage.waitForExistence(timeout: 10))
+        waitUntilEnabled(usage)
         let valueBefore = usage.value as? String
-        usage.tap()
+        usage.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         XCTAssertTrue(
             app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Could not save'")).firstMatch
                 .waitForExistence(timeout: 10))
@@ -133,7 +156,7 @@ import XCTest
         XCTAssertTrue(
             app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.otherElements["conversation"].waitForExistence(timeout: 10))
-        try audit()
+        try auditThread()
     }
 
     func testAPushTapWhileRunningOpensTheThread() throws {
