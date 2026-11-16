@@ -51,8 +51,56 @@ class SandboxPoolUsage
      */
     public function current(): ?array
     {
+        return $this->pool(self::POOL_NAME);
+    }
+
+    /**
+     * Every Incus storage pool on the host, keyed by name. A host can have
+     * one pool or several, each backed by any number of disks; Incus reports
+     * each pool's own size, so the disk layout does not matter here. A host
+     * without Incus, or a pool Incus cannot report, contributes nothing.
+     *
+     * @return array<string, array{usedBytes: int, totalBytes: int}>
+     */
+    public function all(): array
+    {
+        $result = Process::timeout(self::QUERY_TIMEOUT)->run('incus query /1.0/storage-pools 2>/dev/null');
+
+        if (! $result->successful()) {
+            return [];
+        }
+
+        $paths = json_decode($result->output(), true);
+
+        if (! is_array($paths)) {
+            return [];
+        }
+
+        $pools = [];
+
+        foreach ($paths as $path) {
+            if (! is_string($path)) {
+                continue;
+            }
+
+            $name = rawurldecode(basename($path));
+            $usage = $this->pool($name);
+
+            if ($usage !== null) {
+                $pools[$name] = $usage;
+            }
+        }
+
+        return $pools;
+    }
+
+    /**
+     * @return array{usedBytes: int, totalBytes: int}|null
+     */
+    private function pool(string $name): ?array
+    {
         $result = Process::timeout(self::QUERY_TIMEOUT)
-            ->run('incus query /1.0/storage-pools/' . self::POOL_NAME . '/resources 2>/dev/null');
+            ->run('incus query /1.0/storage-pools/' . rawurlencode($name) . '/resources 2>/dev/null');
 
         if (! $result->successful()) {
             return null;
@@ -60,7 +108,7 @@ class SandboxPoolUsage
 
         $space = json_decode($result->output(), true)['space'] ?? null;
 
-        if (! is_array($space) || ! is_numeric($space['used'] ?? null) || ! is_numeric($space['total'] ?? null)) {
+        if (! is_array($space) || ! is_numeric($space['used'] ?? null) || ! is_numeric($space['total'] ?? null) || (int) $space['total'] <= 0) {
             return null;
         }
 
