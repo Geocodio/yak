@@ -26,6 +26,19 @@ private final class MinimalStore: FileStore, @unchecked Sendable {
         #expect(try store.read("x/log") == Data("abcd".utf8))
     }
 
+    @Test func existsSeesAFileWithoutReadingItAndIgnoresFolders() throws {
+        let disk = DiskFileStore(root: temporaryRoot())
+        try disk.write(Data("a".utf8), to: "x/file", protection: .complete)
+        #expect(try disk.exists("x/file"))
+        #expect(try !disk.exists("x/missing"))
+        #expect(try !disk.exists("x"))
+        let memory = InMemoryFileStore()
+        try memory.write(Data("a".utf8), to: "file", protection: .complete)
+        memory.isLocked = true
+        #expect(try memory.exists("file"))
+        #expect(try !memory.exists("missing"))
+    }
+
     @Test func appendKeepsProtection() throws {
         let store = InMemoryFileStore()
         try store.append(Data("a".utf8), to: "log", protection: .complete)

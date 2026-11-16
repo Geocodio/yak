@@ -23,7 +23,11 @@ final class PusherSocket: Sendable {
     private let isOnline: @Sendable () -> Bool
     private let fixtures: StubFixtures
     private let threads: StubThreads
-    private let playbackInterval: Duration
+    private let playbackMilliseconds: Locked<Int>
+    private var playbackInterval: Duration { .milliseconds(playbackMilliseconds.get()) }
+
+    /// Sets the pause before each broadcast of the next playback; a running playback keeps reading it.
+    func setPlaybackMilliseconds(_ milliseconds: Int) { playbackMilliseconds.set(max(milliseconds, 1)) }
 
     init(
         fixtures: StubFixtures, threads: StubThreads, playbackInterval: Duration,
@@ -31,7 +35,10 @@ final class PusherSocket: Sendable {
     ) throws {
         self.fixtures = fixtures
         self.threads = threads
-        self.playbackInterval = playbackInterval
+        playbackMilliseconds = Locked(
+            Int(
+                playbackInterval.components.seconds * 1000 + playbackInterval.components.attoseconds
+                    / 1_000_000_000_000_000))
         self.scenario = scenario
         self.isOnline = isOnline
         let parameters = NWParameters.tcp
