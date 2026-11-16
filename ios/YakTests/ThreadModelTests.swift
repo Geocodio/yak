@@ -258,6 +258,36 @@ private func chatSnapshot(
     await fixture.session.stop()
 }
 
+@MainActor @Test func editKeepsTheUnsentItemAndItsFiles() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    await model.start(initialTitle: nil)
+    let key = UUID()
+    let attachment = try await fixture.session.storeAttachment(
+        Data("photo".utf8), fileName: "photo.png", contentType: "image/png", reference: "attachment-1", sendKey: key)
+    let sent = try await fixture.session.send(
+        OutboxDraft(target: .thread("d0e515ef"), text: "Hello", attachments: [attachment], sendKey: key))
+    let outbox = try #require(await fixture.session.outbox())
+    var refused: OutboxItem?
+    for _ in 0..<600 where refused == nil {
+        if let item = await outbox.items().first, case .refused = item.state {
+            refused = item
+        } else {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+    }
+    let item = try #require(refused)
+    #expect(model.editRequest == nil)
+    let serial = model.editRequestSerial
+    model.edit(item)
+    #expect(model.editRequest == item)
+    #expect(model.editRequestSerial == serial + 1)
+    #expect(await outbox.items().map(\.id) == [sent.id])
+    #expect(await fixture.session.attachmentData(attachment) != nil)
+    await model.stop()
+    await fixture.session.stop()
+}
+
 @MainActor @Test func aClearNamesTheNewThread() async throws {
     let fixture = try await Fixture()
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)

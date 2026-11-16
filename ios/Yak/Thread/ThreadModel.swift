@@ -34,9 +34,11 @@ final class ThreadModel {
     private(set) var isNoticeActionRunning = false
     /// The name of the signed-in person, to tell their messages from other people's.
     private(set) var ownName: String?
-    /// Changes each time an unsent message went back to the composer's draft, so a composer that is already
-    /// on screen reads the draft again.
-    private(set) var returnedToComposerSerial = 0
+    /// The unsent message the person chose to edit. It stays in the outbox with its files; the composer takes it
+    /// with `ComposerModel.restore(_:)`. `editRequestSerial` changes with each request, so a repeated Edit on the
+    /// same message is seen.
+    private(set) var editRequest: OutboxItem?
+    private(set) var editRequestSerial = 0
 
     let session: InstanceSession
     /// Day dividers follow this calendar; a test sets another.
@@ -280,16 +282,10 @@ extension ThreadModel {
         }
     }
 
-    /// Puts a removed message's text in front of this thread's composer draft, so the person can change it and
-    /// send it again. The composer reads the draft when it appears and when `returnedToComposerSerial` changes.
-    func returnToComposer(_ item: OutboxItem) async {
-        let key = ComposerDraftKey.thread(threadID)
-        var draft = await session.composerDraft(key) ?? ComposerDraft()
-        let kept = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        draft.text = kept.isEmpty ? item.text : item.text + "\n\n" + draft.text
-        if draft.model == nil { draft.model = item.model }
-        await session.saveComposerDraft(draft, for: key)
-        returnedToComposerSerial += 1
+    /// Asks the composer to take an unsent message back for editing; nothing is removed.
+    func edit(_ item: OutboxItem) {
+        editRequest = item
+        editRequestSerial += 1
     }
 
     /// The bytes of an attachment of an unsent message, read off the main actor.

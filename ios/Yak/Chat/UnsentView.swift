@@ -59,9 +59,7 @@ struct UnsentView: View {
 
     @ViewBuilder private var buttons: some View {
         Button {
-            Task {
-                if let removed = await thread.removeUnsent(item.id) { await thread.returnToComposer(removed) }
-            }
+            thread.edit(item)
         } label: {
             Text("chat.message.edit")
         }
