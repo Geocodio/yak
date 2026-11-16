@@ -20,12 +20,14 @@ extension EnvironmentValues {
     }
 }
 
-/// A view a pane hands to the bar or the menu. It is built and read on the main actor only. Two values differ whenever the pane built a new one, so the
-/// receiver sees every change.
+/// A view a pane hands to the bar or the menu. It is built and read on the main actor only. Two values are equal
+/// when the pane gave the same `key`, so a pane that renders again with unchanged content does not redraw the bar or
+/// the menu. The key holds whatever the row shows (a count, a title); a row that reads an observable by itself needs
+/// only a constant key.
 struct PaneSlotContent: Equatable, @unchecked Sendable {
-    private let token = UUID()
+    let key: AnyHashable
     let view: AnyView
-    static func == (first: PaneSlotContent, second: PaneSlotContent) -> Bool { first.token == second.token }
+    static func == (first: PaneSlotContent, second: PaneSlotContent) -> Bool { first.key == second.key }
 }
 
 struct PaneBarRowKey: PreferenceKey {
@@ -43,25 +45,26 @@ struct PaneMenuItemsKey: PreferenceKey {
 }
 
 extension View {
-    /// The pane's own row in the bottom bar, shown while this pane is focused.
-    func paneBarRow<Row: View>(@ViewBuilder _ row: () -> Row) -> some View {
-        modifier(PaneSlotModifier(slot: .barRow, content: AnyView(row())))
+    /// The pane's own row in the bottom bar, shown while this pane is focused. `key` changes whenever the row's
+    /// content does; the bar redraws only then.
+    func paneBarRow<Row: View>(key: some Hashable, @ViewBuilder _ row: () -> Row) -> some View {
+        modifier(PaneSlotModifier(slot: .barRow, content: PaneSlotContent(key: key, view: AnyView(row()))))
     }
 
-    /// Rows the thread menu shows above its own while this pane is focused.
-    func paneMenuItems<Items: View>(@ViewBuilder _ items: () -> Items) -> some View {
-        modifier(PaneSlotModifier(slot: .menuItems, content: AnyView(items())))
+    /// Rows the thread menu shows above its own while this pane is focused. `key` works as for `paneBarRow`.
+    func paneMenuItems<Items: View>(key: some Hashable, @ViewBuilder _ items: () -> Items) -> some View {
+        modifier(PaneSlotModifier(slot: .menuItems, content: PaneSlotContent(key: key, view: AnyView(items()))))
     }
 }
 
 private struct PaneSlotModifier: ViewModifier {
     enum Slot { case barRow, menuItems }
     let slot: Slot
-    let content: AnyView
+    let content: PaneSlotContent
     @Environment(\.paneID) private var paneID
 
     func body(content base: Content) -> some View {
-        let value = paneID.map { [$0: PaneSlotContent(view: content)] } ?? [:]
+        let value = paneID.map { [$0: content] } ?? [:]
         switch slot {
         case .barRow: base.preference(key: PaneBarRowKey.self, value: value)
         case .menuItems: base.preference(key: PaneMenuItemsKey.self, value: value)

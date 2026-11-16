@@ -50,3 +50,45 @@ import YakKit
         #expect(EnvironmentValues().paneID == nil)
     }
 }
+
+@MainActor
+@Suite struct PaneSlotContentTests {
+    @Test func contentWithTheSameKeyIsEqual() {
+        let first = PaneSlotContent(key: "a", view: AnyView(Text("one")))
+        #expect(first == PaneSlotContent(key: "a", view: AnyView(Text("one"))))
+        #expect(first != PaneSlotContent(key: "b", view: AnyView(Text("one"))))
+    }
+
+    private struct Pane: View {
+        let tick: Int
+        var body: some View {
+            Text("pane \(tick)").paneBarRow(key: "row") { Text("row") }
+        }
+    }
+
+    private struct Host: View {
+        let tick: Int
+        let counter: Counter
+        var body: some View {
+            Pane(tick: tick).environment(\.paneID, .chat)
+                .onPreferenceChange(PaneBarRowKey.self) { _ in counter.value += 1 }
+        }
+    }
+
+    private final class Counter { var value = 0 }
+
+    @Test func aPaneRenderedTwiceWithTheSameContentPushesOneValue() async throws {
+        let counter = Counter()
+        let controller = UIHostingController(rootView: Host(tick: 0, counter: counter))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 300))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.view.layoutIfNeeded()
+        let afterFirst = counter.value
+        controller.rootView = Host(tick: 1, counter: counter)
+        controller.view.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(afterFirst == 1)
+        #expect(counter.value == 1)
+    }
+}
