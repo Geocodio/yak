@@ -314,6 +314,12 @@ import XCTest
         try shootThread("chat-activity-open")
     }
 
+    func testChatHistoryLoadingRow() throws {
+        try openGallery("history-loading")
+        XCTAssertTrue(label("Loading earlier messages").waitForExistence(timeout: 10))
+        try shootThread("chat-history-loading-row")
+    }
+
     func testChatHistoryFailed() throws {
         try openGallery("history-failed")
         XCTAssertTrue(app.buttons["chat.history.retry"].waitForExistence(timeout: 10))

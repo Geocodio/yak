@@ -246,7 +246,7 @@
                 entries = [
                     .event(text("m1:0", "Run the retry like this:\n\n```\n\(wideLine)\n```\n", streaming: false))
                 ]
-            case "history-failed": entries = Array(messageEntries[0..<2])
+            case "history-failed", "history-loading": entries = Array(messageEntries[0..<2])
             default:
                 entries = Array(activityEntries[0..<5])
                 turn = TurnChange(turnId: LenientID("41"), state: .running)
@@ -256,7 +256,9 @@
                 ConversationSnapshot(
                     load: .ready, show: show, entries: entries, currentStepKey: "tools:m3:0", waiting: waiting,
                     turn: turn,
-                    connection: .live, hasOlderHistory: page == "history-failed", didOlderFail: page == "history-failed"
+                    connection: .live, hasOlderHistory: page.hasPrefix("history"),
+                    isLoadingOlder: page == "history-loading",
+                    didOlderFail: page == "history-failed"
                 ))
             return thread
         }
