@@ -87,7 +87,8 @@ import XCTest
         let grabber = app.staticTexts["Add a sub-thread"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
         let top = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05))
         grabber.press(forDuration: 0.1, thenDragTo: top)
-        sleepForStack()
+        let footer = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Runs on")).firstMatch
+        XCTAssertTrue(footer.waitForExistence(timeout: 15))
         try audit()
         app.buttons["addSubThread.add"].tap()
         let gone = NSPredicate(format: "exists == false")
@@ -115,10 +116,14 @@ import XCTest
             toggle.tap()
         }
         XCTAssertTrue(failed.waitForExistence(timeout: 10))
-        // The menu reads the stack the drawer fetched when the parent opened.
-        sleepForStack()
-        failed.press(forDuration: 1.0)
-        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 5))
+        // The menu reads the stack the drawer fetched when the parent opened, so the press repeats until it has the
+        // actions.
+        let drop = app.buttons["Drop it"]
+        for _ in 0..<8 where !drop.exists {
+            failed.press(forDuration: 1.0)
+            if !drop.waitForExistence(timeout: 2) { app.tap() }
+        }
+        XCTAssertTrue(drop.exists)
         let takeOver = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Take over"))
         XCTAssertTrue(takeOver.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(app.buttons["Split it up"].exists)
@@ -153,13 +158,6 @@ import XCTest
         // The audit judges what is on screen, so the page goes back to the top where no row is cut by the bar.
         for _ in 0..<4 { app.descendants(matching: .any)["overview"].swipeDown() }
         try audit()
-    }
-
-    /// Gives the drawer's prefetch a moment, since the menu offers actions only from a fetched stack.
-    private func sleepForStack() {
-        let settle = XCTestExpectation(description: "stack")
-        settle.isInverted = true
-        wait(for: [settle], timeout: 2)
     }
 
     private func audit() throws {

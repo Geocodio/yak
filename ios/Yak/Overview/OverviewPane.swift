@@ -102,7 +102,9 @@ private struct OverviewScroll: View {
         }
         .paneBarRow(key: isOwner) {
             if isOwner {
-                Button { isShareOpen = true } label: {
+                Button {
+                    isShareOpen = true
+                } label: {
                     Label("thread.menu.share", systemImage: "person.2").font(.body.weight(.medium))
                         .frame(minHeight: 44).padding(.horizontal, 16)
                 }
