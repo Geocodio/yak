@@ -25,7 +25,7 @@ struct PullRequestCardSheet: View {
                     }
                 }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationBackground(Color(.systemBackground))
         .sheet(item: $webLink) { BrowserSheet(url: $0.url) }
         .sensoryFeedback(.success, trigger: model.successCount)
@@ -96,7 +96,7 @@ struct PullRequestCardSheet: View {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(model.expectations, id: \.self) { Text(verbatim: $0) }
                     }
-                    .foregroundStyle(Color.yakMuted).font(.footnote.weight(.medium))
+                    .foregroundStyle(.primary).font(.footnote.weight(.medium))
                 }
             }
         }
@@ -147,7 +147,7 @@ struct PullRequestCardSheet: View {
                 } label: {
                     Text("pullRequest.openGitHub").frame(minHeight: 44)
                 }
-                .accessibilityIdentifier("pullRequest.open.\(row.id)")
+                .foregroundStyle(.primary).accessibilityIdentifier("pullRequest.open.\(row.id)")
             }
             if row.canAskToFix { fixButton(row.id) }
         }
@@ -163,7 +163,7 @@ struct PullRequestCardSheet: View {
                 Text(state == .sent ? "pullRequest.fix.sent" : "pullRequest.fix").frame(minHeight: 44)
             }
         }
-        .disabled(state == .sending || state == .sent)
+        .foregroundStyle(.primary).disabled(state == .sending || state == .sent)
         .accessibilityIdentifier("pullRequest.askToFix.\(id)")
         if case .failed(let message)? = state {
             Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
