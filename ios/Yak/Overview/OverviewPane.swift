@@ -18,6 +18,8 @@ struct OverviewPane: View {
     @State private var model: OverviewModel?
     @Environment(\.isPaneShown) private var isPaneShown
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(SceneModel.self) private var scene
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var isVisible: Bool { (onClosePanel != nil || isPaneShown) && scenePhase == .active }
 
@@ -33,7 +35,11 @@ struct OverviewPane: View {
             } else {
                 ThreadLoadView(
                     presentation: thread.loadPresentation, retry: { Task { await thread.retry() } },
-                    openThreads: {})
+                    openThreads: {
+                        // A wide window already lists the threads, so the open thread is left to show the list's choice.
+                        if horizontalSizeClass != .compact { scene.closeThread() }
+                        scene.setDrawerOpen(true)
+                    })
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
