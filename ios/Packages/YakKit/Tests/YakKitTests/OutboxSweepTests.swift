@@ -18,18 +18,23 @@ private struct FailingInboxListStore: FileStore {
 }
 
 private struct Setup {
-    let files = InMemoryFileStore()
-    let instance = UUID()
+    let files: InMemoryFileStore
+    let instance: UUID
     let outbox: Outbox
     let cache: Cache
 
-    init(outboxStore: (@Sendable (InMemoryFileStore) -> any FileStore)? = nil) {
+    init(
+        instance: UUID = UUID(), files: InMemoryFileStore = InMemoryFileStore(), uploads: UploadLink? = nil,
+        outboxStore: (@Sendable (InMemoryFileStore) -> any FileStore)? = nil
+    ) {
+        self.instance = instance
+        self.files = files
         outbox = Outbox(
             instance: instance,
             client: APIClient(
                 baseURL: URL(string: "https://example.test")!, token: "test-token", transport: ScriptedTransport(),
                 appVersion: "1.0", systemDescription: "Test phone"),
-            files: outboxStore?(files) ?? files, clock: ManualClock(), makeID: IDSequence().next)
+            files: outboxStore?(files) ?? files, clock: ManualClock(), makeID: IDSequence().next, uploads: uploads)
         cache = Cache(instance: instance, files: files, clock: ManualClock())
     }
 
@@ -87,7 +92,49 @@ private struct Setup {
         let kept = try await setup.draftedAttachment()
         let orphan = try setup.attachment(UUID())
         await setup.sweep()
+        await setup.sweep()
         #expect(try setup.files.read(orphan.path) == nil)
         #expect(try setup.files.read(kept.path) != nil)
+    }
+
+    @Test func aFolderThatAppearsBetweenSweepsSurvivesTheFirstOne() async throws {
+        let setup = Setup()
+        await setup.outbox.load()
+        await setup.sweep()
+        let fresh = try setup.attachment(UUID())
+        await setup.sweep()
+        #expect(try setup.files.read(fresh.path) != nil)
+        await setup.sweep()
+        #expect(try setup.files.read(fresh.path) == nil)
+    }
+
+    @Test func aFolderThatBecomesHeldBetweenSweepsIsKept() async throws {
+        let setup = Setup()
+        await setup.outbox.load()
+        let key = UUID()
+        let file = try setup.attachment(key)
+        await setup.sweep()
+        await setup.cache.saveComposerDraft(
+            ComposerDraft(text: "a", sendKey: key, attachments: [file]), for: .newThread)
+        await setup.sweep()
+        await setup.sweep()
+        #expect(try setup.files.read(file.path) != nil)
+    }
+
+    @Test func aFolderWithAnUploadRecordIsKept() async throws {
+        let setup = Setup()
+        let session = FakeUploadSession(identifier: "test")
+        let ledger = UploadLedger(instance: setup.instance, files: setup.files, clock: ManualClock())
+        let outbox = Setup(instance: setup.instance, files: setup.files, uploads: UploadLink(ledger: ledger, session: session))
+        await outbox.outbox.load()
+        let id = UUID()
+        let file = try setup.attachment(id)
+        let item = OutboxInbox.item(
+            for: OutboxDraft(target: .thread("d0e515ef"), text: "Hi", attachments: [file], sendKey: id), id: id,
+            now: Date(timeIntervalSince1970: 0))
+        _ = try await ledger.prepare(item, origin: .app)
+        await outbox.sweep()
+        await outbox.sweep()
+        #expect(try setup.files.read(file.path) != nil)
     }
 }

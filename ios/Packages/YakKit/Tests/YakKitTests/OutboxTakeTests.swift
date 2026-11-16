@@ -87,6 +87,7 @@ private struct Setup {
         let orphanFile = try setup.attachment(orphan)
         let draftedFile = try setup.attachment(drafted)
         await setup.outbox.sweepAttachmentFolders(keeping: [drafted.uuidString])
+        await setup.outbox.sweepAttachmentFolders(keeping: [drafted.uuidString])
         #expect(try setup.files.read(orphanFile.path) == nil)
         #expect(try setup.files.read(draftedFile.path) != nil)
         #expect(try setup.files.read(queued.attachments[0].path) != nil)

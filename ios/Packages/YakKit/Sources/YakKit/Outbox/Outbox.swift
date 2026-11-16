@@ -316,7 +316,7 @@ public actor Outbox {
     /// storing a file and saving its draft left behind. An item waiting in the inbox keeps its folder. Does nothing
     /// unless every holder is accounted for: `draftFolders` is nil when a draft could not be read, and an unreadable
     /// inbox listing or an item list that did not decode stops the sweep.
-    public func sweepAttachmentFolders(keeping draftFolders: Set<String>?) {
+    public func sweepAttachmentFolders(keeping draftFolders: Set<String>?) async {
         guard !isShutDown, hasLoadedList, let draftFolders else { return }
         do {
             if try files.read(OutboxInbox.unreadableItemsPath(instance)) != nil { return }
@@ -337,7 +337,22 @@ public actor Outbox {
             return
         }
         for name in waiting where name.hasSuffix(".json") { held.insert(String(name.dropLast(5))) }
-        for name in names where !held.contains(name) { removeFile("\(folder)/\(name)") }
+        if let records = await uploads?.ledger.records() { for record in records { held.insert(record.itemID.uuidString) } }
+        // A folder is removed only when it was also unheld at the previous sweep, so a file stored a moment before
+        // its draft or item is saved is never taken.
+        let candidatesPath = "\(InstanceFolders.outbox(instance))/sweep-candidates.json"
+        var previous: Set<String> = []
+        do {
+            if let data = try files.read(candidatesPath) { previous = Set(try JSONDecoder().decode([String].self, from: data)) }
+        } catch { logFailure("sweep candidates unreadable: \(type(of: error))") }
+        let unheld = Set(names).subtracting(held)
+        let doomed = unheld.intersection(previous)
+        for name in doomed { removeFile("\(folder)/\(name)") }
+        do {
+            try files.write(
+                JSONEncoder().encode(unheld.subtracting(doomed).sorted()), to: candidatesPath,
+                protection: .untilFirstUnlock)
+        } catch { logFailure("sweep candidates not saved: \(type(of: error))") }
     }
 
     /// A refused or waiting item is sent again now.
