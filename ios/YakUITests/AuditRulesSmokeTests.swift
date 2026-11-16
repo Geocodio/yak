@@ -18,4 +18,14 @@ final class AuditRulesSmokeTests: XCTestCase {
         XCTAssertFalse(AuditRules.isBehind(CGRect(x: 10, y: 50, width: 0, height: 0), bar: bar))
         XCTAssertFalse(AuditRules.isBehind(CGRect(x: 10, y: 50, width: 50, height: 20), bar: .zero))
     }
+
+    func testARowFullyBehindABarIsToldFromTheBarsOwnElement() {
+        let bar = CGRect(x: 0, y: 0, width: 400, height: 100)
+        let title = CGRect(x: 100, y: 50, width: 200, height: 30)
+        let row = CGRect(x: 10, y: 20, width: 380, height: 40)
+        XCTAssertTrue(bar.contains(row) && AuditRules.isBehind(row, bar: bar))
+        XCTAssertFalse(AuditRules.isOwn(row, ownFrames: [title]))
+        XCTAssertTrue(AuditRules.isOwn(title.offsetBy(dx: 0.5, dy: -1), ownFrames: [title]))
+        XCTAssertFalse(AuditRules.isOwn(title.offsetBy(dx: 0, dy: 2), ownFrames: [title]))
+    }
 }
