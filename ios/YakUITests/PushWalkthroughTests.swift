@@ -92,11 +92,23 @@ import XCTest
         XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: timeout), .completed, element.label)
     }
 
+    /// Waits until the switches answer. A list shows only the rows on screen, so at the largest text size the page
+    /// scrolls down to a switch and back up to the instance row.
     private func waitForLoadedSwitches() {
         let usage = app.switches["settings.switch.pull_request"]
+        var swipes = 0
+        while !usage.exists, swipes < 8 {
+            app.swipeUp()
+            swipes += 1
+        }
         XCTAssertTrue(usage.waitForExistence(timeout: 15))
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: usage)
         XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 15), .completed)
+        swipes = 0
+        while !instanceRow.isHittable, swipes < 8 {
+            app.swipeDown()
+            swipes += 1
+        }
     }
 
     /// Scrolls until `element` is on screen; Settings is longer than a phone at the largest text size.
@@ -119,14 +131,15 @@ import XCTest
         try openSettings(then: "slower")
         Thread.sleep(forTimeInterval: 1.5)
         try shoot("settings-loading")
-        let slow = app.descendants(matching: .any)["settings.switches.slow"]
+        let slow = app.descendants(matching: .any)["settings.switches.slow"].firstMatch
         XCTAssertTrue(slow.waitForExistence(timeout: 12))
         try shoot("settings-slow")
     }
 
     func testSettingsLoadError() throws {
         try openSettings(then: "broken")
-        XCTAssertTrue(app.descendants(matching: .any)["settings.switches.error"].waitForExistence(timeout: 15))
+        let error = app.descendants(matching: .any)["settings.switches.error"].firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 15))
         try shoot("settings-error")
     }
 
