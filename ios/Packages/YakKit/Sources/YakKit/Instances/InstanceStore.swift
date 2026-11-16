@@ -58,6 +58,13 @@ extension InstanceStore {
     }
 }
 
+extension InstanceStore {
+    /// The same move under the share plan's name.
+    public static func moveSavedList(from old: any KeyValueStore, to new: any KeyValueStore) {
+        _ = moveStoredList(from: old, to: new)
+    }
+}
+
 public actor InstanceStore {
     fileprivate static let instancesKey = "instances.v1"
     fileprivate static let activeKey = "instances.active"
