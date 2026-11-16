@@ -168,7 +168,9 @@ extension StubChanges {
                 if (try? await Task.sleep(for: .seconds(Self.openingDuration))) == nil { return }
                 emit(
                     thread: Self.changesThreadID, type: "thread",
-                    data: ["status": "open", "sandboxState": "running", "runnerState": "idle", "blockedReason": NSNull()])
+                    data: [
+                        "status": "open", "sandboxState": "running", "runnerState": "idle", "blockedReason": NSNull(),
+                    ])
             }
             playbacks.mutate { $0.append(task) }
         }

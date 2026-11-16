@@ -192,7 +192,9 @@ import XCTest
         var components = URLComponents()
         components.scheme = "yak"
         components.host = "thread"
-        components.queryItems = [URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: "readc0py")]
+        components.queryItems = [
+            URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: "readc0py"),
+        ]
         app.open(try XCTUnwrap(components.url))
         XCTAssertTrue(element("composer.unavailable").waitForExistence(timeout: 15))
         showFiles()

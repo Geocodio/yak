@@ -62,7 +62,10 @@ final class StubChanges: StubFeature, @unchecked Sendable {
     func setOnline(_ isOnline: Bool) { state.mutate { $0.isOnline = isOnline } }
 
     func reset() {
-        for task in playbacks.mutate({ tasks -> [Task<Void, Never>] in defer { tasks = [] }; return tasks }) {
+        for task in playbacks.mutate({ tasks -> [Task<Void, Never>] in
+            defer { tasks = [] }
+            return tasks
+        }) {
             task.cancel()
         }
         playing.set([])

@@ -9,7 +9,8 @@ import Testing
     }
 
     @Test(arguments: [
-        "http://example.test/", "javascript:alert(1)", "file:///etc/passwd", "https:///path", "https://user:pass@example.test/",
+        "http://example.test/", "javascript:alert(1)", "file:///etc/passwd", "https:///path",
+        "https://user:pass@example.test/",
         "https://user@example.test/", "", "not a url", "tel:123",
     ])
     func everythingElseIsRejected(_ text: String) {
