@@ -34,7 +34,6 @@ struct TerminalPane: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color.terminalBackground
             if showsFullPaneState {
                 TerminalStateView(model: model)
             } else if let shell = model.focusedShell {
@@ -51,6 +50,7 @@ struct TerminalPane: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.terminalBackground, ignoresSafeAreaEdges: [])
         .paneBarRow(key: "terminal") { TerminalKeyRow(model: model, keyboard: keyboard) }
         .paneMenuItems(key: "terminal") {
             Button {

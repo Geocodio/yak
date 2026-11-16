@@ -4,8 +4,18 @@ extension XCUIApplication {
     /// Opens a thread from the drawer, which shows first on a phone.
     func openThread(_ id: String) {
         let row = descendants(matching: .any)["drawer.row.thread:\(id)"]
-        if !row.waitForExistence(timeout: 10) { buttons["threads.button"].tap() }
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        if !descendants(matching: .any)["drawer.list"].waitForExistence(timeout: 10) { buttons["threads.button"].tap() }
+        XCTAssertTrue(descendants(matching: .any)["drawer.list"].waitForExistence(timeout: 10))
+        // A list of many threads builds the later rows only after a scroll.
+        var scrolls = 0
+        while !row.isHittable, scrolls < 6 {
+            if row.waitForExistence(timeout: 3), row.isHittable { break }
+            swipeUp()
+            scrolls += 1
+        }
+        // One more scroll lifts the row clear of the drawer's search bar at the bottom.
+        if scrolls > 0 { swipeUp() }
+        XCTAssertTrue(row.exists, "the thread row is not in the drawer")
         row.tap()
     }
 

@@ -32,7 +32,7 @@ struct TerminalKeyRow: View {
 
     var body: some View {
         Group {
-            if keyboard.isAttached && model.isSurfaceFocused {
+            if keyboard.isAttached && model.isSurfaceFocused && !model.isKeyboardShown {
                 HStack {
                     ShellMenu(model: model)
                     Spacer(minLength: 0)
@@ -50,7 +50,7 @@ struct TerminalKeyRow: View {
     }
 
     private func row(withSideArrows: Bool) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 0) {
             ShellMenu(model: model)
             key("terminal.key.escape", text: "esc", symbol: "escape", label: "terminal.key.escape.label", .escape)
             key("terminal.key.tab", text: "tab", symbol: "arrow.right.to.line", label: "terminal.key.tab.label", .tab)
@@ -70,7 +70,7 @@ struct TerminalKeyRow: View {
                 model.toggleKeyboard()
             } label: {
                 Image(systemName: model.isKeyboardShown ? "keyboard.chevron.compact.down" : "keyboard")
-                    .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+                    .frame(minWidth: 42, minHeight: 44).contentShape(.rect)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(model.isKeyboardShown ? "terminal.key.keyboard.hide" : "terminal.key.keyboard.show")
@@ -100,7 +100,7 @@ struct TerminalKeyRow: View {
                 Image(systemName: symbol)
             }
         }
-        .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+        .frame(minWidth: 42, minHeight: 44).contentShape(.rect)
         .dynamicTypeSize(..<DynamicTypeSize.accessibility1)
     }
 

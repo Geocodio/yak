@@ -64,7 +64,7 @@ struct TerminalStateView: View {
             .padding(24).frame(maxWidth: 520).frame(maxWidth: .infinity)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .background(Color.terminalBackground)
+        .background(Color.terminalBackground, ignoresSafeAreaEdges: [])
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("terminal.state")
     }

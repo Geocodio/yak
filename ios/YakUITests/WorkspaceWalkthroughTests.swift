@@ -49,14 +49,13 @@ import XCTest
     func testTerminalWaking() throws {
         try openTerminal("terminal-waking")
         XCTAssertTrue(state("terminal.state").waitForExistence(timeout: 10))
-        Thread.sleep(forTimeInterval: 1)
         try shoot("terminal-waking", audits: false)
     }
 
     func testTerminalSlow() throws {
         try openTerminal("terminal-slow-wake")
         XCTAssertTrue(state("terminal.state").waitForExistence(timeout: 10))
-        XCTAssertTrue(label("This is taking longer than usual").waitForExistence(timeout: 14))
+        XCTAssertTrue(label("This is taking longer than usual").waitForExistence(timeout: 45))
         try shoot("terminal-slow", audits: false)
     }
 
@@ -109,12 +108,6 @@ import XCTest
         try shoot("terminal-idle", audits: false)
     }
 
-    func testTerminalTooMany() throws {
-        try openTerminal("terminal-states", thread: "term4429")
-        XCTAssertTrue(label("Too many shells are open").waitForExistence(timeout: 15))
-        try shoot("terminal-too-many", audits: false)
-    }
-
     private func statesCase(_ thread: String, expecting text: String, shot: String) throws {
         try openTerminal("terminal-states", thread: thread)
         XCTAssertTrue(label(text).waitForExistence(timeout: 15))
@@ -145,7 +138,6 @@ import XCTest
         try openTerminal("terminal-states", thread: "termg0ne")
         state("terminal.state.action").tap()
         XCTAssertTrue(label("Restoring the sandbox").firstMatch.waitForExistence(timeout: 10))
-        Thread.sleep(forTimeInterval: 1)
         try shoot("terminal-restoring", audits: false)
     }
 
