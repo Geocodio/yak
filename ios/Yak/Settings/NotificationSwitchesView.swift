@@ -1,0 +1,106 @@
+import SwiftUI
+import YakKit
+
+/// The four notification switches for the active instance, in every state of loading and saving.
+struct NotificationSwitchesView: View {
+    let model: SettingsModel
+    @State private var showsSkeleton = false
+
+    var body: some View {
+        Section {
+            if !model.canPush {
+                unavailable
+            } else {
+                switchRows
+                status
+            }
+        } header: {
+            Text("settings.switches.header \(model.active.name)")
+        } footer: {
+            if model.canPush { Text("settings.switches.footer") }
+        }
+        .task(id: isLoading) {
+            showsSkeleton = false
+            guard isLoading else { return }
+            do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
+            showsSkeleton = true
+        }
+    }
+
+    private var isLoading: Bool {
+        if case .loading = model.switches.load { return true }
+        return false
+    }
+
+    private var unavailable: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("settings.switches.unavailable \(model.active.name)")
+            Text(model.unavailableReason).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("settings.switches.unavailable")
+    }
+
+    private var switchRows: some View {
+        ForEach(PushEvent.switches, id: \.rawValue) { event in
+            let isSaving = model.switches.isSaving(event)
+            Toggle(
+                isOn: Binding(
+                    get: { model.switches.isOn(event) },
+                    set: { isOn in Task { await model.toggle(event, to: isOn) } })
+            ) {
+                HStack(spacing: 8) {
+                    Text(label(for: event))
+                    if isSaving { ProgressView().controlSize(.small).accessibilityHidden(true) }
+                }
+            }
+            .tint(Color.yakAction)
+            .disabled(isDisabled || isSaving)
+            .frame(minHeight: 44)
+            .redacted(reason: showsSkeleton && isLoading ? .placeholder : [])
+            .accessibilityValue(isSaving ? Text("settings.saving") : Text(""))
+            .accessibilityIdentifier("settings.switch.\(event.rawValue)")
+        }
+    }
+
+    private var isDisabled: Bool {
+        if case .loaded = model.switches.load { return false }
+        return true
+    }
+
+    @ViewBuilder private var status: some View {
+        if case .failed(let problem) = model.switches.load {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(problem == .offline ? "settings.switches.offline" : "settings.switches.loadFailed")
+                if problem != .offline {
+                    Text(SettingsText.reason(problem)).font(.footnote.weight(.medium))
+                        .foregroundStyle(Color.yakMuted)
+                    Button("common.retry") { Task { await model.retry() } }.buttonStyle(SecondaryButtonStyle())
+                }
+            }
+            .accessibilityIdentifier("settings.switches.error")
+        } else if model.isSlow {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("settings.switches.slow")
+                Button("common.retry") { Task { await model.retry() } }.buttonStyle(SecondaryButtonStyle())
+            }
+            .accessibilityIdentifier("settings.switches.slow")
+        }
+        if let problem = model.switches.problem {
+            Text("settings.switches.saveFailed \(label(for: problem.event)) \(SettingsText.reason(problem.problem))")
+                .foregroundStyle(Color.yakDanger)
+                .accessibilityIdentifier("settings.switches.saveFailed")
+        }
+    }
+
+    private func label(for event: PushEvent) -> String {
+        switch event {
+        case .needsYou: String(localized: "settings.switch.needsYou")
+        case .turnFinished: String(localized: "settings.switch.turnFinished")
+        case .pullRequest: String(localized: "settings.switch.pullRequest")
+        case .stackUsage: String(localized: "settings.switch.stackUsage")
+        default: event.rawValue
+        }
+    }
+}

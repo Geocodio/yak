@@ -2257,6 +2257,516 @@
           }
         }
       }
+    },
+    "settings.device.paired %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paired %@. Remove it on the web."
+          }
+        }
+      }
+    },
+    "settings.device.pairedUnknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paired. Remove it on the web."
+          }
+        }
+      }
+    },
+    "settings.instances": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instances"
+          }
+        }
+      }
+    },
+    "settings.liveActivitiesOff": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live Activities are off for Yak in iOS Settings."
+          }
+        }
+      }
+    },
+    "settings.openSystemSettings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open iOS Settings"
+          }
+        }
+      }
+    },
+    "settings.permission.header": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications on this device"
+          }
+        }
+      }
+    },
+    "settings.permission.notAsked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications are not turned on."
+          }
+        }
+      }
+    },
+    "settings.permission.off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications are off for Yak in iOS Settings."
+          }
+        }
+      }
+    },
+    "settings.permission.turnOn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on notifications"
+          }
+        }
+      }
+    },
+    "settings.reason.environmentMismatch": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Yak sends to other builds."
+          }
+        }
+      }
+    },
+    "settings.reason.generic": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again in a moment."
+          }
+        }
+      }
+    },
+    "settings.reason.needsPairing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pair again to change this."
+          }
+        }
+      }
+    },
+    "settings.reason.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are offline."
+          }
+        }
+      }
+    },
+    "settings.reason.unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is busy. Try again."
+          }
+        }
+      }
+    },
+    "settings.remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
+    "settings.removing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removing"
+          }
+        }
+      }
+    },
+    "settings.saving": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving"
+          }
+        }
+      }
+    },
+    "settings.subtitle.needsPairing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pair again to use it."
+          }
+        }
+      }
+    },
+    "settings.subtitle.noKey": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No push. This Yak has no notification key."
+          }
+        }
+      }
+    },
+    "settings.subtitle.otherBuild": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No push. This build has no key for it."
+          }
+        }
+      }
+    },
+    "settings.subtitle.productionOnly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No push. This Yak sends to TestFlight builds only."
+          }
+        }
+      }
+    },
+    "settings.subtitle.refused %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push was refused. %@"
+          }
+        }
+      }
+    },
+    "settings.subtitle.registered %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, push on"
+          }
+        }
+      }
+    },
+    "settings.subtitle.registering %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, setting up push"
+          }
+        }
+      }
+    },
+    "settings.subtitle.retrying": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push is not set up yet. Yak keeps trying."
+          }
+        }
+      }
+    },
+    "settings.subtitle.sandboxOnly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No push. This Yak sends to development builds only."
+          }
+        }
+      }
+    },
+    "settings.subtitle.serverTooOld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Yak on the server."
+          }
+        }
+      }
+    },
+    "settings.subtitle.unknownEnvironment": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No push. This Yak names an unknown environment."
+          }
+        }
+      }
+    },
+    "settings.subtitle.waitingForNetwork": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push is set up when the connection returns."
+          }
+        }
+      }
+    },
+    "settings.subtitle.waitingForToken %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, notifications are off on this device"
+          }
+        }
+      }
+    },
+    "settings.switch.needsYou": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A thread needs me"
+          }
+        }
+      }
+    },
+    "settings.switch.pullRequest": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A PR opens or its checks change"
+          }
+        }
+      }
+    },
+    "settings.switch.stackUsage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A stack passes a usage mark"
+          }
+        }
+      }
+    },
+    "settings.switch.turnFinished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A turn finishes"
+          }
+        }
+      }
+    },
+    "settings.switches.footer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These switches also apply to notifications in your browser."
+          }
+        }
+      }
+    },
+    "settings.switches.header %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notify me on %@ when"
+          }
+        }
+      }
+    },
+    "settings.switches.loadFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your notification settings could not be loaded."
+          }
+        }
+      }
+    },
+    "settings.switches.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are offline. Your notification settings load when the connection returns."
+          }
+        }
+      }
+    },
+    "settings.switches.saveFailed %@ %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not save \"%@\". %@"
+          }
+        }
+      }
+    },
+    "settings.switches.slow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is taking longer than usual"
+          }
+        }
+      }
+    },
+    "settings.switches.unavailable %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ cannot send notifications to this build."
+          }
+        }
+      }
+    },
+    "settings.test.noPushToken": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device has not registered for notifications yet. Turn them on first."
+          }
+        }
+      }
+    },
+    "settings.test.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are offline. Try again when the connection returns."
+          }
+        }
+      }
+    },
+    "settings.test.pushUnavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Yak cannot send notifications."
+          }
+        }
+      }
+    },
+    "settings.test.rateLimited": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too many tests in a row. Wait a minute and try again."
+          }
+        }
+      }
+    },
+    "settings.test.send": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send a test notification"
+          }
+        }
+      }
+    },
+    "settings.test.sending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending"
+          }
+        }
+      }
+    },
+    "settings.test.sent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent. It arrives in a few seconds."
+          }
+        }
+      }
+    },
+    "settings.test.unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple did not answer in time. Try again."
+          }
+        }
+      }
+    },
+    "settings.thisDevice %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This %@"
+          }
+        }
+      }
+    },
+    "settings.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

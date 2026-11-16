@@ -54,6 +54,63 @@ import XCTest
                 || app.buttons["drawer.account"].waitForExistence(timeout: 10))
     }
 
+    private func openSettings() {
+        let account = app.buttons["drawer.account"]
+        if !account.waitForExistence(timeout: 15) {
+            app.buttons["threads.button"].tap()
+        }
+        XCTAssertTrue(account.waitForExistence(timeout: 10))
+        account.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings.screen"].waitForExistence(timeout: 10))
+    }
+
+    func testSettingsSwitchesSaveAndShowPushState() throws {
+        try stub.play("paired")
+        launch(paired: true, notifications: "authorized")
+        openSettings()
+        let row = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'settings.instance.'")
+        ).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        let pushOn = NSPredicate(format: "label CONTAINS ', push on'")
+        let registered = XCTNSPredicateExpectation(predicate: pushOn, object: row)
+        XCTAssertEqual(XCTWaiter().wait(for: [registered], timeout: 10), .completed)
+        let finished = app.switches["settings.switch.turn_finished"]
+        XCTAssertTrue(finished.waitForExistence(timeout: 10))
+        finished.tap()
+        let saved = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                let preferences = (try? self.stub.pushState()["preferences"] as? [String: Bool]) ?? [:]
+                return preferences["turn_finished"] == false
+            }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [saved], timeout: 10), .completed)
+        try audit()
+        try stub.play("notifications-failing")
+        let usage = app.switches["settings.switch.stack_usage"]
+        XCTAssertTrue(usage.waitForExistence(timeout: 10))
+        usage.tap()
+        XCTAssertTrue(
+            app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Could not save'")).firstMatch
+                .waitForExistence(timeout: 10))
+        try audit()
+    }
+
+    func testABuildWithoutPushSaysWhy() throws {
+        try stub.play("push-other-build")
+        launch(paired: true, notifications: "authorized")
+        openSettings()
+        let row = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'settings.instance.'")
+        ).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.label.contains("No push. This build has no key for it."), row.label)
+        XCTAssertTrue(
+            app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'cannot send notifications to this build'"))
+                .firstMatch.waitForExistence(timeout: 10))
+        let tokens = try XCTUnwrap(try stub.pushState()["tokens"] as? [String: Any])
+        XCTAssertTrue(tokens.isEmpty)
+    }
+
     func testABuildWithoutPushSkipsTheExplanation() throws {
         try stub.play("push-other-build")
         launch()

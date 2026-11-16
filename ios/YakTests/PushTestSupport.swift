@@ -13,6 +13,17 @@ actor RecordingTransport: HTTPTransport {
     private var answers: [String: (status: Int, body: String)] = [:]
     private(set) var recorded: [Recorded] = []
     private var isOffline = false
+    private var held: Set<String> = []
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    /// Requests for `route` wait, after they are recorded, until `release()`.
+    func hold(_ route: String) { held.insert(route) }
+    func release() {
+        held = []
+        let all = waiting
+        waiting = []
+        for continuation in all { continuation.resume() }
+    }
 
     func on(_ route: String, status: Int = 204, body: String = "") { answers[route] = (status, body) }
     func setOffline(_ offline: Bool) { isOffline = offline }
@@ -23,6 +34,7 @@ actor RecordingTransport: HTTPTransport {
         let route = "\(request.httpMethod ?? "GET") \(path)"
         recorded.append(Recorded(route: route, host: request.url?.host() ?? ""))
         if isOffline { throw URLError(.notConnectedToInternet) }
+        if held.contains(route) { await withCheckedContinuation { waiting.append($0) } }
         let answer = answers[route] ?? (404, "{\"error\":\"not_found\",\"message\":\"Not found.\"}")
         let response = HTTPURLResponse(
             url: request.url!, statusCode: answer.status, httpVersion: nil,

@@ -44,9 +44,11 @@ struct InstanceShell: View {
         .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
         .sheet(isPresented: $showsAccount) {
-            SignedInView(model: model, instance: instance, onClose: { showsAccount = false })
-                .linkPairingStatus(model, sheetDepth: 1)
-                .countsAsOpenSheet(model)
+            if let push = model.push {
+                SettingsScreen(app: model, push: push, active: instance, onClose: { showsAccount = false })
+                    .linkPairingStatus(model, sheetDepth: 1)
+                    .countsAsOpenSheet(model)
+            }
         }
         .sheet(isPresented: $showsSwitcher) {
             InstanceSwitcher(model: model, active: instance, onClose: { showsSwitcher = false })
