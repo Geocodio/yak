@@ -336,7 +336,7 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         let composer = makeModel(backend: backend, clock: StepClock())
         composer.text = "First"
         async let inFlight: Void = composer.send(delivery: .steer)
-        await Task.yield()
+        while !composer.isSending { await Task.yield() }
         composer.text = "First and more"
         await inFlight
         #expect(composer.text == "First and more")

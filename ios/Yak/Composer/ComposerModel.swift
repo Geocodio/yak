@@ -120,7 +120,8 @@ final class ComposerModel {
 
     /// True when there is something to send.
     var canSend: Bool {
-        !isSending && preparingCount == 0 && (!typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty)
+        !isSending && preparingCount == 0
+            && (!typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty)
     }
 
     /// Reads the saved draft. Text typed before it arrives wins over the saved text.
