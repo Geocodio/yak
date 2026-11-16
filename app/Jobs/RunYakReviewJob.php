@@ -385,6 +385,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                 (int) $metadata['pr_number'],
                 $this->task->pr_url,
                 $changedFiles,
+                includeResolved: $repository->approvalLevel() >= 2,
             )
             : [];
 

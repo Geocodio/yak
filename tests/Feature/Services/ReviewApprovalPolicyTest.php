@@ -58,6 +58,7 @@ beforeEach(function () {
     ];
     $this->github->shouldReceive('getPullRequestOrFail')->andReturnUsing(fn () => $this->livePullRequest)->byDefault();
     $this->github->shouldReceive('hasRequiredStatusChecks')->andReturn(true)->byDefault();
+    $this->github->shouldReceive('dismissesStaleReviews')->andReturn(true)->byDefault();
     app()->instance(AppService::class, $this->github);
 });
 
@@ -88,6 +89,33 @@ it('holds without required status checks, including when the lookup throws', fun
     expect($decision['reasons'])->toBe(['Branch protection on main has no required status checks.'])
         ->and($decision['observed']['required_checks_present'])->toBeFalse();
 })->with([false, true]);
+
+it('holds unless the base branch dismisses stale approvals, including when the lookup throws', function (bool $throws) {
+    $this->github->shouldReceive('dismissesStaleReviews')->andReturnUsing(fn () => $throws ? throw new RuntimeException('403') : false);
+    $decision = policyEvaluate(policyFiles(), policyReview());
+    expect($decision['reasons'])->toBe(['Branch protection on main must dismiss stale approvals.'])
+        ->and($decision['observed']['dismisses_stale_reviews'])->toBeFalse();
+})->with([false, true]);
+
+it('holds supply-chain and authorization paths, including removed and renamed ones', function (array $file) {
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
+    $reasons = policyEvaluate([$file + ['patch' => '+x']], policyReview())['reasons'];
+    expect($reasons)->not->toBe([])->and($reasons[0])->toStartWith('Always needs a human: ');
+    ConcernClassifier::assertNeverPrompted();
+})->with([
+    'lockfile' => [['filename' => 'composer.lock', 'status' => 'modified']],
+    'composer.json' => [['filename' => 'composer.json', 'status' => 'modified']],
+    'package.json' => [['filename' => 'package.json', 'status' => 'modified']],
+    'routes' => [['filename' => 'routes/web.php', 'status' => 'modified']],
+    'config' => [['filename' => 'config/services.php', 'status' => 'modified']],
+    'bootstrap' => [['filename' => 'bootstrap/app.php', 'status' => 'modified']],
+    'auth class' => [['filename' => 'app/Http/AuthGuard.php', 'status' => 'modified']],
+    'policy class' => [['filename' => 'app/Support/InvoicePolicy.php', 'status' => 'modified']],
+    'permission class' => [['filename' => 'app/Support/Permissions.php', 'status' => 'modified']],
+    'workflow' => [['filename' => '.github/workflows/ci.yml', 'status' => 'modified']],
+    'removed' => [['filename' => 'routes/api.php', 'status' => 'removed']],
+    'renamed away' => [['filename' => 'app/Other.php', 'previous_filename' => 'config/auth.php', 'status' => 'renamed']],
+]);
 
 it('holds a floor path and never calls the classifier', function () {
     Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
@@ -254,33 +282,32 @@ it('holds while an earlier finding the reviewer omitted is still open', function
 
     expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toContain('An earlier Yak finding is still open.');
     ConcernClassifier::assertNeverPrompted();
-})->with([null, 'untouched', 'still_outstanding', 'fixed']);
+})->with([null, 'untouched', 'still_outstanding']);
 
-it('holds a sticky still_outstanding finding even when its thread is resolved', function () {
-    earlierComment('still_outstanding');
-    fakeThreads(true);
+it('holds an unresolved-by-Yak finding even when its GitHub thread is resolved', function (?string $status) {
+    earlierComment($status);
+    $this->github->shouldReceive('listReviewThreads')->andReturn([['is_resolved' => true, 'comment_database_ids' => [900]]]);
+    Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
 
     expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toContain('An earlier Yak finding is still open.');
-});
+    ConcernClassifier::assertNeverPrompted();
+})->with([null, 'untouched', 'still_outstanding']);
 
-it('holds when the earlier finding threads cannot be fetched', function () {
-    earlierComment('fixed');
-    $this->github->shouldReceive('listReviewThreads')->andThrow(new RuntimeException('502'));
-
-    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Could not verify earlier findings on GitHub.']);
-});
-
-it('approves when every earlier finding is closed and its thread resolved', function () {
+it('holds an earlier finding the reviewer reports as still outstanding', function () {
     earlierComment('fixed', 900);
-    earlierComment('still_outstanding', 901);
-    earlierComment(null, 902);
-    $this->github->shouldReceive('listReviewThreads')->andReturn([
-        ['is_resolved' => true, 'comment_database_ids' => [900]],
-        ['is_resolved' => true, 'comment_database_ids' => [901]],
-        ['is_resolved' => true, 'comment_database_ids' => [902]],
-    ]);
+    earlierComment(null, 901);
+    $review = policyReview(priorFindings: [new ParsedPriorFinding(901, 'still_outstanding', '')]);
+
+    expect(policyEvaluate(policyFiles(), $review)['reasons'])->toContain('An earlier finding is still open.');
+});
+
+it('approves when Yak recorded every earlier finding as closed or reports it closed now, resolved threads or not', function () {
+    earlierComment('fixed', 900);
+    earlierComment('withdrawn', 901);
+    earlierComment('still_outstanding', 902);
+    earlierComment(null, 903);
     fakePolicyClassifier();
-    $review = policyReview(priorFindings: [new ParsedPriorFinding(901, 'fixed', '')]);
+    $review = policyReview(priorFindings: [new ParsedPriorFinding(902, 'fixed', ''), new ParsedPriorFinding(903, 'withdrawn', '')]);
 
     expect(policyEvaluate(policyFiles(), $review)['candidate'])->toBe('APPROVE');
 });

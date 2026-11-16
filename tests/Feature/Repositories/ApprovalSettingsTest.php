@@ -7,11 +7,11 @@ use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 
-function fakeBranchProtection(bool $hasChecks): void
+function fakeBranchProtection(bool $hasChecks, bool $dismissesStale = true): void
 {
     configureFakeGitHubApp();
     Http::fake(gitHubTokenFake() + [
-        'api.github.com/repos/*/branches/*/protection' => Http::response($hasChecks ? ['required_status_checks' => ['checks' => [['context' => 'ci']], 'contexts' => []]] : []),
+        'api.github.com/repos/*/branches/*/protection' => Http::response($hasChecks ? ['required_status_checks' => ['checks' => [['context' => 'ci']], 'contexts' => []], 'required_pull_request_reviews' => ['dismiss_stale_reviews' => $dismissesStale]] : []),
         'api.github.com/repos/*/rules/branches/*' => Http::response([]),
         'api.github.com/repos/*/pulls*' => Http::response([]),
     ]);
@@ -117,6 +117,16 @@ it('refuses to arm without required checks', function () {
 
     expect($repository->refresh()->approval_level)->toBe(1)
         ->and($repository->approval_changed_at)->toBeNull();
+});
+
+it('refuses to arm when the branch keeps approvals after new commits', function () {
+    $repository = Repository::factory()->create();
+    fakeBranchProtection(true, dismissesStale: false);
+
+    $this->actingAs(User::factory()->create())->put(route('repos.approvals.update', $repository), ['level' => 2, 'mode' => 'enforce'])
+        ->assertSessionHasErrors('mode');
+
+    expect($repository->refresh()->approval_level)->toBe(1);
 });
 
 it('refuses to arm when GitHub fails', function () {

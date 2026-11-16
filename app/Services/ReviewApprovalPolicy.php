@@ -118,6 +118,16 @@ class ReviewApprovalPolicy
             return ["Branch protection on {$baseRef} has no required status checks."];
         }
 
+        try {
+            $dismissesStale = $github->dismissesStaleReviews($installationId, $repository->github_full_name, $baseRef);
+        } catch (\Throwable) {
+            $dismissesStale = false;
+        }
+        $decision['observed']['dismisses_stale_reviews'] = $dismissesStale;
+        if (! $dismissesStale) {
+            return ["Branch protection on {$baseRef} must dismiss stale approvals."];
+        }
+
         $held = ApprovalFloor::heldPaths($files);
         $unreviewed = [];
         foreach ($files as $file) {
@@ -149,7 +159,7 @@ class ReviewApprovalPolicy
                 break;
             }
         }
-        array_push($reasons, ...$this->earlierFindingReasons($repository, $review, $metadata, $github));
+        array_push($reasons, ...$this->earlierFindingReasons($review, $metadata));
         if ($reasons !== []) {
             return $reasons;
         }
@@ -186,55 +196,36 @@ class ReviewApprovalPolicy
 
     /**
      * Holds while any stored earlier Yak finding on this pull request is open. A
-     * finding is closed once its GitHub thread is resolved, unless Yak last judged
-     * it still outstanding and this round does not report it fixed or withdrawn.
-     * Independent of what the reviewer chose to report.
+     * finding is closed only when Yak recorded it as fixed or withdrawn, or this
+     * round's review reports it so. A resolved GitHub thread proves nothing: the
+     * pull request author can resolve threads. Independent of what the reviewer
+     * chose to report.
      *
      * @param  array<string, mixed>  $metadata
      * @return list<string>
      */
-    private function earlierFindingReasons(Repository $repository, ParsedReview $review, array $metadata, AppService $github): array
+    private function earlierFindingReasons(ParsedReview $review, array $metadata): array
     {
         $prUrl = (string) ($metadata['pr_url'] ?? '');
         if ($prUrl === '') {
-            return ['Could not verify earlier findings on GitHub.'];
+            return ['Could not verify earlier findings.'];
+        }
+
+        $closedStatuses = [ParsedPriorFinding::STATUS_FIXED, ParsedPriorFinding::STATUS_WITHDRAWN];
+        $reportedClosed = [];
+        foreach ($review->priorFindings as $prior) {
+            if (in_array($prior->status, $closedStatuses, true)) {
+                $reportedClosed[$prior->commentId] = true;
+            }
         }
 
         $comments = PrReviewComment::query()
             ->whereHas('review', fn ($query) => $query->where('pr_url', $prUrl))
             ->get(['github_comment_id', 'resolution_status']);
-        if ($comments->isEmpty()) {
-            return [];
-        }
-
-        try {
-            $threads = $github->listReviewThreads(
-                (int) config('yak.channels.github.installation_id'),
-                $repository->github_full_name,
-                (int) ($metadata['pr_number'] ?? 0),
-            );
-        } catch (\Throwable) {
-            return ['Could not verify earlier findings on GitHub.'];
-        }
-
-        $reportedClosed = [];
-        foreach ($review->priorFindings as $prior) {
-            if (in_array($prior->status, [ParsedPriorFinding::STATUS_FIXED, ParsedPriorFinding::STATUS_WITHDRAWN], true)) {
-                $reportedClosed[$prior->commentId] = true;
-            }
-        }
-        $resolvedThreads = [];
-        foreach ($threads as $thread) {
-            foreach ($thread['comment_database_ids'] as $commentId) {
-                $resolvedThreads[(int) $commentId] = (bool) $thread['is_resolved'];
-            }
-        }
-
         foreach ($comments as $comment) {
-            $commentId = (int) $comment->github_comment_id;
-            $isResolved = $resolvedThreads[$commentId] ?? false;
-            $isStillOutstanding = $comment->resolution_status === ParsedPriorFinding::STATUS_STILL_OUTSTANDING && ! isset($reportedClosed[$commentId]);
-            if (! $isResolved || $isStillOutstanding) {
+            $isClosed = in_array($comment->resolution_status, $closedStatuses, true)
+                || isset($reportedClosed[(int) $comment->github_comment_id]);
+            if (! $isClosed) {
                 return ['An earlier Yak finding is still open.'];
             }
         }

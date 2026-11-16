@@ -14,7 +14,11 @@ class ApprovalFloor
      */
     public static function heldPaths(array $files): array
     {
-        $patterns = config('yak.pr_review.approval_veto_paths');
+        $patterns = array_merge(
+            (array) config('yak.pr_review.approval_veto_paths', []),
+            (array) config('yak.pr_review.approval_blocked_paths', []),
+            (array) config('yak.pr_review.config_floor_paths', []),
+        );
         $held = [];
 
         foreach ($files as $file) {
