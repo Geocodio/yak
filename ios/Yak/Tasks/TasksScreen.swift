@@ -27,7 +27,6 @@ struct TasksScreen: View {
             .accessibilityIdentifier("tasks.list")
             .task {
                 await model.start()
-                await model.reload()
             }
     }
 
@@ -188,9 +187,15 @@ struct TasksScreen: View {
     private var filterMenu: some View {
         Menu {
             Menu("tasks.filter.status") {
-                ForEach(["running", "awaiting_co_owner", "awaiting_clarification", "success", "failed"], id: \.self) {
-                    status in
-                    Button(status.replacingOccurrences(of: "_", with: " ")) {
+                ForEach(
+                    [
+                        ("running", "tasks.filter.status.running" as LocalizedStringKey),
+                        ("awaiting_co_owner", "tasks.filter.status.awaitingCoOwner"),
+                        ("awaiting_clarification", "tasks.filter.status.awaitingClarification"),
+                        ("success", "tasks.filter.status.success"), ("failed", "tasks.filter.status.failed"),
+                    ], id: \.0
+                ) { status, title in
+                    Button(title) {
                         var next = model.query
                         next.status = TaskStatus(rawValue: status)
                         model.query = next
@@ -220,8 +225,14 @@ struct TasksScreen: View {
                 }
             }
             Menu("tasks.filter.pullRequest") {
-                ForEach(["open", "merged", "closed", "none"], id: \.self) { state in
-                    Button(state) {
+                ForEach(
+                    [
+                        ("open", "tasks.filter.pullRequest.open" as LocalizedStringKey),
+                        ("merged", "tasks.filter.pullRequest.merged"), ("closed", "tasks.filter.pullRequest.closed"),
+                        ("none", "tasks.filter.pullRequest.none"),
+                    ], id: \.0
+                ) { state, title in
+                    Button(title) {
                         var next = model.query
                         next.pullRequest = state
                         model.query = next

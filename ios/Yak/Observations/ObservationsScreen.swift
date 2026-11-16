@@ -30,7 +30,6 @@ struct ObservationsScreen: View {
             .accessibilityIdentifier("observations.list")
             .task {
                 await model.start()
-                await model.reload()
             }
     }
 
