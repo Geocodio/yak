@@ -98,6 +98,38 @@ import XCTest
         try shoot("files-offline")
     }
 
+    func testFilesNotSaved() throws {
+        try openFiles("changes")
+        XCTAssertTrue(label("retry(3)").waitForExistence(timeout: 15))
+        try stub.setOnline(false)
+        goToFile(3)
+        XCTAssertTrue(element("files.page.notSaved").waitForExistence(timeout: 30))
+        try shoot("files-not-saved")
+    }
+
+    func testFilesWorking() throws {
+        try openFiles("changes-working")
+        XCTAssertTrue(label("Yak is still working").waitForExistence(timeout: 15))
+        try shoot("files-working")
+        let ended = NSPredicate(format: "NOT (label CONTAINS %@)", "Yak is still working")
+        let banner = element("files.banner")
+        wait(for: [XCTNSPredicateExpectation(predicate: ended, object: banner)], timeout: 20)
+        try shoot("files-updated")
+    }
+
+    func testFilesGone() throws {
+        try openFiles("changes-gone")
+        goToFile(3)
+        XCTAssertTrue(label("no longer in the changes").waitForExistence(timeout: 15))
+        try shoot("files-gone")
+    }
+
+    func testFilesDuo() throws {
+        try openFiles("changes")
+        XCTAssertTrue(label("retry(3)").waitForExistence(timeout: 15))
+        try shoot("files-duo")
+    }
+
     func testFilesList() throws {
         try openFiles("changes")
         XCTAssertTrue(element("files.list").waitForExistence(timeout: 15))
@@ -154,6 +186,21 @@ import XCTest
         try shoot("open-pr-disabled")
     }
 
+    func testOpenPullRequestReadOnly() throws {
+        try start("thread-states", paired: true)
+        if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        var components = URLComponents()
+        components.scheme = "yak"
+        components.host = "thread"
+        components.queryItems = [URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: "readc0py")]
+        app.open(try XCTUnwrap(components.url))
+        XCTAssertTrue(element("composer.unavailable").waitForExistence(timeout: 15))
+        showFiles()
+        XCTAssertTrue(element("files.openPullRequest").waitForExistence(timeout: 10))
+        XCTAssertFalse(element("files.openPullRequest").isEnabled)
+        try shoot("open-pr-read-only")
+    }
+
     // MARK: Pull request card
 
     private func openCard(_ scenario: String = "pull-request-open") throws {
@@ -177,6 +224,16 @@ import XCTest
         fix.tap()
         XCTAssertTrue(label("Yak is on it").waitForExistence(timeout: 10))
         try shoot("pr-card-fixing")
+    }
+
+    func testPullRequestCardLoading() throws {
+        try openFiles("pull-request-slow")
+        let button = element("files.openPullRequest")
+        XCTAssertTrue(button.waitForExistence(timeout: 15))
+        button.tap()
+        XCTAssertTrue(element("pullRequest.loading").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 1)
+        try shoot("pr-card-loading")
     }
 
     func testPullRequestCardOffline() throws {
