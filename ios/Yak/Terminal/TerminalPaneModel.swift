@@ -30,6 +30,9 @@ final class TerminalPaneModel {
     var control = ControlLatch()
     /// The list of shells opened from the banner when there are too many.
     var isShowingShells = false
+    /// The connected shell waiting for the person to confirm closing it; the shell menu and Command W share it.
+    var closingShell: ShellEntry?
+    private(set) var isOpening = false
 
     @ObservationIgnored private(set) var open: [UUID: Shell] = [:]
     @ObservationIgnored private let thread: ThreadModel
@@ -101,17 +104,27 @@ final class TerminalPaneModel {
         isStarted = false
         resizeTask?.cancel()
         flushTask?.cancel()
+        flushTask = nil
         endBackgroundTask()
         for id in Array(open.keys) { await close(id) }
     }
 
     /// A new shell, named and focused. Nothing happens at the maximum or while another is still opening.
     func newShell() async {
-        guard canDrive, shells.canAdd, !isOpeningAShell else { return }
+        guard canDrive, shells.canAdd, !isOpening, !isOpeningAShell else { return }
         await openShell()
     }
 
     func closeShell(_ id: UUID) async { await close(id) }
+
+    /// A shell that is not connected closes without asking; a connected one stops what runs in it, so it asks first.
+    func requestClose(_ entry: ShellEntry) {
+        if snapshots[entry.id]?.phase == .connected {
+            closingShell = entry
+        } else {
+            Task { await close(entry.id) }
+        }
+    }
 
     func focus(_ id: UUID) {
         isSurfaceFocused = false
@@ -152,7 +165,7 @@ final class TerminalPaneModel {
         case .background:
             guard backgroundTask == .invalid, !open.isEmpty else { return }
             backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "terminal") { [weak self] in
-                Task { @MainActor in await self?.suspendAll() }
+                MainActor.assumeIsolated { self?.backgroundTimeExpired() }
             }
         case .active:
             endBackgroundTask()
@@ -166,8 +179,13 @@ final class TerminalPaneModel {
         for shell in open.values { await shell.connection.networkChanged(isOnline: isOnline) }
     }
 
-    private func suspendAll() async {
-        for shell in open.values { await shell.connection.suspend() }
+    /// Runs inside the expiration handler: each suspend starts without being awaited and the background task ends
+    /// before the handler returns, as UIKit requires.
+    func backgroundTimeExpired() {
+        for shell in open.values {
+            let connection = shell.connection
+            Task { await connection.suspend() }
+        }
         endBackgroundTask()
     }
 
@@ -240,6 +258,8 @@ final class TerminalPaneModel {
     }
 
     private func openShell() async {
+        isOpening = true
+        defer { isOpening = false }
         guard let facts, let connection = await makeConnection(facts.sandboxState) else { return }
         let id = UUID()
         guard shells.add(id: id, hasPreviewPort: facts.preview?.port != nil) != nil else {
@@ -290,7 +310,7 @@ final class TerminalPaneModel {
     // MARK: Output
 
     /// Bytes are gathered and handed to the surface at most once per display frame.
-    private func receive(_ output: TerminalOutput, from id: UUID) {
+    func receive(_ output: TerminalOutput, from id: UUID) {
         switch output {
         case .bytes(let data):
             pendingOutput[id, default: Data()].append(data)
@@ -305,7 +325,10 @@ final class TerminalPaneModel {
     private func scheduleFlush() {
         guard flushTask == nil else { return }
         flushTask = Task { [weak self] in
-            do { try await Task.sleep(for: .milliseconds(16)) } catch { return }
+            do { try await Task.sleep(for: .milliseconds(16)) } catch {
+                self?.flushTask = nil
+                return
+            }
             self?.flush()
         }
     }

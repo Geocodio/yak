@@ -83,6 +83,18 @@ struct TerminalPane: View {
                 }
             }
         }
+        .confirmationDialog(
+            Text("terminal.shells.confirm \(model.closingShell?.title ?? "")"),
+            isPresented: Binding(get: { model.closingShell != nil }, set: { if !$0 { model.closingShell = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("terminal.shells.closeShell", role: .destructive) {
+                if let closing = model.closingShell { Task { await model.closeShell(closing.id) } }
+                model.closingShell = nil
+            }
+        } message: {
+            Text("terminal.shells.confirmDetail")
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("terminal")
     }
@@ -111,8 +123,8 @@ struct TerminalPane: View {
 
     /// Command W closes the focused shell; it is only live while the pane is shown.
     @ViewBuilder private var closeShortcut: some View {
-        if isShown, let id = model.focusedID {
-            Button("terminal.shells.closeShell") { Task { await model.closeShell(id) } }
+        if isShown, let entry = model.shells.shells.first(where: { $0.id == model.focusedID }) {
+            Button("terminal.shells.closeShell") { model.requestClose(entry) }
                 .yakShortcut(.closeShell).frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
         }
     }

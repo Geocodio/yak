@@ -4,7 +4,6 @@ import YakKit
 /// The shell counter and the menu above it: one row per shell, a close action per row and New shell.
 struct ShellMenu: View {
     let model: TerminalPaneModel
-    @State private var closing: ShellEntry?
 
     var body: some View {
         Menu {
@@ -23,7 +22,7 @@ struct ShellMenu: View {
             Divider()
             ForEach(model.shells.shells) { entry in
                 Button(role: .destructive) {
-                    requestClose(entry)
+                    model.requestClose(entry)
                 } label: {
                     Label("terminal.shells.close \(entry.title)", systemImage: "xmark")
                 }
@@ -40,32 +39,11 @@ struct ShellMenu: View {
             .accessibilityIdentifier("terminal.shells.new")
         } label: {
             Text(model.shells.shells.count, format: .number).font(.subheadline.weight(.semibold).monospacedDigit())
-                .frame(minWidth: 40, minHeight: 44)
+                .frame(minWidth: 44, minHeight: 44)
                 .background(Color.primary.opacity(0.1), in: .rect(cornerRadius: 12))
                 .contentShape(.rect)
         }
         .accessibilityLabel("terminal.shells.label \(model.shells.shells.count)")
         .accessibilityIdentifier("terminal.key.shells")
-        .confirmationDialog(
-            Text("terminal.shells.confirm \(closing?.title ?? "")"),
-            isPresented: Binding(get: { closing != nil }, set: { if !$0 { closing = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button("terminal.shells.closeShell", role: .destructive) {
-                if let closing { Task { await model.closeShell(closing.id) } }
-                closing = nil
-            }
-        } message: {
-            Text("terminal.shells.confirmDetail")
-        }
-    }
-
-    /// A shell that is not connected closes without asking; a connected one stops what runs in it.
-    private func requestClose(_ entry: ShellEntry) {
-        if model.snapshots[entry.id]?.phase == .connected {
-            closing = entry
-        } else {
-            Task { await model.closeShell(entry.id) }
-        }
     }
 }
