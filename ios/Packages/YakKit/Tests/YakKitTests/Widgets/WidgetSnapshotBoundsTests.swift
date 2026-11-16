@@ -31,6 +31,13 @@ struct WidgetSnapshotBoundsTests {
         #expect(WidgetText.countLabel(100) == "99+" && WidgetText.countLabel(Int.max) == "99+")
     }
 
+    @Test func formatCharactersAndCombiningFloodsAreBounded() {
+        #expect(WidgetText.bounded("a\u{202E}b\u{2066}c\u{200B}d", limit: 200) == "abcd")
+        let flood = "e" + String(repeating: "\u{0301}", count: 100_000)
+        #expect(WidgetText.bounded(flood, limit: 200).unicodeScalars.count <= 200 * 4)
+        #expect(WidgetText.bounded(String(repeating: flood, count: 5), limit: 200).unicodeScalars.count <= 200 * 4)
+    }
+
     @Test func aPrivateStepNeverReachesTheSnapshot() throws {
         let snapshot = WidgetSnapshot.make(
             from: try decoded(ThreadList.self, "scenario-widgets-thread-list-busy"), instanceName: "Example Yak",

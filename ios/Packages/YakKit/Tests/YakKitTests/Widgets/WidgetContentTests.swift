@@ -105,6 +105,14 @@ struct WidgetContentTests {
         #expect(row.detail == nil && row.reason == .unseen)
     }
 
+    @Test func countsFromAnUntrustedSnapshotAreClamped() {
+        let many = (0..<20).map { item("bbbbbb\(String(format: "%02d", $0))") }
+        let content = running(custom(running: many), .small)
+        #expect(content.countLabel == "8+" && content.count == WidgetSnapshot.itemLimit)
+        let loud = needsYou(custom(needsYou: [item("aaaaaaa1")], count: 5_000_000), .small)
+        #expect(loud.count == WidgetText.countLimit && loud.countLabel == "99+")
+    }
+
     @Test func runningCountsAndSteps() throws {
         let content = running(try snapshot("scenario-widgets-thread-list-busy"), .medium)
         #expect(content.countLabel == "8+" && content.count == 8 && content.rows.count == 3)

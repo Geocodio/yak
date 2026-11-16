@@ -62,7 +62,7 @@ struct WidgetContentParts {
         let items = running ? snapshot.running : snapshot.needsYou
         let wanted = size == .medium ? 3 : 1
         let rows = items.lazy.compactMap { row($0, instance: instance, running: running) }.prefix(wanted)
-        let count = running ? items.count : snapshot.needsYouCount
+        let count = running ? min(items.count, WidgetSnapshot.itemLimit) : WidgetText.clamped(snapshot.needsYouCount)
         return WidgetContentParts(
             state: state, instanceName: snapshot.instanceName, count: count, rows: Array(rows),
             updatedAt: snapshot.updatedAt, isStale: now.timeIntervalSince(snapshot.updatedAt) > staleAfter)
@@ -71,9 +71,7 @@ struct WidgetContentParts {
     static func row(_ item: WidgetItem, instance: Instance?, running: Bool) -> WidgetRowContent? {
         guard let link = link(for: item, instance: instance) else { return nil }
         let title: WidgetRowTitle
-        if item.isPrivate || item.title == nil {
-            title = .privateThread
-        } else if let text = item.title {
+        if !item.isPrivate, let text = item.title {
             title = item.kind == .task ? .task(text) : .text(text)
         } else {
             title = .privateThread

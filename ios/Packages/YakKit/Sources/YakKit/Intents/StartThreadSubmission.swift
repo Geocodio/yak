@@ -93,7 +93,7 @@ public struct StartThreadSubmission: Sendable {
         let draft = OutboxDraft(
             target: .newThread(NewThreadDraft(repo: request.repo, mode: request.mode)), text: text,
             delivery: .afterTurn)
-        let inboxPath = "\(OutboxInbox.folder(target.id))/\(id.uuidString).json"
+        let inboxPath = OutboxInbox.itemPath(instance: target.id, id: id)
         do {
             try OutboxInbox.add(
                 draft, instance: target.id, files: environment.files, id: id, now: environment.clock.now())

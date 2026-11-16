@@ -268,30 +268,40 @@ public struct WidgetPushRegistration: Sendable {
     }
 
     private func deviceToken() -> String? {
+        guard let file = loadFile(WidgetPushTokenFile.self, at: InstanceFolders.widgetPushToken, what: "token file")
+        else { return nil }
+        return Self.isValid(file.token) ? file.token : nil
+    }
+
+    private func loadRecord(_ id: UUID) -> WidgetPushRecord? {
+        loadFile(WidgetPushRecord.self, at: InstanceFolders.widgetPushRecord(id), what: "record")
+    }
+
+    /// A file that is too large or does not decode counts as missing and is removed.
+    private func loadFile<Value: Decodable>(_ type: Value.Type, at path: String, what: String) -> Value? {
+        let data: Data
         do {
-            guard
-                let data = try environment.files.read(
-                    InstanceFolders.widgetPushToken, maximumBytes: Self.maximumFileBytes)
-            else { return nil }
-            let token = try JSONDecoder().decode(WidgetPushTokenFile.self, from: data).token
-            return Self.isValid(token) ? token : nil
+            guard let found = try environment.files.read(path, maximumBytes: Self.maximumFileBytes) else { return nil }
+            data = found
+        } catch FileStoreError.tooLarge {
+            logFailure("widget push \(what) too large")
+            remove(path)
+            return nil
         } catch {
-            logFailure("widget token file unreadable: \(type(of: error))")
+            logFailure("widget push \(what) unreadable: \(Swift.type(of: error))")
+            return nil
+        }
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            logFailure("widget push \(what) not decodable")
+            remove(path)
             return nil
         }
     }
 
-    private func loadRecord(_ id: UUID) -> WidgetPushRecord? {
-        do {
-            guard
-                let data = try environment.files.read(
-                    InstanceFolders.widgetPushRecord(id), maximumBytes: Self.maximumFileBytes)
-            else { return nil }
-            return try JSONDecoder().decode(WidgetPushRecord.self, from: data)
-        } catch {
-            logFailure("widget push record unreadable: \(type(of: error))")
-            return nil
-        }
+    private func remove(_ path: String) {
+        do { try environment.files.remove(path) } catch { logFailure("widget push file not removed") }
     }
 
     private func save(_ record: WidgetPushRecord?, for id: UUID) {

@@ -159,17 +159,8 @@ public actor Cache {
     /// The thread opened most recently, which is not always the newest index entry: saving a thread touches it too.
     /// Nil when none, or when the file is larger than 1 KB or holds an id that is not a plain id.
     public func lastOpenedThreadID() -> String? {
-        let data: Data
-        do {
-            guard let found = try files.read(lastOpenedPath, maximumBytes: 1024) else { return nil }
-            data = found
-        } catch {
-            logFailure("last opened read failed: \(Swift.type(of: error))")
-            return nil
-        }
-        guard let id = (try? decoder.decode(LastOpened.self, from: data))?.id, LastOpened.isPlainID(id) else {
-            return nil
-        }
+        guard let id = load(LastOpened.self, at: lastOpenedPath, maximumBytes: 1024)?.id, LastOpened.isPlainID(id)
+        else { return nil }
         return id
     }
 

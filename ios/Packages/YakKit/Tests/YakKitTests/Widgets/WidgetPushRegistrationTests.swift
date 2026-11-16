@@ -269,11 +269,23 @@ private final class PerHostBehaviour: @unchecked Sendable {
         let statuses = await registration.registerPending(budget: .seconds(8))
         #expect(statuses[rig.instances[0].id] == .pending)
         #expect(await transport.requests.isEmpty)
+        #expect(try rig.files.read(InstanceFolders.widgetPushToken) == nil)
 
         await transport.on(route, noContent)
         try rig.files.write(
             Data(#"{"token":"\#(token)"}"#.utf8), to: InstanceFolders.widgetPushToken, protection: .untilFirstUnlock)
         let after = await registration.registerPending(budget: .seconds(8))
         #expect(after[rig.instances[0].id] == .registered)
+    }
+
+    @Test func undecodableFilesAreRemoved() async throws {
+        let (rig, transport) = try await makeRig()
+        let junk = Data("not json".utf8)
+        try rig.files.write(junk, to: InstanceFolders.widgetPushToken, protection: .untilFirstUnlock)
+        try rig.files.write(
+            junk, to: InstanceFolders.widgetPushRecord(rig.instances[0].id), protection: .untilFirstUnlock)
+        _ = await rig.registration().registerPending(budget: .seconds(8))
+        #expect(try rig.files.read(InstanceFolders.widgetPushToken) == nil)
+        #expect(await transport.requests.isEmpty)
     }
 }

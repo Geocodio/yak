@@ -7,14 +7,18 @@ public enum WidgetText {
     public static let instanceNameLimit = 60
     public static let countLimit = 9999
 
-    /// Line breaks, tabs and other control characters become one space, runs of spaces become one, the ends are
-    /// trimmed, and the result is cut to `limit` characters with "…" as the last one when it was longer.
+    /// Line breaks, tabs and other control characters become one space, runs of spaces become one, format characters
+    /// (direction overrides, zero-width marks) are dropped, the ends are trimmed, the result holds at most
+    /// `limit * 4` unicode scalars, and it is cut to `limit` characters with "…" as the last one when it was longer.
     public static func bounded(_ text: String, limit: Int) -> String {
         var flattened = String.UnicodeScalarView()
-        flattened.reserveCapacity(min(text.unicodeScalars.count, limit * 4))
+        let scalarLimit = max(limit, 0) * 4
         var previousWasSpace = true
         for scalar in text.unicodeScalars {
+            if flattened.count >= scalarLimit { break }
             switch scalar.properties.generalCategory {
+            case .format:
+                continue
             case .control, .lineSeparator, .paragraphSeparator, .spaceSeparator:
                 if !previousWasSpace { flattened.append(" ") }
                 previousWasSpace = true

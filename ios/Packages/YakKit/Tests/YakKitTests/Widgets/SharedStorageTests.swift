@@ -102,8 +102,10 @@ struct SharedStorageTests {
         try files.write(
             Data(#"{"id": "\#(String(repeating: "a", count: 2048))"}"#.utf8), to: path, protection: .untilFirstUnlock)
         #expect(await cache.lastOpenedThreadID() == nil)
+        #expect(try files.read(path) == nil)
         try files.write(Data("not json".utf8), to: path, protection: .untilFirstUnlock)
         #expect(await cache.lastOpenedThreadID() == nil)
+        #expect(try files.read(path) == nil)
     }
 
     @Test func widgetPathsLiveInTheCacheOrTheRoot() async throws {
