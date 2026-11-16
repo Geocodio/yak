@@ -125,6 +125,28 @@ import XCTest
         try audit()
     }
 
+    func testSharingWithEveryoneUpdatesThePeopleRow() throws {
+        try launch(scenario: "overview-private")
+        openThread("s7ackr00")
+        let title = app.descendants(matching: .any)["thread.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 15))
+        title.tap()
+        XCTAssertTrue(app.staticTexts["Shared with 1 person"].waitForExistence(timeout: 15))
+        let change = app.buttons["overview.share"]
+        for _ in 0..<6 where !change.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
+        change.tap()
+        let everyone = app.buttons["share.mode.everyone"]
+        XCTAssertTrue(everyone.waitForExistence(timeout: 10))
+        everyone.tap()
+        app.buttons["share.save"].tap()
+        let gone = NSPredicate(format: "exists == false")
+        wait(for: [XCTNSPredicateExpectation(predicate: gone, object: everyone)], timeout: 15)
+        XCTAssertTrue(app.staticTexts["Shared with the team"].waitForExistence(timeout: 10))
+        // The audit judges what is on screen, so the page goes back to the top where no row is cut by the bar.
+        for _ in 0..<4 { app.descendants(matching: .any)["overview"].swipeDown() }
+        try audit()
+    }
+
     /// Gives the drawer's prefetch a moment, since the menu offers actions only from a fetched stack.
     private func sleepForStack() {
         let settle = XCTestExpectation(description: "stack")

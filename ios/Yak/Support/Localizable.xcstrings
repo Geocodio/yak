@@ -3092,6 +3092,216 @@
         }
       }
     },
+    "share.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who can read this thread"
+          }
+        }
+      }
+    },
+    "share.save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share"
+          }
+        }
+      }
+    },
+    "share.mode.onlyMe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only me"
+          }
+        }
+      }
+    },
+    "share.mode.onlyMe.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nobody else can see this thread, its changes or its details."
+          }
+        }
+      }
+    },
+    "share.mode.people": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "People I pick"
+          }
+        }
+      }
+    },
+    "share.mode.people.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "They can read the whole conversation, the changes and the details."
+          }
+        }
+      }
+    },
+    "share.mode.everyone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everyone on the team"
+          }
+        }
+      }
+    },
+    "share.mode.everyone.detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone with a Yak account on this team can read it."
+          }
+        }
+      }
+    },
+    "share.owner": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Owner"
+          }
+        }
+      }
+    },
+    "share.search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search people"
+          }
+        }
+      }
+    },
+    "share.pickSomeone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick at least one person."
+          }
+        }
+      }
+    },
+    "share.never %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never shared: %@."
+          }
+        }
+      }
+    },
+    "share.nobody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nobody else has an account on this Yak yet."
+          }
+        }
+      }
+    },
+    "share.loadFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sharing settings could not be loaded."
+          }
+        }
+      }
+    },
+    "share.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are offline. Sharing loads when the connection returns."
+          }
+        }
+      }
+    },
+    "share.slow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is taking longer than usual"
+          }
+        }
+      }
+    },
+    "share.loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading the sharing settings"
+          }
+        }
+      }
+    },
+    "share.notSaved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not shared. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "overview.people.change": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change"
+          }
+        }
+      }
+    },
+    "overview.people.changeLabel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change who can read this thread"
+          }
+        }
+      }
+    },
+    "thread.menu.share": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share"
+          }
+        }
+      }
+    },
     "overview.child.open": {
       "localizations": {
         "en": {

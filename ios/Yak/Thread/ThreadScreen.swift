@@ -21,6 +21,7 @@ struct ThreadScreen: View {
     @State private var model: ThreadModel?
     @State private var copiedLink = 0
     @State private var isAddSubThreadOpen = false
+    @State private var isShareOpen = false
     @State private var slots = PaneSlots()
     /// The pane the title returns to when it leaves the Overview.
     @State private var paneBeforeOverview: PaneID = .chat
@@ -104,6 +105,9 @@ struct ThreadScreen: View {
                     scene.open(thread: $0, isCompactWidth: isCompactWidth)
                 }
             }
+            .sheet(isPresented: $isShareOpen) {
+                ShareSheet(session: session, threadID: threadID) { await model?.engine?.refreshShow() }
+            }
             .overlay(alignment: .top) { copiedToast }
             .background { shortcuts(focused) }
         }
@@ -177,6 +181,14 @@ struct ThreadScreen: View {
                     Label("thread.menu.addSubThread", systemImage: "arrow.triangle.branch")
                 }
                 .accessibilityIdentifier("thread.menu.addSubThread")
+            }
+            if thread.snapshot?.show?.thread.isOwner == true {
+                Button {
+                    isShareOpen = true
+                } label: {
+                    Label("thread.menu.share", systemImage: "person.2")
+                }
+                .accessibilityIdentifier("thread.menu.share")
             }
             PaneMenuItems(slots: slots, focused: shownPane)
             Button {

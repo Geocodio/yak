@@ -419,13 +419,22 @@ struct AccessGroupView: View {
 struct PeopleGroupView: View {
     let people: PeopleGroup
     let now: Date
+    /// Opens the share sheet; nil when the person is not the owner.
+    var onChange: (() -> Void)?
 
     var body: some View {
         OverviewGroupCard(kind: .people, title: "overview.group.people") {
             OverviewRow(title: visibilityText) {
                 if let line = startedByText { line }
             } trailing: {
-                EmptyView()
+                if people.canChangeSharing, let onChange {
+                    Button(action: onChange) {
+                        Text("overview.people.change").frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+                    }
+                    .buttonStyle(.plain).foregroundStyle(Color.accentColor)
+                    .accessibilityLabel(Text("overview.people.changeLabel"))
+                    .accessibilityIdentifier("overview.share")
+                }
             }
             .accessibilityIdentifier("overview.visibility")
             if let account = people.account {

@@ -170,7 +170,9 @@ final class StubOverview: StubFeature, @unchecked Sendable {
             }
         }
         var reply = performAction(action: action, id: id, scenario: scenario, request: request, context: context)
-        if scenario == "overview-slow", action == .stack || action == .environment { reply.delay = Self.slowDelay }
+        if scenario == "overview-slow", action == .stack || action == .environment || action == .share {
+            reply.delay = Self.slowDelay
+        }
         return reply
     }
 
@@ -376,12 +378,6 @@ final class StubOverview: StubFeature, @unchecked Sendable {
             change(&inner)
             show[key] = inner
         }
-        if let sent {
-            update("thread") {
-                $0["visibility"] = sent.mode == "everyone" ? "team" : "private"
-                $0["sharedWithCount"] = sent.mode == "people" ? sent.userIDs.count : 0
-            }
-        }
         switch scenario {
         case "overview-recipient":
             update("thread") {
@@ -399,6 +395,13 @@ final class StubOverview: StubFeature, @unchecked Sendable {
             }
         default:
             break
+        }
+        // What the owner saved wins over the scenario's starting visibility.
+        if let sent, scenario != "overview-recipient" {
+            update("thread") {
+                $0["visibility"] = sent.mode == "everyone" ? "team" : "private"
+                $0["sharedWithCount"] = sent.mode == "people" ? sent.userIDs.count : 0
+            }
         }
         return show
     }

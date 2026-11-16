@@ -57,6 +57,7 @@ private struct OverviewScroll: View {
     @State private var browserTarget: BrowserTarget?
     @State private var outputRow: RepositoryRow?
     @State private var isAddOpen = false
+    @State private var isShareOpen = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
@@ -79,7 +80,7 @@ private struct OverviewScroll: View {
                         retry: retry,
                         openThreads: openThreads)
                     AccessGroupView(access: content.access, model: model)
-                    PeopleGroupView(people: content.people, now: Date())
+                    PeopleGroupView(people: content.people, now: Date()) { isShareOpen = true }
                 }
             }
             .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 96)
@@ -91,6 +92,9 @@ private struct OverviewScroll: View {
             AddSubThreadSheet(session: thread.session, parentID: thread.threadID) {
                 scene.open(thread: $0, isCompactWidth: isCompact)
             }
+        }
+        .sheet(isPresented: $isShareOpen) {
+            ShareSheet(session: thread.session, threadID: thread.threadID) { await thread.engine?.refreshShow() }
         }
         .sheet(item: $outputRow) { SetupOutputSheet(row: $0).presentationDetents([.medium, .large]) }
     }

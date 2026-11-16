@@ -186,6 +186,64 @@ import XCTest
         XCTAssertTrue(app.textFields["addSubThread.name"].waitForExistence(timeout: 10))
     }
 
+    // MARK: Share sheet
+
+    func testShareSheet() throws {
+        try openShare("overview-private")
+        try shoot("share")
+    }
+
+    func testSharePeople() throws {
+        try openShare("overview-private")
+        XCTAssertTrue(app.buttons["share.person.7"].waitForExistence(timeout: 5))
+        try shoot("share-people")
+    }
+
+    func testShareNoOne() throws {
+        try openShare("overview-private")
+        let second = app.buttons["share.person.7"]
+        XCTAssertTrue(second.waitForExistence(timeout: 5))
+        second.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["share.pickSomeone"].waitForExistence(timeout: 5))
+        try shoot("share-pick-someone")
+    }
+
+    func testShareLoading() throws {
+        try openShare("overview-slow", waitsForForm: false)
+        XCTAssertTrue(app.descendants(matching: .any)["share.loading"].waitForExistence(timeout: 5))
+        try shoot("share-loading")
+    }
+
+    func testShareError() throws {
+        try openShare("overview-broken", waitsForForm: false)
+        XCTAssertTrue(app.descendants(matching: .any)["share.error"].waitForExistence(timeout: 30))
+        try shoot("share-error")
+    }
+
+    func testShareSaving() throws {
+        try openShare("overview-busy")
+        app.buttons["share.mode.everyone"].tap()
+        app.buttons["share.save"].tap()
+        // The first answers are the server's busy answer, so the sheet stays while the app retries.
+        pause(1)
+        try shoot("share-saving", audits: false)
+    }
+
+    private func openShare(_ scenario: String, waitsForForm: Bool = true) throws {
+        try openOverview(scenario)
+        let change = app.buttons["overview.share"]
+        XCTAssertTrue(change.waitForExistence(timeout: 20))
+        // A slow scenario adds rows above the button when its answers arrive, so a tap that missed is tried again.
+        let sheet = app.descendants(matching: .any)["share.sheet"]
+        for _ in 0..<3 where !sheet.exists {
+            for _ in 0..<6 where !change.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
+            change.tap()
+            _ = sheet.waitForExistence(timeout: 4)
+        }
+        XCTAssertTrue(sheet.exists)
+        if waitsForForm { XCTAssertTrue(app.buttons["share.mode.everyone"].waitForExistence(timeout: 15)) }
+    }
+
     // MARK: Drawer sub-threads
 
     func testDrawerChildMenu() throws {
