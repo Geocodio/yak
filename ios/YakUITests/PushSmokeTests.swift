@@ -88,10 +88,12 @@ import XCTest
         try stub.play("notifications-failing")
         let usage = app.switches["settings.switch.stack_usage"]
         XCTAssertTrue(usage.waitForExistence(timeout: 10))
+        let valueBefore = usage.value as? String
         usage.tap()
         XCTAssertTrue(
             app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Could not save'")).firstMatch
                 .waitForExistence(timeout: 10))
+        XCTAssertEqual(usage.value as? String, valueBefore, "the switch returns to its earlier value")
         try audit()
     }
 
