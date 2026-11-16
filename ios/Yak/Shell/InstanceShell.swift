@@ -120,7 +120,7 @@ struct InstanceShell: View {
                 initialTitle: listState?.list?.title(ofThread: threadID), instanceURL: instance.url,
                 needsYouCount: drawerModel?.needsYouCount ?? 0, isSessionActive: status == .active,
                 isCoveredByDrawer: isCompactWidth && drawerBinding.wrappedValue, isCompactWidth: isCompactWidth,
-                openWeb: { model.browserURL = $0 }
+                openWeb: { model.browserURL = $0 }, push: model.push
             )
             .id(threadID)
         } else {
@@ -177,6 +177,7 @@ struct InstanceShell: View {
         await drawer.setVisible(isListVisible)
         for await state in await feed.states() {
             listState = state
+            await model.push?.refreshBadge()
             await applyColdStartIfNeeded(state)
         }
         await drawer.setVisible(false)

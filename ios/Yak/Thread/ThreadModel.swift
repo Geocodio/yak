@@ -20,9 +20,16 @@ final class ThreadModel {
     /// Counts opens and closes, so an open that finishes after a stop closes its own engine again.
     private var generation = 0
 
-    init(threadID: String, session: InstanceSession) {
+    /// Told each time the thread starts or stops counting as seen, so a push for it can stay quiet.
+    private let onVisibilityChange: @MainActor (Bool) -> Void
+
+    init(
+        threadID: String, session: InstanceSession,
+        onVisibilityChange: @escaping @MainActor (Bool) -> Void = { _ in }
+    ) {
         self.threadID = threadID
         self.session = session
+        self.onVisibilityChange = onVisibilityChange
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }
@@ -46,11 +53,13 @@ final class ThreadModel {
     func stop() async {
         guard isStarted else { return }
         isStarted = false
+        onVisibilityChange(false)
         await close()
     }
 
     func setVisible(_ visible: Bool) async {
         isVisible = visible
+        onVisibilityChange(visible)
         await engine?.setVisible(visible)
     }
 

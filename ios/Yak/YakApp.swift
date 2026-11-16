@@ -7,6 +7,7 @@ import YakKit
 
 @main
 struct YakApp: App {
+    @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var delegate
     @State private var model: AppModel
     private let parts: AppParts
 
@@ -15,9 +16,9 @@ struct YakApp: App {
         let system = DeviceDescription.current().systemDescription
         #if DEBUG
             if let testMode = TestMode.current() {
-                let parts = AppParts.make(storage: nil, isTestMode: true)
-                self.parts = parts
-                _model = State(initialValue: testMode.makeModel(version: version, system: system, parts: parts))
+                let made = testMode.make(version: version, system: system)
+                self.parts = made.parts
+                _model = State(initialValue: made.model)
                 return
             }
         #endif
@@ -32,10 +33,16 @@ struct YakApp: App {
         }
         let tokens = storage?.tokens ?? KeychainTokenStore(accessGroup: nil)
         let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
-        let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() })
-        let parts = AppParts.make(storage: storage, isTestMode: false)
-        self.parts = parts
+        let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() }, build: PushBuild.current())
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
+        let environment: @Sendable () -> SessionEnvironment = {
+            .app(version: version, system: system, files: files, allowsInsecureRealtime: false)
+        }
+        let parts = AppParts.make(
+            storage: storage, isTestMode: false,
+            context: AppPartsContext(instances: instances, tokens: tokens, makeEnvironment: environment))
+        self.parts = parts
+        BackgroundRefresh.register(identifier: BackgroundRefresh.identifier) { parts.backgroundRefreshSteps }
         _model = State(
             initialValue: AppModel(
                 instances: instances, tokens: tokens,
@@ -44,16 +51,17 @@ struct YakApp: App {
                         baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
                         systemDescription: system)
                 },
-                makeEnvironment: {
-                    .app(version: version, system: system, files: files, allowsInsecureRealtime: false)
-                },
-                observers: parts.observers))
+                makeEnvironment: environment, observers: parts.observers, push: parts.push))
     }
 
     var body: some Scene {
         WindowGroup {
             RootView(model: model)
                 .appRoot(parts, model: model)
+                .task {
+                    delegate.attach(parts.push)
+                    await parts.push.start()
+                }
                 #if DEBUG
                     .preferredColorScheme(TestMode.colorScheme())
                 #endif

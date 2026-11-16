@@ -17,6 +17,8 @@ struct ThreadScreen: View {
     let isCoveredByDrawer: Bool
     let isCompactWidth: Bool
     let openWeb: (URL) -> Void
+    /// Push stays quiet for the thread while it shows.
+    var push: PushController?
 
     @State private var model: ThreadModel?
     @State private var copiedLink = 0
@@ -51,7 +53,11 @@ struct ThreadScreen: View {
 
     /// Keeps one model per thread while the screen shows it, and stops it when the thread changes or the screen goes.
     private func run() async {
-        let next = ThreadModel(threadID: threadID, session: session)
+        let next = ThreadModel(
+            threadID: threadID, session: session,
+            onVisibilityChange: { [push, instanceURL, threadID] isVisible in
+                push?.setVisible(thread: threadID, instance: instanceURL, isVisible: isVisible)
+            })
         model = next
         guard isSessionActive else { return }
         await next.start(initialTitle: initialTitle)

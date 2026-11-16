@@ -102,7 +102,7 @@ public enum InstanceMatch {
 
     /// An exact paired-address match wins over a canonical one, so one instance's reported address
     /// never captures another paired instance's pushes.
-    static func instance(forNormalized address: URL, in instances: [Instance]) -> Instance? {
+    public static func instance(forNormalized address: URL, in instances: [Instance]) -> Instance? {
         instances.first { $0.url == address } ?? instances.first { $0.canonicalURL == address }
     }
 

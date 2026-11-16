@@ -36,10 +36,21 @@
             }
         }
 
-        @MainActor func makeModel(version: String, system: String, parts: AppParts) -> AppModel {
+        @MainActor func make(version: String, system: String) -> (model: AppModel, parts: AppParts) {
             let lockable = LockableTokenStore()
-            let instances = InstanceStore(defaults: MemoryDefaults(), tokens: lockable, now: { Date() })
+            let instances = InstanceStore(
+                defaults: MemoryDefaults(), tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
+            let environment: @Sendable () -> SessionEnvironment = {
+                .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
+            }
+            let doubles = Self.makePushDoubles()
+            let parts = AppParts.make(
+                storage: nil, isTestMode: true,
+                context: AppPartsContext(
+                    instances: instances, tokens: lockable, makeEnvironment: environment,
+                    permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize))
+            doubles.permission.controller = parts.push
             let model = AppModel(
                 instances: instances, tokens: lockable,
                 makeClient: { url in
@@ -48,9 +59,7 @@
                         systemDescription: system)
                 },
                 normalizeAddress: Self.normalize, parseLink: Self.parse, normalizeLinkAddress: Self.normalize,
-                makeEnvironment: {
-                    .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
-                },
+                makeEnvironment: environment,
                 prepare: { instances in
                     if let token = seed.token {
                         do {
@@ -66,9 +75,9 @@
                     if seed.isKeychainLocked { lockable.lockReads() }
                 },
                 network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }),
-                observers: parts.observers)
+                observers: parts.observers, push: parts.push)
             model.skipsWebSession = skipsWebSession
-            return model
+            return (model, parts)
         }
 
         /// Reads `GET /__stub/online`; a stub that cannot be reached counts as online, so a stopped stub is not "offline".

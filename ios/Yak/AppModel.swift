@@ -57,6 +57,8 @@ final class AppModel {
     private var prepare: (@Sendable (InstanceStore) async -> Void)?
     let network: NetworkMonitor
     private let observers: InstanceObservers
+    /// Push: the badge and the foreground rule. Nil in unit tests that do not need it.
+    let push: PushController?
     /// How many sheets are open. The pairing link screen is presented by the topmost one, because a screen
     /// cannot present over a sheet that its own parent presented.
     var openSheetCount = 0
@@ -74,8 +76,10 @@ final class AppModel {
         prepare: (@Sendable (InstanceStore) async -> Void)? = nil,
         network: NetworkMonitor = NetworkMonitor(),
         observers: [any InstanceLifecycleObserver] = [],
-        observerTimeout: Duration = .seconds(5)
+        observerTimeout: Duration = .seconds(5),
+        push: PushController? = nil
     ) {
+        self.push = push
         self.observers = InstanceObservers(observers: observers, timeout: observerTimeout)
         self.network = network
         self.normalizeAddress = normalizeAddress
@@ -255,8 +259,9 @@ final class AppModel {
             let me = try await makeClient(instance.url).authenticated(token: token).send(.me())
             try await instances.update(instance.id, from: me)
             show(.idle)
-            if !isBackground, let updated = await instances.all().first(where: { $0.id == instance.id }) {
-                route = .signedIn(updated)
+            if let updated = await instances.all().first(where: { $0.id == instance.id }) {
+                if !isBackground { route = .signedIn(updated) }
+                await observers.refreshed(updated)
             }
         } catch let failure as APIFailure {
             switch failure {
@@ -272,8 +277,14 @@ final class AppModel {
         }
     }
 
+    /// The person removes an instance: the parts that registered something tell the server first, then the session
+    /// tells the server this device is gone and erases every local copy.
     func remove(_ instance: Instance) async {
-        do { try await instances.remove(instance.id) } catch { logFailure("Removing an instance failed") }
+        await observers.willRemove(instance, removalTimeout: Self.removalTimeout)
+        await sessions.session(for: instance).unpair()
+        if await instances.all().contains(where: { $0.id == instance.id }) {
+            do { try await instances.remove(instance.id) } catch { logFailure("Removing an instance failed") }
+        }
         refreshState = .idle
         wantsScanner = false
         await reloadRoute()
@@ -286,6 +297,9 @@ final class AppModel {
         await reloadRoute()
         await observers.removed(instance, reason: .revoked)
     }
+
+    /// Five seconds for the token deletions and a second of margin.
+    static let removalTimeout: Duration = .seconds(6)
 
     private func logFailure(_ message: String) {
         #if canImport(os)

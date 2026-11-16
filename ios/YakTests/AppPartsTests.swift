@@ -1,18 +1,30 @@
 import Foundation
 import Testing
+import YakKit
 
 @testable import Yak
 
 @MainActor @Suite struct AppPartsTests {
-    @Test func emptyPartsHaveNoObservers() {
-        let parts = AppParts.make(storage: nil, isTestMode: false)
-        #expect(parts.observers.isEmpty)
+    private func context() -> AppPartsContext {
+        let tokens = InMemoryTokenStore()
+        let instances = InstanceStore(defaults: PushMemoryDefaults(), tokens: tokens, now: { Date() })
+        return AppPartsContext(
+            instances: instances, tokens: tokens,
+            makeEnvironment: {
+                .app(version: "0.0.0", system: "Unit test", files: InMemoryFileStore(), allowsInsecureRealtime: false)
+            })
+    }
+
+    @Test func pushIsTheOnlyObserverOfAFreshApp() {
+        let parts = AppParts.make(storage: nil, isTestMode: false, context: context())
+        #expect(parts.observers.count == 1)
+        #expect(parts.observers.first is PushController)
         #expect(parts.storage == nil)
     }
 
     @Test func testModeAndReleaseBuildTheSameParts() {
-        let release = AppParts.make(storage: nil, isTestMode: false)
-        let test = AppParts.make(storage: nil, isTestMode: true)
+        let release = AppParts.make(storage: nil, isTestMode: false, context: context())
+        let test = AppParts.make(storage: nil, isTestMode: true, context: context())
         #expect(release.partTypeNames == test.partTypeNames)
     }
 }
