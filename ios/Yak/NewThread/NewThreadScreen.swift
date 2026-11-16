@@ -82,6 +82,7 @@ private struct NewThreadContent: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     private var scrollsBottom: Bool { dynamicTypeSize.isAccessibilitySize || verticalSizeClass == .compact }
+    private var keyboardClearance: CGFloat { 56 }
     private var hasNoRepositories: Bool { model.load == .ready && model.options?.repos.isEmpty == true }
     private var isOffline: Bool { !app.network.isOnline || model.isOffline }
 
@@ -93,7 +94,11 @@ private struct NewThreadContent: View {
                         header
                         middle
                         // At accessibility sizes and in a short window the bar is taller than the room, so it scrolls with the content.
-                        if scrollsBottom, !hasNoRepositories { bottom.id(Self.barID) }
+                        if scrollsBottom, !hasNoRepositories {
+                            bottom
+                            // The keyboard inset of a short window reaches the content late, so the field keeps room above it.
+                            Color.clear.frame(height: isFieldFocused ? keyboardClearance : 0).id(Self.barID)
+                        }
                     }
                     .frame(maxWidth: 560).frame(maxWidth: .infinity)
                     .padding(.horizontal, 24).padding(.top, 32).padding(.bottom, 16)
