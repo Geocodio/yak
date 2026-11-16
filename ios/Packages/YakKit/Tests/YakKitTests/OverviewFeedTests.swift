@@ -295,3 +295,21 @@ private struct FeedRig {
     await rig.settle()
     #expect(await rig.requestCounts() == (stack: 0, environment: 0))
 }
+
+@Test func aHiddenCallerDoesNotStopTheFeedWhileAnotherIsVisible() async throws {
+    let rig = try await FeedRig()
+    let pane = UUID()
+    let panel = UUID()
+    await rig.feed.setVisible(true, caller: pane)
+    await rig.waitForRequests(stack: 1, environment: 1)
+    await rig.feed.setVisible(true, caller: panel)
+    await rig.feed.setVisible(false, caller: pane)
+    await rig.waitForSleepers(1, endingAt: .seconds(30))
+    await rig.advance(to: .seconds(10), from: .zero)
+    await rig.waitForRequests(stack: 2, environment: 1)
+    await rig.feed.setVisible(false, caller: panel)
+    await rig.clock.advance(by: .seconds(60))
+    await rig.settle()
+    #expect(await rig.requestCounts() == (stack: 2, environment: 1))
+    await rig.feed.close()
+}

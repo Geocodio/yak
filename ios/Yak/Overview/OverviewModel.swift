@@ -45,6 +45,8 @@ final class OverviewModel {
     private var actions: OverviewActions?
     private var isStarted = false
     private var isVisible = false
+    /// Tells the shared feed apart from the other views of the same thread, so one hidden view cannot hide it for all.
+    private let feedCaller = UUID()
     private var readingTask: Task<Void, Never>?
     private var skeletonTask: Task<Void, Never>?
     private var lineTask: Task<Void, Never>?
@@ -108,7 +110,7 @@ final class OverviewModel {
                 self.state = next
             }
         }
-        await opened.setVisible(isVisible)
+        await opened.setVisible(isVisible, caller: feedCaller)
     }
 
     func stop() async {
@@ -121,8 +123,9 @@ final class OverviewModel {
         skeletonTask = nil
         lineTask = nil
         copiedTask = nil
-        if feed != nil {
-            feed = nil
+        if let feed {
+            await feed.setVisible(false, caller: feedCaller)
+            self.feed = nil
             actions = nil
             await session.closeOverview(threadID)
         }
@@ -130,7 +133,7 @@ final class OverviewModel {
 
     func setVisible(_ visible: Bool) async {
         isVisible = visible
-        await feed?.setVisible(visible)
+        await feed?.setVisible(visible, caller: feedCaller)
     }
 
     /// Asks the server again for what failed or is old.
