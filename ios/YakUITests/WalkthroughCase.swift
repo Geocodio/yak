@@ -82,6 +82,8 @@ import XCTest
             {
                 return true
             }
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, in: app) { return true }
             // The keyboard covers part of a screen that scrolls; what is behind it cannot be judged.
             if issue.auditType == .contrast, let element = issue.element, app.keyboards.firstMatch.exists,
                 app.keyboards.firstMatch.frame.intersects(element.frame)

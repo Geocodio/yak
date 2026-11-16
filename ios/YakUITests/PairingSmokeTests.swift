@@ -112,6 +112,8 @@ import XCTest
     /// The accessibility audit; a failure names the element and what is wrong with it.
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, in: app) { return true }
             // The address field is one line by design: an address never wraps.
             if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
             let screenshot = XCTAttachment(screenshot: app.screenshot())

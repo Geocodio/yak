@@ -87,6 +87,8 @@ import XCTest
             }
             // On a wide screen the audit reports contrast on the thread screen without naming an element.
             if issue.auditType == .contrast, issue.element == nil { return true }
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, in: app) { return true }
             // A search field is one line by design.
             if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
             let screenshot = XCTAttachment(screenshot: app.screenshot())
