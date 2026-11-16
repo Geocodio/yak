@@ -49,7 +49,13 @@ class AddRepository
             return new AddRepositoryOutcome('no_access', message: $result->reason);
         }
 
-        $this->sandboxes->exec($thread, ['mkdir', '-p', '/extras']);
+        $mkdir = $this->sandboxes->exec($thread, ['mkdir', '-p', ThreadRepository::EXTRAS_ROOT]);
+
+        if ($mkdir->failed()) {
+            $stderr = trim($mkdir->errorOutput());
+
+            return new AddRepositoryOutcome('setup_failed', message: 'Could not create ' . ThreadRepository::EXTRAS_ROOT . ' in the sandbox' . ($stderr === '' ? '.' : ": {$stderr}"));
+        }
 
         $repository = $thread->repositories()->create([
             'repo' => $slug,

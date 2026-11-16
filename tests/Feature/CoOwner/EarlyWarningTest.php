@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\RiskAreaGuessAgent;
 use App\Enums\TaskMode;
 use App\Models\Repository;
 use App\Models\User;
@@ -9,6 +10,7 @@ use App\Services\CoOwner\EarlyWarningState;
 use App\Services\CoOwner\GitHubWriteAccess;
 use App\Services\CoOwner\RiskAreaGuesser;
 use App\Services\CoOwner\TaskRequester;
+use Laravel\Ai\Ai;
 
 function earlyWarningFixture(array $taskAttributes = [], string $mode = 'enforce', ?string $guessed = 'API middleware and HTTP kernel'): array
 {
@@ -143,4 +145,27 @@ it('identifies the requester of a root', function () {
         ->and($requesters->isRequester($started, $other, 'U1'))->toBeFalse()
         ->and($requesters->isRequester($slack, null, 'U1'))->toBeTrue()
         ->and($requesters->isRequester($slack, $other, 'U9'))->toBeFalse();
+});
+
+it('guesses from concern names and descriptions for a version 2 file', function () {
+    config(['ai.providers.anthropic.key' => 'sk-ant-test']);
+    [$task] = earlyWarningFixture();
+    fakeYakFiles(['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n", 'risk-profile.yml' => concernsYaml()]);
+    app()->instance(RiskAreaGuesser::class, new RiskAreaGuesser);
+    Ai::fakeAgent(RiskAreaGuessAgent::class, [['areas' => [['name' => 'Customer charges and Stripe writes', 'likelihood' => 90]]]]);
+
+    expect(app(EarlyWarning::class)->evaluate($task)['areas'])->toBe([['name' => 'Customer charges and Stripe writes', 'risk' => 'critical']]);
+    RiskAreaGuessAgent::assertPrompted(fn ($prompt) => $prompt->contains('Customer charges and Stripe writes')
+        && $prompt->contains('Code that decides how much a customer is charged or credited.'));
+});
+
+it('stays quiet and never guesses for an empty concern list', function () {
+    config(['ai.providers.anthropic.key' => 'sk-ant-test']);
+    [$task] = earlyWarningFixture();
+    fakeYakFiles(['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n", 'risk-profile.yml' => "version: 2\nconcerns: []\n"]);
+    app()->instance(RiskAreaGuesser::class, new RiskAreaGuesser);
+    Ai::fakeAgent(RiskAreaGuessAgent::class, []);
+
+    expect(app(EarlyWarning::class)->evaluate($task))->toBeNull();
+    RiskAreaGuessAgent::assertNeverPrompted();
 });

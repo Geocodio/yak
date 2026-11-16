@@ -52,7 +52,6 @@ class ReviewOutputParser
             priorFindings: $priorFindings,
             risk: in_array($decoded['risk'] ?? null, ['low', 'high', 'unknown'], true)
                 ? $decoded['risk'] : 'unknown',
-            signals: is_array($decoded['signals'] ?? null) ? $decoded['signals'] : [],
         );
     }
 

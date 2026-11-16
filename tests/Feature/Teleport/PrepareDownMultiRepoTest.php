@@ -59,8 +59,8 @@ beforeEach(function () {
         Repository::factory()->create(['slug' => $slug, 'github_full_name' => $slug]);
     }
     ThreadRepository::factory()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/widgets', 'branch' => 'yak/fix-it']);
-    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/api', 'sandbox_path' => '/extras/api', 'branch' => 'yak/fix-it']);
-    ThreadRepository::factory()->role(RepositoryRole::Context)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs', 'branch' => null]);
+    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/api', 'sandbox_path' => '/home/yak/extras/api', 'branch' => 'yak/fix-it']);
+    ThreadRepository::factory()->role(RepositoryRole::Context)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/home/yak/extras/docs', 'branch' => null]);
     ThreadSession::factory()->create(['thread_id' => $this->thread->id, 'session_id' => PREPARE_DOWN_MULTI_SESSION]);
 
     $this->heads = Mockery::mock(BranchHeadVerifier::class);
@@ -96,7 +96,7 @@ beforeEach(function () {
 afterEach(fn () => File::deleteDirectory($this->storePath));
 
 it('commits and pushes a dirty extra and records its head', function () {
-    $this->pushedHeads = ['acme/widgets' => ($this->headOfPath)('/workspace'), 'acme/api' => ($this->headOfPath)('/extras/api')];
+    $this->pushedHeads = ['acme/widgets' => ($this->headOfPath)('/workspace'), 'acme/api' => ($this->headOfPath)('/home/yak/extras/api')];
 
     $teleport = ($this->run)();
 
@@ -107,12 +107,12 @@ it('commits and pushes a dirty extra and records its head', function () {
 });
 
 it('commits the edits of a start-time changes extra once it has been assigned the thread branch', function () {
-    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'sandbox_path' => '/extras/docs-edit', 'branch' => null]);
+    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'sandbox_path' => '/home/yak/extras/docs-edit', 'branch' => null]);
     app(ThreadRepositoryBranches::class)->assign($this->thread);
     $this->pushedHeads = [
         'acme/widgets' => ($this->headOfPath)('/workspace'),
-        'acme/api' => ($this->headOfPath)('/extras/api'),
-        'acme/lib' => ($this->headOfPath)('/extras/docs-edit'),
+        'acme/api' => ($this->headOfPath)('/home/yak/extras/api'),
+        'acme/lib' => ($this->headOfPath)('/home/yak/extras/docs-edit'),
     ];
 
     $teleport = ($this->run)();
@@ -123,15 +123,15 @@ it('commits the edits of a start-time changes extra once it has been assigned th
 });
 
 it('does not touch a context repo', function () {
-    $this->pushedHeads = ['acme/widgets' => ($this->headOfPath)('/workspace'), 'acme/api' => ($this->headOfPath)('/extras/api')];
+    $this->pushedHeads = ['acme/widgets' => ($this->headOfPath)('/workspace'), 'acme/api' => ($this->headOfPath)('/home/yak/extras/api')];
 
     ($this->run)();
 
-    expect(collect($this->sandboxes->calls)->where('operation', 'exec')->map(fn (array $call): string => implode(' ', $call['arguments']['command']))->filter(fn (string $line): bool => str_contains($line, '/extras/docs')))->toBeEmpty();
+    expect(collect($this->sandboxes->calls)->where('operation', 'exec')->map(fn (array $call): string => implode(' ', $call['arguments']['command']))->filter(fn (string $line): bool => str_contains($line, '/home/yak/extras/docs')))->toBeEmpty();
 });
 
 it('keeps going when an extra push fails and records the failure', function () {
-    $this->sandboxes->failingPushPath = '/extras/api';
+    $this->sandboxes->failingPushPath = '/home/yak/extras/api';
     $this->pushedHeads = ['acme/widgets' => ($this->headOfPath)('/workspace')];
 
     $teleport = ($this->run)();
@@ -144,7 +144,7 @@ it('keeps going when an extra push fails and records the failure', function () {
 });
 
 it('records head_unreadable for an extra whose head cannot be read', function () {
-    $this->sandboxes->unreadablePath = '/extras/api';
+    $this->sandboxes->unreadablePath = '/home/yak/extras/api';
     $this->pushedHeads = ['acme/widgets' => ($this->headOfPath)('/workspace')];
 
     $teleport = ($this->run)();
@@ -162,7 +162,7 @@ it('fails the whole teleport when the primary push fails', function () {
 });
 
 it('verifies heads on GitHub only for repos that pushed', function () {
-    $this->sandboxes->failingPushPath = '/extras/api';
+    $this->sandboxes->failingPushPath = '/home/yak/extras/api';
     $this->pushedHeads = ['acme/widgets' => ($this->headOfPath)('/workspace')];
     $this->heads->shouldReceive('headOf')->with('acme/api', Mockery::any())->never();
 

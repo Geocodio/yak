@@ -173,3 +173,20 @@ it('caps at max_findings_per_review and drops oldest first', function () {
     $ids = array_column($hydrated, 'comment_id');
     expect($ids)->toBe([1002, 1003]);
 });
+
+it('keeps findings with resolved threads when approval rounds need every stored finding', function () {
+    $review = PrReview::factory()->create(['pr_url' => 'https://github.com/geocodio/api/pull/77']);
+    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'github_comment_id' => 5001, 'resolution_status' => null]);
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('listReviewThreads')->andReturn([
+        ['thread_id' => 't1', 'is_resolved' => true, 'comment_database_ids' => [5001]],
+    ]);
+    app()->instance(GitHubAppService::class, $github);
+
+    $hydrator = app(PriorFindingsHydrator::class);
+    $url = 'https://github.com/geocodio/api/pull/77';
+
+    expect($hydrator->hydrate('geocodio/api', 77, $url, []))->toBe([])
+        ->and(array_column($hydrator->hydrate('geocodio/api', 77, $url, [], includeResolved: true), 'comment_id'))->toBe([5001]);
+});

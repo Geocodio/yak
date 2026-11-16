@@ -49,7 +49,7 @@ class DownManifestBuilder
                 'sandbox_os' => 'linux',
                 'sandbox_arch' => (string) config('yak.sandbox.arch', 'x86_64'),
                 'sandbox_workspace_path' => (string) config('yak.sandbox.workspace_path', '/workspace'),
-                'extras_path_pattern' => '/extras/<repo>',
+                'extras_path_pattern' => '/home/yak/extras/<repo>',
                 'refresh' => collect($this->refresh->configFor($thread))
                     ->map(fn (string $command, string $glob): array => ['glob' => $glob, 'command' => $command])
                     ->values()

@@ -155,7 +155,7 @@ test('wip commit sha is recorded', function () {
 test('preserveAll still pushes the extra when the primary push fails, then rethrows', function () {
     $thread = wipThread($this->git);
     $bare = ExtrasGit::seedBare($this->wipTempDir, 'lib');
-    $path = "{$this->git->workspace}/extras/lib";
+    $path = "{$this->git->workspace}/home/yak/extras/lib";
     Process::run(['git', 'clone', $bare, $path])->throw();
     Process::path($path)->run(['git', 'checkout', '-b', $this->git->branch])->throw();
     ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/lib', 'branch' => $this->git->branch, 'sandbox_path' => $path]);

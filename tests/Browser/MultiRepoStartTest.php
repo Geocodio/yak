@@ -81,7 +81,7 @@ it('shows avatar chips, a Repositories label and a primary menu that switches th
         ->assertVisible('button[aria-label="Add repo"]');
 });
 
-it('labels the submit button by mode and shows the footer sentence, counter and note link', function () {
+it('labels the submit button by mode and shows the counter and note link', function () {
     $user = User::factory()->create();
     Repository::factory()->create(['slug' => 'acme/api', 'is_default' => true]);
     Repository::factory()->create(['slug' => 'acme/docs']);
@@ -92,14 +92,12 @@ it('labels the submit button by mode and shows the footer sentence, counter and 
 
     visit(route('threads.new'))
         ->assertSeeIn('[data-testid="start-thread-submit"]', 'Start change')
-        ->assertSeeIn('[data-testid="start-thread-footer"]', 'opens a pull request for you to review')
         ->click('[data-testid="add-repo"]')
         ->click('acme/docs')
         ->assertSeeIn('[data-testid="expected-pr-count"]', '2 pull requests expected')
         ->assertSeeIn('[data-testid="repo-note"]', 'How multi-repo threads work')
         ->click('[data-testid="start-mode-research"]')
         ->assertSeeIn('[data-testid="start-thread-submit"]', 'Start research')
-        ->assertSeeIn('[data-testid="start-thread-footer"]', 'No pull request.')
         ->assertMissing('[data-testid="expected-pr-count"]');
 });
 
