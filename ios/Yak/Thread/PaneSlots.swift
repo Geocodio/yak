@@ -13,7 +13,7 @@ extension EnvironmentValues {
     }
 
     /// Whether the pane around this view is on screen. A pane that pauses work, polls or shows a chip only while
-    /// visible reads this, never `focusedPane ==`.
+    /// visible reads this or `SceneModel.isShown(_:)`, never the focused pane directly.
     var isPaneShown: Bool {
         get { self[IsPaneShownKey.self] }
         set { self[IsPaneShownKey.self] = newValue }

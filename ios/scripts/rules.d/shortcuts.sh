@@ -10,3 +10,12 @@ if [ -n "$shortcut_hits" ]; then
     echo "$shortcut_hits"
     fail '.keyboardShortcut( outside Yak/Support/Shortcuts.swift'
 fi
+
+# Panes ask whether they are on screen through SceneModel.isShown(_:) or the isPaneShown environment value, so the
+# focused pane is compared only in the shell and in the pane control.
+focus_hits=$(grep -rnF --include='*.swift' 'focusedPane ==' Yak Shared 2>/dev/null \
+    | grep -v '^Yak/Shell/' | grep -v '^Yak/Thread/PaneControl.swift:' || true)
+if [ -n "$focus_hits" ]; then
+    echo "$focus_hits"
+    fail 'focusedPane == outside Yak/Shell and Yak/Thread/PaneControl.swift'
+fi

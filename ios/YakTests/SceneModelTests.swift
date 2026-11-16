@@ -72,3 +72,12 @@ private func instance(_ address: String) -> Instance {
     #expect(!scene.hasAppliedColdStart)
     #expect(scene.justPairedUserName == "Test Person")
 }
+
+@MainActor @Test func isShownFollowsTheFocusedPane() {
+    let scene = SceneModel(state: SceneState())
+    #expect(scene.isShown(.chat))
+    #expect(!scene.isShown(.files))
+    scene.focus(pane: .files)
+    #expect(scene.isShown(.files))
+    #expect(!scene.isShown(.chat))
+}

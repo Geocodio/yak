@@ -1,3 +1,4 @@
+import SwiftUI
 import Testing
 import YakKit
 
@@ -32,5 +33,10 @@ import YakKit
         }
         let modes = FilesModeRegistry.views.map { $0.mode }
         #expect(Set(modes).count == modes.count)
+    }
+
+    @Test func aViewOutsideAPaneHostCountsAsShown() {
+        #expect(EnvironmentValues().isPaneShown)
+        #expect(EnvironmentValues().paneID == nil)
     }
 }
