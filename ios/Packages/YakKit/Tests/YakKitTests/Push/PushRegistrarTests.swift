@@ -155,6 +155,24 @@ private func settle() async {
         await rig.registrar.stop()
     }
 
+    @Test func neverRegistersOrDeletesTheWidgetKind() async throws {
+        let rig = try await makeRig()
+        await rig.transport.on(alertRoute, noContent)
+        await rig.transport.on(startRoute, noContent)
+        await rig.transport.on("DELETE push-tokens/widget", noContent)
+        await rig.transport.on("DELETE push-tokens/alert", noContent)
+        let statuses = Statuses(await rig.registrar.statuses())
+        await rig.registrar.start()
+        await rig.registrar.setToken(alertToken, kind: .alert)
+        await rig.registrar.setToken(startToken, kind: .liveActivityStart)
+        try await waitForAll(statuses, [rig.first, rig.second], .registered)
+        await rig.registrar.unregister(rig.first.id, budget: .seconds(5))
+        #expect(await rig.transport.requests(on: "PUT push-tokens/widget").isEmpty)
+        #expect(await rig.transport.requests(on: "DELETE push-tokens/widget").isEmpty)
+        #expect(await rig.transport.requests(on: "DELETE push-tokens/alert").count == 1)
+        await rig.registrar.stop()
+    }
+
     @Test func anotherBuildNeverRegistersAndSaysWhy() async throws {
         let rig = try await makeRig(
             second: try mePayload(bundleID: "com.example.other"), first: try mePayload(environment: "sandbox"))

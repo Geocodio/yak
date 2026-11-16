@@ -63,3 +63,23 @@ private func temporaryRoot() -> URL {
         #expect(throws: FileStoreError.unreadable) { try store.read("a", maximumBytes: 10) }
     }
 }
+
+/// A store that implements only `read(_:)`, so it gets the protocol's default bounded read.
+private final class PlainReadStore: FileStore, @unchecked Sendable {
+    var data: Data?
+    func read(_ path: String) throws(FileStoreError) -> Data? { data }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {}
+    func remove(_ path: String) throws(FileStoreError) {}
+    func list(_ folder: String) throws(FileStoreError) -> [String] { [] }
+}
+
+@Suite struct DefaultBoundedReadTests {
+    @Test func theDefaultReadRefusesToo() throws {
+        let store = PlainReadStore()
+        #expect(try store.read("a", maximumBytes: 10) == nil)
+        store.data = Data(repeating: 1, count: 10)
+        #expect(try store.read("a", maximumBytes: 10)?.count == 10)
+        store.data = Data(repeating: 1, count: 11)
+        #expect(throws: FileStoreError.tooLarge) { try store.read("a", maximumBytes: 10) }
+    }
+}

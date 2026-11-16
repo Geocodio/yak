@@ -27,6 +27,8 @@ public struct PushKind: OpenValue {
 public enum PushTokenKind: String, Codable, CaseIterable, Sendable {
     case alert
     case liveActivityStart = "live_activity_start"
+    /// Held by `WidgetPushRegistration` only; `PushRegistrar` never stores or sends it.
+    case widget
 }
 
 public enum PushEnvironment: String, Codable, Sendable {

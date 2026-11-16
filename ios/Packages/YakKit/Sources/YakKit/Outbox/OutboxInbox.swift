@@ -3,6 +3,7 @@ import Foundation
 /// How another process, the share extension, hands an item to the app's outbox.
 public enum OutboxInbox {
     static func folder(_ instance: UUID) -> String { "\(InstanceFolders.outbox(instance))/incoming" }
+    static func itemPath(instance: UUID, id: UUID) -> String { "\(folder(instance))/\(id.uuidString).json" }
     static func itemsPath(_ instance: UUID) -> String { "\(InstanceFolders.outbox(instance))/items.json" }
     static func unreadableItemsPath(_ instance: UUID) -> String {
         "\(InstanceFolders.outbox(instance))/items.unreadable.json"
@@ -22,7 +23,7 @@ public enum OutboxInbox {
             attachments: draft.attachments, createdAt: now)
         let data: Data
         do { data = try JSONEncoder().encode(item) } catch { throw .unreadable }
-        try files.write(data, to: "\(folder(instance))/\(id.uuidString).json", protection: .untilFirstUnlock)
+        try files.write(data, to: itemPath(instance: instance, id: id), protection: .untilFirstUnlock)
     }
 
     /// Where an attachment's bytes live. The file name loses any path part, so it cannot leave the folder.

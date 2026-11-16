@@ -33,10 +33,24 @@ private struct StoredEvents: Codable {
     var firstLoadedAfter: Int
 }
 
+private struct LastOpened: Codable {
+    var id: String
+
+    /// Letters, digits, dash and underscore, at most 64: nothing that could leave the thread folder.
+    static func isPlainID(_ id: String) -> Bool {
+        !id.isEmpty && id.utf8.count <= 64
+            && id.utf8.allSatisfy {
+                ($0 >= 48 && $0 <= 57) || ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) || $0 == 45 || $0 == 95
+            }
+    }
+}
+
 /// One instance's copies on disk. Best effort: a failed write or read is logged and the app goes on without it.
 public actor Cache {
     public static let maximumEventsPerThread = 2000
     public static let maximumThreads = 50
+    /// The largest widget snapshot file that is read; a larger one is removed.
+    public static let maximumWidgetSnapshotBytes = 256 * 1024
 
     /// The instance's cache folder. A feature's `Cache+<Feature>.swift` stores under it, so `eraseAll()` removes it.
     let root: String
@@ -55,17 +69,24 @@ public actor Cache {
 
     private var indexPath: String { "\(root)/index.json" }
     private var widgetPath: String { "\(root)/widget.json" }
+    private var lastOpenedPath: String { "\(root)/last-opened.json" }
     private func listPath(_ filter: ThreadListFilter) -> String { "\(root)/lists/\(filter.rawValue).json" }
     func folder(_ id: String) -> String { "\(root)/threads/\(Endpoint<ThreadShow>.segment(id))" }
 
     // MARK: Reading and writing one file
 
-    /// Nil when missing, unreadable or not decodable. A file that does not decode is removed.
-    func load<Value: Decodable>(_ type: Value.Type, at path: String) -> Value? {
+    /// Nil when missing, unreadable or not decodable. A file that does not decode, or that holds more than
+    /// `maximumBytes` (never loaded past the bound), is removed.
+    func load<Value: Decodable>(_ type: Value.Type, at path: String, maximumBytes: Int? = nil) -> Value? {
         let data: Data
         do {
-            guard let found = try files.read(path) else { return nil }
+            let read = try maximumBytes.map { try files.read(path, maximumBytes: $0) } ?? files.read(path)
+            guard let found = read else { return nil }
             data = found
+        } catch FileStoreError.tooLarge {
+            logFailure("cache file too large: \(type)")
+            do { try files.remove(path) } catch { logFailure("cache remove failed: \(Swift.type(of: error))") }
+            return nil
         } catch {
             logFailure("cache read failed: \(Swift.type(of: error))")
             return nil
@@ -129,14 +150,25 @@ public actor Cache {
     }
 
     /// Records that a thread with a saved copy was opened now.
+    /// The id also goes to a small file of its own, so a widget or an intent can read it without the index.
     public func markOpened(_ id: String) {
         touch(id, addingIfMissing: false)
+        store(LastOpened(id: id), at: lastOpenedPath, protection: .untilFirstUnlock)
+    }
+
+    /// The thread opened most recently, which is not always the newest index entry: saving a thread touches it too.
+    /// Nil when none, or when the file is larger than 1 KB or holds an id that is not a plain id.
+    public func lastOpenedThreadID() -> String? {
+        guard let id = load(LastOpened.self, at: lastOpenedPath, maximumBytes: 1024)?.id, LastOpened.isPlainID(id)
+        else { return nil }
+        return id
     }
 
     public func removeThread(_ id: String) {
         delete(folder(id))
         var index = loadIndex()
         if index.removeValue(forKey: id) != nil { saveIndex(index) }
+        if lastOpenedThreadID() == id { delete(lastOpenedPath) }
     }
 
     // MARK: Question drafts
@@ -163,7 +195,7 @@ public actor Cache {
     // MARK: Widget snapshot
 
     public func widgetSnapshot() -> WidgetSnapshot? {
-        load(WidgetSnapshot.self, at: widgetPath)
+        load(WidgetSnapshot.self, at: widgetPath, maximumBytes: Self.maximumWidgetSnapshotBytes)
     }
 
     public func saveWidgetSnapshot(_ snapshot: WidgetSnapshot) {
