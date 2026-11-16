@@ -79,7 +79,7 @@ final class ComposerModel {
 
     private var typedText = ""
     private var snapshot: ConversationSnapshot?
-    private var sendKey: UUID?
+    private(set) var sendKey: UUID?
     /// The draft a send has taken out of the field and the outbox has not accepted yet.
     private var inFlight: ComposerDraft?
     private var inFlightThumbnails: [String: Data] = [:]
@@ -314,9 +314,11 @@ final class ComposerModel {
         return number
     }
 
-    /// The send key was made for an add that failed: it goes when nothing else holds the draft.
-    private func releaseUnusedSendKey() {
-        if attachments.isEmpty && typedText.allSatisfy(\.isWhitespace) && preparingCount <= 1 { sendKey = nil }
+    /// The send key was made for an add that failed: it goes when nothing else holds the draft. The caller's own
+    /// place still counts in `preparingCount` unless `isCallerCounted` is false.
+    private func releaseUnusedSendKey(isCallerCounted: Bool = true) {
+        let others = preparingCount - (isCallerCounted ? 1 : 0)
+        if attachments.isEmpty && typedText.allSatisfy(\.isWhitespace) && others <= 0 { sendKey = nil }
     }
 
     /// A draft has a key from its first character or attachment, and none while it is empty.
@@ -341,7 +343,7 @@ final class ComposerModel {
     func releasePick() {
         preparingCount = max(preparingCount - 1, 0)
         reportUnreadable()
-        releaseUnusedSendKey()
+        releaseUnusedSendKey(isCallerCounted: false)
     }
 
     /// Files and photos are checked against the server's limits, prepared off the main actor, stored under the
@@ -401,7 +403,7 @@ final class ComposerModel {
         await readLimits()
         guard hasRoomForAnother() else {
             preparingCount -= 1
-            releaseUnusedSendKey()
+            releaseUnusedSendKey(isCallerCounted: false)
             return
         }
         let data: Data
@@ -409,7 +411,7 @@ final class ComposerModel {
             data = try await AttachmentPreparer.read(url, maximumBytes: maximumFileBytes)
         } catch {
             preparingCount -= 1
-            releaseUnusedSendKey()
+            releaseUnusedSendKey(isCallerCounted: false)
             problem = Self.message(for: error)
             refusalCount += 1
             return

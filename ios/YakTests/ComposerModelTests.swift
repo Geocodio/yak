@@ -730,6 +730,16 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         #expect(composer.attachments.count == 2)
     }
 
+    @Test func releasingOnePickKeepsTheSendKeyWhileAnotherIsStillStoring() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.reservePicks(2)
+        #expect(composer.sendKey != nil)
+        composer.releasePick()
+        #expect(composer.sendKey != nil)
+        composer.releasePick()
+        #expect(composer.sendKey == nil)
+    }
+
     @Test func aReservedPickStillHonorsTheFileLimit() async throws {
         let backend = FakeComposerBackend()
         backend.maximumFiles = 1
