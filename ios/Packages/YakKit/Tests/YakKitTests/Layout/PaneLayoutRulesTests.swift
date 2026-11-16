@@ -202,6 +202,42 @@ private let bookInputs = LayoutInputs(
         let before = PaneLayoutRules.plan(state, available: all, inputs: laptopInputs)
         let during = PaneLayoutRules.plan(state, available: all, inputs: typing)
         #expect(before == during)
+        #expect(
+            before.slots == [
+                PaneSlot(position: .upper, content: .pane(.preview)), PaneSlot(position: .lower, content: .pane(.chat)),
+            ])
+        let kept = PaneLayoutRules.arrangementChanged(
+            from: .laptop, to: .laptop, state: state, available: all, inputs: typing)
+        #expect(kept == state)
+        let closed = PaneLayoutRules.arrangementChanged(
+            from: .laptop, to: .laptop, state: kept, available: all, inputs: laptopInputs)
+        #expect(closed == state)
+        #expect(PaneLayoutRules.plan(closed, available: all, inputs: laptopInputs) == before)
+    }
+
+    @Test func foldingOrRotatingAwayFromAnOpenPanelKeepsThePaneBesideIt() {
+        let start = PaneState(focused: .preview, second: .chat, isOverviewPanelOpen: true)
+        let startShown = PaneLayoutRules.plan(start, available: all, inputs: wide).slots
+        #expect(
+            startShown == [
+                PaneSlot(position: .leading, content: .pane(.preview)),
+                PaneSlot(position: .trailing, content: .overviewPanel),
+            ])
+        let upended = PaneLayoutRules.arrangementChanged(
+            from: .sideBySide, to: .stacked, state: start, available: all, inputs: upright)
+        #expect(
+            PaneLayoutRules.plan(upended, available: all, inputs: upright).shownPanes.sorted {
+                $0.rawValue < $1.rawValue
+            } == [.overview, .preview])
+        let back = PaneLayoutRules.arrangementChanged(
+            from: .stacked, to: .sideBySide, state: upended, available: all, inputs: wide)
+        #expect(PaneLayoutRules.plan(back, available: all, inputs: wide).slots == startShown)
+        let folded = PaneLayoutRules.arrangementChanged(
+            from: .sideBySide, to: .single, state: start, available: all, inputs: outer)
+        #expect(PaneLayoutRules.plan(folded, available: all, inputs: outer).shownPanes == [.overview])
+        let unfolded = PaneLayoutRules.arrangementChanged(
+            from: .single, to: .sideBySide, state: folded, available: all, inputs: wide)
+        #expect(PaneLayoutRules.plan(unfolded, available: all, inputs: wide).slots == startShown)
     }
 
     @Test func defaultSecondOrder() {
@@ -231,6 +267,10 @@ private let bookInputs = LayoutInputs(
         let priorities = PaneLayoutRules.stripPriorities(available: all, state: state, plan: plan)
         #expect(priorities == [.chat: 100, .terminal: 90, .files: 40, .preview: 30, .overview: 20])
         let some = PaneLayoutRules.stripPriorities(available: [.chat, .files], state: state, plan: plan)
+        let panelState = PaneState(focused: .chat, isOverviewPanelOpen: true)
+        let panelPlan = PaneLayoutRules.plan(panelState, available: all, inputs: wide)
+        let panelPriorities = PaneLayoutRules.stripPriorities(available: all, state: panelState, plan: panelPlan)
+        #expect(panelPriorities[.overview] == 90)
         #expect(some.keys.sorted { $0.rawValue < $1.rawValue } == [.chat, .files])
     }
 
@@ -268,6 +308,9 @@ private let bookInputs = LayoutInputs(
     @Test func everyArrangementAndPaneSetGivesValidSlots() {
         let sizes: [LayoutInputs] = [
             wide, upright, outer, ipad, laptopInputs, bookInputs,
+            LayoutInputs(
+                isCompactWidth: false, isCompactHeight: false, detailWidth: 466, hasVerticalToolbarEdge: true,
+                posture: .closed),
             LayoutInputs(isCompactWidth: false, isCompactHeight: true, detailWidth: 932, hasVerticalToolbarEdge: false),
             LayoutInputs(isCompactWidth: false, isCompactHeight: true, detailWidth: 932, hasVerticalToolbarEdge: true),
             LayoutInputs(
@@ -303,6 +346,31 @@ private let bookInputs = LayoutInputs(
                                     ).slots.contains { $0.content == .pane(.overview) || $0.content == .overviewPanel }
                                 #expect(reachable)
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test func aFoldAndAnUnfoldReturnTheSameShownPanes() {
+        let others = PaneID.allCases.filter { $0 != .chat }
+        for mask in 0..<(1 << others.count) {
+            let available = [PaneID.chat] + others.enumerated().filter { mask & (1 << $0.offset) != 0 }.map(\.element)
+            for focused in available {
+                for panelOpen in [false, true] {
+                    let state = PaneState(focused: focused, isOverviewPanelOpen: panelOpen)
+                    let shown = Set(
+                        PaneLayoutRules.plan(state, available: available, inputs: wide).slots.map(\.content))
+                    for (middle, middleInputs) in [(PaneArrangement.single, outer), (.stacked, upright)] {
+                        let there = PaneLayoutRules.arrangementChanged(
+                            from: .sideBySide, to: middle, state: state, available: available, inputs: middleInputs)
+                        let back = PaneLayoutRules.arrangementChanged(
+                            from: middle, to: .sideBySide, state: there, available: available, inputs: wide)
+                        let again = Set(
+                            PaneLayoutRules.plan(back, available: available, inputs: wide).slots.map(\.content))
+                        if available.count > 1 {
+                            #expect(again == shown, "\(available) \(focused) \(panelOpen) \(middle)")
                         }
                     }
                 }

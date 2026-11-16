@@ -50,7 +50,7 @@ public enum SlotPosition: String, Codable, Equatable, Hashable, Sendable {
     case single, leading, trailing, upper, lower
 }
 
-public enum SlotContent: Equatable, Sendable {
+public enum SlotContent: Equatable, Hashable, Sendable {
     case pane(PaneID)
     case overviewPanel
 }
@@ -259,7 +259,9 @@ public enum PaneLayoutRules {
         for pane in available {
             if pane == .chat {
                 priorities[pane] = 100
-            } else if plan.shownPanes.contains(pane) {
+            } else if plan.shownPanes.contains(pane)
+                || (pane == .overview && plan.slots.contains { $0.content == .overviewPanel })
+            {
                 priorities[pane] = 90
             } else {
                 priorities[pane] = (Panes.overflowOrder.firstIndex(of: pane).map { ($0 + 1) * 10 }) ?? 0
@@ -303,7 +305,20 @@ public enum PaneLayoutRules {
                 if next.second == next.focused { next.second = nil }
             }
         } else {
-            if next.isOverviewPanelOpen && hasOverview { next.focused = .overview }
+            if next.isOverviewPanelOpen && hasOverview {
+                // The panel becomes the focused Overview pane; the pane it sat beside is kept as the second pane
+                // (or remembered when only one slot fits) so that opening the panel again brings it back.
+                let beside = next.focused
+                if beside != .overview {
+                    if arrangement.slotCount == 2 {
+                        next.second = beside
+                        next.secondLeads = true
+                    } else {
+                        next.lastSecond = beside
+                    }
+                }
+                next.focused = .overview
+            }
             next.isOverviewPanelOpen = false
             if next.second == next.focused { next.second = nil }
         }
