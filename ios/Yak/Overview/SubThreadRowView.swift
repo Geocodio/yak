@@ -71,7 +71,7 @@ struct SubThreadRowView: View {
             }
         }
         guard let files = row.filesChanged, files > 0 else { return base }
-        return Text("\(base) · \(Text("overview.child.files \(files)"))")
+        return Text("overview.child.detailWithFiles \(base) \(Text("overview.child.files \(files)"))")
     }
 
     private var menu: some View {

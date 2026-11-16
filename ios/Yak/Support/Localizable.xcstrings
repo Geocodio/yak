@@ -3449,6 +3449,16 @@
           }
         }
       }
+    },
+    "overview.child.detailWithFiles %@ %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
