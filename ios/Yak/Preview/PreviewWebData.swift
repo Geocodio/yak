@@ -32,8 +32,15 @@ enum PreviewWebData {
     /// Removes the store within `eraseLimit`; on a failure or a timeout the instance is recorded as pending.
     static func erase(instanceID: UUID, defaults: any KeyValueStore) async -> Bool {
         let storeID = PreviewDataStoreID.for(instanceID: instanceID)
-        // Removing a store before WebKit has made any object crashes in WebKit; making one of ours starts it.
-        _ = WKWebsiteDataStore(forIdentifier: storeID)
+        // A store never handed out has nothing to erase.
+        let isKnown = (read(knownStoresKey, in: defaults) as Set<UUID>).contains(storeID)
+        let isPending = (read(pendingKey, in: defaults) as Set<UUID>).contains(instanceID)
+        guard isKnown || isPending else { return true }
+        // Removing a store before WebKit has made any object crashes in WebKit; a store of a fixed id that
+        // belongs to no instance starts it, and is never removed, so it is never in use during a removal.
+        _ = WKWebsiteDataStore(
+            forIdentifier: PreviewDataStoreID.for(instanceID: UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+        )
         let isRemoved = await bounded { try await WKWebsiteDataStore.remove(forIdentifier: storeID) }
         if isRemoved {
             update(knownStoresKey, in: defaults) { $0.remove(storeID) }

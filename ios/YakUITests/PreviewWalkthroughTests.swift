@@ -123,6 +123,9 @@ import XCTest
         try show("preview-destroyed")
         let restore = app.buttons["preview.restore"]
         XCTAssertTrue(restore.waitForExistence(timeout: 15))
+        // At the largest text size the button starts under the bottom bar; scroll the card until it clears the bar.
+        let bar = app.buttons["preview.address"]
+        for _ in 0..<4 where bar.exists && restore.frame.maxY > bar.frame.minY { card("destroyed").swipeUp() }
         restore.tap()
         try shootCard("preview-restoring", "restoring")
     }
