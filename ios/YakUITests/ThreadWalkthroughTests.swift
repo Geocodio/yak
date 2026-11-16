@@ -347,7 +347,6 @@ import XCTest
         try shootThread("chat-notice-continue")
     }
 
-
     // MARK: Composer
 
     func testComposerIdle() throws {
@@ -604,7 +603,9 @@ import XCTest
             if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
             // Text behind a bar is covered by the bar.
             if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
+            XCTFail(
+                "audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element") | bars \(auditBars.bars.map(\.frame)) window \(auditBars.window)"
+            )
             return true
         }
     }
