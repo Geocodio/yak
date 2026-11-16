@@ -83,7 +83,8 @@ import XCTest
         app.segmentedControls["addSubThread.kind"].buttons["Research"].tap()
         // The audit judges what is on screen, so the sheet is pulled to its large size where its footer is not cut.
         let grabber = app.staticTexts["Add a sub-thread"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
-        grabber.press(forDuration: 0.1, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
+        let top = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05))
+        grabber.press(forDuration: 0.1, thenDragTo: top)
         sleepForStack()
         try audit()
         app.buttons["addSubThread.add"].tap()
