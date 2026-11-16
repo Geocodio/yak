@@ -32,6 +32,7 @@ export function AddChildDialog({ threadId, parentTitle, stack, onClose, onAdded 
     const [brief, setBrief] = useState('');
     const [kind, setKind] = useState('implement');
     const [model, setModel] = useState<string | null>('sonnet');
+    const [effort, setEffort] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -58,7 +59,7 @@ export function AddChildDialog({ threadId, parentTitle, stack, onClose, onAdded 
             method: 'POST',
             credentials: 'same-origin',
             headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
-            body: JSON.stringify({ name, brief, kind, model }),
+            body: JSON.stringify({ name, brief, kind, model, effort }),
         })
             .then(async (response) => {
                 if (!response.ok) {
@@ -170,7 +171,7 @@ export function AddChildDialog({ threadId, parentTitle, stack, onClose, onAdded 
                             {stack.parentAccountName ?? 'the parent account'}
                         </span>
                         <span>with</span>
-                        <ModelPicker variant="chip" models={stack.models} value={model} onChange={setModel} disabled={isSubmitting} testId="stack-add-model" />
+                        <ModelPicker variant="chip" models={stack.models} value={model} onChange={setModel} effort={effort} onEffortChange={setEffort} disabled={isSubmitting} testId="stack-add-model" />
                     </div>
                 </div>
                 {notice && (

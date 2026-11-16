@@ -5,6 +5,8 @@ export type AccountIconName =
     | 'sparkles' | 'shield' | 'bot' | 'terminal' | 'globe' | 'coffee' | 'school' | 'heart';
 export type AccountColorName = 'violet' | 'blue' | 'teal' | 'green' | 'amber' | 'plum' | 'slate';
 
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
 export type Appearance = { icon: AccountIconName; color: AccountColorName };
 
 /** Mirrors the array shape documented on App\Http\Resources\ClaudeAccountData. */
@@ -15,6 +17,7 @@ export type ClaudeAccount = Appearance & {
     isSystem: boolean;
     isDefault: boolean;
     defaultModel: string | null;
+    defaultEffort: string | null;
     maxConcurrentTurns: number;
     status: AccountStatus;
     validatedAt: string | null;
@@ -26,7 +29,7 @@ export type ClaudeAccount = Appearance & {
 };
 
 /** The subset an account picker needs; matches App\Http\Resources\AccountPickerData accounts. */
-export type PickerAccount = Appearance & Pick<ClaudeAccount, 'id' | 'name' | 'kind' | 'isSystem' | 'isDefault' | 'defaultModel' | 'status'> & { usable?: boolean };
+export type PickerAccount = Appearance & Pick<ClaudeAccount, 'id' | 'name' | 'kind' | 'isSystem' | 'isDefault' | 'defaultModel' | 'defaultEffort' | 'status'> & { usable?: boolean };
 
 export type AccountPickerProps = {
     /** The selected account id, or the empty string for "use the default". */
@@ -45,6 +48,6 @@ export type AccountPickerProps = {
 /** One model family in a picker: `latest` is the family alias, `older` are exact ids newest first. Mirrors App\Services\ClaudeAccounts\ClaudeModelCatalog::families(). */
 export type ModelFamily = {
     family: string;
-    latest: { value: string; label: string; description: string };
-    older: { value: string; label: string }[];
+    latest: { value: string; label: string; description: string; efforts: EffortLevel[] };
+    older: { value: string; label: string; efforts: EffortLevel[] }[];
 };

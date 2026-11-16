@@ -1,9 +1,10 @@
 import { router } from '@inertiajs/react';
 import { Badge, Button, Menu, Tooltip, cn } from '@geocodio/console-ui';
+import { useRef } from 'react';
 import { KeyRound, MoreHorizontal, Pencil, RefreshCw, Star, Terminal, Trash2 } from 'lucide-react';
 import { update } from '@/routes/settings/claude-accounts';
 import type { ClaudeAccount, ModelFamily } from '@/types/claudeAccounts';
-import { daysUntil, formatAgo, formatDate, KIND_LABEL, modelLabel } from './accountAppearance';
+import { daysUntil, formatAgo, formatDate, KIND_LABEL, modelWithEffortLabel } from './accountAppearance';
 import { ModelPicker } from './ModelPicker';
 import { AccountMark } from './AccountMark';
 import { StatusBadge } from './StatusBadge';
@@ -31,6 +32,13 @@ export function AccountRow({ account, models, readOnly, onRotate, onEdit, onRemo
     const isUsable = account.status === 'active';
     const needsAttention = !isUsable || account.expiresSoon;
     const KindIcon = account.kind === 'setup_token' ? Terminal : KeyRound;
+    // A model change can clamp the effort in the same tick; both fields go together so the second request does not drop the first.
+    const pending = useRef({ default_model: account.defaultModel, default_effort: account.defaultEffort });
+    pending.current = { default_model: account.defaultModel, default_effort: account.defaultEffort };
+    const save = (change: Partial<typeof pending.current>) => {
+        pending.current = { ...pending.current, ...change };
+        patch(pending.current);
+    };
     const patch = (data: Record<string, unknown>) => router.patch(update.url(account.id), data as never, { preserveScroll: true });
 
     return (
@@ -54,9 +62,9 @@ export function AccountRow({ account, models, readOnly, onRotate, onEdit, onRemo
                 </div>
             </div>
             <div className="text-[12.5px]">
-                {readOnly ? <span className="text-muted">{modelLabel(account.defaultModel, models)}</span> : (
-                    <Tooltip label="The model tasks use on this account unless they pick another." side="top">
-                        <ModelPicker ariaLabel={`Default model for ${account.name}`} variant="inline" className="text-[12.5px] text-body" models={models} value={account.defaultModel} onChange={(value) => patch({ default_model: value })} testId={`account-row-model-${account.id}`} />
+                {readOnly ? <span className="text-muted">{modelWithEffortLabel(account.defaultModel, account.defaultEffort, models)}</span> : (
+                    <Tooltip label="The model and effort tasks use on this account unless they pick another." side="top">
+                        <ModelPicker ariaLabel={`Default model for ${account.name}`} variant="inline" className="text-[12.5px] text-body" models={models} value={account.defaultModel} onChange={(value) => save({ default_model: value })} effort={account.defaultEffort} onEffortChange={(effort) => save({ default_effort: effort })} testId={`account-row-model-${account.id}`} />
                     </Tooltip>
                 )}
             </div>

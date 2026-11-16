@@ -164,7 +164,7 @@ export type CoOwnerGateStatus = {
 /** Mirrors the array shape returned by App\Http\Resources\RepositoryClaudeAccountData. */
 export type RepositoryClaudeAccounts = {
     accounts: PickerAccount[];
-    mySetting: { accountId: number | null; model: string | null };
+    mySetting: { accountId: number | null; model: string | null; effort: string | null };
     unattendedAccountId: number | null;
     globalSystemAccountId: number | null;
     canChangeUnattended: boolean;
