@@ -419,6 +419,47 @@ private let bookInputs = LayoutInputs(
         }
     }
 
+    @Test func aRotationRoundTripFromStackedKeepsEverySideAndTheFocus() {
+        for focused in all {
+            for second in all.filter({ $0 != focused }) {
+                for secondLeads in [false, true] {
+                    let state = PaneLayoutRules.availableChanged(
+                        state: PaneState(focused: focused, second: second, secondLeads: secondLeads),
+                        available: all, inputs: upright)
+                    let before = PaneLayoutRules.plan(state, available: all, inputs: upright)
+                    let there = PaneLayoutRules.arrangementChanged(
+                        from: .stacked, to: .sideBySide, state: state, available: all, inputs: wide)
+                    let back = PaneLayoutRules.arrangementChanged(
+                        from: .sideBySide, to: .stacked, state: there, available: all, inputs: upright)
+                    let after = PaneLayoutRules.plan(back, available: all, inputs: upright)
+                    let note = "\(focused) \(second) \(secondLeads)"
+                    #expect(after.slots == before.slots, "\(note)")
+                    #expect(after.focusedPosition == before.focusedPosition, "\(note)")
+                }
+            }
+        }
+    }
+
+    @Test(arguments: [false, true])
+    func foldingFromAnOverviewPaneKeepsTheHiddenPane(secondLeads: Bool) {
+        let start = PaneState(focused: .chat, second: .terminal, secondLeads: secondLeads, isOverviewPanelOpen: true)
+        var state = start
+        let steps: [(PaneArrangement, PaneArrangement, LayoutInputs)] = [
+            (.sideBySide, .stacked, upright), (.stacked, .single, outer), (.single, .stacked, upright),
+            (.stacked, .sideBySide, wide),
+        ]
+        for (old, new, inputs) in steps {
+            state = PaneLayoutRules.arrangementChanged(from: old, to: new, state: state, available: all, inputs: inputs)
+        }
+        let plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
+        let closed = PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
+        let expectedPlan = PaneLayoutRules.plan(start, available: all, inputs: wide)
+        let expected = PaneLayoutRules.select(.overview, from: nil, state: start, plan: expectedPlan)
+        #expect(
+            PaneLayoutRules.plan(closed, available: all, inputs: wide).slots
+                == PaneLayoutRules.plan(expected, available: all, inputs: wide).slots)
+    }
+
     @Test func aFoldAndAnUnfoldReturnTheSameShownPanes() {
         let others = PaneID.allCases.filter { $0 != .chat }
         func slots(_ state: PaneState, available: [PaneID], closingThePanel: Bool) -> [SlotContent] {

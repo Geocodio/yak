@@ -10,25 +10,33 @@ public struct PaneState: Codable, Equatable, Sendable {
     public var lastSecond: PaneID?
     /// The side `lastSecond` had when it was last shown.
     public var lastSecondLeads: Bool
+    /// While the Overview is a panel: it sat in the first position of the pair (leading or lower) when it last was a pane.
+    public var overviewIsFirst: Bool
+    /// While the Overview is a panel: it was the second pane, not the focused one, when it last was a pane.
+    public var overviewWasSecond: Bool
     public var isOverviewPanelOpen: Bool
     /// The upper slot's share of the height, clamped on use.
     public var stackedFraction: Double
 
     public init(
         focused: PaneID = .chat, second: PaneID? = nil, secondLeads: Bool = false, lastSecond: PaneID? = nil,
-        lastSecondLeads: Bool = false, isOverviewPanelOpen: Bool = false, stackedFraction: Double = 0.5
+        lastSecondLeads: Bool = false, overviewIsFirst: Bool = false, overviewWasSecond: Bool = false,
+        isOverviewPanelOpen: Bool = false, stackedFraction: Double = 0.5
     ) {
         self.focused = focused
         self.second = second
         self.secondLeads = secondLeads
         self.lastSecond = lastSecond
         self.lastSecondLeads = lastSecondLeads
+        self.overviewIsFirst = overviewIsFirst
+        self.overviewWasSecond = overviewWasSecond
         self.isOverviewPanelOpen = isOverviewPanelOpen
         self.stackedFraction = stackedFraction
     }
 
     private enum CodingKeys: String, CodingKey {
-        case focused, second, secondLeads, lastSecond, lastSecondLeads, isOverviewPanelOpen, stackedFraction
+        case focused, second, secondLeads, lastSecond, lastSecondLeads, overviewIsFirst, overviewWasSecond
+        case isOverviewPanelOpen, stackedFraction
     }
 
     /// Restored state is untrusted: a missing key takes its default and a pane name this build does not know is dropped.
@@ -43,6 +51,10 @@ public struct PaneState: Codable, Equatable, Sendable {
             secondLeads: (try? container.decodeIfPresent(Bool.self, forKey: .secondLeads)).flatMap { $0 } ?? false,
             lastSecond: pane(.lastSecond),
             lastSecondLeads: (try? container.decodeIfPresent(Bool.self, forKey: .lastSecondLeads)).flatMap { $0 }
+                ?? false,
+            overviewIsFirst: (try? container.decodeIfPresent(Bool.self, forKey: .overviewIsFirst)).flatMap { $0 }
+                ?? false,
+            overviewWasSecond: (try? container.decodeIfPresent(Bool.self, forKey: .overviewWasSecond)).flatMap { $0 }
                 ?? false,
             isOverviewPanelOpen: (try? container.decodeIfPresent(Bool.self, forKey: .isOverviewPanelOpen))
                 .flatMap { $0 } ?? false,
@@ -172,6 +184,7 @@ public enum PaneLayoutRules {
     public static func select(_ pane: PaneID, from slot: SlotPosition?, state: PaneState, plan: SlotPlan) -> PaneState {
         guard plan.available.contains(pane) else { return state }
         var next = stateShown(by: plan, base: state)
+        if plan.overviewIsPanel { next.overviewWasSecond = false }
         if pane == .overview && plan.overviewIsPanel {
             next.isOverviewPanelOpen.toggle()
             return tidy(next, plan: plan)
@@ -212,18 +225,21 @@ public enum PaneLayoutRules {
     ) -> PaneState {
         var next = state
         if old.slotCount == 2 && new.slotCount == 1 {
-            if let second = next.second { next.lastSecond = second }
-            next.lastSecondLeads = next.secondLeads
-            next.second = nil
-            next.secondLeads = false
+            if next.focused != .overview {
+                if let second = next.second { next.lastSecond = second }
+                next.lastSecondLeads = next.secondLeads
+                next.second = nil
+                next.secondLeads = false
+            }
+            // A focused Overview keeps the pane beside it and its side; `lastSecond` keeps the pane hidden behind both.
         } else if old.slotCount == 1 && new.slotCount == 2 {
             let candidates = slotPanes(available: available, arrangement: new, inputs: inputs)
             if next.focused == .overview, let beside = next.second, candidates.contains(beside) {
-                // Folded from an open panel: the pane that sat beside it comes back, `lastSecond` stays hidden.
+                // The pane that sat beside the Overview comes back on its side; `lastSecond` stays hidden.
             } else {
                 next.second = defaultSecond(focused: next.focused, lastSecond: next.lastSecond, candidates: candidates)
+                next.secondLeads = false
             }
-            next.secondLeads = false
         }
         next = resolve(next, available: available, arrangement: new, inputs: inputs)
         if new == .laptop, next.second != nil {
@@ -308,15 +324,21 @@ public enum PaneLayoutRules {
         let candidates = slotPanes(available: present, arrangement: arrangement, inputs: inputs)
         if next.second == next.focused { next.second = nil }
         if panel, next.second == .overview, next.focused != .overview {
-            // The Overview was the second pane and is now the panel: open it beside the focused pane.
+            // The Overview was the second pane and is now the panel: open it beside the focused pane and remember its
+            // place. The hidden pane's side takes over `secondLeads`.
             next.isOverviewPanelOpen = true
+            next.overviewIsFirst = next.secondLeads
+            next.overviewWasSecond = true
             next.second = nil
+            next.secondLeads = next.lastSecondLeads
         }
         let secondIsGone = next.second.map { !candidates.contains($0) } ?? false
 
         if panel {
             if next.focused == .overview {
                 next.isOverviewPanelOpen = true
+                next.overviewWasSecond = false
+                if next.second != nil { next.overviewIsFirst = !next.secondLeads }
                 next.secondLeads = next.lastSecondLeads
                 let replacement = next.second.flatMap { candidates.contains($0) ? $0 : nil }
                 next.focused =
@@ -335,10 +357,18 @@ public enum PaneLayoutRules {
                         if let hidden = next.second, hidden != beside { next.lastSecond = hidden }
                         next.lastSecondLeads = next.secondLeads
                     }
-                    next.second = beside
-                    next.secondLeads = arrangement.slotCount == 2
+                    if arrangement.slotCount == 2 && next.overviewWasSecond {
+                        // Both panes return to the places they had before the Overview became the panel.
+                        next.second = .overview
+                        next.secondLeads = next.overviewIsFirst
+                    } else {
+                        next.second = beside
+                        next.secondLeads = arrangement.slotCount == 2 && !next.overviewIsFirst
+                        next.focused = .overview
+                    }
+                } else {
+                    next.focused = .overview
                 }
-                next.focused = .overview
             }
             next.isOverviewPanelOpen = false
             if next.second == next.focused { next.second = nil }
