@@ -82,13 +82,17 @@ import XCTest
     func testSendWhileATurnRunsSteersAndLongPressQueues() throws {
         try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
         try launch(scenario: "one-thread-working")
-        // The scripted turn must outlast the typing.
-        try stub.setPlaybackMilliseconds(3000)
+        // The turn runs from the third scripted event to the last. Playback starts fast so the turn is running, then
+        // holds once the app shows it, so a slow machine cannot end the turn during the test. The next launch's
+        // scenario cancels the held playback.
+        try stub.setPlaybackMilliseconds(1000)
         defer { try? stub.setPlaybackMilliseconds(400) }
         openDrawerIfNeeded()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
+        XCTAssertTrue(app.buttons["composer.stop"].waitForExistence(timeout: 30), "the scripted turn never started")
+        try stub.setPlaybackMilliseconds(600_000)
         let field = app.textFields["composer.field"]
         XCTAssertTrue(field.waitForExistence(timeout: 15))
         field.tap()
@@ -102,13 +106,14 @@ import XCTest
         field.tap()
         field.typeText("Then update the docs")
         XCTAssertTrue(send.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["composer.stop"].exists, "the scripted turn ended early, before the long press")
         send.press(forDuration: 1.0)
         let afterTurn = app.descendants(matching: .any).matching(identifier: "composer.sendAfterTurn").firstMatch
-        XCTAssertTrue(afterTurn.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(afterTurn.waitForExistence(timeout: 15), app.debugDescription)
         // The menu opens with an animation; its item has no frame until it settles.
         wait(
             for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: afterTurn)],
-            timeout: 5)
+            timeout: 15)
         afterTurn.tap()
         waitForLastMessage(containing: "after_turn")
         XCTAssertTrue(stub.lastMessage().contains("Then update the docs"))
