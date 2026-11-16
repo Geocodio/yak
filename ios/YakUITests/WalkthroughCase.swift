@@ -63,6 +63,20 @@ import XCTest
         return UIGraphicsImageRenderer(size: turned.size, format: format).pngData { _ in turned.draw(at: .zero) }
     }
 
+    /// The software keyboard's frame, or nil without one. The audit takes the keyboard out of the app's element tree
+    /// while it runs, so a rule that needs the keyboard reads this before the audit starts.
+    func keyboardFrame() -> CGRect? {
+        app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame : nil
+    }
+
+    /// The frame of the sheet a screen shows, for the screens that show one, or nil.
+    private func sheetFrame(named name: String) -> CGRect? {
+        let identifiers = ["model-picker": "model.picker", "camera-denied": "composer.cameraDenied"]
+        guard let identifier = identifiers[name] else { return nil }
+        let sheet = app.otherElements[identifier].firstMatch
+        return sheet.exists ? sheet.frame : nil
+    }
+
     /// Saves the screenshot once animations settle, then audits the screen. `audits: false` is for screens
     /// that the system covers with its own UI, which the audit cannot reach.
     func shoot(_ name: String, audits: Bool = true) throws {
@@ -72,6 +86,8 @@ import XCTest
         try upright(XCUIScreen.main.screenshot()).write(to: URL(fileURLWithPath: "\(directory)/\(name).png"))
         // The remove confirmation is the system's own dialog; the audit reports only its fixed text sizes.
         guard audits, !name.hasSuffix("remove-confirmation") else { return }
+        let keyboard = keyboardFrame()
+        let sheet = sheetFrame(named: name)
         try app.performAccessibilityAudit { [self, app] issue in
             let description = issue.element?.debugDescription ?? ""
             // The system keyboard's prediction bar is not ours to label.
@@ -86,8 +102,15 @@ import XCTest
                 return true
             }
             // The keyboard covers part of a screen that scrolls; what is behind it cannot be judged.
-            if issue.auditType == .contrast, let element = issue.element, app.keyboards.firstMatch.exists,
-                app.keyboards.firstMatch.frame.intersects(element.frame)
+            if issue.auditType == .contrast, let element = issue.element, let keyboard,
+                keyboard.intersects(element.frame)
+            {
+                return true
+            }
+            // The system dims the screen behind a sheet, so the text outside the sheet reads too light. What the sheet
+            // holds is still judged: only an element whose center lies outside the sheet is skipped.
+            if issue.auditType == .contrast, let element = issue.element, let sheet,
+                !sheet.contains(CGPoint(x: element.frame.midX, y: element.frame.midY))
             {
                 return true
             }

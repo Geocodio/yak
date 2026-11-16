@@ -393,6 +393,7 @@ import XCTest
     /// whose size the system caps.
     private func shootThread(_ name: String) throws {
         try shoot(name, audits: false)
+        let keyboard = keyboardFrame()
         try app.performAccessibilityAudit { [app] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
@@ -402,8 +403,8 @@ import XCTest
             }
             // The system keyboard's prediction bar is not ours to label, and what it covers cannot be judged.
             if (issue.element?.debugDescription ?? "").contains("TUIPredictionViewCell") { return true }
-            if issue.auditType == .contrast, let element = issue.element, app.keyboards.firstMatch.exists,
-                app.keyboards.firstMatch.frame.intersects(element.frame)
+            if issue.auditType == .contrast, let element = issue.element, let keyboard,
+                keyboard.intersects(element.frame)
             {
                 return true
             }
