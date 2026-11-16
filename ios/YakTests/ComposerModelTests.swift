@@ -184,7 +184,9 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
         }
     }
 
-    func attachmentExists(_ attachment: OutboxAttachment) async -> Bool { lock.withLock { files[attachment.path] != nil } }
+    func attachmentExists(_ attachment: OutboxAttachment) async -> Bool {
+        lock.withLock { files[attachment.path] != nil }
+    }
 
     func discardAttachment(_ attachment: OutboxAttachment) async { lock.withLock { discarded.append(attachment) } }
 

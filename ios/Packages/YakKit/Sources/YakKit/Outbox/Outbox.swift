@@ -337,14 +337,18 @@ public actor Outbox {
             return
         }
         for name in waiting where name.hasSuffix(".json") { held.insert(String(name.dropLast(5))) }
-        if let records = await uploads?.ledger.records() { for record in records { held.insert(record.itemID.uuidString) } }
+        if let records = await uploads?.ledger.records() {
+            for record in records { held.insert(record.itemID.uuidString) }
+        }
         guard !isShutDown else { return }
         // A folder is removed only when it was also unheld at the previous sweep, so a file stored a moment before
         // its draft or item is saved is never taken.
         let candidatesPath = "\(InstanceFolders.outbox(instance))/sweep-candidates.json"
         var previous: Set<String> = []
         do {
-            if let data = try files.read(candidatesPath) { previous = Set(try JSONDecoder().decode([String].self, from: data)) }
+            if let data = try files.read(candidatesPath) {
+                previous = Set(try JSONDecoder().decode([String].self, from: data))
+            }
         } catch { logFailure("sweep candidates unreadable: \(type(of: error))") }
         let unheld = Set(names).subtracting(held)
         let doomed = unheld.intersection(previous)

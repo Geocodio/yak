@@ -81,7 +81,8 @@ private struct Setup {
         await setup.outbox.load()
         let orphan = try setup.attachment(UUID())
         try setup.files.write(
-            Data("not json".utf8), to: "\(InstanceFolders.cache(setup.instance))/new-thread.json", protection: .complete)
+            Data("not json".utf8), to: "\(InstanceFolders.cache(setup.instance))/new-thread.json", protection: .complete
+        )
         await setup.sweep()
         #expect(try setup.files.read(orphan.path) != nil)
     }
@@ -125,7 +126,8 @@ private struct Setup {
         let setup = Setup()
         let session = FakeUploadSession(identifier: "test")
         let ledger = UploadLedger(instance: setup.instance, files: setup.files, clock: ManualClock())
-        let outbox = Setup(instance: setup.instance, files: setup.files, uploads: UploadLink(ledger: ledger, session: session))
+        let outbox = Setup(
+            instance: setup.instance, files: setup.files, uploads: UploadLink(ledger: ledger, session: session))
         await outbox.outbox.load()
         let id = UUID()
         let file = try setup.attachment(id)
