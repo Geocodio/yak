@@ -2067,6 +2067,1076 @@
           }
         }
       }
+    },
+    "pane.preview": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview"
+          }
+        }
+      }
+    },
+    "preview.signingIn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing in to the preview"
+          }
+        }
+      }
+    },
+    "preview.checking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking the preview"
+          }
+        }
+      }
+    },
+    "preview.checking.slow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is taking longer than usual"
+          }
+        }
+      }
+    },
+    "preview.notOpen.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview did not open"
+          }
+        }
+      }
+    },
+    "preview.notOpen.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is not connected yet. Try again in a moment."
+          }
+        }
+      }
+    },
+    "preview.store.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview's saved sign-in could not be cleared."
+          }
+        }
+      }
+    },
+    "preview.store.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart the app to try again."
+          }
+        }
+      }
+    },
+    "preview.offline.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are offline"
+          }
+        }
+      }
+    },
+    "preview.offline.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview opens when the connection returns."
+          }
+        }
+      }
+    },
+    "preview.pageOffline.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview loads when the connection returns."
+          }
+        }
+      }
+    },
+    "preview.notFound.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This thread is not here anymore"
+          }
+        }
+      }
+    },
+    "preview.notFound.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It may have been deleted, or you may no longer have access."
+          }
+        }
+      }
+    },
+    "preview.serverError.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview could not be checked"
+          }
+        }
+      }
+    },
+    "preview.serverError.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak did not answer as expected. Try again."
+          }
+        }
+      }
+    },
+    "preview.timedOut.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview did not answer"
+          }
+        }
+      }
+    },
+    "preview.timedOut.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app took too long to respond."
+          }
+        }
+      }
+    },
+    "preview.certificate.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview's certificate is not trusted"
+          }
+        }
+      }
+    },
+    "preview.certificate.body %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device does not trust the certificate of %@. Install the profile of your certificate authority, or ask your admin."
+          }
+        }
+      }
+    },
+    "preview.cannotReach.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview cannot be reached"
+          }
+        }
+      }
+    },
+    "preview.cannotReach.body %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the connection to %@."
+          }
+        }
+      }
+    },
+    "preview.other.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview could not load"
+          }
+        }
+      }
+    },
+    "preview.other.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reload to try again."
+          }
+        }
+      }
+    },
+    "preview.signInFailed.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not sign in to the preview"
+          }
+        }
+      }
+    },
+    "preview.signInFailed.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sign-in link was used or expired twice in a row."
+          }
+        }
+      }
+    },
+    "preview.refused.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview cannot open"
+          }
+        }
+      }
+    },
+    "preview.crashed.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview page stopped"
+          }
+        }
+      }
+    },
+    "preview.crashed.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The page used too much memory or crashed."
+          }
+        }
+      }
+    },
+    "preview.reload": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reload"
+          }
+        }
+      }
+    },
+    "preview.stop": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop loading"
+          }
+        }
+      }
+    },
+    "preview.line.slow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview is slow to answer"
+          }
+        }
+      }
+    },
+    "preview.line.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline. The preview may be out of date."
+          }
+        }
+      }
+    },
+    "preview.line.cannotShowFile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file cannot be opened here."
+          }
+        }
+      }
+    },
+    "preview.line.unrequestedOpen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview tried to open another site."
+          }
+        }
+      }
+    },
+    "preview.line.safariFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safari could not get a sign-in link. Try again."
+          }
+        }
+      }
+    },
+    "preview.line.notSaved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The request could not be saved. Try again."
+          }
+        }
+      }
+    },
+    "preview.line.notActive": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is not connected yet. Try again in a moment."
+          }
+        }
+      }
+    },
+    "preview.line.restoreOffline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore did not reach Yak. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "preview.line.restoreFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sandbox could not be restored. Try again."
+          }
+        }
+      }
+    },
+    "preview.line.copied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Address copied"
+          }
+        }
+      }
+    },
+    "preview.waiting.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for a free sandbox"
+          }
+        }
+      }
+    },
+    "preview.waiting.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All awake sandbox slots are in use. This starts as soon as one frees up."
+          }
+        }
+      }
+    },
+    "preview.setup.adding.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is setting up the preview"
+          }
+        }
+      }
+    },
+    "preview.setup.adding.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Writing .yak/preview.yml, then starting the app to check that it answers."
+          }
+        }
+      }
+    },
+    "preview.setup.fixing.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is fixing the preview"
+          }
+        }
+      }
+    },
+    "preview.setup.fixing.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Looking at the dev server and checking that the app answers."
+          }
+        }
+      }
+    },
+    "preview.waking.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waking the preview"
+          }
+        }
+      }
+    },
+    "preview.waking.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sandbox was paused to save resources. This takes a few seconds."
+          }
+        }
+      }
+    },
+    "preview.starting.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting the dev server"
+          }
+        }
+      }
+    },
+    "preview.starting.body.command %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running %@."
+          }
+        }
+      }
+    },
+    "preview.starting.body.default": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running the app's start command."
+          }
+        }
+      }
+    },
+    "preview.step.wake": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wake the sandbox"
+          }
+        }
+      }
+    },
+    "preview.step.start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start the dev server"
+          }
+        }
+      }
+    },
+    "preview.step.wait": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait for the app to answer"
+          }
+        }
+      }
+    },
+    "preview.step.port %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Port %lld"
+          }
+        }
+      }
+    },
+    "preview.step.done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "preview.step.active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In progress"
+          }
+        }
+      }
+    },
+    "preview.step.pending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting"
+          }
+        }
+      }
+    },
+    "preview.log.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dev server output"
+          }
+        }
+      }
+    },
+    "preview.waking.footer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This opens by itself when the app answers."
+          }
+        }
+      }
+    },
+    "preview.failing.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The dev server did not start"
+          }
+        }
+      }
+    },
+    "preview.failing.body.command %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak ran %@. The last lines of its log:"
+          }
+        }
+      }
+    },
+    "preview.failing.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The last lines of its log:"
+          }
+        }
+      }
+    },
+    "preview.noManifest.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tell Yak how to run this app"
+          }
+        }
+      }
+    },
+    "preview.noManifest.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This repository has no .yak/preview.yml, so Yak does not know how to start the app."
+          }
+        }
+      }
+    },
+    "preview.sample": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "port: 3000\ncold_start: npm run dev\nhealth_probe_path: /"
+          }
+        }
+      }
+    },
+    "preview.setupEnded.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak did not finish the preview file"
+          }
+        }
+      }
+    },
+    "preview.setupEnded.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The turn ended and .yak/preview.yml is still missing."
+          }
+        }
+      }
+    },
+    "preview.invalid.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preview file is not valid"
+          }
+        }
+      }
+    },
+    "preview.invalid.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak could not read .yak/preview.yml."
+          }
+        }
+      }
+    },
+    "preview.readOnly.ask": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone who can drive this thread can ask Yak to set this up."
+          }
+        }
+      }
+    },
+    "preview.readOnly.fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone who can drive this thread can ask Yak to fix it."
+          }
+        }
+      }
+    },
+    "preview.destroyed.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sandbox was removed"
+          }
+        }
+      }
+    },
+    "preview.destroyed.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandboxes are removed after a long time without use. The thread's history is kept."
+          }
+        }
+      }
+    },
+    "preview.destroyed.never.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This thread has no sandbox yet"
+          }
+        }
+      }
+    },
+    "preview.destroyed.never.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore starts one from the thread's history."
+          }
+        }
+      }
+    },
+    "preview.destroyed.readOnly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone who can drive this thread can restore it."
+          }
+        }
+      }
+    },
+    "preview.restore.tookTooLong": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring took longer than expected. Try again."
+          }
+        }
+      }
+    },
+    "preview.restoring.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring the sandbox"
+          }
+        }
+      }
+    },
+    "preview.restoring.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak is rebuilding the sandbox from the thread's history. This can take a few minutes."
+          }
+        }
+      }
+    },
+    "preview.restoreFailed.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilding the sandbox stopped"
+          }
+        }
+      }
+    },
+    "preview.restoreFailed.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yak could not restore the sandbox."
+          }
+        }
+      }
+    },
+    "preview.restoreFailed.readOnly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone who can drive this thread can retry it."
+          }
+        }
+      }
+    },
+    "preview.closed.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This thread is closed"
+          }
+        }
+      }
+    },
+    "preview.closed.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed threads do not run a preview."
+          }
+        }
+      }
+    },
+    "preview.local.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This thread runs on a computer"
+          }
+        }
+      }
+    },
+    "preview.local.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its app and dev server run there. Hand the thread back to Yak to preview it here."
+          }
+        }
+      }
+    },
+    "preview.unknown.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This preview is in a state this version does not show"
+          }
+        }
+      }
+    },
+    "preview.unknown.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update the app, or open the preview in Safari."
+          }
+        }
+      }
+    },
+    "preview.unknown.update": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update the app to see this preview."
+          }
+        }
+      }
+    },
+    "preview.action.asking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asking Yak"
+          }
+        }
+      }
+    },
+    "preview.action.askFix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Yak to fix it"
+          }
+        }
+      }
+    },
+    "preview.action.askAdd": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Yak to add it"
+          }
+        }
+      }
+    },
+    "preview.action.tryAgain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again"
+          }
+        }
+      }
+    },
+    "preview.action.restore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore the sandbox"
+          }
+        }
+      }
+    },
+    "preview.action.retryRestore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
+    "preview.action.openTerminal": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open terminal"
+          }
+        }
+      }
+    },
+    "preview.action.showConversation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the conversation"
+          }
+        }
+      }
+    },
+    "preview.action.openInSafari": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in Safari"
+          }
+        }
+      }
+    },
+    "preview.copyAddress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy address"
+          }
+        }
+      }
+    },
+    "preview.address.label %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Address: %@. Edit"
+          }
+        }
+      }
+    },
+    "preview.address.placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Path"
+          }
+        }
+      }
+    },
+    "preview.address.cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "preview.secure": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secure connection"
+          }
+        }
+      }
+    },
+    "preview.testConnection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test connection"
+          }
+        }
+      }
+    },
+    "preview.dialog.ok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "preview.dialog.cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -155,7 +155,7 @@ enum PreviewWebData {
 /// Erases an instance's preview data when the person unpairs it or the server revokes it.
 @MainActor
 final class PreviewWebDataObserver: InstanceLifecycleObserver {
-    private let defaults: any KeyValueStore
+    let defaults: any KeyValueStore
 
     init(defaults: any KeyValueStore) { self.defaults = defaults }
 

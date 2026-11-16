@@ -40,6 +40,14 @@ struct StubControl {
         try send("GET", endpoint, body: nil)
     }
 
+    /// What the preview feature of the stub saw, one entry per line ("status ready", "warm", "auth /").
+    func previewLog() throws -> [String] {
+        try get("preview/log").split(separator: "\n").map(String.init)
+    }
+
+    /// The body of the last message posted to a thread.
+    func lastMessage() throws -> String { try get("last-message") }
+
     private func send(_ method: String, _ endpoint: String, body: String?) throws -> String {
         var request = URLRequest(url: URL(string: "\(url)/__stub/\(endpoint)")!)
         request.httpMethod = method

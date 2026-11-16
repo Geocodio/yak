@@ -95,7 +95,7 @@ struct ThreadScreen: View {
                 }
             }
             .overlay(alignment: .top) { copiedToast }
-            .background { shortcuts(focused) }
+            .background { shortcuts(focused, panes: thread.panes) }
         }
         .environment(scene)
         .sensoryFeedback(.success, trigger: copiedLink)
@@ -175,10 +175,15 @@ struct ThreadScreen: View {
         }
     }
 
-    /// Command 1 focuses Chat.
-    private func shortcuts(_ focused: Binding<PaneID>) -> some View {
-        Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
-            .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
+    /// Command 1 focuses Chat, Command 2 Preview when the thread has one.
+    private func shortcuts(_ focused: Binding<PaneID>, panes: [PaneID]) -> some View {
+        ZStack {
+            Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
+            if panes.contains(.preview) {
+                Button("pane.preview") { focused.wrappedValue = .preview }.yakShortcut(.focusPreview)
+            }
+        }
+        .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }
 }
 
