@@ -12,7 +12,13 @@ struct TerminalBanner: View {
     }
 
     var body: some View {
-        if let line = self.line {
+        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+            banner(now: timeline.date)
+        }
+    }
+
+    @ViewBuilder private func banner(now: Date) -> some View {
+        if let line = self.line(now: now) {
             VStack(alignment: .leading, spacing: 8) {
                 line.text.font(.subheadline.weight(.medium))
                 if snapshot.droppedKeys, snapshot.phase == .offline {
@@ -35,11 +41,11 @@ struct TerminalBanner: View {
 
     private func newShell() { Task { await model.newShell() } }
 
-    private var line: Line? {
+    private func line(now: Date) -> Line? {
         switch snapshot.phase {
         case .lost(let attempt, let retryAt):
             return Line(
-                text: Text("terminal.banner.lost \(Int(max(0, retryAt.timeIntervalSinceNow.rounded(.up)))) \(attempt)"),
+                text: Text("terminal.banner.lost \(Int(max(0, retryAt.timeIntervalSince(now).rounded(.up)))) \(attempt)"),
                 action: ("terminal.banner.reconnect", { Task { await model.retry() } }))
         case .couldNotReconnect:
             return Line(text: Text("terminal.banner.couldNotReconnect"), action: ("terminal.shell.new", newShell))
