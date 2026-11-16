@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\ArtifactController::publicMethod
-* @see app/Http/Controllers/ArtifactController.php:55
+* @see app/Http/Controllers/ArtifactController.php:86
 * @route '/artifacts/public/{token}'
 */
 export const publicMethod = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ publicMethod.definition = {
 
 /**
 * @see \App\Http\Controllers\ArtifactController::publicMethod
-* @see app/Http/Controllers/ArtifactController.php:55
+* @see app/Http/Controllers/ArtifactController.php:86
 * @route '/artifacts/public/{token}'
 */
 publicMethod.url = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ publicMethod.url = (args: { token: string | number } | [token: string | number ]
 
 /**
 * @see \App\Http\Controllers\ArtifactController::publicMethod
-* @see app/Http/Controllers/ArtifactController.php:55
+* @see app/Http/Controllers/ArtifactController.php:86
 * @route '/artifacts/public/{token}'
 */
 publicMethod.get = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -53,7 +53,7 @@ publicMethod.get = (args: { token: string | number } | [token: string | number ]
 
 /**
 * @see \App\Http\Controllers\ArtifactController::publicMethod
-* @see app/Http/Controllers/ArtifactController.php:55
+* @see app/Http/Controllers/ArtifactController.php:86
 * @route '/artifacts/public/{token}'
 */
 publicMethod.head = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -63,7 +63,7 @@ publicMethod.head = (args: { token: string | number } | [token: string | number 
 
 /**
 * @see \App\Http\Controllers\ArtifactController::viewer
-* @see app/Http/Controllers/ArtifactController.php:35
+* @see app/Http/Controllers/ArtifactController.php:66
 * @route '/artifacts/{task}/viewer/{filename}'
 */
 export const viewer = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -78,7 +78,7 @@ viewer.definition = {
 
 /**
 * @see \App\Http\Controllers\ArtifactController::viewer
-* @see app/Http/Controllers/ArtifactController.php:35
+* @see app/Http/Controllers/ArtifactController.php:66
 * @route '/artifacts/{task}/viewer/{filename}'
 */
 viewer.url = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions) => {
@@ -106,7 +106,7 @@ viewer.url = (args: { task: string | { public_id: string }, filename: string | n
 
 /**
 * @see \App\Http\Controllers\ArtifactController::viewer
-* @see app/Http/Controllers/ArtifactController.php:35
+* @see app/Http/Controllers/ArtifactController.php:66
 * @route '/artifacts/{task}/viewer/{filename}'
 */
 viewer.get = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -116,7 +116,7 @@ viewer.get = (args: { task: string | { public_id: string }, filename: string | n
 
 /**
 * @see \App\Http\Controllers\ArtifactController::viewer
-* @see app/Http/Controllers/ArtifactController.php:35
+* @see app/Http/Controllers/ArtifactController.php:66
 * @route '/artifacts/{task}/viewer/{filename}'
 */
 viewer.head = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

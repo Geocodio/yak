@@ -12,14 +12,14 @@ beforeEach(function () {
     $this->thread = Thread::factory()->paused()->create(['repo' => 'acme/widgets']);
     $this->sandboxes = new FakeSandboxManager;
     app()->instance(SandboxManager::class, $this->sandboxes);
-    $this->extra = ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/api', 'sandbox_path' => '/extras/api']);
+    $this->extra = ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/api', 'sandbox_path' => '/home/yak/extras/api']);
 });
 
 it('reads the refresh map of an extra from its own folder', function () {
     $this->sandboxes->queueExecResult(Process::result("refresh:\n  composer.lock: composer install\n"));
 
     expect(app(TeleportRefreshMaps::class)->forRepository($this->thread, $this->extra))->toBe([['glob' => 'composer.lock', 'command' => 'composer install']]);
-    expect($this->sandboxes->calls[0]['arguments']['command'])->toBe(['cat', '/extras/api/.yak/config.yml']);
+    expect($this->sandboxes->calls[0]['arguments']['command'])->toBe(['cat', '/home/yak/extras/api/.yak/config.yml']);
 });
 
 it('returns an empty list for an invalid map', function () {

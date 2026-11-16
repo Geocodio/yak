@@ -17,6 +17,7 @@ export function initialEventState(): ThreadEventState {
         streamingBlocks: {},
         turn: null,
         thread: null,
+        questionOpen: null,
         children: {},
         repositories: {},
         viewers: [],
@@ -61,6 +62,8 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
             return { ...next, turn: event.data as ThreadEventEnvelope<'turn'>['data'] };
         case 'thread':
             return { ...next, thread: event.data as ThreadEventEnvelope<'thread'>['data'] };
+        case 'question':
+            return { ...next, questionOpen: (event.data as ThreadEventEnvelope<'question'>['data']).open };
         case 'child': {
             const data = event.data as ThreadEventEnvelope<'child'>['data'];
 

@@ -232,6 +232,18 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         #expect(try object(reply(.empty, "GET", "threads"))["hasAnyThreads"] as? Bool == false)
     }
 
+    @Test func newThreadOptionsPerScenario() throws {
+        let normal = try object(reply(.paired, "GET", "threads/new"))
+        #expect((normal["repos"] as? [Any])?.count == 2)
+        let none = try object(reply(.noRepositories, "GET", "threads/new"))
+        #expect((none["repos"] as? [Any])?.isEmpty == true)
+        #expect(none["defaultRepo"] is NSNull)
+        #expect(try object(reply(.noRepositories, "GET", "threads"))["hasAnyThreads"] as? Bool == false)
+        #expect(try status(reply(.brokenNewThread, "GET", "threads/new")) == 500)
+        #expect(try reply(.slowNewThread, "GET", "threads/new").delay == .seconds(14))
+        #expect(try reply(.slowNewThread, "GET", "threads").delay == .zero)
+    }
+
     @Test func refusalsAndRepositoryAccess() throws {
         #expect(try status(reply(.threadMissing, "GET", "threads/d0e515ef")) == 404)
         #expect(
@@ -247,6 +259,18 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
                 == true)
         #expect(try reply(.slowThread, "GET", "threads/d0e515ef").delay == .seconds(14))
         #expect(try reply(.slowThread, "GET", "threads").delay == .zero)
+    }
+
+    @Test func oneAttachmentLimitsTheMessage() throws {
+        func limit(_ scenario: Scenario) throws -> Int? {
+            let request = StubRequest(
+                method: "GET", path: "/api/app/v1/me", headers: ["authorization": "Bearer stub-token"])
+            let answer = scenario.reply(
+                to: request, baseURL: "http://127.0.0.1:1", fixtures: try StubTestSupport.fixtures())
+            return (try object(answer)["attachments"] as? [String: Any])?["maxFiles"] as? Int
+        }
+        #expect(try limit(.oneAttachment) == 1)
+        #expect(try limit(.paired) == 8)
     }
 
     @Test func longHistoryHas1200Events() throws {

@@ -93,13 +93,13 @@ it('returns nulls for a thread with no task or deployment', function () {
 it('describes each repository with path, setup error and role actions', function () {
     $thread = Thread::factory()->create(['repo' => 'acme/app']);
     ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app']);
-    ThreadRepository::factory()->changes()->failed('npm ci failed')->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'added_by' => 'claude']);
+    ThreadRepository::factory()->changes()->failed('npm ci failed')->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/home/yak/extras/web', 'added_by' => 'claude']);
 
     $response = $this->actingAs(User::factory()->create())->getJson(route('threads.environment.show', $thread))->assertOk();
 
     $response->assertJsonPath('repositories.0.isDatasetAttached', true)
         ->assertJsonPath('repositories.0.canMakeContextOnly', false)
-        ->assertJsonPath('repositories.1.path', '/extras/web')
+        ->assertJsonPath('repositories.1.path', '/home/yak/extras/web')
         ->assertJsonPath('repositories.1.setupStatus', 'failed')
         ->assertJsonPath('repositories.1.setupError', 'npm ci failed')
         ->assertJsonPath('repositories.1.isDatasetAttached', false)

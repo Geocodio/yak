@@ -29,6 +29,12 @@ struct StubControl {
     /// Takes the app offline or back online; the app in test mode reads this as its network state.
     func setOnline(_ isOnline: Bool) throws { try post("online", isOnline ? "yes" : "no") }
 
+    /// The pause between the scripted events of a playing thread, for tests that need the turn to last.
+    func setPlaybackMilliseconds(_ milliseconds: Int) throws { try post("playback", String(milliseconds)) }
+
+    /// The body of the last message the stub took, or an empty string.
+    func lastMessage() -> String { (try? get("last-message")) ?? "" }
+
     /// Sends `body` to `/__stub/<endpoint>` and fails the test unless the stub answers 200. A feature's control
     /// route goes here as `<feature>/<route>`. Waits at most 30 seconds.
     func post(_ endpoint: String, _ body: String) throws {
@@ -44,9 +50,6 @@ struct StubControl {
     func previewLog() throws -> [String] {
         try get("preview/log").split(separator: "\n").map(String.init)
     }
-
-    /// The body of the last message posted to a thread.
-    func lastMessage() throws -> String { try get("last-message") }
 
     private func send(_ method: String, _ endpoint: String, body: String?) throws -> String {
         var request = URLRequest(url: URL(string: "\(url)/__stub/\(endpoint)")!)

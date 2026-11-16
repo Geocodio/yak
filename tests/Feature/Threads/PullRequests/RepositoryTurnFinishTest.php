@@ -23,7 +23,7 @@ function repositoryEventTurn(array $resultEvent): array
     Repository::factory()->create(['slug' => 'acme/web', 'github_full_name' => 'acme/web', 'default_branch' => 'main', 'ci_system' => 'github_actions']);
     $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'yak-thread-test']);
     $task = YakTask::factory()->create(['repo' => 'acme/web', 'status' => TaskStatus::Success, 'thread_id' => $thread->id]);
-    $web = ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'branch' => 'yak/x-web']);
+    $web = ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/web', 'sandbox_path' => '/home/yak/extras/web', 'branch' => 'yak/x-web']);
     $run = TaskRun::factory()->create([
         'yak_task_id' => $task->id,
         'thread_id' => $thread->id,

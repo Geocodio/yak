@@ -2,6 +2,7 @@
     import Foundation
     import os
     import SwiftUI
+    import UIKit
     import YakKit
 
     /// How UI tests and walkthroughs run the app against the stub server. It exists in Debug builds only.
@@ -33,6 +34,27 @@
             case "dark": .dark
             case "light": .light
             default: nil
+            }
+        }
+
+        /// `-yakTestAttachments <count>` attaches that many generated pictures to the first composer that shows, through
+        /// the same path as a picked photo, so a test never drives the system photo picker.
+        static func attachmentFixtureCount(_ defaults: UserDefaults = .standard) -> Int {
+            defaults.integer(forKey: "yakTestAttachments")
+        }
+
+        /// A neutral gradient picture, as JPEG bytes.
+        static func fixtureImageData() -> Data {
+            let size = CGSize(width: 1200, height: 900)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            return UIGraphicsImageRenderer(size: size, format: format).jpegData(withCompressionQuality: 0.8) {
+                context in
+                let colors = [UIColor.systemTeal.cgColor, UIColor.systemIndigo.cgColor] as CFArray
+                let gradient = CGGradient(
+                    colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1])!
+                context.cgContext.drawLinearGradient(
+                    gradient, start: .zero, end: CGPoint(x: size.width, y: size.height), options: [])
             }
         }
 

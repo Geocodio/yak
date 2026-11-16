@@ -76,7 +76,7 @@ import XCTest
         let ask = app.buttons["preview.ask"]
         XCTAssertTrue(ask.waitForExistence(timeout: 10))
         ask.tap()
-        let sent = NSPredicate { _, _ in (try? self.stub.lastMessage().contains("\"intent\":\"fix_preview\"")) ?? false
+        let sent = NSPredicate { _, _ in self.stub.lastMessage().contains("\"intent\":\"fix_preview\"")
         }
         wait(for: [XCTNSPredicateExpectation(predicate: sent, object: nil)], timeout: 20)
         XCTAssertTrue(card("setup-running").waitForExistence(timeout: 15))

@@ -73,7 +73,7 @@ it('starts with a primary, a changes and a context repository at their sandbox p
     $rows = $this->thread->repositories()->orderBy('id')->get();
 
     expect($rows->pluck('role')->all())->toBe([RepositoryRole::Primary, RepositoryRole::Changes, RepositoryRole::Context])
-        ->and($rows->pluck('sandbox_path')->all())->toBe(['/workspace', '/extras/web', '/extras/docs']);
+        ->and($rows->pluck('sandbox_path')->all())->toBe(['/workspace', '/home/yak/extras/web', '/home/yak/extras/docs']);
 });
 
 it('restores extras on the right branches, lists all three in the prompt and attaches a dataset only for the primary', function () {
@@ -93,7 +93,7 @@ it('restores extras on the right branches, lists all three in the prompt and att
         ->and($attached)->toBe(['acme/app']);
 
     $clones = collect(app(SandboxManager::class)->calls)->where('operation', 'exec')->pluck('arguments.stdin')->first(fn ($stdin) => str_contains((string) $stdin, 'git clone'));
-    expect($clones)->toContain("'/extras/web'")->toContain("'/extras/docs'")
+    expect($clones)->toContain("'/home/yak/extras/web'")->toContain("'/home/yak/extras/docs'")
         ->toContain("git checkout -B 'yak/thread-branch'")
         ->toContain('git checkout ');
     // Both branches of the changes repo's fetch-or-create line name the thread branch; the context repo checks out the default branch.
@@ -101,7 +101,7 @@ it('restores extras on the right branches, lists all three in the prompt and att
 
     $section = ThreadRepositoryPrompt::section($this->thread);
     expect($section)->toContain('acme/app')->toContain('acme/web')->toContain('acme/docs')
-        ->and(ThreadRepositoryPrompt::extraDirectories($this->thread))->toBe(['/extras/web', '/extras/docs']);
+        ->and(ThreadRepositoryPrompt::extraDirectories($this->thread))->toBe(['/home/yak/extras/web', '/home/yak/extras/docs']);
 });
 
 it('answers add_repository and the stack tools through the same router', function () {
@@ -119,7 +119,7 @@ it('answers add_repository and the stack tools through the same router', functio
 
     expect($added->content)->toContain('Added')
         ->and($added->isError)->toBeFalse()
-        ->and($added->content)->toContain('/extras/extra')
+        ->and($added->content)->toContain('/home/yak/extras/extra')
         ->and($listed->isError)->toBeFalse()
         ->and($this->thread->repositories()->where('repo', 'acme/extra')->exists())->toBeTrue();
 });

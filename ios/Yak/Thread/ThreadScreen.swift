@@ -47,12 +47,20 @@ struct ThreadScreen: View {
         }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
+        .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
     }
 
     /// Keeps one model per thread while the screen shows it, and stops it when the thread changes or the screen goes.
     private func run() async {
-        let next = ThreadModel(threadID: threadID, session: session)
+        // Text typed in the last moments before the model is replaced is saved first, then read back by the next one.
+        await model?.flushDraft()
+        // A change of `isSessionActive` runs this again for the same thread: the composer, and any send in flight in
+        // it, stays the only one for that thread.
+        let sameThreadComposer = model?.threadID == threadID ? model?.composer : nil
+        let next = ThreadModel(threadID: threadID, session: session, composer: sameThreadComposer)
         model = next
+        // Drafts are local files, so the field shows the saved text before the session is active.
+        await next.composer.load()
         guard isSessionActive else { return }
         await next.start(initialTitle: initialTitle)
         await next.setVisible(isVisible)
@@ -147,25 +155,7 @@ struct ThreadScreen: View {
     // MARK: Controls
 
     private var threadsButton: some View {
-        Button {
-            scene.setDrawerOpen(true)
-        } label: {
-            Image(systemName: "sidebar.leading")
-                .frame(minWidth: 44, minHeight: 44)
-                .overlay(alignment: .topTrailing) {
-                    if needsYouCount > 0 {
-                        Text(needsYouCount, format: .number).font(.caption2.weight(.bold)).foregroundStyle(.white)
-                            .padding(.horizontal, 5).frame(minWidth: 16, minHeight: 16)
-                            .background(Color.red, in: .capsule).offset(x: -2, y: 4)
-                            .accessibilityHidden(true)
-                    }
-                }
-                .contentShape(.rect)
-        }
-        .accessibilityLabel(
-            needsYouCount > 0 ? Text("threads.button.needsYou \(needsYouCount)") : Text("threads.button")
-        )
-        .accessibilityIdentifier("threads.button")
+        ThreadsButton(needsYouCount: needsYouCount) { scene.setDrawerOpen(true) }
     }
 
     private func threadMenu(_ shownPane: PaneID) -> some View {

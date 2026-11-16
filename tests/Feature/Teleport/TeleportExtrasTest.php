@@ -25,7 +25,7 @@ beforeEach(function () {
 function extraRepository(object $test, string $repo, RepositoryRole $role, ?string $branch = null): ThreadRepository
 {
     return ThreadRepository::factory()->role($role)->create([
-        'thread_id' => $test->thread->id, 'repo' => $repo, 'sandbox_path' => '/extras/' . basename($repo), 'branch' => $branch,
+        'thread_id' => $test->thread->id, 'repo' => $repo, 'sandbox_path' => '/home/yak/extras/' . basename($repo), 'branch' => $branch,
     ]);
 }
 
@@ -48,11 +48,11 @@ it('clones a missing changes extra then resets it to the pushed head', function 
 
     expect($result)->toBe(['acme/lib' => ['status' => 'ready', 'reason' => null]])
         ->and(extraCommands($this))->toBe([
-            ['test', '-d', '/extras/lib/.git'],
-            ['git', 'clone', 'https://github.com/acme/lib.git', '/extras/lib'],
-            ['git', '-C', '/extras/lib', 'fetch', 'origin', 'feature/x'],
-            ['git', '-C', '/extras/lib', 'checkout', '-B', 'feature/x'],
-            ['git', '-C', '/extras/lib', 'reset', '--hard', 'abc123'],
+            ['test', '-d', '/home/yak/extras/lib/.git'],
+            ['git', 'clone', 'https://github.com/acme/lib.git', '/home/yak/extras/lib'],
+            ['git', '-C', '/home/yak/extras/lib', 'fetch', 'origin', 'feature/x'],
+            ['git', '-C', '/home/yak/extras/lib', 'checkout', '-B', 'feature/x'],
+            ['git', '-C', '/home/yak/extras/lib', 'reset', '--hard', 'abc123'],
         ]);
 });
 
@@ -75,8 +75,8 @@ it('clones a context extra at the default branch and never fetches a thread bran
 
     expect($result)->toBe(['acme/docs' => ['status' => 'ready', 'reason' => null]])
         ->and(extraCommands($this))->toBe([
-            ['test', '-d', '/extras/docs/.git'],
-            ['git', 'clone', 'https://github.com/acme/docs.git', '/extras/docs'],
+            ['test', '-d', '/home/yak/extras/docs/.git'],
+            ['git', 'clone', 'https://github.com/acme/docs.git', '/home/yak/extras/docs'],
         ]);
 });
 

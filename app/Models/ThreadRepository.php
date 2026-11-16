@@ -44,6 +44,9 @@ use Illuminate\Support\Str;
  */
 class ThreadRepository extends Model
 {
+    /** Under the sandbox user's home, the one place the runner user can create directories. */
+    public const EXTRAS_ROOT = '/home/yak/extras';
+
     /** @use HasFactory<ThreadRepositoryFactory> */
     use HasFactory;
 
@@ -108,9 +111,9 @@ class ThreadRepository extends Model
             return '/workspace';
         }
 
-        $path = '/extras/' . Str::afterLast($slug, '/');
+        $path = self::EXTRAS_ROOT . '/' . Str::afterLast($slug, '/');
 
-        return in_array($path, $takenPaths, true) ? '/extras/' . str_replace('/', '-', $slug) : $path;
+        return in_array($path, $takenPaths, true) ? self::EXTRAS_ROOT . '/' . str_replace('/', '-', $slug) : $path;
     }
 
     public function hasOpenPullRequest(): bool

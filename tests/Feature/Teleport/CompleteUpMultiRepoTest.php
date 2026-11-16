@@ -118,7 +118,7 @@ function multiRepoCommands(object $test): array
 it('links the local path of each changes repo to its extras folder', function () {
     completeMultiRepoUp($this)['response']->assertOk();
 
-    expect(multiRepoCommands($this))->toContain('sh -c sudo mkdir -p "$(dirname "$1")" && sudo ln -sfn "$2" "$1" sh /Users/ada/lib /extras/lib');
+    expect(multiRepoCommands($this))->toContain('sh -c sudo mkdir -p "$(dirname "$1")" && sudo ln -sfn "$2" "$1" sh /Users/ada/lib /home/yak/extras/lib');
 });
 
 it('never links a context repo', function () {
@@ -129,22 +129,22 @@ it('never links a context repo', function () {
 
 it('runs setup and refresh inside each changes extra', function () {
     $this->sandboxes->script = fn (string $command): ?ProcessResult => match (true) {
-        $command === 'cat /extras/lib/.yak/config.yml' => Process::result("refresh:\n  'composer.lock': composer install\n"),
-        $command === 'git -C /extras/lib ls-files' => Process::result("composer.lock\nsrc/a.php\n"),
+        $command === 'cat /home/yak/extras/lib/.yak/config.yml' => Process::result("refresh:\n  'composer.lock': composer install\n"),
+        $command === 'git -C /home/yak/extras/lib ls-files' => Process::result("composer.lock\nsrc/a.php\n"),
         default => null,
     };
 
     $run = completeMultiRepoUp($this);
     $run['response']->assertOk();
 
-    expect(multiRepoCommands($this))->toContain('test -f /extras/lib/.yak/setup.sh')
-        ->toContain('bash /extras/lib/.yak/setup.sh')
-        ->toContain('sh -c cd /extras/lib && composer install')
+    expect(multiRepoCommands($this))->toContain('test -f /home/yak/extras/lib/.yak/setup.sh')
+        ->toContain('bash /home/yak/extras/lib/.yak/setup.sh')
+        ->toContain('sh -c cd /home/yak/extras/lib && composer install')
         ->and($run['teleport']->refresh()->payload['refresh_ran'])->toContain('acme/lib: composer install');
 });
 
 it('fails the teleport when an extra setup fails', function () {
-    $this->sandboxes->script = fn (string $command): ?ProcessResult => $command === 'bash /extras/lib/.yak/setup.sh' ? Process::result(errorOutput: 'nope', exitCode: 1) : null;
+    $this->sandboxes->script = fn (string $command): ?ProcessResult => $command === 'bash /home/yak/extras/lib/.yak/setup.sh' ? Process::result(errorOutput: 'nope', exitCode: 1) : null;
 
     $run = completeMultiRepoUp($this);
 
@@ -155,8 +155,8 @@ it('fails the teleport when an extra setup fails', function () {
 it('reports sandbox repos with a failed context clone and still completes', function () {
     $this->sandboxes->script = function (string $command): ?ProcessResult {
         return match ($command) {
-            'test -d /extras/docs/.git' => Process::result(exitCode: 1),
-            'git clone https://github.com/acme/docs.git /extras/docs' => Process::result(errorOutput: 'fatal', exitCode: 128),
+            'test -d /home/yak/extras/docs/.git' => Process::result(exitCode: 1),
+            'git clone https://github.com/acme/docs.git /home/yak/extras/docs' => Process::result(errorOutput: 'fatal', exitCode: 128),
             default => null,
         };
     };

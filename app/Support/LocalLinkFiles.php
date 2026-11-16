@@ -18,6 +18,6 @@ final class LocalLinkFiles
     /** True when an added line of the diff points a path repository or file:/link: dependency into the sandbox. */
     public static function carriesLocalLink(string $diff): bool
     {
-        return preg_match('#^\+(?!\+\+).*(?:"|file:|link:)/(?:extras/|workspace)#m', $diff) === 1;
+        return preg_match('#^\+(?!\+\+).*(?:"|file:|link:)/(?:home/yak/extras/|workspace)#m', $diff) === 1;
     }
 }

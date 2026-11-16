@@ -62,7 +62,7 @@ jobs:
       YAK_CONFIG_FROM_ENVIRONMENT: '1'
       RELEASE_LANE: ${{ github.event_name == 'schedule' && 'refresh' || (github.event_name == 'workflow_dispatch' && inputs.lane) || 'beta' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # Before any secret is read: every release tag must be annotated and on main, or nothing is built.
@@ -87,7 +87,7 @@ jobs:
         run: bundle exec fastlane "$RELEASE_LANE"
       - name: Keep the build logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-logs
           path: ios/build/release/*.log

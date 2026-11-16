@@ -31,15 +31,15 @@ test('puts a changes repo on the thread branch and a context repo on its default
     app()->instance(SandboxManager::class, $manager);
 
     $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Running, 'repo' => 'acme/app', 'branch' => 'yak/thread-branch']);
-    $lib = ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/lib', 'sandbox_path' => "{$directory}/extras/lib", 'setup_status' => RepositorySetupStatus::Pending]);
-    $docs = ThreadRepository::factory()->context()->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => "{$directory}/extras/docs", 'setup_status' => RepositorySetupStatus::Pending]);
+    $lib = ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/lib', 'sandbox_path' => "{$directory}/home/yak/extras/lib", 'setup_status' => RepositorySetupStatus::Pending]);
+    $docs = ThreadRepository::factory()->context()->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => "{$directory}/home/yak/extras/docs", 'setup_status' => RepositorySetupStatus::Pending]);
 
     $results = app(ExtraRepositorySetup::class)->setUpAll($thread, collect([$lib, $docs]));
 
     expect($results[0]->status)->toBe(RepositorySetupStatus::Ready)
         ->and($results[1]->status)->toBe(RepositorySetupStatus::Ready)
-        ->and(trim(Process::path("{$directory}/extras/lib")->run(['git', 'branch', '--show-current'])->output()))->toBe('yak/thread-branch')
-        ->and(trim(Process::path("{$directory}/extras/docs")->run(['git', 'branch', '--show-current'])->output()))->toBe('main')
+        ->and(trim(Process::path("{$directory}/home/yak/extras/lib")->run(['git', 'branch', '--show-current'])->output()))->toBe('yak/thread-branch')
+        ->and(trim(Process::path("{$directory}/home/yak/extras/docs")->run(['git', 'branch', '--show-current'])->output()))->toBe('main')
         ->and($lib->fresh()->branch)->toBe('yak/thread-branch')
         ->and($docs->fresh()->role)->toBe(RepositoryRole::Context)
         ->and($docs->fresh()->branch)->toBeNull();

@@ -139,7 +139,7 @@ class ThreadBuilder
      * @param  array<string, mixed>  $round
      * @return list<array{header: string, answer: string|null, other: string|null, skipped: bool}>
      */
-    private static function answerItems(array $round): array
+    public static function answerItems(array $round): array
     {
         return array_values(collect((array) $round['questions'])->map(function (array $question) use ($round): array {
             $answer = $round['answers'][$question['id']] ?? null;
