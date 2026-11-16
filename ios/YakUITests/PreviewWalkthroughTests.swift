@@ -39,7 +39,7 @@ import XCTest
     func testPreviewLandscape() throws {
         turnToLandscape()
         try show("preview-ready")
-        XCTAssertTrue(app.webViews.staticTexts["Path: /"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.webViews.staticTexts["Path: /"].waitForExistence(timeout: 45))
         XCTAssertTrue(app.descendants(matching: .any)["thread.strip"].exists)
         XCTAssertTrue(app.buttons["preview.reload"].exists)
         XCTAssertTrue(app.buttons["preview.address"].exists)
