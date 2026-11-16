@@ -40,7 +40,31 @@ private func drawnImageData() -> Data {
     }
 }
 
+/// A 300 by 100 JPEG whose pixels are wider than tall and whose orientation tag says to turn it a quarter.
+private func rotatedJPEGData() -> Data {
+    let size = CGSize(width: 300, height: 100)
+    let image = UIGraphicsImageRenderer(size: size, format: pointScale()).image { context in
+        UIColor.systemOrange.setFill()
+        context.fill(CGRect(origin: .zero, size: size))
+    }
+    let output = NSMutableData()
+    let destination = CGImageDestinationCreateWithData(output, "public.jpeg" as CFString, 1, nil)!
+    CGImageDestinationAddImage(
+        destination, image.cgImage!, [kCGImagePropertyOrientation: 6] as CFDictionary)
+    CGImageDestinationFinalize(destination)
+    return output as Data
+}
+
 struct AttachmentPreparerTests {
+    @Test func aTurnedPhotoComesOutUpright() async throws {
+        let prepared = try await AttachmentPreparer.prepare(
+            rotatedJPEGData(), fileName: "IMG.jpg", contentType: "image/jpeg", maximumBytes: 1_000_000)
+        let source = try #require(CGImageSourceCreateWithData(prepared.data as CFData, nil))
+        let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        #expect(properties[kCGImagePropertyPixelWidth] as? Int == 100)
+        #expect(properties[kCGImagePropertyPixelHeight] as? Int == 300)
+    }
+
     @Test func aSmallImageIsReencodedAsJPEG() async throws {
         let prepared = try await AttachmentPreparer.prepare(
             drawnImageData(), fileName: "IMG_0001.PNG", contentType: "image/png", maximumBytes: 1_000_000)

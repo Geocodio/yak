@@ -254,20 +254,19 @@ import XCTest
         try shoot("model-picker")
     }
 
+    /// The pictures come from a test-mode launch argument, not the system photo picker, which a test cannot drive at
+    /// the largest text size.
     func testAttachmentStrip() throws {
-        try start("paired", paired: true)
+        try start("paired", paired: true, attachments: 2)
         try openThread("d0e515ef")
-        try addPhoto()
         XCTAssertTrue(app.descendants(matching: .any)["composer.attachment"].waitForExistence(timeout: 15))
         try shootThread("attachments")
     }
 
     func testAttachmentProblem() throws {
-        try start("one-attachment", paired: true)
+        try start("one-attachment", paired: true, attachments: 2)
         try openThread("d0e515ef")
-        try addPhoto()
         XCTAssertTrue(app.descendants(matching: .any)["composer.attachment"].waitForExistence(timeout: 15))
-        try addPhoto()
         XCTAssertTrue(app.descendants(matching: .any)["composer.problem"].waitForExistence(timeout: 15))
         try shootThread("attachment-too-many")
     }
@@ -277,25 +276,6 @@ import XCTest
         XCTAssertTrue(plus.waitForExistence(timeout: 15))
         plus.tap()
         XCTAssertTrue(app.buttons["composer.plusMenu.photos"].waitForExistence(timeout: 5))
-    }
-
-    /// Picks the first photo of the simulator's library through the system picker.
-    private func addPhoto() throws {
-        try openPlusMenu()
-        app.buttons["composer.plusMenu.photos"].tap()
-        let photos = app.images.matching(NSPredicate(format: "label BEGINSWITH 'Photo'"))
-        XCTAssertTrue(
-            app.buttons["Cancel"].waitForExistence(timeout: 20) || photos.firstMatch.waitForExistence(timeout: 5))
-        _ = photos.firstMatch.waitForExistence(timeout: 10)
-        // The grid is the system's; its thumbnails are the large images on the sheet.
-        let thumbnails = photos.count > 0 ? photos : app.images
-        let photo = thumbnails.allElementsBoundByIndex.first { $0.frame.height > 80 } ?? thumbnails.firstMatch
-        XCTAssertTrue(photo.exists, "the simulator's library has no photo")
-        photo.tap()
-        for name in ["Add", "Done"] where app.buttons[name].waitForExistence(timeout: 2) {
-            app.buttons[name].tap()
-            break
-        }
     }
 
     private func type(_ text: String, then identifier: String) throws {

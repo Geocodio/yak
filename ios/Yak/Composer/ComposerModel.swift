@@ -11,6 +11,7 @@ protocol ComposerBackend: Sendable {
     func stop() async -> ThreadActionOutcome
     func storeAttachment(_ prepared: PreparedAttachment, reference: String, sendKey: UUID) async throws(FileStoreError)
         -> OutboxAttachment
+    func attachmentData(_ attachment: OutboxAttachment) async -> Data?
     func discardAttachment(_ attachment: OutboxAttachment) async
     func limits() async -> Me.AttachmentLimits?
 }
@@ -41,6 +42,8 @@ struct LiveComposerBackend: ComposerBackend {
             sendKey: sendKey)
     }
 
+    func attachmentData(_ attachment: OutboxAttachment) async -> Data? { await session.attachmentData(attachment) }
+
     func discardAttachment(_ attachment: OutboxAttachment) async { await session.discardAttachment(attachment) }
 
     func limits() async -> Me.AttachmentLimits? { await session.me()?.attachments }
@@ -63,7 +66,7 @@ final class ComposerModel {
     /// The server's limits once `me` is known; the defaults until then.
     private(set) var maximumFiles = 8
     private(set) var maximumFileBytes = 10 * 1024 * 1024
-    /// Small pictures for the strip, by reference. A draft restored from disk has none and shows a file chip.
+    /// Small pictures for the strip, by reference. A restored draft's are made from its stored files.
     private(set) var thumbnails: [String: Data] = [:]
 
     private var typedText = ""
@@ -71,6 +74,8 @@ final class ComposerModel {
     private var sendKey: UUID?
     private var hasLoaded = false
     private var hasEdited = false
+    /// The highest attachment number handed out, so two adds in flight never share one.
+    private var highestReservedNumber = 0
     private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var backend: any ComposerBackend
     @ObservationIgnored private let clock: any YakClock
@@ -84,6 +89,7 @@ final class ComposerModel {
                     "composer.problem.tooLarge \(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))"
             )
         case .unreadable: String(localized: "composer.problem.unreadable")
+        case .notStored: String(localized: "composer.problem.notStored")
         }
     }
 
@@ -129,6 +135,7 @@ final class ComposerModel {
         if attachments.isEmpty { attachments = saved.attachments }
         if model == nil { model = saved.model }
         sendKey = sendKey ?? saved.sendKey
+        await fillMissingThumbnails()
     }
 
     func update(snapshot: ConversationSnapshot?) { self.snapshot = snapshot }
@@ -185,6 +192,19 @@ final class ComposerModel {
         }
     }
 
+    #if DEBUG
+        private var hasAddedTestFixtures = false
+
+        /// Test mode only: attaches generated pictures once, through `add`.
+        func addTestFixtures(count: Int) async {
+            guard count > 0, !hasAddedTestFixtures else { return }
+            hasAddedTestFixtures = true
+            for index in 0..<count {
+                await add(TestMode.fixtureImageData(), fileName: "Photo \(index + 1).jpg", contentType: "image/jpeg")
+            }
+        }
+    #endif
+
     /// A refused item's Edit: its text, model and attachments come back into the field.
     func restore(_ item: OutboxItem) {
         typedText = item.text
@@ -195,6 +215,26 @@ final class ComposerModel {
         hasEdited = true
         problem = nil
         scheduleSave()
+        Task { await fillMissingThumbnails() }
+    }
+
+    /// Pictures of images that came back from disk: made from the stored file, off the main actor.
+    private func fillMissingThumbnails() async {
+        for attachment in attachments where attachment.contentType.hasPrefix("image/") {
+            guard thumbnails[attachment.reference] == nil, let data = await backend.attachmentData(attachment),
+                let thumbnail = await AttachmentPreparer.thumbnail(of: data),
+                attachments.contains(attachment)
+            else { continue }
+            thumbnails[attachment.reference] = thumbnail
+        }
+    }
+
+    /// The next free "#N": past the server's number and every number in the draft or already handed out.
+    private func reserveAttachmentNumber() -> Int {
+        let inDraft = attachments.compactMap { $0.reference.split(separator: "#").last.flatMap { Int($0) } }.max() ?? 0
+        let number = max(snapshot?.show?.composer.nextAttachmentNumber ?? 1, inDraft + 1, highestReservedNumber + 1)
+        highestReservedNumber = number
+        return number
     }
 
     /// Files and photos are checked against the server's limits, prepared off the main actor, stored under the
@@ -205,18 +245,19 @@ final class ComposerModel {
         preparingCount += 1
         defer { preparingCount -= 1 }
         problem = nil
+        let number = reserveAttachmentNumber()
         let prepared: PreparedAttachment
         do {
             prepared = try await AttachmentPreparer.prepare(
                 data, fileName: fileName, contentType: contentType, maximumBytes: maximumFileBytes)
         } catch {
+            if highestReservedNumber == number { highestReservedNumber = number - 1 }
             problem = Self.message(for: error)
             refusalCount += 1
             return
         }
         let thumbnail = prepared.isImage ? await AttachmentPreparer.thumbnail(of: prepared.data) : nil
         let key = sendKey ?? UUID()
-        let number = (snapshot?.show?.composer.nextAttachmentNumber ?? 1) + attachments.count
         let reference = ComposerAttachments.references(isImage: [prepared.isImage], next: number)[0]
         do {
             let stored = try await backend.storeAttachment(prepared, reference: reference, sendKey: key)
@@ -224,7 +265,8 @@ final class ComposerModel {
             attachments.append(stored)
             thumbnails[stored.reference] = thumbnail
         } catch {
-            problem = Self.message(for: .unreadable)
+            if highestReservedNumber == number { highestReservedNumber = number - 1 }
+            problem = Self.message(for: .notStored)
             refusalCount += 1
             return
         }

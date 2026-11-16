@@ -29,7 +29,7 @@ struct BottomBar: View {
                 row
             }
         } else {
-            HStack(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 8) {
                 control
                 row
             }

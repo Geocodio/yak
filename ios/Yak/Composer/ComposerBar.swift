@@ -15,11 +15,12 @@ struct ComposerBar: View {
         VStack(alignment: .leading, spacing: 6) {
             if let problem = composer.problem {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.yakDanger)
+                    Image(systemName: "exclamationmark.circle").foregroundStyle(Color.yakDanger)
                         .accessibilityHidden(true)
                     Text(problem).font(.footnote).foregroundStyle(.primary)
                 }
-                .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 12)
+                .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 12).padding(.vertical, 6)
+                .background(Color.yakDanger.opacity(0.1), in: .rect(cornerRadius: 12))
                 .accessibilityElement(children: .combine).accessibilityIdentifier("composer.problem")
             }
             AttachmentStrip(composer: composer)
@@ -29,7 +30,7 @@ struct ComposerBar: View {
                 }
             } else {
                 HStack(alignment: .bottom, spacing: 8) {
-                    if composer.bar.showsPlus || !composer.attachments.isEmpty { PlusMenu(composer: composer) }
+                    if composer.bar.showsPlus { PlusMenu(composer: composer) }
                     field($composer.text)
                     if composer.bar.showsStop { stopButton }
                     if composer.bar.showsSend { sendControl }
@@ -37,6 +38,9 @@ struct ComposerBar: View {
             }
         }
         .background { shortcuts }
+        #if DEBUG
+            .task { await composer.addTestFixtures(count: TestMode.attachmentFixtureCount()) }
+        #endif
         .sensoryFeedback(.error, trigger: composer.refusalCount)
         .animation(.smooth(duration: 0.2), value: composer.bar)
         .animation(.smooth(duration: 0.2), value: composer.attachments.count)

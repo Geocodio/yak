@@ -553,6 +553,11 @@ public actor InstanceSession {
         return OutboxAttachment(reference: reference, fileName: fileName, contentType: contentType, path: path)
     }
 
+    /// The stored bytes of a draft's attachment, or nil when the file is gone or cannot be read now.
+    public func attachmentData(_ attachment: OutboxAttachment) async -> Data? {
+        (try? environment.files.read(attachment.path)) ?? nil
+    }
+
     public func discardAttachment(_ attachment: OutboxAttachment) async {
         do { try environment.files.remove(attachment.path) } catch {
             logFailure("attachment not removed: \(type(of: error))")

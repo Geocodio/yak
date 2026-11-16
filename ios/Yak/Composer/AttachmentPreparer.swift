@@ -6,6 +6,8 @@ enum AttachmentProblem: Error, Equatable {
     case tooMany(maximum: Int)
     case tooLarge(maximumBytes: Int)
     case unreadable
+    /// The device could not keep the file (disk full, data protection).
+    case notStored
 }
 
 struct PreparedAttachment: Equatable, Sendable {
@@ -37,7 +39,9 @@ enum AttachmentPreparer {
         var candidates = [Int.max]
         candidates += longEdges.filter { longestEdge == nil || $0 < longestEdge! }
         for edge in candidates {
-            guard let encoded = jpeg(from: source, longEdge: edge == .max ? nil : edge) else { throw .unreadable }
+            guard let encoded = jpeg(from: source, longEdge: edge == .max ? longestEdge : edge) else {
+                throw .unreadable
+            }
             if encoded.count <= maximumBytes {
                 return PreparedAttachment(
                     data: encoded, fileName: jpegName(fileName), contentType: "image/jpeg", isImage: true)
@@ -73,21 +77,19 @@ enum AttachmentPreparer {
         return max(width, height)
     }
 
-    /// With a long edge the image is decoded at that size, so a large photo is never held at full size.
+    /// The image is decoded upright at that long edge (the EXIF orientation is applied to the pixels), so a large
+    /// photo is never held at full size. A nil edge decodes at the image's own size.
     private static func jpeg(from source: CGImageSource, longEdge: Int?) -> Data? {
-        let image: CGImage?
-        if let longEdge {
-            image = CGImageSourceCreateThumbnailAtIndex(
+        let edge = longEdge ?? pixelLongEdge(of: source) ?? longEdges[0]
+        guard
+            let image = CGImageSourceCreateThumbnailAtIndex(
                 source, 0,
                 [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceCreateThumbnailWithTransform: true,
-                    kCGImageSourceThumbnailMaxPixelSize: longEdge,
+                    kCGImageSourceThumbnailMaxPixelSize: edge,
                 ] as CFDictionary)
-        } else {
-            image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        }
-        guard let image else { return nil }
+        else { return nil }
         let output = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil)
         else { return nil }

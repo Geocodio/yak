@@ -71,8 +71,16 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
     private var stopCalls = 0
     private var stored: [(reference: String, sendKey: UUID)] = []
     private var discarded: [OutboxAttachment] = []
+    private var files: [String: Data] = [:]
+    private var storeFailure: FileStoreError?
     private var attachmentLimits: Me.AttachmentLimits? = try? JSONDecoder().decode(
         Me.AttachmentLimits.self, from: Data(#"{"maxFiles":8,"maxFileBytes":10485760}"#.utf8))
+
+    var storageFailure: FileStoreError? {
+        get { lock.withLock { storeFailure } }
+        set { lock.withLock { storeFailure = newValue } }
+    }
+    func keep(_ data: Data, at path: String) { lock.withLock { files[path] = data } }
 
     var sendFailure: SendProblem? {
         get { lock.withLock { failure } }
@@ -132,11 +140,14 @@ private final class FakeComposerBackend: ComposerBackend, @unchecked Sendable {
     func storeAttachment(_ prepared: PreparedAttachment, reference: String, sendKey: UUID) async throws(FileStoreError)
         -> OutboxAttachment
     {
+        if let failure = storageFailure { throw failure }
         lock.withLock { stored.append((reference, sendKey)) }
         return OutboxAttachment(
             reference: reference, fileName: prepared.fileName, contentType: prepared.contentType,
             path: "attachments/\(sendKey)/\(prepared.fileName)")
     }
+
+    func attachmentData(_ attachment: OutboxAttachment) async -> Data? { lock.withLock { files[attachment.path] } }
 
     func discardAttachment(_ attachment: OutboxAttachment) async { lock.withLock { discarded.append(attachment) } }
 
@@ -373,6 +384,45 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         #expect(backend.savedDraft(.thread("d0e515ef"))?.attachments.count == 2)
     }
 
+    @Test func aNumberIsNeverGivenTwiceAfterARemove() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle", nextAttachmentNumber: 3))
+        await composer.add(imageData(), fileName: "a.png", contentType: "image/png")
+        await composer.add(Data("hello".utf8), fileName: "notes.txt", contentType: "text/plain")
+        await composer.remove(composer.attachments[0])
+        await composer.add(imageData(), fileName: "b.png", contentType: "image/png")
+        #expect(composer.attachments.map(\.reference) == ["File #4", "Image #5"])
+    }
+
+    @Test func twoAddsInFlightGetDifferentNumbers() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        async let first: Void = composer.add(imageData(), fileName: "a.png", contentType: "image/png")
+        async let second: Void = composer.add(imageData(), fileName: "b.png", contentType: "image/png")
+        _ = await (first, second)
+        #expect(Set(composer.attachments.map(\.reference)) == ["Image #1", "Image #2"])
+    }
+
+    @Test func aFullDiskIsNotCalledUnreadable() async {
+        let backend = FakeComposerBackend()
+        backend.storageFailure = .unreadable
+        let composer = makeModel(backend: backend, clock: StepClock())
+        await composer.add(imageData(), fileName: "a.png", contentType: "image/png")
+        #expect(composer.problem == "This file could not be saved on this device. Try again.")
+        #expect(composer.attachments.isEmpty)
+    }
+
+    @Test func aRestoredDraftShowsItsPictures() async {
+        let backend = FakeComposerBackend()
+        let stored = OutboxAttachment(
+            reference: "Image #1", fileName: "a.jpg", contentType: "image/jpeg", path: "attachments/a.jpg")
+        backend.keep(imageData(), at: stored.path)
+        backend.seed(ComposerDraft(text: "", attachments: [stored]), for: .thread("d0e515ef"))
+        let composer = makeModel(backend: backend, clock: StepClock())
+        await composer.load()
+        #expect(composer.thumbnails["Image #1"] != nil)
+    }
+
     @Test func theCountIsCheckedFirst() async {
         let backend = FakeComposerBackend()
         backend.maximumFiles = 1
@@ -380,7 +430,7 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         await composer.add(imageData(), fileName: "a.png", contentType: "image/png")
         await composer.add(imageData(), fileName: "b.png", contentType: "image/png")
         #expect(composer.attachments.count == 1 && backend.storedReferences.count == 1)
-        #expect(composer.problem == "You can attach up to 1 files.")
+        #expect(composer.problem == "You can attach up to 1 file.")
         #expect(composer.refusalCount == 1)
     }
 

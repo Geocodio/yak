@@ -2291,9 +2291,21 @@
     "composer.problem.tooMany %lld": {
       "localizations": {
         "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You can attach up to %lld files."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "You can attach up to %lld file."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "You can attach up to %lld files."
+                }
+              }
+            }
           }
         }
       }
@@ -2474,6 +2486,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "File %@"
+          }
+        }
+      }
+    },
+    "composer.problem.notStored": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file could not be saved on this device. Try again."
           }
         }
       }

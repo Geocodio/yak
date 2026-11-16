@@ -22,13 +22,15 @@ import XCTest
     }
 
     func start(
-        _ scenario: String, paired: Bool = false, keychainLocked: Bool = false, skipsWebSession: Bool = false
+        _ scenario: String, paired: Bool = false, keychainLocked: Bool = false, skipsWebSession: Bool = false,
+        attachments: Int = 0
     ) throws {
         try stub.play(scenario)
         var arguments = ["-yakTestInstance", stub.url]
         if paired { arguments += ["-yakTestToken", "stub-token"] }
         if keychainLocked { arguments += ["-yakTestKeychainLocked", "YES"] }
         if skipsWebSession { arguments += ["-yakTestSkipWebSession", "YES"] }
+        if attachments > 0 { arguments += ["-yakTestAttachments", String(attachments)] }
         // The device appearance alone is not honoured on every iPad run, so the app is also told directly.
         arguments += ["-yakTestAppearance", environment["YAK_APPEARANCE"] == "dark" ? "dark" : "light"]
         if environment["YAK_TEXT_SIZE"] == "largest" {

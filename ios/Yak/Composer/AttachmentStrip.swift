@@ -16,7 +16,7 @@ struct AttachmentStrip: View {
                     }
                     ForEach(0..<composer.preparingCount, id: \.self) { _ in PreparingTile() }
                 }
-                .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 2)
+                .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 8)
             }
             .accessibilityIdentifier("composer.attachments")
             .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
@@ -28,7 +28,9 @@ private struct AttachmentTile: View {
     let attachment: OutboxAttachment
     let thumbnail: Data?
     let remove: () -> Void
-    @ScaledMetric private var side = 64.0
+    @ScaledMetric private var scaledSide = 64.0
+    /// The tile grows with the text but stops at a size the bar can hold.
+    private var side: Double { min(scaledSide, 96) }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -43,8 +45,8 @@ private struct AttachmentTile: View {
                 .accessibilityLabel(Text("attachment.remove \(attachment.reference)"))
                 .accessibilityIdentifier("composer.attachment.remove")
             }
-            Text(attachment.reference).font(.caption2).foregroundStyle(.primary.opacity(0.85)).lineLimit(1)
-                .frame(width: side + 16)
+            Text(attachment.reference).font(.caption2).foregroundStyle(.primary).lineLimit(1)
+                .fixedSize()
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("composer.attachment")
@@ -66,7 +68,8 @@ private struct AttachmentTile: View {
 }
 
 private struct PreparingTile: View {
-    @ScaledMetric private var side = 64.0
+    @ScaledMetric private var scaledSide = 64.0
+    private var side: Double { min(scaledSide, 96) }
 
     var body: some View {
         ProgressView().frame(width: side, height: side).background(

@@ -40,8 +40,8 @@ struct ModelPicker: View {
         List {
             Section {
                 Text("model.footer").font(.footnote).foregroundStyle(.primary.opacity(0.85))
-                    .listRowBackground(Color.clear).listRowInsets(
-                        EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
             }
             Section {
                 ForEach(ModelChoices.rows(families: composer.modelFamilies, selected: selected, expanded: expanded)) {
@@ -55,6 +55,7 @@ struct ModelPicker: View {
                 }
             }
         }
+        .listSectionSpacing(.compact)
     }
 
     /// The family a row belongs to: a family row by its own id, an older version by the family that lists it.
@@ -98,7 +99,7 @@ private struct ModelRow: View {
                     Image(systemName: "chevron.right").rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .frame(width: 44, height: 44).contentShape(.rect)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.borderless).foregroundStyle(.secondary)
                 .accessibilityLabel(Text("model.older \(row.label)"))
                 .accessibilityAddTraits(isExpanded ? .isSelected : [])
                 .accessibilityIdentifier("model.older.\(row.id)")
