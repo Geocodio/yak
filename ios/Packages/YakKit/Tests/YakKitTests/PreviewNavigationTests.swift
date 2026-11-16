@@ -41,8 +41,10 @@ private func decide(_ text: String, main: Bool, user: Bool = true) -> PreviewNav
     #expect(decide("about:blank", main: false) == .allow)
     #expect(decide("javascript:alert(1)", main: true) == .cancel)
     #expect(decide("javascript:alert(1)", main: false) == .cancel)
-    #expect(
-        decide("mailto:a@example.test", main: true) == .openInBrowser(URL(string: "mailto:a@example.test")!))
+    for text in ["mailto:a@example.test", "yak://pair?code=x", "tel:+15550100", "itms-apps://apps.apple.com/app/id1"] {
+        #expect(decide(text, main: true) == .cancel)
+        #expect(decide(text, main: true, user: false) == .cancel)
+    }
     #expect(decide("mailto:a@example.test", main: false) == .cancel)
     #expect(decide("data:text/html,hi", main: true) == .cancel)
     #expect(decide("data:text/html,hi", main: false) == .allow)
@@ -52,7 +54,7 @@ private func decide(_ text: String, main: Bool, user: Bool = true) -> PreviewNav
 
 @Test func aScriptCannotThrowThePersonOut() {
     for text in [
-        "https://other.example.com/docs", "tel:+15550100", "mailto:a@example.test", "https://yak.example.com/login",
+        "https://other.example.com/docs", "https://yak.example.com/login"
     ] {
         #expect(decide(text, main: true, user: false) == .cancelUnrequestedOpen)
     }

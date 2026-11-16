@@ -48,8 +48,7 @@ public enum PreviewNavigation {
 
         guard scheme == "http" || scheme == "https" else {
             if !isMainFrame { return scheme == "data" || scheme == "blob" ? .allow : .cancel }
-            if scheme == "data" || scheme == "blob" || scheme == "file" { return .cancel }
-            return opensBrowser()
+            return .cancel
         }
         let urlAuthority = authority(of: url)
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
