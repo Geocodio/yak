@@ -151,9 +151,19 @@ import XCTest
             return own + node.children.flatMap { steps(in: $0) }
         }
         let top = list.frame.minY + 60
-        let tracked = try XCTUnwrap(
-            steps(in: try app.snapshot()).filter { $0.frame.minY > top && $0.frame.maxY < list.frame.maxY }
-                .min { $0.frame.minY < $1.frame.minY })
+        func firstStep() throws -> any XCUIElementSnapshot {
+            try XCTUnwrap(
+                steps(in: try app.snapshot()).filter { $0.frame.minY > top && $0.frame.maxY < list.frame.maxY }
+                    .min { $0.frame.minY < $1.frame.minY })
+        }
+        // The swipe's momentum has ended when two reads a moment apart agree.
+        var tracked = try firstStep()
+        for _ in 0..<10 {
+            Thread.sleep(forTimeInterval: 0.3)
+            let now = try firstStep()
+            if now.label == tracked.label, abs(now.frame.minY - tracked.frame.minY) < 0.5 { break }
+            tracked = now
+        }
         let label = tracked.label
         let before = tracked.frame.minY
         let result = XCTWaiter().wait(
