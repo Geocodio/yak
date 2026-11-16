@@ -45,7 +45,7 @@ func anUnsafePathOpensTheInstanceInstead(path: String) throws {
     #expect(PushDestination.make(try payload("scenario-push-alert-test"), instances: [home]) == .instance(home))
 }
 
-@Test(arguments: ["short", "d0e5/5ef", "d0e515efx", ""])
+@Test(arguments: ["short", "d0e5/5ef", "d0e515efx", "", "d0e515é!", "d0e515éé"])
 func aBadIdOpensTheInstance(id: String) throws {
     let data = try Scenarios.data("scenario-push-alert-question", setting: ["yak", "id"], toJSON: "\"\(id)\"")
     #expect(PushDestination.make(try PushPayload(json: data), instances: [home]) == .instance(home))

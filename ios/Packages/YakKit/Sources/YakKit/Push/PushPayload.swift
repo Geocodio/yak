@@ -147,19 +147,15 @@ public enum PushDestination: Equatable, Sendable {
         if yak.event == .test { return .instance(match) }
         switch yak.kind {
         case .thread:
-            if let id = yak.id, isValidThreadID(id) { return .thread(match, id: id) }
+            if let id = yak.id, ThreadIdentifier.isValid(id) { return .thread(match, id: id) }
             return .instance(match)
         case .task:
-            if let id = yak.id, isValidThreadID(id) { return .task(match, id: id) }
+            if let id = yak.id, ThreadIdentifier.isValid(id) { return .task(match, id: id) }
             return .instance(match)
         default:
             if let path = yak.path, let url = safeURL(path: path, on: match) { return .webPage(match, url) }
             return .instance(match)
         }
-    }
-
-    private static func isValidThreadID(_ id: String) -> Bool {
-        id.utf8.count == 8 && id.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) }
     }
 
     private static func safeURL(path: String, on instance: Instance) -> URL? {
