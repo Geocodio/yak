@@ -31,6 +31,7 @@ struct NewThreadScreen: View {
             if let model {
                 NewThreadContent(
                     model: model, app: app, needsYouCount: needsYouCount, isCompactWidth: isCompactWidth,
+                    isDrawerOpen: scene.state.isDrawerOpen,
                     openDrawer: { scene.setDrawerOpen(true) }, openWeb: { openWeb(instanceURL) })
             } else {
                 Color(.systemBackground)
@@ -69,6 +70,7 @@ private struct NewThreadContent: View {
     let app: AppModel
     let needsYouCount: Int
     let isCompactWidth: Bool
+    let isDrawerOpen: Bool
     let openDrawer: () -> Void
     let openWeb: () -> Void
 
@@ -121,11 +123,16 @@ private struct NewThreadContent: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("newThread")
+        .opacity(isCompactWidth && isDrawerOpen ? 0 : 1)
+        .animation(.easeOut(duration: 0.2), value: isDrawerOpen)
         .sheet(isPresented: $showsMore, onDismiss: focusFieldWhenFree) { MoreOptionsSheet(model: model) }
         .sheet(isPresented: $showsModels, onDismiss: focusFieldWhenFree) { NewThreadModelPicker(model: model) }
         .sensoryFeedback(.warning, trigger: model.refusedSendCount)
         .task(id: model.load == .ready || model.load == .loading) { focusFieldWhenFree() }
         .onChange(of: model.pending == nil) { focusFieldWhenFree() }
+        .onChange(of: isDrawerOpen) { _, isOpen in
+            if isOpen { isFieldFocused = false } else { focusFieldWhenFree() }
+        }
         .onChange(of: app.network.isOnline) { _, isOnline in
             if isOnline, model.options == nil { Task { await model.retry() } }
         }
@@ -139,7 +146,7 @@ private struct NewThreadContent: View {
     }
 
     private func focusFieldWhenFree() {
-        if !model.isLocked, !hasNoRepositories { isFieldFocused = true }
+        if !model.isLocked, !hasNoRepositories, !isDrawerOpen { isFieldFocused = true }
     }
 
     // MARK: Middle
