@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/RequestReReviewController.php:17
 * @route '/tasks/{task}/re-request-review'
 */
-const RequestReReviewController = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+const RequestReReviewController = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: RequestReReviewController.url(args, options),
     method: 'post',
 })
@@ -19,13 +19,13 @@ RequestReReviewController.definition = {
 * @see app/Http/Controllers/Tasks/RequestReReviewController.php:17
 * @route '/tasks/{task}/re-request-review'
 */
-RequestReReviewController.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+RequestReReviewController.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ RequestReReviewController.url = (args: { task: string | number | { id: string | 
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -52,7 +52,7 @@ RequestReReviewController.url = (args: { task: string | number | { id: string | 
 * @see app/Http/Controllers/Tasks/RequestReReviewController.php:17
 * @route '/tasks/{task}/re-request-review'
 */
-RequestReReviewController.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+RequestReReviewController.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: RequestReReviewController.url(args, options),
     method: 'post',
 })

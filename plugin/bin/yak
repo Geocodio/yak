@@ -1,0 +1,68 @@
+#!/bin/sh
+# Picks the yak binary built for this platform and runs it.
+self=$0
+while [ -L "$self" ]; do
+  target=$(readlink "$self")
+  case $target in
+    /*) self=$target ;;
+    *) self=$(dirname "$self")/$target ;;
+  esac
+done
+dir=$(cd "$(dirname "$self")" && pwd)
+
+case $(uname -s) in
+  Darwin) os=darwin ;;
+  Linux) os=linux ;;
+  *) os=$(uname -s) ;;
+esac
+case $(uname -m) in
+  arm64 | aarch64) arch=arm64 ;;
+  x86_64 | amd64) arch=x86_64 ;;
+  *) arch=$(uname -m) ;;
+esac
+
+case $os-$arch in
+  darwin-arm64 | darwin-x86_64 | linux-x86_64) ;;
+  *)
+    echo "yak does not support $os/$arch" >&2
+    exit 1
+    ;;
+esac
+
+bin=$dir/yak-$os-$arch
+if [ ! -x "$bin" ]; then
+  manifest=$dir/../.claude-plugin/plugin.json
+  version=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest" 2>/dev/null | head -n 1)
+  repository=$(sed -n 's/.*"repository"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest" 2>/dev/null | head -n 1)
+  repository=${repository:-Geocodio/yak}
+  repository=${repository#https://github.com/}
+  if [ -z "$version" ]; then
+    echo "Cannot read the plugin version from $manifest." >&2
+    exit 1
+  fi
+  base=https://github.com/$repository/releases/download/cli-v$version
+  name=yak-$os-$arch
+  partial=$(mktemp "$dir/.yak-download.XXXXXX") || exit 1
+  sums=$(mktemp "$dir/.yak-sums.XXXXXX") || exit 1
+  trap 'rm -f "$partial" "$sums"' EXIT HUP INT TERM
+  echo "Downloading yak $version for $os/$arch..." >&2
+  if ! curl -fsSL -o "$partial" "$base/$name" || ! curl -fsSL -o "$sums" "$base/SHA256SUMS"; then
+    echo "Could not download yak $version from $base." >&2
+    exit 1
+  fi
+  expected=$(sed -n "s/^\([0-9a-fA-F]\{64\}\)  *\*\{0,1\}$name\$/\1/p" "$sums" | head -n 1)
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual=$(sha256sum "$partial" | cut -d ' ' -f 1)
+  else
+    actual=$(shasum -a 256 "$partial" | cut -d ' ' -f 1)
+  fi
+  if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
+    echo "The downloaded yak binary failed its checksum check, so it was discarded." >&2
+    exit 1
+  fi
+  chmod +x "$partial"
+  mv "$partial" "$bin"
+  trap - EXIT HUP INT TERM
+  rm -f "$sums"
+fi
+exec "$bin" "$@"

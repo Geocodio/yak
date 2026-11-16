@@ -53,7 +53,7 @@ test('links an observation to the task it produced', function () {
     $this->get(route('observations'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('observations.data.0.taskId', $task->id)
-            ->where('observations.data.0.taskUrl', route('tasks.show', $task->id)));
+            ->where('observations.data.0.taskUrl', route('tasks.show', $task->public_id)));
 });
 
 test('names each kind in a human label', function () {
@@ -93,4 +93,12 @@ test('observations is served as a scroll/merge prop for infinite scroll', functi
             'currentPage' => 2,
         ])
         ->and($response['props']['observations']['data'])->toHaveCount(1);
+});
+
+test('an out of range page falls back to the first page instead of failing', function () {
+    Observation::factory()->create(['summary' => 'only one']);
+
+    $this->get('/observations?page=99999999999999999999')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('observations.data', 1));
 });

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Console\Commands\TimeoutAwaitingCiCommand;
+use App\Enums\HeldEventKind;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Facades\Telemetry;
@@ -11,11 +12,15 @@ use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\PullRequestFinisher;
+use App\Services\Push\PullRequestPush;
 use App\Services\TaskLogger;
+use App\Services\Teleport\HeldEvents;
+use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Support\TaskContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ProcessCIResultJob implements ShouldQueue
 {
@@ -122,9 +127,15 @@ class ProcessCIResultJob implements ShouldQueue
                 return;
             }
 
+            if (! $this->passed && app(HeldEvents::class)->holdIfDeviceOwned($this->task, HeldEventKind::CiFailed, 'CI failed on the pull request', Str::limit((string) $this->output, 500), ['commit_sha' => $this->commitSha])) {
+                return;
+            }
+
             TaskLogger::info($this->task, self::RESULT_LOG_MESSAGE, ['passed' => $this->passed]);
 
             $this->recordCiResult();
+            app(ThreadPullRequestSync::class)->recordPrimaryCiStatus($this->task, $this->passed ? 'passing' : 'failing');
+            $this->pushCiResult();
 
             if ($this->passed) {
                 $this->handleGreenPath();
@@ -217,6 +228,20 @@ class ProcessCIResultJob implements ShouldQueue
         ], task: $this->task, durationMs: $lastRun?->agent_finished_at !== null
             ? max(0, now()->getTimestampMs() - $lastRun->agent_finished_at->getTimestampMs())
             : null);
+    }
+
+    /**
+     * A failure Yak will retry stays quiet; the person hears about the one that ends the run.
+     */
+    private function pushCiResult(): void
+    {
+        $pullRequestPush = app(PullRequestPush::class);
+
+        if ($this->passed) {
+            $pullRequestPush->ciPassed($this->task);
+        } elseif (! $this->task->hasCiRetryLeft()) {
+            $pullRequestPush->ciFailed($this->task);
+        }
     }
 
     private function handleGreenPath(): void

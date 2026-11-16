@@ -63,7 +63,7 @@ final class CoOwnerPanelData
      *
      * @return Panel|null
      */
-    public static function forRequest(?CoOwnerRequest $request, User $viewer): ?array
+    public static function forRequest(?CoOwnerRequest $request, User $viewer, bool $isTimeBounded = false): ?array
     {
         if ($request === null) {
             return null;
@@ -106,9 +106,9 @@ final class CoOwnerPanelData
                 'isRequester' => app(TaskRequester::class)->isRequester($heldTask, $viewer, $viewer->slack_user_id),
                 'isLinked' => $isLinked,
                 'login' => $viewer->github_login,
-                'access' => self::access($request, $repository, $viewer),
+                'access' => self::access($request, $repository, $viewer, $isTimeBounded),
             ],
-            'connectUrl' => GitHubAccountController::connectUrl("/tasks/{$request->root_task_id}"),
+            'connectUrl' => GitHubAccountController::connectUrl(route('tasks.show', ['task' => YakTask::query()->withoutGlobalScopes()->whereKey($request->root_task_id)->value('public_id')], false)),
             'requesterName' => $requester->name ?? $heldTask->author_name ?? 'Someone',
             'linkError' => self::linkError(),
         ];
@@ -119,7 +119,7 @@ final class CoOwnerPanelData
      *
      * @return 'write'|'read'|'unlinked'|'error'
      */
-    private static function access(CoOwnerRequest $request, Repository $repository, User $viewer): string
+    private static function access(CoOwnerRequest $request, Repository $repository, User $viewer, bool $isTimeBounded = false): string
     {
         if (! $viewer->hasLinkedGitHub()) {
             return 'unlinked';
@@ -129,7 +129,7 @@ final class CoOwnerPanelData
             return 'read';
         }
 
-        return match (app(GitHubWriteAccess::class)->check($repository, $viewer)) {
+        return match (app(GitHubWriteAccess::class)->check($repository, $viewer, $isTimeBounded)) {
             'write' => 'write',
             'read' => 'read',
             default => 'error',

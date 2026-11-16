@@ -1,0 +1,629 @@
+{
+    "broadcasts": [
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "running",
+                "turnId": "<volatile:int>"
+            },
+            "sequence": 1,
+            "type": "turn"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "started",
+                "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+            },
+            "sequence": 2,
+            "type": "message.state"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "kind": "prompt",
+                "role": "user",
+                "text": "scrubbed text 1",
+                "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+            },
+            "sequence": 3,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "model": "claude-sonnet-5-5",
+                "role": "system",
+                "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
+                "subtype": "init"
+            },
+            "sequence": 4,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "id": "id_0001",
+                        "input": {
+                            "command": "scrubbed command 2",
+                            "description": "scrubbed description 3",
+                            "run_in_background": true
+                        },
+                        "name": "Bash",
+                        "type": "tool_use"
+                    }
+                ],
+                "messageId": "id_0000",
+                "role": "assistant"
+            },
+            "sequence": 5,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "isError": false,
+                "role": "tool_result",
+                "text": "scrubbed content 6",
+                "toolUseId": "tool_use_id_0004"
+            },
+            "sequence": 6,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "id": "id_0005",
+                        "input": {
+                            "file_path": "scrubbed file_path 7"
+                        },
+                        "name": "Read",
+                        "type": "tool_use"
+                    }
+                ],
+                "messageId": "id_0000",
+                "role": "assistant"
+            },
+            "sequence": 7,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "isError": false,
+                "role": "tool_result",
+                "text": "scrubbed content 8",
+                "toolUseId": "tool_use_id_0006"
+            },
+            "sequence": 8,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "id": "id_0007",
+                        "input": {
+                            "file_path": "scrubbed file_path 10"
+                        },
+                        "name": "Read",
+                        "type": "tool_use"
+                    }
+                ],
+                "messageId": "id_0000",
+                "role": "assistant"
+            },
+            "sequence": 9,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "isError": false,
+                "role": "tool_result",
+                "text": "scrubbed content 11",
+                "toolUseId": "tool_use_id_0008"
+            },
+            "sequence": 10,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "id": "id_0009",
+                        "input": {
+                            "file_path": "scrubbed file_path 13"
+                        },
+                        "name": "Read",
+                        "type": "tool_use"
+                    }
+                ],
+                "messageId": "id_0000",
+                "role": "assistant"
+            },
+            "sequence": 11,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "isError": false,
+                "role": "tool_result",
+                "text": "scrubbed content 14",
+                "toolUseId": "tool_use_id_0010"
+            },
+            "sequence": 12,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "id": "id_0012",
+                        "input": {
+                            "file_path": "scrubbed file_path 16"
+                        },
+                        "name": "Read",
+                        "type": "tool_use"
+                    }
+                ],
+                "messageId": "id_0011",
+                "role": "assistant"
+            },
+            "sequence": 13,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "isError": false,
+                "role": "tool_result",
+                "text": "scrubbed content 17",
+                "toolUseId": "tool_use_id_0014"
+            },
+            "sequence": 14,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "text": "",
+                        "type": "thinking"
+                    }
+                ],
+                "messageId": "id_0015",
+                "role": "assistant"
+            },
+            "sequence": 15,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "id": "id_0017",
+                        "input": {
+                            "command": "scrubbed command 20",
+                            "description": "scrubbed description 21",
+                            "timeout": 120000
+                        },
+                        "name": "Bash",
+                        "type": "tool_use"
+                    }
+                ],
+                "messageId": "id_0015",
+                "role": "assistant"
+            },
+            "sequence": 16,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "isError": false,
+                "role": "tool_result",
+                "text": "scrubbed content 26",
+                "toolUseId": "tool_use_id_0019"
+            },
+            "sequence": 17,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blockKey": "m1:0",
+                "kind": "text",
+                "text": "Checking "
+            },
+            "sequence": 18,
+            "type": "delta"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blockKey": "m1:0",
+                "kind": "text",
+                "text": "the uploads"
+            },
+            "sequence": 19,
+            "type": "delta"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "html": "<p>scrubbed text 28</p>\n",
+                        "text": "scrubbed text 28",
+                        "type": "text"
+                    }
+                ],
+                "messageId": "id_0023",
+                "role": "assistant"
+            },
+            "sequence": 20,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "costUsd": 0.0463971,
+                "durationMs": 52940,
+                "html": "<p>scrubbed result 29</p>\n",
+                "isError": false,
+                "numTurns": 7,
+                "role": "result",
+                "subtype": "success",
+                "text": "scrubbed result 29"
+            },
+            "sequence": 21,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "completed",
+                "turnId": "<volatile:int>"
+            },
+            "sequence": 22,
+            "type": "turn"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "completed",
+                "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+            },
+            "sequence": 23,
+            "type": "message.state"
+        }
+    ],
+    "catchUp": {
+        "events": [
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "running",
+                    "turnId": "<volatile:int>"
+                },
+                "sequence": 1,
+                "type": "turn"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "started",
+                    "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+                },
+                "sequence": 2,
+                "type": "message.state"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "kind": "prompt",
+                    "role": "user",
+                    "text": "scrubbed text 1",
+                    "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+                },
+                "sequence": 3,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "model": "claude-sonnet-5-5",
+                    "role": "system",
+                    "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
+                    "subtype": "init"
+                },
+                "sequence": 4,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "id": "id_0001",
+                            "input": {
+                                "command": "scrubbed command 2",
+                                "description": "scrubbed description 3",
+                                "run_in_background": true
+                            },
+                            "name": "Bash",
+                            "type": "tool_use"
+                        }
+                    ],
+                    "messageId": "id_0000",
+                    "role": "assistant"
+                },
+                "sequence": 5,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "isError": false,
+                    "role": "tool_result",
+                    "text": "scrubbed content 6",
+                    "toolUseId": "tool_use_id_0004"
+                },
+                "sequence": 6,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "id": "id_0005",
+                            "input": {
+                                "file_path": "scrubbed file_path 7"
+                            },
+                            "name": "Read",
+                            "type": "tool_use"
+                        }
+                    ],
+                    "messageId": "id_0000",
+                    "role": "assistant"
+                },
+                "sequence": 7,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "isError": false,
+                    "role": "tool_result",
+                    "text": "scrubbed content 8",
+                    "toolUseId": "tool_use_id_0006"
+                },
+                "sequence": 8,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "id": "id_0007",
+                            "input": {
+                                "file_path": "scrubbed file_path 10"
+                            },
+                            "name": "Read",
+                            "type": "tool_use"
+                        }
+                    ],
+                    "messageId": "id_0000",
+                    "role": "assistant"
+                },
+                "sequence": 9,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "isError": false,
+                    "role": "tool_result",
+                    "text": "scrubbed content 11",
+                    "toolUseId": "tool_use_id_0008"
+                },
+                "sequence": 10,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "id": "id_0009",
+                            "input": {
+                                "file_path": "scrubbed file_path 13"
+                            },
+                            "name": "Read",
+                            "type": "tool_use"
+                        }
+                    ],
+                    "messageId": "id_0000",
+                    "role": "assistant"
+                },
+                "sequence": 11,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "isError": false,
+                    "role": "tool_result",
+                    "text": "scrubbed content 14",
+                    "toolUseId": "tool_use_id_0010"
+                },
+                "sequence": 12,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "id": "id_0012",
+                            "input": {
+                                "file_path": "scrubbed file_path 16"
+                            },
+                            "name": "Read",
+                            "type": "tool_use"
+                        }
+                    ],
+                    "messageId": "id_0011",
+                    "role": "assistant"
+                },
+                "sequence": 13,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "isError": false,
+                    "role": "tool_result",
+                    "text": "scrubbed content 17",
+                    "toolUseId": "tool_use_id_0014"
+                },
+                "sequence": 14,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "text": "",
+                            "type": "thinking"
+                        }
+                    ],
+                    "messageId": "id_0015",
+                    "role": "assistant"
+                },
+                "sequence": 15,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "id": "id_0017",
+                            "input": {
+                                "command": "scrubbed command 20",
+                                "description": "scrubbed description 21",
+                                "timeout": 120000
+                            },
+                            "name": "Bash",
+                            "type": "tool_use"
+                        }
+                    ],
+                    "messageId": "id_0015",
+                    "role": "assistant"
+                },
+                "sequence": 16,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "isError": false,
+                    "role": "tool_result",
+                    "text": "scrubbed content 26",
+                    "toolUseId": "tool_use_id_0019"
+                },
+                "sequence": 17,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blockKey": "m1:0",
+                    "kind": "text",
+                    "text": "Checking "
+                },
+                "sequence": 18,
+                "type": "delta"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blockKey": "m1:0",
+                    "kind": "text",
+                    "text": "the uploads"
+                },
+                "sequence": 19,
+                "type": "delta"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "html": "<p>scrubbed text 28</p>\n",
+                            "text": "scrubbed text 28",
+                            "type": "text"
+                        }
+                    ],
+                    "messageId": "id_0023",
+                    "role": "assistant"
+                },
+                "sequence": 20,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "costUsd": 0.0463971,
+                    "durationMs": 52940,
+                    "html": "<p>scrubbed result 29</p>\n",
+                    "isError": false,
+                    "numTurns": 7,
+                    "role": "result",
+                    "subtype": "success",
+                    "text": "scrubbed result 29"
+                },
+                "sequence": 21,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "completed",
+                    "turnId": "<volatile:int>"
+                },
+                "sequence": 22,
+                "type": "turn"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "completed",
+                    "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+                },
+                "sequence": 23,
+                "type": "message.state"
+            }
+        ],
+        "latestSequence": 23,
+        "source": "window"
+    },
+    "pointers": [],
+    "scenario": "simple-turn",
+    "source": "background-bash-task"
+}

@@ -6,6 +6,10 @@ use App\Jobs\Deployments\GarbageCollectTemplateSnapshotsJob;
 use App\Jobs\Deployments\HibernateIdleDeploymentsJob;
 use App\Jobs\Deployments\SweepExpiredDeploymentsJob;
 use App\Jobs\Deployments\WatchdogStuckDeploymentsJob;
+use App\Models\DeviceAuthorization;
+use App\Models\DevicePairingCode;
+use App\Services\Devices\DeviceFlow;
+use App\Services\Devices\PairingCodes;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -16,6 +20,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command('yak:cleanup')->hourly();
 Schedule::command('yak:video:prune')->daily();
+Schedule::command('yak:refresh-claude-models')->daily();
 Schedule::command('yak:cleanup-sandboxes')->hourly();
 Schedule::command('yak:reap-orphaned-tasks')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:reap-lost-pending')->everyFiveMinutes()->withoutOverlapping();
@@ -35,3 +40,21 @@ Schedule::job(GarbageCollectTemplateSnapshotsJob::class)->hourly()->name('deploy
 Schedule::job(BackfillOpenPrDeploymentsJob::class)->hourly()->name('deployments:backfill-open-prs')->withoutOverlapping();
 Schedule::command('yak:co-owner:sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:preview-repair:sweep')->hourly()->withoutOverlapping();
+Schedule::command('yak:prune-session-store')->daily();
+Schedule::command('yak:prune-thread-events')->daily();
+Schedule::command('yak:claude-accounts-expiry')->daily();
+Schedule::command('yak:deliver-stack-results')->everyMinute()->withoutOverlapping();
+Schedule::command('yak:check-stack-usage')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('yak:thread-sandboxes')->everyMinute()->withoutOverlapping();
+Schedule::command('yak:reap-account-slots')->everyMinute()->withoutOverlapping();
+Schedule::command('yak:close-idle-threads')->hourly()->withoutOverlapping();
+Schedule::command('model:prune', ['--model' => [DeviceAuthorization::class, DevicePairingCode::class]])->daily();
+Schedule::call(function (): void {
+    app(DeviceFlow::class)->clearRepeatableTokens();
+    app(PairingCodes::class)->clearRepeatableTokens();
+})->everyMinute()->name('devices:clear-repeatable-tokens');
+Schedule::command('yak:revoke-idle-phones')->daily();
+Schedule::command('yak:live-activities:prune-channels')->daily()->withoutOverlapping();
+Schedule::command('yak:expire-teleports')->everyMinute()->withoutOverlapping();
+Schedule::command('yak:dataset-sweep')->hourly()->withoutOverlapping();
+Schedule::command('yak:ssh-sweep')->hourly()->withoutOverlapping();

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Support\SecretRedactor;
 use Illuminate\Support\Facades\Log;
 
 class TaskLogger
@@ -13,6 +14,9 @@ class TaskLogger
      */
     public static function log(YakTask $task, string $message, string $level = 'info', ?array $metadata = null): TaskLog
     {
+        $message = SecretRedactor::redact($message);
+        $metadata = $metadata === null ? null : SecretRedactor::redactArray($metadata);
+
         Log::channel('yak')->{$level}($message, [
             'task_id' => $task->id,
             'repo' => $task->repo,

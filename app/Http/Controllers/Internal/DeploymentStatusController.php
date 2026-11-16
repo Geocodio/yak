@@ -18,7 +18,8 @@ class DeploymentStatusController
         $state = match ($deployment->status) {
             DeploymentStatus::Running => 'ready',
             DeploymentStatus::Failed => 'failed',
-            DeploymentStatus::Destroyed, DeploymentStatus::Destroying => 'failed',
+            DeploymentStatus::Destroyed => $deployment->isRedeployable() ? 'pending' : 'failed',
+            DeploymentStatus::Destroying => 'failed',
             default => 'pending',
         };
 

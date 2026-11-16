@@ -63,7 +63,7 @@ test('task detail shows running status with pulse indicator', function () {
     $page = visit(route('tasks.show', $task));
 
     $page->assertSee('running')
-        ->assertPresent('.animate-pulse');
+        ->assertPresent('.activity-pulse');
 });
 
 test('a poll does not reload the open walkthrough video', function () {

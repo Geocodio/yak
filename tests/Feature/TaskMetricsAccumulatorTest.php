@@ -1,6 +1,7 @@
 <?php
 
 use App\DataTransferObjects\AgentRunResult;
+use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\TaskMetricsAccumulator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,4 +62,13 @@ it('keeps the previous session id when a failed run reports none', function () {
     TaskMetricsAccumulator::record($task, makeResult(0.1, 1, 1000, ''));
 
     expect($task->refresh()->session_id)->toBe('sess_a');
+});
+
+it('counts only the cost above what earlier runs of a resumed session reported', function () {
+    $task = YakTask::factory()->create(['cost_usd' => 1.0, 'session_id' => 'sess_a']);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'session_id' => 'sess_a', 'cost_usd' => 1.0]);
+
+    TaskMetricsAccumulator::record($task, makeResult(1.4, 3, 1000, 'sess_a'));
+
+    expect((float) $task->refresh()->cost_usd)->toBe(1.4);
 });

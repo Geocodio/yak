@@ -1,0 +1,8 @@
+{
+    "isBinary": false,
+    "isTooLarge": false,
+    "oldPath": null,
+    "patch": "@@ -1,4 +1,6 @@\n function retry()\n {\n-    return false;\n+    $attempts = 3;\n+    return true;\n }\n@@ -20,3 +22,7 @@ class Uploader\n     public function run()\n     {\n-        $this->send();\n+        $this->sendWithRetry();\n+        $this->log();\n+        $this->flush();\n+        $this->done();\n     }\n",
+    "path": "app/Uploads/RetryUpload.php",
+    "status": "modified"
+}

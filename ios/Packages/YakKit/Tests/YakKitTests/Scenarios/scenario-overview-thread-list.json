@@ -1,0 +1,113 @@
+{
+  "starred": [],
+  "needsYou": [],
+  "threads": [
+    {
+      "id": "s7ackr00",
+      "title": "Rebuild the search index",
+      "repo": "example/api",
+      "status": "running",
+      "needsYouReason": null,
+      "needsYouLabel": null,
+      "isPrivate": false,
+      "isShared": false,
+      "isUnattended": false,
+      "isStarred": false,
+      "canDelete": true,
+      "ownerInitials": "TP",
+      "lastActivityAt": "2026-11-15T11:40:00Z",
+      "group": "today",
+      "children": [
+        {
+          "id": "b4ckf111",
+          "title": "Backfill the new rows",
+          "repo": "example/api",
+          "status": "running",
+          "needsYouReason": null,
+          "needsYouLabel": null,
+          "isPrivate": false,
+          "isShared": false,
+          "isUnattended": false,
+          "isStarred": false,
+          "canDelete": true,
+          "ownerInitials": "TP",
+          "lastActivityAt": "2026-11-15T11:40:00Z",
+          "group": "today",
+          "children": [],
+          "step": "Writing the backfill script"
+        },
+        {
+          "id": "q7adapt0",
+          "title": "Swap the query client",
+          "repo": "example/api",
+          "status": "stopped",
+          "needsYouReason": null,
+          "needsYouLabel": null,
+          "isPrivate": false,
+          "isShared": false,
+          "isUnattended": false,
+          "isStarred": false,
+          "canDelete": true,
+          "ownerInitials": "TP",
+          "lastActivityAt": "2026-11-15T11:40:00Z",
+          "group": "today",
+          "children": []
+        },
+        {
+          "id": "r3search",
+          "title": "Read the analyzer settings",
+          "repo": "example/api",
+          "status": "stopped",
+          "needsYouReason": null,
+          "needsYouLabel": null,
+          "isPrivate": false,
+          "isShared": false,
+          "isUnattended": false,
+          "isStarred": false,
+          "canDelete": true,
+          "ownerInitials": "TP",
+          "lastActivityAt": "2026-11-15T11:40:00Z",
+          "group": "today",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "a1b2c3d4",
+      "title": "Private notes on billing",
+      "repo": "example/api",
+      "status": "running",
+      "needsYouReason": null,
+      "needsYouLabel": null,
+      "isPrivate": true,
+      "isShared": false,
+      "isUnattended": false,
+      "isStarred": false,
+      "canDelete": true,
+      "ownerInitials": "TP",
+      "lastActivityAt": "2026-11-15T07:00:00Z",
+      "group": "today",
+      "children": [
+        {
+          "id": "e5f6g7h8",
+          "title": "Split the billing job",
+          "repo": "example/api",
+          "status": "stopped",
+          "needsYouReason": null,
+          "needsYouLabel": null,
+          "isPrivate": true,
+          "isShared": false,
+          "isUnattended": false,
+          "isStarred": false,
+          "canDelete": false,
+          "ownerInitials": "TP",
+          "lastActivityAt": "2026-11-15T06:00:00Z",
+          "group": "today",
+          "children": []
+        }
+      ]
+    }
+  ],
+  "needsYouCount": 0,
+  "hasAnyThreads": true
+}

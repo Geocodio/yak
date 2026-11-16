@@ -1,0 +1,19 @@
+{
+    "memoryFiles": [],
+    "memoryFolder": null,
+    "mode": "only_me",
+    "people": [
+        {
+            "id": "<volatile:int>",
+            "name": "Second person",
+            "role": null
+        },
+        {
+            "id": "<volatile:int>",
+            "name": "Test person",
+            "role": "Owner"
+        }
+    ],
+    "secretFiles": [],
+    "userIds": []
+}

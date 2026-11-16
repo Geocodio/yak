@@ -1,0 +1,21 @@
+{
+    "aps": {
+        "alert": {
+            "body": "Yak has a question for you.",
+            "title": "Retry failed uploads"
+        },
+        "badge": 1,
+        "filter-criteria": "yak.example.com",
+        "interruption-level": "time-sensitive",
+        "sound": "default",
+        "thread-id": "thread-d0e515ef"
+    },
+    "yak": {
+        "event": "needs_you",
+        "id": "d0e515ef",
+        "instance": "https://yak.example.com",
+        "kind": "thread",
+        "needsYouCount": 1,
+        "path": "/threads/d0e515ef"
+    }
+}

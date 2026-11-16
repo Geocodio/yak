@@ -15,7 +15,7 @@ use App\Models\User;
 use App\Models\YakTask;
 
 test('no page is wider than a phone, and nothing but code scrolls sideways', function () {
-    $phonePages = ['/tasks', '/tasks?tab=reviews', '/observations', '/repos', '/deployments', '/pr-reviews', '/pr-reviews?tab=by_reviewer', '/prompts', '/costs', '/analytics', '/skills', '/mcp', '/health', '/channels', '/settings/profile'];
+    $phonePages = ['/tasks', '/tasks?tab=reviews', '/observations', '/repos', '/deployments', '/pr-reviews', '/pr-reviews?tab=by_reviewer', '/prompts', '/costs', '/analytics', '/skills', '/mcp', '/health', '/channels', '/settings/profile', '/settings/devices', '/device'];
 
     $this->actingAs(User::factory()->create());
     $repository = Repository::factory()->create(['slug' => 'a-repository-with-a-deliberately-long-slug-name']);

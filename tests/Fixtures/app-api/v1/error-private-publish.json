@@ -1,0 +1,11 @@
+{
+    "details": {
+        "errors": {
+            "acknowledged_private_publish": [
+                "This thread is private. Opening a pull request publishes its branch and a description written from the private conversation to GitHub."
+            ]
+        }
+    },
+    "error": "validation_failed",
+    "message": "The request is not valid."
+}

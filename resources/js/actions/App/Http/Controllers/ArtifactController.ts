@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\ArtifactController::publicImage
-* @see app/Http/Controllers/ArtifactController.php:55
+* @see app/Http/Controllers/ArtifactController.php:86
 * @route '/artifacts/public/{token}'
 */
 export const publicImage = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ publicImage.definition = {
 
 /**
 * @see \App\Http\Controllers\ArtifactController::publicImage
-* @see app/Http/Controllers/ArtifactController.php:55
+* @see app/Http/Controllers/ArtifactController.php:86
 * @route '/artifacts/public/{token}'
 */
 publicImage.url = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ publicImage.url = (args: { token: string | number } | [token: string | number ] 
 
 /**
 * @see \App\Http\Controllers\ArtifactController::publicImage
-* @see app/Http/Controllers/ArtifactController.php:55
+* @see app/Http/Controllers/ArtifactController.php:86
 * @route '/artifacts/public/{token}'
 */
 publicImage.get = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -53,7 +53,7 @@ publicImage.get = (args: { token: string | number } | [token: string | number ] 
 
 /**
 * @see \App\Http\Controllers\ArtifactController::publicImage
-* @see app/Http/Controllers/ArtifactController.php:55
+* @see app/Http/Controllers/ArtifactController.php:86
 * @route '/artifacts/public/{token}'
 */
 publicImage.head = (args: { token: string | number } | [token: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -63,10 +63,10 @@ publicImage.head = (args: { token: string | number } | [token: string | number ]
 
 /**
 * @see \App\Http\Controllers\ArtifactController::viewer
-* @see app/Http/Controllers/ArtifactController.php:35
+* @see app/Http/Controllers/ArtifactController.php:66
 * @route '/artifacts/{task}/viewer/{filename}'
 */
-export const viewer = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const viewer = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: viewer.url(args, options),
     method: 'get',
 })
@@ -78,10 +78,10 @@ viewer.definition = {
 
 /**
 * @see \App\Http\Controllers\ArtifactController::viewer
-* @see app/Http/Controllers/ArtifactController.php:35
+* @see app/Http/Controllers/ArtifactController.php:66
 * @route '/artifacts/{task}/viewer/{filename}'
 */
-viewer.url = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions) => {
+viewer.url = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             task: args[0],
@@ -93,7 +93,7 @@ viewer.url = (args: { task: string | number | { id: string | number }, filename:
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
         filename: args.filename,
     }
@@ -106,20 +106,20 @@ viewer.url = (args: { task: string | number | { id: string | number }, filename:
 
 /**
 * @see \App\Http\Controllers\ArtifactController::viewer
-* @see app/Http/Controllers/ArtifactController.php:35
+* @see app/Http/Controllers/ArtifactController.php:66
 * @route '/artifacts/{task}/viewer/{filename}'
 */
-viewer.get = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+viewer.get = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: viewer.url(args, options),
     method: 'get',
 })
 
 /**
 * @see \App\Http\Controllers\ArtifactController::viewer
-* @see app/Http/Controllers/ArtifactController.php:35
+* @see app/Http/Controllers/ArtifactController.php:66
 * @route '/artifacts/{task}/viewer/{filename}'
 */
-viewer.head = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+viewer.head = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: viewer.url(args, options),
     method: 'head',
 })
@@ -129,7 +129,7 @@ viewer.head = (args: { task: string | number | { id: string | number }, filename
 * @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
-export const show = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -144,7 +144,7 @@ show.definition = {
 * @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
-show.url = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions) => {
+show.url = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             task: args[0],
@@ -156,7 +156,7 @@ show.url = (args: { task: string | number | { id: string | number }, filename: s
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
         filename: args.filename,
     }
@@ -172,7 +172,7 @@ show.url = (args: { task: string | number | { id: string | number }, filename: s
 * @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
-show.get = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -182,7 +182,7 @@ show.get = (args: { task: string | number | { id: string | number }, filename: s
 * @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
-show.head = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })

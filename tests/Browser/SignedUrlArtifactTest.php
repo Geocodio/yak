@@ -43,7 +43,7 @@ test('expired signed url shows error', function () {
     $expiredUrl = URL::temporarySignedRoute(
         'artifacts.show',
         now()->subDay(),
-        ['task' => $task->id, 'filename' => 'screenshot.png']
+        ['task' => $task->public_id, 'filename' => 'screenshot.png']
     );
 
     $page = visit($expiredUrl);
@@ -69,7 +69,7 @@ test('tampered signed url is rejected', function () {
     $signedUrl = URL::temporarySignedRoute(
         'artifacts.show',
         now()->addDays(7),
-        ['task' => $task->id, 'filename' => 'screenshot.png']
+        ['task' => $task->public_id, 'filename' => 'screenshot.png']
     );
     $tamperedUrl = preg_replace('/signature=[^&]+/', 'signature=tampered123', $signedUrl);
 

@@ -15,6 +15,7 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendEarlyWarningJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
+use App\Models\PendingSteeringMessage;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
@@ -406,6 +407,7 @@ class WebhookController extends Controller
      * - AwaitingClarification with one pending question → submit the reply as its answer
      * - AwaitingClarification with several questions → link to the dashboard form
      * - open PR or finished research → create a chained follow-up via FollowUpTaskFactory
+     * - running before a PR exists → queue the message as a steer for the run
      * - merged/closed → post a polite decline
      * - unknown session → no-op (200 OK)
      *
@@ -500,6 +502,23 @@ class WebhookController extends Controller
             app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'));
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
+        }
+
+        if (in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying], strict: true)) {
+            PendingSteeringMessage::queueFor($task, $message, 'linear', authorName: $request->input('actor.name'));
+            TaskLogger::info($task, 'Steering reply queued (mid-run)');
+
+            return response()->json(['ok' => true, 'handled' => 'steering']);
+        }
+
+        if ($task->pr_url === null) {
+            app(NotificationDriver::class)->postAgentActivity(
+                $sessionId,
+                type: 'response',
+                body: "I'm not working on this right now and there is no PR yet. Delegate the issue to me again and I'll start a new run.",
+            );
+
+            return response()->json(['ok' => true, 'skipped' => 'not_running']);
         }
 
         app(NotificationDriver::class)->postAgentActivity(

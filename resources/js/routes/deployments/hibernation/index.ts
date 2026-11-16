@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
-export const update = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+export const update = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -19,13 +19,13 @@ update.definition = {
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
-update.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+update.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { deployment: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { deployment: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { deployment: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ update.url = (args: { deployment: string | number | { id: string | number } } | 
 
     const parsedArgs = {
         deployment: typeof args.deployment === 'object'
-        ? args.deployment.id
+        ? args.deployment.public_id
         : args.deployment,
     }
 
@@ -52,7 +52,7 @@ update.url = (args: { deployment: string | number | { id: string | number } } | 
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
-update.patch = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+update.patch = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })

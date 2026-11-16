@@ -232,6 +232,13 @@ class PromptFixtures
                     ],
                 ],
             ],
+            'tasks-preview-setup' => [
+                ['label' => 'No preview.yml yet', 'data' => ['situation' => 'missing']],
+                ['label' => 'Dev server not answering', 'data' => ['situation' => 'failing']],
+            ],
+            'tasks-record-walkthrough' => [
+                ['label' => 'Current change', 'data' => []],
+            ],
             'tasks-follow-up' => [
                 [
                     'label' => 'Requested change',
@@ -314,6 +321,12 @@ class PromptFixtures
                 ],
             ],
             'partials-clarification-contract' => [
+                [
+                    'label' => 'Static content',
+                    'data' => [],
+                ],
+            ],
+            'partials-visual-capture' => [
                 [
                     'label' => 'Static content',
                     'data' => [],

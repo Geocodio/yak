@@ -11,9 +11,15 @@ use App\Jobs\SendNotificationJob;
 use App\Models\DailyCost;
 use App\Models\YakTask;
 use App\Services\ClarificationMessage;
+use App\Services\Push\LiveActivities\LiveActivities;
+use App\Services\Push\PushEvent;
+use App\Services\Push\PushRecipients;
+use App\Services\Push\ThreadPush;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Threads\ThreadQuestionEvents;
 use App\YakPromptBuilder;
+use Throwable;
 
 /**
  * Lets an agent job stop and ask structured questions. The job calls
@@ -26,7 +32,6 @@ use App\YakPromptBuilder;
  * accepted only in that status, so a resume never races the teardown.
  *
  * @property YakTask $task
- * @property ?string $staleSessionFallbackPrompt
  */
 trait AsksClarifyingQuestions
 {
@@ -93,6 +98,18 @@ trait AsksClarifyingQuestions
             'round' => $this->task->clarificationRoundCount(),
         ], task: $this->task);
 
+        app(ThreadQuestionEvents::class)->opened($this->task);
+
+        if ($this->task->thread !== null) {
+            try {
+                app(LiveActivities::class)->questionOpened($this->task->thread);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        $this->pushClarification($questionCount);
+
         SendNotificationJob::dispatch(
             $this->task,
             NotificationType::Clarification,
@@ -101,13 +118,26 @@ trait AsksClarifyingQuestions
         );
     }
 
+    private function pushClarification(int $questionCount): void
+    {
+        $thread = $this->task->thread;
+
+        if ($thread === null) {
+            return;
+        }
+
+        $body = $questionCount === 1 ? 'Yak has a question for you.' : "Yak has {$questionCount} questions for you.";
+
+        app(ThreadPush::class)->send(PushEvent::NeedsYou, $thread, app(PushRecipients::class)->forClarification($thread), $body, "thread-{$thread->id}-clarification");
+    }
+
     /**
      * True when this run continues an earlier run with answers to its questions.
      */
     protected function resumingWithAnswers(): bool
     {
         return $this->task->clarificationAnswersAwaitingResume() !== null
-            && $this->task->session_id !== null;
+            && ($this->task->session_id !== null || $this->task->thread_id !== null);
     }
 
     /**
@@ -117,16 +147,7 @@ trait AsksClarifyingQuestions
      */
     protected function promptFor(callable $firstRunPrompt): string
     {
-        if (! $this->resumingWithAnswers()) {
-            return $firstRunPrompt();
-        }
-
-        $answersPrompt = YakPromptBuilder::clarificationAnswersPrompt($this->task);
-
-        // Without the old session the agent needs the task itself, then the answers.
-        $this->staleSessionFallbackPrompt = $firstRunPrompt() . "\n\n" . $answersPrompt;
-
-        return $answersPrompt;
+        return $this->resumingWithAnswers() ? YakPromptBuilder::clarificationAnswersPrompt($this->task) : $firstRunPrompt();
     }
 
     /**

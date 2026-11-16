@@ -15,7 +15,7 @@ use Throwable;
  * Thin wrapper around the host-side `claude` CLI used by the /skills dashboard
  * page to manage plugins and marketplaces under /home/yak/.claude. This is
  * orthogonal to the agent runner — the agent itself runs inside Incus
- * sandboxes via SandboxedAgentRunner and never goes through this class.
+ * sandboxes through the broker and never goes through this class.
  */
 class ClaudeCli
 {

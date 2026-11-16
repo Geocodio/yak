@@ -11,6 +11,7 @@ use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Devices\ShortLockWait;
 use App\Services\FollowUpTaskFactory;
 use App\Services\PullRequestFinisher;
 use App\Services\TaskLogger;
@@ -18,6 +19,7 @@ use Closure;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 /**
@@ -39,16 +41,16 @@ class CoOwnerDecisions
     /**
      * Opens the PR once a co-owner with write access approves.
      */
-    public function approve(CoOwnerRequest $request, User $approver): YakTask
+    public function approve(CoOwnerRequest $request, User $approver, bool $isTimeBounded = false): YakTask
     {
         $repository = $this->repositoryFor($request);
-        $this->requireWriteAccess($repository, $approver);
+        $this->requireWriteAccess($repository, $approver, $isTimeBounded);
 
         $previousResponsible = [null, null];
         $task = $this->claim($request, $approver, CoOwnerRequestStatus::Approved, function (YakTask $task) use ($approver, &$previousResponsible): void {
             $previousResponsible = [$task->responsible_user_id, $task->responsible_name];
             $task->update(['responsible_user_id' => $approver->id, 'responsible_name' => $approver->name]);
-        });
+        }, $isTimeBounded);
 
         $request->refresh();
         $previousPrUrl = $task->pr_url;
@@ -81,9 +83,9 @@ class CoOwnerDecisions
     /**
      * Sends the feedback back as a follow-up; the follow-up goes through the gate again.
      */
-    public function requestChanges(CoOwnerRequest $request, User $user, string $feedback): YakTask
+    public function requestChanges(CoOwnerRequest $request, User $user, string $feedback, bool $isTimeBounded = false): YakTask
     {
-        $this->requireWriteAccess($this->repositoryFor($request), $user);
+        $this->requireWriteAccess($this->repositoryFor($request), $user, $isTimeBounded);
 
         $followUp = null;
         $this->claim($request, $user, CoOwnerRequestStatus::ChangesRequested, function (YakTask $task) use ($request, $user, $feedback, &$followUp): void {
@@ -93,7 +95,7 @@ class CoOwnerDecisions
             if ($followUp === null) {
                 throw CoOwnerDecisionException::alreadyResolved();
             }
-        });
+        }, $isTimeBounded);
 
         $this->announce($request);
 
@@ -101,13 +103,13 @@ class CoOwnerDecisions
         return $followUp;
     }
 
-    public function reject(CoOwnerRequest $request, User $user): void
+    public function reject(CoOwnerRequest $request, User $user, bool $isTimeBounded = false): void
     {
-        $this->requireWriteAccess($this->repositoryFor($request), $user);
-        $this->end($request, CoOwnerRequestStatus::Rejected, $user);
+        $this->requireWriteAccess($this->repositoryFor($request), $user, $isTimeBounded);
+        $this->end($request, CoOwnerRequestStatus::Rejected, $user, $isTimeBounded);
     }
 
-    public function withdraw(CoOwnerRequest $request, User $requester): void
+    public function withdraw(CoOwnerRequest $request, User $requester, bool $isTimeBounded = false): void
     {
         $task = YakTask::findOrFail($request->task_id);
 
@@ -115,7 +117,7 @@ class CoOwnerDecisions
             throw CoOwnerDecisionException::notRequester();
         }
 
-        $this->end($request, CoOwnerRequestStatus::Withdrawn, $requester);
+        $this->end($request, CoOwnerRequestStatus::Withdrawn, $requester, $isTimeBounded);
     }
 
     /**
@@ -190,11 +192,11 @@ class CoOwnerDecisions
     }
 
     /** Reject and withdraw: the task is cancelled and its branch deleted. */
-    private function end(CoOwnerRequest $request, CoOwnerRequestStatus $status, ?User $by): void
+    private function end(CoOwnerRequest $request, CoOwnerRequestStatus $status, ?User $by, bool $isTimeBounded = false): void
     {
         $task = $this->claim($request, $by, $status, function (YakTask $task): void {
             $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
-        });
+        }, $isTimeBounded);
 
         $this->deleteBranch($request, $task);
         $this->announce($request);
@@ -202,13 +204,14 @@ class CoOwnerDecisions
 
     /**
      * Marks a Pending request resolved under the locks and runs $apply on the
-     * locked task, all in one transaction.
+     * locked task, all in one transaction. A time-bounded claim waits at most
+     * five seconds for the locks and then answers 503.
      *
      * @param  Closure(YakTask): void  $apply
      */
-    private function claim(CoOwnerRequest $request, ?User $by, CoOwnerRequestStatus $status, Closure $apply): YakTask
+    private function claim(CoOwnerRequest $request, ?User $by, CoOwnerRequestStatus $status, Closure $apply, bool $isTimeBounded = false): YakTask
     {
-        return DB::transaction(function () use ($request, $by, $status, $apply): YakTask {
+        $resolve = function () use ($request, $by, $status, $apply): YakTask {
             $task = YakTask::whereKey($request->task_id)->lockForUpdate()->firstOrFail();
             $locked = CoOwnerRequest::whereKey($request->id)->lockForUpdate()->firstOrFail();
 
@@ -224,7 +227,11 @@ class CoOwnerDecisions
             TaskLogger::info($task, 'Co-owner request resolved', ['co_owner_request_id' => $request->id, 'status' => $status->value, 'decided_by' => $by?->id]);
 
             return $task;
-        });
+        };
+
+        return $isTimeBounded
+            ? ShortLockWait::transaction($resolve, fn (): Throwable => new HttpException(503, 'Yak is still handling another request for this task. Try again in a moment.'))
+            : DB::transaction($resolve);
     }
 
     /**
@@ -265,9 +272,9 @@ class CoOwnerDecisions
         return Repository::findOrFail($request->repository_id);
     }
 
-    private function requireWriteAccess(Repository $repository, User $user): void
+    private function requireWriteAccess(Repository $repository, User $user, bool $isTimeBounded = false): void
     {
-        match ($this->writeAccess->check($repository, $user)) {
+        match ($this->writeAccess->check($repository, $user, $isTimeBounded)) {
             'write' => null,
             'unlinked' => throw CoOwnerDecisionException::notLinked(),
             'error' => throw CoOwnerDecisionException::accessCheckFailed(),

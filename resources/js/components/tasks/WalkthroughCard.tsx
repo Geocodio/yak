@@ -9,7 +9,7 @@ export function WalkthroughCard({
     canRetryRender,
     onOpen,
 }: {
-    taskId: number;
+    taskId: string;
     walkthrough: WalkthroughData;
     canRetryRender: boolean;
     onOpen: () => void;

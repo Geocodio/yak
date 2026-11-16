@@ -1,0 +1,8 @@
+{
+    "device_code": "<volatile:string>",
+    "expires_in": 600,
+    "interval": 5,
+    "user_code": "<volatile:string>",
+    "verification_url": "<volatile:string>",
+    "verification_url_complete": "<volatile:string>"
+}

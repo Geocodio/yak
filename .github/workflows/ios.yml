@@ -1,0 +1,98 @@
+name: iOS
+
+on:
+  pull_request:
+    paths:
+      - 'ios/**'
+      - 'tests/Fixtures/app-api/**'
+      - '.github/workflows/ios.yml'
+  push:
+    branches: [main, release/next-gen]
+    paths:
+      - 'ios/**'
+      - 'tests/Fixtures/app-api/**'
+      - '.github/workflows/ios.yml'
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: ios
+
+jobs:
+  static:
+    # GitHub's hosted Xcode 27 image. Never register a self-hosted runner under this label: this
+    # workflow runs pull request code, and a self-hosted machine would run it with local access.
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_$(cat .xcode-version).app
+      - name: Install tools
+        run: brew install xcodegen
+      - name: Install gems
+        run: bundle install
+      - name: Lint
+        run: bundle exec fastlane lint
+
+  app-tests:
+    # GitHub's hosted Xcode 27 image. Never register a self-hosted runner under this label: this
+    # workflow runs pull request code, and a self-hosted machine would run it with local access.
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_$(cat .xcode-version).app
+      - name: Install tools
+        run: brew install xcodegen
+      - name: Install gems
+        run: bundle install
+      - name: Test
+        run: bundle exec fastlane test
+
+  ui-smoke:
+    # GitHub's hosted Xcode 27 image. Never register a self-hosted runner under this label: this
+    # workflow runs pull request code, and a self-hosted machine would run it with local access.
+    runs-on: xcode-27
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: 'iPhone 18 Pro'
+            core_only: false
+          - device: 'iPhone Duo'
+            core_only: true
+          - device: 'iPad Pro 13-inch (M5)'
+            core_only: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_$(cat .xcode-version).app
+      - name: Install tools
+        run: brew install xcodegen
+      - name: Install gems
+        run: bundle install
+      - name: UI smoke tests
+        run: bundle exec fastlane ui_smoke device:"${{ matrix.device }}" core_only:${{ matrix.core_only }}
+      - name: Keep the stub log and the test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-smoke-${{ strategy.job-index }}
+          path: |
+            ios/build/yak-stub.log
+            ios/build/*.xcresult
+
+  yakkit-linux:
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test YakKit
+        working-directory: ios/Packages/YakKit
+        run: swift test -Xswiftc -warnings-as-errors

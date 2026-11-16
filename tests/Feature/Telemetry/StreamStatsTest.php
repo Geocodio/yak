@@ -1,14 +1,9 @@
 <?php
 
 use App\Agents\ClaudeCodeOutputParser;
-use App\Agents\SandboxedAgentRunner;
 use App\Agents\StreamEventHandler;
-use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\RunStats;
 use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
-use Illuminate\Contracts\Process\ProcessResult;
-use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
     $this->task = YakTask::factory()->running()->create();
@@ -82,91 +77,4 @@ test('the parser keeps token usage, api duration, model usage and permission den
         ->and($result->usage?->modelUsage['claude-opus-4-6']['cost_usd'])->toBe(0.42)
         ->and($result->permissionDenials)->toBe(2)
         ->and($result->synthesized)->toBeFalse();
-});
-
-class TelemetryScriptedStreamSandbox extends IncusSandboxManager
-{
-    private int $streamCalls = 0;
-
-    /** @param list<list<array<string, mixed>>> $scripts */
-    public function __construct(private array $scripts) {}
-
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
-    {
-        if (str_contains($command, 'claude --version')) {
-            return Process::result("2.1.300 (Claude Code)\n");
-        }
-
-        return Process::result('');
-    }
-
-    public function streamExec(string $containerName, string $command, bool $asRoot = false): array
-    {
-        $events = $this->scripts[$this->streamCalls] ?? [];
-        $this->streamCalls++;
-
-        $lines = implode("\n", array_map(fn (array $e): string => json_encode($e), $events));
-
-        $process = proc_open(
-            ['bash', '-c', sprintf('head -n 1 > /dev/null; printf "%%s\n" %s', escapeshellarg($lines))],
-            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes,
-        );
-
-        return [$process, $pipes];
-    }
-}
-
-test('a synthesized result is priced from the assistant usage in the stream instead of recorded as free', function () {
-    config(['ai-pricing.providers.anthropic.claude-opus-4-6' => ['input' => 15.0, 'output' => 75.0, 'cache_write' => 18.75, 'cache_read' => 1.5]]);
-
-    $usage = ['input_tokens' => 1_000_000, 'output_tokens' => 100_000, 'cache_read_input_tokens' => 0, 'cache_creation_input_tokens' => 0];
-    $script = [
-        ['type' => 'system', 'subtype' => 'init', 'session_id' => 'sess_cut'],
-        ['type' => 'assistant', 'session_id' => 'sess_cut', 'message' => ['id' => 'm1', 'model' => 'claude-opus-4-6', 'usage' => $usage, 'content' => [['type' => 'text', 'text' => 'Done, committed.']]]],
-    ];
-
-    $sandbox = new TelemetryScriptedStreamSandbox([$script, $script]);
-    $runner = new SandboxedAgentRunner($sandbox, postResultGraceSeconds: 0.1, streamPollIntervalSeconds: 0);
-
-    $result = $runner->run(new AgentRunRequest(
-        prompt: 'do the thing',
-        systemPrompt: 'system',
-        containerName: 'task-test',
-        timeoutSeconds: 600,
-        maxBudgetUsd: 5.0,
-        maxTurns: 300,
-        model: 'opus',
-        task: $this->task,
-    ));
-
-    // 1M input at $15 + 100k output at $75 = $22.50, seen once per run of the same message id.
-    expect($result->isError)->toBeFalse()
-        ->and($result->synthesized)->toBeTrue()
-        ->and($result->costUsd)->toBe(22.5)
-        ->and($result->numTurns)->toBe(1)
-        ->and($result->usage?->inputTokens)->toBe(1_000_000)
-        ->and($result->stats?->resumedInPlace)->toBeTrue()
-        ->and($result->stats?->cliVersion)->toBe('2.1.300')
-        ->and($result->stats?->assistantMessages)->toBe(1);
-});
-
-test('stats are attached to a real result event too', function () {
-    $sandbox = new TelemetryScriptedStreamSandbox([[
-        ['type' => 'system', 'subtype' => 'init', 'session_id' => 'sess'],
-        ['type' => 'assistant', 'session_id' => 'sess', 'message' => ['id' => 'm1', 'model' => 'claude-opus-4-6', 'usage' => ['input_tokens' => 1, 'output_tokens' => 1], 'content' => [['type' => 'tool_use', 'id' => 'tu_1', 'name' => 'Bash', 'input' => ['command' => 'ls']]]]],
-        ['type' => 'user', 'session_id' => 'sess', 'message' => ['content' => [['type' => 'tool_result', 'tool_use_id' => 'tu_1', 'content' => 'ok']]]],
-        ['type' => 'result', 'subtype' => 'success', 'is_error' => false, 'result' => 'done', 'session_id' => 'sess', 'num_turns' => 1, 'total_cost_usd' => 0.01, 'duration_ms' => 10],
-    ]]);
-    $runner = new SandboxedAgentRunner($sandbox, postResultGraceSeconds: 0.1, streamPollIntervalSeconds: 0);
-
-    $result = $runner->run(new AgentRunRequest(
-        prompt: 'x', systemPrompt: 's', containerName: 'task-test', timeoutSeconds: 600, maxBudgetUsd: 5.0, maxTurns: 300, model: 'opus', task: $this->task,
-    ));
-
-    expect($result->synthesized)->toBeFalse()
-        ->and($result->stats?->toolCalls)->toBe(1)
-        ->and($result->stats?->resumedInPlace)->toBeFalse()
-        ->and($result->stats?->cliVersion)->toBe('2.1.300')
-        ->and($result->stats?->forcedTermination)->toBeNull();
 });

@@ -1,0 +1,206 @@
+{
+    "brief": null,
+    "canDrive": true,
+    "canOpenPullRequest": false,
+    "capacity": null,
+    "composer": {
+        "accountName": null,
+        "context": null,
+        "contextWindows": {
+            "claude-fable-5-2": 1000000,
+            "claude-haiku-5-5": 1000000,
+            "claude-opus-5-5": 1000000,
+            "claude-sonnet-5-5": 1000000,
+            "default": 200000,
+            "fable": 1000000,
+            "haiku": 1000000,
+            "opus": 1000000,
+            "sonnet": 1000000
+        },
+        "model": "sonnet",
+        "models": [
+            {
+                "family": "opus",
+                "latest": {
+                    "description": "For complex work and everyday tasks",
+                    "label": "Opus 5.5",
+                    "value": "opus"
+                },
+                "older": []
+            },
+            {
+                "family": "fable",
+                "latest": {
+                    "description": "For your toughest challenges",
+                    "label": "Fable 5.2",
+                    "value": "fable"
+                },
+                "older": []
+            },
+            {
+                "family": "sonnet",
+                "latest": {
+                    "description": "Most efficient for simpler tasks",
+                    "label": "Sonnet 5.5",
+                    "value": "sonnet"
+                },
+                "older": []
+            },
+            {
+                "family": "haiku",
+                "latest": {
+                    "description": "Fastest for quick answers",
+                    "label": "Haiku 5.5",
+                    "value": "haiku"
+                },
+                "older": []
+            }
+        ],
+        "nextAttachmentNumber": 1,
+        "state": "idle"
+    },
+    "diffTotals": null,
+    "latestSequence": 4812,
+    "liveActivityChannel": null,
+    "localTurnStints": [],
+    "localTurns": null,
+    "messages": [
+        {
+            "attachmentIds": [],
+            "attachments": [],
+            "authorInitials": "?",
+            "authorName": null,
+            "bodyHtml": "<p>Fix the checkout bug</p>\n",
+            "canEditText": false,
+            "id": "<volatile:string>",
+            "intent": null,
+            "mode": null,
+            "model": null,
+            "readAfterSequence": null,
+            "sendKey": null,
+            "sentAt": "2026-11-15T12:00:00+00:00",
+            "state": "pending",
+            "text": "Fix the checkout bug",
+            "uuid": "<volatile:null>"
+        }
+    ],
+    "modelLabels": {
+        "claude-fable-5-2": "Fable 5.2",
+        "claude-haiku-5-5": "Haiku 5.5",
+        "claude-opus-5-5": "Opus 5.5",
+        "claude-sonnet-5-5": "Sonnet 5.5",
+        "fable": "Fable 5.2",
+        "haiku": "Haiku 5.5",
+        "opus": "Opus 5.5",
+        "sonnet": "Sonnet 5.5"
+    },
+    "notice": null,
+    "panes": {
+        "changes": true,
+        "chat": true,
+        "files": false,
+        "preview": true,
+        "terminal": false
+    },
+    "publishWarning": false,
+    "pullRequest": null,
+    "question": {
+        "expiresAt": "2026-11-16T12:00:00+00:00",
+        "questions": [
+            {
+                "header": "On failure",
+                "id": "on_failure",
+                "multiSelect": false,
+                "options": [
+                    {
+                        "description": "Keep the batch going.",
+                        "label": "Mark the row as failed"
+                    },
+                    {
+                        "description": "Stop at the first failure.",
+                        "label": "Fail the whole batch"
+                    }
+                ],
+                "question": "When all retries fail, what should happen to the row?"
+            }
+        ],
+        "taskId": "<volatile:string>"
+    },
+    "sharedFiles": [],
+    "stackParent": null,
+    "teleport": {
+        "accountName": null,
+        "canTeleport": true,
+        "command": "<volatile:string>",
+        "continuedFromThreadId": null,
+        "continuedFromTitle": null,
+        "environmentNote": null,
+        "environmentSwitch": null,
+        "environmentSwitches": [],
+        "failure": null,
+        "hasDevices": true,
+        "heldEvents": [],
+        "link": "<volatile:string>",
+        "openTeleportState": null,
+        "ownerDevice": null,
+        "ownerName": null,
+        "requestedRunningTurn": null,
+        "runningTurn": false,
+        "since": null,
+        "state": "none",
+        "viewerIsOwner": false
+    },
+    "thread": {
+        "blockedReason": null,
+        "branch": null,
+        "id": "<volatile:string>",
+        "isOwner": true,
+        "isStarred": false,
+        "kind": "general",
+        "lastActivityAt": null,
+        "name": "retry-failed-uploads",
+        "ownerSide": "yak",
+        "parentThreadId": null,
+        "preview": {
+            "awakeCap": 8,
+            "canRestore": true,
+            "coldStartCommand": null,
+            "host": null,
+            "personAwakeCap": 4,
+            "port": null,
+            "repoLabel": "example/api",
+            "safariFallback": true,
+            "setup": {
+                "endedWithoutManifest": false,
+                "intent": null,
+                "isRunning": false
+            },
+            "state": "destroyed",
+            "targets": [
+                {
+                    "canRestore": true,
+                    "kind": "general",
+                    "state": "destroyed",
+                    "threadId": "<volatile:string>",
+                    "title": "Retry failed uploads",
+                    "url": null
+                }
+            ],
+            "teleportCommand": null,
+            "url": null
+        },
+        "pullRequestCount": 0,
+        "pullRequestOpening": null,
+        "repo": "example/api",
+        "repositories": [],
+        "rootThreadId": "<volatile:null>",
+        "runnerState": "none",
+        "sandboxState": "none",
+        "sharedWithCount": 0,
+        "startedOnDevice": false,
+        "status": "open",
+        "title": "Retry failed uploads",
+        "visibility": "team"
+    },
+    "walkthrough": null
+}

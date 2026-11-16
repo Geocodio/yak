@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\HealthController::index
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::index
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\HealthController::index
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::index
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:40
 * @route '/health'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshAll
-* @see app/Http/Controllers/HealthController.php:68
+* @see app/Http/Controllers/HealthController.php:55
 * @route '/health/refresh'
 */
 export const refreshAll = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -60,7 +60,7 @@ refreshAll.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshAll
-* @see app/Http/Controllers/HealthController.php:68
+* @see app/Http/Controllers/HealthController.php:55
 * @route '/health/refresh'
 */
 refreshAll.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ refreshAll.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshAll
-* @see app/Http/Controllers/HealthController.php:68
+* @see app/Http/Controllers/HealthController.php:55
 * @route '/health/refresh'
 */
 refreshAll.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -79,7 +79,7 @@ refreshAll.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshOne
-* @see app/Http/Controllers/HealthController.php:79
+* @see app/Http/Controllers/HealthController.php:66
 * @route '/health/{check}/refresh'
 */
 export const refreshOne = (args: { check: string | number } | [check: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ refreshOne.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshOne
-* @see app/Http/Controllers/HealthController.php:79
+* @see app/Http/Controllers/HealthController.php:66
 * @route '/health/{check}/refresh'
 */
 refreshOne.url = (args: { check: string | number } | [check: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -121,7 +121,7 @@ refreshOne.url = (args: { check: string | number } | [check: string | number ] |
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshOne
-* @see app/Http/Controllers/HealthController.php:79
+* @see app/Http/Controllers/HealthController.php:66
 * @route '/health/{check}/refresh'
 */
 refreshOne.post = (args: { check: string | number } | [check: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

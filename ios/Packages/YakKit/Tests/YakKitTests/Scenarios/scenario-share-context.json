@@ -1,0 +1,68 @@
+{
+  "instanceName": "Example Yak",
+  "limits": {
+    "maxFiles": 8,
+    "maxFileBytes": 10485760
+  },
+  "lastThread": {
+    "id": "d0e515ef",
+    "title": "Fix the overlap on small screens",
+    "isPrivate": false,
+    "canSend": true,
+    "nextAttachmentNumber": 4
+  },
+  "options": {
+    "repos": [
+      {
+        "slug": "example/api",
+        "name": "api",
+        "setupStatus": "ready",
+        "setupStep": null
+      },
+      {
+        "slug": "example/web",
+        "name": "web",
+        "setupStatus": "running",
+        "setupStep": "Installing dependencies"
+      }
+    ],
+    "picker": {
+      "accounts": [
+        {
+          "id": 3,
+          "name": "Test account",
+          "kind": "team",
+          "icon": "users",
+          "color": "slate",
+          "isSystem": false,
+          "isDefault": true,
+          "defaultModel": "sonnet",
+          "usable": true,
+          "status": "ok"
+        }
+      ],
+      "defaultsByRepo": {
+        "example/api": {
+          "accountId": 3,
+          "brokenDefaultAccountId": null,
+          "model": null
+        }
+      },
+      "models": []
+    },
+    "defaultRepo": "example/api",
+    "models": [
+      {
+        "family": "sonnet",
+        "latest": {
+          "value": "sonnet",
+          "label": "Sonnet 5.5",
+          "description": "Fast and capable"
+        },
+        "older": []
+      }
+    ]
+  },
+  "lastRepo": "example/api",
+  "updatedAt": 800000000
+}

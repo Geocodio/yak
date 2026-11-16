@@ -4,7 +4,7 @@ import { useState } from 'react';
 import hibernation from '@/routes/deployments/hibernation';
 import type { HibernationData } from '@/types/deployments';
 
-export function HibernationCard({ deploymentId, hibernation: data }: { deploymentId: number; hibernation: HibernationData }) {
+export function HibernationCard({ deploymentId, hibernation: data }: { deploymentId: string; hibernation: HibernationData }) {
     const [timeout, setTimeout_] = useState(data.timeout);
     const form = useForm({ timeout: data.timeout });
 
@@ -29,7 +29,7 @@ export function HibernationCard({ deploymentId, hibernation: data }: { deploymen
             </div>
             <div className="p-4">
                 <p className="text-[12px] text-muted">
-                    {data.longLived ? `Hibernates after ${data.timeout} of inactivity. Exempt from the 30-day cleanup.` : `Hibernates after ${data.timeout} of inactivity.`}
+                    {data.longLived ? `Hibernates after ${data.timeout} of inactivity. Exempt from the ${data.destroyDays}-day cleanup.` : `Hibernates after ${data.timeout} of inactivity.`}
                 </p>
                 <div className="mt-3 flex items-center justify-between">
                     <span className="text-[12.5px]">Keep this branch long-lived</span>

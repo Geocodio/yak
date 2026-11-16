@@ -4,6 +4,7 @@ use App\Models\BranchDeployment;
 use App\Models\User;
 use App\Services\PreviewAccess;
 use Illuminate\Support\Facades\URL;
+use Tests\Support\VisibilityWorld;
 
 beforeEach(function () {
     config()->set('yak.deployments.hostname_suffix', 'yak.example.com');
@@ -121,3 +122,17 @@ it('rejects an expired signature', function () {
 
     $this->get($url)->assertStatus(403);
 });
+
+it('answers 404 for a deployment of a private thread to a signed-in stranger, like an unknown host', function (string $stranger) {
+    config()->set('yak.deployments.hostname_suffix', 'test');
+    $world = VisibilityWorld::build();
+    $host = VisibilityWorld::HOSTNAME;
+    $hidden = $this->actingAs($world->{$stranger})->get(bounceUrl("https://{$host}/"));
+    $missing = $this->actingAs($world->{$stranger})->get(bounceUrl('https://ghost.test/'));
+
+    expect($hidden->getStatusCode())->toBe(404)
+        ->and(str_replace($host, 'HOST', (string) $hidden->getContent()))->toBe(str_replace('ghost.test', 'HOST', (string) $missing->getContent()));
+
+    $this->actingAs($world->owner)->get(bounceUrl("https://{$host}/"))
+        ->assertRedirectContains("https://{$host}/_yak/auth?ticket=");
+})->with(['other', 'admin']);

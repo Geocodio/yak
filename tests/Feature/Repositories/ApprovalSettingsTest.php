@@ -23,7 +23,7 @@ function fakeBranchProtectionFailure(): void
     Http::fake(gitHubTokenFake() + ['api.github.com/*' => Http::response([], 500)]);
 }
 
-function shadowReview(Repository $repository, array $assessment, int $daysAgo = 1): PrReview
+function settingsShadowReview(Repository $repository, array $assessment, int $daysAgo = 1): PrReview
 {
     return PrReview::factory()->create([
         'repo' => $repository->slug,
@@ -145,12 +145,12 @@ it('counts shadow decisions at the live level', function () {
     $repository = Repository::factory()->create();
     $repository->setApproval(2, 'shadow', null);
     fakeYakFiles([]);
-    shadowReview($repository, ['mode' => 'shadow', 'level' => 2, 'candidate' => 'APPROVE']);
-    shadowReview($repository, ['mode' => 'enforce', 'level' => 2, 'candidate' => 'APPROVE']);
-    shadowReview($repository, ['mode' => 'shadow', 'level' => 2, 'candidate' => 'COMMENT', 'reasons' => ['Always needs a human: Customer charges']]);
-    shadowReview($repository, ['mode' => 'shadow', 'level' => 2, 'candidate' => 'APPROVE'], 20);
-    shadowReview($repository, ['mode' => 'off', 'level' => 2, 'candidate' => 'APPROVE']);
-    shadowReview($repository, ['mode' => 'shadow', 'level' => 4, 'candidate' => 'APPROVE']);
+    settingsShadowReview($repository, ['mode' => 'shadow', 'level' => 2, 'candidate' => 'APPROVE']);
+    settingsShadowReview($repository, ['mode' => 'enforce', 'level' => 2, 'candidate' => 'APPROVE']);
+    settingsShadowReview($repository, ['mode' => 'shadow', 'level' => 2, 'candidate' => 'COMMENT', 'reasons' => ['Always needs a human: Customer charges']]);
+    settingsShadowReview($repository, ['mode' => 'shadow', 'level' => 2, 'candidate' => 'APPROVE'], 20);
+    settingsShadowReview($repository, ['mode' => 'off', 'level' => 2, 'candidate' => 'APPROVE']);
+    settingsShadowReview($repository, ['mode' => 'shadow', 'level' => 4, 'candidate' => 'APPROVE']);
 
     $this->actingAs(User::factory()->create())->get(route('repos.approvals.show', $repository))
         ->assertInertia(fn (AssertableInertia $page) => $page

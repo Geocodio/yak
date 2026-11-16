@@ -41,11 +41,6 @@ class HealthCheckCommand extends Command
      */
     private const FAILING_CACHE_KEY_PREFIX = 'yak:healthcheck:failing:';
 
-    /**
-     * The check whose failure the re-login runbook in the alert fixes.
-     */
-    private const CLAUDE_AUTH_CHECK_ID = 'claude-auth';
-
     public function handle(Registry $registry): int
     {
         /** @var array<string, array{name: string, result: HealthResult, isConsecutive: bool}> $failures */
@@ -130,12 +125,6 @@ class HealthCheckCommand extends Command
 
         $text = ":warning: *Yak Health Check Failed*\n" . implode("\n", $lines)
             . "\n\n*Agent jobs queued:* {$held}";
-
-        if (array_key_exists(self::CLAUDE_AUTH_CHECK_ID, $failures)) {
-            $text .= "\n\n*To re-authenticate Claude:*\n"
-                . "```\nssh root@" . parse_url((string) config('app.url'), PHP_URL_HOST) . "\nyak-claude-login\n```\n"
-                . 'Then type `/login` in the Claude session that opens.';
-        }
 
         return $this->postToSlack($slack, $text);
     }

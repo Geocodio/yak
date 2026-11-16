@@ -3,24 +3,28 @@ import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import { MessageWithAttachments } from '@/components/attachments/Attachments';
 import { Prose } from '@/components/Prose';
-import { FindingsBlock } from '@/components/tasks/FindingsBlock';
-import type { FindingsData, MediaItem, ThreadEntryData } from '@/types/tasks';
+import { YakAvatar } from '@/components/brand/YakAvatar';
+import { YakBubble, type YakBubbleContext } from '@/components/tasks/YakBubble';
+import type { MediaItem, ThreadEntryData } from '@/types/tasks';
 
-function Entry({ who, meta, avatar, children }: { who: string | null; meta: string; avatar: React.ReactNode; children: React.ReactNode }) {
+/** A message in the conversation: a header with the avatar, the author and the time, then the body. */
+function Entry({ who, meta, avatar, children, tone = 'plain' }: { who: string | null; meta: string; avatar: React.ReactNode; children: React.ReactNode; tone?: 'plain' | 'you' }) {
     return (
-        <div className="flex gap-3">
-            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-panel-2 text-[11px] font-medium">{avatar}</div>
-            <div className="min-w-0 flex-1">
-                {who && (
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12px]">
-                        <span className="font-medium text-body">{who}</span>
-                        <span className="text-faint">{meta}</span>
-                    </div>
-                )}
-                <div className="mt-1 text-[13px] leading-relaxed wrap-break-word">{children}</div>
-            </div>
+        <div className={cn(tone === 'you' && 'rounded-xl bg-panel-2 px-3.5 py-3')}>
+            {who && (
+                <div className="mb-2 flex min-w-0 items-center gap-2 text-[12.5px]">
+                    {avatar}
+                    <span className="font-semibold text-body">{who}</span>
+                    <span className="tnum text-faint">{meta}</span>
+                </div>
+            )}
+            <div className="text-[14px] leading-[1.55] wrap-break-word">{children}</div>
         </div>
     );
+}
+
+function PersonAvatar({ children }: { children: React.ReactNode }) {
+    return <span className="grid size-[22px] flex-none place-items-center rounded-[7px] bg-hair text-[11px] font-bold text-body">{children}</span>;
 }
 
 function MediaGrid({ media, onOpen }: { media: MediaItem[]; onOpen: (media: MediaItem[], index: number) => void }) {
@@ -51,12 +55,16 @@ function MediaGrid({ media, onOpen }: { media: MediaItem[]; onOpen: (media: Medi
 
 export function ThreadEntry({
     entry,
-    findings,
+    yak,
+    focused,
     onOpenMedia,
     onSelectClarificationOption,
 }: {
     entry: ThreadEntryData;
-    findings: FindingsData;
+    /** What a Yak bubble needs from the page: the stream, the task and the actions. */
+    yak: YakBubbleContext;
+    /** True for the bubble of the run the page is focused on; it carries the activity stream. */
+    focused: boolean;
     onOpenMedia: (media: MediaItem[], index: number) => void;
     onSelectClarificationOption: (option: string) => void;
 }) {
@@ -73,7 +81,7 @@ export function ThreadEntry({
 
     if (entry.kind === 'review-context') {
         return (
-            <Entry who={entry.who} meta={entry.meta} avatar={<ExternalLink size={12} />}>
+            <Entry who={entry.who} meta={entry.meta} tone="you" avatar={<PersonAvatar><ExternalLink size={12} /></PersonAvatar>}>
                 <div className="rounded-card border border-hair bg-panel p-4 shadow-card">
                     <Prose html={entry.bodyHtml} />
                 </div>
@@ -83,7 +91,7 @@ export function ThreadEntry({
 
     if (entry.kind === 'user') {
         return (
-            <Entry who={entry.who} meta={entry.meta} avatar={entry.who?.[0]?.toUpperCase() ?? 'U'}>
+            <Entry who={entry.who} meta={entry.meta} tone="you" avatar={<PersonAvatar>{entry.who?.[0]?.toUpperCase() ?? 'U'}</PersonAvatar>}>
                 <MessageWithAttachments attachments={entry.attachments ?? []} onOpenMedia={onOpenMedia}>
                     {entry.fullText && !expanded ? (
                         <div>
@@ -136,70 +144,37 @@ export function ThreadEntry({
 
     if (entry.kind === 'clarification') {
         return (
-            <Entry who="Yak" meta={entry.meta} avatar={<img src="/mascot-avatar.png" alt="" className="h-6 w-6 rounded-pill" />}>
-                <div className={cn('rounded-card border border-hair bg-panel p-4 shadow-card', entry.superseded && 'opacity-60')}>
-                    <Prose html={entry.bodyHtml} />
-                    {!entry.superseded && entry.options && entry.options.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                            {entry.options.map((option) => (
-                                <button
-                                    key={option}
-                                    type="button"
-                                    onClick={() => onSelectClarificationOption(option)}
-                                    className="rounded-pill border border-hair bg-panel-2 px-2.5 py-1 text-[12px] text-body hover:border-hair-strong"
-                                    data-testid="clarification-option"
-                                >
-                                    {option}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+            <div className={cn('rounded-xl border border-hair bg-panel px-3 pt-3 pb-3.5 shadow-card', entry.superseded && 'opacity-60')} data-testid="yak-bubble">
+                <div className="mb-2 flex min-w-0 items-center gap-2 text-[12.5px]">
+                    <YakAvatar />
+                    <b className="font-semibold">Yak</b>
+                    <span className="tnum text-faint">{entry.meta}</span>
                 </div>
-            </Entry>
+                <Prose html={entry.bodyHtml} />
+                {!entry.superseded && entry.options && entry.options.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {entry.options.map((option) => (
+                            <button
+                                key={option}
+                                type="button"
+                                onClick={() => onSelectClarificationOption(option)}
+                                className="rounded-pill border border-hair bg-panel-2 px-2.5 py-1 text-[12px] text-body hover:border-hair-strong"
+                                data-testid="clarification-option"
+                            >
+                                {option}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
         );
     }
 
     // kind === 'yak'
     return (
-        <Entry who="Yak" meta={entry.meta} avatar={<img src="/mascot-avatar.png" alt="" className="h-6 w-6 rounded-pill" />}>
-            <div className={cn('rounded-card border border-hair bg-panel p-4 shadow-card', entry.superseded && 'opacity-60')}>
-                {entry.live ? (
-                    <div className="flex items-center gap-2 text-muted">
-                        <span className="relative flex h-2 w-2">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-pill bg-info opacity-40" />
-                            <span className="relative inline-flex h-2 w-2 rounded-pill bg-info" />
-                        </span>
-                        Working…
-                    </div>
-                ) : (
-                    <Prose html={entry.bodyHtml} />
-                )}
-                {entry.error && <p className="mt-2 text-[12px] text-fail">{entry.error}</p>}
-                {findings && <FindingsBlock findings={findings} />}
-                {entry.links && entry.links.length > 0 && (
-                    <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-hair pt-3 text-[12px]">
-                        {entry.links.map((link) =>
-                            link.label === 'View research artifact' ? (
-                                <a key={link.url} href={link.url} className="text-accent-text hover:underline" data-testid="research-link">
-                                    {link.label}
-                                </a>
-                            ) : (
-                                <a
-                                    key={link.url}
-                                    href={link.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1 text-accent-text hover:underline"
-                                    data-testid="pr-link"
-                                >
-                                    <ExternalLink size={12} /> {link.label}
-                                </a>
-                            ),
-                        )}
-                    </div>
-                )}
-            </div>
+        <>
+            <YakBubble entry={entry} context={yak} focused={focused} />
             {entry.media && <MediaGrid media={entry.media} onOpen={onOpenMedia} />}
-        </Entry>
+        </>
     );
 }

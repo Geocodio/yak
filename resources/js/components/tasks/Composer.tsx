@@ -19,7 +19,7 @@ export function Composer({
     fillValue,
     onOpenMedia,
 }: {
-    taskId: number;
+    taskId: string;
     composer: ComposerData;
     fillValue: string | null;
     onOpenMedia: (media: MediaItem[], index: number) => void;

@@ -1,0 +1,107 @@
+import { usePage } from '@inertiajs/react';
+import { cn } from '@geocodio/console-ui';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import type { PaletteAction } from '@/commandPalette/types';
+import { IconRail } from '@/components/shell/IconRail';
+import { SectionPanel } from '@/components/shell/SectionPanel';
+import { sectionForUrl, type RailSection } from '@/components/shell/sections';
+import { ThreadListPanel } from '@/components/shell/ThreadListPanel';
+import { useMediaQuery } from '@/lib/useMediaQuery';
+import { useMarkThreadSeen } from '@/components/shell/useMarkThreadSeen';
+import { useThreadDocked } from '@/components/shell/useThreadDocked';
+
+const COLLAPSED_KEY = 'yak:shell-collapsed';
+
+function readCollapsed(): boolean {
+    try {
+        return window.localStorage.getItem(COLLAPSED_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function writeCollapsed(isCollapsed: boolean): void {
+    try {
+        window.localStorage.setItem(COLLAPSED_KEY, isCollapsed ? '1' : '0');
+    } catch {
+        // Storage can be blocked; the panel simply does not remember.
+    }
+}
+
+/** Icon rail plus the panel of the active section; hidden below `lg`. A docked thread panel leaves only the rail. */
+export function ShellSidebar() {
+    const { url } = usePage();
+    const [picked, setPicked] = useState<RailSection | null>(null);
+    const [isCollapsed, setIsCollapsed] = useState(readCollapsed);
+    const isDocked = useThreadDocked();
+    // A docked thread panel hides the sidebar until the person asks for it with the rail.
+    const [isOpenedOverDock, setIsOpenedOverDock] = useState(false);
+    const active = picked ?? sectionForUrl(url);
+    const isPanelHidden = isCollapsed || (isDocked && !isOpenedOverDock);
+
+    useMarkThreadSeen(url);
+
+    useEffect(() => {
+        setPicked(null);
+    }, [url]);
+
+    useEffect(() => {
+        setIsOpenedOverDock(false);
+    }, [url, isDocked]);
+
+    const open = () => {
+        setIsOpenedOverDock(isDocked);
+        if (isCollapsed) {
+            setIsCollapsed(false);
+            writeCollapsed(false);
+        }
+    };
+
+    const collapse = () => {
+        setIsOpenedOverDock(false);
+        setIsCollapsed(true);
+        writeCollapsed(true);
+    };
+
+    const select = (section: RailSection) => {
+        if (section === active && section === 'threads' && !isPanelHidden) {
+            collapse();
+            return;
+        }
+        setPicked(section);
+        open();
+    };
+
+    const togglePanel = () => {
+        if (isPanelHidden) {
+            open();
+        } else {
+            collapse();
+        }
+    };
+
+    // The registered action reads the latest toggle without re-registering.
+    const togglePanelRef = useRef(togglePanel);
+    togglePanelRef.current = togglePanel;
+
+    const isDesktop = useMediaQuery('(min-width: 1024px)');
+    const actions = useMemo<PaletteAction[]>(() => (!isDesktop ? [] : [{ id: 'toggle-sidebar', label: 'Toggle the sidebar', keywords: ['sidebar', 'collapse', 'hide', 'show', 'threads', 'panel'], shortcut: 'toggleSidebar', run: () => togglePanelRef.current() }]), [isDesktop]);
+    useCommandPaletteActions('View', actions);
+
+    return (
+        <aside className="hidden shrink-0 border-r border-hair bg-sidebar lg:flex" data-testid="sidebar">
+            <IconRail active={active} onSelect={select} onShowThreads={isPanelHidden ? open : undefined} />
+            <div
+                className={cn('min-h-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none', isPanelHidden ? 'w-0' : 'w-[300px]')}
+                aria-hidden={isPanelHidden || undefined}
+                inert={isPanelHidden}
+                data-testid="sidebar-panel"
+            >
+                <div className="flex h-full w-[300px] min-h-0 flex-col">
+                    {active === 'threads' ? <ThreadListPanel onCollapse={collapse} /> : <SectionPanel section={active} onCollapse={collapse} />}
+                </div>
+            </div>
+        </aside>
+    );
+}

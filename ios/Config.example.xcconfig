@@ -1,0 +1,7 @@
+// Copy to Config.xcconfig (gitignored) and fill in your own values.
+YAK_TEAM_ID = YOUR_TEAM_ID
+YAK_BUNDLE_ID = com.example.yak
+YAK_APP_GROUP = group.com.example.yak
+YAK_DISPLAY_NAME = Yak
+YAK_SENTRY_DSN =
+// A DSN contains //, which starts a comment in this file. Write it as https:/$()/public@host/1.

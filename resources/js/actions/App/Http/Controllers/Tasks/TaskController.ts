@@ -1,10 +1,10 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
-export const show = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -16,16 +16,16 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
-show.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+show.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { task: args.id }
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
     }
 
     if (Array.isArray(args)) {
@@ -38,7 +38,7 @@ show.url = (args: { task: string | number | { id: string | number } } | [task: s
 
     const parsedArgs = {
         task: typeof args.task === 'object'
-        ? args.task.id
+        ? args.task.public_id
         : args.task,
     }
 
@@ -49,24 +49,92 @@ show.url = (args: { task: string | number | { id: string | number } } | [task: s
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
-show.get = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
-show.head = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
 
-const TaskController = { show }
+/**
+* @see \App\Http\Controllers\Tasks\TaskController::logEntries
+* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @route '/tasks/{task}/log-entries'
+*/
+export const logEntries = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: logEntries.url(args, options),
+    method: 'get',
+})
+
+logEntries.definition = {
+    methods: ["get","head"],
+    url: '/tasks/{task}/log-entries',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskController::logEntries
+* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @route '/tasks/{task}/log-entries'
+*/
+logEntries.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { task: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            task: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        task: typeof args.task === 'object'
+        ? args.task.public_id
+        : args.task,
+    }
+
+    return logEntries.definition.url
+            .replace('{task}', parsedArgs.task.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskController::logEntries
+* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @route '/tasks/{task}/log-entries'
+*/
+logEntries.get = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: logEntries.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskController::logEntries
+* @see app/Http/Controllers/Tasks/TaskController.php:69
+* @route '/tasks/{task}/log-entries'
+*/
+logEntries.head = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: logEntries.url(args, options),
+    method: 'head',
+})
+
+const TaskController = { show, logEntries }
 
 export default TaskController

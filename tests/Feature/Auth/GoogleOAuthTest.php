@@ -35,7 +35,7 @@ test('oauth callback creates user and authenticates', function () {
     Socialite::fake('google', $socialiteUser);
 
     $this->get(route('auth.google.callback'))
-        ->assertRedirect(route('tasks'));
+        ->assertRedirect(route('home'));
 
     $this->assertAuthenticated();
     $this->assertDatabaseHas('users', [
@@ -62,7 +62,7 @@ test('oauth callback updates existing user', function () {
     Socialite::fake('google', $socialiteUser);
 
     $this->get(route('auth.google.callback'))
-        ->assertRedirect(route('tasks'));
+        ->assertRedirect(route('home'));
 
     $this->assertAuthenticated();
     expect($user->fresh()->name)->toBe('Jane Doe');
@@ -101,7 +101,7 @@ test('oauth callback supports multiple allowed domains', function () {
     Socialite::fake('google', $socialiteUser);
 
     $this->get(route('auth.google.callback'))
-        ->assertRedirect(route('tasks'));
+        ->assertRedirect(route('home'));
 
     $this->assertAuthenticated();
 });

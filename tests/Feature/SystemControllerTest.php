@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\ThreadSandboxState;
+use App\Models\Thread;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -61,3 +63,26 @@ it('refuses ids that could steer the package api elsewhere', function (string $p
     'query characters' => 'errors/abc%3Fx%3D1',
     'empty id' => 'traces/',
 ]);
+
+it('gives admins the awake slots as counts only and members null', function () {
+    $admin = User::factory()->create();
+    $other = User::factory()->create(['name' => 'Tessa Teammate']);
+    config(['claude-accounts.admin_user_ids' => [$admin->id], 'yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 4]);
+    Thread::factory()->private($other)->create(['title' => 'Secret pricing plan', 'sandbox_state' => ThreadSandboxState::Running]);
+    Thread::factory()->create(['owner_user_id' => $other->id, 'sandbox_state' => ThreadSandboxState::Running]);
+    Thread::factory()->create(['owner_user_id' => $admin->id, 'sandbox_state' => ThreadSandboxState::Running]);
+
+    $response = $this->actingAs($admin)->get(route('system'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('awakeSlots.total', 8)
+        ->where('awakeSlots.used', 3)
+        ->where('awakeSlots.perPersonCap', 4)
+        ->where('awakeSlots.people.0.name', 'Tessa Teammate')
+        ->where('awakeSlots.people.0.initials', 'TT')
+        ->where('awakeSlots.people.0.awake', 2));
+    expect($response->getContent())->not->toContain('Secret pricing plan');
+
+    $this->actingAs(User::factory()->create())->get(route('system'))
+        ->assertInertia(fn (Assert $page) => $page->where('awakeSlots', null));
+});

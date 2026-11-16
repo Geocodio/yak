@@ -1,0 +1,17 @@
+{
+  "aps": {
+    "alert": { "title": "Retry failed rows when the import times out", "body": "Yak has a question for you." },
+    "sound": "default",
+    "badge": 2,
+    "thread-id": "thread-d0e515ef",
+    "interruption-level": "time-sensitive"
+  },
+  "yak": {
+    "instance": "https://yak.example.com",
+    "event": "needs_you",
+    "kind": "thread",
+    "id": "d0e515ef",
+    "path": "/threads/d0e515ef",
+    "needsYouCount": 2
+  }
+}

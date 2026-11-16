@@ -7,7 +7,10 @@ use App\DataTransferObjects\CIBuildFailure;
 use App\Enums\TaskMode;
 use App\Facades\Prompts;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\ThreadBuilder;
+use App\Services\Threads\Repos\ThreadRepositoryPrompt;
 
 class YakPromptBuilder
 {
@@ -20,11 +23,33 @@ class YakPromptBuilder
         $repoInstructions = self::resolveRepoInstructions($task);
 
         return Prompts::render('system', [
-            'taskId' => $task->external_id,
+            'taskId' => $task->commitReference(),
             'devEnvironmentInstructions' => $devEnvironmentInstructions,
             'channelRules' => $channelRules,
             'repoInstructions' => $repoInstructions,
         ]);
+    }
+
+    /** The standing instructions of a thread's runner: the system prompt plus the thread's repository section. */
+    public static function threadSystemPrompt(YakTask $task, Thread $thread): string
+    {
+        return trim(self::systemPrompt($task) . "\n\n" . ThreadRepositoryPrompt::section($thread));
+    }
+
+    /**
+     * Re-renders a top-level thread's standing instructions so a runner always starts with the current ones.
+     * The text is deterministic, so an unchanged template keeps the prompt cache warm. Sub-threads keep the
+     * instructions they were given. The caller saves the thread.
+     */
+    public static function refreshThreadSystemPrompt(Thread $thread): string
+    {
+        $task = $thread->isChild() ? null : $thread->pullRequestTask();
+
+        if ($task !== null) {
+            $thread->forceFill(['append_system_prompt' => self::threadSystemPrompt($task, $thread)]);
+        }
+
+        return (string) $thread->append_system_prompt;
     }
 
     /**
@@ -151,6 +176,26 @@ class YakPromptBuilder
     }
 
     /**
+     * The person's answers as the message the thread shows, one line per question.
+     */
+    public static function clarificationAnswersShownText(YakTask $task): string
+    {
+        $round = $task->clarificationAnswersAwaitingResume() ?? [];
+        $lines = [];
+
+        foreach (ThreadBuilder::answerItems($round) as $item) {
+            $answer = collect([$item['answer'], $item['other']])->filter(fn (?string $part): bool => $part !== null && trim($part) !== '')->implode('; ');
+            $lines[] = "**{$item['header']}**: " . ($answer !== '' ? $answer : '_Skipped_');
+        }
+
+        if (is_string($round['note'] ?? null) && trim($round['note']) !== '') {
+            $lines[] = $round['note'];
+        }
+
+        return implode("\n\n", $lines);
+    }
+
+    /**
      * Build a follow-up prompt for refining an already-open PR. The Claude
      * session is resumed (it carries the original task history), so this is
      * intentionally terse — just the user's new instructions.
@@ -160,6 +205,24 @@ class YakPromptBuilder
         return Prompts::render('tasks-follow-up', [
             'instructions' => $instructions,
         ]);
+    }
+
+    /**
+     * The request behind the preview card's "Ask Claude" buttons.
+     *
+     * @param  'missing'|'failing'  $situation
+     */
+    public static function previewSetupPrompt(string $situation): string
+    {
+        return Prompts::render('tasks-preview-setup', ['situation' => $situation]);
+    }
+
+    /**
+     * The prompt behind the "Record walkthrough" thread action.
+     */
+    public static function recordWalkthroughPrompt(): string
+    {
+        return Prompts::render('tasks-record-walkthrough', []);
     }
 
     /**

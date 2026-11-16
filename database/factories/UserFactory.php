@@ -37,6 +37,11 @@ class UserFactory extends Factory
         ]);
     }
 
+    public function admin(): static
+    {
+        return $this->state(fn (): array => ['is_admin' => true]);
+    }
+
     public function withGitHub(int $id = 4242, string $login = 'mhansen'): static
     {
         return $this->state(fn (): array => [

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\SandboxShell;
 use App\Models\TaskAttachment;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Number;
@@ -15,7 +16,7 @@ class TaskAttachmentStager
 {
     public const string SANDBOX_DIRECTORY = '/home/yak/attachments';
 
-    public function __construct(private readonly IncusSandboxManager $sandbox) {}
+    public function __construct(private readonly SandboxShell $sandbox) {}
 
     /**
      * Push each attachment into the container and return the prompt section

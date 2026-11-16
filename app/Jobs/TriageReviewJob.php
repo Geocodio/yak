@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService;
 use App\Channels\GitHub\FollowUpCommentParser;
+use App\Enums\HeldEventKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\PendingSteeringMessage;
@@ -13,9 +14,11 @@ use App\Services\FollowUpTaskFactory;
 use App\Services\ReviewFeedbackFormatter;
 use App\Services\ReviewFeedbackTriageDecision;
 use App\Services\TaskLogger;
+use App\Services\Teleport\HeldEvents;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Str;
 
 /**
  * Turns one submitted GitHub review on a Yak PR into either nothing (praise,
@@ -64,6 +67,10 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
         $task = YakTask::find($this->taskId);
 
         if ($task === null || $task->mode === TaskMode::Review || ! $task->prIsOpen()) {
+            return;
+        }
+
+        if (app(HeldEvents::class)->holdIfDeviceOwned($task, HeldEventKind::ReviewComment, 'Review comments on the pull request', Str::limit($this->reviewBody, 500), ['review_id' => $this->reviewId])) {
             return;
         }
 

@@ -1,0 +1,159 @@
+{
+  "scenario": "failed-turn",
+  "source": "synthetic",
+  "broadcasts": [
+    {
+      "sequence": 1,
+      "type": "turn",
+      "data": {
+        "turnId": 44,
+        "state": "running"
+      },
+      "createdAt": "2026-11-15T09:00:01Z"
+    },
+    {
+      "sequence": 2,
+      "type": "entry",
+      "data": {
+        "role": "assistant",
+        "messageId": "msg_7",
+        "blocks": [
+          {
+            "type": "tool_use",
+            "id": "toolu_5",
+            "name": "Bash",
+            "input": {
+              "command": "php artisan migrate"
+            }
+          }
+        ]
+      },
+      "createdAt": "2026-11-15T09:00:02Z"
+    },
+    {
+      "sequence": 3,
+      "type": "entry",
+      "data": {
+        "role": "tool_result",
+        "toolUseId": "toolu_5",
+        "isError": true,
+        "text": "SQLSTATE: table exists"
+      },
+      "createdAt": "2026-11-15T09:00:03Z"
+    },
+    {
+      "sequence": 4,
+      "type": "entry",
+      "data": {
+        "role": "result",
+        "subtype": "error_during_execution",
+        "isError": true,
+        "text": "The migration failed.",
+        "costUsd": 0.01,
+        "durationMs": 700,
+        "numTurns": 1
+      },
+      "createdAt": "2026-11-15T09:00:04Z"
+    },
+    {
+      "sequence": 5,
+      "type": "turn",
+      "data": {
+        "turnId": 44,
+        "state": "failed"
+      },
+      "createdAt": "2026-11-15T09:00:05Z"
+    },
+    {
+      "sequence": 6,
+      "type": "thread",
+      "data": {
+        "status": "open",
+        "sandboxState": "running",
+        "runnerState": "idle",
+        "blockedReason": "usage_limit"
+      },
+      "createdAt": "2026-11-15T09:00:06Z"
+    }
+  ],
+  "catchUp": {
+    "events": [
+      {
+        "sequence": 1,
+        "type": "turn",
+        "data": {
+          "turnId": 44,
+          "state": "running"
+        },
+        "createdAt": "2026-11-15T09:00:01Z"
+      },
+      {
+        "sequence": 2,
+        "type": "entry",
+        "data": {
+          "role": "assistant",
+          "messageId": "msg_7",
+          "blocks": [
+            {
+              "type": "tool_use",
+              "id": "toolu_5",
+              "name": "Bash",
+              "input": {
+                "command": "php artisan migrate"
+              }
+            }
+          ]
+        },
+        "createdAt": "2026-11-15T09:00:02Z"
+      },
+      {
+        "sequence": 3,
+        "type": "entry",
+        "data": {
+          "role": "tool_result",
+          "toolUseId": "toolu_5",
+          "isError": true,
+          "text": "SQLSTATE: table exists"
+        },
+        "createdAt": "2026-11-15T09:00:03Z"
+      },
+      {
+        "sequence": 4,
+        "type": "entry",
+        "data": {
+          "role": "result",
+          "subtype": "error_during_execution",
+          "isError": true,
+          "text": "The migration failed.",
+          "costUsd": 0.01,
+          "durationMs": 700,
+          "numTurns": 1
+        },
+        "createdAt": "2026-11-15T09:00:04Z"
+      },
+      {
+        "sequence": 5,
+        "type": "turn",
+        "data": {
+          "turnId": 44,
+          "state": "failed"
+        },
+        "createdAt": "2026-11-15T09:00:05Z"
+      },
+      {
+        "sequence": 6,
+        "type": "thread",
+        "data": {
+          "status": "open",
+          "sandboxState": "running",
+          "runnerState": "idle",
+          "blockedReason": "usage_limit"
+        },
+        "createdAt": "2026-11-15T09:00:06Z"
+      }
+    ],
+    "latestSequence": 6,
+    "source": "database"
+  },
+  "pointers": []
+}

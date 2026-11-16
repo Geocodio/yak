@@ -25,7 +25,7 @@ No CI output was captured. Investigate the test/build failures by running the re
 1. Read the previous commits on this branch (`git log -p main..HEAD`) so you understand the change set before editing.
 2. Identify the root cause of the CI failure. If the CI output is unclear, reproduce it locally in the sandbox.
 3. Fix it — either by amending the approach, adjusting the implementation, or addressing a test flake if that's genuinely what it is.
-4. Commit the fix on the same branch and push. Yak will wait for CI to re-run.
+4. Commit the fix on the same branch. Yak pushes it and waits for CI to re-run.
 
 ## How to write your final summary
 

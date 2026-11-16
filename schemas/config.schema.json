@@ -17,6 +17,18 @@
       "maxLength": 1000,
       "description": "A short description of what this repository is, shown to Yak as context."
     },
+    "destroy_after_hours": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Hours a stopped thread sandbox is kept before it is destroyed. Capped by the server (default 168)."
+    },
+    "refresh": {
+      "type": "object",
+      "description": "Maps a file glob to the command that runs when a matching file changes.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "ci": {
       "enum": [
         "github_actions",
@@ -64,6 +76,55 @@
             "enforce"
           ],
           "description": "Whether the gate is off or enforced."
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "description": "A dataset Yak fetches once from the S3-compatible store and clones into every sandbox and preview of this repository.",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "prefix",
+        "version_key",
+        "mount_path"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[a-z0-9-]+$",
+          "description": "The dataset name: lowercase letters, digits and dashes."
+        },
+        "prefix": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_./-]+$",
+          "description": "The object key prefix in the bucket. No leading slash and no '..'. The dataset for version V is under <prefix>/<V>/."
+        },
+        "version_key": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_./-]+$",
+          "description": "The object whose first line is the current version string."
+        },
+        "mount_path": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^/(?!.*\\.\\.)[A-Za-z0-9_./-]+$",
+          "not": {
+            "enum": [
+              "/",
+              "/workspace",
+              "/results"
+            ]
+          },
+          "description": "Where the dataset is mounted in the sandbox: absolute, no '..', not / or /workspace or /results."
+        },
+        "size_gb": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "An optional size hint in GB shown to admins. The enforced cap is set by an admin."
         }
       }
     },

@@ -41,7 +41,13 @@ class BackfillOpenPrDeployments
                 continue;
             }
 
-            $deployment = $this->provisioner->provision($repository, $branch);
+            $deployment = $this->provisioner->provision(
+                $repository,
+                $branch,
+                (int) ($pr['number'] ?? 0) ?: null,
+                $pr['head']['repo']['full_name'] ?? 'unknown/unknown',
+                $pr['head']['sha'] ?? null,
+            );
 
             // firstOrCreate matches on repository_id + branch_name, so an
             // existing row returns wasRecentlyCreated=false. Only fill gaps.

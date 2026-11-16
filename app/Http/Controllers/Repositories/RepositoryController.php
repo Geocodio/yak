@@ -8,6 +8,7 @@ use App\Channels\Sentry\Service as SentryService;
 use App\Enums\TaskMode;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Repositories\SaveRepositoryRequest;
+use App\Http\Resources\RepositoryClaudeAccountData;
 use App\Http\Resources\RepositorySummaryData;
 use App\Http\Resources\YakConfigData;
 use App\Models\PrReview;
@@ -93,6 +94,7 @@ class RepositoryController extends Controller
                 ? null
                 : 'This repository has tasks and cannot be deleted. Deactivate it instead.',
             'docsLinks' => $this->docsLinks(),
+            'claudeAccounts' => fn () => RepositoryClaudeAccountData::forRepository($repository, request()->user()),
             'yakConfig' => Inertia::defer(
                 fn () => YakConfigData::from($repository, app(RepositoryConfig::class)->snapshot($repository)),
                 'yak-config',
@@ -304,7 +306,7 @@ class RepositoryController extends Controller
     }
 
     /**
-     * @return array<int, array{status: string, id: string, startedAgo: string, duration: string}>
+     * @return array<int, array{status: string, id: string, url: string, startedAgo: string, duration: string}>
      */
     private function setupHistory(Repository $repository): array
     {
@@ -317,6 +319,7 @@ class RepositoryController extends Controller
             ->map(fn (YakTask $task): array => [
                 'status' => $task->status->value,
                 'id' => (string) $task->external_id,
+                'url' => route('tasks.show', $task),
                 'startedAgo' => $task->created_at?->diffForHumans() ?? '—',
                 'duration' => $this->formatDuration($task->duration_ms),
             ])

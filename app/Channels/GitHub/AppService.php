@@ -6,6 +6,7 @@ use App\Models\GitHubInstallationToken;
 use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -55,7 +56,10 @@ class AppService
         });
     }
 
-    public function getInstallationToken(int $installationId): string
+    /**
+     * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total) when minting a fresh token, for callers that answer a waiting user
+     */
+    public function getInstallationToken(int $installationId, bool $isTimeBounded = false): string
     {
         $cached = GitHubInstallationToken::where('installation_id', $installationId)->first();
 
@@ -63,7 +67,7 @@ class AppService
             return $cached->token;
         }
 
-        return $this->requestInstallationToken($installationId);
+        return $this->requestInstallationToken($installationId, $isTimeBounded);
     }
 
     /**
@@ -74,9 +78,10 @@ class AppService
      * the auth+header setup that the four channel/health/notification
      * sites used to repeat verbatim.
      */
-    public function installationClient(int $installationId): PendingRequest
+    public function installationClient(int $installationId, bool $isTimeBounded = false): PendingRequest
     {
-        return Http::withToken($this->getInstallationToken($installationId))
+        return Http::withToken($this->getInstallationToken($installationId, $isTimeBounded))
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             // GitHub 301s requests for a renamed repository to its new path.
             // Guzzle's default (non-strict) handling replays a redirected
@@ -179,11 +184,12 @@ class AppService
      *
      * @return array{description: ?string, topics: array<int, string>}|null
      */
-    public function getRepository(int $installationId, string $repoSlug): ?array
+    public function getRepository(int $installationId, string $repoSlug, bool $isTimeBounded = false): ?array
     {
-        $token = $this->getInstallationToken($installationId);
+        $token = $this->getInstallationToken($installationId, $isTimeBounded);
 
         $response = Http::withToken($token)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->get("https://api.github.com/repos/{$repoSlug}");
 
@@ -203,11 +209,12 @@ class AppService
      * `private-user-images` URLs that load without a GitHub session for
      * about five minutes, including uploads no longer in the live PR body.
      */
-    public function renderMarkdown(int $installationId, string $repoSlug, string $markdown): ?string
+    public function renderMarkdown(int $installationId, string $repoSlug, string $markdown, bool $isTimeBounded = false): ?string
     {
-        $token = $this->getInstallationToken($installationId);
+        $token = $this->getInstallationToken($installationId, $isTimeBounded);
 
         $response = Http::withToken($token)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->post('https://api.github.com/markdown', [
                 'text' => $markdown,
                 'mode' => 'gfm',
@@ -478,6 +485,36 @@ class AppService
     }
 
     /**
+     * The name, conclusion and duration of every check run on a commit.
+     *
+     * @return list<array{name: string, conclusion: ?string, durationSeconds: ?int}>
+     */
+    public function getCheckRunSummaries(int $installationId, string $repoSlug, string $commitSha): array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/commits/{$commitSha}/check-runs", ['per_page' => 100]);
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $summaries = [];
+
+        foreach ((array) $response->json('check_runs', []) as $run) {
+            $started = isset($run['started_at']) ? strtotime((string) $run['started_at']) : false;
+            $completed = isset($run['completed_at']) ? strtotime((string) $run['completed_at']) : false;
+
+            $summaries[] = [
+                'name' => (string) ($run['name'] ?? ''),
+                'conclusion' => $run['conclusion'] ?? null,
+                'durationSeconds' => $started !== false && $completed !== false ? max(0, $completed - $started) : null,
+            ];
+        }
+
+        return $summaries;
+    }
+
+    /**
      * The lines of a GitHub Actions job log leading up to its failure.
      *
      * Actions leaves the check run's output empty, so the log is the only
@@ -543,12 +580,13 @@ class AppService
      * GitHub cannot be reached or refuses the request, so the caller can
      * tell "no runs" apart from "could not find out".
      *
+     * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total), for callers that answer a waiting user
      * @return list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>
      */
-    public function latestCommitWorkflowRunsForBranch(int $installationId, string $repoSlug, string $branch): array
+    public function latestCommitWorkflowRunsForBranch(int $installationId, string $repoSlug, string $branch, bool $isTimeBounded = false): array
     {
         /** @var array<int, array{id?: int, head_sha?: string, status?: string|null, conclusion?: string|null}> $runs */
-        $runs = $this->installationClient($installationId)
+        $runs = $this->installationClient($installationId, $isTimeBounded)
             ->get("https://api.github.com/repos/{$repoSlug}/actions/runs", [
                 'branch' => $branch,
                 'per_page' => 30,
@@ -792,12 +830,36 @@ class AppService
 
     /**
      * Re-run only the failed jobs of a workflow run, as a new attempt of the same run.
+     *
+     * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total), for callers that answer a waiting user
      */
-    public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId): bool
+    public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId, bool $isTimeBounded = false): bool
     {
-        return $this->installationClient($installationId)
-            ->post("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}/rerun-failed-jobs")
-            ->successful();
+        return $this->rerunFailedJobsResponse($installationId, $repoSlug, $runId, $isTimeBounded)->successful();
+    }
+
+    /**
+     * The raw answer to a rerun of the failed jobs, for callers that tell a refusal GitHub keeps giving apart from a passing failure.
+     */
+    public function rerunFailedJobsResponse(int $installationId, string $repoSlug, int $runId, bool $isTimeBounded = false): Response
+    {
+        return $this->installationClient($installationId, $isTimeBounded)
+            ->post("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}/rerun-failed-jobs");
+    }
+
+    /**
+     * A client error other than a timeout or a rate limit (a run older than a month, a disabled workflow, a missing permission) is given again on every repeat.
+     */
+    public static function isLastingRefusal(Response $response): bool
+    {
+        if (in_array($response->status(), [408, 429], true)) {
+            return false;
+        }
+
+        $isSecondaryRateLimit = $response->status() === 403
+            && ($response->header('retry-after') !== '' || $response->header('x-ratelimit-remaining') === '0');
+
+        return $response->clientError() && ! $isSecondaryRateLimit;
     }
 
     /**
@@ -1212,11 +1274,12 @@ GRAPHQL;
     /**
      * @return array<string, mixed>
      */
-    public function getPullRequest(int $installationId, string $repoSlug, int $prNumber): array
+    public function getPullRequest(int $installationId, string $repoSlug, int $prNumber, bool $isTimeBounded = false): array
     {
-        $token = $this->getInstallationToken($installationId);
+        $token = $this->getInstallationToken($installationId, $isTimeBounded);
 
         $response = Http::withToken($token)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}");
 
@@ -1278,9 +1341,9 @@ GRAPHQL;
      *
      * @return array<string, mixed>|null
      */
-    public function collaboratorPermission(int $installationId, string $repoSlug, string $login): ?array
+    public function collaboratorPermission(int $installationId, string $repoSlug, string $login, bool $isTimeBounded = false): ?array
     {
-        $response = $this->installationClient($installationId)
+        $response = $this->installationClient($installationId, $isTimeBounded)
             ->get('https://api.github.com/repos/' . $repoSlug . '/collaborators/' . rawurlencode($login) . '/permission');
 
         if ($response->status() === 404) {
@@ -1291,9 +1354,9 @@ GRAPHQL;
     }
 
     /** The current login for a GitHub user id, or null when the account is gone. */
-    public function loginForUserId(int $installationId, int $githubId): ?string
+    public function loginForUserId(int $installationId, int $githubId, bool $isTimeBounded = false): ?string
     {
-        $response = $this->installationClient($installationId)->get('https://api.github.com/user/' . $githubId);
+        $response = $this->installationClient($installationId, $isTimeBounded)->get('https://api.github.com/user/' . $githubId);
 
         if ($response->status() === 404) {
             return null;
@@ -1700,11 +1763,14 @@ GRAPHQL;
 
     /**
      * A short-lived installation token that can only read, for the agent's
-     * `gh` CLI. It covers every repository the installation sees, so the
-     * agent can also read linked issues and PRs in sibling repositories.
-     * Each call mints a new token, so every agent run gets the full hour.
+     * `gh` CLI. Without `$repositories` it covers every repository the
+     * installation sees; with it (short names, no owner) the token is limited
+     * to those repositories. Each call mints a new token, so every agent run
+     * gets the full hour.
+     *
+     * @param  list<string>|null  $repositories
      */
-    public function getReadOnlyInstallationToken(int $installationId): string
+    public function getReadOnlyInstallationToken(int $installationId, ?array $repositories = null): string
     {
         $client = Http::withToken($this->generateJwt())
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
@@ -1718,6 +1784,10 @@ GRAPHQL;
             throw new \RuntimeException("GitHub installation {$installationId} grants none of the read-only permissions");
         }
 
+        if ($repositories !== null) {
+            return $this->getScopedInstallationToken($installationId, $repositories, $permissions);
+        }
+
         $token = $client->post("https://api.github.com/app/installations/{$installationId}/access_tokens", ['permissions' => $permissions])->json('token');
 
         if (! is_string($token) || $token === '') {
@@ -1727,11 +1797,74 @@ GRAPHQL;
         return $token;
     }
 
-    private function requestInstallationToken(int $installationId): string
+    /**
+     * A short-lived installation token limited to the named repositories (short
+     * names, no owner) and permissions. The response is checked against the
+     * request, and anything wider than asked for throws, so a token is never
+     * installation-wide by accident.
+     *
+     * @param  list<string>  $repositoryNames
+     * @param  array<string, string>  $permissions  permission name to `read`, `write` or `admin`
+     */
+    public function getScopedInstallationToken(int $installationId, array $repositoryNames, array $permissions): string
+    {
+        if ($repositoryNames === [] || $permissions === []) {
+            throw new \RuntimeException('A scoped GitHub token needs at least one repository and one permission');
+        }
+
+        $response = Http::withToken($this->generateJwt())
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->throw()
+            ->post("https://api.github.com/app/installations/{$installationId}/access_tokens", [
+                'repositories' => $repositoryNames,
+                'permissions' => $permissions,
+            ]);
+
+        $token = $response->json('token');
+
+        if (! is_string($token) || $token === '') {
+            throw new \RuntimeException("GitHub returned an empty scoped installation token for installation {$installationId}");
+        }
+
+        $this->assertTokenIsScoped($response->json(), $repositoryNames, $permissions);
+
+        return $token;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $body
+     * @param  list<string>  $repositoryNames
+     * @param  array<string, string>  $permissions
+     */
+    private function assertTokenIsScoped(?array $body, array $repositoryNames, array $permissions): void
+    {
+        $levels = ['read' => 1, 'write' => 2, 'admin' => 3];
+        $allowedNames = array_map('strtolower', $repositoryNames);
+        $returnedNames = array_map(fn (mixed $repository): string => strtolower((string) (is_array($repository) ? ($repository['name'] ?? '') : '')), (array) ($body['repositories'] ?? []));
+
+        if (($body['repository_selection'] ?? null) !== 'selected' || $returnedNames === [] || array_diff($returnedNames, $allowedNames) !== []) {
+            throw new \RuntimeException('GitHub returned a token that is not limited to the requested repositories');
+        }
+
+        $returnedPermissions = $body['permissions'] ?? null;
+
+        if (! is_array($returnedPermissions)) {
+            throw new \RuntimeException('GitHub returned a token without a permission list');
+        }
+
+        foreach ($returnedPermissions as $name => $level) {
+            if (($levels[$level] ?? PHP_INT_MAX) > ($levels[$permissions[$name] ?? ''] ?? 0)) {
+                throw new \RuntimeException("GitHub returned a token with wider permissions than requested ({$name})");
+            }
+        }
+    }
+
+    private function requestInstallationToken(int $installationId, bool $isTimeBounded = false): string
     {
         $jwt = $this->generateJwt();
 
         $response = Http::withToken($jwt)
+            ->when($isTimeBounded, fn (PendingRequest $request) => $request->connectTimeout(2)->timeout(3))
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->throw()
             ->post("https://api.github.com/app/installations/{$installationId}/access_tokens");

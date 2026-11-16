@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\DeploymentStatus;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
+use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,6 +24,7 @@ class BranchDeploymentFactory extends Factory
         $repoSlug = fake()->slug(1);
 
         return [
+            'public_id' => PublicId::generate(),
             'repository_id' => Repository::factory(),
             'branch_name' => $branch,
             'hostname' => "{$repoSlug}-{$branch}.yak.example.com",

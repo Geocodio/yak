@@ -31,7 +31,7 @@ class DeployBranchJob implements ShouldQueue
         // unless the PR was closed again or deployments were turned off.
         $isTornDown = in_array($deployment->status, [DeploymentStatus::Destroying, DeploymentStatus::Destroyed], true);
 
-        if ($isTornDown && ! $this->shouldRedeploy($deployment)) {
+        if ($isTornDown && ! $deployment->isRedeployable()) {
             return;
         }
 
@@ -71,11 +71,6 @@ class DeployBranchJob implements ShouldQueue
         }
     }
 
-    private function shouldRedeploy(BranchDeployment $deployment): bool
-    {
-        return $deployment->pr_state === 'open' && $deployment->repository->deployments_enabled;
-    }
-
     /**
      * Destroyed is a final state, so the reset bypasses the state machine with
      * a raw update -- same pattern as DestroyDeploymentJob. The old container
@@ -83,15 +78,23 @@ class DeployBranchJob implements ShouldQueue
      */
     private function resetForRedeploy(BranchDeployment $deployment): void
     {
-        BranchDeployment::query()->where('id', $deployment->id)->update([
+        BranchDeployment::query()->where('id', $deployment->id)->update(self::redeployAttributes($deployment));
+
+        $deployment->refresh();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function redeployAttributes(BranchDeployment $deployment): array
+    {
+        return [
             'status' => DeploymentStatus::Pending->value,
             'container_name' => 'deploy-' . Str::lower((string) Str::ulid()),
             'template_version' => max(1, $deployment->repository->current_template_version ?? 0),
             'dirty' => false,
             'failure_reason' => null,
             'last_accessed_at' => null,
-        ]);
-
-        $deployment->refresh();
+        ];
     }
 }

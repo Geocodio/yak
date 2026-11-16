@@ -1,0 +1,87 @@
+name: Yak
+configFiles:
+  Debug: Config.xcconfig
+  Release: Config.xcconfig
+options:
+  deploymentTarget:
+    iOS: "27.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    DEVELOPMENT_TEAM: $(YAK_TEAM_ID)
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: ${YAK_MARKETING_VERSION}
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  YakKit:
+    path: Packages/YakKit
+targets:
+  Yak:
+    type: application
+    platform: iOS
+    sources:
+      - path: Yak
+      - path: Shared
+    dependencies:
+      - package: YakKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(YAK_BUNDLE_ID)
+        PRODUCT_NAME: Yak
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: Yak/Yak.entitlements
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: $(YAK_DISPLAY_NAME)
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: Yak uses the camera to scan a pairing code and to attach photos.
+        INFOPLIST_KEY_NSFaceIDUsageDescription: Yak can ask for Face ID before it opens.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+    info:
+      path: Yak/Support/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleURLTypes:
+          - CFBundleURLName: $(YAK_BUNDLE_ID)
+            CFBundleURLSchemes: [yak]
+        UILaunchScreen: {}
+        YakAppGroup: $(YAK_APP_GROUP)
+        YakAppBundleID: $(YAK_BUNDLE_ID)
+  YakTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: YakTests
+    dependencies:
+      - target: Yak
+      - package: YakKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(YAK_BUNDLE_ID).tests
+        GENERATE_INFOPLIST_FILE: YES
+  YakUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: YakUITests
+    dependencies:
+      - target: Yak
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(YAK_BUNDLE_ID).uitests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Yak:
+    build:
+      targets:
+        Yak: all
+    test:
+      targets:
+        - YakTests
+        - YakUITests

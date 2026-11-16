@@ -1,0 +1,5 @@
+{
+    "expires_at": "<volatile:string>",
+    "token": "<volatile:string>",
+    "url": "<volatile:string>"
+}

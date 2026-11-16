@@ -40,9 +40,17 @@ class GoogleAuthController extends Controller
             ],
         );
 
+        if (
+            $user->wasRecentlyCreated
+            && config('claude-accounts.admin_user_ids') === []
+            && User::query()->count() === 1
+        ) {
+            $user->forceFill(['is_admin' => true])->save();
+        }
+
         Auth::login($user, remember: true);
 
-        return redirect()->intended(route('tasks'));
+        return redirect()->intended(route('home'));
     }
 
     /**

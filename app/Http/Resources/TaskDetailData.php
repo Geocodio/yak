@@ -64,13 +64,14 @@ final class TaskDetailData
     /**
      * @return array<string, mixed>
      */
-    public static function build(YakTask $task, Request $request): array
+    public static function build(YakTask $task, Request $request, bool $withActivity = true, bool $isTimeBounded = false): array
     {
         $conversation = $task->conversation();
         $coOwnerRequest = CoOwnerPanelData::latestRequest($task);
         // Only a gated conversation is judged by its head; others keep the root's status.
         $head = $coOwnerRequest !== null ? ($conversation->last() ?? $task) : $task;
-        $focusedRun = self::resolveFocusedRun($conversation, $request->integer('run') ?: null);
+        $isFollowUp = ($conversation->last() ?? $task)->parent_task_id !== null;
+        $focusedRun = self::resolveFocusedRun($conversation, $request->string('run')->toString() ?: null);
         $attemptCount = max(1, (int) $focusedRun->attempts);
         $attempt = min(max(1, $request->integer('attempt') ?: $attemptCount), $attemptCount);
 
@@ -78,15 +79,11 @@ final class TaskDetailData
             ? PrReview::where('yak_task_id', $task->id)->with('comments')->first()
             : null;
 
-        return [
-            'task' => self::task($task, $head, $coOwnerRequest, $focusedRun, $attempt, $attemptCount),
+        $detail = [
+            'task' => self::task($task, $head, $coOwnerRequest, $focusedRun, $attempt, $attemptCount, $isFollowUp),
             'thread' => self::thread($task, $conversation),
-            'runs' => self::runs($conversation),
-            'attempts' => range(1, $attemptCount),
-            'activitySummary' => ActivityLogData::summary($focusedRun, $attempt),
-            'activity' => ActivityLogData::window($focusedRun, $attempt),
             'progress' => ['steps' => self::progressSteps($task, $head, $coOwnerRequest)],
-            'coOwner' => $request->user() !== null ? CoOwnerPanelData::forRequest($coOwnerRequest, $request->user()) : null,
+            'coOwner' => $request->user() !== null ? CoOwnerPanelData::forRequest($coOwnerRequest, $request->user(), $isTimeBounded) : null,
             'earlyWarning' => EarlyWarningData::forTask($task, $coOwnerRequest, $request->user()),
             'media' => self::latestMedia($conversation),
             'walkthrough' => self::walkthrough($task),
@@ -94,9 +91,21 @@ final class TaskDetailData
             'findings' => self::findings($review),
             'composer' => self::composer($task, $conversation),
             'questions' => self::questions($conversation->last() ?? $task),
-            'debug' => self::debug($task, $focusedRun),
-            'actions' => self::actions($task, $head, $coOwnerRequest),
+            'actions' => self::actions($task, $head, $coOwnerRequest, $isFollowUp),
             'pollInterval' => in_array($task->status, self::FAST_POLL_STATUSES, true) ? 5000 : 15000,
+        ];
+
+        if (! $withActivity) {
+            return $detail;
+        }
+
+        return [
+            ...$detail,
+            'runs' => self::runs($conversation),
+            'attempts' => range(1, $attemptCount),
+            'activitySummary' => ActivityLogData::summary($focusedRun, $attempt),
+            'activity' => ActivityLogData::window($focusedRun, $attempt),
+            'debug' => self::debug($task, $focusedRun),
             'transcriptLogId' => self::resolveTranscriptLogId($request, $conversation),
         ];
     }
@@ -104,10 +113,10 @@ final class TaskDetailData
     /**
      * @param  Collection<int, YakTask>  $conversation
      */
-    public static function resolveFocusedRun(Collection $conversation, ?int $requestedRunId): YakTask
+    public static function resolveFocusedRun(Collection $conversation, ?string $requestedRunId): YakTask
     {
         if ($requestedRunId !== null) {
-            $run = $conversation->firstWhere('id', $requestedRunId);
+            $run = $conversation->firstWhere('public_id', $requestedRunId);
 
             if ($run !== null) {
                 return $run;
@@ -145,7 +154,7 @@ final class TaskDetailData
     /**
      * @return array<string, mixed>
      */
-    private static function task(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, YakTask $focusedRun, int $attempt, int $attemptCount): array
+    private static function task(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, YakTask $focusedRun, int $attempt, int $attemptCount, bool $isFollowUp): array
     {
         $isAnsweredFix = $task->mode === TaskMode::Fix
             && $task->status === TaskStatus::Success
@@ -158,10 +167,11 @@ final class TaskDetailData
         $prState = $task->prState();
 
         return [
-            'id' => $task->id,
+            'id' => $task->public_id,
             'status' => $task->status->value,
             'statusLabel' => str_replace('_', ' ', $task->status->value),
             'mode' => $task->mode->value,
+            'isFollowUp' => $isFollowUp,
             'headline' => $headline,
             'summary' => $task->description_summary ?: Str::limit((string) $task->description, 70),
             'repo' => $task->repo,
@@ -177,7 +187,6 @@ final class TaskDetailData
             'cost' => (float) $task->cost_usd > 0 ? '$' . number_format((float) $task->cost_usd, 2) : null,
             'branch' => $isAnsweredFix ? null : $task->branch_name,
             'nextSteps' => self::nextSteps($task, $head, $coOwnerRequest),
-            'error' => $task->status === TaskStatus::Failed ? $task->error_log : null,
             'externalId' => $task->external_id,
             'pr' => $prState === null ? null : [
                 'number' => $task->pullRequestNumber(),
@@ -187,7 +196,7 @@ final class TaskDetailData
             'researchArtifactUrl' => self::researchArtifactUrl($task),
             'attemptCount' => $attemptCount,
             'attempt' => $attempt,
-            'runId' => $focusedRun->id,
+            'runId' => $focusedRun->public_id,
         ];
     }
 
@@ -203,7 +212,7 @@ final class TaskDetailData
             return null;
         }
 
-        return route('artifacts.viewer', ['task' => $artifact->yak_task_id, 'filename' => $artifact->filename]);
+        return route('artifacts.viewer', ['task' => $artifact->taskPublicId(), 'filename' => $artifact->filename]);
     }
 
     private static function nextSteps(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): ?string
@@ -221,7 +230,9 @@ final class TaskDetailData
             TaskStatus::Failed => match (true) {
                 $task->mode === TaskMode::Review => 'Review failed. Click Re-run review above to run it again against the current PR head.',
                 $isResearch => 'Research failed. Click Retry above, or adjust the issue and re-assign Yak.',
-                default => 'Task failed. Click Retry above, or mention Yak again with more context.',
+                $task->mode === TaskMode::Setup => 'Setup failed. Fix the cause shown above, then click Retry.',
+                in_array($task->source, ['slack', 'linear', 'email'], true) => 'Task failed. Click Retry above, or mention Yak again with more context.',
+                default => 'Task failed. Click Retry above to run it again.',
             },
             TaskStatus::Expired => $coOwnerRequest?->status === CoOwnerRequestStatus::Expired
                 ? 'The co-owner request expired after 7 days. Start a new task to try again.'
@@ -416,14 +427,9 @@ final class TaskDetailData
         Collection $mediaByRun,
     ): array {
         $steps = (int) ($entry->runStats['steps'] ?? 0);
-        $hasDuration = ! empty($entry->runStats['duration_ms']);
-        $duration = self::formatDuration(is_int($entry->runStats['duration_ms'] ?? null) ? $entry->runStats['duration_ms'] : null);
+        $durationMs = is_int($entry->runStats['duration_ms'] ?? null) ? $entry->runStats['duration_ms'] : null;
 
-        $meta = collect([
-            $hasDuration ? "Worked for {$duration}" : null,
-            $steps . ' ' . Str::plural('step', $steps),
-            $entry->timestamp->format('g:i A'),
-        ])->filter()->implode(' · ');
+        $meta = $steps . ' ' . Str::plural('step', $steps) . ' · ' . $entry->timestamp->format('g:i A');
 
         $links = [];
 
@@ -438,7 +444,7 @@ final class TaskDetailData
             if ($researchArtifact !== null) {
                 $links[] = [
                     'label' => 'View research artifact',
-                    'url' => route('artifacts.viewer', ['task' => $entry->run->id, 'filename' => $researchArtifact->filename]),
+                    'url' => route('artifacts.viewer', ['task' => $entry->run, 'filename' => $researchArtifact->filename]),
                 ];
             }
         }
@@ -456,8 +462,13 @@ final class TaskDetailData
             'who' => 'Yak',
             'meta' => $meta,
             'bodyHtml' => $bodyHtml,
+            'durationMs' => $durationMs,
+            'startedAt' => $entry->run !== null ? ($entry->run->started_at ?? $entry->run->created_at)?->toIso8601String() : null,
+            'runId' => $entry->run?->public_id,
+            'attempt' => (int) ($entry->runStats['attempt'] ?? 1),
             'live' => $entry->isLive,
             'superseded' => $superseded,
+            // The one place a failure is shown: the conversation, where the run stopped.
             'error' => $entry->error !== null ? Str::limit($entry->error, 400) : null,
             'links' => $links,
             'media' => $media->map(fn (Artifact $artifact) => self::mediaEntry($artifact))->values()->all(),
@@ -493,12 +504,12 @@ final class TaskDetailData
 
     /**
      * @param  Collection<int, YakTask>  $conversation
-     * @return array<int, array{id: int, label: string, live: bool}>
+     * @return array<int, array{id: string, label: string, live: bool}>
      */
     private static function runs(Collection $conversation): array
     {
         return $conversation->values()->map(fn (YakTask $run, int $index) => [
-            'id' => $run->id,
+            'id' => $run->public_id,
             'label' => 'Run ' . ($index + 1),
             'live' => self::isActive($run->status),
         ])->all();
@@ -723,8 +734,10 @@ final class TaskDetailData
                 null,
             ],
             'disabled_failed' => $task->mode === TaskMode::Research
-                ? ["This research failed — click {$retryActionLabel} above to try again.", "This research failed. Click {$retryActionLabel} above, or adjust the issue and re-assign Yak."]
-                : ["This task failed — click {$retryActionLabel} above to try again.", "This task failed. Click {$retryActionLabel} above, or mention Yak again with more context."],
+                ? ["This research failed. Click {$retryActionLabel} above to try again.", "This research failed. Click {$retryActionLabel} above, or adjust the issue and re-assign Yak."]
+                : ["This task failed. Click {$retryActionLabel} above to try again.", in_array($task->source, ['slack', 'linear', 'email'], true) && $task->mode !== TaskMode::Setup
+                    ? "This task failed. Click {$retryActionLabel} above, or mention Yak again with more context."
+                    : "This task failed. Click {$retryActionLabel} above to run it again."],
             default => ['This conversation is closed — mention Yak again to start a new task.', null],
         };
 
@@ -814,7 +827,7 @@ final class TaskDetailData
     /**
      * @return array{canRetry: bool, canCancel: bool, canRerunReview: bool, canRequestReview: bool, canRetryRender: bool, canReroute: bool, rerouteTargets: array<int, string>}
      */
-    private static function actions(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): array
+    private static function actions(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, bool $isFollowUp): array
     {
         /** @var TaskStatus $status */
         $status = $head->status;
@@ -838,7 +851,7 @@ final class TaskDetailData
         return [
             'canRetry' => $canRetry,
             'canCancel' => $canCancel,
-            'canRerunReview' => $task->mode === TaskMode::Review,
+            'canRerunReview' => $task->mode === TaskMode::Review && ! $isFollowUp,
             'canRequestReview' => $task->mode !== TaskMode::Review
                 && $task->pr_url !== null
                 && (Repository::where('slug', (string) $task->repo)->where('is_active', true)->first()?->settings()->reviewEnabled() ?? false),

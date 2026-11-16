@@ -18,7 +18,6 @@ test('repository settings show policy controls and draft generation', function (
     $repo = Repository::factory()->create(['pr_review_enabled' => true]);
     visit(route('repos.edit', $repo))
         ->assertSee('Risk-based approval')
-        ->assertSee('Approval mode')
         ->assertSee('Generate draft with Claude')
         ->assertSee('Edit risk profile prompt')
         ->assertNoJavaScriptErrors();

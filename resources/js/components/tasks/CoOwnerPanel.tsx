@@ -3,7 +3,7 @@ import { Badge, Button, ConfirmDialog, Textarea } from '@geocodio/console-ui';
 import { AlertTriangle, Check, ExternalLink, GitPullRequest, Link as LinkIcon, RefreshCw, UserX } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useRouterAction } from '@/lib/useRouterAction';
-import { tasks as tasksIndex } from '@/routes';
+import { newMethod as newThread } from '@/routes/threads';
 import { approve, checkAccess, reject, requestChanges, withdraw } from '@/routes/tasks/co-owner';
 import type { CoOwnerAttempt, CoOwnerData, CoOwnerDecisionError, CoOwnerLinkError } from '@/types/coOwner';
 
@@ -51,7 +51,7 @@ function readDecisionError(value: unknown): CoOwnerDecisionError | null {
 }
 
 /** The held-change panel, in the clarification slot of the task page. */
-export function CoOwnerPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: CoOwnerData; repoUrl: string | null }) {
+export function CoOwnerPanel({ taskId, coOwner, repoUrl }: { taskId: string; coOwner: CoOwnerData; repoUrl: string | null }) {
     if (coOwner.status === 'expired' || coOwner.status === 'withdrawn') {
         return <FinalState coOwner={coOwner} />;
     }
@@ -88,8 +88,8 @@ function FinalState({ coOwner }: { coOwner: CoOwnerData }) {
                 )}
             </div>
             <div className="flex justify-end rounded-b-card bg-app px-6 py-3.5">
-                {/* The New task dialog takes no prefilled description, so this opens it empty. */}
-                <Button variant="primary" onClick={() => router.visit(tasksIndex.url({ query: { new: 1 } }))} data-testid="co-owner-new-task">
+                {/* The start-a-thread form takes no prefilled description, so this opens it empty. */}
+                <Button variant="primary" onClick={() => router.visit(newThread.url())} data-testid="co-owner-new-task">
                     Start a new task from this
                 </Button>
             </div>
@@ -97,7 +97,7 @@ function FinalState({ coOwner }: { coOwner: CoOwnerData }) {
     );
 }
 
-function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: CoOwnerData; repoUrl: string | null }) {
+function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: string; coOwner: CoOwnerData; repoUrl: string | null }) {
     const action = useRouterAction();
     const [decisionError, setDecisionError] = useState<CoOwnerDecisionError | null>(null);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -254,7 +254,7 @@ function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: C
     );
 }
 
-function route(taskId: number): string {
+function route(taskId: string): string {
     return `${window.location.origin}/tasks/${taskId}#co-owner`;
 }
 

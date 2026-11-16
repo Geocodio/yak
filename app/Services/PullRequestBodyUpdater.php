@@ -79,6 +79,26 @@ class PullRequestBodyUpdater
     }
 
     /**
+     * Replace one owned section, or append it once when the body has no
+     * markers for it (a PR opened before the section existed).
+     */
+    public function setOrAppendSection(string $repoFullName, int $prNumber, string $name, string $section): void
+    {
+        $this->withBodyLock($repoFullName, $prNumber, function () use ($repoFullName, $prNumber, $name, $section): void {
+            $installationId = (int) config('yak.channels.github.installation_id');
+
+            $body = (string) ($this->github->getPullRequest($installationId, $repoFullName, $prNumber)['body'] ?? '');
+            $updated = PullRequestBodySections::has($body, $name)
+                ? PullRequestBodySections::replace($body, $name, $section)
+                : rtrim($body) . "\n\n{$section}";
+
+            if ($updated !== $body) {
+                $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $updated]);
+            }
+        });
+    }
+
+    /**
      * Insert a section that has no markers of its own yet, right before
      * another owned section's start marker. Used when a follow-up captures
      * screenshots for a PR that was originally opened without any: the

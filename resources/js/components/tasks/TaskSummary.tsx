@@ -32,10 +32,6 @@ export function TaskSummary({ task }: { task: TaskDetail }) {
             </div>
             <h1 className="mt-2 text-[20px] font-semibold leading-snug tracking-tight wrap-break-word">{task.headline}</h1>
 
-            {task.status === 'failed' && task.error && (
-                <div className="mt-3 rounded-card border border-fail/30 bg-fail-soft/40 px-4 py-3 text-[13px] text-fail">{task.error}</div>
-            )}
-
             {task.nextSteps && (
                 <p className="mt-2 text-[13px] italic text-muted" data-testid="next-steps">
                     {task.nextSteps}

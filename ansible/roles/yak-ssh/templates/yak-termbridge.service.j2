@@ -1,0 +1,18 @@
+[Unit]
+Description=Yak terminal bridge
+After=network-online.target
+
+[Service]
+User={{ yak_ssh_bridge_user }}
+Group={{ yak_ssh_bridge_user }}
+EnvironmentFile=/etc/yak/ssh-termbridge.env
+ExecStart={{ yak_ssh_bin_dir }}/yak-termbridge
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

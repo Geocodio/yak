@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\User;
 use App\Services\ConfigPullRequests;
@@ -64,4 +65,14 @@ it('links the database draft block to the risk profile page', function () {
         ->click('Open risk profile')
         ->assertPathIs('/repos/' . $repository->slug . '/risk-profile')
         ->assertNoJavascriptErrors();
+});
+
+it('names the shared account when the user has none', function () {
+    $repository = Repository::factory()->create();
+    ClaudeAccount::factory()->system()->default()->create(['name' => 'Yak Geocodio', 'validated_at' => now()]);
+    $this->actingAs(User::factory()->create());
+
+    visit(route('repos.edit', $repository))
+        ->assertSee('You have no Claude account yet')
+        ->assertSee('shared Yak account (Yak Geocodio)');
 });

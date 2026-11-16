@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Deployments;
 
-use App\Models\BranchDeployment;
 use App\Services\PreviewAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,18 +48,17 @@ class AuthBounceController
             }
             $host = strtolower($parts['host']);
 
-            // Authorization: the preview must belong to a real deployment.
-            // Every signed-in dashboard user may open any deployment.
-            if (! BranchDeployment::where('hostname', $host)->exists()) {
+            // Authorization: the host must name a deployment or a thread, and
+            // the user must be allowed in. A hidden thread host answers exactly
+            // like an unknown host.
+            $kind = $this->previewAccess->targetKind($host);
+            if ($kind === null || ! $this->previewAccess->mayEnter($host, $user->id)) {
                 abort(404, 'No preview for this host.');
             }
 
             $path = ($parts['path'] ?? '/') . (isset($parts['query']) ? '?' . $parts['query'] : '');
 
-            return redirect()->to('https://' . $host . '/_yak/auth?' . http_build_query([
-                'ticket' => $this->previewAccess->mintTicket($host, $user),
-                'to' => $path,
-            ]));
+            return redirect()->to($this->previewAccess->ticketUrl($host, $user, $path));
         }
 
         $request->session()->put('url.intended', $to);

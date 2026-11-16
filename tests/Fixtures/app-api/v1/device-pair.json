@@ -1,0 +1,13 @@
+{
+    "device": {
+        "id": "<volatile:int>",
+        "kind": "phone",
+        "name": "Test phone 🌎"
+    },
+    "token": "<volatile:string>",
+    "user": {
+        "email": "person@example.test",
+        "id": "<volatile:int>",
+        "name": "Test Person"
+    }
+}

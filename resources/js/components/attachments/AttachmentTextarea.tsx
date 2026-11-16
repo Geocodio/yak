@@ -470,6 +470,11 @@ export function AttachmentTextarea({ value, onValueChange, draft, wrapperClassNa
                 {segments}
             </div>
             <Textarea
+                // A message to Yak is never a credential; keep password managers' autofill away.
+                autoComplete="off"
+                data-1p-ignore=""
+                data-lpignore="true"
+                data-bwignore=""
                 {...rest}
                 ref={(element: HTMLTextAreaElement | null) => {
                     textareaRef.current = element;

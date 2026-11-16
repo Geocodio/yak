@@ -6,6 +6,8 @@ use App\Enums\DeploymentStatus;
 use App\Jobs\Deployments\DeployBranchJob;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
+use App\Models\Thread;
+use App\Models\YakTask;
 use Illuminate\Support\Facades\Bus;
 
 beforeEach(function () {
@@ -20,13 +22,13 @@ function fakeGitHubReturning(array $prs): void
     app()->instance(GitHubAppService::class, $github);
 }
 
-function pr(string $ref, string $sha, int $number, bool $draft = false, string $login = 'maria'): array
+function pr(string $ref, string $sha, int $number, bool $draft = false, string $login = 'maria', string $repo = 'acme/widgets'): array
 {
     return [
         'number' => $number,
         'draft' => $draft,
         'user' => ['login' => $login],
-        'head' => ['ref' => $ref, 'sha' => $sha],
+        'head' => ['ref' => $ref, 'sha' => $sha, 'repo' => ['full_name' => $repo]],
     ];
 }
 
@@ -110,4 +112,32 @@ it('staggers boots past the running cap', function () {
         ->filter(fn ($job) => $job->delay !== null)
         ->count();
     expect($delayed)->toBe(2);
+});
+
+it('links a created deployment to the thread task carrying its branch', function () {
+    $repo = eligibleRepo();
+    $task = YakTask::factory()->create([
+        'thread_id' => Thread::factory()->create()->id,
+        'repo' => $repo->slug,
+        'branch_name' => 'feature-linked',
+    ]);
+    fakeGitHubReturning([pr('feature-linked', 'abc123', 8, repo: $repo->github_full_name)]);
+
+    app(BackfillOpenPrDeployments::class)($repo);
+
+    expect(BranchDeployment::withoutGlobalScopes()->where('branch_name', 'feature-linked')->value('yak_task_id'))->toBe($task->id);
+});
+
+it('leaves a fork pull request deployment unlinked', function () {
+    $repo = eligibleRepo();
+    YakTask::factory()->create([
+        'thread_id' => Thread::factory()->create()->id,
+        'repo' => $repo->slug,
+        'branch_name' => 'feature-fork',
+    ]);
+    fakeGitHubReturning([pr('feature-fork', 'abc123', 9, repo: 'forker/widgets')]);
+
+    app(BackfillOpenPrDeployments::class)($repo);
+
+    expect(BranchDeployment::withoutGlobalScopes()->where('branch_name', 'feature-fork')->value('yak_task_id'))->toBeNull();
 });

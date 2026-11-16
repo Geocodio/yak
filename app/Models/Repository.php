@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\DataTransferObjects\RepositorySettings;
 use App\Services\RepositoryConfig;
+use App\Services\Threads\Repos\ThreadsAwaitingRepository;
 use Carbon\CarbonImmutable;
 use Database\Factories\RepositoryFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use InvalidArgumentException;
 
 /**
@@ -18,6 +20,8 @@ use InvalidArgumentException;
  * from the `$casts` property only -- it does not read the `casts()` method
  * form this model uses, so without these it infers the raw column types.
  *
+ * @property array<string, string>|null $build_credentials
+ * @property string|null $setup_script_hash
  * @property array<int, string>|null $pr_review_path_excludes
  * @property int $pr_reviews_30d_count
  * @property int $tasks_count
@@ -50,6 +54,9 @@ class Repository extends Model
 
     protected $guarded = [];
 
+    /** @var list<string> */
+    protected $hidden = ['build_credentials'];
+
     /** @var array<string, mixed> */
     protected $attributes = [
         'is_default' => false,
@@ -59,12 +66,22 @@ class Repository extends Model
         'pr_review_enabled' => false,
     ];
 
+    protected static function booted(): void
+    {
+        static::updated(function (self $repository): void {
+            if ($repository->wasChanged('setup_status')) {
+                app(ThreadsAwaitingRepository::class)->repositoryStatusChanged($repository);
+            }
+        });
+    }
+
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
+            'build_credentials' => 'encrypted:array',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
             'sandbox_base_version' => 'integer',
@@ -81,6 +98,12 @@ class Repository extends Model
             'approval_level' => 'integer',
             'approval_changed_at' => 'immutable_datetime',
         ];
+    }
+
+    /** @return HasOne<Dataset, $this> */
+    public function dataset(): HasOne
+    {
+        return $this->hasOne(Dataset::class);
     }
 
     /** @return HasMany<RepositoryConfigFile, $this> */
@@ -229,6 +252,16 @@ class Repository extends Model
     public function defaultResponsibleUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'default_responsible_user_id');
+    }
+
+    /**
+     * The Yak system account unattended work on this repository runs on.
+     *
+     * @return BelongsTo<ClaudeAccount, $this>
+     */
+    public function unattendedClaudeAccount(): BelongsTo
+    {
+        return $this->belongsTo(ClaudeAccount::class, 'unattended_claude_account_id');
     }
 
     /**

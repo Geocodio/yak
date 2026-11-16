@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\VisibleTaskChildScope;
 use Database\Factories\TaskAttachmentFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +20,7 @@ use Illuminate\Support\Str;
  * the message started (or, for a clarification reply, the run it resumed)
  * and is pushed into that run's sandbox so the agent can read it.
  */
+#[ScopedBy(VisibleTaskChildScope::class)]
 class TaskAttachment extends Model
 {
     /** @use HasFactory<TaskAttachmentFactory> */
@@ -93,7 +96,7 @@ class TaskAttachment extends Model
         return [
             'attachments' => ['nullable', 'array', 'max:' . (int) config('yak.attachments.max_files')],
             'attachments.*' => ['file', 'max:' . (int) config('yak.attachments.max_file_kb')],
-            'attachment_refs' => ['nullable', 'array'],
+            'attachment_refs' => ['nullable', 'array', 'max:' . (int) config('yak.attachments.max_files')],
             'attachment_refs.*' => ['nullable', 'string', 'max:24', 'regex:' . self::REFERENCE_PATTERN],
         ];
     }
@@ -136,6 +139,20 @@ class TaskAttachment extends Model
             'reference' => $references[$index] ?? null,
             'uploaded_by_user_id' => $request->user()?->id,
         ]))->values();
+    }
+
+    /**
+     * Delete stored attachments (files and rows) that no task took over.
+     *
+     * @param  Collection<int, self>  $attachments
+     */
+    public static function discard(Collection $attachments): void
+    {
+        $attachments->each(function (self $attachment): void {
+            if ($attachment->fresh()?->yak_task_id === null) {
+                $attachment->delete();
+            }
+        });
     }
 
     /**

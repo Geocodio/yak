@@ -1,31 +1,18 @@
 <?php
 
 use App\Channels\Slack\PreviewRepairMessenger;
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunResult;
 use App\Enums\PreviewRepairVerdict;
 use App\Enums\TaskStatus;
-use App\Jobs\RunYakJob;
 use App\Models\PreviewRepair;
 use App\Models\Repository;
-use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
-use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
 
-function verdictResult(string $verdict): AgentRunResult
+require_once __DIR__ . '/../../Support/FinishTurnHelpers.php';
+
+function verdictEvent(string $verdict): array
 {
-    return new AgentRunResult(
-        sessionId: 'sess_preview_repair',
-        resultSummary: "Done.\n\n```preview_repair\n{\"verdict\": \"{$verdict}\", \"cause\": \"The {$verdict} is at fault.\", \"introduced_by\": null}\n```",
-        costUsd: 0.2,
-        numTurns: 4,
-        durationMs: 5000,
-        isError: false,
-        rawOutput: '{}',
-    );
+    return resultEvent("Done.\n\n```preview_repair\n{\"verdict\": \"{$verdict}\", \"cause\": \"The {$verdict} is at fault.\", \"introduced_by\": null}\n```");
 }
 
 /**
@@ -34,24 +21,16 @@ function verdictResult(string $verdict): AgentRunResult
 function runPreviewRepair(string $verdict, int $commitCount, $messenger): array
 {
     Queue::fake();
-    Process::fake(['*' => Process::result('')]);
 
-    $repository = Repository::factory()->create(['slug' => 'acme/site', 'path' => '/home/yak/repos/site', 'ci_system' => 'none']);
-    $previewRepair = PreviewRepair::factory()->for($repository)->create();
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'acme/site',
-        'source' => 'preview-repair',
-        'context' => json_encode(['preview_repair_id' => $previewRepair->id]),
-    ]);
-    $previewRepair->update(['yak_task_id' => $task->id]);
-
-    $fake = (new FakeAgentRunner)->queueResult(verdictResult($verdict));
     $sandbox = (new FakeSandboxManager)->setCommitCount($commitCount);
-    app()->instance(AgentRunner::class, $fake);
-    app()->instance(IncusSandboxManager::class, $sandbox);
+    fakeAfterTurnCollaborators(shell: $sandbox);
     app()->instance(PreviewRepairMessenger::class, $messenger);
 
-    (new RunYakJob($task))->handle($fake);
+    [$task, $run] = endedTurn(verdictEvent($verdict), ['source' => 'preview-repair'], ['slug' => 'acme/site', 'ci_system' => 'none']);
+    $previewRepair = PreviewRepair::factory()->for(Repository::where('slug', 'acme/site')->first())->create(['yak_task_id' => $task->id]);
+    $task->update(['context' => json_encode(['preview_repair_id' => $previewRepair->id])]);
+
+    runFinisher($run);
 
     return [$task->refresh(), $previewRepair->refresh(), $sandbox];
 }

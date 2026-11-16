@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\ArtifactFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -11,6 +12,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
+/**
+ * @property CarbonImmutable|null $created_at
+ */
 class Artifact extends Model
 {
     /** @use HasFactory<ArtifactFactory> */
@@ -39,12 +43,21 @@ class Artifact extends Model
     public const array RENDER_INPUT_ROLES = ['shot', 'still'];
 
     /**
+     * Files Claude made for the person (reports, charts, datasets). They show only in the shared-files UI and
+     * never reach the pull request, the walkthrough or the render pipeline.
+     */
+    public const string SHARED_ROLE = 'shared';
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'created_at' => 'datetime',
+            'shared_at' => 'datetime',
+            'render_requested_at' => 'datetime',
+            'shared_with_team' => 'boolean',
         ];
     }
 
@@ -53,6 +66,10 @@ class Artifact extends Model
         static::creating(function (Artifact $artifact): void {
             if (in_array($artifact->role, self::PUBLIC_ROLES, strict: true) && $artifact->public_token === null) {
                 $artifact->public_token = (string) Str::ulid();
+            }
+
+            if ($artifact->role === self::SHARED_ROLE && $artifact->public_id === null) {
+                $artifact->public_id = (string) Str::ulid();
             }
         });
     }
@@ -71,6 +88,32 @@ class Artifact extends Model
     }
 
     /**
+     * @param  Builder<Artifact>  $query
+     * @return Builder<Artifact>
+     */
+    public function scopeShared(Builder $query): Builder
+    {
+        return $query->where('role', self::SHARED_ROLE);
+    }
+
+    /**
+     * What a shared file is, from its extension: `report` (HTML), `image`, `csv`, `pdf`, `text` or `file`.
+     *
+     * @return 'report'|'image'|'csv'|'pdf'|'text'|'file'
+     */
+    public function sharedKind(): string
+    {
+        return match (strtolower(pathinfo((string) $this->filename, PATHINFO_EXTENSION))) {
+            'html' => 'report',
+            'png', 'jpg', 'jpeg', 'gif', 'webp' => 'image',
+            'csv' => 'csv',
+            'pdf' => 'pdf',
+            'md', 'txt' => 'text',
+            default => 'file',
+        };
+    }
+
+    /**
      * @return BelongsTo<YakTask, $this>
      */
     public function task(): BelongsTo
@@ -78,12 +121,23 @@ class Artifact extends Model
         return $this->belongsTo(YakTask::class, 'yak_task_id');
     }
 
+    /**
+     * The owning task's public id, which artifact URLs carry in place of the primary key.
+     */
+    public function taskPublicId(): ?string
+    {
+        return YakTask::publicIdForKey($this->yak_task_id);
+    }
+
+    /**
+     * The expiry is rounded up to the hour, so the URL stays the same between page reloads and a playing video keeps playing.
+     */
     public function signedUrl(int $expiryDays = 7): string
     {
         return URL::temporarySignedRoute(
             'artifacts.show',
-            now()->addDays($expiryDays),
-            ['task' => $this->yak_task_id, 'filename' => $this->filename]
+            now()->startOfHour()->addDays($expiryDays)->addHour(),
+            ['task' => $this->taskPublicId(), 'filename' => $this->filename]
         );
     }
 

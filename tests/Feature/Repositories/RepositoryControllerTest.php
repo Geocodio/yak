@@ -254,6 +254,7 @@ test('edit exposes setup history limited to 10 most recent setup tasks for the r
         ->assertInertia(fn (Assert $page) => $page
             ->has('setupHistory', 1, fn (Assert $row) => $row
                 ->where('id', 'setup-aaa')
+                ->where('url', route('tasks.show', YakTask::query()->where('external_id', 'setup-aaa')->firstOrFail()))
                 ->etc()));
 });
 

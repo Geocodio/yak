@@ -1,0 +1,377 @@
+{
+    "broadcasts": [
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "running",
+                "turnId": "<volatile:int>"
+            },
+            "sequence": 1,
+            "type": "turn"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "started",
+                "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+            },
+            "sequence": 2,
+            "type": "message.state"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "kind": "prompt",
+                "role": "user",
+                "text": "scrubbed text 1",
+                "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+            },
+            "sequence": 3,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "model": "claude-sonnet-5-5",
+                "role": "system",
+                "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
+                "subtype": "init"
+            },
+            "sequence": 4,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "id": "id_0001",
+                        "input": {
+                            "command": "scrubbed command 2",
+                            "description": "scrubbed description 3"
+                        },
+                        "name": "Bash",
+                        "type": "tool_use"
+                    }
+                ],
+                "messageId": "id_0000",
+                "role": "assistant"
+            },
+            "sequence": 5,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "isError": false,
+                "role": "tool_result",
+                "text": "scrubbed content 6",
+                "toolUseId": "tool_use_id_0003"
+            },
+            "sequence": 6,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "kind": "steer",
+                "role": "user",
+                "text": "scrubbed text 8",
+                "uuid": "da1213d2-e404-5255-85f1-5d09e68a921a"
+            },
+            "sequence": 7,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "html": "<p>scrubbed text 9</p>\n",
+                        "text": "scrubbed text 9",
+                        "type": "text"
+                    }
+                ],
+                "messageId": "id_0004",
+                "role": "assistant"
+            },
+            "sequence": 8,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "costUsd": 0.0265871,
+                "durationMs": 11225,
+                "html": "<p>scrubbed result 10</p>\n",
+                "isError": false,
+                "numTurns": 2,
+                "role": "result",
+                "subtype": "success",
+                "text": "scrubbed result 10"
+            },
+            "sequence": 9,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "model": "claude-sonnet-5-5",
+                "role": "system",
+                "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
+                "subtype": "init"
+            },
+            "sequence": 10,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blocks": [
+                    {
+                        "html": "<p>scrubbed text 11</p>\n",
+                        "text": "scrubbed text 11",
+                        "type": "text"
+                    }
+                ],
+                "messageId": "id_0006",
+                "role": "assistant"
+            },
+            "sequence": 11,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "costUsd": 0.0319011,
+                "durationMs": 1979,
+                "html": "<p>scrubbed result 12</p>\n",
+                "isError": false,
+                "numTurns": 1,
+                "role": "result",
+                "subtype": "success",
+                "text": "scrubbed result 12"
+            },
+            "sequence": 12,
+            "type": "entry"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "completed",
+                "turnId": "<volatile:int>"
+            },
+            "sequence": 13,
+            "type": "turn"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "completed",
+                "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+            },
+            "sequence": 14,
+            "type": "message.state"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "state": "completed",
+                "uuid": "da1213d2-e404-5255-85f1-5d09e68a921a"
+            },
+            "sequence": 15,
+            "type": "message.state"
+        }
+    ],
+    "catchUp": {
+        "events": [
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "running",
+                    "turnId": "<volatile:int>"
+                },
+                "sequence": 1,
+                "type": "turn"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "started",
+                    "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+                },
+                "sequence": 2,
+                "type": "message.state"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "kind": "prompt",
+                    "role": "user",
+                    "text": "scrubbed text 1",
+                    "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+                },
+                "sequence": 3,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "model": "claude-sonnet-5-5",
+                    "role": "system",
+                    "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
+                    "subtype": "init"
+                },
+                "sequence": 4,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "id": "id_0001",
+                            "input": {
+                                "command": "scrubbed command 2",
+                                "description": "scrubbed description 3"
+                            },
+                            "name": "Bash",
+                            "type": "tool_use"
+                        }
+                    ],
+                    "messageId": "id_0000",
+                    "role": "assistant"
+                },
+                "sequence": 5,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "isError": false,
+                    "role": "tool_result",
+                    "text": "scrubbed content 6",
+                    "toolUseId": "tool_use_id_0003"
+                },
+                "sequence": 6,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "kind": "steer",
+                    "role": "user",
+                    "text": "scrubbed text 8",
+                    "uuid": "da1213d2-e404-5255-85f1-5d09e68a921a"
+                },
+                "sequence": 7,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "html": "<p>scrubbed text 9</p>\n",
+                            "text": "scrubbed text 9",
+                            "type": "text"
+                        }
+                    ],
+                    "messageId": "id_0004",
+                    "role": "assistant"
+                },
+                "sequence": 8,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "costUsd": 0.0265871,
+                    "durationMs": 11225,
+                    "html": "<p>scrubbed result 10</p>\n",
+                    "isError": false,
+                    "numTurns": 2,
+                    "role": "result",
+                    "subtype": "success",
+                    "text": "scrubbed result 10"
+                },
+                "sequence": 9,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "model": "claude-sonnet-5-5",
+                    "role": "system",
+                    "sessionId": "a46f8256-9427-5ce0-88ae-4d0cc885f796",
+                    "subtype": "init"
+                },
+                "sequence": 10,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blocks": [
+                        {
+                            "html": "<p>scrubbed text 11</p>\n",
+                            "text": "scrubbed text 11",
+                            "type": "text"
+                        }
+                    ],
+                    "messageId": "id_0006",
+                    "role": "assistant"
+                },
+                "sequence": 11,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "costUsd": 0.0319011,
+                    "durationMs": 1979,
+                    "html": "<p>scrubbed result 12</p>\n",
+                    "isError": false,
+                    "numTurns": 1,
+                    "role": "result",
+                    "subtype": "success",
+                    "text": "scrubbed result 12"
+                },
+                "sequence": 12,
+                "type": "entry"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "completed",
+                    "turnId": "<volatile:int>"
+                },
+                "sequence": 13,
+                "type": "turn"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "completed",
+                    "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
+                },
+                "sequence": 14,
+                "type": "message.state"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "state": "completed",
+                    "uuid": "da1213d2-e404-5255-85f1-5d09e68a921a"
+                },
+                "sequence": 15,
+                "type": "message.state"
+            }
+        ],
+        "latestSequence": 15,
+        "source": "window"
+    },
+    "pointers": [],
+    "scenario": "steer",
+    "source": "steer-during-final-text"
+}

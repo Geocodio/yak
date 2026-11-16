@@ -1,0 +1,35 @@
+{
+    "addedPaths": [
+        "tests/ImporterTest.php"
+    ],
+    "changedPaths": [
+        "src/Importer.php",
+        "tests/ImporterTest.php"
+    ],
+    "entries": [
+        {
+            "isDirectory": true,
+            "isWritable": true,
+            "name": "src",
+            "path": "src",
+            "size": null
+        },
+        {
+            "isDirectory": false,
+            "isWritable": true,
+            "name": "composer.json",
+            "path": "composer.json",
+            "size": 310
+        },
+        {
+            "isDirectory": false,
+            "isWritable": true,
+            "name": "README.md",
+            "path": "README.md",
+            "size": 1532
+        }
+    ],
+    "root": "/workspace",
+    "state": "ready",
+    "truncated": false
+}

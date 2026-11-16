@@ -186,7 +186,7 @@ it('reports a running generation task', function () {
     assertRiskProfile($this, $repository, fn (AssertableInertia $reload) => $reload
         ->where('riskProfile.state', 'empty')
         ->where('riskProfile.generation.status', 'running')
-        ->where('riskProfile.generation.task.id', $task->id)
+        ->where('riskProfile.generation.task.id', $task->public_id)
         ->where('riskProfile.generation.task.url', route('tasks.show', $task))
         ->where('riskProfile.generation.pullRequest', null)
         ->where('riskProfile.profile', null));

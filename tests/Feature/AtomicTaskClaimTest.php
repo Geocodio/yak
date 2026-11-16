@@ -1,7 +1,5 @@
 <?php
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
@@ -9,11 +7,9 @@ use App\Jobs\RunYakReviewJob;
 use App\Jobs\SetupYakJob;
 use App\Models\DailyCost;
 use App\Models\Repository;
+use App\Models\TaskRun;
 use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
-use Illuminate\Support\Facades\Process;
-use Tests\Support\FakeAgentRunner;
-use Tests\Support\FakeSandboxManager;
+use Illuminate\Support\Facades\Queue;
 
 /**
  * Change 0 (atomic task claim) exercised across all four claiming job
@@ -27,6 +23,8 @@ use Tests\Support\FakeSandboxManager;
  * actual point of Change 0 — has to be proven by running the real
  * middleware() stack in order, the way CallQueuedHandler would.
  */
+require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
+
 function runJobMiddlewarePipeline(array $middleware, object $job, Closure $final): void
 {
     $next = $final;
@@ -152,41 +150,20 @@ test('the losing copy never reaches EnsureRepoReady and does not mark the task F
         ->and($task->completed_at)->toBeNull();
 })->with('repo-gated job classes');
 
-test('a losing copy does not destroy the winning copy\'s sandbox', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_race',
-        resultSummary: 'Done',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
+test('a losing copy does not write a second turn for the winning copy\'s task', function () {
+    Queue::fake();
+    $context = pendingRunYak();
 
-    $fakeSandbox = new FakeSandboxManager;
-    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
-    Process::fake(['*' => Process::result('')]);
+    // Winner claims and writes its turn.
+    $winner = new RunYakJob($context['task']);
+    $winner->handle();
 
-    $repository = Repository::factory()->create(['slug' => 'race-repo', 'path' => '/home/yak/repos/race-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'race-repo']);
+    expect(TaskRun::query()->count())->toBe(1);
 
-    // Winner claims and runs to completion — creating and destroying its
-    // own sandbox in the process.
-    $winner = new RunYakJob($task);
-    $winner->handle($fake);
+    // A duplicate that shows up late must not touch the thread at all.
+    $loser = new RunYakJob($context['task']->fresh());
+    $loser->handle();
 
-    expect($fakeSandbox->createdContainers)->toHaveCount(1)
-        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
-
-    // Loser dispatched against the same task after the winner already
-    // finished (still the dangerous case: a duplicate that shows up late
-    // must not touch the sandbox at all, let alone destroy it).
-    $loser = new RunYakJob($task->fresh());
-    $loser->handle($fake);
-
-    // No new sandbox activity from the loser.
-    expect($fakeSandbox->createdContainers)->toHaveCount(1)
-        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1)
+    expect(TaskRun::query()->count())->toBe(1)
         ->and($loser->taskClaimLost)->toBeTrue();
 });

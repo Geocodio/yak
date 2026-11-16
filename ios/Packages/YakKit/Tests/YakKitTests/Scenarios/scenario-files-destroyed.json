@@ -1,0 +1,10 @@
+{
+  "error": "sandbox_unavailable",
+  "message": "The sandbox was removed.",
+  "details": {
+    "state": "destroyed",
+    "canRestore": true,
+    "waitingForSlot": false,
+    "restoring": false
+  }
+}

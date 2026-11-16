@@ -1,14 +1,10 @@
 <?php
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunResult;
 use App\Jobs\RunYakJob;
-use App\Models\Repository;
-use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
-use Illuminate\Support\Facades\Process;
-use Tests\Support\FakeAgentRunner;
-use Tests\Support\FakeSandboxManager;
+use App\Models\TaskRun;
+use Illuminate\Support\Facades\Queue;
+
+require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
 
 /**
  * Proves the actual point of routing yak:reap-lost-pending through
@@ -30,26 +26,9 @@ use Tests\Support\FakeSandboxManager;
  * which works regardless of whether the unique lock is still held.
  */
 test('re-dispatching a task that is actually still queued does not produce two runs', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_no_double_run',
-        resultSummary: 'Done',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    app()->instance(AgentRunner::class, $fake);
-
-    $fakeSandbox = new FakeSandboxManager;
-    app()->instance(IncusSandboxManager::class, $fakeSandbox);
-    Process::fake(['*' => Process::result('')]);
-
-    $repository = Repository::factory()->create([
-        'slug' => 'no-double-run-repo',
-        'path' => '/home/yak/repos/no-double-run-repo',
-    ]);
-    $task = YakTask::factory()->pending()->create(['repo' => $repository->slug]);
+    Queue::fake();
+    $context = pendingRunYak();
+    $task = $context['task'];
 
     // The "original" copy — still genuinely queued when the sweep decides
     // (wrongly, for this test) that the task looks lost.
@@ -59,13 +38,11 @@ test('re-dispatching a task that is actually still queued does not produce two r
     // ReapLostPendingCommand::jobClassFor() would for a Fix-mode task.
     $resweep = new RunYakJob($task->fresh());
 
-    $original->handle($fake);
-    $resweep->handle($fake);
+    $original->handle();
+    $resweep->handle();
 
-    // Exactly one real run happened: one sandbox created, one destroyed —
-    // not two.
-    expect($fakeSandbox->createdContainers)->toHaveCount(1)
-        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1)
+    // Exactly one real run happened: one turn written, not two.
+    expect(TaskRun::query()->count())->toBe(1)
         ->and($resweep->taskClaimLost)->toBeTrue();
 
     // The one real run advanced the task past Pending exactly once —

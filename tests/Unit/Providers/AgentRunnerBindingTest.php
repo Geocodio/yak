@@ -1,13 +1,13 @@
 <?php
 
-use App\Agents\SandboxedAgentRunner;
+use App\Agents\BrokerAgentRunner;
 use App\Contracts\AgentRunner;
 use Tests\TestCase;
 
 uses(TestCase::class);
 
-it('resolves AgentRunner to SandboxedAgentRunner', function () {
+it('resolves AgentRunner to BrokerAgentRunner', function () {
     $runner = app(AgentRunner::class);
 
-    expect($runner)->toBeInstanceOf(SandboxedAgentRunner::class);
+    expect($runner)->toBeInstanceOf(BrokerAgentRunner::class);
 });

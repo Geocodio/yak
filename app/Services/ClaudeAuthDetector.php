@@ -7,7 +7,7 @@ use Illuminate\Contracts\Process\ProcessResult;
 /**
  * Classifies a failed CLI run as an auth error from ProcessResult output.
  *
- * SandboxedAgentRunner::run() applies isAuthError() to the ENTIRE
+ * Callers apply isAuthError() to the ENTIRE
  * stream-JSON of a failed agent run -- session UUIDs, `duration_ms`,
  * `total_cost_usd`, tool output, and the agent's own prose -- so every
  * pattern here must be specific enough not to fire on that noise. Bare
@@ -15,9 +15,8 @@ use Illuminate\Contracts\Process\ProcessResult;
  * fragment, a `duration_ms` value, an HTTP 401 the agent legitimately hit
  * in the repo it's working on, or the `.oauth_refresh.lock` path. Keep
  * patterns anchored to real auth-error phrasing (`http 401`, `oauth
- * token`, ...); callers with a narrower, more controlled haystack (e.g.
- * ClaudeAuthCheck's own probe output) that need looser matching should do
- * that classification locally rather than loosening this shared list.
+ * token`, ...); callers with a narrower, more controlled haystack that need
+ * looser matching should do that classification locally rather than loosening this shared list.
  */
 class ClaudeAuthDetector
 {

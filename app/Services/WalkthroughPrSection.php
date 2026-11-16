@@ -87,7 +87,7 @@ final class WalkthroughPrSection
             return [];
         }
 
-        $taskUrl = route('tasks.show', ['task' => $task->id]);
+        $taskUrl = route('tasks.show', ['task' => $task]);
 
         return array_values(array_map(fn (array $chapter): array => [
             'title' => (string) ($chapter['title'] ?? ''),

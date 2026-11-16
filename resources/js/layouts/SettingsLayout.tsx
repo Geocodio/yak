@@ -1,77 +1,23 @@
-import { Link, router, usePage } from '@inertiajs/react';
-import { SettingsShell, ToastHost, type SettingsNavSection } from '@geocodio/console-ui';
-import { Inbox, User, Video as VideoIcon, Zap } from 'lucide-react';
+import { PageHeader } from '@geocodio/console-ui';
 import type { ReactNode } from 'react';
-import { FlashToasts } from '@/components/FlashToasts';
-import { channels, tasks } from '@/routes';
-import { edit as profileEdit } from '@/routes/profile';
-import { linear, video } from '@/routes/settings';
+import { SETTINGS_SECTIONS, type SettingsSlug } from '@/components/shell/settingsSections';
+import { AppLayout } from '@/layouts/AppLayout';
 
-const SECTIONS: SettingsNavSection[] = [
-    {
-        title: 'Account',
-        items: [
-            {
-                slug: 'profile',
-                href: profileEdit.url(),
-                label: 'Profile',
-                icon: <User size={15} />,
-                description: 'Update your name, email address, and Slack direct messages.',
-                keywords: ['name', 'email'],
-            },
-        ],
-    },
-    {
-        title: 'Workspace',
-        items: [
-            {
-                slug: 'linear',
-                href: linear.url(),
-                label: 'Linear',
-                icon: <Zap size={15} />,
-                description: 'Connect Yak to your Linear workspace so comments and issue updates post as the Yak app.',
-                keywords: ['oauth', 'issues'],
-            },
-            {
-                slug: 'video',
-                href: video.url(),
-                label: 'Video walkthroughs',
-                icon: <VideoIcon size={15} />,
-                description: 'How the walkthrough attached to every PR looks. Changes apply to the next render.',
-                keywords: ['theme', 'fonts', 'logo', 'voiceover'],
-            },
-            {
-                slug: 'channels',
-                href: channels.url(),
-                label: 'Channels',
-                icon: <Inbox size={15} />,
-                description: 'Slack, Linear, Sentry, and email inputs.',
-            },
-        ],
-    },
-];
+export function SettingsLayout({ slug, children }: { slug: SettingsSlug; children: ReactNode }) {
+    const item = SETTINGS_SECTIONS.flatMap((section) => section.items).find((candidate) => candidate.slug === slug);
+    const label = item?.label ?? 'Settings';
+    const isWide = slug === 'video' || slug === 'channels' || slug === 'claude-accounts' || slug === 'people';
 
-export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' | 'video' | 'channels'; children: ReactNode }) {
-    const currentPath = usePage().url.split('?')[0];
-
-    // Settings pages render outside AppLayout, so they mount their own toast
-    // host; without it success flashes and server errors fire unseen.
     return (
-        <>
-            <FlashToasts />
-            <ToastHost />
-            <SettingsShell
-            sections={SECTIONS}
-            slug={slug}
-            currentPath={currentPath}
-            backHref={tasks.url()}
-            backLabel="Back to Yak"
-            wide={slug === 'video' || slug === 'channels'}
-            LinkComponent={Link}
-            onNavigate={(href) => router.visit(href)}
-        >
-                {children}
-            </SettingsShell>
-        </>
+        <AppLayout>
+            <PageHeader crumbs={['Settings', label]} />
+            <div className="min-h-0 flex-1 overflow-auto">
+                <div className={`mx-auto w-full px-4 py-8 sm:px-8 ${isWide ? 'max-w-5xl' : 'max-w-[560px]'}`}>
+                    <h1 className="text-[18px] font-semibold">{label}</h1>
+                    {item?.description ? <p className="mb-6 text-muted">{item.description}</p> : null}
+                    {children}
+                </div>
+            </div>
+        </AppLayout>
     );
 }

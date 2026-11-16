@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\VisibleTaskChildScope;
 use Carbon\CarbonInterface;
 use Database\Factories\VideoMetricFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $tts_characters
  * @property string|null $error
  */
+#[ScopedBy(VisibleTaskChildScope::class)]
 class VideoMetric extends Model
 {
     /** @use HasFactory<VideoMetricFactory> */

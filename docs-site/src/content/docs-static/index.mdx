@@ -1,14 +1,14 @@
 ---
 title: Yak
-description: Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and GitHub and delivers reviewable pull requests while you work on what matters.
+description: Yak is a coding agent for your team. It takes work from Slack, Linear, Sentry, GitHub, email and the dashboard, runs Claude in an isolated sandbox, opens pull requests for human review and serves previews.
 template: splash
 hero:
-  tagline: Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and GitHub and delivers reviewable pull requests while you work on what matters.
+  tagline: Yak is a coding agent for your team. It takes work from Slack, Linear, Sentry, GitHub, email and the dashboard, runs Claude in an isolated sandbox, opens pull requests for human review and serves previews.
   image:
     file: ../../assets/mascot.png
   actions:
     - text: Get started
-      link: /yak/setup/
+      link: /yak/concepts/
       icon: right-arrow
       variant: primary
     - text: View on GitHub
@@ -22,50 +22,60 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 ## What Yak does
 
 <CardGrid>
-  <Card title="Receives tasks" icon="rocket">
-    From Slack `@mentions`, Linear `yak` labels, Sentry alerts, or the manual CLI.
-    Every integration is a pluggable channel — enable only what you use.
+  <Card title="Takes work where you are" icon="rocket">
+    Slack mentions, Linear issues, Sentry alerts, forwarded email, GitHub
+    comments, or a thread you start in the dashboard. Each channel is
+    optional.
   </Card>
-  <Card title="Fixes papercuts" icon="approve-check">
-    Bug fixes, flaky tests, lint violations, deprecation cleanups. Tasks where
-    the fix is small and focused, and the description is under a paragraph.
+  <Card title="Works in threads" icon="comment">
+    Each piece of work is a thread with its own sandbox. Send a message while
+    Claude works and it steers the running turn. Split work into sub-threads,
+    or work across several repositories at once.
   </Card>
-  <Card title="Opens pull requests" icon="pull-request">
-    Screenshots and video walkthroughs for UI changes. A human reviews every
-    PR before merge. Yak has no merge authority. No exceptions.
+  <Card title="Opens pull requests" icon="approve-check">
+    One pull request per changed repository, with screenshots and video
+    walkthroughs for UI changes. A human reviews every pull request. Yak has
+    no merge authority.
   </Card>
-  <Card title="Two-way feedback" icon="comment">
-    Reply in the same Slack thread, on the Linear issue, or with `/yak` on the
-    PR, and Yak refines the work — pushing follow-up commits to the same
-    branch. No separate UI to check.
+  <Card title="Moves to your computer and back" icon="laptop">
+    Teleport a Claude Code session to Yak and back with the `yak` command,
+    open a shell in the sandbox, or watch a live preview of the work.
   </Card>
 </CardGrid>
 
 ## Explore the docs
 
 <CardGrid>
-  <Card title="Setup Guide" icon="setting">
-    Provision a fresh server with one Ansible command. Vault configuration,
-    verification, updates. [Read the setup guide](/yak/setup/)
+  <Card title="Concepts" icon="open-book">
+    Threads, turns, tasks, sandboxes and Claude accounts in five minutes.
+    [Read the concepts](/yak/concepts/)
+  </Card>
+  <Card title="Threads" icon="comment-alt">
+    Start a thread, steer Claude, read the thread page.
+    [Work in threads](/yak/threads/)
+  </Card>
+  <Card title="Teleport" icon="seti:shell">
+    Move a Claude Code session between your computer and Yak.
+    [Set up teleport](/yak/teleport/)
+  </Card>
+  <Card title="Setup" icon="setting">
+    Provision a server with Ansible, or move an existing installation to
+    threads. [Read the setup guide](/yak/setup/)
   </Card>
   <Card title="Channels" icon="puzzle">
-    Slack, Linear, Sentry, GitHub, Drone, and the manual CLI. Per-channel
-    setup and gotchas. [See channel configuration](/yak/channels/)
+    Slack, Linear, Sentry, email, GitHub and Drone.
+    [Configure channels](/yak/channels/)
   </Card>
   <Card title="Architecture" icon="random">
-    Two-tier AI, channel drivers, state machine, queues and jobs, safety
-    model. [Read the architecture guide](/yak/architecture/)
-  </Card>
-  <Card title="Prompting" icon="document">
-    Three prompt layers, the Yak system prompt, task templates per source,
-    MCP servers. [Customize Yak's behavior](/yak/prompting/)
+    The thread model, the life of a turn, sandboxes and the safety model.
+    [Read the architecture guide](/yak/architecture/)
   </Card>
 </CardGrid>
 
 ## Design philosophy
 
-- **First pass in one shot, then refine.** A task fits in a paragraph, and Yak resolves it in a single pass. Not quite right? Reply where you already are and Yak pushes follow-up commits to the same PR until it's done.
-- **Meet the user where they are.** Slack in, Slack out. Linear in, Linear out. The whole back-and-forth happens in the channel you started from — no separate dashboard check required.
-- **Clarify, don't guess.** Ambiguous requests get multiple-choice options grounded in actual code, not generic guesses.
-- **Yak never ships.** Output is always a PR requiring human review. No merge authority, no exceptions.
-- **Channels are optional.** GitHub plus the manual CLI is the minimum. Enable the rest as you need them.
+- **A thread, not a one-off run.** Yak does the first pass, and you keep going in the same thread until the work is right.
+- **Meet people where they are.** Slack in, Slack out. Linear in, Linear out. The dashboard is there when you want to watch or steer.
+- **Clarify, do not guess.** Ambiguous requests get multiple-choice options grounded in the actual code.
+- **A human reviews every change.** The output is always a pull request. Yak has no merge authority.
+- **Your accounts, your limits.** Each thread runs on one Claude account that you choose.

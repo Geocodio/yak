@@ -1,0 +1,12 @@
+{
+    "canEdit": true,
+    "content": "<?php\n\nfinal class Importer {}\n",
+    "headContent": "<?php\n\nclass Importer {}\n",
+    "isBinary": false,
+    "isTooLarge": false,
+    "language": "php",
+    "path": "src/Importer.php",
+    "sha256": "0ff718105dfc6afc5d0f311b06718e7d3c74a3e9c52ec7adf87e9f0900ff2726",
+    "size": 31,
+    "state": "ready"
+}

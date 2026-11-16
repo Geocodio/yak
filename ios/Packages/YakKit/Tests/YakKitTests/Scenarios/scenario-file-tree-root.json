@@ -1,0 +1,41 @@
+{
+  "root": "/workspace",
+  "entries": [
+    {
+      "name": "empty",
+      "path": "empty",
+      "isDirectory": true,
+      "isWritable": true,
+      "size": null
+    },
+    {
+      "name": "src",
+      "path": "src",
+      "isDirectory": true,
+      "isWritable": true,
+      "size": null
+    },
+    {
+      "name": "tests",
+      "path": "tests",
+      "isDirectory": true,
+      "isWritable": true,
+      "size": null
+    },
+    {
+      "name": "README.md",
+      "path": "README.md",
+      "isDirectory": false,
+      "isWritable": true,
+      "size": 1532
+    }
+  ],
+  "changedPaths": [
+    "src/Importer.php",
+    "tests/ImporterTest.php"
+  ],
+  "addedPaths": [
+    "tests/ImporterTest.php"
+  ],
+  "truncated": false
+}

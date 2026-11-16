@@ -36,7 +36,7 @@ it('filters tasks that need a co-owner', function () {
     $this->get(route('tasks', ['status' => 'awaiting_co_owner']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1)
-            ->where('tasks.data.0.id', $held->id));
+            ->where('tasks.data.0.id', $held->public_id));
 });
 
 it('counts held tasks for the chip', function () {
@@ -56,6 +56,6 @@ it('names the first person asked on the held row', function () {
 
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('tasks.data.0.id', $held->id)
+            ->where('tasks.data.0.id', $held->public_id)
             ->where('tasks.data.0.askedFirstName', 'Mathias'));
 });

@@ -1,0 +1,177 @@
+<?php
+
+namespace App\Services\Threads;
+
+use App\Enums\RepositoryRole;
+use App\Enums\TaskMode;
+use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadKind;
+use App\Jobs\RunYakJob;
+use App\Models\Repository;
+use App\Models\TaskAttachment;
+use App\Models\Thread;
+use App\Models\ThreadRepository;
+use App\Models\User;
+use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
+use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\Threads\Repos\RepositoryAccess;
+use App\Support\AttachmentReferences;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Throwable;
+
+/**
+ * Creates a thread from the start screen: the thread, its primary repository,
+ * the root task, and the before-turn job that writes the first turn.
+ */
+class ThreadStarter
+{
+    /**
+     * Time after which no further extra repository check starts. One time-bounded check
+     * takes at most 6 s (3 s token request plus 3 s repository request), so the worst case
+     * is 3 + 6 = 9 s before the resolver and the transaction, inside the 10 s answer limit.
+     */
+    private const ACCESS_CHECK_BUDGET_SECONDS = 3;
+
+    public function __construct(
+        private readonly ClaudeAccountResolver $resolver,
+        private readonly AgentJobDispatcher $dispatcher,
+        private readonly RepositoryAccess $access,
+    ) {}
+
+    /**
+     * @param  Collection<int, TaskAttachment>  $attachments  already stored, not yet tied to a task
+     * @param  list<array{repo: string, role: string}>  $extraRepositories  research mode treats every extra as context
+     * @param  string|null  $sendKey  stored with the thread; the database allows one thread per starter and key
+     *
+     * @throws ValidationException when an extra is the primary, repeated, or not reachable by the GitHub App
+     * @throws ThreadAccountUnavailable when no usable account exists, or the chosen one is not the starter's to use
+     */
+    public function start(
+        User $starter,
+        string $repo,
+        TaskMode $mode,
+        string $description,
+        ?int $accountId,
+        ?string $model,
+        Collection $attachments = new Collection,
+        array $extraRepositories = [],
+        ?string $sendKey = null,
+    ): Thread {
+        $this->assertExtrasAllowed($repo, $extraRepositories);
+
+        $resolved = $this->resolver->forNewThread($starter, $repo, $accountId, $model);
+
+        if ($resolved->account === null) {
+            throw new ThreadAccountUnavailable('No usable Claude account. Connect one in Settings, Claude accounts, or ask an admin to set up a shared account.');
+        }
+
+        if ($accountId !== null && $resolved->account->id !== $accountId) {
+            throw new ThreadAccountUnavailable('That Claude account is not available to you. Pick one of your own or a shared account.');
+        }
+
+        $setupStatus = Repository::query()->where('slug', $repo)->value('setup_status');
+
+        if ($setupStatus === 'failed') {
+            throw ValidationException::withMessages(['repo' => "Setup failed for {$repo}. Open the repository and re-run setup first."]);
+        }
+
+        $isRepositorySettingUp = in_array($setupStatus, ['pending', 'running'], true);
+        $description = trim($description);
+
+        $task = DB::transaction(function () use ($starter, $repo, $mode, $description, $resolved, $attachments, $extraRepositories, $sendKey): YakTask {
+            $thread = Thread::query()->create([
+                'name' => Str::slug(Str::limit($description, 40, '')) . '-' . Str::lower(Str::random(6)),
+                'title' => Str::limit(AttachmentReferences::stripFromText((string) strtok($description, "\n")), 120, '...'),
+                'repo' => $repo,
+                'kind' => ThreadKind::General,
+                'created_by_user_id' => $starter->id,
+                'owner_user_id' => $starter->id,
+                'claude_account_id' => $resolved->account->id,
+                'model' => $resolved->model,
+                'send_key' => $sendKey,
+            ]);
+
+            ThreadRepository::query()->create(['thread_id' => $thread->id, 'repo' => $repo, 'role' => RepositoryRole::Primary, 'sandbox_path' => ThreadRepository::sandboxPathFor($repo, RepositoryRole::Primary)]);
+
+            $takenPaths = [];
+
+            foreach ($extraRepositories as $extra) {
+                $role = $mode === TaskMode::Research ? RepositoryRole::Context : RepositoryRole::from($extra['role']);
+                $takenPaths[] = $sandboxPath = ThreadRepository::sandboxPathFor($extra['repo'], $role, $takenPaths);
+                ThreadRepository::query()->create([
+                    'thread_id' => $thread->id,
+                    'repo' => $extra['repo'],
+                    'role' => $role,
+                    'sandbox_path' => $sandboxPath,
+                    'added_by' => 'start',
+                ]);
+            }
+
+            $task = YakTask::query()->create([
+                'source' => 'dashboard',
+                'repo' => $repo,
+                'external_id' => 'DASH-' . Str::upper(Str::random(8)),
+                'description' => $description,
+                'mode' => $mode,
+                'author_name' => $starter->name,
+                'started_by_user_id' => $starter->id,
+                'thread_id' => $thread->id,
+            ]);
+
+            $attachments->each(fn (TaskAttachment $attachment) => $attachment->update(['yak_task_id' => $task->id]));
+
+            return $task;
+        });
+
+        $thread = $task->thread()->firstOrFail();
+
+        // A repository still being set up has no sandbox template to start from, so the
+        // first turn waits; ThreadsAwaitingRepository dispatches it when setup finishes.
+        if ($isRepositorySettingUp) {
+            $thread->forceFill(['blocked_reason' => ThreadBlockReason::WaitingForRepository, 'blocked_at' => now()])->save();
+
+            return $thread;
+        }
+
+        // The before-turn job prepares the branch in the thread's sandbox and writes the first turn.
+        // The thread and task are committed. A queue failure must not fail the request (a repeat would
+        // start a second thread). Stamping dispatched_at lets yak:reap-lost-pending re-dispatch the task.
+        try {
+            $this->dispatcher->dispatch($task, RunYakJob::class);
+        } catch (Throwable $exception) {
+            report($exception);
+            $task->update(['dispatched_at' => now()]);
+        }
+
+        return $thread;
+    }
+
+    /**
+     * @param  list<array{repo: string, role: string}>  $extraRepositories
+     */
+    private function assertExtrasAllowed(string $primary, array $extraRepositories): void
+    {
+        $seen = [$primary];
+        $deadline = hrtime(true) + self::ACCESS_CHECK_BUDGET_SECONDS * 1_000_000_000;
+
+        foreach ($extraRepositories as $index => $extra) {
+            if (in_array($extra['repo'], $seen, true)) {
+                $reason = "{$extra['repo']} is already part of this thread.";
+            } elseif (hrtime(true) > $deadline) {
+                $reason = "GitHub took too long to answer for {$extra['repo']}. Try again in a moment.";
+            } else {
+                $reason = $this->access->check($extra['repo'])->reason;
+            }
+
+            if ($reason !== null) {
+                throw ValidationException::withMessages(["repositories.{$index}.repo" => $reason]);
+            }
+
+            $seen[] = $extra['repo'];
+        }
+    }
+}

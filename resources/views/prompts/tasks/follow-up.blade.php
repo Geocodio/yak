@@ -1,4 +1,4 @@
-The pull request for this task is already open. The user has reviewed it and is giving you feedback to refine it. Act on the following feedback, and push any code changes to the same branch.
+The pull request for this task is already open. The user has reviewed it and is giving you feedback to refine it. Act on the following feedback, and commit any code changes on the same branch.
 
 **Feedback:**
 {{ $instructions }}

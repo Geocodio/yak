@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Enums\SteeringMode;
+use App\Enums\TurnMessageState;
 use App\Facades\Telemetry;
 use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
@@ -14,10 +16,11 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * @property SteeringMode $mode
+ * @property string|null $send_key
  */
 class PendingSteeringMessage extends Model
 {
-    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name'];
+    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'delivered_at', 'absorbed_at', 'send_key'];
 
     /**
      * @return array<string, string>
@@ -26,6 +29,8 @@ class PendingSteeringMessage extends Model
     {
         return [
             'mode' => SteeringMode::class,
+            'delivered_at' => 'datetime',
+            'absorbed_at' => 'datetime',
         ];
     }
 
@@ -51,6 +56,7 @@ class PendingSteeringMessage extends Model
         ?string $reviewerLogin = null,
         SteeringMode $mode = SteeringMode::Queue,
         ?string $authorName = null,
+        ?int $authorUserId = null,
     ): self {
         $root = $task->rootTask();
 
@@ -63,6 +69,7 @@ class PendingSteeringMessage extends Model
             'mode' => $mode,
             'reviewer_login' => $reviewerLogin,
             'author_name' => $authorName,
+            'author_user_id' => $authorUserId,
         ]);
     }
 
@@ -156,6 +163,26 @@ class PendingSteeringMessage extends Model
     }
 
     /**
+     * Only the signed-in person who wrote a message can change its text; channel messages and older rows have no author.
+     */
+    public function canEditTextBy(?User $user): bool
+    {
+        return $user !== null && $this->author_user_id !== null && $this->reviewer_login === null && $this->author_user_id === $user->id;
+    }
+
+    /**
+     * Messages the agent has not read: no turn message in the started or completed state references them.
+     *
+     * @param  Builder<PendingSteeringMessage>  $query
+     */
+    public function scopeUnread(Builder $query): void
+    {
+        $query->whereNotExists(fn ($read) => $read->from('thread_turn_messages')
+            ->whereColumn('thread_turn_messages.pending_steering_message_id', 'pending_steering_messages.id')
+            ->whereIn('thread_turn_messages.state', [TurnMessageState::Started->value, TurnMessageState::Completed->value]));
+    }
+
+    /**
      * Withdraw the message before Yak sees it, deleting its files too.
      */
     public function withdraw(): void
@@ -165,14 +192,18 @@ class PendingSteeringMessage extends Model
     }
 
     /**
-     * Take every reply queued on the task's conversation and render it as
+     * Take every undelivered reply queued on the task's conversation and render it as
      * markdown, deleting the rows. Their files move onto `$task`, whose run
      * now carries the replies, so the agent still gets them. Returns null
-     * when nothing is queued.
+     * when nothing is queued. A message the agent already read stays as history
+     * and is not drained; one whose turn ended before the agent read it is.
      */
     public static function drainFor(YakTask $task): ?string
     {
-        $messages = self::where('root_task_id', $task->rootTask()->id)->orderBy('id')->get();
+        $messages = self::where('root_task_id', $task->rootTask()->id)
+            ->unread()
+            ->orderBy('id')
+            ->get();
 
         if ($messages->isEmpty()) {
             return null;
@@ -183,6 +214,19 @@ class PendingSteeringMessage extends Model
             'pending_steering_message_id' => null,
             'context' => TaskAttachment::CONTEXT_REQUEST,
         ]);
+
+        // The rows are deleted below; the send keys stay so a retry after the drain is still recognised.
+        $keyed = $messages->whereNotNull('send_key')->map(fn (self $message): array => [
+            'root_task_id' => $message->root_task_id,
+            'send_key' => $message->send_key,
+            'author_user_id' => $message->author_user_id,
+            'message_uuid' => $message->uuid,
+            'created_at' => now(),
+        ])->values()->all();
+
+        if ($keyed !== []) {
+            DB::table('drained_send_keys')->insert($keyed);
+        }
 
         self::whereIn('id', $messages->pluck('id'))->delete();
 

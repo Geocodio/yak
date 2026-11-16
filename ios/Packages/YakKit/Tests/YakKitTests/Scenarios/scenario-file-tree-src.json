@@ -1,0 +1,42 @@
+{
+  "root": "/workspace",
+  "path": "src",
+  "entries": [
+    {
+      "name": "Importer.php",
+      "path": "src/Importer.php",
+      "isDirectory": false,
+      "isWritable": true,
+      "size": 2048
+    },
+    {
+      "name": "Retry.php",
+      "path": "src/Retry.php",
+      "isDirectory": false,
+      "isWritable": true,
+      "size": 812
+    },
+    {
+      "name": "logo.png",
+      "path": "src/logo.png",
+      "isDirectory": false,
+      "isWritable": true,
+      "size": 5120
+    },
+    {
+      "name": "sample.csv",
+      "path": "src/sample.csv",
+      "isDirectory": false,
+      "isWritable": true,
+      "size": 3000000
+    }
+  ],
+  "changedPaths": [
+    "src/Importer.php",
+    "tests/ImporterTest.php"
+  ],
+  "addedPaths": [
+    "tests/ImporterTest.php"
+  ],
+  "truncated": true
+}

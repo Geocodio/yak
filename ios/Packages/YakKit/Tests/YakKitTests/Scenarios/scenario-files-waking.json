@@ -1,0 +1,10 @@
+{
+  "error": "sandbox_unavailable",
+  "message": "The sandbox is waking up.",
+  "details": {
+    "state": "waking",
+    "canRestore": false,
+    "waitingForSlot": false,
+    "restoring": false
+  }
+}

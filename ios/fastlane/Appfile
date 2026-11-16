@@ -1,0 +1,2 @@
+app_identifier(ENV["YAK_BUNDLE_ID"]) if ENV["YAK_BUNDLE_ID"]
+team_id(ENV["YAK_TEAM_ID"]) if ENV["YAK_TEAM_ID"]

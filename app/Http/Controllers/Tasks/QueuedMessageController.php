@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Tasks;
 
 use App\Enums\SteeringMode;
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\UpdateQueuedMessageRequest;
-use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
+use App\Services\Threads\QueuedMessages;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Messages waiting for a busy task: switch one between queued and steered,
@@ -17,57 +18,28 @@ use Illuminate\Support\Facades\DB;
  */
 class QueuedMessageController extends Controller
 {
-    public function update(UpdateQueuedMessageRequest $request, YakTask $task, int $message): RedirectResponse
+    public function update(UpdateQueuedMessageRequest $request, YakTask $task, int $message, QueuedMessages $queued): RedirectResponse
     {
-        $mode = $request->enum('mode', SteeringMode::class);
+        try {
+            $queued->update($task->rootTask(), $request->user() ?? abort(401), $message, $request->enum('mode', SteeringMode::class), null);
+        } catch (ThreadActionRefused $refusal) {
+            return $this->back($task, $refusal->getMessage());
+        } catch (ValidationException $invalid) {
+            return $this->back($task, $invalid->validator->errors()->first('mode'));
+        }
 
-        $error = DB::transaction(function () use ($task, $message, $mode): ?string {
-            $pending = $this->findLocked($task, $message);
-
-            if ($pending === null) {
-                return 'Yak already has that message.';
-            }
-
-            if ($mode === SteeringMode::Steer && ! $pending->canSteer()) {
-                return 'A GitHub review waits for the follow-up, so the reviewer is asked to look again.';
-            }
-
-            $pending->update(['mode' => $mode]);
-
-            return null;
-        });
-
-        return $this->back($task, $error);
+        return $this->back($task, null);
     }
 
-    public function destroy(YakTask $task, int $message): RedirectResponse
+    public function destroy(YakTask $task, int $message, QueuedMessages $queued): RedirectResponse
     {
-        $error = DB::transaction(function () use ($task, $message): ?string {
-            $pending = $this->findLocked($task, $message);
+        try {
+            $queued->withdraw($task->rootTask(), $message);
+        } catch (ThreadActionRefused $refusal) {
+            return $this->back($task, $refusal->getMessage());
+        }
 
-            if ($pending === null) {
-                return 'Yak already has that message.';
-            }
-
-            $pending->withdraw();
-
-            return null;
-        });
-
-        return $this->back($task, $error);
-    }
-
-    /**
-     * The message, locked against the runner handing it to Yak until the
-     * request is done with it. Null once it has been delivered or flushed
-     * into a follow-up.
-     */
-    private function findLocked(YakTask $task, int $message): ?PendingSteeringMessage
-    {
-        return PendingSteeringMessage::where('root_task_id', $task->rootTask()->id)
-            ->lockForUpdate()
-            ->with('attachments')
-            ->find($message);
+        return $this->back($task, null);
     }
 
     private function back(YakTask $task, ?string $error): RedirectResponse

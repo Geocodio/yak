@@ -1,0 +1,16 @@
+{
+  "state": "waking_sandbox",
+  "steps": [
+    "Waking the sandbox"
+  ],
+  "log": [],
+  "error": null,
+  "url": null,
+  "port": 5173,
+  "coldStartCommand": "npm run dev",
+  "setup": {
+    "intent": null,
+    "isRunning": false,
+    "endedWithoutManifest": false
+  }
+}

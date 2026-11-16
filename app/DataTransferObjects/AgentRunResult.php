@@ -49,8 +49,7 @@ final readonly class AgentRunResult
     }
 
     /**
-     * Marks a result produced by the non-resumed re-run that
-     * RetriesWithoutStaleSession falls back to.
+     * Marks a result produced by a non-resumed re-run after a stale session.
      */
     public function withStaleSessionRetry(): self
     {

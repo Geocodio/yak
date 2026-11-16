@@ -6,7 +6,6 @@ use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
-use App\Services\HealthCheck\ClaudeAuthCheck;
 use Illuminate\Bus\UniqueLock;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -162,21 +161,6 @@ test('re-dispatches a task whose queue_job_uuid no longer matches anything queue
 test('is a no-op while the drain flag is set', function () {
     Queue::fake();
     Cache::put(PausesDuringDrain::CACHE_KEY, true, now()->addMinutes(5));
-
-    YakTask::factory()->pending()->create([
-        'dispatched_at' => now()->subHours(2),
-        'queue_job_uuid' => (string) Str::uuid(),
-    ]);
-
-    $this->artisan('yak:reap-lost-pending', ['--minutes' => 10])
-        ->assertSuccessful();
-
-    Queue::assertNothingPushed();
-});
-
-test('is a no-op while the Claude auth session is unusable', function () {
-    Queue::fake();
-    Cache::put(ClaudeAuthCheck::UNUSABLE_CACHE_KEY, true, now()->addMinutes(5));
 
     YakTask::factory()->pending()->create([
         'dispatched_at' => now()->subHours(2),

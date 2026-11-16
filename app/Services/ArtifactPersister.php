@@ -38,6 +38,7 @@ class ArtifactPersister
         'stills' => 'still',
         'screenshots' => 'screenshot',
         'vo' => 'voiceover',
+        'shared' => Artifact::SHARED_ROLE,
     ];
 
     /** Spec §8b: at most five screenshot artifacts survive one run. */
@@ -196,7 +197,7 @@ class ArtifactPersister
 
         $ordered = array_merge($ordered, $topLevelScreenshots);
 
-        foreach (['shots', 'stills', 'vo'] as $subdir) {
+        foreach (['shots', 'stills', 'vo', 'shared'] as $subdir) {
             $path = $dir . '/' . $subdir;
 
             if (! File::isDirectory($path)) {
@@ -268,8 +269,10 @@ class ArtifactPersister
     ): ?Artifact {
         $name = $file->getFilename();
         $storagePath = $subdir === null ? "{$task->id}/{$name}" : "{$task->id}/{$subdir}/{$name}";
-        $type = self::detectArtifactType($file->getExtension());
-        $role = $subdir === null ? Artifact::roleFor($type, $name) : self::SUBDIRECTORY_ROLES[$subdir];
+        $role = $subdir === null ? null : self::SUBDIRECTORY_ROLES[$subdir];
+        // A shared file is plain data: a typed row would make an HTML report a research result or start a render for a video.
+        $type = $role === Artifact::SHARED_ROLE ? 'file' : self::detectArtifactType($file->getExtension());
+        $role ??= Artifact::roleFor($type, $name);
 
         if ($artifactsPath !== $taskDir) {
             $targetPath = Storage::disk('artifacts')->path($storagePath);
@@ -286,6 +289,11 @@ class ArtifactPersister
          * live Artifact row still points at it.
          */
         if (self::alreadyPersisted($task, $storagePath)) {
+            if ($role === Artifact::SHARED_ROLE) {
+                Artifact::where('yak_task_id', $task->id)->where('disk_path', $storagePath)
+                    ->update(['size_bytes' => Storage::disk('artifacts')->size($storagePath)]);
+            }
+
             return null;
         }
 

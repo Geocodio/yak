@@ -1,0 +1,12 @@
+---
+# Collections the playbook needs. Install with:
+#   ansible-galaxy collection install -r ansible/requirements.yml
+# community.docker 5 is required for the network `gw_priority` option the
+# yak-container role uses; older releases (Debian's packaged 4.x) reject it.
+collections:
+  - name: community.docker
+    version: ">=5.0.0"
+  - name: community.general
+    version: ">=10.0.0"
+  - name: ansible.posix
+    version: ">=1.5.0"

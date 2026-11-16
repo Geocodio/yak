@@ -13,7 +13,7 @@ it('builds a header section, context chips, and a View task button for acknowled
         $task,
         NotificationType::Acknowledgment,
         'Chewing through this now! 🐃',
-        'https://yak.example.com/tasks/' . $task->id,
+        'https://yak.example.com/tasks/' . $task->public_id,
     );
 
     expect($blocks[0])
@@ -33,7 +33,7 @@ it('builds a header section, context chips, and a View task button for acknowled
         'type' => 'button',
         'action_id' => 'yak_view_task',
         'text' => ['type' => 'plain_text', 'text' => 'View task'],
-        'url' => 'https://yak.example.com/tasks/' . $task->id,
+        'url' => 'https://yak.example.com/tasks/' . $task->public_id,
         'style' => 'primary',
     ]);
 });
@@ -45,7 +45,7 @@ it('omits context chips for Progress notifications to reduce noise', function ()
         $task,
         NotificationType::Progress,
         'Still working… ⏳',
-        'https://yak.example.com/tasks/' . $task->id,
+        'https://yak.example.com/tasks/' . $task->public_id,
     );
 
     $types = array_column($blocks, 'type');
@@ -59,7 +59,7 @@ it('omits context chips for Clarification because the message already carries th
         $task,
         NotificationType::Clarification,
         'Need input: option a or option b? ❓',
-        'https://yak.example.com/tasks/' . $task->id,
+        'https://yak.example.com/tasks/' . $task->public_id,
     );
 
     $types = array_column($blocks, 'type');
@@ -76,13 +76,13 @@ it('adds a View PR button when the task has a PR URL', function () {
         $task,
         NotificationType::Result,
         'PR opened — hooves up! ✅',
-        'https://yak.example.com/tasks/' . $task->id,
+        'https://yak.example.com/tasks/' . $task->public_id,
     );
 
     $actionBlock = collect($blocks)->firstWhere('type', 'actions');
     $urls = collect($actionBlock['elements'])->pluck('url')->all();
 
-    expect($urls)->toContain('https://yak.example.com/tasks/' . $task->id);
+    expect($urls)->toContain('https://yak.example.com/tasks/' . $task->public_id);
     expect($urls)->toContain('https://github.com/acme/web/pull/42');
 
     // Slack's renderer warns ("Slack cannot handle payload") on URL
@@ -101,7 +101,7 @@ it('uses primary button style for Acknowledgment and Result only', function () {
             $task,
             $type,
             'msg',
-            'https://yak.example.com/tasks/' . $task->id,
+            'https://yak.example.com/tasks/' . $task->public_id,
         );
 
         $viewTask = collect($blocks)->firstWhere('type', 'actions')['elements'][0];
@@ -137,7 +137,7 @@ it('renders one button per clarification option', function () {
         $task,
         NotificationType::Clarification,
         'Which repo should I work in?',
-        'https://yak.example.com/tasks/' . $task->id,
+        'https://yak.example.com/tasks/' . $task->public_id,
     );
 
     $optionActions = collect($blocks)->firstWhere('block_id', 'yak_clarify_options');
@@ -155,7 +155,7 @@ it('renders one button per clarification option', function () {
 it('builds buttons from the single pending question', function () {
     $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Small', 'Large'])->toArray()])->create();
 
-    $blocks = BlockFormatter::blocks($task, NotificationType::Clarification, 'Which scope?', 'https://yak.example.com/tasks/' . $task->id);
+    $blocks = BlockFormatter::blocks($task, NotificationType::Clarification, 'Which scope?', 'https://yak.example.com/tasks/' . $task->public_id);
 
     $elements = collect($blocks)->firstWhere('block_id', 'yak_clarify_options')['elements'];
 
@@ -171,7 +171,7 @@ it('reads a repo-choice button value whose label contains a pipe', function () {
 it('renders no buttons when several questions are pending', function () {
     $task = YakTask::factory()->withClarificationQuestions()->create();
 
-    $blocks = BlockFormatter::blocks($task, NotificationType::Clarification, 'Questions', 'https://yak.example.com/tasks/' . $task->id);
+    $blocks = BlockFormatter::blocks($task, NotificationType::Clarification, 'Questions', 'https://yak.example.com/tasks/' . $task->public_id);
 
     expect(collect($blocks)->firstWhere('block_id', 'yak_clarify_options'))->toBeNull();
 });
@@ -183,7 +183,7 @@ it('skips clarification option buttons when the task has no options', function (
         $task,
         NotificationType::Clarification,
         'Hmm?',
-        'https://yak.example.com/tasks/' . $task->id,
+        'https://yak.example.com/tasks/' . $task->public_id,
     );
 
     expect(collect($blocks)->firstWhere('block_id', 'yak_clarify_options'))->toBeNull();
@@ -198,7 +198,7 @@ it('skips clarification buttons on non-Clarification notification types', functi
         $task,
         NotificationType::Progress,
         'working',
-        'https://yak.example.com/tasks/' . $task->id,
+        'https://yak.example.com/tasks/' . $task->public_id,
     );
 
     expect(collect($blocks)->firstWhere('block_id', 'yak_clarify_options'))->toBeNull();
@@ -212,7 +212,7 @@ it('truncates long option labels to fit Slack\'s 75-char button limit', function
         $task,
         NotificationType::Clarification,
         'Pick one',
-        'https://yak.example.com/tasks/' . $task->id,
+        'https://yak.example.com/tasks/' . $task->public_id,
     );
 
     $button = collect($blocks)->firstWhere('block_id', 'yak_clarify_options')['elements'][0];

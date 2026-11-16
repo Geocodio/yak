@@ -12,5 +12,5 @@ test('yak thread entries show the walker avatar', function () {
 
     visit(route('tasks.show', $task))
         ->assertSee('Fix the flaky checkout test')
-        ->assertVisible('img[src="/mascot-avatar.png"]');
+        ->assertVisible('[data-testid="yak-bubble"] [data-testid="yak-avatar"] svg');
 });

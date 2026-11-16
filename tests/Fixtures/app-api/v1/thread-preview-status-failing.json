@@ -1,0 +1,17 @@
+{
+    "coldStartCommand": "npm run dev",
+    "error": "The dev server exited before it answered on port 3000.",
+    "log": [
+        "> example-web@1.0.0 dev",
+        "Error: Cannot find module 'vite'"
+    ],
+    "port": 3000,
+    "setup": {
+        "endedWithoutManifest": false,
+        "intent": "fix_preview",
+        "isRunning": true
+    },
+    "state": "failing",
+    "steps": [],
+    "url": null
+}

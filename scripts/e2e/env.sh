@@ -1,0 +1,38 @@
+# Settings for the native end-to-end Yak. Sourced by start.sh; plain `export NAME=value` lines only.
+# Nothing here is secret. These override .env.
+export APP_ENV=testing
+export YAK_E2E=true
+export YAK_E2E_PACE=4
+export APP_URL=http://127.0.0.1:18000
+export DB_CONNECTION=sqlite
+export DB_DATABASE=$YAK_E2E_DIR/yak.sqlite
+export REDIS_HOST=127.0.0.1
+export REDIS_PORT=16379
+export QUEUE_CONNECTION=redis
+export CACHE_STORE=redis
+export SESSION_DRIVER=database
+export BROADCAST_CONNECTION=reverb
+export REVERB_APP_ID=yak-e2e
+export REVERB_APP_KEY=yak-e2e-key
+export REVERB_APP_SECRET=yak-e2e-secret
+export REVERB_HOST=127.0.0.1
+export REVERB_PORT=18080
+export REVERB_SCHEME=http
+export REVERB_SERVER_HOST=127.0.0.1
+export REVERB_SERVER_PORT=18080
+export MAIL_MAILER=array
+export LOG_CHANNEL=single
+export YAK_INTENT_CLASSIFIER_ENABLED=false
+export YAK_DESCRIPTION_SUMMARIZER_ENABLED=false
+export YAK_PR_TITLE_WRITER_ENABLED=false
+export TELEMETRY_STORE=array
+export QUEUE_METRICS_ENABLED=false
+export PULSE_ENABLED=false
+export TELESCOPE_ENABLED=false
+export NIGHTWATCH_ENABLED=false
+export BCRYPT_ROUNDS=4
+# The seeded threads keep sandboxes awake; a journey's new thread must never wait for a slot.
+export YAK_THREADS_AWAKE_CAP=40
+export YAK_THREADS_PERSON_AWAKE_CAP=20
+# A turn ends only this long after its last activity; the production 30 s would keep every journey turn running for about 40 s.
+export YAK_THREADS_TURN_GRACE_SECONDS=2

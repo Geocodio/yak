@@ -1,0 +1,30 @@
+{
+    "banner": {
+        "body": "Claude opens one pull request for each repository it changes.",
+        "title": "No pull requests yet",
+        "tone": "info"
+    },
+    "canDrive": true,
+    "expectations": [
+        "example/api opens first",
+        "example/docs gets none, it is context"
+    ],
+    "openCount": 0,
+    "pullRequests": [],
+    "state": "none",
+    "totalCount": 0,
+    "withoutPullRequest": [
+        {
+            "note": "The pull request opens once CI passes.",
+            "reason": "pending",
+            "repo": "example/api",
+            "role": "primary"
+        },
+        {
+            "note": "No pull request.",
+            "reason": "context",
+            "repo": "example/docs",
+            "role": "context"
+        }
+    ]
+}

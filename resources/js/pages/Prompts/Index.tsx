@@ -177,7 +177,7 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
         <>
             <Head title={`${prompt.label} · Prompts`} />
             <PageHeader
-                crumbs={['Prompts', prompt.label]}
+                crumbs={['Settings', 'Prompts', prompt.label]}
                 actions={
                     <Button variant="primary" icon={<Save size={13} />} pending={form.processing} onClick={save} data-testid="save-button">
                         Save <span className="ml-1.5 text-[10px] opacity-70">⌘S</span>

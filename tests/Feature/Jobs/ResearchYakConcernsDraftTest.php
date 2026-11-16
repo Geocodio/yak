@@ -1,53 +1,32 @@
 <?php
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
-use App\Jobs\ResearchYakJob;
-use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ConcernsDraft;
-use App\Services\IncusSandboxManager;
 use App\Services\RepositoryConfigParser;
-use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use Tests\Support\FakeAgentRunner;
-use Tests\Support\FakeSandboxManager;
+
+require_once __DIR__ . '/../../Support/FinishTurnHelpers.php';
+
+beforeEach(function () {
+    Storage::fake('local');
+    Storage::fake('artifacts');
+    Queue::fake();
+});
 
 function runConcernsDraft(array $concern = []): YakTask
 {
     $concern += ['name' => 'Customer charges', 'approval' => 'always_human', 'description' => 'What customers are charged.'];
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_concerns',
-        resultSummary: "```json\n" . json_encode(['concerns' => [$concern]]) . "\n```",
-        costUsd: 0.25, numTurns: 1, durationMs: 1000, isError: false, rawOutput: '{}',
-    ));
-    app()->instance(AgentRunner::class, $fake);
-    app()->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
-    {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
-        {
-            if (str_contains($command, 'git rev-parse HEAD')) {
-                return Process::result(str_repeat('b', 40));
-            }
 
-            return parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
-        }
-    });
-    Storage::fake('local');
-    Process::fake(['*' => Process::result('')]);
-    Repository::factory()->create(['slug' => 'pr-concerns', 'github_full_name' => 'acme/api', 'default_branch' => 'main']);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'pr-concerns', 'source' => 'cli', 'mode' => 'research',
-        'context' => json_encode(['risk_profile_draft' => true]),
-    ]);
-
-    (new ResearchYakJob($task))->handle($fake);
-
-    return $task->fresh();
+    return researchTurn(
+        "```json\n" . json_encode(['concerns' => [$concern]]) . "\n```",
+        ['source' => 'cli', 'context' => json_encode(['risk_profile_draft' => true])],
+        ['slug' => 'pr-concerns', 'github_full_name' => 'acme/api', 'default_branch' => 'main'],
+        revisionShell(str_repeat('b', 40)),
+    );
 }
 
 function pullRequestWasOpened(): bool

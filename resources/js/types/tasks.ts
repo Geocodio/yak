@@ -7,7 +7,7 @@ export type TaskPr = {
 };
 
 export type FollowUpRow = {
-    id: number;
+    id: string;
     status: TaskStatus;
     description: string;
     externalId: string | null;
@@ -15,7 +15,7 @@ export type FollowUpRow = {
 };
 
 export type TaskRow = {
-    id: number;
+    id: string;
     status: TaskStatus;
     source: string;
     sourceLabel: string;
@@ -60,18 +60,6 @@ export type TaskFilters = {
     };
 };
 
-export type SetupCardItem = {
-    title: string;
-    body: string;
-    done: boolean;
-    url: string;
-    external: boolean;
-};
-
-export type SetupCard = {
-    items: SetupCardItem[];
-} | null;
-
 export type TaskPage = {
     data: TaskRow[];
     current_page: number;
@@ -83,10 +71,11 @@ export type TaskPage = {
 // -- Task detail (Tasks/Show) --
 
 export type TaskDetail = {
-    id: number;
+    id: string;
     status: TaskStatus;
     statusLabel: string;
     mode: 'fix' | 'research' | 'review' | 'setup';
+    isFollowUp: boolean;
     headline: string;
     summary: string;
     repo: string | null;
@@ -103,14 +92,13 @@ export type TaskDetail = {
     cost: string | null;
     branch: string | null;
     nextSteps: string | null;
-    error: string | null;
     externalId: string | null;
     pr: TaskPr | null;
     researchArtifactUrl: string | null;
     attemptCount: number;
     attempt: number;
     /** The run the page is focused on (`?run=`, else the live or latest run). */
-    runId: number;
+    runId: string;
 };
 
 export type MediaItem = {
@@ -161,6 +149,12 @@ export type ThreadEntryData = {
     options?: string[];
     expiresIn?: string | null;
     superseded?: boolean;
+    /** `yak` entries: the run this bubble reports, so a live stream attaches to the right one. */
+    runId?: string | null;
+    attempt?: number;
+    /** `yak` entries: how long the run took, and when it started (ISO 8601). */
+    durationMs?: number | null;
+    startedAt?: string | null;
     live?: boolean;
     error?: string | null;
     links?: { label: string; url: string }[];
@@ -172,7 +166,7 @@ export type ThreadEntryData = {
 };
 
 export type RunSummary = {
-    id: number;
+    id: string;
     label: string;
     live: boolean;
 };
@@ -195,12 +189,31 @@ export type ActivityRow = {
     kind: 'tool' | 'prompt' | 'assistant' | 'level';
     error: boolean;
     milestone: boolean;
+    tool: ActivityTool | null;
+    category: ActivityCategory;
+    /** What the row shows on its line: the command, path, pattern or URL. */
+    label: string;
+    durationMs: number | null;
+    /** Bash results only; null while running and for other tools. */
+    exitCode: number | null;
+    /** A tool call that has no result yet. */
+    running: boolean;
+    /** The earlier failed row of the same command that this passing row retried. */
+    retryOf: number | null;
 };
+
+export type ActivityTool = 'Bash' | 'Read' | 'Edit' | 'Write' | 'Grep' | 'Glob' | 'WebFetch' | 'Task';
+
+export type ActivityCategory = 'command' | 'read' | 'edit' | 'search' | 'fetch' | 'thinking' | 'narrative' | 'milestone';
+
+export type ActivityCounts = { command: number; read: number; edit: number; search: number; fetch: number; thinking: number };
 
 export type ActivitySummary = {
     entries: number;
     duration: string;
     latestId: number | null;
+    counts: ActivityCounts;
+    failed: number;
 };
 
 export type ActivityData = {
@@ -320,6 +333,8 @@ export type TranscriptEntry = {
     input?: string | null;
     output?: string | null;
     html?: string;
+    /** The unrendered text of an `assistant` entry: a sentence or a thought. */
+    fullText?: string;
     details?: TranscriptDetail[];
     prompt?: {
         user: string;

@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\VisibleTaskChildScope;
 use Carbon\CarbonImmutable;
 use Database\Factories\TelemetryEventFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable $occurred_at
  * @property array<string, mixed>|null $properties
  */
+#[ScopedBy(VisibleTaskChildScope::class)]
 class TelemetryEvent extends Model
 {
     /** @use HasFactory<TelemetryEventFactory> */

@@ -9,10 +9,11 @@ test('guests see the login page at the homepage', function () {
     $response->assertSee('Sign in');
 });
 
-test('authenticated users are redirected from homepage to tasks', function () {
+test('authenticated users with no threads see the welcome page at the homepage', function () {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)->get(route('home'));
 
-    $response->assertRedirect(route('tasks'));
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page->component('Home/Welcome'));
 });

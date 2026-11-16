@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import share from '@/routes/deployments/share';
 import type { ShareLinkData } from '@/types/deployments';
 
-export function ShareLinkCard({ deploymentId, shareLink, mintedUrl }: { deploymentId: number; shareLink: ShareLinkData; mintedUrl: string | null }) {
+export function ShareLinkCard({ deploymentId, shareLink, mintedUrl }: { deploymentId: string; shareLink: ShareLinkData; mintedUrl: string | null }) {
     const [shownUrl, setShownUrl] = useState(mintedUrl);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [revoking, setRevoking] = useState(false);

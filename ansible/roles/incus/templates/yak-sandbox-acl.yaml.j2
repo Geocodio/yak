@@ -1,0 +1,45 @@
+# Drop rules beat allow rules in Incus, so ingress relies on the NIC default
+# action (drop) instead of a catch-all drop rule, and egress ends in a plain allow.
+description: Yak sandbox network ACL
+ingress:
+  - action: allow
+    state: enabled
+    source: {{ yak_sandbox_bridge_host }}/32
+egress:
+  - action: allow
+    state: enabled
+    destination: {{ yak_sandbox_bridge_host }}/32
+    protocol: tcp
+    destination_port: "{{ yak_auth_proxy_address.split(':')[1] }}"
+  - action: allow
+    state: enabled
+    destination: {{ yak_sandbox_bridge_host }}/32
+    protocol: udp
+    destination_port: "53,67"
+  - action: allow
+    state: enabled
+    destination: {{ yak_sandbox_bridge_host }}/32
+    protocol: tcp
+    destination_port: "53"
+  - action: drop
+    state: enabled
+    destination: {{ yak_sandbox_bridge_host }}/32
+    protocol: tcp
+    destination_port: "1-52,54-{{ yak_auth_proxy_address.split(':')[1] | int - 1 }},{{ yak_auth_proxy_address.split(':')[1] | int + 1 }}-65535"
+  - action: drop
+    state: enabled
+    destination: {{ yak_sandbox_bridge_host }}/32
+    protocol: udp
+    destination_port: "1-52,54-66,68-65535"
+  - action: drop
+    state: enabled
+    destination: {{ yak_sandbox_bridge_host }}/32
+    protocol: icmp4
+  - action: drop
+    state: enabled
+    destination: {{ yak_host_public_cidrs }}
+  - action: drop
+    state: enabled
+    destination: {{ yak_private_ranges }}
+  - action: allow
+    state: enabled

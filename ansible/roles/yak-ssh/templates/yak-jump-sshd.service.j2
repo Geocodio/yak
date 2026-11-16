@@ -1,0 +1,15 @@
+[Unit]
+Description=Yak jump host sshd
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStartPre=/usr/sbin/sshd -t -f {{ yak_ssh_config_dir }}/sshd_config
+ExecStart=/usr/sbin/sshd -D -e -f {{ yak_ssh_config_dir }}/sshd_config
+Restart=always
+RestartSec=2
+RuntimeDirectory=sshd
+RuntimeDirectoryPreserve=yes
+
+[Install]
+WantedBy=multi-user.target

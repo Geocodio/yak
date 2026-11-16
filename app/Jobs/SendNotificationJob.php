@@ -9,9 +9,11 @@ use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Facades\Telemetry;
+use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\DirectMessageRecipients;
+use App\Services\Threads\ThreadNotificationGuard;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -69,8 +71,16 @@ class SendNotificationJob implements ShouldQueue
                 return;
             }
 
-            $driver = $this->directMessagesOnly ? null : $this->resolveDriver($registry);
+            $thread = $this->privateThread();
+            $driver = $this->directMessagesOnly || $thread !== null ? null : $this->resolveDriver($registry);
             $recipients = app(DirectMessageRecipients::class)->for($this->task, $this->type);
+
+            if ($thread !== null) {
+                $recipients = array_values(array_filter(
+                    $recipients,
+                    fn (User $user): bool => app(ThreadNotificationGuard::class)->mayNotify($user, $thread),
+                ));
+            }
 
             if ($driver === null && $recipients === []) {
                 return;
@@ -94,6 +104,17 @@ class SendNotificationJob implements ShouldQueue
         } finally {
             TaskContext::clear();
         }
+    }
+
+    /**
+     * The task's thread when it is private, whose tasks never post to a
+     * shared channel and never name the task in a direct message.
+     */
+    private function privateThread(): ?Thread
+    {
+        $thread = $this->task->thread;
+
+        return $thread !== null && $thread->isPrivate() ? $thread : null;
     }
 
     /**
@@ -138,6 +159,10 @@ class SendNotificationJob implements ShouldQueue
      */
     private function headline(): string
     {
+        if ($this->privateThread() !== null) {
+            return 'Private thread';
+        }
+
         $title = Str::limit($this->task->headline(), self::HEADLINE_TITLE_LENGTH);
         $repository = (string) $this->task->repo;
         $isSetup = $this->task->mode === TaskMode::Setup;

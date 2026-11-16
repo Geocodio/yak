@@ -4,12 +4,14 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\RepositoryRole;
 use App\Enums\TaskMode;
 use App\Facades\Telemetry;
 use App\Models\Artifact;
 use App\Models\CoOwnerRequest;
 use App\Models\PreviewRepair;
 use App\Models\Repository;
+use App\Models\ThreadRepository;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
 use App\Services\CoOwner\CoOwnerGate;
@@ -17,8 +19,11 @@ use App\Services\PreviewRepair\PreviewFailureReporter;
 use App\Services\PullRequestBodySections;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\PullRequestTitle;
+use App\Services\Push\PullRequestPush;
 use App\Services\ReviewReplyPoster;
 use App\Services\TaskLogger;
+use App\Services\Threads\PullRequests\PullRequestOpening;
+use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Services\WalkthroughPrSection;
 use App\Support\MarkdownText;
 use App\Support\TaskTrigger;
@@ -41,6 +46,7 @@ class CreatePullRequestJob implements ShouldQueue
         public readonly YakTask $task,
         public readonly bool $isLargeChange = false,
         public readonly ?CoOwnerRequest $approvedRequest = null,
+        public readonly bool $refreshOnly = false,
     ) {
         $this->onQueue('default');
     }
@@ -52,9 +58,18 @@ class CreatePullRequestJob implements ShouldQueue
             'error' => $e?->getMessage() ?? 'Job failed without exception',
             'exception_class' => $e !== null ? get_class($e) : null,
         ]);
+
+        app(PullRequestOpening::class)->finish($this->task, $e ?? new \RuntimeException('Job failed without exception'));
     }
 
     public function handle(GitHubAppService $gitHub): void
+    {
+        $this->open($gitHub);
+
+        app(PullRequestOpening::class)->finish($this->task);
+    }
+
+    private function open(GitHubAppService $gitHub): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
         $installationId = (int) config('yak.channels.github.installation_id');
@@ -64,6 +79,15 @@ class CreatePullRequestJob implements ShouldQueue
         // (which GitHub rejects with 422).
         $existing = $gitHub->findOpenPullRequestForBranch($installationId, $repository->github_full_name, (string) $this->task->branch_name);
 
+        // A new recording on a thread whose PR is open only swaps the screenshots in its body; it opens nothing and posts no comment.
+        if ($this->refreshOnly) {
+            if ($existing !== null && isset($existing['number'])) {
+                $this->refreshOwnedSections($repository->github_full_name, (int) $existing['number'], includeDescription: false);
+            }
+
+            return;
+        }
+
         if ($existing !== null && $this->approvedRequest !== null) {
             // The approval opens no second PR; the existing one gets the label and reviewer.
             if (! isset($existing['number'], $existing['html_url'])) {
@@ -71,6 +95,7 @@ class CreatePullRequestJob implements ShouldQueue
             }
 
             $this->task->update(['pr_url' => $existing['html_url'], 'pr_number' => $existing['number'], 'pr_opened_at' => $this->task->pr_opened_at ?? now()]);
+            $this->syncPrimaryRow((int) $existing['number'], (string) $existing['html_url'], (string) ($existing['title'] ?? ''));
             $this->markCoOwned($gitHub, $repository, $installationId, (int) $existing['number']);
 
             return;
@@ -85,6 +110,7 @@ class CreatePullRequestJob implements ShouldQueue
                 'pr_url' => $existing['html_url'],
                 'pr_number' => $existing['number'],
             ]);
+            $this->syncPrimaryRow((int) $existing['number'], (string) $existing['html_url'], (string) ($existing['title'] ?? ''));
 
             Telemetry::record('pr.updated', ['pr_number' => (int) $existing['number']], task: $this->task);
 
@@ -152,6 +178,12 @@ class CreatePullRequestJob implements ShouldQueue
 
         if (! isset($prResponse['number'], $prResponse['html_url'])) {
             $error = $prResponse['message'] ?? json_encode($prResponse);
+
+            // GitHub answers "Validation Failed" with the field it refused; a refused head is a branch it does not have.
+            if (in_array('head', array_column(array_filter((array) ($prResponse['errors'] ?? []), 'is_array'), 'field'), true)) {
+                $error = "the branch {$this->task->branch_name} is not on GitHub, so Yak's commits were never pushed";
+            }
+
             throw new \RuntimeException("GitHub PR creation failed: {$error}");
         }
 
@@ -173,6 +205,7 @@ class CreatePullRequestJob implements ShouldQueue
         // that can fail, and the follow-up calls are best effort.
         if ($this->approvedRequest !== null) {
             $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber, 'pr_opened_at' => $openedAt]);
+            $this->syncPrimaryRow((int) $prNumber, (string) $prUrl, $title);
             $this->bestEffort(fn () => $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels));
             $this->bestEffort(fn () => $this->recordOpened($prNumber, $openedAt));
             $this->requestApproverReview($gitHub, $repository, $installationId, (int) $prNumber);
@@ -183,12 +216,34 @@ class CreatePullRequestJob implements ShouldQueue
         $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels);
 
         $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber, 'pr_opened_at' => $openedAt]);
+        $this->syncPrimaryRow((int) $prNumber, (string) $prUrl, $title);
 
         $this->recordOpened($prNumber, $openedAt);
     }
 
+    /**
+     * A thread's primary repo row mirrors the task chain's pull request.
+     */
+    private function syncPrimaryRow(int $number, string $url, string $title): void
+    {
+        if ($this->task->thread_id === null) {
+            return;
+        }
+
+        $row = ThreadRepository::query()
+            ->where('thread_id', $this->task->thread_id)
+            ->where('role', RepositoryRole::Primary->value)
+            ->first();
+
+        if ($row !== null) {
+            app(ThreadPullRequestSync::class)->recordOpened($row, $number, $url, $title !== '' ? $title : (string) $row->pull_request_title);
+        }
+    }
+
     private function recordOpened(mixed $prNumber, CarbonInterface $openedAt): void
     {
+        app(PullRequestPush::class)->opened($this->task);
+
         $this->announcePreviewRepair();
 
         // Request-to-PR is the headline delivery latency on the Analytics page.
@@ -389,6 +444,11 @@ class CreatePullRequestJob implements ShouldQueue
             $this->task->result_summary ?? '_No summary available._',
         );
 
+        if ($this->task->thread_id !== null) {
+            $parts[] = '';
+            $parts[] = PullRequestBodySections::wrap(PullRequestBodySections::SIBLINGS, '');
+        }
+
         return implode("\n", $parts);
     }
 
@@ -445,11 +505,11 @@ class CreatePullRequestJob implements ShouldQueue
      * the changelog; the body is the current state. Runs on green CI only,
      * so a follow-up that failed CI never rewrites the description.
      */
-    private function refreshOwnedSections(string $repoFullName, int $prNumber): void
+    private function refreshOwnedSections(string $repoFullName, int $prNumber, bool $includeDescription = true): void
     {
         $sections = [];
 
-        if ($this->task->pr_body_update !== null && trim((string) $this->task->pr_body_update) !== '') {
+        if ($includeDescription && $this->task->pr_body_update !== null && trim((string) $this->task->pr_body_update) !== '') {
             $sections[PullRequestBodySections::DESCRIPTION] = PullRequestBodySections::wrap(
                 PullRequestBodySections::DESCRIPTION,
                 (string) $this->task->pr_body_update,

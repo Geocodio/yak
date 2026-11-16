@@ -18,10 +18,13 @@
 
 ## What It Does
 
-- **Opens PRs for papercuts.** Receives tasks from Slack, Linear, Sentry, GitHub, and forwarded email; sends Claude into an isolated sandbox; opens a reviewable PR and verifies CI passes
+- **Opens PRs for review.** Takes work from Slack, Linear, Sentry, GitHub, forwarded email and the dashboard; runs Claude in an isolated sandbox; opens a pull request and waits for CI
+- **Works in threads.** Each piece of work is a thread you can steer while Claude works, split into sub-threads, or spread across several repositories with one pull request per repository
+- **Moves between Yak and your computer.** Teleport a Claude Code session to Yak and back with the `yak` command, or open a shell in the sandbox with `yak ssh`
 - **Reviews pull requests.** Line-level comments, `suggestion` blocks, and a feedback dashboard
-- **Serves preview deployments.** Every open PR gets a unique URL, OAuth-gated, hibernated when idle, destroyed when the PR closes
-- **Shared sandbox fleet.** One Incus + ZFS substrate, one GitHub App, one Inertia dashboard, one cost model across all three workflows
+- **Serves previews.** A thread shows a live preview of its work, and every open PR gets its own URL behind sign-in that hibernates when idle
+- **Shared sandbox fleet.** One Incus + ZFS substrate, one GitHub App, one Inertia dashboard, one cost model across all workflows
+- **Uses your Claude accounts.** Each person adds their own Claude account, and each thread runs on one fixed account
 
 ## How It Works
 
@@ -41,6 +44,8 @@ See the [Setup Guide](https://geocodio.github.io/yak/setup/) for provisioning a 
 | Linear   | Yes                   | Yes                          |
 | Sentry   | Yes                   | --                           |
 | GitHub   | Yes (PR review events)| Yes (PR reviews, comments)   |
+| Email    | Yes                   | Yes                          |
+| Dashboard| Yes                   | Yes (push notifications)     |
 
 ## Design Philosophy
 
@@ -53,12 +58,25 @@ See the [Setup Guide](https://geocodio.github.io/yak/setup/) for provisioning a 
 
 Full documentation is hosted at **[geocodio.github.io/yak](https://geocodio.github.io/yak/)**.
 
-- [Setup](https://geocodio.github.io/yak/setup/)
+- [Concepts](https://geocodio.github.io/yak/concepts/)
+- [Threads](https://geocodio.github.io/yak/threads/)
+- [Multi-repo threads](https://geocodio.github.io/yak/multi-repo/)
+- [Sub-threads](https://geocodio.github.io/yak/sub-threads/)
+- [Previews](https://geocodio.github.io/yak/previews/)
+- [Teleport](https://geocodio.github.io/yak/teleport/)
+- [SSH and terminal](https://geocodio.github.io/yak/ssh/)
+- [yak CLI](https://geocodio.github.io/yak/cli/)
+- [Claude accounts](https://geocodio.github.io/yak/claude-accounts/)
+- [Notifications](https://geocodio.github.io/yak/notifications/)
+- [PR Review](https://geocodio.github.io/yak/pr-review/)
 - [Channels](https://geocodio.github.io/yak/channels/)
 - [Repositories](https://geocodio.github.io/yak/repositories/)
-- [PR Review](https://geocodio.github.io/yak/pr-review/)
-- [Architecture](https://geocodio.github.io/yak/architecture/)
+- [Repository config](https://geocodio.github.io/yak/repo-config/)
 - [Prompting](https://geocodio.github.io/yak/prompting/)
+- [Setup](https://geocodio.github.io/yak/setup/)
+- [Upgrading to threads](https://geocodio.github.io/yak/upgrading/)
+- [Operations](https://geocodio.github.io/yak/operations/)
+- [Architecture](https://geocodio.github.io/yak/architecture/)
 - [Troubleshooting](https://geocodio.github.io/yak/troubleshooting/)
 - [Development](https://geocodio.github.io/yak/development/)
 

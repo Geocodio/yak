@@ -1,0 +1,21 @@
+{
+    "aps": {
+        "alert": {
+            "body": "Done",
+            "title": "Retry failed uploads"
+        },
+        "badge": 1,
+        "filter-criteria": "yak.example.com",
+        "interruption-level": "active",
+        "sound": "default",
+        "thread-id": "thread-d0e515ef"
+    },
+    "yak": {
+        "event": "turn_finished",
+        "id": "d0e515ef",
+        "instance": "https://yak.example.com",
+        "kind": "thread",
+        "needsYouCount": 1,
+        "path": "/threads/d0e515ef"
+    }
+}

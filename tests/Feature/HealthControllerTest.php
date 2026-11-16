@@ -1,9 +1,6 @@
 <?php
 
 use App\Models\User;
-use App\Services\HealthCheck\ClaudeAuthCheck;
-use App\Services\HealthCheck\HealthAction;
-use App\Services\HealthCheck\HealthResult;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -59,7 +56,7 @@ it('renders the health page with system and channel checks', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Health/Index')
-            ->has('systemChecks', 13)
+            ->has('systemChecks', 12)
             ->where('channelChecks', []));
 });
 
@@ -108,71 +105,6 @@ it('refresh one clears the cache for a single check and re-runs it', function ()
     $this->post(route('health.check.refresh', ['check' => 'queue-worker']))->assertRedirect();
 
     requestHealthResults()->assertJsonPath('props.systemResults.queue-worker.status', 'fail');
-});
-
-it('renders the stored claude-auth result without probing inference', function () {
-    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
-        'result' => HealthResult::ok('Authenticated'),
-        'checked_at' => now(),
-    ], now()->addDay());
-
-    requestHealthResults()->assertJsonPath('props.systemResults.claude-auth.status', 'ok');
-
-    Process::assertNotRan(fn ($process) => str_contains($process->command, '--model claude-haiku'));
-});
-
-it('reports not yet probed for claude-auth when no scheduled result exists', function () {
-    Cache::forget(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY);
-
-    requestHealthResults()->assertJsonPath('props.systemResults.claude-auth.status', 'warn');
-
-    Process::assertNotRan(fn ($process) => str_contains($process->command, '--model claude-haiku'));
-});
-
-it('degrades a stale claude-auth probe result to a warning', function () {
-    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
-        'result' => HealthResult::ok('Authenticated'),
-        'checked_at' => now()->subMinutes(40),
-    ], now()->addDay());
-
-    requestHealthResults()->assertJsonPath('props.systemResults.claude-auth.status', 'warn');
-});
-
-it('preserves a stale claude-auth Error status and its re-authentication action instead of downgrading to a warning', function () {
-    $action = new HealthAction('Re-authenticate', 'https://example.test/reauth');
-
-    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
-        'result' => HealthResult::error('Not authenticated — please re-authenticate', $action),
-        'checked_at' => now()->subMinutes(40),
-    ], now()->addDay());
-
-    requestHealthResults()
-        ->assertJsonPath('props.systemResults.claude-auth.status', 'fail')
-        ->assertJsonPath('props.systemResults.claude-auth.actionLabel', 'Re-authenticate')
-        ->assertJsonPath('props.systemResults.claude-auth.actionUrl', 'https://example.test/reauth');
-});
-
-it('does not flag a claude-auth probe result just under the staleness threshold', function () {
-    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
-        'result' => HealthResult::ok('Authenticated'),
-        'checked_at' => now()->subMinutes(30),
-    ], now()->addDay());
-
-    requestHealthResults()->assertJsonPath('props.systemResults.claude-auth.status', 'ok');
-});
-
-it('renders the age of a fresh claude-auth probe result', function () {
-    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
-        'result' => HealthResult::ok('Authenticated'),
-        'checked_at' => now()->subMinutes(5),
-    ], now()->addDay());
-
-    $response = requestHealthResults()->assertJsonPath('props.systemResults.claude-auth.status', 'ok');
-
-    expect($response->json('props.systemResults.claude-auth.checkedAgo'))->not->toBeNull();
-    expect($response->json('props.systemResults.claude-auth.message'))
-        ->toContain('Authenticated')
-        ->toContain('ago');
 });
 
 it('defers system and channel results as independently loadable props', function () {

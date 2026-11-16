@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { addressFor, previewReferrerPolicy, previewSandbox, isDesktopSafari, isTransitional, progressPercent, stepDetails, stepStatuses, widthFor } from './previewState.ts';
+
+const macSafari = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
+const macChrome = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+const firefox = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:127.0) Gecko/20100101 Firefox/127.0';
+
+test('desktop Safari is detected, other browsers keep the iframe', () => {
+    assert.equal(isDesktopSafari(macSafari), true);
+    assert.equal(isDesktopSafari(macChrome), false);
+    assert.equal(isDesktopSafari(iphone), false);
+    assert.equal(isDesktopSafari(firefox), false);
+});
+
+test('widths', () => {
+    assert.equal(widthFor('phone'), 390);
+    assert.equal(widthFor('tablet'), 768);
+    assert.equal(widthFor('desktop'), '100%');
+});
+
+test('wake steps follow the state', () => {
+    assert.deepEqual(stepStatuses('waking_sandbox'), ['active', 'pending', 'pending']);
+    assert.deepEqual(stepStatuses('sandbox_asleep'), ['active', 'pending', 'pending']);
+    assert.deepEqual(stepStatuses('starting_dev_server'), ['done', 'active', 'pending']);
+    assert.deepEqual(stepStatuses('ready'), ['done', 'done', 'done']);
+    assert.deepEqual(stepStatuses('failing'), ['pending', 'pending', 'pending']);
+});
+
+test('only waking states poll', () => {
+    assert.equal(isTransitional('starting_dev_server'), true);
+    assert.equal(isTransitional('ready'), false);
+    assert.equal(isTransitional('closed'), false);
+});
+
+test('the address keeps the host and takes the typed path', () => {
+    assert.equal(addressFor('https://t-abc.yak.example.com/', '/orders/1042?x=1'), 'https://t-abc.yak.example.com/orders/1042?x=1');
+    assert.equal(addressFor('https://t-abc.yak.example.com/', 'orders'), 'https://t-abc.yak.example.com/orders');
+    assert.equal(addressFor('https://t-abc.yak.example.com/', '//evil.test/x'), 'https://t-abc.yak.example.com/evil.test/x');
+});
+
+test('the sandbox keeps the app working but blocks top navigation', () => {
+    assert.equal(previewSandbox, 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads');
+    assert.equal(previewSandbox.includes('allow-top-navigation'), false);
+    assert.equal(previewReferrerPolicy, 'no-referrer');
+});
+
+test('the frame applies the sandbox and the panel has no probe frame', () => {
+    const frame = readFileSync(new URL('./PreviewFrame.tsx', import.meta.url), 'utf8');
+    const panel = readFileSync(new URL('./PreviewPanel.tsx', import.meta.url), 'utf8');
+    assert.ok(frame.includes('sandbox={previewSandbox}'));
+    assert.ok(frame.includes('referrerPolicy={previewReferrerPolicy}'));
+    assert.equal(panel.includes('<iframe'), false);
+    assert.equal(panel.includes('preview-wake-probe'), false);
+});
+
+test('step details use the manifest values and never invent a command', () => {
+    assert.deepEqual(stepDetails({ port: 3000, coldStartCommand: 'npm run dev' }), ['about 10 seconds', 'npm run dev', 'Wait for the app to answer on port 3000']);
+    assert.deepEqual(stepDetails({ port: null, coldStartCommand: null }), ['about 10 seconds', null, null]);
+});
+
+test('progress counts done steps and half of the active one', () => {
+    assert.equal(progressPercent(['active', 'pending', 'pending']), 17);
+    assert.equal(progressPercent(['done', 'active', 'pending']), 50);
+    assert.equal(progressPercent(['done', 'done', 'done']), 100);
+});

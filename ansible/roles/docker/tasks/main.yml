@@ -41,11 +41,24 @@
     groups: docker
     append: true
 
+# Docker sets the iptables FORWARD policy to DROP every time it starts, which
+# cuts the Incus sandboxes off the internet until ufw reloads. UFW owns the
+# forward policy on this host.
+- name: Keep Docker from changing the FORWARD policy
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "ip-forward-no-drop": true
+      }
+    mode: "0644"
+  register: docker_daemon_config
+
 - name: Enable and start Docker
   ansible.builtin.systemd:
     name: docker
     enabled: true
-    state: started
+    state: "{{ 'restarted' if docker_daemon_config.changed else 'started' }}"
 
 - name: Prune old Docker images nightly
   ansible.builtin.cron:

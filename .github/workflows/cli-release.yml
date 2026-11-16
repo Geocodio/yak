@@ -1,0 +1,86 @@
+name: cli-release
+
+on:
+  push:
+    tags:
+      - 'cli-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+            archname: arm64
+          - goos: darwin
+            goarch: amd64
+            archname: x86_64
+          - goos: linux
+            goarch: amd64
+            archname: x86_64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check the tag matches the plugin version
+        if: startsWith(github.ref, 'refs/tags/cli-v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(jq -r .version plugin/.claude-plugin/plugin.json)
+          if [ "$TAG" != "cli-v$version" ]; then
+            echo "Tag $TAG does not match plugin.json version $version (expected cli-v$version)." >&2
+            exit 1
+          fi
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: cli/go.mod
+
+      - name: Build
+        working-directory: cli
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: >
+          go build -trimpath
+          -ldflags "-s -w -X github.com/geocodio/yak/cli/internal/version.Version=${{ github.ref_name }}"
+          -o ../plugin/bin/yak-${{ matrix.goos }}-${{ matrix.archname }} ./
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yak-${{ matrix.goos }}-${{ matrix.archname }}
+          path: plugin/bin/yak-${{ matrix.goos }}-${{ matrix.archname }}
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/cli-v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Write checksums
+        working-directory: dist
+        run: sha256sum yak-* > SHA256SUMS
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/yak-*
+            dist/SHA256SUMS

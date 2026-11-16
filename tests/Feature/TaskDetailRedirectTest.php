@@ -9,7 +9,7 @@ test('child task URL redirects to root with turn anchor', function () {
     $child = YakTask::factory()->create(['parent_task_id' => $root->id]);
 
     $this->get(route('tasks.show', $child))
-        ->assertRedirect(route('tasks.show', $root) . '#turn-' . $child->id);
+        ->assertRedirect(route('tasks.show', $root) . '#turn-' . $child->public_id);
 });
 
 test('root task renders', function () {

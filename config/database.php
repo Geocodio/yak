@@ -166,6 +166,46 @@ return [
             'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
         ],
 
+        // The pipe broker reads and writes these streams by their bare names, so
+        // this connection must not apply the key prefix of the default one.
+        'threads' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_DB', '0'),
+            'options' => ['prefix' => ''],
+        ],
+
+        // Commands sent while a request holds a thread or send-key lock (180 s) must fail before that lock can expire.
+        // The pipe broker blocks on 'threads', so the read timeout lives on this separate connection.
+        'threads-commands' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_DB', '0'),
+            'timeout' => 5.0,
+            'read_timeout' => 30.0,
+            'options' => ['prefix' => ''],
+        ],
+
+        // The event window answers catch-up requests, so a hung Redis must fail within seconds.
+        // The pipe broker blocks on 'threads', so the limits live on this separate connection.
+        'thread-window' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_DB', '0'),
+            'timeout' => 2.0,
+            'read_timeout' => 2.0,
+            'options' => ['prefix' => ''],
+        ],
+
         'cache' => [
             'url' => env('REDIS_URL'),
             'host' => env('REDIS_HOST', '127.0.0.1'),

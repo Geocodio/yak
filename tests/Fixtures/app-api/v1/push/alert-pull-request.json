@@ -1,0 +1,21 @@
+{
+    "aps": {
+        "alert": {
+            "body": "Yak opened a pull request.",
+            "title": "Retry failed uploads"
+        },
+        "badge": 0,
+        "filter-criteria": "yak.example.com",
+        "interruption-level": "active",
+        "sound": "default",
+        "thread-id": "thread-d0e515ef"
+    },
+    "yak": {
+        "event": "pull_request",
+        "id": "d0e515ef",
+        "instance": "https://yak.example.com",
+        "kind": "thread",
+        "needsYouCount": 0,
+        "path": "/threads/d0e515ef"
+    }
+}

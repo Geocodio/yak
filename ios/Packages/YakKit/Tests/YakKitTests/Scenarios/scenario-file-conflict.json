@@ -1,0 +1,17 @@
+{
+  "error": "file_conflict",
+  "message": "The file changed since you opened it.",
+  "details": {
+    "state": "conflict",
+    "file": {
+      "path": "src/Importer.php",
+      "sha256": "7a8b9c0d7a8b9c0d7a8b9c0d7a8b9c0d7a8b9c0d7a8b9c0d7a8b9c0d7a8b9c0d",
+      "size": 185,
+      "isBinary": false,
+      "isTooLarge": false,
+      "content": "<?php\nnamespace Example\\Api;\n\nclass Importer\n{\n    public function run(array $rows): int\n    {\n        // Changed by Yak.\n        $count = count($rows);\n\n        return $count;\n    }\n}\n",
+      "headContent": "<?php\nnamespace Example\\Api;\n\nclass Importer\n{\n    public function run(array $rows): int\n    {\n        $count = 0;\n\n        return $count;\n    }\n}\n",
+      "language": "php"
+    }
+  }
+}

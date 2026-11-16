@@ -1,0 +1,9 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart yak-broker
+  ansible.builtin.systemd:
+    name: yak-broker
+    state: restarted

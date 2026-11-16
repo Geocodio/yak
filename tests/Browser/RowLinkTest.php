@@ -40,6 +40,6 @@ test('ctrl-click on a task row opens the task in a new tab', function () {
 
     $page = visit('/tasks')->assertNoJavaScriptErrors();
 
-    expect(modifierClickRow($page, "task-row-{$task->id}", "'click', { bubbles: true, ctrlKey: true }"))->toBe(route('tasks.show', $task, false));
+    expect(modifierClickRow($page, "task-row-{$task->public_id}", "'click', { bubbles: true, ctrlKey: true }"))->toBe(route('tasks.show', $task, false));
     $page->assertPathIs('/tasks');
 });

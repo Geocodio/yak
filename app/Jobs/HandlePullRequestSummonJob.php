@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Channels\GitHub\AppService;
 use App\Channels\GitHub\FollowUpCommentParser;
 use App\Channels\GitHub\PullRequestSummonReplier;
+use App\Enums\HeldEventKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\PendingSteeringMessage;
@@ -13,8 +14,10 @@ use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 use App\Services\ReviewFeedbackFormatter;
 use App\Services\TaskLogger;
+use App\Services\Teleport\HeldEvents;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Str;
 
 /**
  * Answers a `/yak` summon on a PR that Yak did not open. Yak always replies:
@@ -122,6 +125,10 @@ class HandlePullRequestSummonJob implements ShouldQueue
         $quote = $threadId === null && $this->issueCommentId !== null ? trim($this->issueCommentBody) : null;
 
         $root = YakTask::followUpRootForPr($prUrl);
+
+        if ($root !== null && app(HeldEvents::class)->holdIfDeviceOwned($root, HeldEventKind::Summon, "{$this->summonerLogin} asked Yak on the pull request", Str::limit($instructions, 500))) {
+            return;
+        }
 
         if ($root === null) {
             $task = $this->createRootTask($repository, $prUrl, $branch, $instructions, $threadId, $quote);

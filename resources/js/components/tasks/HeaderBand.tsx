@@ -1,10 +1,40 @@
 import { Link, router } from '@inertiajs/react';
-import { Button, ConfirmDialog, Menu, toast } from '@geocodio/console-ui';
+import { Button, ConfirmDialog, Menu, cn, toast } from '@geocodio/console-ui';
 import { ChevronLeft, ChevronRight, ExternalLink, FileText, Globe, GitPullRequest, ListTree, MessageSquareCode, MoreHorizontal, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { cancel, reRequestReview, rerunReview, reroute, retry, show } from '@/routes/tasks';
 import { tasks as tasksIndex } from '@/routes';
-import type { ActionsData, DeploymentData, TaskDetail } from '@/types/tasks';
+import type { ActionsData, DeploymentData, ProgressStep, TaskDetail } from '@/types/tasks';
+
+/** The seven stages as slim segments with their labels; on a phone the labels collapse to "Working, 3 of 7". */
+function ProgressBand({ steps }: { steps: ProgressStep[] }) {
+    const currentIndex = Math.max(0, steps.findIndex((step) => step.current));
+    const current = steps[currentIndex];
+
+    return (
+        <div className="shrink-0 border-b border-hair bg-panel px-4 pt-3 pb-3 sm:px-5" data-testid="progress-strip">
+            <p className="m-0 mb-[5px] flex justify-between text-[12px] text-muted lg:hidden">
+                <b className="font-semibold text-body">{current?.label}</b>
+                <span className="tnum">
+                    {currentIndex + 1} of {steps.length}
+                </span>
+            </p>
+            <ol className="m-0 flex list-none gap-1 p-0" aria-label="Progress">
+                {steps.map((step, index) => {
+                    const isCurrent = step.current;
+                    const isDone = step.done && !isCurrent;
+
+                    return (
+                        <li key={step.label} className="min-w-0 flex-1" title={step.tooltip} data-testid={`progress-step-${index}`} aria-current={isCurrent ? 'step' : undefined}>
+                            <i className={cn('block h-[3px] rounded-xs', isCurrent ? 'activity-fill' : isDone ? 'bg-accent' : 'bg-hair')} />
+                            <span className={cn('mt-[5px] hidden truncate text-[11px] lg:block', isCurrent ? 'font-semibold text-body' : isDone ? 'text-muted' : 'text-faint')}>{step.label}</span>
+                        </li>
+                    );
+                })}
+            </ol>
+        </div>
+    );
+}
 
 type ConfirmAction = { kind: 'retry' | 'cancel' | 'rerunReview' | 'requestReview' | 'reroute'; target?: string };
 
@@ -12,11 +42,14 @@ export function HeaderBand({
     task,
     actions,
     deployment,
+    progress,
     onOpenTranscript,
 }: {
     task: TaskDetail;
     actions: ActionsData;
     deployment: DeploymentData;
+    /** The progress stages, shown as a strip under the header while the task is active; null hides it. */
+    progress: ProgressStep[] | null;
     onOpenTranscript: () => void;
 }) {
     const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
@@ -173,6 +206,8 @@ export function HeaderBand({
                     />
                 </div>
             </header>
+
+            {progress && <ProgressBand steps={progress} />}
 
             <ConfirmDialog
                 open={confirm !== null}

@@ -1,0 +1,4 @@
+{
+    "auth": "<volatile:string>",
+    "channel_data": "<volatile:string>"
+}

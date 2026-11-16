@@ -15,7 +15,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Yak',
-      description: 'Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and GitHub and delivers reviewable pull requests while you work on what matters.',
+      description: 'Yak is a coding agent for your team. It takes work from Slack, Linear, Sentry, GitHub, email and the dashboard, runs Claude in an isolated sandbox, opens pull requests for human review and serves previews.',
       logo: {
         src: './src/assets/mascot.png',
         alt: 'Yak mascot',
@@ -46,25 +46,44 @@ export default defineConfig({
       },
       sidebar: [
         {
-          label: 'Getting Started',
+          label: 'Start here',
           items: [
-            { slug: 'setup' },
-            { slug: 'channels' },
-            { slug: 'repositories' },
-            { slug: 'repo-config' },
-            { slug: 'pr-review' },
+            { slug: 'concepts' },
           ],
         },
         {
-          label: 'Reference',
+          label: 'Work with Yak',
           items: [
-            { slug: 'architecture' },
+            { slug: 'threads' },
+            { slug: 'multi-repo' },
+            { slug: 'sub-threads' },
+            { slug: 'previews' },
+            { slug: 'teleport' },
+            { slug: 'ssh' },
+            { slug: 'cli' },
+            { slug: 'claude-accounts' },
+            { slug: 'notifications' },
+            { slug: 'pr-review' },
+            { slug: 'video-walkthroughs' },
+            { slug: 'dashboard' },
+          ],
+        },
+        {
+          label: 'Configure',
+          items: [
+            { slug: 'channels' },
+            { slug: 'repositories' },
+            { slug: 'repo-config' },
             { slug: 'prompting' },
           ],
         },
         {
-          label: 'Operations',
+          label: 'Run Yak',
           items: [
+            { slug: 'setup' },
+            { slug: 'upgrading' },
+            { slug: 'operations' },
+            { slug: 'architecture' },
             { slug: 'troubleshooting' },
           ],
         },

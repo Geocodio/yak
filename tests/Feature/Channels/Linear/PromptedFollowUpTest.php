@@ -11,6 +11,7 @@ use App\Jobs\SendCoOwnerMessagesJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\CoOwnerRequest;
 use App\Models\LinearOauthConnection;
+use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClarificationMessage;
@@ -165,6 +166,31 @@ it('does not create a follow-up and dispatches nothing when the PR is already me
 
     Bus::assertNotDispatched(RunFollowUpJob::class);
     expect(YakTask::whereNotNull('parent_task_id')->exists())->toBeFalse();
+});
+
+// --- Before a PR exists ---
+
+it('queues a steer instead of declining when prompted on a running task with no PR', function (): void {
+    Bus::fake();
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'sess-4',
+        'status' => TaskStatus::Running,
+        'pr_url' => null,
+    ]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-4'],
+        'agentActivity' => ['content' => ['body' => 'use the existing helper']],
+    ], $this->secret)->assertSuccessful()->assertJson(['handled' => 'steering']);
+
+    expect(PendingSteeringMessage::where('root_task_id', $task->id)->where('source', 'linear')->value('text'))->toBe('use the existing helper');
+    Bus::assertNotDispatched(RunFollowUpJob::class);
+    Http::assertNotSent(fn ($request) => str_contains((string) $request->body(), 'already merged or closed'));
 });
 
 // --- Unknown session ---

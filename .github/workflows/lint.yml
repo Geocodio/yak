@@ -13,42 +13,54 @@ on:
       - master
 
 jobs:
-  pint:
+  linter:
     runs-on: ubuntu-latest
     environment: Testing
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Setup app
+        uses: ./.github/actions/setup-php-app
         with:
-          php-version: '8.5'
+          flux-username: ${{ secrets.FLUX_USERNAME }}
+          flux-license-key: ${{ secrets.FLUX_LICENSE_KEY }}
 
-      - name: Add Flux Credentials Loaded From ENV
-        run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
-
-      - name: Install Dependencies
-        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-
-      - name: Run Pint
+      - name: Pint
         run: vendor/bin/pint --test
 
-  phpstan:
-    runs-on: ubuntu-latest
-    environment: Testing
-    steps:
-      - uses: actions/checkout@v6
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=2G
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Setup Node
+        uses: actions/setup-node@v6
         with:
-          php-version: '8.5'
+          node-version: '22'
+          cache: npm
 
-      - name: Add Flux Credentials Loaded From ENV
-        run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
+      # Composer first: package.json installs @cboxdk/telemetry-ui from vendor/.
+      - name: Install Node dependencies
+        run: npm ci
 
-      - name: Install Dependencies
-        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+      - name: TypeScript
+        run: npx tsc --noEmit
 
-      - name: Run PHPStan
-        run: vendor/bin/phpstan analyse --memory-limit=512M
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: broker/go.mod
+          cache-dependency-path: |
+            broker/go.sum
+            cli/go.sum
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l broker cli)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: |
+          (cd broker && go vet ./...)
+          (cd cli && go vet ./...)

@@ -101,7 +101,7 @@ test('stages, outliers, failures, kinds, tokens and tools are derived from task 
             ->where('stages.6.stage', 'ci_wait_ms')
             ->where('outliers.0.totalMs', 900_000)
             ->where('outliers.0.externalId', 'ENG-1')
-            ->where('outliers.0.taskUrl', route('tasks.show', $task->id))
+            ->where('outliers.0.taskUrl', route('tasks.show', $task->public_id))
             ->has('outliers', 2)
             ->where('failures.0.category', 'error_max_turns')
             ->where('failures.0.count', 1)

@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\DeploymentStatus;
+use App\Models\Concerns\HasPublicId;
+use App\Models\Scopes\VisibleDeploymentScope;
 use App\Observers\BranchDeploymentObserver;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\BranchDeploymentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * from the `$casts` property only -- it does not read the `casts()` method
  * form this model uses, so without these it infers the raw column types.
  *
+ * @property string $public_id
  * @property DeploymentStatus $status
  * @property int $template_version
  * @property int|null $pr_number
@@ -31,10 +35,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read Repository $repository
  */
 #[ObservedBy([BranchDeploymentObserver::class])]
+#[ScopedBy(VisibleDeploymentScope::class)]
 class BranchDeployment extends Model
 {
     /** @use HasFactory<BranchDeploymentFactory> */
-    use HasFactory, ModelHasStateMachine;
+    use HasFactory, HasPublicId, ModelHasStateMachine;
 
     protected $guarded = [];
 
@@ -80,6 +85,15 @@ class BranchDeployment extends Model
             ?? ($this->long_lived
                 ? (int) config('yak.deployments.long_lived_idle_minutes')
                 : (int) config('yak.deployments.idle_minutes'));
+    }
+
+    /**
+     * Whether a torn-down row may be rebuilt: its PR is still open and the
+     * repository still has deployments on.
+     */
+    public function isRedeployable(): bool
+    {
+        return $this->pr_state === 'open' && $this->repository->deployments_enabled;
     }
 
     /**

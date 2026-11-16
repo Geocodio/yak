@@ -245,7 +245,7 @@ final class AnalyticsReport
             ->map(fn (TaskRun $run): array => [
                 'runId' => $run->id,
                 'taskId' => $run->yak_task_id,
-                'taskUrl' => route('tasks.show', $run->yak_task_id),
+                'taskUrl' => route('tasks.show', ['task' => YakTask::publicIdForKey($run->yak_task_id)]),
                 'externalId' => $run->task?->external_id,
                 'repo' => $run->repo,
                 'kind' => $run->kind->value,
@@ -530,7 +530,7 @@ final class AnalyticsReport
                 'repo' => $event->repo,
                 'source' => $event->source,
                 'taskId' => $event->yak_task_id,
-                'taskUrl' => $event->yak_task_id !== null ? route('tasks.show', $event->yak_task_id) : null,
+                'taskUrl' => $event->yak_task_id !== null ? route('tasks.show', ['task' => YakTask::publicIdForKey($event->yak_task_id)]) : null,
                 'durationMs' => $event->duration_ms,
                 'value' => $event->value,
                 'properties' => $event->properties,

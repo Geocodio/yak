@@ -9,7 +9,7 @@
         <h1>This preview didn't come up</h1>
         <p>Yak tried to boot the sandbox for <span class="hostname">{{ $deployment->hostname }}</span> and hit a snag.</p>
         <div class="reason">{{ $reason }}</div>
-        <a class="cta" href="{{ config('app.url') . '/deployments/' . $deployment->id }}">
+        <a class="cta" href="{{ rtrim(config('app.url'), '/') . route('deployments.show', $deployment, false) }}">
             Open in Yak dashboard <span class="arrow">&rarr;</span>
         </a>
         <p class="tagline">Or ping whoever pushed this branch &mdash; they'll know what's up.</p>

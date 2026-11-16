@@ -20,23 +20,6 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
 /**
- * Sign a Slack webhook payload using the v0:timestamp:body format.
- *
- * @return array{X-Slack-Request-Timestamp: string, X-Slack-Signature: string}
- */
-function signSlackPayload(string $body, string $secret, ?string $timestamp = null): array
-{
-    $timestamp = $timestamp ?? (string) time();
-    $basestring = "v0:{$timestamp}:{$body}";
-    $signature = 'v0=' . hash_hmac('sha256', $basestring, $secret);
-
-    return [
-        'X-Slack-Request-Timestamp' => $timestamp,
-        'X-Slack-Signature' => $signature,
-    ];
-}
-
-/**
  * Build a Slack app_mention event payload.
  *
  * @param  array<string, mixed>  $overrides
@@ -52,29 +35,6 @@ function slackMentionPayload(string $text = 'fix the login bug', array $override
             'channel' => 'C12345678',
             'ts' => '1234567890.123456',
             'user' => 'U_USER_ID',
-        ], $overrides['event'] ?? []),
-    ], array_diff_key($overrides, ['event' => true, 'event_id' => true]));
-
-    return (string) json_encode($payload);
-}
-
-/**
- * Build a Slack thread reply event payload.
- *
- * @param  array<string, mixed>  $overrides
- */
-function slackThreadReplyPayload(string $text, string $channel, string $threadTs, array $overrides = []): string
-{
-    $payload = array_merge([
-        'type' => 'event_callback',
-        'event_id' => $overrides['event_id'] ?? 'Ev' . Str::random(10),
-        'event' => array_merge([
-            'type' => 'message',
-            'text' => $text,
-            'channel' => $channel,
-            'thread_ts' => $threadTs,
-            'ts' => '1234567899.999999',
-            'user' => 'U_REPLY_USER',
         ], $overrides['event'] ?? []),
     ], array_diff_key($overrides, ['event' => true, 'event_id' => true]));
 

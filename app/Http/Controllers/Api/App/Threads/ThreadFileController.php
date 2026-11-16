@@ -1,0 +1,164 @@
+<?php
+
+namespace App\Http\Controllers\Api\App\Threads;
+
+use App\Enums\DiffFileStatus;
+use App\Enums\FileScope;
+use App\Enums\RunnerState;
+use App\Enums\ThreadLockHolder;
+use App\Exceptions\ThreadActionRefused;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\App\ListThreadFilesRequest;
+use App\Http\Requests\Api\App\SaveAppThreadFileRequest;
+use App\Http\Requests\Api\App\SearchThreadFilesRequest;
+use App\Http\Requests\Api\App\ShowThreadFileRequest;
+use App\Http\Resources\ThreadDiffData;
+use App\Models\Thread;
+use App\Services\Threads\Files\FileSaver;
+use App\Services\Threads\Files\HumanEditNotes;
+use App\Services\Threads\Files\SandboxFileAvailability;
+use App\Services\Threads\Files\SandboxFiles;
+use App\Services\Threads\Files\SandboxPath;
+use App\Services\Threads\ThreadSandbox;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
+
+class ThreadFileController extends Controller
+{
+    public function __construct(
+        private readonly SandboxFiles $files,
+        private readonly ThreadSandbox $sandbox,
+        private readonly SandboxFileAvailability $availability,
+    ) {}
+
+    /**
+     * One folder of the repository or the sandbox. A sandbox that cannot serve files answers 409 `sandbox_unavailable`
+     * with the state the app shows.
+     */
+    public function tree(ListThreadFilesRequest $request, Thread $thread): JsonResponse
+    {
+        $this->ensureAvailable($request, $thread);
+
+        $scope = $request->fileScope();
+        $directory = $request->folderPath();
+        $listing = $this->files->listFolder($thread, $scope, $directory);
+        $this->sandbox->markSessionOpen($thread);
+
+        $paths = $scope === FileScope::Repository ? $this->changedPaths($thread) : ['changed' => [], 'added' => []];
+
+        return response()->json([
+            'state' => 'ready',
+            'root' => SandboxPath::resolveDirectory($thread, $scope, $directory),
+            'entries' => array_map(fn ($entry) => $entry->toArray(), $listing->entries),
+            'changedPaths' => $paths['changed'],
+            'addedPaths' => $paths['added'],
+            'truncated' => $listing->truncated,
+        ]);
+    }
+
+    /**
+     * One file with its hash and committed version, in the web's shape plus `state` and `canEdit`.
+     */
+    public function show(ShowThreadFileRequest $request, Thread $thread): JsonResponse
+    {
+        $this->ensureAvailable($request, $thread);
+
+        $scope = $request->fileScope();
+        $path = $request->folderPath();
+        $file = $this->files->read($thread, $scope, $path);
+        $this->sandbox->markSessionOpen($thread);
+
+        $canEdit = Gate::allows('drive', $thread)
+            && ! $file->isTooLarge
+            && ! $file->isBinary
+            && SandboxPath::isWritable(SandboxPath::resolve($thread, $scope, $path));
+
+        return response()->json([...$file->toArray(), 'state' => 'ready', 'canEdit' => $canEdit]);
+    }
+
+    /**
+     * Repository files whose path contains the query, at most 100.
+     */
+    public function search(SearchThreadFilesRequest $request, Thread $thread): JsonResponse
+    {
+        $this->ensureAvailable($request, $thread);
+
+        $result = $this->files->search($thread, $request->string('q')->toString());
+        $this->sandbox->markSessionOpen($thread);
+
+        return response()->json(['state' => 'ready', ...$result]);
+    }
+
+    /**
+     * Saves the person's edit over the file they opened. A changed file answers 409 `file_conflict` with the file on
+     * disk; a repeated save of the same content is recognised by the file itself and writes nothing twice.
+     */
+    public function update(SaveAppThreadFileRequest $request, Thread $thread, FileSaver $saver, HumanEditNotes $notes): JsonResponse
+    {
+        $this->ensureAvailable($request, $thread);
+
+        $user = $request->user() ?? abort(401);
+        $scope = FileScope::from($request->string('scope')->toString());
+        $path = $request->string('path')->toString();
+
+        $outcome = $saver->save(
+            $thread,
+            $user,
+            $scope,
+            $path,
+            (string) $request->input('content'),
+            $request->string('base_sha256')->toString(),
+            $request->boolean('overwrite'),
+        );
+
+        if (! $outcome->saved || $outcome->written === null) {
+            throw ThreadActionRefused::because(ThreadActionRefused::FILE_CONFLICT, 'The file changed since you opened it.', [
+                'state' => 'conflict',
+                'file' => $outcome->current?->toArray(),
+            ]);
+        }
+
+        if (! $outcome->unchanged) {
+            $notes->record($thread, $user, SandboxPath::resolve($thread, $scope, $path), $outcome->written->sha256);
+        }
+
+        $this->sandbox->markSessionOpen($thread);
+        $thread->refresh();
+
+        return response()->json([
+            ...$outcome->toArray(),
+            'working' => $thread->runner_state === RunnerState::Busy || $thread->lock_holder !== ThreadLockHolder::None,
+        ]);
+    }
+
+    private function ensureAvailable(FormRequest $request, Thread $thread): void
+    {
+        $unavailable = $this->availability->check($thread, $request->user() ?? abort(401));
+
+        if ($unavailable !== null) {
+            throw ThreadActionRefused::because(ThreadActionRefused::SANDBOX_UNAVAILABLE, $unavailable->message(), $unavailable->details());
+        }
+    }
+
+    /**
+     * @return array{changed: list<string>, added: list<string>}
+     */
+    private function changedPaths(Thread $thread): array
+    {
+        $changed = [];
+        $added = [];
+
+        foreach (ThreadDiffData::build($thread)['diff']['files'] ?? [] as $file) {
+            if ($file['repo'] === $thread->repo) {
+                $changed[] = $file['path'];
+
+                if ($file['status'] === DiffFileStatus::Added->value) {
+                    $added[] = $file['path'];
+                }
+            }
+        }
+
+        return ['changed' => $changed, 'added' => $added];
+    }
+}
