@@ -56,15 +56,28 @@ struct YakApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(model: model)
-                .appRoot(parts, model: model)
-                .task {
-                    delegate.attach(parts.push)
-                    await parts.push.start()
+            #if DEBUG
+                if TestMode.value("yakTestScreen") == "live-activity-gallery" {
+                    LiveActivityGallery(
+                        stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "working")
+                } else {
+                    root
                 }
-                #if DEBUG
-                    .preferredColorScheme(TestMode.colorScheme())
-                #endif
+            #else
+                root
+            #endif
         }
+    }
+
+    private var root: some View {
+        RootView(model: model)
+            .appRoot(parts, model: model)
+            .task {
+                delegate.attach(parts.push)
+                await parts.push.start()
+            }
+            #if DEBUG
+                .preferredColorScheme(TestMode.colorScheme())
+            #endif
     }
 }

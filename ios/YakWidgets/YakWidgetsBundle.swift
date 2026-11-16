@@ -3,5 +3,7 @@ import WidgetKit
 
 @main
 struct YakWidgetsBundle: WidgetBundle {
-    var body: some Widget {}
+    var body: some Widget {
+        ThreadLiveActivity()
+    }
 }
