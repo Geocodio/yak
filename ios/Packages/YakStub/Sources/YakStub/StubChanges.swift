@@ -71,12 +71,20 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         if tab != "tasks" {
             rows = []
         } else if page >= 2 {
-            rows = rows.suffix(1).map { var row = $0; row["id"] = "t7u3x9yc"; row["description"] = "Archive old exports"; return row }
+            rows = rows.suffix(1).map {
+                var row = $0
+                row["id"] = "t7u3x9yc"
+                row["description"] = "Archive old exports"
+                return row
+            }
         }
         if scenario == "tasks-nulls" {
             rows = rows.map { row in
                 var row = row
-                if var pr = row["pr"] as? [String: Any] { pr["url"] = NSNull(); row["pr"] = pr }
+                if var pr = row["pr"] as? [String: Any] {
+                    pr["url"] = NSNull()
+                    row["pr"] = pr
+                }
                 return row
             }
         }
@@ -166,7 +174,8 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         case "co-owner/approve":
             var reply = status("approved")
             if context.scenario == "task-refused" {
-                return StubReply(answer: Scenario.error(409, "github_failed", "GitHub could not open the pull request."))
+                return StubReply(
+                    answer: Scenario.error(409, "github_failed", "GitHub could not open the pull request."))
             }
             if context.scenario == "task-slow-approve" { reply.delay = .seconds(5) }
             state.mutate { $0.decision = ("approved", "Test person") }
