@@ -4,17 +4,24 @@ import Network
 /// An HTTP/1.1 server on the loopback interface that plays one `Scenario` at a time. The scenario is
 /// switched by `POST /__stub/scenario` with the scenario name as the body, so one running server serves
 /// every UI test. `GET /__stub/online` answers `yes` or `no`; `POST /__stub/online` with that body sets it, and
-/// the app in test mode reads it as its network state. A new scenario puts it back to `yes`.
+/// the app in test mode reads it as its network state. A new scenario puts it back to `yes`. While offline every
+/// API request is dropped.
 final class StubServer: Sendable {
     private let fixtures: StubFixtures
     private let current: Locked<Scenario>
     private let online = Locked(true)
     private let attachments: StubAttachments
     private let attachmentScenario = Locked<String?>(nil)
+    private let threads = StubThreads()
     private let listener: NWListener
+    private let socket: PusherSocket
+    private let socketPort = Locked<UInt16>(0)
 
     /// `scenarios` is the folder of hand-written scenario files that the attachment scenarios read.
-    init(port: UInt16, fixtures: StubFixtures, scenario: Scenario, scenarios: URL? = nil) throws {
+    init(
+        port: UInt16, fixtures: StubFixtures, scenario: Scenario, scenarios: URL? = nil,
+        playbackInterval: Duration = .milliseconds(400)
+    ) throws {
         self.fixtures = fixtures
         attachments = StubAttachments { name in
             guard let folder = scenarios else { return nil }
@@ -25,14 +32,23 @@ final class StubServer: Sendable {
                 return nil
             }
         }
-        self.current = Locked(scenario)
+        let current = Locked(scenario)
+        let online = self.online
+        self.current = current
+        socket = try PusherSocket(
+            fixtures: fixtures, threads: threads, playbackInterval: playbackInterval,
+            scenario: { current.get() }, isOnline: { online.get() })
         let parameters = NWParameters.tcp
         parameters.requiredInterfaceType = .loopback
         listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port) ?? .any)
     }
 
+    /// The port of the WebSocket listener, known after `start()`.
+    var realtimePort: UInt16 { socketPort.get() }
+
     /// Starts listening and returns the port in use.
     func start() async throws -> UInt16 {
+        socketPort.set(try await socket.start())
         listener.newConnectionHandler = { [self] connection in handle(connection) }
         return try await withCheckedThrowingContinuation { continuation in
             let once = Once()
@@ -47,6 +63,12 @@ final class StubServer: Sendable {
             }
             listener.start(queue: .global())
         }
+    }
+
+    /// Stops both listeners and closes every WebSocket.
+    func stop() {
+        listener.cancel()
+        socket.stop()
     }
 
     private func handle(_ connection: NWConnection) {
@@ -86,6 +108,8 @@ final class StubServer: Sendable {
                 }
                 online.set(true)
                 attachments.setOnline(true)
+                threads.reset()
+                socket.reset()
             }
             let body = Data((attachmentScenario.get() ?? current.get().rawValue).utf8)
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: body))
@@ -100,17 +124,25 @@ final class StubServer: Sendable {
                 }
                 online.set(state == "yes")
                 attachments.setOnline(state == "yes")
+                if state == "no" { socket.closeAll() }
             }
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data((online.get() ? "yes" : "no").utf8)))
         }
+        if request.path == "/__stub/last-message" {
+            return StubReply(
+                answer: .reply(status: 200, contentType: "text/plain", body: Data(threads.lastMessage.utf8)))
+        }
+        if !online.get(), request.path.hasPrefix(Scenario.apiPrefix) { return StubReply(answer: .drop) }
         let host = request.headers["host"] ?? "127.0.0.1"
         if let name = attachmentScenario.get(),
             let reply = attachments.reply(to: request, scenario: name, baseURL: "http://\(host)")
         {
             return reply
         }
-        return current.get().reply(to: request, baseURL: "http://\(host)", fixtures: fixtures)
+        return current.get().reply(
+            to: request, baseURL: "http://\(host)", fixtures: fixtures, threads: threads,
+            realtimePort: socketPort.get())
     }
 
     private static func write(_ reply: StubReply, for request: StubRequest, to connection: NWConnection) {
@@ -189,17 +221,20 @@ final class StubServer: Sendable {
 }
 
 /// A value readable and changeable from any connection.
-private final class Locked<Value: Sendable>: @unchecked Sendable {
+final class Locked<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Value
 
     init(_ value: Value) { self.value = value }
     func get() -> Value { lock.withLock { value } }
     func set(_ new: Value) { lock.withLock { value = new } }
+    @discardableResult func mutate<Result>(_ change: (inout Value) -> Result) -> Result {
+        lock.withLock { change(&value) }
+    }
 }
 
 /// Lets only the first of several callbacks through.
-private final class Once: @unchecked Sendable {
+final class Once: @unchecked Sendable {
     private let lock = NSLock()
     private var done = false
     func first() -> Bool {

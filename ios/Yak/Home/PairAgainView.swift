@@ -38,7 +38,7 @@ struct PairAgainView: View {
         .sheet(isPresented: $showsScanner) {
             NavigationStack {
                 ConnectView(model: model, onDone: { showsScanner = false })
-                    .linkPairingStatus(model, inSheet: true)
+                    .linkPairingStatus(model, sheetDepth: 1)
                     .countsAsOpenSheet(model)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -53,7 +53,7 @@ struct PairAgainView: View {
                     model: model, initialAddress: typedAddress,
                     onDone: { showsPairing = false }
                 )
-                .linkPairingStatus(model, inSheet: true)
+                .linkPairingStatus(model, sheetDepth: 1)
                 .countsAsOpenSheet(model)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {

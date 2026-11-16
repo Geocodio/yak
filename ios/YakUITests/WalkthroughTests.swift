@@ -5,19 +5,7 @@ import XCTest
 /// screenshot of each to `$YAK_SHOT_DIR/<state>.png`, then runs the accessibility audit on it. It is not part
 /// of the smoke lane; run it with `bundle exec fastlane walkthrough device:"iPhone 18 Pro" appearance:dark`.
 /// `YAK_APPEARANCE` (light or dark), `YAK_TEXT_SIZE` (largest) and `YAK_ORIENTATION` (landscape) pick the variant.
-@MainActor final class WalkthroughTests: XCTestCase {
-    private var stub: StubControl!
-    private let app = XCUIApplication()
-    private let environment = ProcessInfo.processInfo.environment
-
-    override func setUp() async throws {
-        continueAfterFailure = true
-        stub = try StubControl()
-        // Both appearances are set explicitly, because a simulator can be left in dark mode.
-        XCUIDevice.shared.appearance = environment["YAK_APPEARANCE"] == "dark" ? .dark : .light
-        if environment["YAK_ORIENTATION"] == "landscape" { XCUIDevice.shared.orientation = .landscapeLeft }
-    }
-
+@MainActor final class WalkthroughTests: WalkthroughCase {
     // MARK: Connect and scanner
 
     func testConnect() throws {
@@ -147,6 +135,7 @@ import XCTest
 
     func testLinkConfirmationReplacesTheSavedInstance() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         try openLinkAndWaitForConfirmation()
         XCTAssertTrue(label("replaces the instance").exists)
@@ -155,6 +144,7 @@ import XCTest
 
     func testLinkOverTheAddSheet() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         app.buttons["Add an instance"].tap()
         XCTAssertTrue(app.buttons["Scan a code"].waitForExistence(timeout: 5))
@@ -164,6 +154,7 @@ import XCTest
 
     func testLinkOverSignedIn() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         try openLinkAndWaitForConfirmation()
         try shoot("link-over-signed-in")
@@ -218,6 +209,7 @@ import XCTest
 
     func testSignedIn() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as Test Person").waitForExistence(timeout: 10))
         try shoot("signed-in")
         app.buttons["Add an instance"].tap()
@@ -227,6 +219,7 @@ import XCTest
 
     func testSignedInRemoveConfirmation() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         app.buttons["Remove this instance"].tap()
         XCTAssertTrue(app.buttons["Remove"].waitForExistence(timeout: 5))
@@ -235,25 +228,30 @@ import XCTest
 
     func testSignedInRefreshing() throws {
         try start("slow", paired: true)
+        openAccount()
         XCTAssertTrue(label("Refreshing").waitForExistence(timeout: 5))
         try shoot("signed-in-refreshing")
     }
 
     func testSignedInRefreshingSlowly() throws {
         try start("slower", paired: true)
+        openAccount()
         XCTAssertTrue(label("The connection is slow").waitForExistence(timeout: 12))
         try shoot("signed-in-refreshing-slow")
     }
 
     func testSignedInOffline() throws {
         try start("paired", paired: true)
+        openAccount()
         XCTAssertTrue(label("Signed in as").waitForExistence(timeout: 10))
         try stub.setOnline(false)
         XCTAssertTrue(label("You are offline").waitForExistence(timeout: 15))
         try shoot("signed-in-offline")
     }
 
-    func testSignedInUnreachable() throws { try signedInProblem("down", "Could not reach", "signed-in-unreachable") }
+    func testSignedInUnreachable() throws {
+        try signedInProblem("down", "Could not reach", "signed-in-unreachable", inAccountSheet: true)
+    }
     func testSignedInAppTooOld() throws {
         try signedInProblem("server-too-new", "This version of the app is too old", "signed-in-app-too-old")
     }
@@ -261,7 +259,7 @@ import XCTest
         try signedInProblem("server-too-old", "Your Yak is too old", "signed-in-server-too-old")
     }
     func testSignedInFailed() throws {
-        try signedInProblem("broken", "Your Yak answered with an error", "signed-in-failed")
+        try signedInProblem("broken", "Your Yak answered with an error", "signed-in-failed", inAccountSheet: true)
     }
 
     func testTokenUnreadable() throws {
@@ -317,8 +315,11 @@ import XCTest
         try expectProblem(title, shot: "link-problem-\(scenario)")
     }
 
-    private func signedInProblem(_ scenario: String, _ text: String, _ shot: String) throws {
+    private func signedInProblem(
+        _ scenario: String, _ text: String, _ shot: String, inAccountSheet: Bool = false
+    ) throws {
         try start(scenario, paired: true)
+        if inAccountSheet { openAccount() }
         XCTAssertTrue(label(text).waitForExistence(timeout: 15))
         try shoot(shot)
     }
@@ -342,27 +343,6 @@ import XCTest
     }
 
     // MARK: Helpers
-
-    private func start(
-        _ scenario: String, paired: Bool = false, keychainLocked: Bool = false, skipsWebSession: Bool = false
-    ) throws {
-        try stub.play(scenario)
-        var arguments = ["-yakTestInstance", stub.url]
-        if paired { arguments += ["-yakTestToken", "stub-token"] }
-        if keychainLocked { arguments += ["-yakTestKeychainLocked", "YES"] }
-        if skipsWebSession { arguments += ["-yakTestSkipWebSession", "YES"] }
-        // The device appearance alone is not honoured on every iPad run, so the app is also told directly.
-        if environment["YAK_APPEARANCE"] == "dark" { arguments += ["-AppleInterfaceStyle", "Dark"] }
-        if environment["YAK_TEXT_SIZE"] == "largest" {
-            arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
-        }
-        app.launchArguments = arguments
-        app.launch()
-    }
-
-    private func label(_ text: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
-    }
 
     private func openAddress() throws {
         let button = app.buttons["Enter an address"]
@@ -392,71 +372,5 @@ import XCTest
         continueButton.tap()
         XCTAssertTrue(alert.waitForNonExistence(timeout: 5), "the sign-in prompt is still up")
         Thread.sleep(forTimeInterval: 1)
-    }
-
-    /// A screenshot is always in the device's portrait orientation; in landscape it is turned so it reads upright.
-    private func upright(_ screenshot: XCUIScreenshot) -> Data {
-        guard environment["YAK_ORIENTATION"] == "landscape", let image = screenshot.image.cgImage else {
-            return screenshot.pngRepresentation
-        }
-        let turned = UIImage(cgImage: image, scale: screenshot.image.scale, orientation: .left)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = turned.scale
-        return UIGraphicsImageRenderer(size: turned.size, format: format).pngData { _ in turned.draw(at: .zero) }
-    }
-
-    /// Saves the screenshot once animations settle, then audits the screen. `audits: false` is for screens
-    /// that the system covers with its own UI, which the audit cannot reach.
-    private func shoot(_ name: String, audits: Bool = true) throws {
-        Thread.sleep(forTimeInterval: 0.8)
-        let directory = try XCTUnwrap(environment["YAK_SHOT_DIR"], "YAK_SHOT_DIR is not set")
-        try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
-        try upright(XCUIScreen.main.screenshot()).write(to: URL(fileURLWithPath: "\(directory)/\(name).png"))
-        // The remove confirmation is the system's own dialog; the audit reports only its fixed text sizes.
-        guard audits, !name.hasSuffix("remove-confirmation") else { return }
-        try app.performAccessibilityAudit { [self, app] issue in
-            let description = issue.element?.debugDescription ?? ""
-            // A disabled control is dimmed on purpose, and the system's own sheet buttons are not ours to change.
-            if issue.auditType == .contrast, description.contains("Disabled") { return true }
-            // The keyboard covers part of a screen that scrolls; what is behind it cannot be judged.
-            if issue.auditType == .contrast, let element = issue.element, app.keyboards.firstMatch.exists,
-                app.keyboards.firstMatch.frame.intersects(element.frame)
-            {
-                return true
-            }
-            // The audit cannot match some text under the dimming of a sheet to an element.
-            if issue.auditType == .elementDetection, issue.element == nil,
-                ["signed-in-add-sheet", "pair-again-address-sheet"].contains(name)
-            {
-                return true
-            }
-            // Text below the screen on a scrolling page, or a finding without an element, cannot be judged by
-            // the pixels shown.
-            let screenBottom = app.windows.firstMatch.frame.maxY
-            // At the largest text size the long replacement note runs past the screen edge, and the line cut by the
-            // edge has no element of its own.
-            if issue.auditType == .contrast, issue.element == nil, environment["YAK_TEXT_SIZE"] == "largest",
-                name == "link-confirmation-replaces"
-            {
-                return true
-            }
-            if issue.auditType == .contrast, let element = issue.element, element.frame.maxY > screenBottom {
-                return true
-            }
-            // The Cancel in a navigation bar is the toolbar button, which is dimmed under a sheet's dimming and
-            // sized by the system; the Cancel buttons in the page are judged.
-            if let element = issue.element, element.label == "Cancel",
-                [.contrast, .dynamicType].contains(issue.auditType),
-                app.navigationBars.allElementsBoundByIndex.contains(where: { $0.frame.contains(element.frame) })
-            {
-                return true
-            }
-            // The address field is one line by design: an address never wraps.
-            if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
-            XCTFail(
-                "audit [\(name)]: \(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "no element")"
-            )
-            return true
-        }
     }
 }

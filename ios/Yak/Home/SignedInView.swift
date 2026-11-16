@@ -5,6 +5,8 @@ import YakKit
 struct SignedInView: View {
     let model: AppModel
     let instance: Instance
+    /// Set when the screen is a sheet, so it can be closed.
+    var onClose: (() -> Void)?
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var showsAdd = false
@@ -37,12 +39,7 @@ struct SignedInView: View {
                 }
                 if let message = failureMessage, model.network.isOnline {
                     Section {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(message)
-                            Button("common.retry") { Task { await model.refreshMe(for: instance) } }
-                                .buttonStyle(SecondaryButtonStyle())
-                        }
-                        .padding(.vertical, 4)
+                        InstanceProblemView(message: message) { Task { await model.refreshMe(for: instance) } }
                     }
                 }
                 Section {
@@ -59,6 +56,11 @@ struct SignedInView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("signedIn.title")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if let onClose {
+                    ToolbarItem(placement: .cancellationAction) { Button("common.close", action: onClose) }
+                }
+            }
         }
         .task(id: instance.id) { await model.refreshMe(for: instance) }
         .task(id: model.refreshState == .loading) {
@@ -88,7 +90,7 @@ struct SignedInView: View {
         .sheet(isPresented: $showsAdd) {
             NavigationStack {
                 ConnectView(model: model, onDone: { showsAdd = false })
-                    .linkPairingStatus(model, inSheet: true)
+                    .linkPairingStatus(model, sheetDepth: 2)
                     .countsAsOpenSheet(model)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {

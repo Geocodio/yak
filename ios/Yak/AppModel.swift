@@ -21,6 +21,8 @@ final class AppModel {
     }
 
     private(set) var route: Route = .connect
+    /// The running session of the signed-in instance; set together with the route.
+    private(set) var activeSession: InstanceSession?
     private(set) var refreshState: RefreshState = .idle
     private(set) var hasLoaded = false
     /// The pairing in progress for a scanned or opened link, kept while it shows a problem.
@@ -32,11 +34,25 @@ final class AppModel {
     var linkHost: String? { linkToPair?.instance.host() }
 
     let instances: InstanceStore
+    let sessions: SessionRegistry
     private let tokens: any TokenStore
     private let makeClient: @Sendable (URL) -> APIClient
     let pairing: Pairing
     private let normalizeAddress: @Sendable (String) -> URL?
     private let parseLink: @Sendable (URL) -> PairingLink?
+    private let normalizeLinkAddress: @Sendable (String) -> URL?
+    /// The window the app shows; links that are not pairing links go to it.
+    private weak var scene: SceneModel?
+    /// A link that arrived before the window chose its first screen; the cold start reads it once.
+    private(set) var launchLink: DeepLink?
+    /// The task page to show in the in-app browser.
+    var browserURL: URL?
+    /// An instance a link named that this phone is not paired with; the shell shows the connect flow for it.
+    var addressToConnect: URL?
+    /// Set by the shell from the window's size class, for links that open a thread.
+    var isCompactWidth = true
+    /// The instance whose session is running, so leaving it stops the session.
+    private var runningInstance: UUID?
     /// Runs once before the first route is chosen; UI tests seed their instance here.
     private var prepare: (@Sendable (InstanceStore) async -> Void)?
     let network: NetworkMonitor
@@ -50,12 +66,18 @@ final class AppModel {
         instances: InstanceStore, tokens: any TokenStore, makeClient: @escaping @Sendable (URL) -> APIClient,
         normalizeAddress: @escaping @Sendable (String) -> URL? = InstanceAddress.normalize,
         parseLink: @escaping @Sendable (URL) -> PairingLink? = { PairingLink(url: $0) },
+        normalizeLinkAddress: @escaping @Sendable (String) -> URL? = DeepLink.normalizeHTTPS,
+        makeEnvironment: @escaping @Sendable () -> SessionEnvironment = {
+            .app(version: "0.0.0", system: "Unit test", files: InMemoryFileStore(), allowsInsecureRealtime: false)
+        },
         prepare: (@Sendable (InstanceStore) async -> Void)? = nil,
         network: NetworkMonitor = NetworkMonitor()
     ) {
         self.network = network
         self.normalizeAddress = normalizeAddress
         self.parseLink = parseLink
+        self.normalizeLinkAddress = normalizeLinkAddress
+        self.sessions = SessionRegistry(instances: instances, tokens: tokens, makeEnvironment: makeEnvironment)
         self.prepare = prepare
         self.instances = instances
         self.tokens = tokens
@@ -68,15 +90,59 @@ final class AppModel {
     func makePairingModel() -> PairingModel {
         PairingModel(
             pairing: pairing, device: { DeviceDescription.current() },
-            onPaired: { [weak self] _ in await self?.reloadRoute() },
+            onPaired: { [weak self] instance in
+                self?.scene?.justPairedUserName = instance.userName
+                await self?.reloadRoute()
+            },
             pairedInstances: { [weak self] in await self?.instances.all() ?? [] },
             normalizeAddress: normalizeAddress)
     }
 
-    /// Starts pairing with the instance a `yak://pair` link names, up to the confirmation; any other URL changes nothing.
+    /// The model of a window; `restored` is what the window saved last time.
+    func makeSceneModel(restored: Data?) -> SceneModel {
+        let model = SceneModel(state: SceneModel.restoredState(from: restored))
+        scene = model
+        return model
+    }
+
+    /// A `yak://pair` link starts pairing up to the confirmation; the other links go to the window.
     func handle(url: URL) async {
-        guard let link = parseLink(url) else { return }
-        await pair(link: link)
+        if let link = parseLink(url) {
+            await pair(link: link)
+        } else if let link = DeepLink(url: url, normalize: normalizeLinkAddress, parsePair: parseLink) {
+            await handle(link: link)
+        }
+    }
+
+    /// Hands the cold start the link that launched the app, once.
+    func takeLaunchLink() -> DeepLink? {
+        defer { launchLink = nil }
+        return launchLink
+    }
+
+    func handle(link: DeepLink) async {
+        guard let scene, scene.hasAppliedColdStart, case .signedIn(let active) = route else {
+            if case .pair = link { return }
+            if hasLoaded, case .connect = route {
+                switch link {
+                case .thread(let address, _), .task(let address, _), .newThread(let address, _, _):
+                    addressToConnect = address
+                    return
+                case .pair: break
+                }
+            }
+            launchLink = link
+            return
+        }
+        let paired = await instances.all()
+        switch scene.handle(link, active: active, instances: paired, isCompactWidth: isCompactWidth) {
+        case .handled: break
+        case .switchInstance(let target):
+            do { try await instances.setActive(target.id) } catch { logFailure("Switching instance failed") }
+            await reloadRoute()
+        case .unknownInstance(let address): addressToConnect = address
+        case .openTaskPage(let page): browserURL = page
+        }
     }
 
     func pair(link: PairingLink) async {
@@ -128,11 +194,28 @@ final class AppModel {
             self.prepare = nil
             await prepare(instances)
         }
-        if let active = await instances.active() {
+        let active = await instances.active()
+        if let running = runningInstance, running != active?.id {
+            runningInstance = nil
+            activeSession = nil
+            await sessions.stop(running)
+        }
+        if let active {
             // An unreadable token still shows the signed-in screen, which says so and offers a retry.
             // Only a missing token means "Pair again".
-            route = await instances.state(of: active.id) == .needsPairing ? .pairAgain(active) : .signedIn(active)
+            if await instances.state(of: active.id) == .needsPairing {
+                await sessions.stop(active.id)
+                activeSession = nil
+                route = .pairAgain(active)
+            } else {
+                runningInstance = active.id
+                // A window that belongs to another instance starts over; a link switch already claimed it.
+                if let scene, scene.state.instanceID != active.id { scene.reset(instanceID: active.id) }
+                activeSession = sessions.session(for: active)
+                route = .signedIn(active)
+            }
         } else {
+            activeSession = nil
             route = .connect
         }
         hasLoaded = true
@@ -141,7 +224,14 @@ final class AppModel {
     /// Asks the instance who this phone is. A revoked or unknown token sends the person to
     /// "Pair again"; any other failure keeps the saved copy and offers a retry.
     func refreshMe(for instance: Instance) async {
-        refreshState = .loading
+        // Refreshing an instance other than the signed-in one only updates its stored count; the screen
+        // keeps showing the signed-in instance.
+        let isBackground: Bool = {
+            if case .signedIn(let current) = route { return current.id != instance.id }
+            return false
+        }()
+        func show(_ next: RefreshState) { if !isBackground { refreshState = next } }
+        show(.loading)
         let token: String
         do {
             // Only a missing token means "pair again". A read error (Keychain locked before the
@@ -153,27 +243,27 @@ final class AppModel {
             token = stored
         } catch {
             logFailure("Reading the token failed: \(type(of: error))")
-            refreshState = .tokenUnreadable
+            show(.tokenUnreadable)
             return
         }
         do {
             let me = try await makeClient(instance.url).authenticated(token: token).send(.me())
             try await instances.update(instance.id, from: me)
-            refreshState = .idle
-            if let updated = await instances.all().first(where: { $0.id == instance.id }) {
+            show(.idle)
+            if !isBackground, let updated = await instances.all().first(where: { $0.id == instance.id }) {
                 route = .signedIn(updated)
             }
         } catch let failure as APIFailure {
             switch failure {
             case .unauthorized(let code) where code == "device_revoked" || code == "invalid_token":
                 await markRevoked(instance)
-            case .unauthorized, .server, .notYak, .encodingFailed: refreshState = .failed
-            case .network: refreshState = .unreachable
-            case .appTooOld: refreshState = .appTooOld
-            case .serverTooOld: refreshState = .serverTooOld
+            case .unauthorized, .server, .notYak, .encodingFailed: show(.failed)
+            case .network: show(.unreachable)
+            case .appTooOld: show(.appTooOld)
+            case .serverTooOld: show(.serverTooOld)
             }
         } catch {
-            refreshState = .failed
+            show(.failed)
         }
     }
 
@@ -184,7 +274,7 @@ final class AppModel {
         await reloadRoute()
     }
 
-    private func markRevoked(_ instance: Instance) async {
+    func markRevoked(_ instance: Instance) async {
         do { try await instances.markRevoked(instance.id) } catch { logFailure("Marking revoked failed") }
         refreshState = .idle
         await reloadRoute()

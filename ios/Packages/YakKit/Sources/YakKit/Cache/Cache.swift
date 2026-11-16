@@ -192,6 +192,28 @@ public actor Cache {
         delete("\(folder(id))/question.json")
     }
 
+    // MARK: Composer drafts
+
+    private func composerPath(_ key: ComposerDraftKey) -> String {
+        switch key {
+        case .thread(let id): "\(folder(id))/composer.json"
+        case .newThread: "\(root)/new-thread.json"
+        }
+    }
+
+    public func composerDraft(_ key: ComposerDraftKey) -> ComposerDraft? {
+        load(ComposerDraft.self, at: composerPath(key))
+    }
+
+    /// Nil or an empty draft removes the file.
+    public func saveComposerDraft(_ draft: ComposerDraft?, for key: ComposerDraftKey) {
+        if let draft, !draft.isEmpty {
+            store(draft, at: composerPath(key), protection: .complete)
+        } else {
+            delete(composerPath(key))
+        }
+    }
+
     // MARK: Widget snapshot
 
     public func widgetSnapshot() -> WidgetSnapshot? {

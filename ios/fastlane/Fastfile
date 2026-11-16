@@ -1,3 +1,4 @@
+require "json"
 default_platform(:ios)
 
 IOS_ROOT = File.expand_path("..", __dir__)
@@ -41,7 +42,22 @@ platform :ios do
     with_stub do |port, build_directory|
       result_path = File.join(build_directory, "ui-smoke-#{device.gsub(/\W+/, "-").gsub(/\A-+|-+\z/, "")}.xcresult")
       FileUtils.rm_rf(result_path)
-      selection = "-only-testing:YakUITests#{options[:only] ? "/PairingSmokeTests/#{options[:only]}" : ""} -skip-testing:YakUITests/WalkthroughTests"
+      selection = "-only-testing:YakUITests -skip-testing:YakUITests/WalkthroughTests -skip-testing:YakUITests/ThreadWalkthroughTests"
+      if options[:only]
+        # A bare test name searches the smoke test classes; `Class/test` names one.
+        classes = %w[PairingSmokeTests ThreadSmokeTests]
+        names = if options[:only].include?("/") || classes.include?(options[:only])
+          [options[:only]]
+        else
+          classes.map { |klass| "#{klass}/#{options[:only]}" }
+        end
+        selection = names.map { |name| "-only-testing:YakUITests/#{name}" }.join(" ") + " -skip-testing:YakUITests/WalkthroughTests -skip-testing:YakUITests/ThreadWalkthroughTests"
+      end
+      if options[:core_only]
+        # The iPad and the Duo run the core tests; the long-running scenarios run on the iPhone only.
+        selection += " -skip-testing:YakUITests/ThreadSmokeTests/testSendWhileATurnRunsSteersAndLongPressQueues" \
+                     " -skip-testing:YakUITests/ThreadSmokeTests/testADroppedConnectionShowsOfflineAndRecovers"
+      end
       run_ui_tests(device, port, result_path, selection, {})
     end
   end
@@ -64,19 +80,28 @@ platform :ios do
     with_stub do |port, build_directory|
       result_path = File.join(build_directory, "walkthrough-#{device_folder}-#{appearance}-#{orientation}.xcresult")
       FileUtils.rm_rf(result_path)
-      selection = "-only-testing:YakUITests/WalkthroughTests#{options[:only] ? "/#{options[:only]}" : ""}"
+      # `only:` names a test of the first class, `Class/test`, or a whole class (`ThreadWalkthroughTests`).
+      classes = %w[WalkthroughTests ThreadWalkthroughTests]
+      selection = if options[:only].nil?
+        classes.map { |klass| "-only-testing:YakUITests/#{klass}" }.join(" ")
+      elsif classes.include?(options[:only]) || options[:only].include?("/")
+        "-only-testing:YakUITests/#{options[:only]}"
+      else
+        "-only-testing:YakUITests/WalkthroughTests/#{options[:only]}"
+      end
       run_ui_tests(device, port, result_path, selection, environment)
     end
   end
 
   desc "YakKit package tests and app unit tests"
-  lane :test do
+  lane :test do |options|
+    device = options[:device] || "iPhone 18 Pro"
     generate
     sh("cd #{File.join(IOS_ROOT, "Packages/YakKit").shellescape} && swift test -Xswiftc -warnings-as-errors")
     sh("cd #{File.join(IOS_ROOT, "Packages/YakStub").shellescape} && swift test -Xswiftc -warnings-as-errors")
     sh(
       "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
-      "-destination 'platform=iOS Simulator,name=iPhone 18 Pro' -only-testing:YakTests " \
+      "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} -only-testing:YakTests " \
       "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
     )
   end
@@ -93,7 +118,8 @@ platform :ios do
     # Port 0 lets the stub pick a free port; it prints the port it got on its first line.
     output_path = File.join(build_directory, "yak-stub.out")
     stub_pid = Process.spawn(
-      stub_binary, "--port", "0", "--fixtures", File.join(IOS_ROOT, "fixtures"), "--scenario", "paired",
+      stub_binary, "--port", "0", "--fixtures", File.join(IOS_ROOT, "fixtures"),
+      "--scenarios", File.join(IOS_ROOT, "Packages/YakKit/Tests/YakKitTests/Scenarios"), "--scenario", "paired",
       out: output_path, err: log_path
     )
     begin
@@ -122,5 +148,9 @@ platform :ios do
       "-retry-tests-on-failure -test-iterations 2 " \
       "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
     )
+    # A selection that matches nothing still ends in TEST SUCCEEDED, so an empty run fails here.
+    summary = JSON.parse(`xcrun xcresulttool get test-results summary --path #{result_path.shellescape} --compact`)
+    UI.user_error!("No test ran for #{selection}") if summary["totalTestCount"].to_i.zero?
+    UI.message("#{summary["totalTestCount"]} tests ran")
   end
 end

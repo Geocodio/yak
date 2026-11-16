@@ -123,10 +123,12 @@ public struct OutboxDraft: Equatable, Sendable {
     public var delivery: MessageDelivery
     public var attachments: [OutboxAttachment]
     public var intent: MessageIntent?
+    /// The id of the outbox item, when attachments were stored under it before the send.
+    public var sendKey: UUID?
 
     public init(
         target: OutboxTarget, text: String, model: String? = nil, delivery: MessageDelivery = .steer,
-        attachments: [OutboxAttachment] = [], intent: MessageIntent? = nil
+        attachments: [OutboxAttachment] = [], intent: MessageIntent? = nil, sendKey: UUID? = nil
     ) {
         self.intent = intent
         self.target = target
@@ -134,6 +136,7 @@ public struct OutboxDraft: Equatable, Sendable {
         self.model = model
         self.delivery = delivery
         self.attachments = attachments
+        self.sendKey = sendKey
     }
 }
 

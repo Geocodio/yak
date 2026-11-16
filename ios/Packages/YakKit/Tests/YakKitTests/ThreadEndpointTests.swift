@@ -221,6 +221,7 @@ private let rows: [Row] = [
         "startThread",
         Endpoint<ThreadCreated>.startThread(
             NewThreadDraft(repo: "r", mode: "m"), description: "d", sendKey: sendKey, attachments: [], references: [])),
+    Row("repositoryAccess", Endpoint<RepositoryAccess>.repositoryAccess(repo: "r")),
     Row("events", Endpoint<EventsPage>.events("t", after: 0, limit: 10)),
     Row("event", Endpoint<ThreadEvent>.event("t", sequence: 7)),
     Row(
@@ -242,6 +243,7 @@ private let expected: [String: (Endpoint<EmptyResponse>.Method, String)] = [
     "markSeen": (.post, "threads/t/seen"),
     "newThreadOptions": (.get, "threads/new"),
     "startThread": (.post, "threads"),
+    "repositoryAccess": (.get, "threads/new/repository-access"),
     "events": (.get, "threads/t/events"),
     "event": (.get, "threads/t/events/7"),
     "sendMessage": (.post, "threads/t/messages"),

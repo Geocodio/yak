@@ -23,6 +23,11 @@ struct YakApp: App {
                     APIClient(
                         baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
                         systemDescription: system)
+                },
+                makeEnvironment: {
+                    .app(
+                        version: version, system: system, files: SessionEnvironment.releaseFiles(),
+                        allowsInsecureRealtime: false)
                 }))
     }
 
@@ -30,6 +35,9 @@ struct YakApp: App {
         WindowGroup {
             RootView(model: model)
                 .onOpenURL { url in Task { await model.handle(url: url) } }
+                #if DEBUG
+                    .preferredColorScheme(TestMode.colorScheme())
+                #endif
         }
     }
 }

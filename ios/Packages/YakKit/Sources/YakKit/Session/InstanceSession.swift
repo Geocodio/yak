@@ -520,6 +520,57 @@ public actor InstanceSession {
         do { return try await currentOutbox.enqueue(draft) } catch { throw .notSaved }
     }
 
+    // MARK: Composer drafts and new threads
+
+    /// Drafts and stored attachments are local files, so they work before the session is active and offline.
+    private func draftCache() -> Cache {
+        cache ?? Cache(instance: instance.id, files: environment.files, clock: environment.clock)
+    }
+
+    public func composerDraft(_ key: ComposerDraftKey) async -> ComposerDraft? {
+        await draftCache().composerDraft(key)
+    }
+
+    public func saveComposerDraft(_ draft: ComposerDraft?, for key: ComposerDraftKey) async {
+        await draftCache().saveComposerDraft(draft, for: key)
+    }
+
+    /// Writes the bytes where the outbox item with id `sendKey` keeps its attachments.
+    public func storeAttachment(
+        _ data: Data, fileName: String, contentType: String, reference: String, sendKey: UUID
+    ) async throws(FileStoreError) -> OutboxAttachment {
+        let safeName = ComposerAttachments.safeFileName(fileName)
+        var path = OutboxInbox.attachmentPath(instance: instance.id, item: sendKey, fileName: safeName)
+        // A name already taken in this draft's folder gets "-2", "-3" and so on before the extension.
+        var counter = 2
+        while try environment.files.read(path) != nil {
+            let dot = safeName.lastIndex(of: ".").flatMap { $0 == safeName.startIndex ? nil : $0 }
+            let stem = dot.map { String(safeName[..<$0]) } ?? safeName
+            let ending = dot.map { String(safeName[$0...]) } ?? ""
+            path = OutboxInbox.attachmentPath(
+                instance: instance.id, item: sendKey, fileName: "\(stem)-\(counter)\(ending)")
+            counter += 1
+        }
+        try environment.files.write(data, to: path, protection: .untilFirstUnlock)
+        return OutboxAttachment(reference: reference, fileName: fileName, contentType: contentType, path: path)
+    }
+
+    public func discardAttachment(_ attachment: OutboxAttachment) async {
+        do { try environment.files.remove(attachment.path) } catch {
+            logFailure("attachment not removed: \(type(of: error))")
+        }
+    }
+
+    public func newThreadOptions() async throws(APIFailure) -> NewThreadOptions {
+        guard let client else { throw .network(.notConnectedToInternet) }
+        return try await client.send(.newThreadOptions())
+    }
+
+    public func repositoryAccess(_ repo: String) async throws(APIFailure) -> RepositoryAccess {
+        guard let client else { throw .network(.notConnectedToInternet) }
+        return try await client.send(.repositoryAccess(repo: repo))
+    }
+
     // MARK: App state
 
     public func enterBackground() async {

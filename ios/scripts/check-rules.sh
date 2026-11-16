@@ -42,6 +42,15 @@ if [ -n "$ats_hits" ]; then
     fail 'NSAllowsArbitraryLoads'
 fi
 
+# Only "Open PR" is rust-colored on a thread screen.
+for token in yakRust yakOnRust PrimaryButtonStyle; do
+    hits=$(grep -rnF --include='*.swift' "$token" Yak/Thread Yak/Chat Yak/Composer Yak/Questions 2>/dev/null || true)
+    if [ -n "$hits" ]; then
+        echo "$hits"
+        fail "$token in a thread screen"
+    fi
+done
+
 [ -f Yak/Support/PrivacyInfo.xcprivacy ] || fail 'Yak/Support/PrivacyInfo.xcprivacy is missing'
 grep -q 'UILaunchScreen' project.yml || fail 'project.yml does not name the launch screen key'
 

@@ -164,3 +164,112 @@ func aLinkThatIsNotAPairingLinkChangesNothing(link: String) async {
     #expect(model.route == .connect)
     #expect(!model.wantsScanner)
 }
+
+@MainActor private func pairTwoInstances(_ model: AppModel) async {
+    for (host, code) in [("first", "a"), ("second", "b")] {
+        await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2F\(host).example.com&code=\(code)")!)
+        await model.confirmLinkPairing()
+    }
+}
+
+@MainActor @Test func pairingAnotherInstanceStartsTheWindowOver() async {
+    let (model, _) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let first = scene.state.instanceID
+    scene.applyColdStart(.thread("a1b2c3d4"))
+    scene.justPairedUserName = "Sam"
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Fsecond.example.com&code=b")!)
+    await model.confirmLinkPairing()
+    #expect(scene.state.instanceID != first)
+    #expect(scene.state.threadID == nil)
+    #expect(!scene.hasAppliedColdStart)
+    #expect(scene.justPairedUserName == "Sam")
+}
+
+@MainActor @Test func aLinkSwitchKeepsTheThreadItOpened() async throws {
+    let (model, instances) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    scene.applyColdStart(.drawer(.mine))
+    await model.handle(link: .thread(instance: URL(string: "https://first.example.com")!, id: "a1b2c3d4"))
+    let first = try #require(await instances.all().first { $0.url.host() == "first.example.com" })
+    #expect(await instances.active()?.id == first.id)
+    #expect(scene.state.threadID == "a1b2c3d4")
+    #expect(scene.state.instanceID == first.id)
+    #expect(scene.hasAppliedColdStart)
+}
+
+@MainActor @Test func aLinkBeforeTheColdStartIsTakenOnce() async {
+    let (model, _) = makeLinkModel()
+    _ = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    let link = DeepLink.thread(instance: URL(string: "https://second.example.com")!, id: "a1b2c3d4")
+    await model.handle(link: link)
+    #expect(model.takeLaunchLink() == link)
+    #expect(model.takeLaunchLink() == nil)
+}
+
+@MainActor @Test func aLinkForAnUnknownInstanceFillsTheAddress() async {
+    let (model, _) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    scene.applyColdStart(.drawer(.mine))
+    let address = URL(string: "https://unknown.example.com")!
+    await model.handle(link: .thread(instance: address, id: "a1b2c3d4"))
+    #expect(model.addressToConnect == address)
+}
+
+@MainActor @Test func aLinkOnTheConnectScreenFillsTheAddress() async {
+    let (model, _) = makeLinkModel()
+    await model.reloadRoute()
+    let address = URL(string: "https://unknown.example.com")!
+    await model.handle(link: .thread(instance: address, id: "a1b2c3d4"))
+    #expect(model.addressToConnect == address)
+    #expect(model.takeLaunchLink() == nil)
+}
+
+/// Answers `me` with a count of four, or fails the way a cancelled request does.
+private struct CountingTransport: HTTPTransport {
+    let isCancelled: Bool
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        if isCancelled { throw URLError(.cancelled) }
+        let body =
+            #"{"user":{"id":1,"name":"Sam","email":"s@example.com","initials":"S","isAdmin":false},"device":{"id":"d1","name":"Phone","kind":"phone"},"instance":{"name":"Renamed","url":"https://x.example.com","version":"1"},"needsYouCount":4,"realtime":null,"terminal":{"wsUrl":"wss://x.example.com/ws"},"attachments":{"maxFiles":4,"maxFileBytes":100},"push":{"apns":true,"bundleId":null,"environment":null},"features":{}}"#
+        return (
+            Data(body.utf8),
+            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
+    }
+}
+
+@MainActor @Test(arguments: [false, true])
+func refreshingAnInstanceThatIsNotActiveOnlyUpdatesItsStoredCount(isCancelled: Bool) async throws {
+    let tokens = InMemoryTokenStore()
+    let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
+    let model = AppModel(
+        instances: instances, tokens: tokens,
+        makeClient: {
+            APIClient(
+                baseURL: $0, token: nil, transport: CountingTransport(isCancelled: isCancelled), appVersion: "1",
+                systemDescription: "test", sleep: { _ in })
+        })
+    let other = try await instances.add(
+        url: URL(string: "https://other.example.com")!, name: "Other", userName: "Sam", token: "t1")
+    let active = try await instances.add(
+        url: URL(string: "https://active.example.com")!, name: "Active", userName: "Sam", token: "t2")
+    try await instances.setActive(active.id)
+    await model.reloadRoute()
+    let routeBefore = model.route
+    guard case .signedIn(let shown) = routeBefore else {
+        Issue.record("not signed in")
+        return
+    }
+    #expect(shown.id == active.id)
+    await model.refreshMe(for: other)
+    #expect(model.route == routeBefore)
+    #expect(model.refreshState == .idle)
+    let stored = try #require(await instances.all().first { $0.id == other.id })
+    #expect(stored.needsYouCount == (isCancelled ? 0 : 4))
+}

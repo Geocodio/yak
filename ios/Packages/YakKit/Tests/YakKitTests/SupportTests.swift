@@ -214,7 +214,7 @@ private func makeClient(_ transport: any HTTPTransport) -> APIClient {
     "scenario-thread-store", "scenario-message-sent", "scenario-message-queued", "scenario-message-clear",
     "scenario-thread-events", "scenario-thread-event", "scenario-broadcasting-auth-private",
     "scenario-broadcasting-auth-presence", "events/simple-turn", "events/steer", "events/question",
-    "events/failed-turn", "events/stream-reset", "events/pointer",
+    "events/failed-turn", "events/stream-reset", "events/pointer", "scenario-thread-repository-access",
 ])
 func everyScenarioLoads(name: String) throws {
     #expect(try JSONSerialization.jsonObject(with: Scenarios.data(name)) is [String: Any])
