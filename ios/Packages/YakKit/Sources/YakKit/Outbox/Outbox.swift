@@ -337,8 +337,9 @@ public actor Outbox {
             return
         }
         for name in waiting where name.hasSuffix(".json") { held.insert(String(name.dropLast(5))) }
-        if let records = await uploads?.ledger.records() {
-            for record in records { held.insert(record.itemID.uuidString) }
+        if let ledger = uploads?.ledger {
+            guard let recorded = await ledger.recordedItemIDs() else { return }
+            for id in recorded { held.insert(id.uuidString) }
         }
         guard !isShutDown else { return }
         // A folder is removed only when it was also unheld at the previous sweep, so a file stored a moment before
@@ -350,15 +351,18 @@ public actor Outbox {
                 previous = Set(try JSONDecoder().decode([String].self, from: data))
             }
         } catch { logFailure("sweep candidates unreadable: \(type(of: error))") }
+        // The file goes before anything is deleted, so a later failure to write the new one leaves no older
+        // candidates behind: the next sweep then reads none and deletes nothing.
+        do { try files.remove(candidatesPath) } catch {
+            logFailure("sweep candidates not removed: \(type(of: error))")
+            return
+        }
         let unheld = Set(names).subtracting(held)
         let doomed = unheld.intersection(previous)
         for name in doomed { removeFile("\(folder)/\(name)") }
         let candidates = unheld.subtracting(doomed)
-        // With none left the file goes, so a sweep that runs while the outbox is erased leaves nothing behind.
-        if candidates.isEmpty {
-            removeFile(candidatesPath)
-            return
-        }
+        // With none left there is no file, so a sweep that runs while the outbox is erased leaves nothing behind.
+        if candidates.isEmpty { return }
         do {
             try files.write(
                 JSONEncoder().encode(candidates.sorted()), to: candidatesPath, protection: .untilFirstUnlock)

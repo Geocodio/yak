@@ -69,12 +69,19 @@ import XCTest
         app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame : nil
     }
 
-    /// The frame of the sheet a screen shows, for the screens that show one, or nil.
+    /// The frame of the sheet a screen shows, for the screens that show one, or nil. SwiftUI can hand the identifier
+    /// to inner elements too, so the largest match is the sheet, and a match that is too small to be one fails the
+    /// test instead of excusing findings inside the sheet.
     private func sheetFrame(named name: String) -> CGRect? {
         let identifiers = ["model-picker": "model.picker", "camera-denied": "composer.cameraDenied"]
         guard let identifier = identifiers[name] else { return nil }
-        let sheet = app.otherElements[identifier].firstMatch
-        return sheet.exists ? sheet.frame : nil
+        let frames = app.otherElements.matching(identifier: identifier).allElementsBoundByIndex.map(\.frame)
+        guard let sheet = frames.max(by: { $0.width * $0.height < $1.width * $1.height }) else { return nil }
+        if sheet.width < app.windows.firstMatch.frame.width / 2 || sheet.height < 200 {
+            XCTFail("sheet frame for [\(name)] is too small to be the sheet: \(sheet)")
+            return nil
+        }
+        return sheet
     }
 
     /// Saves the screenshot once animations settle, then audits the screen. `audits: false` is for screens

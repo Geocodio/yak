@@ -17,6 +17,33 @@ private struct FailingInboxListStore: FileStore {
     }
 }
 
+/// Fails writes to the sweep's candidate file while `failsCandidateWrites` is set, and the listing of the upload
+/// records folder while `failsUploadListing` is set. Everything else passes through.
+private final class FlakyStore: FileStore, @unchecked Sendable {
+    let base: InMemoryFileStore
+    private let lock = NSLock()
+    private var flags = (candidates: false, uploads: false)
+    init(base: InMemoryFileStore) { self.base = base }
+    var failsCandidateWrites: Bool {
+        get { lock.withLock { flags.candidates } }
+        set { lock.withLock { flags.candidates = newValue } }
+    }
+    var failsUploadListing: Bool {
+        get { lock.withLock { flags.uploads } }
+        set { lock.withLock { flags.uploads = newValue } }
+    }
+    func read(_ path: String) throws(FileStoreError) -> Data? { try base.read(path) }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        if failsCandidateWrites, path.hasSuffix("/sweep-candidates.json") { throw .unreadable }
+        try base.write(data, to: path, protection: protection)
+    }
+    func remove(_ path: String) throws(FileStoreError) { try base.remove(path) }
+    func list(_ folder: String) throws(FileStoreError) -> [String] {
+        if failsUploadListing, folder.hasSuffix("/uploads") { throw .unreadable }
+        return try base.list(folder)
+    }
+}
+
 private struct Setup {
     let files: InMemoryFileStore
     let instance: UUID
@@ -138,5 +165,52 @@ private struct Setup {
         await outbox.sweep()
         await outbox.sweep()
         #expect(try setup.files.read(file.path) != nil)
+    }
+
+    @Test func aFailedCandidateWriteDoesNotLeaveAnOlderCandidateBehind() async throws {
+        let setup = Setup()
+        await setup.outbox.load()
+        let key = UUID()
+        let held = try setup.attachment(key)
+        await setup.sweep()
+        await setup.cache.saveComposerDraft(
+            ComposerDraft(text: "a", sendKey: key, attachments: [held]), for: .thread("d0e515ef"))
+        let newer = try setup.attachment(UUID())
+        let store = FlakyStore(base: setup.files)
+        let flaky = Setup(instance: setup.instance, files: setup.files, outboxStore: { _ in store })
+        await flaky.outbox.load()
+        store.failsCandidateWrites = true
+        await flaky.sweep()
+        store.failsCandidateWrites = false
+        await setup.cache.saveComposerDraft(nil, for: .thread("d0e515ef"))
+        await flaky.sweep()
+        #expect(try setup.files.read(held.path) != nil)
+        #expect(try setup.files.read(newer.path) != nil)
+    }
+
+    @Test func aCandidateFileThatDoesNotDecodeDeletesNothing() async throws {
+        let setup = Setup()
+        await setup.outbox.load()
+        let orphan = try setup.attachment(UUID())
+        try setup.files.write(
+            Data("not json".utf8), to: "\(InstanceFolders.outbox(setup.instance))/sweep-candidates.json",
+            protection: .untilFirstUnlock)
+        await setup.sweep()
+        #expect(try setup.files.read(orphan.path) != nil)
+    }
+
+    @Test func anUploadFolderThatCannotBeListedStopsTheSweep() async throws {
+        let setup = Setup()
+        let store = FlakyStore(base: setup.files)
+        store.failsUploadListing = true
+        let ledger = UploadLedger(instance: setup.instance, files: store, clock: ManualClock())
+        let sweeping = Setup(
+            instance: setup.instance, files: setup.files,
+            uploads: UploadLink(ledger: ledger, session: FakeUploadSession(identifier: "test")))
+        await sweeping.outbox.load()
+        let orphan = try setup.attachment(UUID())
+        await sweeping.sweep()
+        await sweeping.sweep()
+        #expect(try setup.files.read(orphan.path) != nil)
     }
 }
