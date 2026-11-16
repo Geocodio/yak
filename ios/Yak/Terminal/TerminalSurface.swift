@@ -36,13 +36,23 @@ enum TerminalFontSize {
     }
 }
 
-/// Hosts a `TerminalSurface` in SwiftUI. The surface keeps its own state, so the view only follows Dynamic Type.
+/// Hosts a `TerminalSurface` in SwiftUI. The surface keeps its own state, so the view only follows Dynamic Type:
+/// the scaled size applies when the content size category changes, and a pinched size stays through other updates.
 struct TerminalSurfaceView: UIViewRepresentable {
     let surface: any TerminalSurface
+
+    final class Coordinator {
+        var category: UIContentSizeCategory?
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> UIView { surface.view }
 
     func updateUIView(_ view: UIView, context: Context) {
+        let category = view.traitCollection.preferredContentSizeCategory
+        guard context.coordinator.category != category else { return }
+        context.coordinator.category = category
         surface.setFontSize(TerminalFontSize.scaled(for: view.traitCollection))
     }
 }
