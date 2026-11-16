@@ -144,7 +144,8 @@ struct SettingsScreen: View {
 
     // MARK: Instances
 
-    private var instancesSection: some View {
+    @ViewBuilder private var instancesSection: some View {
+        SettingsHeaderRow(Text("settings.instances"))
         Section {
             ForEach(model.instances) { instance in row(instance) }
             if let failedName = model.switchFailedName {
@@ -165,8 +166,6 @@ struct SettingsScreen: View {
             .foregroundStyle(Color.yakDanger)
             .disabled(model.removing.contains(model.active.id))
             .accessibilityIdentifier("settings.removeActive")
-        } header: {
-            Text("settings.instances")
         }
     }
 
@@ -217,6 +216,7 @@ struct SettingsScreen: View {
     @ViewBuilder private var permission: some View {
         let hint = model.hint
         if hint != nil || model.showsLiveActivitiesOff {
+            SettingsHeaderRow(Text("settings.permission.header"))
             Section {
                 switch hint {
                 case .turnOn?:
@@ -238,8 +238,6 @@ struct SettingsScreen: View {
                 if model.showsLiveActivitiesOff {
                     systemSettingsRow("settings.liveActivitiesOff", identifier: "settings.liveActivitiesOff")
                 }
-            } header: {
-                Text("settings.permission.header")
             }
         }
     }

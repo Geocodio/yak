@@ -7,6 +7,7 @@ struct NotificationSwitchesView: View {
     @State private var showsSkeleton = false
 
     var body: some View {
+        SettingsHeaderRow(Text("settings.switches.header \(model.active.name)"))
         Section {
             if !model.canPush {
                 unavailable
@@ -14,8 +15,6 @@ struct NotificationSwitchesView: View {
                 switchRows
                 status
             }
-        } header: {
-            Text("settings.switches.header \(model.active.name)")
         } footer: {
             if model.canPush { Text("settings.switches.footer") }
         }
@@ -102,5 +101,23 @@ struct NotificationSwitchesView: View {
         case .stackUsage: String(localized: "settings.switch.stackUsage")
         default: event.rawValue
         }
+    }
+}
+
+/// A heading above a group, as a row of its own so its color and size are ours: a system section header's gray
+/// is too light for the accessibility audit.
+struct SettingsHeaderRow: View {
+    let text: Text
+
+    init(_ text: Text) { self.text = text }
+
+    var body: some View {
+        Section {
+            text.font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.85))
+                .accessibilityAddTraits(.isHeader)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 0, trailing: 16))
+        }
+        .listSectionSpacing(0)
     }
 }
