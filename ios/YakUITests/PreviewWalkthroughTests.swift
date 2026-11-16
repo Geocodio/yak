@@ -15,10 +15,49 @@ import XCTest
         try shoot(name, audits: false)
     }
 
+    /// Turns the device and turns it back when the test ends, so the next case starts upright.
+    private func turnToLandscape() {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
+    }
+
     func testPreview() throws {
         try show("preview-ready")
         XCTAssertTrue(app.webViews.staticTexts["Path: /"].waitForExistence(timeout: 15))
+        // A wide window shows the system's pane strip or the pane row, and the preview's bar row.
+        let isWide = app.windows.firstMatch.frame.width > 700
+        if isWide {
+            XCTAssertTrue(
+                app.buttons["pane.strip.preview"].exists || app.buttons["pane.row.preview"].exists
+                    || app.buttons["pane.menu"].exists)
+        }
+        XCTAssertTrue(app.buttons["preview.address"].exists)
+        XCTAssertTrue(app.buttons["preview.reload"].exists)
         try shoot("preview", audits: false)
+    }
+
+    func testPreviewLandscape() throws {
+        turnToLandscape()
+        try show("preview-ready")
+        XCTAssertTrue(app.webViews.staticTexts["Path: /"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["thread.strip"].exists)
+        XCTAssertTrue(app.buttons["preview.reload"].exists)
+        XCTAssertTrue(app.buttons["preview.address"].exists)
+        try shoot("preview-landscape", audits: false)
+    }
+
+    func testPreviewActivityLandscape() throws {
+        turnToLandscape()
+        try show("preview-working")
+        XCTAssertTrue(app.buttons["activity.strip"].waitForExistence(timeout: 10))
+        try shoot("preview-activity-landscape", audits: false)
+    }
+
+    func testPreviewQuestionChipLandscape() throws {
+        turnToLandscape()
+        try show("preview-question")
+        XCTAssertTrue(app.buttons["question.chip"].waitForExistence(timeout: 10))
+        try shoot("preview-question-chip-landscape", audits: false)
     }
 
     func testPreviewChecking() throws {
