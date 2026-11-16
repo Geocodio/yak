@@ -10,16 +10,21 @@ struct ChatView: View {
 
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var isNearBottom = true
+    /// The history row came into view and has not asked for a page yet. A page is asked for once per arrival: the
+    /// row's disappearance can reach this view late, after a page has pushed it far above, and that would ask for
+    /// every page in a row.
     @State private var isHistoryVisible = false
-    @State private var visibleRowIDs: [String] = []
-    /// The row at the top of the screen when earlier messages started loading; it stays there when they arrive.
-    @State private var anchorRowID: String?
+    /// The rows when a page of earlier messages started loading. When there are more and the last one is the same,
+    /// the page has arrived above, and the offset moves by the growth of the content. The lazy stack estimates the
+    /// height of rows it has not drawn, so the place can be off by that estimate's error.
+    @State private var rowsWhenLoadingStarted: (count: Int, lastID: String?)?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let stickDistance: CGFloat = 80
 
     private struct Metrics: Equatable {
         var contentHeight: CGFloat
+        var contentOffset: CGFloat
         var distanceFromBottom: CGFloat
     }
 
@@ -53,24 +58,24 @@ struct ChatView: View {
                     NoticeCard(notice: notice, thread: thread)
                 }
             }
-            .scrollTargetLayout()
             .padding(.horizontal, 16).padding(.vertical, 12)
             .frame(maxWidth: 720).frame(maxWidth: .infinity)
             .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: thread.rows.count)
         }
         .accessibilityIdentifier("chat.list")
         .scrollPosition($position)
-        .defaultScrollAnchor(.bottom)
-        .onScrollTargetVisibilityChange(idType: String.self, threshold: 0.1) { visibleRowIDs = $0 }
+        .defaultScrollAnchor(.bottom, for: .initialOffset)
         .onScrollGeometryChange(for: Metrics.self) { geometry in
             Metrics(
-                contentHeight: geometry.contentSize.height,
+                contentHeight: geometry.contentSize.height, contentOffset: geometry.contentOffset.y,
                 distanceFromBottom: max(0, geometry.contentSize.height - geometry.visibleRect.maxY))
         } action: { old, new in
             follow(from: old, to: new)
         }
-        .task(id: HistoryTrigger(isVisible: isHistoryVisible, state: thread.historyState)) {
-            if isHistoryVisible, thread.historyState == .available { await thread.loadOlder() }
+        .onChange(of: HistoryTrigger(isVisible: isHistoryVisible, state: thread.historyState)) { _, trigger in
+            guard trigger.isVisible, trigger.state == .available else { return }
+            isHistoryVisible = false
+            Task { await thread.loadOlder() }
         }
         .onChange(of: thread.historyState) { old, new in keepPlace(from: old, to: new) }
         .overlay { if thread.rows.isEmpty, thread.notice == nil, thread.snapshot?.load == .ready { EmptyChat() } }
@@ -89,7 +94,13 @@ struct ChatView: View {
             isNearBottom = new.distanceFromBottom <= Self.stickDistance
             return
         }
-        guard anchorRowID == nil else { return }
+        if let started = rowsWhenLoadingStarted, thread.rows.count > started.count,
+            thread.rows.last?.id == started.lastID
+        {
+            rowsWhenLoadingStarted = nil
+            position.scrollTo(y: old.contentOffset + (new.contentHeight - old.contentHeight))
+            return
+        }
         if old.distanceFromBottom <= Self.stickDistance {
             position.scrollTo(edge: .bottom)
             isNearBottom = true
@@ -98,11 +109,9 @@ struct ChatView: View {
 
     private func keepPlace(from old: HistoryState, to new: HistoryState) {
         if new == .loading {
-            let order = Dictionary(uniqueKeysWithValues: thread.rows.enumerated().map { ($1.id, $0) })
-            anchorRowID = visibleRowIDs.min { (order[$0] ?? .max) < (order[$1] ?? .max) }
-        } else if old == .loading, let anchor = anchorRowID {
-            anchorRowID = nil
-            position.scrollTo(id: anchor, anchor: .top)
+            rowsWhenLoadingStarted = (thread.rows.count, thread.rows.last?.id)
+        } else if old == .loading, thread.rows.count == rowsWhenLoadingStarted?.count {
+            rowsWhenLoadingStarted = nil
         }
     }
 
@@ -122,7 +131,6 @@ struct ChatView: View {
                     .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
                     .transition(.opacity)
-                    .accessibilityAddTraits(.updatesFrequently)
                     .accessibilityIdentifier("chat.actionLine")
                     .task(id: line) {
                         UIAccessibility.post(notification: .announcement, argument: line)

@@ -103,6 +103,59 @@ import XCTest
         try audit()
     }
 
+    /// Someone who scrolled up to read keeps their place while the reply streams in below.
+    func testStreamingTextDoesNotMoveAReaderWhoScrolledUp() throws {
+        try launch(scenario: "one-thread-working")
+        try stub.hold(after: 7)
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let first = app.staticTexts["Looking at the importer."]
+        XCTAssertTrue(first.waitForExistence(timeout: 20))
+        app.descendants(matching: .any)["chat.list"].firstMatch.swipeDown()
+        let before = first.frame.minY
+        try stub.hold(after: nil)
+        XCTAssertTrue(app.staticTexts["Done. Failed rows now retry three times."].waitForExistence(timeout: 30))
+        XCTAssertEqual(first.frame.minY, before, accuracy: 1)
+    }
+
+    /// The row at the top of the screen stays where it is when earlier messages arrive above it.
+    func testEarlierMessagesKeepTheRowInPlace() throws {
+        try launch(scenario: "long-history")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        XCTAssertTrue(app.staticTexts["Step 1200."].waitForExistence(timeout: 20))
+        let list = app.descendants(matching: .any)["chat.list"].firstMatch
+        let loading = app.staticTexts["Loading earlier messages"]
+        var isLoading = false
+        for _ in 0..<80 where !isLoading {
+            list.swipeDown(velocity: .fast)
+            isLoading = loading.waitForExistence(timeout: 0.5)
+        }
+        XCTAssertTrue(isLoading)
+        // One snapshot of the screen, so rows that are being replaced do not vanish between two queries.
+        func steps(in node: any XCUIElementSnapshot) -> [any XCUIElementSnapshot] {
+            let own = node.label.wholeMatch(of: /Step \d+\./) != nil ? [node] : []
+            return own + node.children.flatMap { steps(in: $0) }
+        }
+        let top = list.frame.minY + 60
+        let tracked = try XCTUnwrap(
+            steps(in: try app.snapshot()).filter { $0.frame.minY > top && $0.frame.maxY < list.frame.maxY }
+                .min { $0.frame.minY < $1.frame.minY })
+        let label = tracked.label
+        let before = tracked.frame.minY
+        let result = XCTWaiter().wait(
+            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: loading)],
+            timeout: 30)
+        XCTAssertEqual(result, .completed)
+        let moved = app.staticTexts[label]
+        XCTAssertTrue(moved.exists, "\(label) left the screen when the earlier messages arrived")
+        XCTAssertEqual(moved.frame.minY, before, accuracy: 2)
+    }
+
     private func audit() throws {
         try app.performAccessibilityAudit { [self] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
