@@ -12,6 +12,13 @@ public enum OutboxInbox {
         "\(InstanceFolders.outbox(instance))/files/\(item.uuidString)"
     }
 
+    /// The folder name (the item id) inside `files/` that holds an attachment path, or nil for any other path.
+    public static func attachmentFolderName(of path: String) -> String? {
+        let parts = path.split(separator: "/").map(String.init)
+        guard let index = parts.lastIndex(of: "files"), index + 2 < parts.count else { return nil }
+        return parts[index + 1]
+    }
+
     /// Writes one item where the app's outbox picks it up. The caller writes each attachment's bytes to
     /// the `path` of its `OutboxAttachment`, which comes from `attachmentPath`, before calling this,
     /// with `.untilFirstUnlock` protection so the app can read them while the device is locked.

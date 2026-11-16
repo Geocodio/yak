@@ -28,6 +28,25 @@ private struct UnreadableTokenStore: TokenStore {
     func removeToken(for instance: UUID) throws { throw Locked() }
 }
 
+/// Fails every write of the outbox list while `failsListWrites` is set and passes everything else through.
+private final class FlakyListStore: FileStore, @unchecked Sendable {
+    let base: InMemoryFileStore
+    private let lock = NSLock()
+    private var isFailing = false
+    init(base: InMemoryFileStore) { self.base = base }
+    var failsListWrites: Bool {
+        get { lock.withLock { isFailing } }
+        set { lock.withLock { isFailing = newValue } }
+    }
+    func read(_ path: String) throws(FileStoreError) -> Data? { try base.read(path) }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        if failsListWrites, path.hasSuffix("/items.json") { throw .unreadable }
+        try base.write(data, to: path, protection: protection)
+    }
+    func remove(_ path: String) throws(FileStoreError) { try base.remove(path) }
+    func list(_ folder: String) throws(FileStoreError) -> [String] { try base.list(folder) }
+}
+
 private struct Rig {
     let session: InstanceSession
     let transport: ScriptedTransport
@@ -42,7 +61,7 @@ private struct Rig {
 /// Answers `me` with the scenario and the channel authorization by channel kind. Everything else is
 /// the test's to script.
 private func makeRig(
-    sessionTokens: (any TokenStore)? = nil, keepsToken: Bool = true,
+    sessionTokens: (any TokenStore)? = nil, keepsToken: Bool = true, sessionFiles: (any FileStore)? = nil,
     script: (ScriptedTransport) async throws -> Void = { _ in }
 ) async throws -> Rig {
     let clock = ManualClock()
@@ -64,7 +83,7 @@ private func makeRig(
     let server = FakeWebSocketServer()
     let ids = IDSequence()
     let environment = SessionEnvironment(
-        http: transport, webSockets: server, files: files, clock: clock, makeID: { ids.next() },
+        http: transport, webSockets: server, files: sessionFiles ?? files, clock: clock, makeID: { ids.next() },
         appVersion: "1.0.0", systemDescription: "Test", allowsInsecureRealtime: false)
     let session = InstanceSession(
         instance: instance, instances: instances, tokens: sessionTokens ?? tokens, environment: environment)
@@ -74,9 +93,9 @@ private func makeRig(
 }
 
 private func startedRig(
-    script: (ScriptedTransport) async throws -> Void = { _ in }
+    sessionFiles: (any FileStore)? = nil, script: (ScriptedTransport) async throws -> Void = { _ in }
 ) async throws -> Rig {
-    let rig = try await makeRig(script: script)
+    let rig = try await makeRig(sessionFiles: sessionFiles, script: script)
     await rig.session.start()
     return rig
 }
@@ -312,6 +331,32 @@ private func nextSnapshot(
         }
         #expect(snapshot.entries.last?.id == "outbox:\(item.id.uuidString.lowercased())")
         await rig.transport.release("POST threads/\(threadID)/messages")
+        await rig.session.stop()
+    }
+
+    @Test func aTakeThatCannotBeSavedSaysSoAndLeavesTheItemInTheOutbox() async throws {
+        let messages = "POST threads/\(threadID)/messages"
+        let flaky = FlakyListStore(base: InMemoryFileStore())
+        let rig = try await startedRig(sessionFiles: flaky) {
+            await $0.on(messages, .json(409, #"{"error":"thread_closed","message":"Closed"}"#, headers: [:]))
+        }
+        let item = try await rig.session.send(OutboxDraft(target: .thread(threadID), text: "Please"))
+        let outbox = try #require(await rig.session.outbox())
+        let changes = StreamRecorder(await outbox.changes())
+        _ = try await changes.next { items in
+            if case .refused? = items.first?.state { return true }
+            return false
+        }
+        flaky.failsListWrites = true
+        #expect(await rig.session.takeOutboxItem(item.id) == .notSaved)
+        #expect(await outbox.items().map(\.id) == [item.id])
+        flaky.failsListWrites = false
+        guard case .taken(let taken) = await rig.session.takeOutboxItem(item.id) else {
+            Issue.record("the item was not taken once saving works")
+            return
+        }
+        #expect(taken.id == item.id)
+        #expect(await rig.session.takeOutboxItem(item.id) == .unavailable)
         await rig.session.stop()
     }
 
