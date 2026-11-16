@@ -5,6 +5,8 @@ cd "$(dirname "$0")/.."
 
 failed=0
 targets=(Yak Packages/*/Sources)
+extension_targets=()
+deferred_checks=()
 
 fail() {
     echo "rule broken: $1"
@@ -42,5 +44,8 @@ fi
 
 [ -f Yak/Support/PrivacyInfo.xcprivacy ] || fail 'Yak/Support/PrivacyInfo.xcprivacy is missing'
 grep -q 'UILaunchScreen' project.yml || fail 'project.yml does not name the launch screen key'
+
+for rules in scripts/rules.d/*.sh; do [ -e "$rules" ] && . "$rules"; done
+for deferred in ${deferred_checks[@]+"${deferred_checks[@]}"}; do "$deferred"; done
 
 exit "$failed"

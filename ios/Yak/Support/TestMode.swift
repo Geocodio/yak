@@ -1,5 +1,6 @@
 #if DEBUG
     import Foundation
+    import os
     import YakKit
 
     /// How UI tests and walkthroughs run the app against the stub server. It exists in Debug builds only.
@@ -44,7 +45,9 @@
                                 url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",
                                 token: token)
                         } catch {
-                            preconditionFailure("test mode could not seed the instance: \(error)")
+                            Logger(subsystem: "Yak", category: "TestMode").error(
+                                "seeding failed: \(String(describing: type(of: error)), privacy: .public)")
+                            preconditionFailure("test mode could not seed the instance")
                         }
                     }
                     if seed.isKeychainLocked { lockable.lockReads() }

@@ -1,0 +1,34 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build(deps)
+    groups:
+      github-actions:
+        patterns: ['*']
+  - package-ecosystem: bundler
+    directory: /ios
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build(deps)
+    groups:
+      bundler:
+        patterns: ['*']
+  # A pull request here also changes the matching exactVersion in ios/project.yml or
+  # ios/project-sentry.yml; scripts/check-rules.sh fails until both agree.
+  - package-ecosystem: swift
+    directory: /ios/Packages/Pins
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build(deps)
+    groups:
+      swift:
+        patterns: ['*']

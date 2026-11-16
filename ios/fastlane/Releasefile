@@ -1,0 +1,438 @@
+# Release lanes: bootstrap (one-time App Store Connect setup), beta (archive and upload) and refresh
+# (rebuild the last release so TestFlight keeps a build that has not expired).
+# Every value comes from the environment; nothing here names a team, an app or a person.
+# Anything that decides something (build numbers, notes, testers, escaping) lives in lib/release_support.rb.
+require "base64"
+require "fileutils"
+require "timeout"
+
+RELEASE_DIRECTORY = File.join(IOS_ROOT, "build/release")
+RELEASE_KEY_PATH = File.join(RELEASE_DIRECTORY, "AuthKey.p8")
+PROCESSING_TIMEOUT_SECONDS = 30 * 60
+APPLE_CALL_TIMEOUT_SECONDS = 180
+DEFAULT_TESTER_GROUP = "Yak team".freeze
+
+platform :ios do
+  desc "One-time App Store Connect setup: identifiers, capabilities, tester group and testers. Option dry_run:true only reads."
+  lane :bootstrap do |options|
+    dry_run = options[:dry_run].to_s == "true"
+    release_default_tester_group
+    release_stop_for_missing(
+      ReleaseSupport::REQUIRED_RELEASE_VARIABLES.reject { |name| name == "YAK_TESTER_GROUP" } + %w[ASC_KEY_ID ASC_ISSUER_ID],
+      key: true
+    )
+    testers = release_testers
+    team_group = ENV.fetch("YAK_TESTER_GROUP")
+    bundle_id = ENV.fetch("YAK_BUNDLE_ID")
+    app_group = ENV.fetch("YAK_APP_GROUP")
+    UI.message("#{dry_run ? "Reading" : "Setting up"} App Store Connect for #{bundle_id}: 3 identifiers, tester group \"#{team_group}\", #{testers.size} tester(s).")
+
+    rows = []
+    begin
+      release_with_key do |key_path|
+        release_connect(key_path)
+        identifiers = {
+          bundle_id => "app",
+          "#{bundle_id}.widgets" => "widgets",
+          "#{bundle_id}.share" => "share"
+        }
+        capabilities = {
+          bundle_id => [
+            [Spaceship::ConnectAPI::BundleIdCapability::Type::PUSH_NOTIFICATIONS, "alerts and Live Activity tokens"],
+            [Spaceship::ConnectAPI::BundleIdCapability::Type::APP_GROUPS, "shared storage with the extensions"],
+            [Spaceship::ConnectAPI::BundleIdCapability::Type::USERNOTIFICATIONS_TIMESENSITIVE, "time sensitive notifications"]
+          ],
+          "#{bundle_id}.widgets" => [
+            [Spaceship::ConnectAPI::BundleIdCapability::Type::PUSH_NOTIFICATIONS,
+             "the widget extension's entitlements carry aps-environment for widget pushes, and automatic signing needs the capability to make its profile"],
+            [Spaceship::ConnectAPI::BundleIdCapability::Type::APP_GROUPS, "shared storage with the app"]
+          ],
+          "#{bundle_id}.share" => [
+            [Spaceship::ConnectAPI::BundleIdCapability::Type::APP_GROUPS, "shared storage with the app"]
+          ]
+        }
+        identifiers.each do |identifier, label|
+          bundle = release_apple_call("Looking up #{identifier}") { Spaceship::ConnectAPI::BundleId.find(identifier) }
+          if bundle
+            rows << ["Identifier #{identifier}", "already present", ""]
+          elsif dry_run
+            rows << ["Identifier #{identifier}", "would create", ""]
+          else
+            name = "#{ENV.fetch("YAK_DISPLAY_NAME")} #{label}".gsub(/[^A-Za-z0-9 ]/, "").strip
+            bundle = release_apple_call("Registering #{identifier}") do
+              Spaceship::ConnectAPI::BundleId.create(name: name, platform: "IOS", identifier: identifier)
+            end
+            rows << ["Identifier #{identifier}", "created", ""]
+          end
+          present = bundle ? release_apple_call("Reading capabilities of #{identifier}") { bundle.get_capabilities } : []
+          capabilities.fetch(identifier).each do |type, reason|
+            item = "#{release_capability_name(type)} on #{identifier}"
+            if present.any? { |capability| capability.is_type?(type) }
+              rows << [item, "already present", ""]
+            elsif dry_run || bundle.nil?
+              rows << [item, "would create", reason]
+            else
+              release_apple_call("Enabling #{item}") { bundle.create_capability(type) }
+              rows << [item, "created", reason]
+            end
+          end
+        end
+        rows << ["App group #{app_group}", "check by hand",
+                 "The API cannot register an app group or assign it. Register it and assign it to #{bundle_id}, #{bundle_id}.widgets and #{bundle_id}.share in Certificates, Identifiers and Profiles."]
+        rows << ["Broadcast Capability on #{bundle_id}", "check by hand",
+                 "The API has no setting for it. Turn it on under Push Notifications for #{bundle_id} in Certificates, Identifiers and Profiles. Only #{bundle_id} needs it: Live Activity channel pushes use the app's topic, not #{bundle_id}.widgets."]
+
+        app = release_apple_call("Looking up the app record") { Spaceship::ConnectAPI::App.find(bundle_id) }
+        if app.nil?
+          rows << ["App record #{bundle_id}", "needs a person",
+                   "Create the app in App Store Connect (My Apps, plus) named \"#{ENV.fetch("YAK_DISPLAY_NAME")}\" for #{bundle_id}, then run bootstrap again."]
+        else
+          rows << ["App record #{bundle_id}", "already present", ""]
+          release_bootstrap_testers(app, team_group, testers, dry_run, rows)
+        end
+      end
+    ensure
+      release_print_table(rows)
+    end
+  end
+
+  desc "Archive, upload to TestFlight and tag. Option notes: replaces the notes taken from merged pull requests."
+  lane :beta do |options|
+    release_default_tester_group
+    release_stop_for_missing(
+      ReleaseSupport::REQUIRED_RELEASE_VARIABLES + %w[ASC_KEY_ID ASC_ISSUER_ID],
+      key: true
+    )
+    bundle_id = ENV.fetch("YAK_BUNDLE_ID")
+    team_group = ENV.fetch("YAK_TESTER_GROUP")
+    version = release_version
+    UI.message("Building #{bundle_id} #{version} for TestFlight group \"#{team_group}\".")
+    started = Time.now
+    summary = {}
+
+    release_with_key do |key_path|
+      # A local run keeps the developer's own Config.xcconfig; only CI builds it from the environment.
+      ENV["YAK_CONFIG_FROM_ENVIRONMENT"] = "1" if ENV["CI"] == "true"
+      release_timed("Generating the project") { generate }
+      api_key = release_connect(key_path)
+      groups = release_upload_groups(bundle_id, team_group)
+
+      latest = release_timed("Reading TestFlight's latest build number") do
+        release_apple_call("Reading TestFlight's latest build number") do
+          latest_testflight_build_number(api_key: api_key, app_identifier: bundle_id, initial_build_number: 0).to_s
+        end
+      end
+      latest = nil if latest == "0"
+      build = begin
+        ReleaseSupport.build_number(
+          run_number: release_run_number,
+          attempt: release_integer("YAK_BUILD_ATTEMPT", 1),
+          latest_uploaded: latest
+        )
+      rescue ReleaseSupport::Refusal => refusal
+        UI.user_error!(refusal.message)
+      end
+      UI.message("Build number #{build} (TestFlight has #{latest || "no build"}).")
+
+      ENV["YAK_RELEASE_KEY_PATH"] = key_path
+      archive = release_timed("Archiving (this takes several minutes)") do
+        build_app(
+          project: File.join(IOS_ROOT, "Yak.xcodeproj"),
+          scheme: "Yak",
+          export_method: "app-store",
+          export_team_id: ENV.fetch("YAK_TEAM_ID"),
+          output_directory: RELEASE_DIRECTORY,
+          output_name: "Yak",
+          buildlog_path: RELEASE_DIRECTORY,
+          xcargs: "#{ReleaseSupport.signing_arguments} CURRENT_PROJECT_VERSION=#{build}",
+          export_xcargs: ReleaseSupport.signing_arguments
+        )
+      end
+
+      release_upload_symbols
+      notes = release_notes_text(options[:notes])
+
+      release_timed("Uploading and waiting for TestFlight to process the build (at most 30 minutes)") do
+        upload_to_testflight(
+          api_key: api_key,
+          ipa: archive,
+          app_identifier: bundle_id,
+          changelog: notes,
+          **ReleaseSupport.upload_group_options(groups),
+          distribute_external: false,
+          notify_external_testers: false,
+          wait_processing_timeout_duration: PROCESSING_TIMEOUT_SECONDS
+        )
+      end
+
+      tag = ReleaseSupport.release_tag(version: version, build: build)
+      release_push_tag(tag)
+      summary = { "Version" => version, "Build" => build, "Tester group" => team_group, "Tag" => tag }
+    end
+
+    release_write_summary(summary, Time.now - started)
+  end
+
+  desc "Rebuild the last released version so TestFlight keeps an unexpired build."
+  lane :refresh do
+    tag = ReleaseSupport.last_release_tag(release_tags)
+    UI.user_error!("No released build yet. Run beta first.") if tag.nil?
+    UI.user_error!("The working tree has uncommitted changes. Commit or stash them before refresh checks out #{tag}.") unless `git -C #{IOS_ROOT.shellescape} status --porcelain`.strip.empty?
+    original = `git -C #{IOS_ROOT.shellescape} rev-parse --abbrev-ref HEAD`.strip
+    original = `git -C #{IOS_ROOT.shellescape} rev-parse HEAD`.strip if original == "HEAD"
+    version = ReleaseSupport.release_tag_parts(tag)&.first || tag
+    # The workflow checks every release tag before any secret is read; this repeats it for the tag in use.
+    sh("#{File.join(IOS_ROOT, "scripts", "verify-release-tag.sh").shellescape} #{tag.shellescape}")
+    UI.message("Refreshing #{tag}: checking it out and building it again.")
+    begin
+      sh("git -C #{IOS_ROOT.shellescape} checkout --detach #{tag.shellescape}")
+      beta(notes: "Rebuild of #{version} so TestFlight keeps a build that has not expired. Nothing changed since #{tag}.")
+    ensure
+      sh("git -C #{IOS_ROOT.shellescape} checkout #{original.shellescape}", log: false) unless original.empty?
+    end
+  end
+
+  # ---- helpers ----
+
+  def release_default_tester_group
+    ENV["YAK_TESTER_GROUP"] = DEFAULT_TESTER_GROUP if ENV["YAK_TESTER_GROUP"].to_s.strip.empty? && ENV["CI"] != "true"
+  end
+
+  # Stops with one line per missing name, before any other step.
+  def release_stop_for_missing(names, key: false)
+    missing = ReleaseSupport.missing_variables(ENV, names)
+    lines = missing.map do |name|
+      kind = ReleaseSupport::REQUIRED_RELEASE_SECRETS.include?(name) ? "secrets" : "variables"
+      "#{name} is not set. Add it to the testflight environment's #{kind}."
+    end
+    if key && ENV["ASC_KEY_CONTENT"].to_s.strip.empty? && ENV["ASC_KEY_PATH"].to_s.strip.empty?
+      lines << "ASC_KEY_CONTENT is not set. Add it to the testflight environment's secrets (locally, set ASC_KEY_PATH to the .p8 file)."
+    end
+    UI.user_error!(lines.join("\n")) unless lines.empty?
+  end
+
+  def release_testers
+    path = ENV["YAK_TESTERS_FILE"].to_s
+    return [] if path.empty?
+    UI.user_error!("The testers file #{path} does not exist.") unless File.file?(path)
+    UI.user_error!("The testers file #{path} is larger than 100 KB. Remove everything but the addresses.") if File.size(path) > 100 * 1024
+    ReleaseSupport.testers(File.binread(path))
+  rescue ReleaseSupport::Refusal => refusal
+    UI.user_error!(refusal.message)
+  end
+
+  # Yields the path of the .p8 key. CI writes it from ASC_KEY_CONTENT (base64) with mode 0600 and removes it
+  # afterwards; a local run points ASC_KEY_PATH at the file and the file is left alone.
+  def release_with_key
+    written = false
+    path = ENV["ASC_KEY_PATH"].to_s.strip
+    if ENV["ASC_KEY_CONTENT"].to_s.strip.empty?
+      UI.user_error!("ASC_KEY_PATH #{path} does not exist.") unless File.file?(File.expand_path(path))
+      path = File.expand_path(path)
+    else
+      content = begin
+        Base64.strict_decode64(ENV["ASC_KEY_CONTENT"].to_s.gsub(/\s+/, ""))
+      rescue ArgumentError
+        UI.user_error!("ASC_KEY_CONTENT is not base64. Store the base64 of the .p8 file (base64 -i AuthKey.p8) as the secret.")
+      end
+      UI.user_error!("ASC_KEY_CONTENT does not decode to a .p8 key. Store the base64 of the whole .p8 file.") unless content.include?("PRIVATE KEY")
+      FileUtils.mkdir_p(RELEASE_DIRECTORY)
+      File.open(RELEASE_KEY_PATH, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(content) }
+      path = RELEASE_KEY_PATH
+      written = true
+    end
+    yield path
+  ensure
+    FileUtils.rm_f(RELEASE_KEY_PATH) if written
+  end
+
+  # Signs in to App Store Connect and bounds every request.
+  def release_connect(key_path)
+    ENV["SPACESHIP_TIMEOUT"] ||= "120"
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: key_path,
+      set_spaceship_token: true
+    )
+  end
+
+  def release_version
+    ReleaseSupport.release_version(File.exist?(File.join(IOS_ROOT, "VERSION")) ? File.read(File.join(IOS_ROOT, "VERSION")) : "")
+  rescue ReleaseSupport::Refusal => refusal
+    UI.user_error!(refusal.message)
+  end
+
+  # An internal group with access to all builds gets every build without being named; naming it makes App
+  # Store Connect fail the upload at its last step. Any other group is named so the build is added to it.
+  def release_upload_groups(bundle_id, group_name)
+    group = release_apple_call("Looking up the tester group") do
+      app = Spaceship::ConnectAPI::App.find(bundle_id)
+      app&.get_beta_groups(filter: { name: group_name })&.find { |candidate| candidate.name == group_name }
+    end
+    UI.user_error!("The tester group \"#{group_name}\" does not exist for #{bundle_id}. Run bootstrap first.") if group.nil?
+    groups = ReleaseSupport.upload_groups(group_name, internal: group.is_internal_group, all_builds: group.has_access_to_all_builds)
+    if groups.empty?
+      UI.message("Tester group \"#{group_name}\" is internal with access to all builds: it receives the build on its own, so the upload does not name it.")
+    else
+      UI.message("Tester group \"#{group_name}\" does not get every build on its own: the upload adds the build to it.")
+    end
+    groups
+  end
+
+  # Runs one App Store Connect call with a time bound and an error that names the step.
+  def release_apple_call(description)
+    Timeout.timeout(APPLE_CALL_TIMEOUT_SECONDS) { yield }
+  rescue Timeout::Error
+    UI.user_error!("#{description}: App Store Connect did not answer within #{APPLE_CALL_TIMEOUT_SECONDS} seconds. Check the network and run the lane again.")
+  rescue FastlaneCore::Interface::FastlaneError
+    raise
+  rescue StandardError => error
+    UI.user_error!("#{description} failed (#{error.class}): #{error.message.to_s[0, 500]}. Check the key's role (Admin), the key ID and the issuer ID.")
+  end
+
+  def release_timed(description)
+    UI.message("#{description}...")
+    started = Time.now
+    result = yield
+    UI.message("#{description} done in #{(Time.now - started).round} seconds.")
+    result
+  end
+
+  def release_integer(name, default)
+    value = ENV[name].to_s.strip
+    return default if value.empty?
+    Integer(value, 10)
+  rescue ArgumentError
+    UI.user_error!("#{name} must be a whole number. Fix the value of #{name}.")
+  end
+
+  def release_run_number
+    run = ENV["YAK_BUILD_NUMBER"].to_s.strip
+    return nil if run.empty?
+    release_integer("YAK_BUILD_NUMBER", nil) + release_integer("YAK_BUILD_NUMBER_OFFSET", 0)
+  end
+
+  def release_capability_name(type)
+    {
+      "PUSH_NOTIFICATIONS" => "Push Notifications",
+      "APP_GROUPS" => "App Groups",
+      "USERNOTIFICATIONS_TIMESENSITIVE" => "Time Sensitive Notifications"
+    }.fetch(type, type)
+  end
+
+  def release_bootstrap_testers(app, group_name, testers, dry_run, rows)
+    group = release_apple_call("Looking up the tester group") do
+      app.get_beta_groups(filter: { name: group_name }).find { |candidate| candidate.name == group_name }
+    end
+    if group
+      rows << ["Tester group #{group_name}", "already present", ""]
+    elsif dry_run
+      rows << ["Tester group #{group_name}", "would create", ""]
+    else
+      group = release_apple_call("Creating the tester group") do
+        app.create_beta_group(group_name: group_name, is_internal_group: true, has_access_to_all_builds: true)
+      end
+      rows << ["Tester group #{group_name}", "created", ""]
+    end
+    testers.each do |address|
+      item = "Tester #{ReleaseSupport.mask_address(address)}"
+      member = group && release_apple_call("Looking up #{item}") do
+        Spaceship::ConnectAPI::BetaTester.all(filter: { email: address }, includes: "betaGroups").any? do |tester|
+          tester.email.to_s.casecmp?(address) && Array(tester.beta_groups).any? { |candidate| candidate.id == group.id }
+        end
+      end
+      if member
+        rows << [item, "already present", ""]
+        next
+      end
+      user = release_apple_call("Looking up #{item} in Users and Access") { Spaceship::ConnectAPI::User.find(email: address).first }
+      if user.nil?
+        rows << [item, "needs a person", "Not an App Store Connect user yet: invite them in Users and Access, then run bootstrap again."]
+      elsif dry_run || group.nil?
+        rows << [item, "would create", "Adds them to #{group_name}."]
+      else
+        release_apple_call("Adding #{item}") do
+          group.post_bulk_beta_tester_assignments(beta_testers: [{ email: address, firstName: user.first_name.to_s, lastName: user.last_name.to_s }])
+        end
+        rows << [item, "created", "Added to #{group_name}."]
+      end
+    end
+  end
+
+  def release_print_table(rows)
+    return if rows.empty?
+    width = rows.map { |row| row[0].length }.max
+    UI.message("")
+    rows.each do |item, status, note|
+      UI.message("#{item.ljust(width)}  #{status.ljust(15)}  #{note}".rstrip)
+    end
+    needs = ReleaseSupport.pending_count(rows)
+    manual = rows.count { |row| row[1] == "check by hand" }
+    UI.important("#{needs} item(s) need a person. Do them, then run bootstrap again.") if needs.positive?
+    UI.important("#{manual} item(s) say \"check by hand\": the API cannot see them, so every run lists them. Confirm them in the developer portal once; they do not need another bootstrap run.") if manual.positive?
+  end
+
+  def release_tags
+    output = `git -C #{IOS_ROOT.shellescape} for-each-ref refs/tags/ios/v* --format='%(refname:short) %(creatordate:iso8601)'`
+    output.each_line.filter_map do |line|
+      tag, date = line.strip.split(" ", 2)
+      next unless tag && date && ReleaseSupport.release_tag_parts(tag)
+      [tag, Time.parse(date)]
+    rescue ArgumentError
+      nil
+    end
+  end
+
+  def release_notes_text(override)
+    fallback = "Maintenance build."
+    if override
+      text = ReleaseSupport.scrub(override).gsub(ReleaseSupport::HIDDEN_CHARACTERS, "").strip
+      return text[0, ReleaseSupport::MAXIMUM_NOTES_LENGTH] unless text.empty?
+    end
+    tag = ReleaseSupport.last_release_tag(release_tags)
+    range = tag ? "#{tag.shellescape}..HEAD" : "-n 200"
+    subjects = `git -C #{IOS_ROOT.shellescape} log --format=%s #{range} -- .`.each_line.map(&:chomp)
+    ReleaseSupport.release_notes(subjects, fallback: fallback)
+  end
+
+  # Symbol upload is optional: a failure warns in the job summary and the release continues.
+  def release_upload_symbols
+    token = ENV["SENTRY_AUTH_TOKEN"].to_s
+    dsn = ReleaseSupport.read_config(File.read(File.join(IOS_ROOT, "Config.xcconfig")))["YAK_SENTRY_DSN"].to_s
+    if token.empty? || dsn.empty?
+      UI.message("Skipping the crash symbol upload (no Sentry token or DSN).")
+      return
+    end
+    archive_path = Actions.lane_context[Actions::SharedValues::XCODEBUILD_ARCHIVE]
+    release_timed("Uploading crash symbols") do
+      sh("sentry-cli debug-files upload --org #{ENV["SENTRY_ORG"].to_s.shellescape} --project #{ENV["SENTRY_PROJECT"].to_s.shellescape} #{File.join(archive_path.to_s, "dSYMs").shellescape}", log: false)
+    end
+  rescue StandardError
+    release_append_summary("Warning: the crash symbol upload failed. The build was still uploaded; crash reports from it will not be symbolicated.")
+    UI.important("The crash symbol upload failed; continuing.")
+  end
+
+  def release_push_tag(tag)
+    identity = "-c user.name=\"iOS release\" -c user.email=\"noreply@users.noreply.github.com\""
+    if ENV["CI"] == "true"
+      release_timed("Tagging #{tag}") do
+        sh("git -C #{IOS_ROOT.shellescape} #{identity} tag -a #{tag.shellescape} -m #{tag.shellescape}")
+        sh("git -C #{IOS_ROOT.shellescape} push origin #{tag.shellescape}")
+      end
+    else
+      UI.important("Tag this build yourself:\n  git tag -a #{tag} -m #{tag}\n  git push origin #{tag}")
+    end
+  end
+
+  def release_append_summary(text)
+    path = ENV["GITHUB_STEP_SUMMARY"].to_s
+    File.open(path, "a") { |file| file.puts(text) } unless path.empty?
+  end
+
+  def release_write_summary(summary, seconds)
+    lines = summary.map { |name, value| "#{name}: #{value}" }
+    UI.success("Uploaded to TestFlight in #{seconds.round} seconds. #{lines.join(", ")}")
+    release_append_summary("### iOS release\n\n#{summary.map { |name, value| "- #{name}: `#{value}`" }.join("\n")}\n")
+  end
+end

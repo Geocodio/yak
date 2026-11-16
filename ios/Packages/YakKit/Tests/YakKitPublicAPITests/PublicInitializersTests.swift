@@ -100,3 +100,10 @@ import YakKit
     #expect(session.token == "token" && folder.entries == [entry] && !folder.truncated)
     #expect(content.body == body && saved.file == body)
 }
+
+private func requireSendable<Value: Sendable>(_ value: Value) -> Value { value }
+
+@Test func performanceIntervalsAreSendableOutsideTheModule() {
+    var open = requireSendable(OpenPerformanceIntervals<Int>())
+    #expect(open.begin(.paneSwitch, token: 1).shouldBegin)
+}

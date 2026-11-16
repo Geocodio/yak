@@ -53,7 +53,7 @@ struct ConnectView: View {
 
     private func hint(number: Int, title: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 14) {
-            Text("\(number)")
+            Text(verbatim: "\(number)")
                 .font(.subheadline.bold())
                 .frame(minWidth: stepSize, minHeight: stepSize)
                 .overlay(Circle().stroke(Color.yakMuted, lineWidth: 1))

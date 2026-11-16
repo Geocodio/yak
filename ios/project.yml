@@ -12,6 +12,8 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"
     DEVELOPMENT_TEAM: $(YAK_TEAM_ID)
     CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: ${YAK_MARKETING_VERSION}
+    CURRENT_PROJECT_VERSION: "1"
 packages:
   YakKit:
     path: Packages/YakKit
@@ -38,11 +40,12 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
     info:
       path: Yak/Support/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
         CFBundleURLTypes:
           - CFBundleURLName: $(YAK_BUNDLE_ID)
             CFBundleURLSchemes: [yak]

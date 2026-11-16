@@ -1,13 +1,29 @@
 default_platform(:ios)
 
 IOS_ROOT = File.expand_path("..", __dir__)
+require_relative "lib/release_support"
+import("Releasefile")
 
 platform :ios do
   desc "Generate the Xcode project from project.yml"
   lane :generate do
     config = File.join(IOS_ROOT, "Config.xcconfig")
     example = File.join(IOS_ROOT, "Config.example.xcconfig")
-    FileUtils.cp(example, config) unless File.exist?(config)
+    if ENV["YAK_CONFIG_FROM_ENVIRONMENT"] == "1"
+      begin
+        File.write(config, ReleaseSupport.config_text(ENV), perm: 0o600)
+        File.chmod(0o600, config)
+      rescue ReleaseSupport::Refusal => refusal
+        UI.user_error!(refusal.message)
+      end
+      UI.message("Wrote Config.xcconfig from the environment.")
+    else
+      FileUtils.cp(example, config) unless File.exist?(config)
+    end
+    ENV["YAK_SENTRY_ENABLED"] = ReleaseSupport.read_config(File.read(config))["YAK_SENTRY_DSN"].to_s.empty? ? "false" : "true"
+    version = release_version
+    ENV["YAK_MARKETING_VERSION"] = version
+    UI.message("Generating the project for version #{version}")
     sh("cd #{IOS_ROOT.shellescape} && xcodegen generate")
   end
 
@@ -15,6 +31,8 @@ platform :ios do
   lane :lint do
     sh("cd #{IOS_ROOT.shellescape} && swift format lint --strict --recursive Yak YakTests YakUITests Packages")
     sh("#{File.join(IOS_ROOT, "scripts/check-rules.sh").shellescape}")
+    sh("#{File.join(IOS_ROOT, "scripts/test-rules.sh").shellescape}")
+    Bundler.with_unbundled_env { sh("cd #{File.join(IOS_ROOT, "fastlane").shellescape} && ruby -Ilib test/release_support_test.rb") }
   end
 
   desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\" only:testName"

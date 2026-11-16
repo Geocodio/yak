@@ -98,7 +98,7 @@ public struct StartThreadSubmission: Sendable {
             try OutboxInbox.add(
                 draft, instance: target.id, files: environment.files, id: id, now: environment.clock.now())
         } catch {
-            logFailure("inbox write failed: \(error)")
+            logFailure("inbox write failed: \(type(of: error))")
             return .refused(message: "")
         }
         // The Keychain cannot be read yet (before the first unlock): the app sends the item later.

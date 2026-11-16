@@ -1,0 +1,94 @@
+name: iOS release
+
+# Builds the app, uploads it to TestFlight and tags the release. It runs only from main, on a
+# schedule and on demand, never for pull requests: it holds the App Store Connect key.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-release.yml'
+  schedule:
+    # The 1st of every other month. TestFlight builds expire after 90 days; `refresh` rebuilds the
+    # last released tag so a build is always available.
+    - cron: '17 5 1 */2 *'
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: 'beta builds main; refresh rebuilds the last released tag'
+        type: choice
+        options: [beta, refresh]
+        default: beta
+
+# An upload is never cancelled half way.
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # `shell: bash` runs `bash -eo pipefail`, so a failing command in a pipe fails the step.
+    shell: bash
+    working-directory: ios
+
+jobs:
+  release:
+    # A job-level `if` is evaluated before the environment applies, so it can only read
+    # repository-level variables. YAK_IOS_RELEASE is that switch; a fork without it skips quietly.
+    # Only main may run the job, so a manual run from another branch never reaches the secrets.
+    if: vars.YAK_IOS_RELEASE == 'on' && github.ref == 'refs/heads/main'
+    environment: testflight
+    permissions:
+      contents: write
+    # GitHub's hosted Xcode 27 image. Never register a self-hosted runner under this label: the
+    # job holds the App Store Connect key.
+    runs-on: xcode-27
+    timeout-minutes: 75
+    env:
+      YAK_TEAM_ID: ${{ vars.YAK_TEAM_ID }}
+      YAK_BUNDLE_ID: ${{ vars.YAK_BUNDLE_ID }}
+      YAK_APP_GROUP: ${{ vars.YAK_APP_GROUP }}
+      YAK_DISPLAY_NAME: ${{ vars.YAK_DISPLAY_NAME }}
+      YAK_TESTER_GROUP: ${{ vars.YAK_TESTER_GROUP }}
+      YAK_SENTRY_DSN: ${{ vars.YAK_SENTRY_DSN }}
+      SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+      YAK_BUILD_NUMBER_OFFSET: ${{ vars.YAK_BUILD_NUMBER_OFFSET }}
+      YAK_BUILD_NUMBER: ${{ github.run_number }}
+      YAK_BUILD_ATTEMPT: ${{ github.run_attempt }}
+      YAK_CONFIG_FROM_ENVIRONMENT: '1'
+      RELEASE_LANE: ${{ github.event_name == 'schedule' && 'refresh' || (github.event_name == 'workflow_dispatch' && inputs.lane) || 'beta' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Before any secret is read: every release tag must be annotated and on main, or nothing is built.
+      - name: Check the release tags
+        run: scripts/verify-release-tag.sh
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_$(cat .xcode-version).app"
+      - name: Install tools
+        run: brew install xcodegen
+      - name: Install sentry-cli
+        if: vars.SENTRY_ORG != ''
+        run: brew install getsentry/tools/sentry-cli
+      - name: Install gems
+        run: bundle install
+      # The secrets exist only in this step's environment.
+      - name: Release
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: bundle exec fastlane "$RELEASE_LANE"
+      - name: Keep the build logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-logs
+          path: ios/build/release/*.log
+          if-no-files-found: ignore
