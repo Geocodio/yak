@@ -147,6 +147,12 @@ final class ThreadModel {
         markdownTask?.cancel()
         flushTask?.cancel()
         actionLineTask?.cancel()
+        markdownTask = nil
+        flushTask = nil
+        actionLineTask = nil
+        actionLine = nil
+        dirtyMarkdownKeys = []
+        await markdownCache?.clear()
         guard engine != nil else { return }
         engine = nil
         await session.closeThread(threadID)

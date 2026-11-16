@@ -83,7 +83,7 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
     let transport = ThreadTransport()
     let session: InstanceSession
 
-    init() async throws {
+    init(clock: any YakClock = SystemClock()) async throws {
         let tokens = InMemoryTokenStore()
         let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
         let instance = try await instances.add(
@@ -91,7 +91,7 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
         session = InstanceSession(
             instance: instance, instances: instances, tokens: tokens,
             environment: SessionEnvironment(
-                http: transport, webSockets: NoSockets(), files: InMemoryFileStore(), clock: SystemClock(),
+                http: transport, webSockets: NoSockets(), files: InMemoryFileStore(), clock: clock,
                 makeID: { UUID() }, appVersion: "1.0.0", systemDescription: "Test", allowsInsecureRealtime: false))
         await session.start()
     }
@@ -331,5 +331,22 @@ private func chatSnapshot(
     model.apply(try chatSnapshot(.running, items: [textItem("m1:0", "Hello **there**", isStreaming: true)]))
     #expect(model.documents["m1:0"] == nil)
     #expect(await fixture.eventually { model.documents["m1:0"] != nil })
+    await fixture.session.stop()
+}
+
+@MainActor @Test func markdownRendersAfterRetry() async throws {
+    let clock = ManualClock()
+    let fixture = try await Fixture(clock: clock)
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    await model.start(initialTitle: nil)
+    model.apply(try chatSnapshot(.completed, items: [textItem("m1:0", "First")]))
+    // A parse has finished and its publication waits for the flush delay.
+    #expect(await fixture.eventually { clock.sleeperCount(waking: .milliseconds(50)) == 1 })
+    await model.retry()
+    let second = try chatSnapshot(.completed, items: [textItem("m2:0", "Second")])
+    #expect(await fixture.eventually { model.apply(second); return clock.sleeperCount(waking: .milliseconds(50)) == 1 })
+    clock.advance(.milliseconds(50))
+    #expect(await fixture.eventually { model.documents["m2:0"] != nil })
+    await model.stop()
     await fixture.session.stop()
 }
