@@ -8,6 +8,7 @@ use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\Push\Widgets\WidgetReloads;
 use App\Services\Threads\Contracts\BrokerStreams;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -54,6 +55,9 @@ class ThreadDeleter
             YakTask::query()->whereIn('id', $taskIds)->delete();
             Thread::query()->withoutGlobalScopes()->whereIn('id', $ids)->delete();
         });
+
+        // The mass deletes above fire no model events.
+        app(WidgetReloads::class)->somethingChanged();
 
         foreach ($ids as $id) {
             $this->streams->unregister("threads:{$id}");

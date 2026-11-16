@@ -21,7 +21,7 @@ it('stores a token in lowercase and answers 204', function (string $kind) {
 
     $row = DevicePushToken::query()->where('device_id', $device->id)->sole();
     expect($row->kind->value)->toBe($kind)->and($row->token)->toBe(str_repeat('ab', 32))->and($row->environment)->toBe('production');
-})->with(['alert', 'live_activity_start']);
+})->with(['alert', 'live_activity_start', 'widget']);
 
 it('changes nothing on a repeat', function () {
     [, $headers] = phoneWithHeaders();
@@ -100,7 +100,30 @@ it('answers not found for an unknown kind', function (string $kind) {
 
     $this->putJson(pushTokenPath($kind), ['token' => str_repeat('ab', 32), 'environment' => 'production'], $headers)->assertNotFound()->assertJsonPath('error', 'not_found');
     $this->deleteJson(pushTokenPath($kind), [], $headers)->assertNotFound()->assertJsonPath('error', 'not_found');
-})->with(['widget', 'live_activity']);
+})->with(['live_activity', 'unknown']);
+
+it('keeps the widget token beside the alert token', function () {
+    [$device, $headers] = phoneWithHeaders();
+
+    $this->putJson(pushTokenPath(), ['token' => str_repeat('ab', 32), 'environment' => 'production'], $headers)->assertNoContent();
+    $this->putJson(pushTokenPath('widget'), ['token' => str_repeat('cd', 32), 'environment' => 'production'], $headers)->assertNoContent();
+
+    expect(DevicePushToken::query()->where('device_id', $device->id)->count())->toBe(2);
+
+    $this->deleteJson(pushTokenPath('widget'), [], $headers)->assertNoContent();
+
+    expect(DevicePushToken::query()->where('device_id', $device->id)->sole()->kind)->toBe(PushTokenKind::Alert);
+});
+
+it('refuses a widget token from the other environment', function () {
+    [, $headers] = phoneWithHeaders();
+
+    $this->putJson(pushTokenPath('widget'), ['token' => str_repeat('ab', 32), 'environment' => 'sandbox'], $headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error', 'push_environment_mismatch');
+
+    expect(DevicePushToken::query()->count())->toBe(0);
+});
 
 it('removes a token and answers 204 when there is none', function () {
     [$device, $headers] = phoneWithHeaders();

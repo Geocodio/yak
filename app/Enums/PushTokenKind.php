@@ -6,6 +6,7 @@ enum PushTokenKind: string
 {
     case Alert = 'alert';
     case LiveActivityStart = 'live_activity_start';
+    case Widget = 'widget';
 
     /**
      * The route constraint that accepts every kind.

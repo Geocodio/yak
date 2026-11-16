@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PushTokenKind;
 use App\Models\DeviceLiveActivity;
 use App\Models\DevicePushToken;
 use App\Models\User;
@@ -17,6 +18,8 @@ function pushRoutes(): array
     return [
         'PUT push-tokens' => ['PUT', '/api/app/v1/push-tokens/alert', $token],
         'DELETE push-tokens' => ['DELETE', '/api/app/v1/push-tokens/alert', []],
+        'PUT widget token' => ['PUT', '/api/app/v1/push-tokens/widget', $token],
+        'DELETE widget token' => ['DELETE', '/api/app/v1/push-tokens/widget', []],
         'GET notifications' => ['GET', '/api/app/v1/notifications', []],
         'PUT notifications' => ['PUT', '/api/app/v1/notifications', ['events' => ['needs_you' => false]]],
         'PUT live-activities' => ['PUT', '/api/app/v1/live-activities', ['threads' => []]],
@@ -68,14 +71,22 @@ it('never reveals another person\'s thread through live activities', function ()
 it('touches only the caller\'s own rows', function () {
     $other = User::factory()->create(['name' => 'Other person', 'email' => 'other@example.test']);
     $otherToken = alertTokenFor($other, str_repeat('cd', 32));
-    $before = ['token' => $otherToken->fresh()->toArray(), 'preferences' => $other->fresh()->push_event_preferences];
+    $otherWidgetToken = DevicePushToken::factory()->create([
+        'device_id' => $otherToken->device_id,
+        'kind' => PushTokenKind::Widget,
+        'token' => str_repeat('34', 32),
+    ]);
+    $before = ['token' => $otherToken->fresh()->toArray(), 'widget' => $otherWidgetToken->fresh()->toArray(), 'preferences' => $other->fresh()->push_event_preferences];
     [, $headers] = phoneWithHeaders();
 
     $this->putJson('/api/app/v1/push-tokens/alert', ['token' => str_repeat('ab', 32), 'environment' => 'production'], $headers)->assertNoContent();
+    $this->putJson('/api/app/v1/push-tokens/widget', ['token' => str_repeat('ef', 32), 'environment' => 'production'], $headers)->assertNoContent();
     $this->putJson('/api/app/v1/notifications', ['events' => ['needs_you' => false]], $headers)->assertOk();
     $this->deleteJson('/api/app/v1/push-tokens/alert', [], $headers)->assertNoContent();
+    $this->deleteJson('/api/app/v1/push-tokens/widget', [], $headers)->assertNoContent();
 
     expect($otherToken->fresh()->toArray())->toBe($before['token'])
+        ->and($otherWidgetToken->fresh()->toArray())->toBe($before['widget'])
         ->and($other->fresh()->push_event_preferences)->toBe($before['preferences'])
-        ->and(DevicePushToken::query()->pluck('id')->all())->toBe([$otherToken->id]);
+        ->and(DevicePushToken::query()->orderBy('id')->pluck('id')->all())->toBe([$otherToken->id, $otherWidgetToken->id]);
 });

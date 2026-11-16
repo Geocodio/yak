@@ -48,6 +48,24 @@ final class ApnsClient
     }
 
     /**
+     * A WidgetKit push: push type `widgets`, topic `<bundle id>.push-type.widgets`, low priority (5) so the system may defer it, and a body of `{"aps": {"content-changed": true}}`.
+     * Source: Apple, "Updating widgets with WidgetKit push notifications" (WidgetKit documentation). It confirms `apns-push-type: widgets`, the topic suffix `.push-type.widgets` and the body `{"aps": {"content-changed": true}}`. It does not name a priority; 5 follows Apple's general APNs guidance for notifications that need not arrive immediately.
+     * The collapse id lets Apple keep only the newest reload for a device.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function sendWidgetReload(#[\SensitiveParameter] string $deviceToken, array $payload): ApnsResponse
+    {
+        return $this->call('POST', $this->deviceUrl($deviceToken), [
+            'apns-push-type' => 'widgets',
+            'apns-topic' => $this->bundleId() . '.push-type.widgets',
+            'apns-priority' => '5',
+            'apns-expiration' => (string) now()->addHour()->getTimestamp(),
+            'apns-collapse-id' => 'widget-reload',
+        ], $payload);
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      */
     public function broadcast(string $channelId, array $payload, int $priority): ApnsResponse
