@@ -25,6 +25,8 @@ final class TaskModel {
     private(set) var sending: TaskAction?
     /// The last refusal or failure, shown above the decision bar.
     private(set) var message: String?
+    /// True when the refusal behind `message` is one a reload can clear (GitHub failed or the access check failed).
+    private(set) var canRetryAfterMessage = false
     /// Kept across a refusal, so typed words are never lost.
     var feedback = ""
     private(set) var feedbackError: String?
@@ -84,7 +86,11 @@ final class TaskModel {
         await closing?.close()
     }
 
-    func retry() async { await feed?.reload() }
+    func retry() async {
+        message = nil
+        canRetryAfterMessage = false
+        await feed?.reload()
+    }
 
     private func apply(_ next: TaskDetailFeed.Snapshot) {
         task = next.task
@@ -102,6 +108,7 @@ final class TaskModel {
         guard sending == nil, !isOffline, let feed else { return false }
         sending = action
         message = nil
+        canRetryAfterMessage = false
         feedbackError = nil
         let outcome = await feed.perform(action)
         sending = nil
@@ -120,6 +127,7 @@ final class TaskModel {
                 linkOverride = connectURL ?? (task?.coOwner?.connectUrl)
             default:
                 message = text
+                canRetryAfterMessage = ["github_failed", "access_check_failed"].contains(code)
             }
             if case .requestChanges = action { feedbackError = fieldErrors["feedback"]?.first }
             if code != "not_linked" { errorCount += 1 }

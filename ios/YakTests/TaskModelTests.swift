@@ -179,3 +179,27 @@ private final class Access: @unchecked Sendable {
     await model.stop()
     await fixture.session.stop()
 }
+
+@MainActor @Test func aGitHubFailureOffersARetryThatReloads() async throws {
+    let fixture = try await TasksFixture { route, _, _ in
+        switch route {
+        case "GET tasks/k3m9p2qa": return (200, try json(task()))
+        case "POST tasks/k3m9p2qa/co-owner/approve": return (502, errorBody("github_failed", "GitHub did not answer."))
+        default: return nil
+        }
+    }
+    let (model, _) = model(fixture)
+    await model.start()
+    #expect(await fixture.eventually { model.decision == .decide })
+    #expect(!(await model.perform(.approve)))
+    #expect(model.message == "GitHub did not answer.")
+    #expect(model.canRetryAfterMessage)
+    let reads = fixture.transport.count { $0 == "GET tasks/k3m9p2qa" }
+    await model.retry()
+    #expect(model.message == nil)
+    #expect(!model.canRetryAfterMessage)
+    #expect(fixture.transport.count { $0 == "GET tasks/k3m9p2qa" } == reads + 1)
+    #expect(fixture.transport.count { $0.hasPrefix("POST") } == 1)
+    await model.stop()
+    await fixture.session.stop()
+}

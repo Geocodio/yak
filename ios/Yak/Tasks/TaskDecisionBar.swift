@@ -17,6 +17,14 @@ struct TaskDecisionBar: View {
                 if let message = model.message {
                     Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
                         .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("task.decision.message")
+                    if model.canRetryAfterMessage {
+                        Button {
+                            Task { await model.retry() }
+                        } label: {
+                            Text("common.retry")
+                        }
+                        .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("task.decision.messageRetry")
+                    }
                 }
                 if model.isOffline {
                     Text("task.decision.offline").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
