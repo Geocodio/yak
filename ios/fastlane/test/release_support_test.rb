@@ -243,4 +243,17 @@ class ReleaseSupportTest < Minitest::Test
   def test_manual_rows_are_not_counted_as_pending
     assert_equal 1, ReleaseSupport.pending_count([["a", "needs a person", ""], ["b", "check by hand", ""], ["c", "created", ""]])
   end
+
+  # The notes range reads the whole ios folder because the lane runs from ios; `-- ios` would find nothing there.
+  def test_release_notes_log_uses_the_current_folder_pathspec
+    source = File.read(File.expand_path("../Releasefile", __dir__))
+    line = source.lines.find { |text| text.include?("log --format=%s") }
+    refute_nil line
+    assert_match(/ -- \.`/, line)
+  end
+
+  def test_refresh_checks_the_tag_before_checking_it_out
+    source = File.read(File.expand_path("../Releasefile", __dir__))
+    assert_operator source.index("verify-release-tag.sh"), :<, source.index("checkout --detach")
+  end
 end

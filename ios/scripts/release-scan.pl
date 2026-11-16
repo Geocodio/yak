@@ -231,9 +231,10 @@ sub scan_hosts {
     my ($path, $t) = @_;
     # Plain, raw (#"..."#) and triple-quoted strings.
     while ($t =~ /(#+)"(.*?)"\1|"""(.*?)"""|"([^"\n]*)"/sg) {
+        my $start = $-[0];
         my $body = $2 // $3 // $4;
         next unless $body =~ m{://[A-Za-z0-9]};
-        print "$path:" . line_of($t, $-[0]) . ": a string literal names a host\n";
+        print "$path:" . line_of($t, $start) . ": a string literal names a host\n";
     }
 }
 

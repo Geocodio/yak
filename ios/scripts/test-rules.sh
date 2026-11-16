@@ -254,13 +254,22 @@ on:
 concurrency:
   group: ios-release
   cancel-in-progress: false
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
 jobs:
   release:
-    if: \${{ vars.YAK_IOS_RELEASE == 'on' }}
+    if: \${{ vars.YAK_IOS_RELEASE == 'on' && github.ref == 'refs/heads/main' }}
     environment: testflight
     runs-on: xcode-27
     steps:
-      - run: echo
+      - uses: actions/checkout@v4
+      - run: scripts/verify-release-tag.sh
+      - env:
+          ASC_KEY_ID: \${{ secrets.ASC_KEY_ID }}
+        run: echo
 EOF
 }
 fresh
@@ -282,6 +291,72 @@ fresh
 valid_workflow
 sed -i.bak '/if: .*YAK_IOS_RELEASE/d' "$work/.github/workflows/ios-release.yml"
 expect_fail "workflow: no if on the release job" "release: workflow" "skips quietly"
+
+fresh
+valid_workflow
+sed -i.bak "s# && github.ref == 'refs/heads/main'##" "$work/.github/workflows/ios-release.yml"
+expect_fail "workflow: a job that any branch can start" "release: workflow" "refs/heads/main"
+fresh
+valid_workflow
+sed -i.bak '/^permissions:/,/contents: read/d' "$work/.github/workflows/ios-release.yml"
+expect_fail "workflow: no read-only default permissions" "release: workflow" "contents: read"
+fresh
+valid_workflow
+sed -i.bak '/run: scripts\/verify-release-tag.sh/d' "$work/.github/workflows/ios-release.yml"
+expect_fail "workflow: a secret with no tag check before it" "release: workflow" "verify-release-tag.sh"
+fresh
+valid_workflow
+perl -0pi -e 's/(    runs-on: xcode-27\n)/$1    env:\n      KEY: \${{ secrets.ASC_KEY_ID }}\n/' "$work/.github/workflows/ios-release.yml"
+expect_fail "workflow: a secret in the job env" "release: workflow" "env must not hold a secret"
+fresh
+valid_workflow
+sed -i.bak 's#actions/checkout@v4#someone/action@v1#' "$work/.github/workflows/ios-release.yml"
+expect_fail "workflow: a third-party action not pinned to a commit" "release: workflow" "not pinned to a commit"
+fresh
+valid_workflow
+sed -i.bak 's#actions/checkout@v4#someone/action@0123456789abcdef0123456789abcdef01234567#' "$work/.github/workflows/ios-release.yml"
+expect_pass "workflow: a third-party action pinned to a commit passes"
+
+# piped run blocks need pipefail
+pipe_workflow() {
+    mkdir -p "$work/.github/workflows"
+    cat > "$work/.github/workflows/ios-extra.yml" <<WORKFLOW
+name: extra
+on: workflow_dispatch
+jobs:
+  piped:
+    runs-on: xcode-27
+    steps:
+      - name: Piped
+        run: |
+          swift test 2>&1 | tee log
+WORKFLOW
+}
+fresh
+pipe_workflow
+expect_fail "pipefail: a pipe with no shell" "release: pipefail" "pipes without pipefail"
+fresh
+pipe_workflow
+perl -0pi -e 's/    runs-on: xcode-27\n/    defaults:\n      run:\n        shell: bash\n    runs-on: xcode-27\n/' "$work/.github/workflows/ios-extra.yml"
+expect_pass "pipefail: shell bash on the job passes"
+fresh
+pipe_workflow
+perl -0pi -e 's/          swift test/          set -o pipefail\n          swift test/' "$work/.github/workflows/ios-extra.yml"
+expect_pass "pipefail: set -o pipefail in the block passes"
+fresh
+pipe_workflow
+sed -i.bak 's/swift test 2>&1 | tee log/swift test || true/' "$work/.github/workflows/ios-extra.yml"
+expect_pass "pipefail: || is not a pipe"
+
+# the hosts rule names the line of the literal
+fresh
+plant Yak/Planted.swift <<'PLANTED'
+import Foundation
+
+let first = 1
+let link = "https://real.example/path"
+PLANTED
+expect_fail "hosts: the report names the literal's line" "release: hosts" "Planted.swift:4:"
 
 # extension targets: discovery, groups, override, minimum version, privacy
 planted_share() {
@@ -461,6 +536,46 @@ sed -i.bak 's#dependencies: \[#dependencies: [\
         .package(url: "https://github.com/example/widget.git", exact: "1.0.0"),#' "$work/ios/Packages/Pins/Package.swift"
 echo '{"pins":[],"version":3}' > "$work/ios/Packages/Pins/Package.resolved"
 expect_pass "pins: matching versions pass"
+
+# the release tag check: an annotated tag on the trusted branch passes, anything else is refused
+tag_check() {
+    # tag_check <name> <expected exit status> <text the output must hold> <args...>
+    local name="$1" expected="$2" text="$3"
+    shift 3
+    local tag_output status
+    tag_output=$(cd "$tagrepo" && TRUSTED_REF=main ios/scripts/verify-release-tag.sh "$@" 2>&1)
+    status=$?
+    if [ "$status" -ne "$expected" ] || ! grep -qF -- "$text" <<<"$tag_output"; then
+        echo "FAIL  $name: status $status, output '$tag_output'"
+        failures=$((failures + 1))
+    else
+        echo "ok    $name"
+    fi
+}
+tagrepo="$base/tagrepo"
+mkdir -p "$tagrepo/ios/scripts"
+cp "$repository/ios/scripts/verify-release-tag.sh" "$tagrepo/ios/scripts/"
+(
+    cd "$tagrepo" || exit 1
+    git init -q -b main . && git config user.email t@example.invalid && git config user.name t
+    git commit -q --allow-empty -m trusted && git tag -a ios/v1.0.0-1 -m release
+    git tag ios/v1.0.0-2
+    git checkout -q -b other && git commit -q --allow-empty -m unrelated
+    git tag -a ios/v1.0.0-3 -m release && git tag -a ios/vx -m release
+    git checkout -q main
+)
+tag_check "tag check: an annotated tag on the trusted branch" 0 "" ios/v1.0.0-1
+tag_check "tag check: a lightweight tag" 1 "not an annotated tag" ios/v1.0.0-2
+tag_check "tag check: an annotated tag on another branch" 1 "not on main" ios/v1.0.0-3
+tag_check "tag check: a tag with the wrong name" 1 "is not named" ios/vx
+tag_check "tag check: a tag that does not exist" 1 "not an annotated tag" ios/v9.9.9-9
+tag_check "tag check: no argument checks every tag" 1 "ios/v1.0.0-3" 
+if (cd "$tagrepo" && TRUSTED_REF=origin/missing ios/scripts/verify-release-tag.sh ios/v1.0.0-1 >/dev/null 2>&1); then
+    echo "FAIL  tag check: a missing trusted ref passed"
+    failures=$((failures + 1))
+else
+    echo "ok    tag check: a missing trusted ref is refused"
+fi
 
 if [ "$failures" -ne 0 ]; then
     echo "$failures case(s) failed after $(($(date +%s) - started)) seconds"

@@ -2,7 +2,13 @@
 # deferred_checks, which check-rules.sh runs after every rules.d file has added its targets.
 # Bash 3.2 compatible (macOS).
 
-host_allowed_files=()
+# Files whose string literals name a host on purpose. Each entry needs its reason.
+host_allowed_files=(
+    # The app's own yak:// scheme (a quick action link), not a server.
+    Packages/YakKit/Sources/YakKit/Intents/QuickActionItems.swift
+    # The reserved .invalid domain builds a response object for a stored answer; no request is made.
+    Packages/YakKit/Sources/YakKit/Uploads/UploadLedger.swift
+)
 
 release_swift_files() {
     find "$@" -name '*.swift' -not -path '*/.build/*' 2>/dev/null | sort
@@ -138,6 +144,15 @@ release_check_nightly() {
     release_report 'nightly' "$(ruby scripts/release-project.rb nightly "$workflow")"
 }
 
+release_check_pipefail() {
+    local workflow output=""
+    for workflow in ../.github/workflows/ios*.yml; do
+        [ -f "$workflow" ] || continue
+        output+="$(ruby scripts/release-project.rb pipefail "$workflow")"$'\n'
+    done
+    release_report 'pipefail' "$(echo "$output" | sed '/^$/d')"
+}
+
 release_check_dependabot() {
     # The repository root only exists in a full checkout; a standalone copy of ios/ skips this.
     [ -d ../.github ] || return 0
@@ -219,6 +234,7 @@ deferred_checks+=(
     release_check_sentry
     release_check_workflow
     release_check_nightly
+    release_check_pipefail
     release_check_dependabot
     release_check_pins
     release_check_groups

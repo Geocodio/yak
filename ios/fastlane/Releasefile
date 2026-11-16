@@ -181,6 +181,8 @@ platform :ios do
     original = `git -C #{IOS_ROOT.shellescape} rev-parse --abbrev-ref HEAD`.strip
     original = `git -C #{IOS_ROOT.shellescape} rev-parse HEAD`.strip if original == "HEAD"
     version = ReleaseSupport.release_tag_parts(tag)&.first || tag
+    # The workflow checks every release tag before any secret is read; this repeats it for the tag in use.
+    sh("#{File.join(IOS_ROOT, "scripts", "verify-release-tag.sh").shellescape} #{tag.shellescape}")
     UI.message("Refreshing #{tag}: checking it out and building it again.")
     begin
       sh("git -C #{IOS_ROOT.shellescape} checkout --detach #{tag.shellescape}")

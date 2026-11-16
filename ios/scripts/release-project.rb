@@ -5,6 +5,7 @@
 #   release-project.rb minimum             prints deployment targets above options.deploymentTarget.iOS
 #   release-project.rb workflow <path>     prints what is wrong with the release workflow
 #   release-project.rb nightly <path>      prints what is wrong with the nightly workflow
+#   release-project.rb pipefail <path>     prints run blocks that pipe without pipefail
 #   release-project.rb dependabot <path>   prints what is missing from the Dependabot configuration
 #   release-project.rb pins                prints where Packages/Pins differs from the project files
 # Prints one finding per line and exits 0; an unreadable file is a finding.
@@ -26,6 +27,10 @@ def target_definitions(path)
   document = load_yaml(path)
   targets = document["targets"]
   targets.is_a?(Hash) ? targets.select { |_name, definition| definition.is_a?(Hash) } : {}
+end
+
+def secret_reference?(node)
+  node.to_s.match?(/\bsecrets\./)
 end
 
 def walk(node, &block)
@@ -82,6 +87,22 @@ when "workflow"
   end
   branches = triggers.is_a?(Hash) && triggers["push"].is_a?(Hash) ? triggers["push"]["branches"] : nil
   puts "#{path}: push branches must be exactly [main]" if names.include?("push") && branches != ["main"]
+  permissions = document["permissions"]
+  puts "#{path}: the top-level permissions must be exactly contents: read" unless permissions.is_a?(Hash) && permissions == { "contents" => "read" }
+  puts "#{path}: the top-level env must not hold a secret; pass secrets to the one step that needs them" if secret_reference?(document["env"])
+  (document["jobs"] || {}).each do |name, job|
+    next unless job.is_a?(Hash)
+    puts "#{path}: job #{name} env must not hold a secret; pass secrets to the one step that needs them" if secret_reference?(job["env"])
+    steps = job["steps"].is_a?(Array) ? job["steps"] : []
+    verify = steps.index { |step| step.is_a?(Hash) && step["run"].to_s.include?("verify-release-tag.sh") }
+    first_secret = steps.index { |step| step.is_a?(Hash) && secret_reference?(step) }
+    puts "#{path}: job #{name} must run scripts/verify-release-tag.sh before any step that reads a secret" if first_secret && (verify.nil? || verify > first_secret)
+    puts "#{path}: job #{name} must run only from refs/heads/main: add `github.ref == 'refs/heads/main'` to its if" unless job["if"].to_s.match?(/github\.ref\s*==\s*'refs\/heads\/main'/)
+  end
+  walk(document) do |key, value|
+    next unless key == "uses" && value.is_a?(String)
+    puts "#{path}: #{value} is not pinned to a commit and is not from actions/ or this repository" unless value.start_with?("actions/", "./") || value.match?(/@[0-9a-f]{40}\z/)
+  end
   puts "#{path}: environment: testflight is missing" unless text.match?(/^\s*environment:\s*testflight\s*$/)
   puts "#{path}: cancel-in-progress must be false" unless text.match?(/cancel-in-progress:\s*false\b/)
   (document["jobs"] || {}).each do |name, job|
@@ -101,6 +122,22 @@ when "nightly"
   puts "#{path}: must not reference secrets" if File.read(path).match?(/\bsecrets\./)
   (document["jobs"] || {}).each do |name, job|
     puts "#{path}: job #{name} needs timeout-minutes of at most 40" unless job.is_a?(Hash) && job["timeout-minutes"].to_i.between?(1, 40)
+  end
+when "pipefail"
+  path = ARGV[1]
+  document = load_yaml(path)
+  default_shell = document.dig("defaults", "run", "shell").to_s
+  (document["jobs"] || {}).each do |name, job|
+    next unless job.is_a?(Hash)
+    job_shell = job.dig("defaults", "run", "shell").to_s
+    (job["steps"].is_a?(Array) ? job["steps"] : []).each do |step|
+      next unless step.is_a?(Hash) && step["run"].is_a?(String)
+      # A pipe is a lone `|`; `||` and a `|` inside quotes are rare enough to flag and fix by hand.
+      next unless step["run"].match?(/(?<!\|)\|(?!\|)/)
+      shell = (step["shell"] || (job_shell.empty? ? default_shell : job_shell)).to_s
+      next if shell.start_with?("bash") && !shell.include?("{0}") || step["run"].match?(/^\s*set\s+-[a-z]*o\s+pipefail|^\s*set\s+-o\s+pipefail/)
+      puts "#{path}: job #{name}, step #{step["name"] || "(unnamed)"} pipes without pipefail; set `shell: bash` or start the block with `set -o pipefail`"
+    end
   end
 when "dependabot"
   path = ARGV[1]
@@ -147,6 +184,6 @@ when "pins"
   end
   pinned.each { |key, (url, _)| puts "#{manifest}: #{url} is used by no project file" unless used.key?(key) }
 else
-  warn "usage: release-project.rb extension-targets|versions|minimum|workflow <path>|nightly <path>|dependabot <path>|pins"
+  warn "usage: release-project.rb extension-targets|versions|minimum|workflow <path>|nightly <path>|pipefail <path>|dependabot <path>|pins"
   exit 2
 end

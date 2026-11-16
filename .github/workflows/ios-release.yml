@@ -26,27 +26,28 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 defaults:
   run:
+    # `shell: bash` runs `bash -eo pipefail`, so a failing command in a pipe fails the step.
+    shell: bash
     working-directory: ios
 
 jobs:
   release:
     # A job-level `if` is evaluated before the environment applies, so it can only read
     # repository-level variables. YAK_IOS_RELEASE is that switch; a fork without it skips quietly.
-    if: vars.YAK_IOS_RELEASE == 'on'
+    # Only main may run the job, so a manual run from another branch never reaches the secrets.
+    if: vars.YAK_IOS_RELEASE == 'on' && github.ref == 'refs/heads/main'
     environment: testflight
+    permissions:
+      contents: write
     # GitHub's hosted Xcode 27 image. Never register a self-hosted runner under this label: the
     # job holds the App Store Connect key.
     runs-on: xcode-27
     timeout-minutes: 75
     env:
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       YAK_TEAM_ID: ${{ vars.YAK_TEAM_ID }}
       YAK_BUNDLE_ID: ${{ vars.YAK_BUNDLE_ID }}
       YAK_APP_GROUP: ${{ vars.YAK_APP_GROUP }}
@@ -64,16 +65,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Before any secret is read: every release tag must be annotated and on main, or nothing is built.
+      - name: Check the release tags
+        run: scripts/verify-release-tag.sh
       - name: Select Xcode
         run: sudo xcode-select -s "/Applications/Xcode_$(cat .xcode-version).app"
       - name: Install tools
         run: brew install xcodegen
       - name: Install sentry-cli
-        if: env.SENTRY_AUTH_TOKEN != ''
+        if: vars.SENTRY_ORG != ''
         run: brew install getsentry/tools/sentry-cli
       - name: Install gems
         run: bundle install
+      # The secrets exist only in this step's environment.
       - name: Release
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: bundle exec fastlane "$RELEASE_LANE"
       - name: Keep the build logs
         if: failure()

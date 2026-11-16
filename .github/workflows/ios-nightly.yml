@@ -16,6 +16,8 @@ permissions:
 
 defaults:
   run:
+    # `shell: bash` runs `bash -eo pipefail`, so a failing command in a pipe fails the step.
+    shell: bash
     working-directory: ios
 
 jobs:
