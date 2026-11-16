@@ -13,6 +13,8 @@ struct StubContext: Sendable {
     let fixtures: StubFixtures
     let threads: StubThreads
     /// What the core stub answers for this request under `paired` (for a feature scenario) or the core scenario.
+    /// Runs the core route live, side effects included (a posted message is recorded). A feature that calls it
+    /// must return its own reply and must not return nil, or the core route runs a second time.
     let core: @Sendable () -> StubAnswer
 }
 

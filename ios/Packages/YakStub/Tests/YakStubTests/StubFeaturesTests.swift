@@ -96,12 +96,36 @@ private let api = "/api/app/v1/"
         }
     }
 
+    @Test func aMissingScenarioFileNamesItself() throws {
+        let empty = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
+        do {
+            _ = try StubFixtures(directory: iosDirectory.appendingPathComponent("fixtures"), scenariosDirectory: empty)
+            Issue.record("expected a missing scenario file to throw")
+        } catch let error as StubFixtureError {
+            #expect(error.description.contains("scenario-thread-list.json"))
+        }
+    }
+
+    @Test func aFeaturePairLeavesTheCoreCountAlone() {
+        let extra = StubFixtures.names.count - StubFixtures.coreNames.count
+        #expect(StubFixtures.coreNames.count == 15)
+        #expect(extra == StubFeatures.all.flatMap(\.fixturePairs).count)
+    }
+
     @Test func aFeatureScenarioPlaysPairedUnderneath() async throws {
         let server = try StubServer(port: 0, fixtures: fixtures(), scenario: .paired, features: [SampleFeature()])
         let port = try await server.start()
         #expect(try await send("POST", port, "/__stub/scenario", "sample-one") == (200, "sample-one"))
-        #expect(try await send("GET", port, "\(api)threads").0 == 200)
+        let underneath = try await send("GET", port, "\(api)threads")
+        #expect(underneath.0 == 200)
         #expect(try await send("GET", port, "\(api)threads/d0e515ef/sample") == (200, "sample-one"))
+        #expect(try await send("POST", port, "/__stub/scenario", "paired") == (200, "paired"))
+        let paired = try await send("GET", port, "\(api)threads")
+        let decode = { (body: String) in try JSONSerialization.jsonObject(with: Data(body.utf8)) as? NSDictionary }
+        #expect(try decode(underneath.1) == decode(paired.1))
+        #expect(paired.1.contains("a1b2c3d4"))
+        #expect(try await send("POST", port, "/__stub/scenario", "sample-one") == (200, "sample-one"))
         #expect(try await send("POST", port, "/__stub/scenario", "nobody-owns-this").0 == 400)
         #expect(try await send("POST", port, "/__stub/scenario", "paired") == (200, "paired"))
     }

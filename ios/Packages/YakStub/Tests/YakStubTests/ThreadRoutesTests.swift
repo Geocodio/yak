@@ -207,7 +207,7 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
     }
 
     @Test func everyAgreedNameHasScenarioData() throws {
-        #expect(StubFixtures.names.count == 15)
+        #expect(StubFixtures.coreNames.count == 15)
         let loaded = try fixtures()
         for pair in StubFixtures.names {
             #expect(loaded.scenarioFiles[pair.scenario] != nil, "\(pair.scenario)")

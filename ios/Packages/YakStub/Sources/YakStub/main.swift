@@ -34,6 +34,9 @@ do {
 } catch let error as StubFeatureError {
     log("yak-stub feature \(error.feature) \(error.isTimeout ? "did not start in time" : "failed to start")")
     exit(1)
+} catch let error as StubFixtureError {
+    log("yak-stub scenario file \(error.scenario).json is missing or unreadable (\(error.feature ?? "core"))")
+    exit(1)
 } catch {
     log("yak-stub failed: \(Swift.type(of: error))")
     exit(1)
