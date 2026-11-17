@@ -156,16 +156,21 @@ struct PullRequestCardSheet: View {
 
     @ViewBuilder private func fixButton(_ id: Int) -> some View {
         let state = model.fixing[id]
-        Button {
-            Task { await model.askToFix(id) }
-        } label: {
+        if state == .sending || state == .sent {
             HStack {
                 if state == .sending { ProgressView() }
-                Text(state == .sent ? "pullRequest.fix.sent" : "pullRequest.fix").frame(minHeight: 44)
+                Text(state == .sent ? "pullRequest.fix.sent" : "pullRequest.fix").font(.body.weight(.medium))
+                    .foregroundStyle(Color.yakMuted).frame(minHeight: 44)
             }
+            .accessibilityElement(children: .combine).accessibilityIdentifier("pullRequest.askToFix.\(id)")
+        } else {
+            Button {
+                Task { await model.askToFix(id) }
+            } label: {
+                Text("pullRequest.fix").frame(minHeight: 44)
+            }
+            .foregroundStyle(.primary).accessibilityIdentifier("pullRequest.askToFix.\(id)")
         }
-        .foregroundStyle(.primary).disabled(state == .sending || state == .sent)
-        .accessibilityIdentifier("pullRequest.askToFix.\(id)")
         if case .failed(let message)? = state {
             Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
                 .accessibilityIdentifier("pullRequest.fix.error.\(id)")
