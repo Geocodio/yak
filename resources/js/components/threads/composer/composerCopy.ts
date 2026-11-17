@@ -7,20 +7,21 @@ export const teleportComposerHint = {
 };
 
 export const DEFAULT_HINT = 'Enter to send, Shift+Enter for a new line';
-const DEFAULT = { placeholder: 'Message Claude', hint: DEFAULT_HINT };
+const DEFAULT = { placeholder: 'Message Claude', hint: DEFAULT_HINT, isDefaultHint: true };
 
 const savedFor = (when: string) => ({
+    isDefaultHint: false,
     placeholder: `Message Claude. It reads this ${when}.`,
     hint: `Enter to send. Claude reads it ${when}.`,
 });
 
-/** The composer placeholder and the hint line beside the attach button for the thread's current state. */
-export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer['state'], teleportState: TeleportData['state']): { placeholder: string; hint: string } {
+/** The composer placeholder and the hint line beside the attach button for the thread's current state. `isDefaultHint` is true while the hint is the plain send hint, which a channel hint may replace. */
+export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer['state'], teleportState: TeleportData['state']): { placeholder: string; hint: string; isDefaultHint: boolean } {
     if (teleportState === 'waiting') {
-        return { ...DEFAULT, hint: teleportComposerHint.waiting };
+        return { ...DEFAULT, hint: teleportComposerHint.waiting, isDefaultHint: false };
     }
     if (teleportState === 'on_device') {
-        return { ...DEFAULT, hint: teleportComposerHint.onDevice('another computer') };
+        return { ...DEFAULT, hint: teleportComposerHint.onDevice('another computer'), isDefaultHint: false };
     }
     switch (notice?.kind) {
         case 'restoring':
@@ -31,12 +32,12 @@ export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer[
             return savedFor('when its turn starts');
         case 'waiting_for_repository':
         case 'repository_setup_failed':
-            return { placeholder: 'This thread starts when its repository is set up.', hint: 'Messages open once the thread has started.' };
+            return { placeholder: 'This thread starts when its repository is set up.', hint: 'Messages open once the thread has started.', isDefaultHint: false };
         case 'waiting_for_sandbox':
             return savedFor('when the sandbox is up');
     }
     if (state === 'legacy') {
-        return { placeholder: 'Message Claude', hint: 'This work is from before threads. Send a message to continue it in a new thread.' };
+        return { placeholder: 'Message Claude', hint: 'This work is from before threads. Send a message to continue it in a new thread.', isDefaultHint: false };
     }
     if (state === 'working') {
         return { ...DEFAULT, placeholder: 'Add a message. Claude reads it as soon as it can.' };

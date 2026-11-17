@@ -38,7 +38,7 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
                     <span className="font-medium text-body">{message.authorName}</span>
                     {message.via && (
                         <span className="inline-flex items-center gap-1 text-faint" data-testid="thread-message-via">
-                            {message.isReply ? 'replied in' : 'via'}
+                            {message.isReply ? 'replied in' : message.authorName === 'Yak' ? 'from' : 'via'}
                             <SourceLink source={message.via} />
                         </span>
                     )}

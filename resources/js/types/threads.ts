@@ -165,12 +165,12 @@ export type ThreadRunDetails = {
     errorLogTruncated: boolean;
 };
 
-export type ThreadRunSummary = { runId: string; afterSequence: number; durationSeconds: number; stepCount: number; isRetry: boolean };
+export type ThreadRunSummary = { runId: string; afterSequence: number; durationSeconds: number; stepCount: number; isRetry: boolean; model: string | null };
 
 export type ThreadMilestone = {
     key: 'pushed' | 'ci_passed' | 'ci_failed' | 'pull_request_opened' | 'pull_request_held' | 'walkthrough_ready' | 'research_report';
     label: string;
-    tone: 'ok' | 'warn' | 'bad';
+    tone: 'ok' | 'warn' | 'bad' | 'neutral';
     url: string | null;
     /** The run that reached it; the task id for a thread made from an old task. */
     runId: string;

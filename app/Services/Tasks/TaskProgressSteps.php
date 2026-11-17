@@ -32,10 +32,13 @@ final class TaskProgressSteps
             TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => $task->pr_url ? 5 + $waitingShift : ($task->branch_name ? 3 : 2),
         };
 
-        $isRetryingAfterCiFailure = in_array($status, [TaskStatus::Running, TaskStatus::Retrying], true)
+        $lastCiFailed = in_array($status, [TaskStatus::Running, TaskStatus::Retrying, TaskStatus::Failed], true)
             && ($head->logs()->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->latest('id')->value('metadata')['passed'] ?? null) === false;
+        $isRetryingAfterCiFailure = $lastCiFailed && $status !== TaskStatus::Failed;
+        $isStoppedAfterCiFailure = $lastCiFailed && $status === TaskStatus::Failed;
 
         $ciStep = match (true) {
+            $isStoppedAfterCiFailure => ['label' => 'CI failed', 'tooltip' => 'CI failed on the last push and Yak stopped after its attempts.', 'failed' => true],
             $isRetryingAfterCiFailure => ['label' => 'CI failed, retrying', 'tooltip' => 'CI failed on the last push, so Yak is fixing the changes and will push again.', 'failed' => true],
             $reachedStep === 4 => ['label' => 'Waiting for CI', 'tooltip' => 'CI verifies the changes before the pull request opens.'],
             default => ['label' => 'CI passed', 'tooltip' => 'CI verifies the changes before the pull request opens.'],

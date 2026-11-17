@@ -20,7 +20,7 @@ const EMPTY_TEXT = 'This run has no recorded steps.';
 export function RunLogOverlay({ threadId, target, onClose }: { threadId: string; target: RunLogTarget | null; onClose: () => void }) {
     const isDesktop = useMediaQuery('(min-width: 768px)');
     const url = target === null ? null : target.kind === 'run' ? runLog.url({ thread: threadId, run: target.id }) : taskLog.url({ thread: threadId, task: target.id });
-    const { entries, status, hasMore, isLoadingMore, loadMore, retry, search } = useRunLog(url);
+    const { entries, status, hasMore, isLoadingMore, moreFailed, loadMore, retry, search } = useRunLog(url);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const lastEntry = useRef<TranscriptEntry | undefined>(undefined);
     const targetKey = target === null ? '' : `${target.kind}:${target.id}`;
@@ -29,10 +29,10 @@ export function RunLogOverlay({ threadId, target, onClose }: { threadId: string;
 
     // A deep link to an entry beyond the first page loads pages until it is found.
     useEffect(() => {
-        if (selectedId !== null && status === 'ready' && hasMore && !isLoadingMore && !entries.some((entry) => entry.id === selectedId)) {
+        if (selectedId !== null && status === 'ready' && hasMore && !isLoadingMore && !moreFailed && !entries.some((entry) => entry.id === selectedId)) {
             loadMore();
         }
-    }, [selectedId, status, hasMore, isLoadingMore, entries, loadMore]);
+    }, [selectedId, status, hasMore, isLoadingMore, moreFailed, entries, loadMore]);
 
     if (target === null) {
         return null;
@@ -48,7 +48,7 @@ export function RunLogOverlay({ threadId, target, onClose }: { threadId: string;
             onClose();
         }
     };
-    const paging = { status, onRetry: retry, emptyText: EMPTY_TEXT, hasMore, isLoadingMore, onLoadMore: loadMore };
+    const paging = { status, onRetry: retry, emptyText: EMPTY_TEXT, hasMore, isLoadingMore, moreFailed, onLoadMore: loadMore };
     // A search can drop the open step from the list; its detail stays until another step is picked.
     const found = entries.find((candidate) => candidate.id === selectedId);
     lastEntry.current = found ?? (lastEntry.current?.id === selectedId ? lastEntry.current : undefined);

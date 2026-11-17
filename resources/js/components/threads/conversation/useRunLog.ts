@@ -15,6 +15,8 @@ export function useRunLog(url: string | null): {
     status: 'loading' | 'ready' | 'error';
     hasMore: boolean;
     isLoadingMore: boolean;
+    /** The last request for a further page failed; the pages already loaded stay. */
+    moreFailed: boolean;
     loadMore: () => void;
     retry: () => void;
     search: (query: string) => void;
@@ -23,6 +25,7 @@ export function useRunLog(url: string | null): {
     const [nextCursor, setNextCursor] = useState<number | null>(null);
     const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [moreFailed, setMoreFailed] = useState(false);
     const [query, setQuery] = useState('');
     const [attempt, setAttempt] = useState(0);
     const timer = useRef<number | undefined>(undefined);
@@ -49,6 +52,7 @@ export function useRunLog(url: string | null): {
         }
         const current = ++generation.current;
         setStatus('loading');
+        setMoreFailed(false);
         setEntries([]);
         setNextCursor(null);
         request(null)
@@ -78,6 +82,7 @@ export function useRunLog(url: string | null): {
         }
         const current = generation.current;
         setIsLoadingMore(true);
+        setMoreFailed(false);
         request(nextCursor)
             .then((page) => {
                 if (generation.current === current) {
@@ -85,7 +90,7 @@ export function useRunLog(url: string | null): {
                     setNextCursor(page.nextCursor);
                 }
             })
-            .catch(() => generation.current === current && setStatus('error'))
+            .catch(() => generation.current === current && setMoreFailed(true))
             .finally(() => setIsLoadingMore(false));
     }, [nextCursor, isLoadingMore, request]);
 
@@ -94,5 +99,5 @@ export function useRunLog(url: string | null): {
         timer.current = window.setTimeout(() => setQuery(value.trim()), SEARCH_DELAY_MS);
     }, []);
 
-    return { entries, status, hasMore: nextCursor !== null, isLoadingMore, loadMore, retry: () => setAttempt((value) => value + 1), search };
+    return { entries, status, hasMore: nextCursor !== null, isLoadingMore, moreFailed, loadMore, retry: () => setAttempt((value) => value + 1), search };
 }

@@ -16,6 +16,8 @@ export type TranscriptPaging = {
     emptyText: string;
     hasMore: boolean;
     isLoadingMore: boolean;
+    /** The last request for a further page failed; the loaded steps stay and Retry asks for that page again. */
+    moreFailed: boolean;
     onLoadMore: () => void;
     /** Searching asks the server, so the list is not filtered here. */
     onSearch: (query: string) => void;
@@ -295,7 +297,15 @@ export function TranscriptOverlay({
                                     </li>
                                 );
                             })}
-                            {paging?.hasMore && (
+                            {paging?.hasMore && paging.moreFailed && (
+                                <li className="flex flex-col items-start gap-2 p-3 text-[12px] text-fail" data-testid="transcript-more-error">
+                                    The next steps could not be loaded.
+                                    <Button variant="secondary" onClick={paging.onLoadMore} data-testid="transcript-more-retry">
+                                        Retry
+                                    </Button>
+                                </li>
+                            )}
+                            {paging?.hasMore && !paging.moreFailed && (
                                 <li className="p-2">
                                     <Button variant="tertiary" className="w-full" onClick={paging.onLoadMore} pending={paging.isLoadingMore} data-testid="transcript-load-more">
                                         Load more steps

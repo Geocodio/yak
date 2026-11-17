@@ -79,6 +79,18 @@ export function LogEntrySheet({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, rows, selectedLogId]);
 
+    // Next at the end of the loaded steps asks for the next page and moves to its first step once it arrives.
+    const [advanceFrom, setAdvanceFrom] = useState<number | null>(null);
+    useEffect(() => {
+        if (advanceFrom !== null && rows.length > advanceFrom) {
+            onSelectLog(rows[advanceFrom].id);
+            setAdvanceFrom(null);
+        } else if (advanceFrom !== null && paging?.moreFailed) {
+            setAdvanceFrom(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [advanceFrom, rows.length, paging?.moreFailed]);
+
     const current = useTranscriptEntry({ open, selectedLogId, entry, runKey, fetchesEntry: paging === undefined });
 
     const step = (offset: number) => {
@@ -187,11 +199,26 @@ export function LogEntrySheet({
                         <p className="text-[12px] text-faint">Loading entry…</p>
                     )}
                 </div>
+                {paging?.moreFailed && (
+                    <div className="flex shrink-0 items-center gap-2 border-t border-hair px-3 py-2 text-[12px] text-fail" data-testid="transcript-more-error">
+                        The next steps could not be loaded.
+                        <Button variant="secondary" onClick={paging.onLoadMore} data-testid="transcript-more-retry">
+                            Retry
+                        </Button>
+                    </div>
+                )}
                 <div className="flex shrink-0 items-center gap-2 border-t border-hair px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
                     <Button variant="secondary" className="flex-1" onClick={() => step(-1)} disabled={sel <= 0}>
                         Previous
                     </Button>
-                    <Button variant="secondary" className="flex-1" onClick={() => (sel >= rows.length - 1 && paging?.hasMore ? paging.onLoadMore() : step(1))} disabled={sel >= rows.length - 1 && !paging?.hasMore}>
+                    <Button variant="secondary" className="flex-1" onClick={() => {
+                            if (sel >= rows.length - 1 && paging?.hasMore) {
+                                setAdvanceFrom(rows.length);
+                                paging.onLoadMore();
+                            } else {
+                                step(1);
+                            }
+                        }} disabled={sel >= rows.length - 1 && !paging?.hasMore}>
                         Next
                     </Button>
                 </div>

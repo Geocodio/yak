@@ -12,7 +12,7 @@ import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft'
 import { outbox } from '@/threads/outbox/useOutbox';
 import { stop } from '@/routes/threads';
 import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice, ThreadRequest } from '@/types/threads';
-import { DEFAULT_HINT, channelHint, composerCopy } from './composerCopy';
+import { channelHint, composerCopy } from './composerCopy';
 import { ModelPicker } from '@/components/accounts/ModelPicker';
 import { ContextRing } from './ContextRing';
 
@@ -39,7 +39,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
     const working = composer.state === 'working';
     const copy = composerCopy(notice, composer.state, teleportState);
     const isOwnerless = request !== null && request.starter.key === 'yak' && request.responsibleName === null && !thread.isOwner;
-    const hint = DISABLED_COPY[composer.state] ?? (copy.hint === DEFAULT_HINT && request !== null ? channelHint(request.source, isOwnerless) : null) ?? copy.hint;
+    const hint = DISABLED_COPY[composer.state] ?? (copy.isDefaultHint && request !== null ? channelHint(request.source, isOwnerless) : null) ?? copy.hint;
     const placeholder = isOwnerless && copy.placeholder === 'Message Claude' ? 'Message Claude to take over this thread' : copy.placeholder;
     const draft = useAttachmentDraft({
         enabled: !disabled,

@@ -1,16 +1,8 @@
 import { Skeleton } from '@geocodio/console-ui';
 import { CopyButton } from '@/components/threads/environment/LinkActions';
+import { formatSeconds } from '@/lib/formatSeconds';
 import type { PanelProps } from '@/threads/panels';
 import { OverviewGroup, OverviewList, OverviewRow } from './OverviewRow';
-
-function duration(seconds: number): string {
-    if (seconds < 60) {
-        return `${seconds}s`;
-    }
-    const minutes = Math.round(seconds / 60);
-
-    return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-}
 
 function shortSession(sessionId: string): string {
     return sessionId.length > 12 ? `${sessionId.slice(0, 4)}…${sessionId.slice(-4)}` : sessionId;
@@ -19,7 +11,11 @@ function shortSession(sessionId: string): string {
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /** What the runs of the thread took: turns, attempts, time, cost, the session and the error log of a failed run. */
-export function RunDetailsGroup({ runDetails }: PanelProps) {
+function formatTime(iso: string): string {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+export function RunDetailsGroup({ runDetails, composerState }: PanelProps) {
     if (runDetails === undefined) {
         return (
             <OverviewGroup title="Run details" testId="overview-run-details-loading">
@@ -53,8 +49,24 @@ export function RunDetailsGroup({ runDetails }: PanelProps) {
                         {runDetails.attempts}
                     </OverviewRow>
                 )}
+ {runDetails.startedAt !== null && (
+                    <OverviewRow label="Started" testId="run-details-started">
+                        {formatTime(runDetails.startedAt)}
+                    </OverviewRow>
+                )}
+                {runDetails.completedAt !== null ? (
+                    <OverviewRow label="Completed" testId="run-details-completed">
+                        {formatTime(runDetails.completedAt)}
+                    </OverviewRow>
+                ) : (
+                    composerState === 'working' && (
+                        <OverviewRow label="Completed" testId="run-details-completed">
+                            <span className="text-muted">Still running</span>
+                        </OverviewRow>
+                    )
+                )}
                 <OverviewRow label="Duration" testId="run-details-duration">
-                    {duration(runDetails.durationSeconds)}
+                    {formatSeconds(runDetails.durationSeconds)}
                 </OverviewRow>
                 <OverviewRow label="Cost" testId="run-details-cost" tip="What the runs cost on the Claude account. Spend billed to the API is shown when there is any.">
                     ${runDetails.costUsd.toFixed(2)}

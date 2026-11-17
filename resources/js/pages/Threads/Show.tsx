@@ -58,13 +58,17 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const [filesMode, setFilesMode] = useState<FilesMode | null>(null);
     const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
     const focusCounter = useRef(0);
-    const [logTarget, setLogTarget] = useState<RunLogTarget | null>(() => (openLog === null ? null : { kind: isLegacy ? 'task' : 'run', id: openLog.runId, entryId: openLog.entryId, headline: thread.title }));
-    const [walkthroughStartAt] = useState(() => {
+    const [logState, setLogState] = useState<{ threadId: string; target: RunLogTarget | null }>(() => ({ threadId: thread.id, target: openLog === null ? null : { kind: isLegacy ? 'task' : 'run', id: openLog.runId, entryId: openLog.entryId, headline: thread.title } }));
+    // The overlay target belongs to the thread it was opened on; a visit to another thread starts without one.
+    const logTarget = logState.threadId === thread.id ? logState.target : null;
+    const setLogTarget = (target: RunLogTarget | null) => setLogState({ threadId: thread.id, target });
+    const [walkthroughRequest] = useState(() => {
         const requested = new URLSearchParams(window.location.search).get('walkthrough');
         const seconds = requested === null || requested.trim() === '' ? NaN : Number(requested);
 
-        return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+        return { threadId: thread.id, seconds: Number.isFinite(seconds) && seconds >= 0 ? seconds : null };
     });
+    const walkthroughStartAt = walkthroughRequest.threadId === thread.id ? walkthroughRequest.seconds : null;
     const [linkKind, setLinkKind] = useState<LinkState['kind']>('ok');
     const [restoredDraft, setRestoredDraft] = useState<{ text: string } | null>(null);
     const [isAddingSubThread, setIsAddingSubThread] = useState(false);

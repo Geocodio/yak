@@ -2,13 +2,16 @@ import { cn } from '@geocodio/console-ui';
 import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import type { ThreadMilestone } from '@/types/threads';
 
-const TONE: Record<ThreadMilestone['tone'], { icon: typeof CircleCheck; className: string }> = {
+const TONE: Record<ThreadMilestone['tone'], { icon: typeof CircleCheck | null; className: string }> = {
+    neutral: { icon: null, className: '' },
     ok: { icon: CircleCheck, className: 'text-ok' },
     warn: { icon: CircleAlert, className: 'text-warn' },
     bad: { icon: CircleX, className: 'text-fail' },
 };
 
 const PILL = 'inline-flex items-center gap-[5px] rounded-pill bg-panel-2 py-[3px] pr-[9px] pl-1.5 text-[12px] text-muted';
+
+const pullRequestNumber = (url: string) => url.match(/\/pull\/(\d+)/)?.[1] ?? null;
 
 function showWalkthrough(): void {
     document.querySelector('[data-testid="thread-walkthrough"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -20,13 +23,15 @@ export function MilestoneRow({ milestones }: { milestones: ThreadMilestone[] }) 
         return null;
     }
 
+    const pullRequest = milestones.find((milestone) => milestone.key === 'pull_request_opened');
+
     return (
         <div className="flex flex-wrap items-center gap-1.5" data-testid="milestone-row">
             {milestones.map((milestone) => {
                 const { icon: Icon, className } = TONE[milestone.tone];
                 const content = (
                     <>
-                        <Icon size={13} className={cn('shrink-0', className)} aria-hidden />
+                        {Icon !== null && <Icon size={13} className={cn('shrink-0', className)} aria-hidden />}
                         {milestone.label}
                     </>
                 );
@@ -54,6 +59,11 @@ export function MilestoneRow({ milestones }: { milestones: ThreadMilestone[] }) 
                     </span>
                 );
             })}
+            {pullRequest !== undefined && pullRequest.url !== null && (
+                <a href={pullRequest.url} target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-accent-text hover:underline" data-testid="milestone-review-pull-request">
+                    {pullRequestNumber(pullRequest.url) === null ? 'Review pull request' : `Review PR #${pullRequestNumber(pullRequest.url)}`}
+                </a>
+            )}
         </div>
     );
 }

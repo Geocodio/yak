@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { channelHint, composerCopy } from './composerCopy.ts';
+import { channelHint, composerCopy as fullCopy } from './composerCopy.ts';
+
+const composerCopy = (...args) => {
+    const { isDefaultHint, ...copy } = fullCopy(...args);
+
+    return copy;
+};
 
 const notice = (kind) => ({ kind });
 const DEFAULT = { placeholder: 'Message Claude', hint: 'Enter to send, Shift+Enter for a new line' };
@@ -42,4 +48,11 @@ test('the channel hint says where replies land', () => {
     assert.equal(channelHint({ key: 'email', label: 'Email' }, false), 'Replies here and by email land in this thread.');
     assert.equal(channelHint({ key: 'dashboard', label: 'Dashboard' }, false), null);
     assert.equal(channelHint({ key: 'sentry', label: 'Sentry' }, true), 'Your first message makes you the owner.');
+});
+
+test('only the plain send hint is flagged as replaceable', () => {
+    assert.equal(fullCopy(null, 'idle', 'none').isDefaultHint, true);
+    assert.equal(fullCopy(notice('usage_limit'), 'idle', 'none').isDefaultHint, true);
+    assert.equal(fullCopy(null, 'idle', 'waiting').isDefaultHint, false);
+    assert.equal(fullCopy(notice('restoring'), 'idle', 'none').isDefaultHint, false);
 });

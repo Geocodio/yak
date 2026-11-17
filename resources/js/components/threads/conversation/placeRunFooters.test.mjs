@@ -18,3 +18,20 @@ test('a run whose events are not loaded gets no footer', () => {
     assert.equal(placeRunFooters([event(10)], [run('1', 4)]).size, 0);
     assert.equal(placeRunFooters([], [run('1', 4)]).size, 0);
 });
+
+test('the newest run follows events that streamed in after the page loaded', () => {
+    const entries = [event(2), event(3), event(9), event(10)];
+
+    assert.deepEqual([...placeRunFooters(entries, [run('1', 3)]).keys()], [3]);
+});
+
+test('the newest run stops at the next message from a person', () => {
+    const entries = [event(2), event(3), { type: 'person' }, event(9)];
+
+    assert.deepEqual([...placeRunFooters(entries, [run('1', 3)], true).keys()], [1]);
+});
+
+test('no footer for the newest run while the thread is working on it', () => {
+    assert.equal(placeRunFooters([event(2), event(3), event(9)], [run('1', 3)], true).size, 0);
+    assert.equal(placeRunFooters([event(2), event(3)], [run('0', 2), run('1', 3)], true).size, 1);
+});

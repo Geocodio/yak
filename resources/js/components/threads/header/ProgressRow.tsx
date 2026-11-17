@@ -1,6 +1,8 @@
 import { cn } from '@geocodio/console-ui';
 import type { ThreadProgress } from '@/types/threads';
 
+const STATE_TEXT: Record<ThreadProgress['steps'][number]['state'], string> = { done: 'done', current: 'in progress', failed: 'failed', upcoming: 'not yet' };
+
 const BAR: Record<ThreadProgress['steps'][number]['state'], string> = {
     done: 'bg-ok',
     current: 'bg-accent',
@@ -22,6 +24,7 @@ export function ProgressRow({ progress }: { progress: ThreadProgress }) {
                 >
                     <span className={cn('h-[3px] w-[34px] rounded-pill', BAR[step.state])} aria-hidden />
                     {step.label}
+                    <span className="sr-only"> ({STATE_TEXT[step.state]})</span>
                 </li>
             ))}
         </ol>

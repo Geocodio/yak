@@ -6,6 +6,7 @@ use App\Enums\ThreadSource;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadRequestData;
 use App\Models\CoOwnerRequest;
+use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadSession;
@@ -185,4 +186,14 @@ it('runs a small fixed number of queries', function () {
 
     expect(count(DB::getQueryLog()))->toBe($count);
     expect($count)->toBeLessThanOrEqual(14);
+});
+
+it('marks the CI step failed when the task stopped after a failed CI result', function () {
+    $thread = Thread::factory()->create();
+    $task = taskOn($thread, 'failed', ['branch_name' => 'yak/x']);
+    TaskLog::create(['yak_task_id' => $task->id, 'level' => 'info', 'message' => 'CI result received', 'metadata' => ['passed' => false], 'created_at' => now()]);
+
+    $steps = collect(ThreadRequestData::for($thread, null)['progress']['steps'])->keyBy('label');
+
+    expect($steps['CI failed']['state'])->toBe('failed')->and($steps['Pushed']['state'])->toBe('current');
 });
