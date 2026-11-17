@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Models\Thread;
 use App\Models\User;
@@ -178,4 +179,26 @@ test('a thread draws its tool calls with the same shared step rows', function ()
         ->click('[data-testid="thread-tool-activity"] [data-testid="step-row"] > summary >> nth=0')
         ->assertSeeIn('[data-testid="step-detail"]', 'class LoginController')
         ->assertNoJavaScriptErrors();
+});
+
+test('a stopped task leads with the plain sentence and folds the technical text under Details', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->failed()->create([
+        'source' => 'linear',
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'The automated checks did not report back within 30 minutes, so Yak gave up waiting.',
+        'error_log' => 'CI timed out after 30 minutes',
+    ]);
+    seedInlineRun($task, 'failed');
+
+    $page = visit(route('tasks.show', $task))
+        ->assertPresent('[data-testid="task-stop"]')
+        ->assertSeeIn('[data-testid="task-stop"]', 'Stopped')
+        ->assertSeeIn('[data-testid="task-stop"]', 'did not report back within 30 minutes')
+        ->assertSeeIn('[data-testid="task-stop"]', 'Reply in the Linear issue, or press Retry')
+        ->assertVisible('[data-testid="task-stop"] [data-testid="retry-run"]')
+        ->assertNoJavaScriptErrors();
+
+    expect($page->script('document.querySelector(\'[data-testid="task-stop"] > details\').open'))->toBeFalse();
+    $page->click('[data-testid="task-stop"] > details > summary')->assertSeeIn('[data-testid="task-stop"]', 'CI timed out after 30 minutes');
 });

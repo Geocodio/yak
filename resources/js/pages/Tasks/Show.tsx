@@ -37,6 +37,7 @@ import type {
     DebugData,
     DeploymentData,
     FindingsData,
+    StopData,
     MediaItem,
     ProgressStep,
     RunSummary,
@@ -60,6 +61,7 @@ type Props = PageProps<{
     walkthrough: WalkthroughData;
     deployment: DeploymentData;
     findings: FindingsData;
+    stop: StopData;
     composer: ComposerData;
     questions: QuestionData[] | null;
     coOwner: CoOwnerData | null;
@@ -85,6 +87,7 @@ export default function Show({
     walkthrough,
     deployment,
     findings,
+    stop,
     composer,
     questions,
     coOwner,
@@ -189,6 +192,7 @@ export default function Show({
         deployment,
         progress: progress.steps,
         findings: index === lastYakIndex ? findings : null,
+        stop,
         onOpenFullLog: openTranscriptCold,
         stream: {
             rows: activityRows.rows,

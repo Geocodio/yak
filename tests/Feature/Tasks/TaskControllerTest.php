@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\SteeringMode;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
@@ -1150,4 +1151,59 @@ test('a task waiting on setup says so in its next steps and setup card', functio
             ->where('task.repositorySetup.continuesAfterSetup', true)
             ->where('task.repositorySetup.failedSetup', null)
         );
+});
+
+test('a failed task with a stop leads with the plain summary and keeps the technical text as detail', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'source' => 'linear',
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'The automated checks did not report back in time.',
+        'error_log' => 'CI timed out after 30 minutes',
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stop.kind', 'yak_stopped')
+            ->where('stop.summary', 'The automated checks did not report back in time.')
+            ->where('stop.detail', 'CI timed out after 30 minutes')
+            ->where('stop.nextStep', 'Reply in the Linear issue, or press Retry, and Yak will try again.')
+            ->where('stop.isWaitingForSetup', false)
+        );
+});
+
+test('a needs-you stop points at the answer below', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'stop_kind' => StopKind::NeedsYou,
+        'stop_summary' => 'Yak asked a question and did not hear back.',
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stop.kind', 'needs_you')
+            ->where('stop.nextStep', 'Add your answer below, then press Retry. Yak picks it up from there.')
+        );
+});
+
+test('a failed task waiting on setup shows as paused whatever the stored kind', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'Something stopped the run.',
+        'resume_after_setup_at' => now(),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stop.kind', 'yak_retrying')
+            ->where('stop.isWaitingForSetup', true)
+            ->where('stop.nextStep', 'Yak picks it back up on its own. Nothing needed from you.')
+        );
+});
+
+test('a running task has no stop', function () {
+    $task = YakTask::factory()->running()->create();
+
+    $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page->where('stop', null));
 });
