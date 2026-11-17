@@ -10,6 +10,11 @@ export function filterKeyLabel(key: string): string {
     return key.startsWith('name:') ? key.slice(5) : key;
 }
 
+/** The label for a starter: "You" for the viewer, "Yak (no person)" for Yak, otherwise its name. */
+export function starterLabel(key: string, name: string, viewerStarterKey: string | null): string {
+    return key === viewerStarterKey ? 'You' : key === 'yak' ? 'Yak (no person)' : name;
+}
+
 function withPicked(options: Option[], picked: string[]): Option[] {
     const known = new Set(options.map((option) => option.key));
 
@@ -67,10 +72,7 @@ export function ThreadFilterMenu({
     const starterOptions = withPicked(
         (facets?.starters ?? []).map((starter) => ({ key: starter.key, label: starter.name, count: starter.count })),
         starters,
-    ).map((option) => ({
-        ...option,
-        label: option.key === viewerStarterKey ? 'You' : option.key === 'yak' ? 'Yak (no person)' : option.label,
-    }));
+    ).map((option) => ({ ...option, label: starterLabel(option.key, option.label, viewerStarterKey) }));
     const pickedCount = sources.length + starters.length;
 
     return (

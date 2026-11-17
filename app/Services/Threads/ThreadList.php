@@ -8,6 +8,7 @@ use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadListFilter;
 use App\Enums\ThreadListStatus;
 use App\Enums\ThreadSandboxState;
+use App\Enums\ThreadSource;
 use App\Enums\ThreadVisibility;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadOriginData;
@@ -33,6 +34,8 @@ use Illuminate\Support\Str;
  * isUnattended: bool, isStarred: bool, canDelete: bool, isUnread: bool, ownerInitials: ?string,
  * source: array{key: string, label: string, reference: ?string, url: ?string}, starter: array{key: string, name: string, avatarUrl: ?string}, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
  * children: list<array<string, mixed>>}`.
+ *
+ * The facets count the tab's rows; a picked source or starter without rows is appended with count 0.
  */
 class ThreadList
 {
@@ -110,7 +113,7 @@ class ThreadList
         }
 
         $needsYouCount = count(array_filter($rows, fn (array $row): bool => $row['needsYouReason'] !== null));
-        $facets = self::facets($rows, $user);
+        $facets = self::withPickedKeys(self::facets($rows, $user), $sources, $starters);
 
         // ponytail: filters the whole tab in memory; move to whereSources / whereStarters in SQL once the list paginates.
         $rows = array_filter($rows, fn (array $row): bool => ($sources === [] || in_array($row['source']['key'], $sources, true))
@@ -168,6 +171,54 @@ class ThreadList
             <=> [$b['key'] === 'yak', $b['key'] !== $viewerKey, $a['count'], $b['name']]);
 
         return ['sources' => $sourceList, 'starters' => $starterList];
+    }
+
+    /**
+     * Appends each picked source and starter the tab has no rows for, with count 0, so the menu and chips can name it.
+     *
+     * @param  array{sources: list<array{key: string, label: string, count: int}>, starters: list<array{key: string, name: string, avatarUrl: ?string, count: int}>}  $facets
+     * @param  list<string>  $sources
+     * @param  list<string>  $starters
+     * @return array{sources: list<array{key: string, label: string, count: int}>, starters: list<array{key: string, name: string, avatarUrl: ?string, count: int}>}
+     */
+    private static function withPickedKeys(array $facets, array $sources, array $starters): array
+    {
+        foreach (array_diff($sources, array_column($facets['sources'], 'key')) as $key) {
+            $source = ThreadSource::tryFrom($key);
+
+            if ($source !== null) {
+                $facets['sources'][] = ['key' => $key, 'label' => $source->label(), 'count' => 0];
+            }
+        }
+
+        $missing = array_unique(array_diff($starters, array_column($facets['starters'], 'key')));
+        $userIds = [];
+
+        foreach ($missing as $key) {
+            if (preg_match('/^user:(\d+)$/', $key, $matches) === 1) {
+                $userIds[] = (int) $matches[1];
+            }
+        }
+
+        $users = $userIds === [] ? collect() : User::query()->whereIn('id', $userIds)->get(['id', 'name', 'avatar_url'])->keyBy('id');
+
+        foreach ($missing as $key) {
+            $starter = match (true) {
+                $key === 'yak' => ['name' => 'Yak', 'avatarUrl' => null],
+                str_starts_with($key, 'name:') && strlen($key) > 5 => ['name' => substr($key, 5), 'avatarUrl' => null],
+                preg_match('/^user:(\d+)$/', $key, $matches) === 1 && $users->has((int) $matches[1]) => [
+                    'name' => $users->get((int) $matches[1])->name,
+                    'avatarUrl' => is_string($avatarUrl = $users->get((int) $matches[1])->getAttribute('avatar_url')) ? $avatarUrl : null,
+                ],
+                default => null,
+            };
+
+            if ($starter !== null) {
+                $facets['starters'][] = ['key' => $key, ...$starter, 'count' => 0];
+            }
+        }
+
+        return $facets;
     }
 
     /**

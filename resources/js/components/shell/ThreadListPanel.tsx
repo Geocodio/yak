@@ -9,7 +9,7 @@ import {
 import { PanelLeftClose, Plus, Search, X } from "lucide-react";
 import { shortcutLabel } from "@/commandPalette/shortcuts";
 import { isMacPlatform } from "@/commandPalette/platform";
-import { ThreadFilterMenu, filterKeyLabel } from "@/components/shell/ThreadFilterMenu";
+import { ThreadFilterMenu, filterKeyLabel, starterLabel } from "@/components/shell/ThreadFilterMenu";
 import { ThreadGroup } from "@/components/shell/ThreadGroup";
 import { useThreadList } from "@/components/shell/useThreadList";
 import { openNewThread, openPalette } from "@/components/Sidebar";
@@ -55,14 +55,12 @@ export function ThreadListPanel({
         })),
         ...starters.map((key) => ({
             key: `starter:${key}`,
-            label:
-                key === viewerStarterKey
-                    ? "You"
-                    : key === "yak"
-                      ? "Yak (no person)"
-                      : (data?.facets.starters.find(
-                            (option) => option.key === key,
-                        )?.name ?? filterKeyLabel(key)),
+            label: starterLabel(
+                key,
+                data?.facets.starters.find((option) => option.key === key)
+                    ?.name ?? filterKeyLabel(key),
+                viewerStarterKey,
+            ),
             remove: () =>
                 setStarters(starters.filter((item) => item !== key)),
         })),

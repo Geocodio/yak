@@ -162,6 +162,19 @@ test('needsYouCount ignores source and starter filters', function () {
     expect($list['needsYou'])->toBe([])->and($list['needsYouCount'])->toBe(1);
 });
 
+test('facets list a picked source and starter that have no rows, with count 0', function () {
+    $viewer = User::factory()->create();
+    $teammate = User::factory()->create(['name' => 'Tess Mate']);
+
+    $facets = ThreadList::for($viewer, ThreadListFilter::Closed, null, ['slack', 'nope'], ['user:' . $teammate->id, 'name:Jane Doe', 'yak', 'user:999999'])['facets'];
+
+    expect($facets['sources'])->toBe([['key' => 'slack', 'label' => 'Slack', 'count' => 0]])
+        ->and($facets['starters'])->toHaveCount(3)
+        ->and($facets['starters'][0])->toMatchArray(['key' => 'user:' . $teammate->id, 'name' => 'Tess Mate', 'count' => 0])
+        ->and($facets['starters'][1])->toBe(['key' => 'name:Jane Doe', 'name' => 'Jane Doe', 'avatarUrl' => null, 'count' => 0])
+        ->and($facets['starters'][2])->toBe(['key' => 'yak', 'name' => 'Yak', 'avatarUrl' => null, 'count' => 0]);
+});
+
 test('facets leave out a private thread the viewer may not see', function () {
     $viewer = User::factory()->create();
     $teammate = User::factory()->create();
