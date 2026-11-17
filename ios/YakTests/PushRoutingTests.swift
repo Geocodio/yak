@@ -17,10 +17,17 @@ private func scenarioPayload(_ name: String, instance: String? = nil) throws -> 
     return try PushPayload(json: JSONSerialization.data(withJSONObject: object))
 }
 
+@MainActor private final class LinkCollector {
+    var links: [URL] = []
+}
+
+/// Sets the handler after the tap, so a link that waited is delivered to it.
 @MainActor
 private func firstLink(of controller: PushController) async -> URL? {
-    var iterator = controller.links().makeAsyncIterator()
-    return await iterator.next()
+    let collector = LinkCollector()
+    controller.openLink = { collector.links.append($0) }
+    await controller.deliverBufferedLinks()
+    return collector.links.first
 }
 
 @MainActor @Suite struct PushRoutingTests {
@@ -36,15 +43,42 @@ private func firstLink(of controller: PushController) async -> URL? {
         #expect(scene.state.threadID == "d0e515ef")
     }
 
-    @Test func aColdTapIsDeliveredOnceTheSceneListens() async throws {
+    @Test func aColdTapIsDeliveredOnceTheHandlerIsSet() async throws {
         let rig = try await makePushRig()
         await rig.controller.didTap(try scenarioPayload("scenario-push-alert-question"))
-        var iterator = rig.controller.links().makeAsyncIterator()
-        let first = await iterator.next()
-        #expect(first?.absoluteString == "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=d0e515ef")
+        let collector = LinkCollector()
+        rig.controller.openLink = { collector.links.append($0) }
+        await rig.controller.deliverBufferedLinks()
+        #expect(
+            collector.links.map(\.absoluteString) == [
+                "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=d0e515ef"
+            ])
         await rig.controller.didTap(try scenarioPayload("scenario-push-alert-question"))
-        let second = await iterator.next()
-        #expect(second == first)
+        #expect(collector.links.count == 2)
+    }
+
+    @Test func aTapReachesTheAppModelWithNoViewListening() async throws {
+        let rig = try await makePushRig()
+        let transport = rig.transport
+        let app = AppModel(
+            instances: rig.store, tokens: rig.tokens,
+            makeClient: { url in
+                APIClient(
+                    baseURL: url, token: nil, transport: transport, appVersion: "1.0.0", systemDescription: "Test")
+            },
+            push: rig.controller)
+        await rig.controller.didTap(try scenarioPayload("scenario-push-alert-question"))
+        #expect(
+            app.takeLaunchLink()
+                == .thread(instance: URL(string: "https://yak.example.com")!, id: "d0e515ef"))
+    }
+
+    @Test func startingTwiceStartsOnce() async throws {
+        let rig = try await makePushRig()
+        await rig.controller.start()
+        let registrations = rig.permission.registerCount
+        await rig.controller.start()
+        #expect(rig.permission.registerCount == registrations)
     }
 
     @Test func anUnknownInstanceOffersPairing() async throws {
@@ -55,8 +89,7 @@ private func firstLink(of controller: PushController) async -> URL? {
         await onlyHome.didTap(try scenarioPayload("scenario-push-alert-other-instance"))
         #expect(onlyHome.pending == .pairing(URL(string: "https://other.example.com")!))
         await onlyHome.didTap(try scenarioPayload("scenario-push-alert-question"))
-        var iterator = onlyHome.links().makeAsyncIterator()
-        let link = await iterator.next()
+        let link = await firstLink(of: onlyHome)
         #expect(link?.absoluteString.contains("yak.example.com") == true)
     }
 

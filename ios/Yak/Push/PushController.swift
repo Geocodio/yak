@@ -35,7 +35,13 @@ final class PushController: InstanceLifecycleObserver {
     @ObservationIgnored private let normalize: @Sendable (String) -> URL?
     @ObservationIgnored private var visible: Set<VisibleThread> = []
     @ObservationIgnored private var statusTask: Task<Void, Never>?
-    @ObservationIgnored private let linkChannel = AsyncStream<URL>.makeStream(bufferingPolicy: .unbounded)
+    @ObservationIgnored private var hasStarted = false
+    @ObservationIgnored private var bufferedLinks: [URL] = []
+    /// Opens the link a tap produced; `AppModel` sets it once. A link that arrives before that waits and is
+    /// delivered when the handler is set, so a tap that launched the app is not lost, in any number of windows.
+    @ObservationIgnored var openLink: (@MainActor (URL) async -> Void)? {
+        didSet { Task { await deliverBufferedLinks() } }
+    }
 
     init(
         instances: InstanceStore, registrar: PushRegistrar, permission: any NotificationPermission,
@@ -54,6 +60,8 @@ final class PushController: InstanceLifecycleObserver {
 
     /// Loads the registrar's records, follows its statuses and registers with APNs when the person allows it.
     func start() async {
+        guard !hasStarted else { return }
+        hasStarted = true
         if statusTask == nil {
             let stream = await registrar.statuses()
             statusTask = Task { [weak self] in
@@ -174,9 +182,17 @@ final class PushController: InstanceLifecycleObserver {
         await refreshBadge()
     }
 
-    /// The links taps produce. A link yielded before anyone listens is delivered to the first listener, so a
-    /// tap that launched the app is not lost; one window group listens.
-    func links() -> AsyncStream<URL> { linkChannel.stream }
+    /// Hands every waiting link to the handler, oldest first.
+    func deliverBufferedLinks() async {
+        guard let openLink else { return }
+        let waiting = bufferedLinks
+        bufferedLinks = []
+        for link in waiting { await openLink(link) }
+    }
+
+    private func deliver(_ link: URL) async {
+        if let openLink { await openLink(link) } else { bufferedLinks.append(link) }
+    }
 
     /// A snapshot of an open thread: a turn that runs may start a Live Activity.
     func observe(thread id: String, instanceURL: URL, snapshot: ConversationSnapshot) async {
@@ -201,7 +217,7 @@ final class PushController: InstanceLifecycleObserver {
         guard let destination = PushDestination.make(payload, instances: paired, normalize: normalize) else { return }
         switch destination {
         case .thread, .task:
-            if let link = destination.linkURL { linkChannel.continuation.yield(link) }
+            if let link = destination.linkURL { await deliver(link) }
         case .unknownInstance(let address):
             pending = .pairing(address)
         case .webPage(let instance, let url):

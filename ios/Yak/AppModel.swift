@@ -95,6 +95,7 @@ final class AppModel {
         self.pairing = Pairing(
             makeClient: makeClient, instances: instances, sleep: { try await Task.sleep(for: $0) })
         push?.activate = { [weak self] instance in await self?.activate(instance) }
+        push?.openLink = { [weak self] link in await self?.handle(url: link) }
     }
 
     /// A push tap names another instance: it becomes the active one and the route follows.

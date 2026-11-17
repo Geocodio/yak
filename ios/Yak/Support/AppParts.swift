@@ -99,8 +99,5 @@ private struct PushRoot: ViewModifier {
             .onChange(of: model.network.isOnline) { _, isOnline in
                 Task { await push.networkChanged(isOnline: isOnline) }
             }
-            .task {
-                for await link in push.links() { await model.handle(url: link) }
-            }
     }
 }

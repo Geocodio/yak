@@ -14,6 +14,7 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
 
     /// Responses that arrived before the controller existed are handed over here.
     func attach(_ controller: PushController) {
+        guard self.controller == nil else { return }
         self.controller = controller
         let waiting = earlyResponses
         earlyResponses = []
