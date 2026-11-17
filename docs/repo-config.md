@@ -72,21 +72,6 @@ review:
     - "public/build/**"
     - "*.min.js"
     - "database/schema/*.sql"
-  approval:
-    # off: never approve. shadow: record what Yak would decide. enforce: approve when every rule passes.
-    mode: shadow                                            # off | shadow | enforce
-    allowed_paths:                                          # only these paths can be approved; empty = none
-      - "resources/views/docs/**"
-      - "lang/**"
-    blocked_paths:                                          # added to Yak's host floor, never replaces it
-      - "app/Billing/**"
-    required_checks:                                        # check run or commit status names, up to 50
-      - tests
-      - phpstan
-    max_files: 5                                            # 1 to 100
-    max_lines: 150                                          # 1 to 5000
-    max_risk_score: 30                                      # 0 to 30
-    min_confidence: 80                                      # 80 to 100
 ```
 
 The smallest useful file is:
@@ -113,14 +98,7 @@ co_owner_gate:
 | `data.size_gb` | An optional size hint in GB, at least 1, shown to admins. An admin sets the enforced cap. |
 | `review.enabled` | Whether Yak reviews pull requests in this repository. |
 | `review.exclude_paths` | Path globs Yak leaves out of reviews. Up to 100, each up to 500 characters. When the key is present it replaces the dashboard list and the host defaults. |
-| `review.approval.mode` | Required when `approval` is set. `off`, `shadow` (record what Yak would decide without acting) or `enforce`. |
-| `review.approval.allowed_paths` | Path globs a change must stay within to be approved. Up to 100. |
-| `review.approval.blocked_paths` | Path globs that always need a human. Up to 100. They are added to the host floor, never replace it. |
-| `review.approval.required_checks` | Check names that must pass before Yak approves. Up to 50, each name up to 255 characters. Matched by name. |
-| `review.approval.max_files` | The most files a change may touch and still be approved. 1 to 100. |
-| `review.approval.max_lines` | The most changed lines a change may have and still be approved. 1 to 5000. |
-| `review.approval.max_risk_score` | The highest risk score a change may have and still be approved. 0 to 30. |
-| `review.approval.min_confidence` | The lowest review confidence, as a percentage, at which Yak approves. 80 to 100. |
+| `review.approval` | Ignored. Yak still accepts the block so older files stay valid, but the approval level and mode are set on the repository's Auto-approval settings in Yak. |
 
 Required checks match by name. A check run or commit status counts if its name equals the entry, whichever app reported it.
 
@@ -327,14 +305,15 @@ Make `yak / config` a required status check in branch protection, so a broken fi
 
 ## Paths Yak never auto-approves
 
-The host floor is a fixed list of paths that always need a human reviewer, whatever `allowed_paths` says:
+The host floor is a fixed list of paths that always need a human reviewer, at every approval level. A repository cannot change it.
 
-- `.yak/**`
-- `CODEOWNERS`, `.github/CODEOWNERS` and `docs/CODEOWNERS`
-- `AGENTS.md`
-- `CLAUDE.md`
+- Yak's own rules: `.yak/**`, `AGENTS.md`, `CLAUDE.md`, `.claude/**` and the `CODEOWNERS` files
+- CI: `.github/**`, `.drone*`, `.gitlab-ci.yml`, `.circleci/**` and `Jenkinsfile`
+- Docker and infrastructure: `Dockerfile*`, `docker/**`, compose files, `.dockerignore`, `ansible/**`, `*.tf`, `*.tfvars` and `Procfile`
+- Database migrations: `database/migrations/**`, `migrations/**`, `**/migrations/**` and `db/migrate/**`
+- Secrets and auth config: `.env*`, `*.pem`, `*.key`, `auth.json`, `config/auth.php`, `config/sanctum.php` and `config/fortify.php`
 
-`blocked_paths` adds to this list.
+Everything else, such as billing or authorization code, is judged by the repository's concerns in `.yak/risk-profile.yml`.
 
 ## Migrating an existing repository
 
