@@ -107,3 +107,58 @@ test('a teammate thread shows the owner chip under everyone', function () {
         ->assertSeeIn('[data-testid="thread-owner-' . $thread->public_id . '"]', 'TT')
         ->assertNoJavaScriptErrors();
 });
+
+test('picking a source narrows the list, shows a chip, and clear restores it', function () {
+    $user = User::factory()->create();
+    Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Slack request', 'source' => 'slack', 'repo' => 'Geocodio/geocodio']);
+    Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Linear ticket', 'source' => 'linear', 'repo' => 'Geocodio/geocodio']);
+    $this->actingAs($user);
+
+    visit('/threads/new')
+        ->click('[data-testid="thread-filter-everyone"]')
+        ->click('[data-testid="thread-filter-menu-button"]')
+        ->click('[data-testid="thread-filter-source-slack"]')
+        ->click('[data-testid="thread-filter-menu-button"]')
+        ->assertSee('Slack request')
+        ->assertDontSee('Linear ticket')
+        ->assertSeeIn('[data-testid="thread-filter-chips"]', 'Slack')
+        ->click('[data-testid="thread-filter-clear"]')
+        ->assertSee('Slack request')
+        ->assertSee('Linear ticket')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a picked filter survives opening a thread and the timed refresh', function () {
+    $user = User::factory()->create();
+    $slack = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Slack request', 'source' => 'slack', 'repo' => 'Geocodio/geocodio']);
+    Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Linear ticket', 'source' => 'linear', 'repo' => 'Geocodio/geocodio']);
+    $this->actingAs($user);
+
+    visit('/threads/new')
+        ->click('[data-testid="thread-filter-menu-button"]')
+        ->click('[data-testid="thread-filter-source-slack"]')
+        ->click('[data-testid="thread-filter-menu-button"]')
+        ->click('[data-testid="thread-row-' . $slack->public_id . '"]')
+        ->wait(6)
+        ->assertSee('Slack request')
+        ->assertDontSee('Linear ticket')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a picked value with no rows still shows in the menu with count 0', function () {
+    $user = User::factory()->create();
+    Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Slack request', 'source' => 'slack', 'repo' => 'Geocodio/geocodio']);
+    $this->actingAs($user);
+
+    visit('/threads/new')
+        ->click('[data-testid="thread-filter-everyone"]')
+        ->click('[data-testid="thread-filter-menu-button"]')
+        ->click('[data-testid="thread-filter-source-slack"]')
+        ->click('[data-testid="thread-filter-closed"]')
+        ->assertSeeIn('[data-testid="thread-filter-chips"]', 'Slack')
+        ->assertSee('No threads match these filters')
+        ->click('[data-testid="thread-filter-menu-button"]')
+        ->assertVisible('[data-testid="thread-filter-source-slack"]')
+        ->assertVisible('[data-testid="thread-filter-source-slack"] [role="checkbox"][aria-checked="true"]')
+        ->assertNoJavaScriptErrors();
+});
