@@ -269,7 +269,7 @@ test('shows answered rounds in the thread, with skipped questions', function () 
     $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page
         ->where('questions', null)
         ->where('thread', fn ($thread) => collect($thread)->contains(fn ($entry) => $entry['kind'] === 'clarification-answers'
-            && $entry['answers'][0] === ['header' => 'Scope', 'answer' => null, 'other' => 'Medium', 'skipped' => false]
+            && $entry['answers'][0] === ['header' => 'Scope', 'question' => 'Which scope?', 'answer' => null, 'choices' => [], 'other' => 'Medium', 'skipped' => false]
             && $entry['answers'][1]['skipped'] === true)));
 });
 
@@ -1080,4 +1080,41 @@ test('log entries are served in a batch, limited to the task conversation', func
         ->assertJsonPath('entries.0.input', 'ls -la')
         ->assertJsonPath('entries.0.output', 'total 0')
         ->assertJsonPath('entries.1.fullText', 'The whole thought');
+});
+
+test('a failed task on a repository without a sandbox carries the setup card data', function () {
+    $repository = Repository::factory()->create(['setup_status' => 'failed', 'sandbox_snapshot' => null]);
+    $setupTask = YakTask::factory()->create(['repo' => $repository->slug, 'mode' => TaskMode::Setup, 'status' => TaskStatus::Failed, 'completed_at' => now()]);
+    $repository->update(['setup_task_id' => $setupTask->id]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'error_log' => 'not set up']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.repositorySetup.repo', $repository->slug)
+            ->where('task.repositorySetup.settingsUrl', route('repos.edit', $repository))
+            ->where('task.repositorySetup.isSettingUp', false)
+            ->where('task.repositorySetup.continuesAfterSetup', false)
+            ->where('task.repositorySetup.failedSetup.url', route('tasks.show', $setupTask))
+        );
+});
+
+test('a failed task on a ready repository has no setup card data', function () {
+    $repository = Repository::factory()->create();
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'error_log' => 'boom']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('task.repositorySetup', null));
+});
+
+test('a task waiting on setup says so in its next steps and setup card', function () {
+    $repository = Repository::factory()->create(['setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'resume_after_setup_at' => now()]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.nextSteps', 'Waiting for repository setup. Yak continues this task when it finishes.')
+            ->where('task.repositorySetup.isSettingUp', true)
+            ->where('task.repositorySetup.continuesAfterSetup', true)
+            ->where('task.repositorySetup.failedSetup', null)
+        );
 });

@@ -11,6 +11,7 @@ use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
+use App\Jobs\SetupYakJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
 use App\Models\LinearOauthConnection;
@@ -527,4 +528,66 @@ test('retry shows an error flash instead of an error page when the queue refuses
         ->assertSessionHas('error', 'Yak could not restart this task. Try again in a moment.');
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed);
+});
+
+test('setup and continue starts setup and marks the task to continue after it', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['setup_status' => 'failed', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'error_log' => 'not set up']);
+
+    $this->post(route('tasks.setup-and-continue', $task))
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('success');
+
+    Queue::assertPushed(SetupYakJob::class, 1);
+    expect($task->fresh()->resume_after_setup_at)->not->toBeNull()
+        ->and($repository->fresh()->setup_status)->toBe('pending');
+});
+
+test('setup and continue joins a setup that is already running', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed]);
+
+    $this->post(route('tasks.setup-and-continue', $task));
+
+    Queue::assertNotPushed(SetupYakJob::class);
+    expect($task->fresh()->resume_after_setup_at)->not->toBeNull();
+});
+
+test('setup and continue refuses a repository that is already set up', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create();
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed]);
+
+    $this->post(route('tasks.setup-and-continue', $task))->assertSessionHas('error');
+
+    Queue::assertNotPushed(SetupYakJob::class);
+    expect($task->fresh()->resume_after_setup_at)->toBeNull();
+});
+
+test('a finished setup retries the tasks that waited on it', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'resume_after_setup_at' => now()]);
+
+    $repository->update(['setup_status' => 'ready', 'sandbox_snapshot' => 'yak-tpl-x/ready']);
+
+    Queue::assertPushed(RunYakJob::class);
+    expect($task->fresh())
+        ->status->toBe(TaskStatus::Pending)
+        ->resume_after_setup_at->toBeNull();
+});
+
+test('a failed setup clears the wait without retrying', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'resume_after_setup_at' => now()]);
+
+    $repository->update(['setup_status' => 'failed']);
+
+    Queue::assertNotPushed(RunYakJob::class);
+    expect($task->fresh())
+        ->status->toBe(TaskStatus::Failed)
+        ->resume_after_setup_at->toBeNull();
 });

@@ -74,6 +74,7 @@ class VisibilityRoutes
         'tasks.show' => ['GET', '/tasks/{task}'],
         'tasks.log-entries' => ['GET', '/tasks/{task}/log-entries'],
         'tasks.retry' => ['POST', '/tasks/{task}/retry'],
+        'tasks.setup-and-continue' => ['POST', '/tasks/{task}/setup-and-continue'],
         'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
         'tasks.rerun-review' => ['POST', '/tasks/{task}/rerun-review'],
         'tasks.retry-render' => ['POST', '/tasks/{task}/retry-render'],
