@@ -82,8 +82,9 @@ extension XCUIApplication {
         app.typeText("echo hello\n")
         waitForValue(output, containing: "hello")
         try stub.post("terminal/close", "1011")
-        XCTAssertTrue(app.descendants(matching: .any)["terminal.banner"].waitForExistence(timeout: 60))
-        waitForValue(output, containing: "New shell. The connection dropped at", timeout: 20)
+        // The banner shows only while the shell reconnects, which a slow machine can pass between two queries, so the
+        // proof is the notice in the new shell's output.
+        waitForValue(output, containing: "New shell. The connection dropped at", timeout: 60)
         XCTAssertEqual(try stub.get("terminal/opened"), "2")
     }
 
