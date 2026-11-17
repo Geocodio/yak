@@ -64,7 +64,8 @@ struct WalkthroughPlayerSheet: View {
             }
             .padding(24)
         case .failed(let problem):
-            failure(problem).padding(24)
+            // Opaque, so the system player's own "unavailable" glyph does not show through the message.
+            failure(problem).padding(24).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.black)
         case .playing, nil:
             EmptyView()
         }
