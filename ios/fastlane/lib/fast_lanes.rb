@@ -29,6 +29,19 @@ module FastLanes
     digest.hexdigest
   end
 
+  # Splits test classes, given as {name => test count}, into `parts` lists of about the same number of tests and returns
+  # the 1-based `part`. Greedy and deterministic: the biggest class goes to the lightest part, ties by name.
+  def self.split_classes(counts, parts:, part:)
+    raise ArgumentError, "part must be 1..#{parts}" unless (1..parts).cover?(part)
+    groups = Array.new(parts) { {names: [], total: 0} }
+    counts.sort_by { |name, count| [-count, name] }.each do |name, count|
+      group = groups.min_by.with_index { |candidate, index| [candidate[:total], index] }
+      group[:names] << name
+      group[:total] += count
+    end
+    groups[part - 1][:names].sort
+  end
+
   def self.file_digest(path)
     File.file?(path) ? Digest::SHA256.file(path).hexdigest : "missing"
   end

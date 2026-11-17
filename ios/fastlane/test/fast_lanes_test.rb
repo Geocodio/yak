@@ -3,6 +3,17 @@ require "tmpdir"
 require_relative "../lib/fast_lanes"
 
 class FastLanesTest < Minitest::Test
+  def test_split_classes_balances_by_count_and_covers_every_class_once
+    counts = {"A" => 9, "B" => 9, "C" => 7, "D" => 7, "E" => 3, "F" => 1}
+    one = FastLanes.split_classes(counts, parts: 2, part: 1)
+    two = FastLanes.split_classes(counts, parts: 2, part: 2)
+    assert_equal counts.keys.sort, (one + two).sort
+    assert_empty(one & two)
+    assert_equal one, FastLanes.split_classes(counts, parts: 2, part: 1)
+    assert_operator (one.sum { |name| counts[name] } - two.sum { |name| counts[name] }).abs, :<=, 2
+    assert_raises(ArgumentError) { FastLanes.split_classes(counts, parts: 2, part: 3) }
+  end
+
   def in_repository
     Dir.mktmpdir do |root|
       system("git -C #{root} init -q && git -C #{root} config user.email t@example.invalid && git -C #{root} config user.name t")

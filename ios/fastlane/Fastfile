@@ -63,13 +63,14 @@ platform :ios do
 
   desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\" only:testName. " \
        "Builds once and reuses the build while ios/ is unchanged (rebuild:true forces a build). " \
-       "Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test is retried only on CI or with retry:true. The simulator it booted is shut down afterwards (keep:true leaves it booted)"
+       "part:1 or part:2 runs one half of the classes, split by test count. Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test is retried only on CI or with retry:true. The simulator it booted is shut down afterwards (keep:true leaves it booted)"
   lane :ui_smoke do |options|
     device = options[:device] || "iPhone 18 Pro"
     with_stub do |port, build_directory|
       result_path = File.join(build_directory, "ui-smoke-#{device.gsub(/\W+/, "-").gsub(/\A-+|-+\z/, "")}.xcresult")
       FileUtils.rm_rf(result_path)
       classes = options[:core_only] ? CORE_SMOKE_CLASSES : smoke_classes
+      classes = smoke_part(classes, options[:part].to_i) if options[:part]
       selection = ui_selection(options[:only], classes)
       if options[:core_only] && options[:only].nil?
         # The iPad and the Duo run the core tests; the long-running scenarios run on the iPhone only.
@@ -132,6 +133,14 @@ platform :ios do
   # Every class in a `*SmokeTests.swift` file, and the core classes (named in CORE_SMOKE_CLASSES) that are not.
   def smoke_classes
     (CORE_SMOKE_CLASSES + ui_test_classes("*SmokeTests.swift")).uniq
+  end
+
+  # One half of the smoke classes (part:1 or part:2), balanced by the number of tests in each class file.
+  def smoke_part(classes, part)
+    counts = classes.to_h do |klass|
+      [klass, File.read(File.join(IOS_ROOT, "YakUITests", "#{klass}.swift")).scan(/func test\w+/).size]
+    end
+    FastLanes.split_classes(counts, parts: 2, part: part)
   end
 
   def walkthrough_classes
