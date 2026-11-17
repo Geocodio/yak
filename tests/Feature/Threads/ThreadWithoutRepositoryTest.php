@@ -5,19 +5,23 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Exceptions\ThreadActionRefused;
 use App\Models\TaskRun;
+use App\Models\Teleport;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\QueuedMessageRunner;
+use App\Services\Threads\SandboxRestorer;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadList;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 
 require_once __DIR__ . '/../../Support/AppApiHelpers.php';
+require_once __DIR__ . '/../Teleport/CliTestHelpers.php';
 
 beforeEach(function () {
     $this->withoutVite();
@@ -136,17 +140,92 @@ test('the file tree answers without a sandbox', function () {
     expectNoSandbox($this->thread);
 });
 
-test('the pull request panel and the repository progress answer', function (string $route) {
-    $response = $this->actingAs($this->user)->getJson("{$this->path}/{$route}");
-
-    expect($response->status())->toBeLessThan(500);
-})->with(['pull-requests', 'repositories', 'events', 'local-turns', 'share', 'stack']);
-
-test('opening a pull request is refused', function () {
-    $response = $this->actingAs($this->user)->postJson("{$this->path}/pull-request");
-
-    expect($response->status())->toBeLessThan(500);
+test('the read routes answer with empty data', function () {
+    $this->actingAs($this->user)->getJson("{$this->path}/pull-requests")->assertOk()->assertJsonPath('state', 'none');
+    $this->actingAs($this->user)->getJson("{$this->path}/repositories")->assertOk()->assertExactJson(['repositories' => [], 'isReady' => false]);
+    $this->actingAs($this->user)->getJson("{$this->path}/events")->assertOk()->assertJsonPath('events', []);
+    $this->actingAs($this->user)->getJson("{$this->path}/local-turns?stint=none&before=1")->assertOk();
+    $this->actingAs($this->user)->getJson("{$this->path}/stack")->assertOk()->assertJsonPath('children', []);
+    $this->actingAs($this->user)->getJson("{$this->path}/share")->assertStatus(403);
     expectNoSandbox($this->thread);
+});
+
+test('opening a pull request is refused because there is nothing to publish', function () {
+    $this->actingAs($this->user)->postJson("{$this->path}/pull-request")->assertStatus(409);
+
+    expect(ThreadRepository::query()->count())->toBe(0);
+    expectNoSandbox($this->thread);
+});
+
+test('the routes that need a repository row answer not found', function (string $method, string $uri) {
+    $this->actingAs($this->user)->json($method, "{$this->path}/{$uri}", ['branch' => 'x'])->assertNotFound();
+
+    expect(ThreadRepository::query()->count())->toBe(0);
+    expectNoSandbox($this->thread);
+})->with([
+    ['POST', 'pull-requests/1/fix'],
+    ['PATCH', 'repositories/1'],
+    ['POST', 'repositories/1/retry'],
+    ['PUT', 'files/1/team-share'],
+]);
+
+test('saving a file is refused without a sandbox', function () {
+    $this->actingAs($this->user)->putJson("{$this->path}/files/content", ['scope' => 'repo', 'path' => 'a.txt', 'content' => 'x', 'base_sha256' => str_repeat('a', 64)])
+        ->assertStatus(409)->assertJsonPath('state', 'destroyed')->assertJsonPath('canRestore', false);
+    expectNoSandbox($this->thread);
+});
+
+test('continue, stop and the stack controls have nothing to act on', function (string $method, string $uri, array $payload) {
+    $this->actingAs($this->user)->json($method, "{$this->path}/{$uri}", $payload)->assertRedirect();
+
+    expect($this->thread->runs()->count())->toBe(0);
+    expectNoSandbox($this->thread);
+})->with([
+    ['POST', 'continue', []],
+    ['POST', 'stop', []],
+    ['PATCH', 'stack/limit', ['limit' => 2]],
+    ['POST', 'stack/stop', []],
+]);
+
+test('adding a stack child is refused on the web and the app api and creates nothing', function () {
+    $threads = Thread::query()->withoutGlobalScopes()->count();
+    $tasks = YakTask::query()->count();
+    $body = ['name' => 'scout', 'brief' => 'Look around.', 'kind' => 'research'];
+    [, $headers] = phoneWithHeaders(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)->postJson("{$this->path}/stack/children", $body)
+        ->assertStatus(422)->assertJsonPath('message', 'Pick a repository first.');
+    $this->postJson(appThreadPath($this->thread, '/stack/children'), [...$body, 'send_key' => 'abcdef12-0000-4000-8000-000000000001'], $headers)
+        ->assertStatus(409)->assertJsonPath('error', 'no_repository')->assertJsonPath('message', 'Pick a repository first.');
+
+    expect(Thread::query()->withoutGlobalScopes()->count())->toBe($threads)
+        ->and(YakTask::query()->count())->toBe($tasks)
+        ->and(ThreadRepository::query()->count())->toBe(0);
+    expectNoSandbox($this->thread);
+});
+
+test('the sandbox restorer never restores a thread without a repository', function () {
+    expect(app(SandboxRestorer::class)->restore($this->thread))->toBeFalse()
+        ->and($this->thread->restoreSteps()->count())->toBe(0);
+    expectNoSandbox($this->thread);
+});
+
+test('a teleport request is refused on the web and creates nothing', function () {
+    $this->actingAs($this->user)->post("{$this->path}/teleport-request", ['running_turn' => null])
+        ->assertRedirect()->assertSessionHas('error', 'Pick a repository first.');
+
+    expect($this->thread->fresh()->waiting_for_computer_at)->toBeNull();
+});
+
+test('a teleport down from the command line is refused and creates no teleport', function () {
+    Queue::fake();
+    [, $token] = makeDevice($this->user);
+
+    $this->postJson('/api/cli/v1/teleports', ['direction' => 'down', 'thread_id' => $this->thread->id, 'local_path' => '/Users/ada/widgets', 'os' => 'darwin', 'arch' => 'arm64'], cliHeaders($token))
+        ->assertStatus(409)->assertJsonPath('error', 'no_repository')->assertJsonPath('message', 'Pick a repository first.');
+
+    expect(Teleport::query()->count())->toBe(0);
+    Queue::assertNothingPushed();
 });
 
 test('a composer message is refused with a designed answer', function () {
