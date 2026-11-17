@@ -5,6 +5,9 @@ targets:
     sources:
       - path: YakWidgets
       - path: Shared/LiveActivity
+      - path: Shared/Storage
+      - path: Shared/Intents
+      - path: Shared/Widgets
     dependencies:
       - package: YakKit
     settings:
@@ -20,6 +23,10 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        YakAppGroup: $(YAK_APP_GROUP)
+        YakAppBundleID: $(YAK_BUNDLE_ID)
+        YakPushBundleID: $(YAK_BUNDLE_ID)
+        YakPushEnvironment: $(YAK_PUSH_ENVIRONMENT)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
   Yak:
