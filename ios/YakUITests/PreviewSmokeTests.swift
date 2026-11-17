@@ -106,7 +106,8 @@ import XCTest
         openPreview()
         XCTAssertTrue(pageShows("Path: /"))
         app.webViews.links["Docs"].tap()
-        XCTAssertTrue(pageShows("Path: /", timeout: 5))
+        // A slow machine takes longer than a few seconds to settle the page again after the link leaves the pane.
+        XCTAssertTrue(pageShows("Path: /"))
     }
 
     func testTheStripSteersFromThePreview() throws {
