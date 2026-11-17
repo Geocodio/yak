@@ -104,6 +104,8 @@ final class OverviewModel {
         }
         feed = opened
         actions = await session.overviewActions()
+        // A stop during the wait has already closed the overview.
+        guard isStarted else { return }
         readingTask = Task { [weak self] in
             for await next in await opened.states() {
                 guard let self, !Task.isCancelled else { return }

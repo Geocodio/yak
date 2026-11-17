@@ -172,7 +172,11 @@ private struct OverviewScroll: View {
 
     private func retry() { Task { await model.retry() } }
 
-    private func openThreads() { scene.setDrawerOpen(true) }
+    private func openThreads() {
+        // A wide window already lists the threads, so the open thread is left to show the list's choice.
+        if horizontalSizeClass != .compact { scene.closeThread() }
+        scene.setDrawerOpen(true)
+    }
 }
 
 private struct BrowserTarget: Identifiable {

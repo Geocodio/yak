@@ -42,7 +42,7 @@ struct SubThreadsGroupView: View {
         } message: {
             Text("overview.stopAll.message")
         }
-        .sensoryFeedback(.warning, trigger: dropTarget?.id)
+        .sensoryFeedback(.warning, trigger: dropTarget?.id) { _, id in id != nil }
         .sensoryFeedback(.warning, trigger: isStopAskOpen) { _, isOpen in isOpen }
         .sensoryFeedback(.error, trigger: model.refusalCount)
     }
