@@ -23,13 +23,15 @@ import XCTest
 
     func start(
         _ scenario: String, paired: Bool = false, keychainLocked: Bool = false, skipsWebSession: Bool = false,
-        extraArguments: [String] = []
+        extraArguments: [String] = [], attachments: Int = 0, cameraDenied: Bool = false
     ) throws {
         try stub.play(scenario)
         var arguments = ["-yakTestInstance", stub.url]
         if paired { arguments += ["-yakTestToken", "stub-token"] }
         if keychainLocked { arguments += ["-yakTestKeychainLocked", "YES"] }
         if skipsWebSession { arguments += ["-yakTestSkipWebSession", "YES"] }
+        if cameraDenied { arguments += ["-yakTestCamera", "denied"] }
+        if attachments > 0 { arguments += ["-yakTestAttachments", String(attachments)] }
         // The device appearance alone is not honoured on every iPad run, so the app is also told directly.
         arguments += ["-yakTestAppearance", environment["YAK_APPEARANCE"] == "dark" ? "dark" : "light"]
         if environment["YAK_TEXT_SIZE"] == "largest" {
@@ -61,21 +63,55 @@ import XCTest
         return UIGraphicsImageRenderer(size: turned.size, format: format).pngData { _ in turned.draw(at: .zero) }
     }
 
+    /// The software keyboard's frame, or nil without one. The audit takes the keyboard out of the app's element tree
+    /// while it runs, so a rule that needs the keyboard reads this before the audit starts.
+    func keyboardFrame() -> CGRect? {
+        app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame : nil
+    }
+
+    /// The frame of the sheet a screen shows, for the screens that show one, or nil. SwiftUI can hand the identifier
+    /// to inner elements too, so the largest match is the sheet, and a match that is too small to be one fails the
+    /// test instead of excusing findings inside the sheet.
+    private func sheetFrame(named name: String) -> CGRect? {
+        let identifiers = ["model-picker": "model.picker", "camera-denied": "composer.cameraDenied"]
+        guard let identifier = identifiers[name] else { return nil }
+        let frames = app.otherElements.matching(identifier: identifier).allElementsBoundByIndex.map(\.frame)
+        guard let sheet = frames.max(by: { $0.width * $0.height < $1.width * $1.height }) else { return nil }
+        if sheet.width < app.windows.firstMatch.frame.width / 2 || sheet.height < 200 {
+            XCTFail("sheet frame for [\(name)] is too small to be the sheet: \(sheet)")
+            return nil
+        }
+        return sheet
+    }
+
     /// A screenshot of a thread screen, then the audit without the findings about text in the navigation bar,
     /// whose size the system caps.
     func shootThread(_ name: String) throws {
         try shoot(name, audits: false)
-        try app.performAccessibilityAudit { [app] issue in
+        let keyboard = keyboardFrame()
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [app, auditBars] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 // The system caps the size of text in its bars, and draws its glass under the threads badge.
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
                 if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
+            // The system keyboard's prediction bar is not ours to label, and what it covers cannot be judged.
+            if (issue.element?.debugDescription ?? "").contains("TUIPredictionViewCell") { return true }
+            if issue.auditType == .contrast, let element = issue.element, let keyboard,
+                keyboard.intersects(element.frame)
+            {
+                return true
+            }
             // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
             if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
                 return true
             }
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            // Text behind a bar is covered by the bar.
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
             return true
         }
@@ -90,7 +126,10 @@ import XCTest
         try upright(XCUIScreen.main.screenshot()).write(to: URL(fileURLWithPath: "\(directory)/\(name).png"))
         // The remove confirmation is the system's own dialog; the audit reports only its fixed text sizes.
         guard audits, !name.hasSuffix("remove-confirmation") else { return }
-        try app.performAccessibilityAudit { [self, app] issue in
+        let keyboard = keyboardFrame()
+        let sheet = sheetFrame(named: name)
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [self, app, auditBars] issue in
             let description = issue.element?.debugDescription ?? ""
             // The system keyboard's prediction bar is not ours to label.
             if (description + issue.detailedDescription).contains("TUIPredictionViewCell") { return true }
@@ -103,15 +142,33 @@ import XCTest
             {
                 return true
             }
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            // Text behind a bar is covered by the bar.
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             // The keyboard covers part of a screen that scrolls; what is behind it cannot be judged.
-            if issue.auditType == .contrast, let element = issue.element, app.keyboards.firstMatch.exists,
-                app.keyboards.firstMatch.frame.intersects(element.frame)
+            if issue.auditType == .contrast, let element = issue.element, let keyboard,
+                keyboard.intersects(element.frame)
+            {
+                return true
+            }
+            // The system dims the screen behind a sheet, so the text outside the sheet reads too light. What the sheet
+            // holds is still judged: only an element whose center lies outside the sheet is skipped.
+            if issue.auditType == .contrast, let element = issue.element, let sheet,
+                !sheet.contains(CGPoint(x: element.frame.midX, y: element.frame.midY))
             {
                 return true
             }
             // The audit cannot match some text under the dimming of a sheet to an element.
             if issue.auditType == .elementDetection, issue.element == nil,
-                ["signed-in-add-sheet", "pair-again-address-sheet"].contains(name)
+                ["signed-in-add-sheet", "pair-again-address-sheet", "model-picker", "camera-denied"].contains(name)
+            {
+                return true
+            }
+            // The thread screen under a small sheet is dimmed, and its truncated title and badge have no element the audit can
+            // name; the sheet's own content is judged.
+            if ["model-picker", "camera-denied"].contains(name), [.contrast, .textClipped].contains(issue.auditType),
+                issue.element == nil
             {
                 return true
             }

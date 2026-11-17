@@ -61,6 +61,18 @@ public actor UploadLedger {
         }
     }
 
+    /// The item ids that have a record file, readable or not; nil when the folder cannot be listed, so a caller that
+    /// must account for every record can stop instead of reading an empty list.
+    public func recordedItemIDs() -> Set<UUID>? {
+        do {
+            let names = try files.list(InstanceFolders.uploads(instance))
+            return Set(names.compactMap { $0.hasSuffix(".json") ? UUID(uuidString: String($0.dropLast(5))) : nil })
+        } catch {
+            logUpload("upload folder not listed: \(type(of: error))")
+            return nil
+        }
+    }
+
     public func owns(_ description: UploadTaskDescription) -> Bool { load(description.item) != nil }
 
     /// Records that may go again now: failed ones, share uploads past `shareLostAfter`, prepared past `preparedLostAfter`.

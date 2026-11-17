@@ -214,6 +214,8 @@ enum Scenario: String, CaseIterable, Sendable {
     case messageRefused = "message-refused"
     /// Starting a thread is refused: 422 `validation_failed`.
     case newThreadRefused = "new-thread-refused"
+    /// The paired data with a limit of one attachment per message.
+    case oneAttachment = "one-attachment"
     /// Nobody has a thread and the instance has no repositories: `threads/new` answers `repos: []`.
     case noRepositories = "no-repositories"
     /// Nobody has a thread, and the new-thread options answer after 14 seconds.
@@ -286,6 +288,11 @@ enum Scenario: String, CaseIterable, Sendable {
                     details: ["min_protocol": 99, "current_protocol": 99, "client_protocol": 1])
             default:
                 return json("me") {
+                    if self == .oneAttachment {
+                        var limits = $0["attachments"] as? [String: Any] ?? [:]
+                        limits["maxFiles"] = 1
+                        $0["attachments"] = limits
+                    }
                     guard realtimePort != 0 else { return }
                     $0["realtime"] = [
                         "host": "127.0.0.1", "port": Int(realtimePort), "scheme": "http", "key": "stub-key",

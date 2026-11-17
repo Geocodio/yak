@@ -111,6 +111,36 @@
         }
       }
     },
+    "attachment.file %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File %@"
+          }
+        }
+      }
+    },
+    "attachment.preparing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing a file"
+          }
+        }
+      }
+    },
+    "attachment.remove %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove %@"
+          }
+        }
+      }
+    },
     "chat.composerPlaceholder" : {
       "localizations" : {
         "en" : {
@@ -167,6 +197,348 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The connection is slow."
+          }
+        }
+      }
+    },
+    "composer.blocked.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again in a little while."
+          }
+        }
+      }
+    },
+    "composer.blocked.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak cannot take messages right now"
+          }
+        }
+      }
+    },
+    "composer.closed.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start a new thread to go on."
+          }
+        }
+      }
+    },
+    "composer.closed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is closed"
+          }
+        }
+      }
+    },
+    "composer.computer.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bring it back with yak teleport on that computer."
+          }
+        }
+      }
+    },
+    "composer.computer.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is on your computer"
+          }
+        }
+      }
+    },
+    "composer.field.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message"
+          }
+        }
+      }
+    },
+    "composer.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message Yak"
+          }
+        }
+      }
+    },
+    "composer.message.short" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message"
+          }
+        }
+      }
+    },
+    "composer.new" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New"
+          }
+        }
+      }
+    },
+    "composer.plus.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo, file, or model"
+          }
+        }
+      }
+    },
+    "composer.problem.editNotSaved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This message could not be edited because saving failed on this device. It is still waiting in the outbox. Try again."
+          }
+        }
+      }
+    },
+    "composer.problem.filesGone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An attachment of this draft is gone from this device, so it was removed."
+          }
+        }
+      }
+    },
+    "composer.problem.notActive" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak is not connected yet. Try again in a moment."
+          }
+        }
+      }
+    },
+    "composer.problem.notEditable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This message cannot be edited any more."
+          }
+        }
+      }
+    },
+    "composer.problem.notSaved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This message could not be saved. Try again."
+          }
+        }
+      }
+    },
+    "composer.problem.notStored" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be saved on this device. Try again."
+          }
+        }
+      }
+    },
+    "composer.problem.stopFailed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop did not reach Yak. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "composer.problem.tooLarge %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is larger than %@, the most this Yak accepts."
+          }
+        }
+      }
+    },
+    "composer.problem.tooMany %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You can attach up to %lld file."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You can attach up to %lld files."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "composer.problem.unreadable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be read."
+          }
+        }
+      }
+    },
+    "composer.readOnly.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only its owner can send messages"
+          }
+        }
+      }
+    },
+    "composer.readOnly.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can read this thread"
+          }
+        }
+      }
+    },
+    "composer.send.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold to send after this turn"
+          }
+        }
+      }
+    },
+    "composer.send.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send"
+          }
+        }
+      }
+    },
+    "composer.send.preparing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An attachment is still being added"
+          }
+        }
+      }
+    },
+    "composer.sendAfterTurn" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send after this turn"
+          }
+        }
+      }
+    },
+    "composer.shortcut.send" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send message"
+          }
+        }
+      }
+    },
+    "composer.shortcut.sendAfterTurn" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send message after this turn"
+          }
+        }
+      }
+    },
+    "composer.shortcut.stop" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop the turn"
+          }
+        }
+      }
+    },
+    "composer.steer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steer Yak"
+          }
+        }
+      }
+    },
+    "composer.steer.short" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steer"
+          }
+        }
+      }
+    },
+    "composer.stop.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Yak"
           }
         }
       }
@@ -1954,6 +2326,96 @@
         }
       }
     },
+    "model.close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        }
+      }
+    },
+    "model.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Yak lists no models. Messages use the thread's model."
+          }
+        }
+      }
+    },
+    "model.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A family follows new releases. An older version stays fixed."
+          }
+        }
+      }
+    },
+    "model.older %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Older versions of %@"
+          }
+        }
+      }
+    },
+    "model.older.collapsed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapsed"
+          }
+        }
+      }
+    },
+    "model.older.expanded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expanded"
+          }
+        }
+      }
+    },
+    "model.pinned %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, pinned"
+          }
+        }
+      }
+    },
+    "model.selected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected"
+          }
+        }
+      }
+    },
+    "model.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model"
+          }
+        }
+      }
+    },
     "newThread.attachment.notSaved" : {
       "localizations" : {
         "en" : {
@@ -2790,6 +3252,116 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Terminal"
+          }
+        }
+      }
+    },
+    "plus.camera" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take a photo"
+          }
+        }
+      }
+    },
+    "plus.cameraDenied.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow the camera for Yak in Settings to take a photo here."
+          }
+        }
+      }
+    },
+    "plus.cameraDenied.close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        }
+      }
+    },
+    "plus.cameraDenied.settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
+          }
+        }
+      }
+    },
+    "plus.cameraDenied.short" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access is off"
+          }
+        }
+      }
+    },
+    "plus.cameraDenied.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera access is off"
+          }
+        }
+      }
+    },
+    "plus.cameraUnavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No camera on this device"
+          }
+        }
+      }
+    },
+    "plus.file" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a file"
+          }
+        }
+      }
+    },
+    "plus.model" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model"
+          }
+        }
+      }
+    },
+    "plus.modelNone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No models to choose from"
+          }
+        }
+      }
+    },
+    "plus.photos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo library"
           }
         }
       }
