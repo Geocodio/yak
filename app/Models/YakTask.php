@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\DataTransferObjects\TaskStop;
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Events\TaskStatusChanged;
@@ -12,10 +14,13 @@ use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Models\Concerns\HasClarificationRounds;
 use App\Models\Concerns\HasPublicId;
 use App\Models\Scopes\VisibleTaskScope;
+use App\Observers\YakTaskThreadObserver;
 use App\Services\TaskDescriptionSummary;
+use App\Services\Threads\ThreadShowChanged;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\YakTaskFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -33,6 +38,8 @@ use Illuminate\Support\Str;
  * @property string $public_id
  * @property TaskStatus $status
  * @property TaskMode $mode
+ * @property StopKind|null $stop_kind
+ * @property string|null $stop_summary
  * @property string|null $title
  * @property bool $targets_external_pr
  * @property int $attempts
@@ -58,6 +65,7 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $pr_state_checked_at
  * @property string|null $responsible_name
  * @property int|null $started_by_user_id
+ * @property int|null $author_user_id
  * @property int|null $tagged_co_owner_user_id
  * @property array<string, mixed>|null $early_warning
  * @property int|null $responsible_user_id
@@ -66,6 +74,7 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $resume_after_setup_at set when a person asks the task to continue once its repository's setup finishes
  */
 #[ScopedBy(VisibleTaskScope::class)]
+#[ObservedBy(YakTaskThreadObserver::class)]
 class YakTask extends Model
 {
     /** @use HasFactory<YakTaskFactory> */
@@ -108,6 +117,7 @@ class YakTask extends Model
         return [
             'status' => TaskStatus::class,
             'mode' => TaskMode::class,
+            'stop_kind' => StopKind::class,
             'targets_external_pr' => 'boolean',
             'clarification_options' => 'json',
             'clarification_rounds' => 'json',
@@ -135,8 +145,27 @@ class YakTask extends Model
         return $this->source === self::SOURCE_TELEPORT;
     }
 
+    /**
+     * Records why the task stopped: the plain-words summary for its starter
+     * and the technical detail for the error log.
+     */
+    public function recordStop(TaskStop $stop): void
+    {
+        $this->stop_kind = $stop->kind;
+        $this->stop_summary = $stop->summary;
+        $this->error_log = $stop->detail;
+        $this->save();
+    }
+
     protected static function booted(): void
     {
+        static::updating(function (YakTask $task): void {
+            if ($task->isDirty('status') && ! in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)) {
+                $task->stop_kind = null;
+                $task->stop_summary = null;
+            }
+        });
+
         static::created(function (YakTask $task): void {
             if (mb_strlen((string) $task->description) > TaskDescriptionSummary::THRESHOLD) {
                 SummarizeTaskDescriptionJob::dispatch($task);
@@ -144,6 +173,10 @@ class YakTask extends Model
         });
 
         static::updated(function (YakTask $task): void {
+            if ($task->wasChanged(['early_warning', 'tagged_co_owner_user_id', 'stop_kind', 'stop_summary', 'resume_after_setup_at'])) {
+                ThreadShowChanged::publish($task->thread_id);
+            }
+
             if ($task->wasChanged('status')) {
                 $original = $task->getOriginal('status');
 
@@ -199,6 +232,14 @@ class YakTask extends Model
      * The Yak user who started the task. Null for sources without a Yak
      * identity (Slack, GitHub, the command line, system tasks).
      *
+     * @return BelongsTo<User, $this>
+     */
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'author_user_id');
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function startedBy(): BelongsTo

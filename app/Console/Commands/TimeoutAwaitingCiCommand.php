@@ -4,14 +4,14 @@ namespace App\Console\Commands;
 
 use App\Channels\Drone\PollCommand as DronePollCommand;
 use App\Channels\GitHub\AppService as GitHubAppService;
-use App\Enums\NotificationType;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
-use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StopNotifier;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Attributes\Description;
@@ -82,16 +82,14 @@ class TimeoutAwaitingCiCommand extends Command
             $task->update([
                 'status' => TaskStatus::Failed,
                 'completed_at' => now(),
-                'error_log' => $timeoutMessage,
             ]);
 
             TaskLogger::warning($task, 'Task failed — CI timeout');
 
-            SendNotificationJob::dispatch(
-                $task,
-                NotificationType::Error,
-                "{$timeoutMessage}. You can retry from the dashboard.",
-            );
+            StopNotifier::notify($task, TaskStop::ciNeverReported(
+                $isCiStillPending ? $maxWaitMinutes : $timeoutMinutes,
+                $timeoutMessage,
+            ));
 
             $this->components->info("Timed out task #{$task->id}");
         }

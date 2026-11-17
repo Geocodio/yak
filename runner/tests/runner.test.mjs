@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHarness, start, SECRET } from './helpers/fake-sdk.mjs';
@@ -196,4 +197,121 @@ test('it answers every pending call with an error when the runner ends', async (
   assert.equal(result.isError, true);
   run.release();
   await run.exited;
+});
+
+const toolUse = { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: {} }] } };
+const endTurn = { type: 'assistant', message: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'done' }] } };
+
+function sweepOptions() {
+  const timers = [];
+  const kills = [];
+  const listed = [
+    { pid: process.pid, ppid: 1, uid: 1000, startedAtMs: 0, command: 'node runner.mjs' },
+    { pid: 900, ppid: 1, uid: 1000, startedAtMs: 10_000, command: 'node playwright run-server' },
+  ];
+  return {
+    timers,
+    kills,
+    options: {
+      agentUid: 1000,
+      now: () => 5_000,
+      listProcesses: () => listed,
+      kill: (pid, signal) => kills.push([pid, signal]),
+      setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length; },
+      clearTimer: (id) => { timers[id - 1].cleared = true; },
+    },
+  };
+}
+
+test('it sweeps leftover processes 60 seconds after the final answer without a result', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].delay, 60_000);
+  sweeping.timers[0].callback();
+  assert.deepEqual(sweeping.kills, [[900, 'SIGTERM']]);
+  assert.equal(sweeping.timers[1].delay, 5_000);
+  sweeping.timers[1].callback();
+  assert.deepEqual(sweeping.kills.at(-1), [900, 'SIGKILL']);
+  const swept = run.lines().find((line) => line.event === 'swept');
+  assert.deepEqual(swept.pids, [900]);
+  assert.deepEqual(swept.commands, ['node playwright run-server']);
+  await finish(run);
+});
+
+const recordedTurn = () => readFileSync(new URL('../../tests/Fixtures/runner-streams/natural-turn-end.jsonl', import.meta.url), 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line)).filter((line) => ['assistant', 'result'].includes(line.type)).map(({ _ms, ...line }) => line);
+
+test('it arms the sweep on the recorded final answer when no result follows', async () => {
+  const sweeping = sweepOptions();
+  const messages = [toolUse, ...recordedTurn().filter((line) => line.type === 'assistant')];
+  assert.equal(messages.at(-1).message.stop_reason, null);
+  const run = createHarness({ messages, runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].delay, 60_000);
+  await finish(run);
+});
+
+test('it never sweeps the full recorded turn that ends with a result', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, ...recordedTurn()], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].cleared, true);
+  assert.deepEqual(sweeping.kills, []);
+  await finish(run);
+});
+
+test('it cancels the sweep when a result arrives first', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn, { type: 'result', subtype: 'success' }], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].cleared, true);
+  assert.deepEqual(sweeping.kills, []);
+  await finish(run);
+});
+
+test('it does not arm the sweep for a subagent end_turn', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, { ...endTurn, parent_tool_use_id: 'toolu_sub' }], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers.length, 0);
+  await finish(run);
+});
+
+test('it cancels an armed sweep when the main agent keeps working', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn, toolUse], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].cleared, true);
+  assert.equal(sweeping.timers.length, 1);
+  await finish(run);
+});
+
+test('it cancels an armed sweep on a new user line and restarts the turn clock', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  run.send({ type: 'user', uuid: 'u2', text: 'more' });
+  await run.tick();
+  assert.equal(sweeping.timers[0].cleared, true);
+  sweeping.timers[0].callback();
+  assert.deepEqual(sweeping.kills, []);
+  await finish(run);
+});
+
+test('it skips SIGKILL for a pid whose start time changed', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn], runnerOptions: { ...sweeping.options, listProcesses: (() => { let calls = 0; return () => { calls += 1; return [{ pid: process.pid, ppid: 1, uid: 1000, startedAtMs: 0, command: 'r' }, { pid: 900, ppid: 1, uid: 1000, startedAtMs: calls === 1 ? 10_000 : 99_000, command: 'x' }]; }; })() } });
+  run.send(start());
+  await run.tick();
+  sweeping.timers[0].callback();
+  sweeping.timers[1].callback();
+  assert.deepEqual(sweeping.kills, [[900, 'SIGTERM']]);
+  await finish(run);
 });

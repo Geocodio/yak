@@ -694,7 +694,7 @@ it('reports a review on a repository with review turned off as a failure', funct
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed);
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Error
-        && $notification->message === 'Repository missing or PR review not enabled');
+        && $notification->stop?->detail === 'Repository missing or PR review not enabled');
 });
 
 function approvalHardeningSetup(): array

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Channels\ChannelRegistry;
 use App\Channels\Contracts\NotificationDriver;
 use App\Channels\Slack\NotificationDriver as SlackNotificationDriver;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -13,6 +14,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\DirectMessageRecipients;
+use App\Services\Tasks\StopMessage;
 use App\Services\Threads\ThreadNotificationGuard;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
@@ -41,6 +43,7 @@ class SendNotificationJob implements ShouldQueue
      * @param  bool  $personalize  False when the message is already in the Yak voice, for example a research answer with a report link appended after the rewrite.
      * @param  User|null  $actingUser  Who caused the event; a Cancelled notice names them.
      * @param  bool  $directMessagesOnly  True when the source channel was already told directly, as Linear's webhook does within its ten-second limit.
+     * @param  TaskStop|null  $stop  Why the task stopped; when set, each destination gets its own verbatim stop message.
      */
     public function __construct(
         public readonly YakTask $task,
@@ -49,6 +52,7 @@ class SendNotificationJob implements ShouldQueue
         public readonly bool $personalize = true,
         public readonly ?User $actingUser = null,
         public readonly bool $directMessagesOnly = false,
+        public readonly ?TaskStop $stop = null,
     ) {
         $this->onQueue('default');
     }
@@ -86,20 +90,22 @@ class SendNotificationJob implements ShouldQueue
                 return;
             }
 
-            $personalizedMessage = $this->personalize
+            $personalizedMessage = $this->personalize && $this->stop === null
                 ? $this->keepNumberedOptions(YakPersonality::generate($this->type, $this->message))
                 : $this->message;
+            $sourceMessage = $this->stop !== null ? StopMessage::forSourceChannel($this->task, $this->stop) : $personalizedMessage;
+            $directMessage = $this->stop !== null ? StopMessage::forDirectMessage($this->task, $this->stop) : $personalizedMessage;
 
             if ($driver !== null) {
-                Telemetry::time('notification.sent', fn () => $driver->send($this->task, $this->type, $personalizedMessage), [
+                Telemetry::time('notification.sent', fn () => $driver->send($this->task, $this->type, $sourceMessage), [
                     'type' => $this->type->value,
                     'channel' => strtolower(explode('\\', $driver::class)[2] ?? 'unknown'),
-                    'length' => mb_strlen($personalizedMessage),
+                    'length' => mb_strlen($sourceMessage),
                 ], task: $this->task);
             }
 
             foreach ($recipients as $recipient) {
-                $this->sendDirectMessage($recipient, $personalizedMessage);
+                $this->sendDirectMessage($recipient, $directMessage);
             }
         } finally {
             TaskContext::clear();
@@ -164,6 +170,10 @@ class SendNotificationJob implements ShouldQueue
         }
 
         $title = Str::limit($this->task->headline(), self::HEADLINE_TITLE_LENGTH);
+        if ($this->stop !== null) {
+            return "{$this->stop->kind->headlinePrefix()}: {$title}";
+        }
+
         $repository = (string) $this->task->repo;
         $isSetup = $this->task->mode === TaskMode::Setup;
 

@@ -1,0 +1,5 @@
+#### Thread list origin and unread (2026-11-17)
+
+Thread list rows add `isUnread`, `source` (`key`, `label`, `reference`, `url`) and `starter` (`key`, `name`, `avatarUrl`). A finished turn the viewer has not opened sets `isUnread`, so `needsYouCount` and the push badge count only threads that wait on a person. The app API still reports such a row (and a sub-thread) with `needsYouReason` `unseen` and `needsYouLabel` "Finished, not seen yet" so shipped builds keep drawing the dot; the row stays in `threads`. Repository research threads are not listed.
+
+The thread list also takes `sources[]` and `starters[]` query parameters (source keys such as `slack`, starter keys such as `user:<id>`, `name:<author>` or `yak`) and returns `facets` (`sources` with `key`, `label`, `count`; `starters` with `key`, `name`, `avatarUrl`, `count`). The counts cover the selected tab before the source and starter filters apply. An unknown key gives an empty list. A list with `sources[]` or `starters[]` leaves out the needs-you task items, which have no source or starter.

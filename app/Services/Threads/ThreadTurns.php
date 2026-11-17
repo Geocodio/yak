@@ -12,6 +12,7 @@ use App\Enums\ThreadStatus;
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
+use App\Exceptions\ThreadActionRefused;
 use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
@@ -43,6 +44,9 @@ class ThreadTurns
 {
     public const WAITING_STATES = [TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox];
 
+    /** The states of a turn that has not ended. */
+    public const ACTIVE_STATES = [TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox, TurnState::Running];
+
     private const MAX_ADVANCE_FAILURES = 5;
 
     public function __construct(
@@ -72,7 +76,7 @@ class ThreadTurns
     {
         return TaskRun::query()
             ->where('thread_id', $thread->id)
-            ->whereIn('turn_state', [...self::WAITING_STATES, TurnState::Running])
+            ->whereIn('turn_state', self::ACTIVE_STATES)
             ->latest('id')
             ->first();
     }
@@ -130,6 +134,10 @@ class ThreadTurns
         [$thread, $run, $account, $blocked] = ShortLockWait::threadTransaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments, $sendKey, $answersQuestion, $effort): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
+
+            if (! $thread->hasRepository()) {
+                throw ThreadActionRefused::because(ThreadActionRefused::NO_REPOSITORY, ThreadActionRefused::NO_REPOSITORY_SENTENCE);
+            }
 
             if ($thread->lock_holder !== ThreadLockHolder::None || self::activeTurn($thread) !== null) {
                 throw new ThreadBusy("Thread {$thread->id} already runs a turn.");

@@ -3,6 +3,7 @@
 use App\Enums\TaskStatus;
 use App\Jobs\RetryYakJob;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
 
 it('refuses to retry a task on a human-authored PR', function () {
@@ -14,5 +15,6 @@ it('refuses to retry a task on a human-authored PR', function () {
     (new RetryYakJob($task, null))->handle();
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed)
-        ->and($task->fresh()->thread_id)->toBeNull();
+        ->and($task->fresh()->thread_id)->toBe($task->thread_id)
+        ->and(Thread::query()->count())->toBe(1);
 });

@@ -1,10 +1,27 @@
-import { Badge, Dialog, Kbd, cn } from '@geocodio/console-ui';
+import { Badge, Button, Dialog, Kbd, Skeleton, cn } from '@geocodio/console-ui';
 import { ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Prose } from '@/components/Prose';
-import { useTranscriptEntry } from '@/components/tasks/useTranscriptEntry';
+import { useTranscriptEntry } from '@/components/shared/useTranscriptEntry';
 import { navigateTaskQuery } from '@/lib/taskQuery';
 import type { ActivityRow, RunSummary, TranscriptEntry } from '@/types/tasks';
+
+/** What the list needs of a step; an activity row and a loaded transcript entry both fit. */
+export type TranscriptRow = Pick<ActivityRow, 'id' | 'badge' | 'text' | 'at' | 'kind' | 'error' | 'milestone'>;
+
+/** Loading, empty and error states, and paging, for a log that is fetched in pages instead of read from the page props. */
+export type TranscriptPaging = {
+    status: 'loading' | 'ready' | 'error';
+    onRetry: () => void;
+    emptyText: string;
+    hasMore: boolean;
+    isLoadingMore: boolean;
+    /** The last request for a further page failed; the loaded steps stay and Retry asks for that page again. */
+    moreFailed: boolean;
+    onLoadMore: () => void;
+    /** Searching asks the server, so the list is not filtered here. */
+    onSearch: (query: string) => void;
+};
 
 type Filter = 'All' | 'Actions' | 'Milestones';
 
@@ -35,10 +52,11 @@ export function TranscriptOverlay({
     currentAttempt,
     selectedLogId,
     onSelectLog,
+    paging,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    rows: ActivityRow[];
+    rows: TranscriptRow[];
     entry: TranscriptEntry | null | undefined;
     headline: string;
     runs: RunSummary[];
@@ -47,6 +65,7 @@ export function TranscriptOverlay({
     currentAttempt: number;
     selectedLogId: number | null;
     onSelectLog: (logId: number) => void;
+    paging?: TranscriptPaging;
 }) {
     const [filter, setFilter] = useState<Filter>('All');
     const [query, setQuery] = useState('');
@@ -73,12 +92,12 @@ export function TranscriptOverlay({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, rows, selectedLogId]);
 
-    const current = useTranscriptEntry({ open, selectedLogId, entry, runKey });
+    const current = useTranscriptEntry({ open, selectedLogId, entry, runKey, fetchesEntry: paging === undefined });
 
     const visible = rows.filter(
         (row) =>
             (filter === 'All' || (filter === 'Actions' ? row.kind === 'tool' : row.milestone)) &&
-            (!query || row.text.toLowerCase().includes(query.toLowerCase())),
+            (paging !== undefined || !query || row.text.toLowerCase().includes(query.toLowerCase())),
     );
 
     const select = (logId: number) => {
@@ -219,13 +238,35 @@ export function TranscriptOverlay({
                             <input
                                 data-testid="transcript-search"
                                 value={query}
-                                onChange={(event) => setQuery(event.target.value)}
+                                onChange={(event) => {
+                                    setQuery(event.target.value);
+                                    paging?.onSearch(event.target.value);
+                                }}
                                 placeholder="Search this run…"
                                 className="h-7 flex-1 rounded-control border border-hair bg-panel px-2 text-[12px] outline-none focus:border-accent"
                             />
                         </div>
                         <ol ref={listRef} data-scroller className="min-h-0 flex-1 overflow-auto py-1">
-                            {visible.length === 0 && <li className="p-4 text-[12px] text-faint">No entries match &quot;{query}&quot;.</li>}
+                            {paging?.status === 'loading' && (
+                                <li className="flex flex-col gap-2 p-3" data-testid="transcript-loading">
+                                    {[0, 1, 2, 3, 4].map((line) => (
+                                        <Skeleton key={line} className="h-4 w-full" />
+                                    ))}
+                                </li>
+                            )}
+                            {paging?.status === 'error' && (
+                                <li className="flex flex-col items-start gap-2 p-4 text-[12px] text-fail" data-testid="transcript-error">
+                                    The log could not be loaded.
+                                    <Button variant="secondary" onClick={paging.onRetry} data-testid="transcript-retry">
+                                        Retry
+                                    </Button>
+                                </li>
+                            )}
+                            {paging?.status !== 'loading' && paging?.status !== 'error' && visible.length === 0 && (
+                                <li className="p-4 text-[12px] text-faint" data-testid={query === '' && paging !== undefined ? 'transcript-empty' : undefined}>
+                                    {query === '' && paging !== undefined ? paging.emptyText : <>No entries match &quot;{query}&quot;.</>}
+                                </li>
+                            )}
                             {visible.map((row) => {
                                 const isSelected = row.id === selectedId;
                                 return (
@@ -256,6 +297,21 @@ export function TranscriptOverlay({
                                     </li>
                                 );
                             })}
+                            {paging?.hasMore && paging.moreFailed && (
+                                <li className="flex flex-col items-start gap-2 p-3 text-[12px] text-fail" data-testid="transcript-more-error">
+                                    The next steps could not be loaded.
+                                    <Button variant="secondary" onClick={paging.onLoadMore} data-testid="transcript-more-retry">
+                                        Retry
+                                    </Button>
+                                </li>
+                            )}
+                            {paging?.hasMore && !paging.moreFailed && (
+                                <li className="p-2">
+                                    <Button variant="tertiary" className="w-full" onClick={paging.onLoadMore} pending={paging.isLoadingMore} data-testid="transcript-load-more">
+                                        Load more steps
+                                    </Button>
+                                </li>
+                            )}
                         </ol>
                     </div>
                     <div className="flex min-h-0 flex-col">
@@ -265,6 +321,7 @@ export function TranscriptOverlay({
                             </button>
                             <span className="tnum text-[12px] text-muted" data-testid="transcript-step">
                                 Step {sel + 1} of {rows.length}
+                                {paging?.hasMore ? '+' : ''}
                             </span>
                             <button type="button" onClick={() => step(1)} className="rounded-control p-1 text-muted hover:bg-panel-2" data-testid="log-next">
                                 <ChevronRight size={13} />
@@ -332,7 +389,9 @@ export function TranscriptOverlay({
                                     )}
                                 </>
                             ) : (
-                                <p className="text-[12px] text-faint">Loading entry…</p>
+                                <p className="text-[12px] text-faint" data-testid={paging !== undefined && rows.length === 0 && paging.status === 'ready' ? 'transcript-empty-detail' : undefined}>
+                                    {paging === undefined || rows.length > 0 ? 'Loading entry…' : paging.status === 'ready' ? paging.emptyText : paging.status === 'error' ? '' : 'Loading…'}
+                                </p>
                             )}
                         </div>
                     </div>

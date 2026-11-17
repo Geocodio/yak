@@ -7,8 +7,6 @@ use App\Enums\CoOwnerRequestStatus;
 use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Jobs\ProcessCIResultJob;
-use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
 use App\Models\CoOwnerRequest;
@@ -19,7 +17,10 @@ use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\ChainMediaResolver;
+use App\Services\Tasks\TaskProgressSteps;
+use App\Services\Tasks\TaskStopSummary;
 use App\Services\ThreadBuilder;
+use App\Services\Threads\ThreadTasks;
 use App\Support\AttachmentNumbering;
 use App\Support\AttachmentReferences;
 use App\Support\Markdown;
@@ -83,13 +84,14 @@ final class TaskDetailData
         $detail = [
             'task' => self::task($task, $head, $coOwnerRequest, $focusedRun, $attempt, $attemptCount, $isFollowUp),
             'thread' => self::thread($task, $conversation),
-            'progress' => ['steps' => self::progressSteps($task, $head, $coOwnerRequest)],
+            'progress' => ['steps' => TaskProgressSteps::for($task, $head, $coOwnerRequest)],
             'coOwner' => $request->user() !== null ? CoOwnerPanelData::forRequest($coOwnerRequest, $request->user(), $isTimeBounded) : null,
             'earlyWarning' => EarlyWarningData::forTask($task, $coOwnerRequest, $request->user()),
             'media' => self::latestMedia($conversation),
             'walkthrough' => self::walkthrough($task),
             'deployment' => self::deployment($task),
             'findings' => self::findings($review),
+            'stop' => TaskStopSummary::for($task),
             'composer' => self::composer($task, $conversation),
             'questions' => self::questions($conversation->last() ?? $task),
             'actions' => self::actions($task, $head, $coOwnerRequest, $isFollowUp),
@@ -188,7 +190,8 @@ final class TaskDetailData
             'duration' => self::formatDuration($task->duration_ms),
             'cost' => (float) $task->cost_usd > 0 ? '$' . number_format((float) $task->cost_usd, 2) : null,
             'branch' => $isAnsweredFix ? null : $task->branch_name,
-            'nextSteps' => self::nextSteps($task, $head, $coOwnerRequest),
+            // The stop block already says what to do next.
+            'nextSteps' => TaskStopSummary::for($task) === null ? self::nextSteps($task, $head, $coOwnerRequest) : null,
             'externalId' => $task->external_id,
             'pr' => $prState === null ? null : [
                 'number' => $task->pullRequestNumber(),
@@ -552,55 +555,6 @@ final class TaskDetailData
     }
 
     /**
-     * @return array<int, array{label: string, tooltip: string, done: bool, current: bool, failed: bool}>
-     */
-    private static function progressSteps(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): array
-    {
-        /** @var TaskStatus $status */
-        $status = $head->status;
-
-        $hasCoOwnerRequest = $coOwnerRequest !== null;
-        $waitingShift = $hasCoOwnerRequest ? 1 : 0;
-
-        $reachedStep = match ($status) {
-            TaskStatus::Pending => 0,
-            TaskStatus::Running, TaskStatus::AwaitingClarification, TaskStatus::Retrying => 2,
-            TaskStatus::AwaitingCi => 4,
-            TaskStatus::AwaitingCoOwner => 4 + $waitingShift,
-            TaskStatus::Success => 6 + $waitingShift,
-            TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => $task->pr_url ? 5 + $waitingShift : ($task->branch_name ? 3 : 2),
-        };
-
-        $isRetryingAfterCiFailure = in_array($status, [TaskStatus::Running, TaskStatus::Retrying], true)
-            && ($head->logs()->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->latest('id')->value('metadata')['passed'] ?? null) === false;
-
-        $ciStep = match (true) {
-            $isRetryingAfterCiFailure => ['label' => 'CI failed, retrying', 'tooltip' => 'CI failed on the last push, so Yak is fixing the changes and will push again.', 'failed' => true],
-            $reachedStep === 4 => ['label' => 'Waiting for CI', 'tooltip' => 'CI verifies the changes before the pull request opens.'],
-            default => ['label' => 'CI passed', 'tooltip' => 'CI verifies the changes before the pull request opens.'],
-        };
-
-        $steps = [
-            ['label' => 'Received', 'tooltip' => 'Task landed in the queue.'],
-            ['label' => 'Picked up', 'tooltip' => 'An agent has claimed the task and started setup.'],
-            ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and implementing the fix.'],
-            ['label' => 'Pushed', 'tooltip' => 'Changes committed and pushed to a branch.'],
-            $ciStep,
-            ...($hasCoOwnerRequest ? [['label' => 'Waiting for a co-owner', 'tooltip' => 'A co-owner with write access has to approve before Yak opens the pull request.']] : []),
-            ['label' => 'Pull request', 'tooltip' => 'Pull request opened for human review.'],
-            ['label' => 'Done', 'tooltip' => 'Task complete.'],
-        ];
-
-        return array_map(fn (array $step, int $index) => [
-            'label' => $step['label'],
-            'tooltip' => $step['tooltip'],
-            'done' => $index <= $reachedStep,
-            'current' => $index === $reachedStep,
-            'failed' => $step['failed'] ?? false,
-        ], $steps, array_keys($steps));
-    }
-
-    /**
      * @param  Collection<int, YakTask>  $conversation
      * @return array<int, array<string, mixed>>
      */
@@ -763,6 +717,7 @@ final class TaskDetailData
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
             $head->acceptsFollowUp() => 'follow_up',
+            in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true) && $head->pr_url === null && ! in_array($head->mode, [TaskMode::Review, TaskMode::Setup], true) => 'stopped',
             in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true) => 'disabled_failed',
             default => 'disabled_closed',
         };
@@ -779,6 +734,7 @@ final class TaskDetailData
                     : 'Reply to Yak. It will push changes to ' . self::pullRequestLabel($head) . '…',
                 null,
             ],
+            'stopped' => ['Write a note for Yak…', 'Send a note and Yak tries again with it. Or press Retry above.'],
             'disabled_failed' => $task->mode === TaskMode::Research
                 ? ["This research failed. Click {$retryActionLabel} above to try again.", "This research failed. Click {$retryActionLabel} above, or adjust the issue and re-assign Yak."]
                 : ["This task failed. Click {$retryActionLabel} above to try again.", in_array($task->source, ['slack', 'linear', 'email'], true) && $task->mode !== TaskMode::Setup
@@ -795,7 +751,7 @@ final class TaskDetailData
             'state' => $state,
             'placeholder' => $placeholder,
             'note' => $note,
-            'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up'], true) ? 'Send' : null,
+            'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up', 'stopped'], true) ? 'Send' : null,
             'nextAttachmentNumber' => AttachmentNumbering::nextNumberFor($conversation),
             // Steered messages reach Yak before queued ones, so they lead.
             'queued' => PendingSteeringMessage::waitingFor($head)->sortBy([
@@ -867,13 +823,13 @@ final class TaskDetailData
 
     private static function apiSpend(YakTask $task): float
     {
-        return (float) AiUsage::query()->where('yak_task_id', $task->id)->sum('cost_usd');
+        return ThreadTasks::apiSpendUsd([$task->id]);
     }
 
     /**
      * @return array{canRetry: bool, canCancel: bool, canRerunReview: bool, canRequestReview: bool, canRetryRender: bool, canReroute: bool, rerouteTargets: array<int, string>}
      */
-    private static function actions(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, bool $isFollowUp): array
+    public static function actions(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, bool $isFollowUp): array
     {
         /** @var TaskStatus $status */
         $status = $head->status;

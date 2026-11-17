@@ -9,10 +9,12 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\CoOwnerRequest;
 use App\Models\PendingSteeringMessage;
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Testing\TestResponse;
 
 beforeEach(function () {
     config()->set('yak.channels.slack', [
@@ -337,3 +339,84 @@ it('a Slack thread reply on a task held for a co-owner starts a follow-up and su
         ->and(YakTask::where('parent_task_id', $held->id)->first()->source)->toBe('slack');
     Queue::assertPushed(RunFollowUpJob::class);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Thread reply on a stopped task without a PR
+|--------------------------------------------------------------------------
+*/
+
+function postStoppedThreadReply(string $text = 'try the other approach'): TestResponse
+{
+    $body = slackThreadReplyPayload($text, 'C123', '111.222');
+    $headers = signSlackPayload($body, 'test-slack-signing-secret');
+
+    return test()->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ]);
+}
+
+it('retries a failed task and answers in the thread when someone replies', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['slug' => 'acme/web', 'is_active' => true]);
+    YakTask::factory()->failed()->create([
+        'source' => 'slack', 'repo' => $repository->slug, 'pr_url' => null,
+        'slack_channel' => 'C123', 'slack_thread_ts' => '111.222',
+    ]);
+
+    postStoppedThreadReply()->assertSuccessful()->assertJson(['handled' => 'stopped_task_reply']);
+
+    Queue::assertPushed(RunYakJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->message === 'Trying again with your note.' && $job->personalize === false);
+});
+
+it('tells the starter a cancelled task stays stopped', function () {
+    Queue::fake();
+    YakTask::factory()->create([
+        'source' => 'slack', 'status' => TaskStatus::Cancelled, 'pr_url' => null,
+        'slack_channel' => 'C123', 'slack_thread_ts' => '111.222',
+    ]);
+
+    postStoppedThreadReply()->assertSuccessful()->assertJson(['handled' => 'stopped_task_reply']);
+
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->message === 'This was stopped. Start a new request to try again.');
+});
+
+function postSlackBody(string $body): TestResponse
+{
+    $headers = signSlackPayload($body, 'test-slack-signing-secret');
+
+    return test()->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ]);
+}
+
+it('retries a stopped task once when a reply that mentions Yak arrives as both events', function (array $order) {
+    Queue::fake();
+    $repository = Repository::factory()->create(['slug' => 'acme/web', 'is_active' => true]);
+    YakTask::factory()->failed()->create([
+        'source' => 'slack', 'repo' => $repository->slug, 'pr_url' => null,
+        'slack_channel' => 'C123', 'slack_thread_ts' => '111.222',
+    ]);
+    $text = '<@U_BOT_ID> try the other approach';
+    $events = [
+        'message' => fn () => postSlackBody(slackThreadReplyPayload($text, 'C123', '111.222')),
+        'mention' => fn () => postSlackBody(slackThreadReplyPayload($text, 'C123', '111.222', ['event' => ['type' => 'app_mention']])),
+    ];
+
+    foreach ($order as $name) {
+        $events[$name]()->assertSuccessful();
+    }
+
+    expect(YakTask::count())->toBe(1);
+    Queue::assertPushed(RunYakJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, 1);
+})->with([
+    'message first' => [['message', 'mention']],
+    'mention first' => [['mention', 'message']],
+]);

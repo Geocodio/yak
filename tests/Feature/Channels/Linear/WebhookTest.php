@@ -4,6 +4,7 @@ use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadSource;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendEarlyWarningJob;
@@ -73,6 +74,7 @@ it('creates a fix task when an AgentSessionEvent.created webhook arrives', funct
     expect($task->mode)->toBe(TaskMode::Fix);
     expect($task->status)->toBe(TaskStatus::Pending);
     expect($task->linear_agent_session_id)->toBe('session-uuid-001');
+    expect($task->thread->source)->toBe(ThreadSource::Linear);
     expect($task->description)->toContain('Fix the broken auth flow');
 
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);

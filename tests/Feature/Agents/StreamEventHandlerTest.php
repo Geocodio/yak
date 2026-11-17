@@ -575,6 +575,14 @@ test('logs a runner error with secrets redacted and only its first line', functi
         ->and($log->message)->not->toContain('ChildProcess');
 });
 
+test('logs the commands the runner swept after the final answer', function () {
+    $this->handler->handle(['type' => 'runner', 'event' => 'swept', 'pids' => [900, 901], 'commands' => ['node playwright run-server', 'tail -8']]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->firstOrFail();
+    expect($log->level)->toBe('info')
+        ->and($log->message)->toBe('Stopped leftover processes after the final answer: node playwright run-server, tail -8');
+});
+
 test('ignores runner events that are not errors', function () {
     $this->handler->handle(['type' => 'runner', 'event' => 'started', 'pid' => 12]);
 

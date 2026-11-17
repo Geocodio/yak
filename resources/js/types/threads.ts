@@ -1,6 +1,7 @@
 import type { StepView } from '@/components/activity/types';
 import type { ModelFamily, PickerAccount } from '@/types/claudeAccounts';
 import type { AttachmentData, QuestionData } from '@/types/tasks';
+import type { CoOwnerData, EarlyWarningData } from '@/types/coOwner';
 export type ThreadRepositoryData = {
     repo: string;
     role: 'primary' | 'changes' | 'context';
@@ -26,6 +27,7 @@ export type ThreadData = {
     repositories: ThreadRepositoryData[];
     pullRequestCount: number;
     isOwner: boolean;
+    canShare: boolean;
     isStarred: boolean;
     sharedWithCount: number;
     startedOnDevice: boolean;
@@ -119,6 +121,9 @@ export type ThreadWalkthrough = {
     video: { url: string; thumbnailUrl: string | null; durationSeconds: number; chapters: { title: string; startSeconds: number }[] } | null;
     screenshots: { url: string; caption: string | null }[];
     isInPullRequest: boolean;
+    isRenderFailed: boolean;
+    renderError: string | null;
+    canRetryRender: boolean;
 };
 
 /** A file Claude made for the person; mirrors `App\Http\Resources\ThreadSharedFilesData`. */
@@ -134,6 +139,58 @@ export type SharedFile = {
     createdAt: string;
 };
 
+/** One answer of Yak in a thread made from an old task; mirrors `App\Services\Threads\LegacyConversation`. */
+export type LegacyAnswer = { runTaskId: string; html: string; at: string };
+
+/** Status of a whole request; mirrors `App\Services\Threads\ThreadRequestStatus::for()`. */
+export type ThreadRequestStatus = { key: 'working' | 'needs_you' | 'waiting_for_co_owner' | 'stopped' | 'done' | 'closed'; label: string; tone: 'info' | 'warn' | 'bad' | 'ok' | 'neutral' };
+
+/** Request, progress and run details; mirrors `App\Http\Resources\ThreadRequestData`. */
+export type ThreadRequest = {
+    source: { key: string; label: string; reference: string | null; url: string | null };
+    starter: { key: string; name: string; avatarUrl: string | null };
+    responsibleName: string | null;
+    status: ThreadRequestStatus;
+};
+
+export type ThreadProgress = { steps: { key: string; label: string; tooltip: string; state: 'done' | 'current' | 'failed' | 'upcoming' }[] };
+
+export type ThreadRunDetails = {
+    runCount: number;
+    stepCount: number;
+    attempts: string | null;
+    durationSeconds: number;
+    costUsd: number;
+    apiSpendUsd: number;
+    sessionId: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    errorLog: string | null;
+    errorLogTruncated: boolean;
+};
+
+export type ThreadRunSummary = { runId: string; afterSequence: number; durationSeconds: number; stepCount: number; isRetry: boolean; model: string | null; /** The run's turn has not ended. */ isActive: boolean };
+
+export type ThreadMilestone = {
+    key: 'pushed' | 'ci_passed' | 'ci_failed' | 'pull_request_opened' | 'pull_request_held' | 'walkthrough_ready' | 'research_report';
+    label: string;
+    tone: 'ok' | 'warn' | 'bad' | 'neutral';
+    url: string | null;
+    /** The run that reached it; the task id for a thread made from an old task. */
+    runId: string;
+    /** The last thread event of that run; the row sits after it. */
+    afterSequence: number;
+};
+
+/** Why a thread stopped; mirrors `App\Services\Tasks\TaskStopSummary`. `cancelled` is a cancelled head task. */
+export type ThreadStopped = { kind: 'needs_you' | 'yak_retrying' | 'yak_stopped' | 'cancelled'; summary: string; detail: string | null; nextStep: string; isWaitingForSetup: boolean };
+
+/** What the viewer may do with the thread; mirrors `ThreadCardsData`. Every flag is false for a viewer who cannot drive the thread. */
+export type ThreadActions = { canStop: boolean; canRetry: boolean; canCancel: boolean; canMove: boolean; moveTargets: string[]; canRequestReview: boolean; canRetryRender: boolean };
+
+/** The question that gates a thread without a repository; mirrors `ThreadCardsData`. */
+export type RepositoryQuestion = { prompt: string; options: string[]; selected: string | null; canAnswer: boolean };
+
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
@@ -145,6 +202,9 @@ export type ThreadPageData = {
     publishWarning: boolean;
     walkthrough: ThreadWalkthrough | null;
     sharedFiles: SharedFile[];
+    isLegacy: boolean;
+    /** Yak's answers of a thread made from an old task, in time order; empty for other threads. */
+    legacyAnswers: LegacyAnswer[];
     messages: ThreadMessage[];
     localTurnStints: LocalTurnsData[];
     composer: ThreadComposer;
@@ -155,6 +215,22 @@ export type ThreadPageData = {
     question: { taskId: string; expiresAt: string | null; questions: QuestionData[] } | null;
     /** Catalog label of each model id and family alias. */
     modelLabels: Record<string, string>;
+    request: ThreadRequest;
+    /** The staged row, or null when the head task is finished or the thread is closed. */
+    progress: ThreadProgress | null;
+    runDetails: ThreadRunDetails;
+    milestones: ThreadMilestone[];
+    repositoryQuestion: RepositoryQuestion | null;
+    earlyWarning: EarlyWarningData | null;
+    coOwner: CoOwnerData | null;
+    stopped: ThreadStopped | null;
+    actions: ThreadActions;
+    /** The one card to show above the composer; `question` is the question form inside the conversation. */
+    card: 'question' | 'repository_question' | 'early_warning' | 'co_owner' | 'stopped' | null;
+    /** Web only: the runs of the thread, so each answer can offer its full log. */
+    runs: ThreadRunSummary[];
+    /** Web only: the run and entry a `?log=` link names, or null. */
+    openLog: { runId: string; entryId: number } | null;
 };
 
 /** One turn from the person's computer; mirrors the `Turn` shape of `App\Services\Teleport\LocalTurns`. */
@@ -182,12 +258,20 @@ export type LocalTurnsData = {
     turns: LocalTurn[];
 };
 
+export type ThreadMessageVia = { key: string; label: string; reference: string | null; url: string | null };
+
 export type ThreadMessage = {
     id: string;
     uuid: string | null;
     text: string;
-    authorName: string | null;
+    authorName: string;
     authorInitials: string;
+    /** The channel the message came from; null for a dashboard message. */
+    via: ThreadMessageVia | null;
+    /** A follow-up that came from a channel. */
+    isReply: boolean;
+    isRetry: boolean;
+    retryNumber: number | null;
     model: string | null;
     effort: string | null;
     state: 'pending' | 'read' | 'cancelled';
@@ -203,7 +287,7 @@ export type ThreadMessage = {
 };
 
 export type ThreadComposer = {
-    state: 'idle' | 'working' | 'disabled_closed' | 'disabled_computer' | 'disabled_blocked' | 'readonly';
+    state: 'idle' | 'working' | 'stopped' | 'disabled_closed' | 'legacy' | 'disabled_computer' | 'disabled_blocked' | 'readonly';
     model: string | null;
     effort: string | null;
     models: ModelFamily[];
@@ -227,7 +311,8 @@ export type ThreadNoticeKind =
     | 'restore_failed'
     | 'guard_turns'
     | 'guard_time'
-    | 'restoring';
+    | 'restoring'
+    | 'moved';
 
 export type ThreadWaiting = {
     position: number | null;
@@ -256,6 +341,14 @@ export type ThreadNotice = {
     accountSettingsUrl: string | null;
     startOnOwnAccountUrl: string | null;
     repositoryUrl?: string | null;
+    /** The stopped task can be marked to continue once the repository's setup finishes; set on the repository setup notices. */
+    canContinueAfterSetup?: boolean;
+    /** The page of the setup run that failed, when the repository's setup failed. */
+    failedSetupRunUrl?: string | null;
+    /** The repository a moved request continues in; null while it waits for one. Set with `kind: 'moved'`. */
+    repo?: string | null;
+    threadId?: string | null;
+    threadTitle?: string | null;
     waiting: ThreadWaiting | null;
     restoreSteps: {
         key: string;

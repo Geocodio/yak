@@ -10,6 +10,7 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadFactory;
 
 /**
  * Resolves a repo-clarification reply into a concrete repository and
@@ -40,6 +41,68 @@ class RepoClarificationResolver
     {
         /** @var list<string> $options */
         $options = $task->clarification_options ?? [];
+        $matchedSlug = self::matchSlug($options, $replyText);
+
+        if ($matchedSlug === null) {
+            TaskLogger::warning($task, 'Could not match repo from reply', ['reply' => $replyText, 'options' => $options]);
+            // Slack renders the options as buttons; Linear has none, so the
+            // re-prompt spells them out.
+            $reprompt = $task->source === 'linear'
+                ? "I didn't recognise that repo. Reply with the number or name of one of these:\n" . self::numberedList($options)
+                : "I didn't recognise that repo.";
+
+            SendNotificationJob::dispatch($task, NotificationType::Clarification, $reprompt);
+
+            return;
+        }
+
+        $repository = Repository::where('slug', $matchedSlug)->where('is_active', true)->first();
+
+        if ($repository === null) {
+            TaskLogger::error($task, "Matched repo slug '{$matchedSlug}' not found or inactive");
+
+            return;
+        }
+
+        /** @var TaskMode $mode */
+        $mode = $task->mode;
+
+        $task->update([
+            'repo' => $repository->slug,
+            'status' => TaskStatus::Pending,
+            'clarification_options' => null,
+            'clarification_expires_at' => null,
+            'responsible_name' => $task->responsible_name
+                ?? app(ResponsiblePersonResolver::class)->resolve(null, $task->author_name, $repository->slug),
+        ]);
+
+        $thread = $task->thread;
+
+        if ($thread !== null && ! $thread->hasRepository()) {
+            app(ThreadFactory::class)->attachRepository($thread, $repository->slug);
+        }
+
+        TaskLogger::info($task, "Repo resolved to {$repository->slug}");
+
+        $dispatcher = app(AgentJobDispatcher::class);
+
+        if ($mode === TaskMode::Research) {
+            $dispatcher->dispatch($task, ResearchYakJob::class);
+
+            return;
+        }
+
+        $dispatcher->dispatch($task, RunYakJob::class);
+    }
+
+    /**
+     * Match the reply text against a list of repo slugs: by number, exact
+     * slug, exact name, then substring (longest slug first).
+     *
+     * @param  list<string>  $options
+     */
+    public static function matchSlug(array $options, string $replyText): ?string
+    {
         $replyNormalized = (string) str($replyText)->lower()->trim()->replaceMatches('/[\s\-_]+/', '-');
 
         // Three-pass match. The earlier passes guard against the
@@ -82,50 +145,7 @@ class RepoClarificationResolver
             });
         }
 
-        if ($matchedSlug === null) {
-            TaskLogger::warning($task, 'Could not match repo from reply', ['reply' => $replyText, 'options' => $options]);
-            // Slack renders the options as buttons; Linear has none, so the
-            // re-prompt spells them out.
-            $reprompt = $task->source === 'linear'
-                ? "I didn't recognise that repo. Reply with the number or name of one of these:\n" . self::numberedList($options)
-                : "I didn't recognise that repo.";
-
-            SendNotificationJob::dispatch($task, NotificationType::Clarification, $reprompt);
-
-            return;
-        }
-
-        $repository = Repository::where('slug', $matchedSlug)->where('is_active', true)->first();
-
-        if ($repository === null) {
-            TaskLogger::error($task, "Matched repo slug '{$matchedSlug}' not found or inactive");
-
-            return;
-        }
-
-        /** @var TaskMode $mode */
-        $mode = $task->mode;
-
-        $task->update([
-            'repo' => $repository->slug,
-            'status' => TaskStatus::Pending,
-            'clarification_options' => null,
-            'clarification_expires_at' => null,
-            'responsible_name' => $task->responsible_name
-                ?? app(ResponsiblePersonResolver::class)->resolve(null, $task->author_name, $repository->slug),
-        ]);
-
-        TaskLogger::info($task, "Repo resolved to {$repository->slug}");
-
-        $dispatcher = app(AgentJobDispatcher::class);
-
-        if ($mode === TaskMode::Research) {
-            $dispatcher->dispatch($task, ResearchYakJob::class);
-
-            return;
-        }
-
-        $dispatcher->dispatch($task, RunYakJob::class);
+        return $matchedSlug;
     }
 
     /**

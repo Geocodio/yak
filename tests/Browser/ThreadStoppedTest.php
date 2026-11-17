@@ -1,0 +1,74 @@
+<?php
+
+use App\Enums\StopKind;
+use App\Enums\TaskStatus;
+use App\Jobs\RunYakJob;
+use App\Models\Repository;
+use App\Models\Thread;
+use App\Models\User;
+use App\Models\YakTask;
+use Illuminate\Support\Facades\Queue;
+
+function stoppedThread(array $attributes = []): Thread
+{
+    $repository = Repository::factory()->create(['slug' => 'o-r', 'is_active' => true]);
+    Repository::factory()->create(['slug' => 'other-repo', 'is_active' => true]);
+    $task = YakTask::factory()->failed()->create([
+        'repo' => $repository->slug,
+        'pr_url' => null,
+        'source' => 'dashboard',
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'CI failed twice on the same test.',
+        ...$attributes,
+    ]);
+
+    return Thread::query()->findOrFail($task->thread_id);
+}
+
+it('retries a stopped thread from the card', function () {
+    Queue::fake();
+    $thread = stoppedThread();
+    $this->actingAs(User::factory()->create());
+
+    visit("/threads/{$thread->public_id}")
+        ->assertVisible('[data-testid="card-stop"]')
+        ->assertSeeIn('[data-testid="card-stop"]', 'Yak could not finish this change')
+        ->assertSeeIn('[data-testid="stop-summary"]', 'CI failed twice on the same test.')
+        ->assertSeeIn('[data-testid="stop-next-step"]', 'Press Retry and Yak will try again.')
+        ->assertAttribute('[data-testid="thread-composer"] textarea', 'placeholder', 'Write a note for Yak…')
+        ->click('[data-testid="stop-retry"]')
+        ->assertMissing('[data-testid="card-stop"]')
+        ->assertNoJavaScriptErrors();
+
+    expect(YakTask::query()->where('thread_id', $thread->id)->latest('id')->first()->status)->toBe(TaskStatus::Pending);
+    Queue::assertPushed(RunYakJob::class);
+});
+
+it('moves a stopped thread to another repository from the header menu', function () {
+    Queue::fake();
+    $thread = stoppedThread();
+    $this->actingAs(User::factory()->create());
+
+    visit("/threads/{$thread->public_id}")
+        ->click('[data-testid="thread-menu"]')
+        ->click('[data-testid="thread-menu-move"]')
+        ->assertSee('Move to another repository')
+        ->click('[data-testid="move-target"]')
+        ->assertSee('Move this task to other-repo?')
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows a read-only viewer the stop card without its buttons', function () {
+    $owner = User::factory()->create();
+    $thread = stoppedThread();
+    $thread->forceFill(['visibility' => 'private', 'owner_user_id' => $owner->id])->save();
+    $viewer = User::factory()->create();
+    $thread->shares()->create(['user_id' => $viewer->id]);
+    $this->actingAs($viewer);
+
+    visit("/threads/{$thread->public_id}")
+        ->assertVisible('[data-testid="card-stop"]')
+        ->assertMissing('[data-testid="stop-retry"]')
+        ->assertMissing('[data-testid="stop-move"]')
+        ->assertNoJavaScriptErrors();
+});

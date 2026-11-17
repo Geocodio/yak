@@ -1,8 +1,19 @@
 {
+    "actions": {
+        "canCancel": false,
+        "canMove": true,
+        "canRequestReview": false,
+        "canRetry": false,
+        "canRetryRender": false,
+        "canStop": false,
+        "moveTargets": []
+    },
     "brief": null,
     "canDrive": true,
     "canOpenPullRequest": false,
     "capacity": null,
+    "card": null,
+    "coOwner": null,
     "composer": {
         "accountName": null,
         "context": null,
@@ -93,7 +104,10 @@
         "deletions": 5,
         "filesCount": 3
     },
+    "earlyWarning": null,
+    "isLegacy": false,
     "latestSequence": 12,
+    "legacyAnswers": [],
     "liveActivityChannel": null,
     "localTurnStints": [],
     "localTurns": null,
@@ -101,23 +115,28 @@
         {
             "attachmentIds": [],
             "attachments": [],
-            "authorInitials": "?",
-            "authorName": null,
+            "authorInitials": "TP",
+            "authorName": "Test person",
             "bodyHtml": "<p>Retry failed uploads</p>\n",
             "canEditText": false,
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,
+            "isReply": false,
+            "isRetry": false,
             "mode": null,
             "model": null,
             "readAfterSequence": null,
+            "retryNumber": null,
             "sendKey": null,
             "sentAt": "2026-11-15T12:00:00+00:00",
             "state": "pending",
             "text": "Retry failed uploads",
-            "uuid": "<volatile:null>"
+            "uuid": "<volatile:null>",
+            "via": null
         }
     ],
+    "milestones": [],
     "modelLabels": {
         "claude-fable-5-2": "Fable 5.2",
         "claude-haiku-5-5": "Haiku 5.5",
@@ -136,14 +155,49 @@
         "preview": true,
         "terminal": false
     },
+    "progress": null,
     "publishWarning": false,
     "pullRequest": {
         "number": 41,
         "url": "https://github.com/example/api/pull/41"
     },
     "question": null,
+    "repositoryQuestion": null,
+    "request": {
+        "responsibleName": null,
+        "source": {
+            "key": "dashboard",
+            "label": "Dashboard",
+            "reference": null,
+            "url": null
+        },
+        "starter": {
+            "avatarUrl": null,
+            "key": "user:1",
+            "name": "Test person"
+        },
+        "status": {
+            "key": "done",
+            "label": "Done",
+            "tone": "ok"
+        }
+    },
+    "runDetails": {
+        "apiSpendUsd": 0,
+        "attempts": null,
+        "completedAt": null,
+        "costUsd": 0,
+        "durationSeconds": 0,
+        "errorLog": null,
+        "errorLogTruncated": false,
+        "runCount": 0,
+        "sessionId": null,
+        "startedAt": null,
+        "stepCount": 0
+    },
     "sharedFiles": [],
     "stackParent": null,
+    "stopped": null,
     "teleport": {
         "accountName": null,
         "canTeleport": true,
@@ -169,6 +223,7 @@
     "thread": {
         "blockedReason": null,
         "branch": "yak/retry-failed-uploads",
+        "canShare": true,
         "id": "<volatile:string>",
         "isOwner": true,
         "isStarred": false,

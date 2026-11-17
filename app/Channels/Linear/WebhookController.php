@@ -28,6 +28,7 @@ use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
 use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -235,6 +236,7 @@ class WebhookController extends Controller
                 $repoSlug,
             ),
             'started_by_user_id' => $starter?->id,
+            'author_user_id' => $starter?->id,
             'responsible_user_id' => app(ResponsiblePersonResolver::class)->resolveUser($assignee, $starter, $repoSlug)?->id,
             ...($detection->needsClarification ? [
                 'status' => TaskStatus::AwaitingClarification,
@@ -500,7 +502,7 @@ class WebhookController extends Controller
         }
 
         if ($task->acceptsFollowUp()) {
-            app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'));
+            app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'), replier: User::findByEmail($request->input('actor.email')));
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
@@ -516,10 +518,10 @@ class WebhookController extends Controller
             app(NotificationDriver::class)->postAgentActivity(
                 $sessionId,
                 type: 'response',
-                body: "I'm not working on this right now and there is no PR yet. Delegate the issue to me again and I'll start a new run.",
+                body: app(StoppedTaskReplies::class)->handle($task, $message, 'linear', authorName: $request->input('actor.name'), authorUserId: User::findByEmail($request->input('actor.email'))?->id),
             );
 
-            return response()->json(['ok' => true, 'skipped' => 'not_running']);
+            return response()->json(['ok' => true, 'handled' => 'stopped_task_reply']);
         }
 
         app(NotificationDriver::class)->postAgentActivity(

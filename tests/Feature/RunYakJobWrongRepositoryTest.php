@@ -2,16 +2,24 @@
 
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Jobs\AfterTurn\FinishRetryTurnJob;
+use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\RepoClarificationResolver;
+use App\Services\Threads\QueuedMessageRunner;
+use App\Services\Threads\ThreadFactory;
 use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+use Mockery\Exception\BadMethodCallException;
 use Tests\Support\FakeSandboxManager;
 
 require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
@@ -67,27 +75,36 @@ function dirtySandbox(): FakeSandboxManager
 test('a wrong repository verdict asks for a repo instead of failing on a dirty tree', function () {
     Queue::fake();
 
-    fakeAfterTurnCollaborators(shell: dirtySandbox());
+    $collaborators = fakeAfterTurnCollaborators(shell: dirtySandbox());
+    $collaborators['sandbox']->shouldReceive('destroy')->once();
+    Exceptions::fake();
 
     Repository::factory()->create(['slug' => 'acme/api']);
     Repository::factory()->create(['slug' => 'acme/billing']);
     Repository::factory()->create(['slug' => 'acme/inactive', 'is_active' => false]);
 
-    [$task, $run] = endedTurn(
+    [$task, $run, $thread] = endedTurn(
         wrongRepositoryEvent('acme/billing'),
         ['repo' => 'acme/atlas', 'source' => 'linear', 'session_id' => 'old-session', 'branch_name' => 'yak/old-branch'],
         ['slug' => 'acme/atlas'],
     );
 
     runFinisher($run);
+    Exceptions::assertNotReported(BadMethodCallException::class);
 
     $task->refresh();
+    $newThread = Thread::query()->findOrFail($task->thread_id);
+
+    expect($newThread->id)->not->toBe($thread->id)
+        ->and($newThread->hasRepository())->toBeFalse()
+        ->and($newThread->continued_from_thread_id)->toBe($thread->id)
+        ->and($thread->fresh()->isOpen())->toBeFalse()
+        ->and($thread->fresh()->close_reason)->toBe('moved');
 
     expect($task->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($task->repo)->toBe('unknown')
         ->and($task->session_id)->toBeNull()
         ->and($task->branch_name)->toBeNull()
-        ->and($task->thread_id)->toBeNull()
         ->and($task->error_log)->toBeNull()
         ->and($task->clarification_options)->toBe(['acme/billing', 'acme/api'])
         ->and($task->clarification_expires_at)->not->toBeNull()
@@ -186,4 +203,53 @@ test('a task that already has a pull request ignores the wrong repository verdic
 
     expect($task->refresh()->repo)->toBe('acme/atlas')
         ->and(RepoClarificationResolver::awaitingRepoChoice($task))->toBeFalse();
+});
+
+test('a failing move still settles the live activity and runs the queued message step', function () {
+    Queue::fake();
+    Exceptions::fake();
+    fakeAfterTurnCollaborators(shell: dirtySandbox());
+    Repository::factory()->create(['slug' => 'acme/api']);
+    Repository::factory()->create(['slug' => 'acme/billing']);
+    $this->mock(ThreadFactory::class)->shouldReceive('moved')->andThrow(new RuntimeException('cannot move'));
+    $this->mock(LiveActivities::class)->shouldReceive('turnSettled')->once();
+    $this->mock(QueuedMessageRunner::class)->shouldReceive('afterTurn')->once();
+
+    [, $run] = endedTurn(wrongRepositoryEvent('acme/billing'), ['repo' => 'acme/atlas', 'source' => 'linear'], ['slug' => 'acme/atlas']);
+
+    runFinisher($run);
+
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'cannot move');
+});
+
+test('a turn whose task moved to another thread leaves the task alone', function () {
+    Queue::fake();
+    fakeAfterTurnCollaborators();
+    Repository::factory()->create(['slug' => 'acme/billing']);
+
+    [$task, $run] = endedTurn(wrongRepositoryEvent('acme/billing'), ['repo' => 'acme/atlas', 'source' => 'linear'], ['slug' => 'acme/atlas']);
+    $other = Thread::factory()->create(['repo' => 'acme/atlas']);
+    YakTask::query()->whereKey($task->id)->update(['thread_id' => $other->id]);
+
+    runFinisher($run);
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Running)
+        ->and($task->repo)->toBe('acme/atlas');
+});
+
+test('an unresolved repository stops the task and asks which repository to use', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/billing', 'is_active' => true]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'unknown', 'source' => 'slack']);
+
+    (new RunYakJob($task))->handle();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->stop_kind)->toBe(StopKind::NeedsYou)
+        ->and($task->error_log)->toContain('Could not determine which repo');
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
+        && $job->personalize === false
+        && $job->stop?->kind === StopKind::NeedsYou
+        && str_contains($job->stop->ask, 'acme/billing'));
 });

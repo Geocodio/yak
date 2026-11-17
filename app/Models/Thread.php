@@ -98,6 +98,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
 {
+    public const UNKNOWN_REPOSITORY = 'unknown';
+
     /** @use HasFactory<ThreadFactory> */
     use HasFactory, HasPublicId;
 
@@ -136,6 +138,7 @@ class Thread extends Model
             'blocked_reason' => ThreadBlockReason::class,
             'destroy_after_hours' => 'integer',
             'fresh_session_pending' => 'boolean',
+            'is_legacy' => 'boolean',
             'sandbox_state_changed_at' => 'immutable_datetime',
             'runner_started_at' => 'immutable_datetime',
             'lock_acquired_at' => 'immutable_datetime',
@@ -438,6 +441,15 @@ class Thread extends Model
             ->where('turn_state', TurnState::Running)
             ->whereIn('thread_id', $sharing->select('id'))
             ->exists();
+    }
+
+    /**
+     * False for a thread whose repository is not chosen yet: it has no
+     * repository row and never gets a sandbox.
+     */
+    public function hasRepository(): bool
+    {
+        return $this->repo !== self::UNKNOWN_REPOSITORY;
     }
 
     public function isChild(): bool

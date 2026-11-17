@@ -54,21 +54,22 @@ class ThreadMessageController extends Controller
 
         if ($result->threadId !== null) {
             $continued = route('threads.show', $result->threadId);
+            $notice = $result->threadId === $thread->public_id ? 'Sent. The work continues in a new thread shortly.' : 'Started a new thread continued from this one.';
 
             return $request->expectsJson()
                 ? response()->json(['status' => 'sent', 'redirect' => $continued])
-                : redirect()->to($continued)->with('success', 'Started a new thread continued from this one.');
+                : redirect()->to($continued)->with('success', $notice);
         }
 
-        return $this->sent($request);
+        return $this->sent($request, $result->notice);
     }
 
     /**
      * The page's send queue asks for JSON so a send survives navigation; a plain form post gets the redirect.
      */
-    private function sent(Request $request): RedirectResponse|JsonResponse
+    private function sent(Request $request, ?string $notice = null): RedirectResponse|JsonResponse
     {
-        return $request->expectsJson() ? response()->json(['status' => 'sent']) : back()->with('success', 'Message sent.');
+        return $request->expectsJson() ? response()->json(['status' => 'sent']) : back()->with('success', $notice ?? 'Message sent.');
     }
 
     private function refuse(Request $request, string $reason): RedirectResponse|JsonResponse

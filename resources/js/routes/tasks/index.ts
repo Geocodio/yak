@@ -525,7 +525,7 @@ reroute.post = (args: { task: string | { public_id: string } } | [task: string |
 
 /**
 * @see \App\Http\Controllers\Tasks\RequestReReviewController::__invoke
-* @see app/Http/Controllers/Tasks/RequestReReviewController.php:17
+* @see app/Http/Controllers/Tasks/RequestReReviewController.php:12
 * @route '/tasks/{task}/re-request-review'
 */
 export const reRequestReview = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -540,7 +540,7 @@ reRequestReview.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\RequestReReviewController::__invoke
-* @see app/Http/Controllers/Tasks/RequestReReviewController.php:17
+* @see app/Http/Controllers/Tasks/RequestReReviewController.php:12
 * @route '/tasks/{task}/re-request-review'
 */
 reRequestReview.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -573,7 +573,7 @@ reRequestReview.url = (args: { task: string | { public_id: string } } | [task: s
 
 /**
 * @see \App\Http\Controllers\Tasks\RequestReReviewController::__invoke
-* @see app/Http/Controllers/Tasks/RequestReReviewController.php:17
+* @see app/Http/Controllers/Tasks/RequestReReviewController.php:12
 * @route '/tasks/{task}/re-request-review'
 */
 reRequestReview.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

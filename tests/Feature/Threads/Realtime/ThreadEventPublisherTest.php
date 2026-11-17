@@ -103,7 +103,8 @@ it('records the thread state without personal data', function () {
     $event = app(ThreadEventPublisher::class)->appendThreadState($thread->id);
 
     expect($event['type'])->toBe('thread')
-        ->and($event['data'])->toBe(['status' => 'open', 'sandboxState' => 'none', 'runnerState' => 'none', 'blockedReason' => null, 'pullRequestOpening' => null, 'ownerSide' => 'yak']);
+        ->and($event['data'])->toMatchArray(['status' => 'open', 'sandboxState' => 'none', 'runnerState' => 'none', 'blockedReason' => null, 'pullRequestOpening' => null, 'ownerSide' => 'yak'])
+        ->and($event['data']['showKey'])->toBeString()->toHaveLength(12);
     app(ThreadEventWindow::class)->forget($thread->id);
 });
 

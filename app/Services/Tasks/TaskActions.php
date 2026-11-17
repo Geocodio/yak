@@ -7,6 +7,7 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Console\Commands\TimeoutAwaitingCiCommand;
 use App\DataTransferObjects\TaskActionOutcome;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -26,13 +27,16 @@ use App\Models\Artifact;
 use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\Devices\ShortLockWait;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
+use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadRetryReset;
+use App\Services\Threads\ThreadTurns;
 use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -82,7 +86,7 @@ class TaskActions
                 throw ThreadActionRefused::because(ThreadActionRefused::TASK_NOT_RETRYABLE, 'This task cannot be retried right now.');
             }
 
-            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry']);
+            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry', 'stop_kind', 'stop_summary']);
 
             if ($ciResume !== null) {
                 return $this->claimCiResume($locked, $ciResume, $original, $isTimeBounded);
@@ -148,6 +152,14 @@ class TaskActions
                 $task->update(['resume_after_setup_at' => null]);
 
                 if ($repository->setup_status !== 'ready') {
+                    if ($task->status !== TaskStatus::Failed) {
+                        return;
+                    }
+
+                    $setupTask = $repository->setup_task_id === null ? null : YakTask::withoutGlobalScopes()->find($repository->setup_task_id);
+
+                    StopNotifier::notify($task, TaskStop::setupFailed($repository->slug, $setupTask?->error_log ?: 'Setup failed'));
+
                     return;
                 }
 
@@ -249,6 +261,8 @@ class TaskActions
             DB::table('tasks')->where('id', $locked->id)->update([
                 'status' => TaskStatus::Pending->value,
                 'error_log' => null,
+                'stop_kind' => null,
+                'stop_summary' => null,
                 'result_summary' => null,
                 'pr_body_update' => null,
                 'review_replies' => null,
@@ -316,7 +330,9 @@ class TaskActions
 
     public function reroute(YakTask $task, string $repoSlug): TaskActionOutcome
     {
-        /** @var array{from: string, to: string, statusBefore: TaskStatus, wasInFlight: bool}|null $moved */
+        $this->stopTurnBeforeMove($task, $repoSlug);
+
+        /** @var array{thread: ?Thread, from: string, to: string, statusBefore: TaskStatus, wasInFlight: bool}|null $moved */
         $moved = $this->locked($task, function (YakTask $locked) use ($repoSlug): ?array {
             $canReroute = ! in_array($locked->mode, [TaskMode::Setup, TaskMode::Review], true) && $locked->pr_url === null;
 
@@ -342,6 +358,8 @@ class TaskActions
                 'status' => TaskStatus::Pending->value,
                 'branch_name' => null,
                 'error_log' => null,
+                'stop_kind' => null,
+                'stop_summary' => null,
                 'result_summary' => null,
                 'pr_body_update' => null,
                 'review_replies' => null,
@@ -350,7 +368,15 @@ class TaskActions
                 'updated_at' => now(),
             ]);
 
+            $thread = $locked->thread;
+
+            if ($thread !== null && ! $thread->hasRepository()) {
+                app(ThreadFactory::class)->attachRepository($thread, $newRepo->slug);
+                $thread = null;
+            }
+
             return [
+                'thread' => $thread,
                 'from' => $from,
                 'to' => $newRepo->slug,
                 'statusBefore' => $statusBefore,
@@ -372,6 +398,10 @@ class TaskActions
 
         $task->refresh();
 
+        if ($moved['thread'] !== null) {
+            app(ThreadFactory::class)->moved($moved['thread'], $task, $moved['to']);
+        }
+
         TaskStatusChanged::dispatch($task, $moved['statusBefore'], TaskStatus::Pending);
         Telemetry::feature('dashboard.reroute', ['from' => $moved['from'], 'to' => $moved['to']], task: $task);
 
@@ -386,6 +416,29 @@ class TaskActions
         );
 
         return new TaskActionOutcome('moved', "Task moved to {$moved['to']}.");
+    }
+
+    /**
+     * A task that moves to another repository leaves its thread, so a turn
+     * still running there is stopped first; when the stop does not leave the
+     * thread idle the move is refused and nothing changes.
+     */
+    private function stopTurnBeforeMove(YakTask $task, string $repoSlug): void
+    {
+        $thread = $task->thread;
+        $canMove = ! in_array($task->mode, [TaskMode::Setup, TaskMode::Review], true) && $task->pr_url === null;
+
+        if (! $canMove || $thread === null || ! $thread->hasRepository() || $repoSlug === (string) $task->repo || ! $thread->isOpen()) {
+            return;
+        }
+
+        if (ThreadTurns::activeTurn($thread) !== null) {
+            app(ThreadTurns::class)->stop($thread);
+        }
+
+        if (ThreadTurns::activeTurn($thread) !== null || $thread->refresh()->isSandboxBusy()) {
+            throw ThreadActionRefused::because(ThreadActionRefused::TURN_RUNNING, 'Stop the running turn first, then move the task.');
+        }
     }
 
     /**

@@ -19,11 +19,14 @@ export function useTranscriptEntry({
     selectedLogId,
     entry,
     runKey,
+    fetchesEntry = true,
 }: {
     open: boolean;
     selectedLogId: number | null;
     entry: TranscriptEntry | null | undefined;
     runKey: string;
+    /** False when the caller already holds full entries, as the thread's run log does. */
+    fetchesEntry?: boolean;
 }): TranscriptEntry | undefined {
     const cacheRef = useRef(new Map<number, TranscriptEntry>());
     const runKeyRef = useRef(runKey);
@@ -53,11 +56,11 @@ export function useTranscriptEntry({
     // this effect, leaving the pane stuck showing the stale entry (or
     // "Loading entry…" forever if nothing was cached for it before).
     useEffect(() => {
-        if (!open || selectedLogId === null || cacheRef.current.has(selectedLogId)) {
+        if (!fetchesEntry || !open || selectedLogId === null || cacheRef.current.has(selectedLogId)) {
             return;
         }
         router.reload({ only: ['transcriptEntry'], data: { log: selectedLogId }, preserveUrl: true });
-    }, [open, selectedLogId, runKey]);
+    }, [open, selectedLogId, runKey, fetchesEntry]);
 
     return selectedLogId === null ? undefined : (cacheRef.current.get(selectedLogId) ?? (entry?.id === selectedLogId ? entry : undefined));
 }

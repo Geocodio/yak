@@ -306,18 +306,19 @@ private func emptyServer() -> EventServer { EventServer(threadID: threadID, even
     #expect(await rig.transport.requests(on: eventsRoute).count == before + 1)
     await rig.transport.release(eventsRoute)
     await first.value
-    let loaded = try await recorder.next { !$0.isLoadingOlder && eventEntries($0).count == 1000 }
-    #expect(await server.requestedAfters.last == 800)
+    // An older page is smaller than the first load: 60 events above the 500 newest.
+    let loaded = try await recorder.next { !$0.isLoadingOlder && eventEntries($0).count == 560 }
+    #expect(await server.requestedAfters.last == 1240)
     #expect(loaded.lastSequence == 1800 && loaded.hasOlderHistory)
     let sequences = eventEntries(loaded).compactMap { entry -> Int? in
         if case .event(let item) = entry { item.sequence } else { nil }
     }
-    #expect(sequences == Array(801...1800))
+    #expect(sequences == Array(1241...1800))
 
     let limit = try #require(await rig.transport.requests(on: eventsRoute).last?.url?.query)
-    #expect(limit.contains("after=800") && limit.contains("limit=500"))
+    #expect(limit.contains("after=1240") && limit.contains("limit=60"))
     await rig.engine.loadOlder()
-    #expect(await server.requestedAfters.last == 300)
+    #expect(await server.requestedAfters.last == 1180)
 }
 
 @Test func aFailedHistoryLoadKeepsTheConversation() async throws {

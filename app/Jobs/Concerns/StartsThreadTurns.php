@@ -82,7 +82,8 @@ trait StartsThreadTurns
 
             $thread->forceFill(['append_system_prompt' => YakPromptBuilder::threadSystemPrompt($this->task, $thread)])->save();
 
-            $driver = $this->task->started_by_user_id === null ? null : User::query()->find($this->task->started_by_user_id);
+            $driverId = $this->task->author_user_id ?? $this->task->started_by_user_id;
+            $driver = $driverId === null ? null : User::query()->find($driverId);
             $shownText = $this->task->clarificationAnswersAwaitingResume() === null ? null : YakPromptBuilder::clarificationAnswersShownText($this->task);
             $run = app(ThreadTurns::class)->start($this->task, $prompt, $driver, null, shownText: $shownText);
 

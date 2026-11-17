@@ -17,6 +17,9 @@ private struct ChatPane: View {
 
     var body: some View {
         ZStack {
+            if case .conversation = thread.loadPresentation {
+                ChatView(thread: thread, openThread: openThread)
+            }
             ThreadLoadView(
                 presentation: thread.loadPresentation, retry: { Task { await thread.retry() } },
                 openThreads: {
@@ -29,5 +32,9 @@ private struct ChatPane: View {
         .background(Color(.systemBackground))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("conversation")
+    }
+
+    private func openThread(_ id: String) {
+        scene.open(thread: id, isCompactWidth: horizontalSizeClass == .compact)
     }
 }

@@ -5,7 +5,7 @@ import { useMemo, useRef, type ReactNode } from 'react';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import type { PaletteAction } from '@/commandPalette/types';
 import { AppLayout } from '@/layouts/AppLayout';
-import { FindingsBlock } from '@/components/tasks/FindingsBlock';
+import { FindingsBlock } from '@/components/shared/FindingsBlock';
 import { rerun } from '@/routes/pr-reviews/for-pr';
 import type { PageProps } from '@/types/shared';
 import type { PrReviewEntry, PrReviewForPrSummary } from '@/types/prReviews';

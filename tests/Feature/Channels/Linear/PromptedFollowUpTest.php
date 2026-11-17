@@ -193,6 +193,30 @@ it('queues a steer instead of declining when prompted on a running task with no 
     Http::assertNotSent(fn ($request) => str_contains((string) $request->body(), 'already merged or closed'));
 });
 
+it('retries a failed task without a PR when the starter replies', function (): void {
+    Queue::fake();
+
+    $repository = Repository::factory()->create(['slug' => 'Geocodio/geocodio', 'is_active' => true]);
+    YakTask::factory()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'sess-retry',
+        'repo' => $repository->slug,
+        'status' => TaskStatus::Failed,
+        'pr_url' => null,
+    ]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-retry'],
+        'agentActivity' => ['content' => ['body' => 'try the other approach']],
+    ], $this->secret)->assertSuccessful()->assertJson(['handled' => 'stopped_task_reply']);
+
+    Queue::assertPushed(RunYakJob::class);
+    Http::assertSent(fn ($request) => str_contains((string) $request->body(), 'Trying again with your note.'));
+});
+
 // --- Unknown session ---
 
 it('returns 200 and dispatches nothing when the session id matches no task', function (): void {

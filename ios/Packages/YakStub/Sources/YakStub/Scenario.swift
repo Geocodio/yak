@@ -200,6 +200,9 @@ enum Scenario: String, CaseIterable, Sendable {
     case questionOpen = "question-open"
     /// One running thread whose events play over the socket, one every 400 ms from the first subscription.
     case oneThreadWorking = "one-thread-working"
+    /// `d0e515ef` has 60 earlier steps, then the turn of `one-thread-working` plays live after them (its sequences
+    /// are 60 higher).
+    case longTurn = "long-turn"
     /// Like `oneThreadWorking`, but the last event never plays, so the turn stays open.
     case oneThreadHeld = "one-thread-held"
     /// The person has no threads of their own, the team has: `mine` is empty, `everyone` is the scenario list.
@@ -232,6 +235,9 @@ enum Scenario: String, CaseIterable, Sendable {
     static let apiPrefix = "/api/app/v1/"
     static let slowDelay = Duration.seconds(10)
     static let slowerDelay = Duration.seconds(14)
+    /// Long enough that a screenshot and its audit at the largest text size finish before the page arrives, and
+    /// shorter than the 15 seconds the app waits.
+    static let olderPageDelay = Duration.seconds(12)
 
     func reply(
         to request: StubRequest, baseURL: String, fixtures: StubFixtures, threads: StubThreads = StubThreads(),
@@ -256,6 +262,11 @@ enum Scenario: String, CaseIterable, Sendable {
             ?? StubReply(
                 answer: answer(
                     route: route, request: request, baseURL: baseURL, fixtures: fixtures, realtimePort: realtimePort))
+        // The older page of a long history takes a while, so its loading row can be looked at.
+        if self == .longHistory, route.hasSuffix("/events"), let after = Int(request.query["after"] ?? ""), after < 700
+        {
+            reply.delay = Self.olderPageDelay
+        }
         if self == .slow { reply.delay = Self.slowDelay }
         if self == .slower { reply.delay = Self.slowerDelay }
         if self == .serverTooOld { reply.protocolHeader = 0 }

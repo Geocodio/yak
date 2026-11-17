@@ -2,6 +2,7 @@
 
 use App\Channels\Drone\PollCommand as DronePollCommand;
 use App\Console\Commands\TimeoutAwaitingCiCommand;
+use App\Enums\StopKind;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\SendNotificationJob;
@@ -47,7 +48,9 @@ it('fails tasks when CI reported but timed out', function () {
 
     $stuck->refresh();
     expect($stuck->status)->toBe(TaskStatus::Failed)
-        ->and($stuck->error_log)->toContain('CI timed out');
+        ->and($stuck->error_log)->toStartWith(TimeoutAwaitingCiCommand::TIMEOUT_ERROR_PREFIX)
+        ->and($stuck->stop_kind)->toBe(StopKind::YakStopped)
+        ->and($stuck->stop_summary)->toBe("The automated checks on Yak's change didn't report back within 30 minutes, so Yak stopped waiting.");
 
     Queue::assertPushed(SendNotificationJob::class, 1);
     Queue::assertNotPushed(ProcessCIResultJob::class);
@@ -236,6 +239,7 @@ it('fails even with a queued run once the maximum wait has passed', function () 
     $this->artisan('yak:timeout-ci')->assertSuccessful();
 
     expect($task->refresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->stop_summary)->toContain('within 180 minutes')
         ->and($task->error_log)->toContain('180 minutes')
         ->and($task->error_log)->toStartWith('CI timed out after ');
     Queue::assertPushed(SendNotificationJob::class, 1);

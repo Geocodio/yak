@@ -129,6 +129,7 @@
         ]
     },
     "questions": null,
+    "stop": null,
     "task": {
         "attempt": 1,
         "attemptCount": 1,

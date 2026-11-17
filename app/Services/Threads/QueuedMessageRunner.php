@@ -82,6 +82,7 @@ class QueuedMessageRunner
         $thread = Thread::query()->find($threadId);
 
         if ($thread === null
+            || ! $thread->hasRepository()
             || $thread->status !== ThreadStatus::Open
             || $thread->blocked_reason !== null
             || ThreadTurns::activeTurn($thread) !== null) {

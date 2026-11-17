@@ -12,6 +12,10 @@ final class ThreadActionRefused extends RuntimeException
 {
     public const THREAD_CLOSED = 'thread_closed';
 
+    public const NO_REPOSITORY = 'no_repository';
+
+    public const NO_REPOSITORY_SENTENCE = 'Pick a repository first.';
+
     public const THREAD_OWNED_BY_DEVICE = 'thread_owned_by_device';
 
     public const THREAD_BLOCKED = 'thread_blocked';
@@ -67,6 +71,10 @@ final class ThreadActionRefused extends RuntimeException
     public const NOTHING_TO_RENDER = 'nothing_to_render';
 
     public const TASK_NOT_REROUTABLE = 'task_not_reroutable';
+
+    public const REPOSITORY_ALREADY_PICKED = 'repository_already_picked';
+
+    public const REPOSITORY_NOT_OFFERED = 'repository_not_offered';
 
     /**
      * @param  array<string, mixed>  $details

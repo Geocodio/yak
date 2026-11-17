@@ -14,6 +14,9 @@ private func logFailure(_ message: String) {
 /// or a pointer is closed by a catch-up that runs one at a time, and snapshots are paced to a frame.
 public actor ThreadEngine {
     public static let historyPage = 500
+    /// Events asked for per page of earlier history. A small page keeps the list's height estimate for the new rows
+    /// close, so the row the person is reading stays in place, and costs less memory and network.
+    public static let olderPage = 60
     /// A cached copy further behind than this is dropped and the newest page is loaded instead.
     private static let largestUsableGap = 2000
     /// How often a visible engine catches up while the socket is not delivering.
@@ -72,6 +75,7 @@ public actor ThreadEngine {
     private var slowTask: Task<Void, Never>?
     private var olderTask: Task<Void, Never>?
     private var isLoadingOlder = false
+    private var didOlderFail = false
     /// Counts the times the loaded window was replaced, so a page fetched for an earlier window is dropped.
     private var windowGeneration = 0
 
@@ -198,6 +202,7 @@ public actor ThreadEngine {
     public func loadOlder() async {
         guard !isClosed, isOpenFinished, load == .ready, firstLoadedAfter > 0, !isLoadingOlder else { return }
         isLoadingOlder = true
+        didOlderFail = false
         changed(isStored: false)
         let task = Task { await self.runLoadOlder() }
         olderTask = task
@@ -301,12 +306,13 @@ public actor ThreadEngine {
     private func runLoadOlder() async {
         let bound = firstLoadedAfter
         let generation = windowGeneration
-        let after = max(0, bound - Self.historyPage)
+        let after = max(0, bound - Self.olderPage)
         let page: EventsPage
         do {
-            page = try await client.send(.events(threadID, after: after, limit: Self.historyPage))
+            page = try await client.send(.events(threadID, after: after, limit: Self.olderPage))
         } catch {
             isLoadingOlder = false
+            didOlderFail = true
             guard !isClosed, !Task.isCancelled else { return }
             fail(ThreadProblem(error), what: "history")
             return
@@ -584,6 +590,7 @@ public actor ThreadEngine {
                 waiting: ConversationMerge.waitingRow(in: entries, turn: state.turn), turn: state.turn,
                 thread: state.thread, connection: connection, isShowingCachedCopy: isShowingCachedCopy,
                 isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: isLoadingOlder,
+                didOlderFail: didOlderFail,
                 replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem,
                 lastDiffUpdateSequence: lastDiffUpdateSequence))
     }

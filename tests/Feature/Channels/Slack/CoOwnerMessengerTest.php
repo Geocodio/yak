@@ -91,6 +91,7 @@ it('sends the thread text as a Progress notification for non-Slack sources', fun
 
 it('logs and continues when one DM fails', function () {
     Log::shouldReceive('channel->warning')->once();
+    Log::shouldReceive('error')->zeroOrMoreTimes();
     Http::fake([
         'slack.com/api/*' => Http::sequence()
             ->push(['ok' => false, 'error' => 'channel_not_found'])

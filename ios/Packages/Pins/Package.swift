@@ -9,9 +9,14 @@ let package = Package(
     name: "Pins",
     platforms: [.iOS("27.0")],
     products: [.library(name: "Pins", targets: ["Pins"])],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/swiftlang/swift-markdown", exact: "0.9.0")
+    ],
     targets: [
-        .target(name: "Pins")
+        .target(
+            name: "Pins",
+            dependencies: [.product(name: "Markdown", package: "swift-markdown")]
+        )
     ],
     swiftLanguageModes: [.v6]
 )

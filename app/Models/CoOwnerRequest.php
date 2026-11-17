@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CoOwnerRequestStatus;
+use App\Services\Threads\ThreadShowChanged;
 use Carbon\CarbonImmutable;
 use Database\Factories\CoOwnerRequestFactory;
 use Illuminate\Database\Eloquent\Collection;
@@ -38,6 +39,13 @@ class CoOwnerRequest extends Model
     use HasFactory;
 
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::saved(function (CoOwnerRequest $request): void {
+            ThreadShowChanged::publish(YakTask::query()->withoutGlobalScopes()->whereKey($request->task_id)->value('thread_id'));
+        });
+    }
 
     /**
      * @return array<string, mixed>

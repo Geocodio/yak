@@ -1,4 +1,4 @@
-import { Badge } from '@geocodio/console-ui';
+import { Badge, cn } from '@geocodio/console-ui';
 import { GitBranch, GitPullRequest, Globe } from 'lucide-react';
 import { CopyButton, OpenLink } from '@/components/threads/environment/LinkActions';
 import type { PanelProps } from '@/threads/panels';
@@ -24,10 +24,13 @@ function hostOf(url: string): string {
 const LINK_CLASS = 'inline-flex min-w-0 flex-1 items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 -ml-1.5 text-accent-text no-underline hover:bg-panel-2 hover:underline';
 
 /** Preview, branch, pull request and deployment, each with copy and open where they apply. */
-export function LinksGroup({ thread, canDrive, environment, onChanged, onOpenChanges }: PanelProps & { environment: ThreadEnvironment; onChanged: () => void }) {
+export function LinksGroup({ thread, canDrive, environment, milestones = [], runDetails, onChanged, onOpenChanges }: PanelProps & { environment: ThreadEnvironment; onChanged: () => void }) {
     const { branch, pullRequest, deployment, repositories } = environment;
     const previewUrl = thread.preview.host === null ? null : `https://${thread.preview.host}`;
     const hasSeveralPullRequests = thread.repositories.length > 1 || thread.pullRequestCount > 1;
+    const ciResult = milestones.filter((milestone) => milestone.key === 'ci_passed' || milestone.key === 'ci_failed').at(-1);
+    const ciLabel = ciResult?.key === 'ci_passed' ? 'Passed' : runDetails?.attempts ? `Failed, attempt ${runDetails.attempts}` : 'Failed';
+    const ciUrl = pullRequest !== null ? `${pullRequest.url}/checks` : branch !== null && thread.repo.includes('/') ? `https://github.com/${thread.repo}/commits/${branch}` : null;
     const branchUrl = branch !== null && thread.repo.includes('/') ? `https://github.com/${thread.repo}/tree/${branch}` : null;
 
     return (
@@ -84,6 +87,19 @@ export function LinksGroup({ thread, canDrive, environment, onChanged, onOpenCha
                         </>
                     )}
                 </OverviewRow>
+
+                {ciResult !== undefined && (
+                    <OverviewRow label="CI" testId="environment-ci">
+                        <span className={cn('inline-block size-1.5 shrink-0 rounded-pill', ciResult.key === 'ci_passed' ? 'bg-ok' : 'bg-fail')} aria-hidden />
+                        {ciUrl === null ? (
+                            <span>{ciLabel}</span>
+                        ) : (
+                            <a href={ciUrl} target="_blank" rel="noopener noreferrer" className={LINK_CLASS} data-testid="environment-ci-link">
+                                {ciLabel}
+                            </a>
+                        )}
+                    </OverviewRow>
+                )}
 
                 <OverviewRow label="Deployment" testId="environment-deployment" tip="The preview served from this thread's branch.">
                     {deployment === null ? (

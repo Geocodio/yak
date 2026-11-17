@@ -1,9 +1,10 @@
-import { Button, IconButton, Sheet, cn } from '@geocodio/console-ui';
+import { Button, IconButton, Sheet, Skeleton, cn } from '@geocodio/console-ui';
 import { ChevronLeft } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Prose } from '@/components/Prose';
-import { useTranscriptEntry } from '@/components/tasks/useTranscriptEntry';
-import type { ActivityRow, TranscriptEntry } from '@/types/tasks';
+import { useTranscriptEntry } from '@/components/shared/useTranscriptEntry';
+import type { TranscriptEntry } from '@/types/tasks';
+import type { TranscriptPaging, TranscriptRow } from '@/components/shared/TranscriptOverlay';
 
 function Block({ title, children, error }: { title: string; children?: ReactNode; error?: boolean }) {
     return (
@@ -54,14 +55,16 @@ export function LogEntrySheet({
     entry,
     onSelectLog,
     runKey,
+    paging,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    rows: ActivityRow[];
+    rows: TranscriptRow[];
     selectedLogId: number | null;
     entry: TranscriptEntry | null | undefined;
     onSelectLog: (logId: number) => void;
     runKey: string;
+    paging?: Omit<TranscriptPaging, 'onSearch'>;
 }) {
     const idx = rows.findIndex((row) => row.id === selectedLogId);
     const sel = idx >= 0 ? idx : 0;
@@ -76,7 +79,19 @@ export function LogEntrySheet({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, rows, selectedLogId]);
 
-    const current = useTranscriptEntry({ open, selectedLogId, entry, runKey });
+    // Next at the end of the loaded steps asks for the next page and moves to its first step once it arrives.
+    const [advanceFrom, setAdvanceFrom] = useState<number | null>(null);
+    useEffect(() => {
+        if (advanceFrom !== null && rows.length > advanceFrom) {
+            onSelectLog(rows[advanceFrom].id);
+            setAdvanceFrom(null);
+        } else if (advanceFrom !== null && paging?.moreFailed) {
+            setAdvanceFrom(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [advanceFrom, rows.length, paging?.moreFailed]);
+
+    const current = useTranscriptEntry({ open, selectedLogId, entry, runKey, fetchesEntry: paging === undefined });
 
     const step = (offset: number) => {
         if (rows.length === 0) {
@@ -104,6 +119,7 @@ export function LogEntrySheet({
                     <span className="text-[13px] font-semibold">Activity</span>
                     <span className="ml-auto text-[11px] text-faint">
                         step {sel + 1} of {rows.length}
+                        {paging?.hasMore ? '+' : ''}
                     </span>
                 </div>
                 <div className="min-h-0 flex-1 overflow-auto p-4">
@@ -162,15 +178,47 @@ export function LogEntrySheet({
                                 </>
                             )}
                         </>
+                    ) : paging?.status === 'error' ? (
+                        <div className="flex flex-col items-start gap-2 text-[12px] text-fail" data-testid="transcript-error">
+                            The log could not be loaded.
+                            <Button variant="secondary" onClick={paging.onRetry} data-testid="transcript-retry">
+                                Retry
+                            </Button>
+                        </div>
+                    ) : paging?.status === 'ready' && rows.length === 0 ? (
+                        <p className="text-[12px] text-faint" data-testid="transcript-empty">
+                            {paging.emptyText}
+                        </p>
+                    ) : paging?.status === 'loading' ? (
+                        <div className="flex flex-col gap-2" data-testid="transcript-loading">
+                            {[0, 1, 2, 3].map((line) => (
+                                <Skeleton key={line} className="h-4 w-full" />
+                            ))}
+                        </div>
                     ) : (
                         <p className="text-[12px] text-faint">Loading entry…</p>
                     )}
                 </div>
+                {paging?.moreFailed && (
+                    <div className="flex shrink-0 items-center gap-2 border-t border-hair px-3 py-2 text-[12px] text-fail" data-testid="transcript-more-error">
+                        The next steps could not be loaded.
+                        <Button variant="secondary" onClick={paging.onLoadMore} data-testid="transcript-more-retry">
+                            Retry
+                        </Button>
+                    </div>
+                )}
                 <div className="flex shrink-0 items-center gap-2 border-t border-hair px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
                     <Button variant="secondary" className="flex-1" onClick={() => step(-1)} disabled={sel <= 0}>
                         Previous
                     </Button>
-                    <Button variant="secondary" className="flex-1" onClick={() => step(1)} disabled={sel >= rows.length - 1}>
+                    <Button variant="secondary" className="flex-1" onClick={() => {
+                            if (sel >= rows.length - 1 && paging?.hasMore) {
+                                setAdvanceFrom(rows.length);
+                                paging.onLoadMore();
+                            } else {
+                                step(1);
+                            }
+                        }} disabled={sel >= rows.length - 1 && !paging?.hasMore}>
                         Next
                     </Button>
                 </div>

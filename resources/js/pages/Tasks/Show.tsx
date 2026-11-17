@@ -11,13 +11,13 @@ import { Composer } from '@/components/tasks/Composer';
 import { DebugDetails } from '@/components/tasks/DebugDetails';
 import { DeploymentCard } from '@/components/tasks/DeploymentCard';
 import { HeaderBand } from '@/components/tasks/HeaderBand';
-import { LogEntrySheet } from '@/components/tasks/LogEntrySheet';
+import { LogEntrySheet } from '@/components/shared/LogEntrySheet';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { TaskSummary } from '@/components/tasks/TaskSummary';
 import { TaskTabs, type TaskTab } from '@/components/tasks/TaskTabs';
 import { ThreadEntry } from '@/components/tasks/ThreadEntry';
-import type { YakBubbleContext } from '@/components/tasks/YakBubble';
-import { TranscriptOverlay } from '@/components/tasks/TranscriptOverlay';
+import { StandaloneStop, type YakBubbleContext } from '@/components/tasks/YakBubble';
+import { TranscriptOverlay } from '@/components/shared/TranscriptOverlay';
 import { VideoPlayer } from '@/components/tasks/VideoPlayer';
 import { WalkthroughCard } from '@/components/tasks/WalkthroughCard';
 import { POLLED_PROPS, useActivityRows } from '@/components/tasks/useActivityRows';
@@ -37,6 +37,7 @@ import type {
     DebugData,
     DeploymentData,
     FindingsData,
+    StopData,
     MediaItem,
     ProgressStep,
     RunSummary,
@@ -60,6 +61,7 @@ type Props = PageProps<{
     walkthrough: WalkthroughData;
     deployment: DeploymentData;
     findings: FindingsData;
+    stop: StopData;
     composer: ComposerData;
     questions: QuestionData[] | null;
     coOwner: CoOwnerData | null;
@@ -85,6 +87,7 @@ export default function Show({
     walkthrough,
     deployment,
     findings,
+    stop,
     composer,
     questions,
     coOwner,
@@ -151,6 +154,9 @@ export default function Show({
             ? { kind: 'yak', who: 'Yak', meta: `${activitySummary.entries} steps`, bodyHtml: '', runId: task.runId, live: isActiveStatus, error: null }
             : null;
 
+    // The bubble of the run on screen renders the stop block when it carries an error; otherwise it renders here.
+    const needsStandaloneStop = stop !== null && !(streamIndex >= 0 && thread[streamIndex].error != null);
+
     useEffect(() => {
         setOpenLogId(transcriptLogId);
         setTranscriptOpen(transcriptLogId !== null);
@@ -189,6 +195,7 @@ export default function Show({
         deployment,
         progress: progress.steps,
         findings: index === lastYakIndex ? findings : null,
+        stop,
         onOpenFullLog: openTranscriptCold,
         stream: {
             rows: activityRows.rows,
@@ -264,6 +271,7 @@ export default function Show({
                                 {orphanStream && (
                                     <ThreadEntry entry={orphanStream} yak={yakContext(-1)} focused onOpenMedia={() => undefined} onSelectClarificationOption={() => undefined} />
                                 )}
+                                {needsStandaloneStop && <StandaloneStop task={task} actions={actions} stop={stop} />}
                                 {earlyWarning !== null && <EarlyWarningNotice taskId={task.id} warning={earlyWarning} />}
                             </div>
 

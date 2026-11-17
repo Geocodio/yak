@@ -6,6 +6,7 @@ use App\DataTransferObjects\ThreadMessageInput;
 use App\DataTransferObjects\ThreadMessageResult;
 use App\Enums\MessageDelivery;
 use App\Enums\SteeringMode;
+use App\Enums\TaskMode;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\TurnMessageKind;
@@ -15,9 +16,14 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
+use App\Models\YakTask;
+use App\Services\FollowUpTaskFactory;
+use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\YakPromptBuilder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Sends a person's message into a thread: starts a turn, steers the running
@@ -26,6 +32,8 @@ use Illuminate\Support\Facades\DB;
 class ThreadMessageSender
 {
     private const DEVICE_SENTENCE = 'Your computer is working on this thread. Hand it back to Yak before sending a message.';
+
+    private const CANNOT_SEND_SENTENCE = 'You cannot send messages to this thread.';
 
     private const NOT_STARTED_SENTENCE = 'This thread has not started yet. It starts when its repository is set up.';
 
@@ -55,8 +63,16 @@ class ThreadMessageSender
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_OWNED_BY_DEVICE, self::DEVICE_SENTENCE);
         }
 
+        if ($thread->is_legacy && ! $thread->isOpen()) {
+            return $this->continueLegacy($thread, $user, $input);
+        }
+
         if (! $thread->isOpen()) {
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, 'This thread is closed.');
+        }
+
+        if (! $thread->hasRepository()) {
+            throw ThreadActionRefused::because(ThreadActionRefused::NO_REPOSITORY, ThreadActionRefused::NO_REPOSITORY_SENTENCE);
         }
 
         // A thread that has run before keeps its conversation: the message is queued and runs once the repository is ready.
@@ -71,7 +87,81 @@ class ThreadMessageSender
             ThreadPublishGuard::assertAcknowledged($thread, $input->acknowledgedPrivatePublish);
         }
 
+        $head = $input->intent === null && ! ClearCommand::matches($input->text) ? $thread->headTask() : null;
+
+        if ($head !== null && StoppedTaskReplies::appliesTo($head)) {
+            return $this->replyToStoppedTask($head, $user, $input);
+        }
+
         return $this->deliver($thread, $user, $input);
+    }
+
+    /**
+     * A message to a thread whose head task stopped retries that task with the message as a note, as a reply on the old task page did.
+     */
+    private function replyToStoppedTask(YakTask $head, User $user, ThreadMessageInput $input): ThreadMessageResult
+    {
+        $storeAttachments = $input->storeAttachments;
+        $sentence = app(StoppedTaskReplies::class)->handle(
+            $head,
+            $input->text,
+            'dashboard',
+            authorName: $user->name,
+            afterNoteQueued: $storeAttachments === null ? null : fn (PendingSteeringMessage $note): mixed => $storeAttachments($note),
+            authorUserId: $user->id,
+        );
+
+        return new ThreadMessageResult('sent', null, null, $sentence);
+    }
+
+    /**
+     * A message to work from before threads continues it the way a follow-up
+     * on the old task did, in a new thread that continues from this one.
+     */
+    private function continueLegacy(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
+    {
+        $access = app(ThreadAccess::class);
+        $continuing = Thread::query()->withoutVisibilityScope()->where('continued_from_thread_id', $thread->id)->latest('id')->first();
+
+        if ($continuing !== null && ! $access->canDrive($user, $continuing)) {
+            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, self::CANNOT_SEND_SENTENCE);
+        }
+
+        if ($continuing?->isOpen() === true) {
+            return new ThreadMessageResult($this->sendOnce($continuing, $user, $input)->status, null, $continuing->public_id);
+        }
+
+        $root = YakTask::query()->withoutGlobalScopes()->find($thread->legacy_root_task_id)
+            ?? throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, 'This thread is closed.');
+        $head = $root->conversation()->last() ?? $root;
+        $headThread = $head->thread_id === null || $head->thread_id === $thread->id
+            ? null
+            : Thread::query()->withoutVisibilityScope()->find($head->thread_id);
+
+        if ($headThread !== null && ! $access->canDrive($user, $headThread)) {
+            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, self::CANNOT_SEND_SENTENCE);
+        }
+
+        $closedMessage = $head->mode === TaskMode::Research ? 'This conversation is closed.' : 'This PR is no longer open for changes.';
+        $stored = $input->storeAttachments === null ? null : ($input->storeAttachments)(new PendingSteeringMessage);
+        $attachments = $stored instanceof Collection ? $stored : collect();
+        $child = app(FollowUpTaskFactory::class)->create($head, $input->text, 'dashboard', authorName: $user->name, attachments: $attachments, replier: $user);
+
+        if ($child === null) {
+            $attachments->each->delete();
+
+            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, $closedMessage);
+        }
+
+        // The worker's `forTask` opens the thread when this one cannot, so a failure here never loses the sent follow-up.
+        try {
+            $threadId = app(ThreadFactory::class)->forTask($child)->public_id;
+        } catch (Throwable $exception) {
+            report($exception);
+            $threadId = $thread->public_id;
+        }
+
+        return new ThreadMessageResult('sent', null, $threadId);
     }
 
     private function deliver(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
