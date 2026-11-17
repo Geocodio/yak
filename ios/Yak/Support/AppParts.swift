@@ -12,6 +12,9 @@ struct AppPartsContext {
     var activityHost: any ActivityHost = SystemActivityHost()
     var normalizeAddress: @Sendable (String) -> URL? = InstanceAddress.normalize
     var faults = DebugFaultSwitch()
+    var authenticator: any DeviceOwnerAuthenticator = LocalDeviceOwnerAuthenticator()
+    var appLockBackgroundLimit: TimeInterval = AppLockPolicy.backgroundLimit
+    var coversWhenActive = false
 }
 
 /// App-wide parts, built once per process, by the app and by test mode in the same way. A feature adds one stored
@@ -52,8 +55,11 @@ final class AppParts {
             instances: context.instances, registrar: registrar, permission: context.permission,
             center: context.center, activityHost: context.activityHost, normalize: context.normalizeAddress)
         let previewData = PreviewWebDataObserver(defaults: context.defaults)
-        let system = SystemFeatures(
-            settings: PrivacySettings(store: context.defaults), faults: context.faults, modelBox: ModelBox())
+        let settings = PrivacySettings(store: context.defaults)
+        let appLock = AppLockController(
+            settings: settings, authenticator: context.authenticator, clock: SystemClock(),
+            backgroundLimit: context.appLockBackgroundLimit, coversWhenActive: context.coversWhenActive)
+        let system = SystemFeatures(settings: settings, appLock: appLock, faults: context.faults, modelBox: ModelBox())
         let steps = [
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in
                 await push.refreshInstances(budget: budget)
@@ -76,7 +82,8 @@ extension View {
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
         onOpenURL { url in Task { await model.handle(url: url) } }
             .environment(parts.system)
-            .modifier(PushRoot(push: parts.push, model: model))
+            .appLockWindow(parts.system.appLock)
+            .modifier(PushRoot(push: parts.push, model: model, schedulesRefresh: !parts.isTestMode))
             .environment(\.previewDefaults, parts.previewData.defaults)
             .task { await parts.previewData.sweep(instances: model.instances) }
             #if DEBUG
@@ -92,6 +99,8 @@ extension View {
 private struct PushRoot: ViewModifier {
     let push: PushController
     let model: AppModel
+    /// Test mode registers no background task, and submitting one that is not registered aborts the app.
+    let schedulesRefresh: Bool
     @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {
@@ -99,7 +108,8 @@ private struct PushRoot: ViewModifier {
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
                 case .active: Task { await push.appBecameActive() }
-                case .background: BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
+                case .background:
+                    if schedulesRefresh { BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier) }
                 default: break
                 }
             }

@@ -2640,6 +2640,136 @@
         }
       }
     },
+    "lock.continue" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
+    "lock.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not confirm it is you."
+          }
+        }
+      }
+    },
+    "lock.passcodeRemoved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device has no passcode now, so app lock is off."
+          }
+        }
+      }
+    },
+    "lock.reason" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock Yak"
+          }
+        }
+      }
+    },
+    "lock.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock to see your threads."
+          }
+        }
+      }
+    },
+    "lock.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak is locked"
+          }
+        }
+      }
+    },
+    "lock.turnOnReason" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on app lock for Yak"
+          }
+        }
+      }
+    },
+    "lock.unlock.device" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock"
+          }
+        }
+      }
+    },
+    "lock.unlock.faceID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock with Face ID"
+          }
+        }
+      }
+    },
+    "lock.unlock.opticID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock with Optic ID"
+          }
+        }
+      }
+    },
+    "lock.unlock.passcode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock with passcode"
+          }
+        }
+      }
+    },
+    "lock.unlock.touchID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock with Touch ID"
+          }
+        }
+      }
+    },
+    "lock.unlocking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlocking"
+          }
+        }
+      }
+    },
     "markdown.more" : {
       "localizations" : {
         "en" : {

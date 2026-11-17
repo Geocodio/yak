@@ -61,6 +61,8 @@
         @MainActor func make(version: String, system: String) -> (model: AppModel, parts: AppParts) {
             let lockable = LockableTokenStore()
             let defaults = MemoryDefaults()
+            let options = TestSystemOptions.current()
+            if options.appLockOn { defaults.set(Data("true".utf8), forKey: PrivacySettings.appLockKey) }
             let instances = InstanceStore(
                 defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
@@ -76,7 +78,9 @@
                 context: AppPartsContext(
                     instances: instances, tokens: lockable, makeEnvironment: environment, defaults: defaults,
                     permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize,
-                    faults: faults))
+                    faults: faults, authenticator: TestDeviceOwnerAuthenticator(options: options),
+                    appLockBackgroundLimit: options.appLockLimit ?? AppLockPolicy.backgroundLimit,
+                    coversWhenActive: options.coverWhenActive))
             doubles.permission.controller = parts.push
             let push = parts.push
             let model = AppModel(
