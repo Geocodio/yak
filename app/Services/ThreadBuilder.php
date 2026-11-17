@@ -143,7 +143,7 @@ class ThreadBuilder
     {
         return array_values(collect((array) $round['questions'])->map(function (array $question) use ($round): array {
             $answer = $round['answers'][$question['id']] ?? null;
-            $choices = (array) ($answer['choices'] ?? []);
+            $choices = array_values((array) ($answer['choices'] ?? []));
             $other = is_string($answer['other'] ?? null) ? $answer['other'] : null;
 
             $descriptions = collect((array) ($question['options'] ?? []))->pluck('description', 'label');
