@@ -58,6 +58,8 @@ public struct ConversationSnapshot: Equatable, Sendable {
     public var isOffline: Bool
     public var hasOlderHistory: Bool
     public var isLoadingOlder: Bool
+    /// The last request for earlier events failed; it clears when one succeeds or a new one starts.
+    public var didOlderFail: Bool
     /// A `/clear` delivery named a new thread.
     public var replacementThreadID: String?
     public var lastSequence: Int
@@ -72,7 +74,8 @@ public struct ConversationSnapshot: Equatable, Sendable {
         currentStepKey: String? = nil, waiting: WaitingRow? = nil, turn: TurnChange? = nil,
         thread: ThreadStateChange? = nil, connection: ConnectionState = .offline,
         isShowingCachedCopy: Bool = false, isOffline: Bool = false, hasOlderHistory: Bool = false,
-        isLoadingOlder: Bool = false, replacementThreadID: String? = nil, lastSequence: Int = 0,
+        isLoadingOlder: Bool = false, didOlderFail: Bool = false, replacementThreadID: String? = nil,
+        lastSequence: Int = 0,
         problem: ThreadProblem? = nil, lastDiffUpdateSequence: Int? = nil
     ) {
         self.load = load
@@ -87,6 +90,7 @@ public struct ConversationSnapshot: Equatable, Sendable {
         self.isOffline = isOffline
         self.hasOlderHistory = hasOlderHistory
         self.isLoadingOlder = isLoadingOlder
+        self.didOlderFail = didOlderFail
         self.replacementThreadID = replacementThreadID
         self.lastSequence = lastSequence
         self.problem = problem

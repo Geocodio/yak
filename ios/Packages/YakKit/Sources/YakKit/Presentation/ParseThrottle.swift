@@ -19,8 +19,13 @@ public struct ParseThrottle: Sendable {
         self.interval = interval
     }
 
-    public mutating func request(now: Date) -> Decision {
+    /// Every 20 000 bytes of text add one more interval, so a long message that takes longer than the interval
+    /// to parse is not parsed back to back while it streams (about 0.5 s for 100 KB of mixed Markdown).
+    public static let bytesPerExtraInterval = 20_000
+
+    public mutating func request(now: Date, textBytes: Int = 0) -> Decision {
         guard let lastParse else { return .now }
+        let interval = self.interval * (1 + textBytes / Self.bytesPerExtraInterval)
         let elapsed = Duration.milliseconds((now.timeIntervalSince(lastParse) * 1000).rounded())
         if elapsed >= interval { return .now }
         if isScheduled { return .alreadyScheduled }

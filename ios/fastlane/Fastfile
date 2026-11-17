@@ -35,6 +35,10 @@ platform :ios do
     ENV["YAK_MARKETING_VERSION"] = version
     UI.message("Generating the project for version #{version}")
     sh("cd #{IOS_ROOT.shellescape} && xcodegen generate")
+    # The generated project is not tracked, so the pinned package versions live beside project.yml.
+    resolved_directory = File.join(IOS_ROOT, "Yak.xcodeproj/project.xcworkspace/xcshareddata/swiftpm")
+    FileUtils.mkdir_p(resolved_directory)
+    FileUtils.cp(File.join(IOS_ROOT, "Package.resolved"), resolved_directory)
   end
 
   desc "Format check and project rules. The self-test of the rule scripts runs when they changed since it last passed; " \
@@ -111,8 +115,10 @@ platform :ios do
     with_sim_slot do
       build_for_testing(device, options)
       with_simulator(device, options) do
+        # The test process sees only TEST_RUNNER_ variables; these scale the wall-clock limits on a slower machine.
+        variables = %w[CI YAK_TEST_TIMEOUT_SCALE].filter_map { |name| ENV[name] && "TEST_RUNNER_#{name}=#{ENV[name].shellescape}" }.join(" ")
         sh(
-          "cd #{IOS_ROOT.shellescape} && xcodebuild test-without-building #{xcodebuild_base(device)} -only-testing:YakTests"
+          "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test-without-building #{xcodebuild_base(device)} -only-testing:YakTests"
         )
       end
     end
@@ -215,6 +221,8 @@ platform :ios do
   BUILD_SCHEME = "Yak".freeze
   BUILD_PLATFORM = "iOS Simulator".freeze
 
+  # Warnings fail the build through project.yml, which covers the app's own targets; on the command line the setting
+  # would also reach swift-markdown, whose package build suppresses warnings and rejects it.
   def xcodebuild_base(device)
     "-project Yak.xcodeproj -scheme #{BUILD_SCHEME} -destination #{"platform=#{BUILD_PLATFORM},name=#{device}".shellescape} " \
       "-derivedDataPath #{File.join(IOS_ROOT, "build/DerivedData").shellescape} " \

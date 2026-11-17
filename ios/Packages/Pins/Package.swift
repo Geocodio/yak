@@ -10,10 +10,17 @@ let package = Package(
     platforms: [.iOS("27.0")],
     products: [.library(name: "Pins", targets: ["Pins"])],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.99.2")
+        .package(url: "https://github.com/swiftlang/swift-markdown", exact: "0.9.0"),
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.99.2"),
     ],
     targets: [
-        .target(name: "Pins", dependencies: [.product(name: "SwiftTerm", package: "SwiftTerm")])
+        .target(
+            name: "Pins",
+            dependencies: [
+                .product(name: "Markdown", package: "swift-markdown"),
+                .product(name: "SwiftTerm", package: "SwiftTerm"),
+            ]
+        )
     ],
     swiftLanguageModes: [.v6]
 )

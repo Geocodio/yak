@@ -62,6 +62,40 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         #expect(try object(missing)["error"] as? String == "not_found")
     }
 
+    @Test func storedEventsAreOlderThanNowByAFixedOffset() throws {
+        let page = try object(reply(.paired, "GET", "threads/d0e515ef/events?after=0&limit=500"))
+        let events = try #require(page["events"] as? [[String: Any]])
+        let stamps = events.compactMap { $0["createdAt"] as? String }.compactMap {
+            ISO8601DateFormatter().date(from: $0)
+        }
+        #expect(!stamps.isEmpty)
+        for stamp in stamps {
+            let age = Date().timeIntervalSince(stamp)
+            #expect(age > StubThreads.seededHistoryAge - 30 && age < StubThreads.seededHistoryAge + 30)
+        }
+    }
+
+    @Test func aLongTurnShowsSixtyStepsThenPlaysTheTurnAfterThem() throws {
+        let threads = StubThreads()
+        let before = try object(reply(.longTurn, "GET", "threads/d0e515ef/events?after=0&limit=500", threads: threads))
+        #expect(before["latestSequence"] as? Int == 60)
+        #expect(
+            try sequences(reply(.longTurn, "GET", "threads/d0e515ef/events?after=0&limit=500", threads: threads))
+                == Array(1...60))
+        threads.publish("d0e515ef", through: 63)
+        let after = try sequences(
+            reply(.longTurn, "GET", "threads/d0e515ef/events?after=58&limit=500", threads: threads))
+        #expect(after.first == 59)
+        #expect(after.last == 63)
+    }
+
+    @Test func aLongHistoryServesAnOlderPageOfTheAskedSize() throws {
+        let newest = try sequences(reply(.longHistory, "GET", "threads/d0e515ef/events?after=700&limit=500"))
+        #expect(newest == Array(701...1200))
+        let older = try sequences(reply(.longHistory, "GET", "threads/d0e515ef/events?after=640&limit=60"))
+        #expect(older == Array(641...700))
+    }
+
     @Test func eventsAnswerOnlyWhatIsPublished() throws {
         let threads = StubThreads()
         let before = try reply(.oneThreadWorking, "GET", "threads/d0e515ef/events?after=0&limit=500", threads: threads)
@@ -123,6 +157,7 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
 
     @Test(arguments: [
         "c10sed00", "readc0py", "c0mp7ter", "vsage000", "g7ard000", "rest0re0", "acc07nt0", "cred0000", "wa17ng00",
+        "n0events",
     ])
     func everyThreadStateHasItsShow(id: String) throws {
         let show = try object(reply(.threadStates, "GET", "threads/\(id)"))
@@ -154,6 +189,12 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         case "cred0000":
             #expect(composer == "disabled_blocked")
             #expect(notice == "credential_exposure")
+        case "n0events":
+            #expect(composer == "idle")
+            #expect(notice == nil)
+            #expect((show["messages"] as? [Any])?.isEmpty == true)
+            let page = try object(reply(.threadStates, "GET", "threads/n0events/events?after=0"))
+            #expect((page["events"] as? [Any])?.isEmpty == true)
         default:
             #expect(composer == "idle")
             #expect(notice == "waiting_for_sandbox")
@@ -277,6 +318,12 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         let page = try reply(.longHistory, "GET", "threads/d0e515ef/events?after=1100&limit=500")
         #expect(try sequences(page).count == 100)
         #expect(try object(page)["latestSequence"] as? Int == 1200)
+    }
+
+    @Test func onlyTheOlderPageOfALongHistoryIsSlow() throws {
+        #expect(try reply(.longHistory, "GET", "threads/d0e515ef/events?after=640&limit=60").delay == .seconds(12))
+        #expect(try reply(.longHistory, "GET", "threads/d0e515ef/events?after=700&limit=500").delay == .zero)
+        #expect(try reply(.paired, "GET", "threads/d0e515ef/events?after=0&limit=500").delay == .zero)
     }
 
     @Test func authorizationAnswersPerChannelKind() throws {

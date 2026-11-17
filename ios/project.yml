@@ -21,6 +21,9 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
     exactVersion: 1.99.2
+  swift-markdown:
+    url: https://github.com/swiftlang/swift-markdown
+    exactVersion: 0.9.0
 targets:
   Yak:
     type: application
@@ -31,6 +34,8 @@ targets:
     dependencies:
       - package: YakKit
       - package: SwiftTerm
+      - package: swift-markdown
+        product: Markdown
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(YAK_BUNDLE_ID)

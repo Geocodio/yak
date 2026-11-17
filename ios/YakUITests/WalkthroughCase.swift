@@ -23,7 +23,7 @@ import XCTest
 
     func start(
         _ scenario: String, paired: Bool = false, keychainLocked: Bool = false, skipsWebSession: Bool = false,
-        extraArguments: [String] = [], attachments: Int = 0, cameraDenied: Bool = false
+        attachments: Int = 0, cameraDenied: Bool = false, extraArguments: [String] = []
     ) throws {
         try stub.play(scenario)
         var arguments = ["-yakTestInstance", stub.url]
@@ -85,12 +85,13 @@ import XCTest
     }
 
     /// A screenshot of a thread screen, then the audit without the findings about text in the navigation bar,
-    /// whose size the system caps.
+    /// whose size the system caps. The Dynamic Type and clipped-text checks run last: they change the text size,
+    /// which lays the conversation out again and moves its rows, so every other check reads the list as it was shot.
     func shootThread(_ name: String) throws {
         try shoot(name, audits: false)
         let keyboard = keyboardFrame()
         let auditBars = AuditRules.Bars(app)
-        try app.performAccessibilityAudit { [app, auditBars] issue in
+        let judge: (XCUIAccessibilityAuditIssue) -> Bool = { [app, auditBars] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 // The system caps the size of text in its bars, and draws its glass under the threads badge.
@@ -112,9 +113,14 @@ import XCTest
             if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
             // Text behind a bar is covered by the bar.
             if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
+            XCTFail(
+                "audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element") | bars \(auditBars.bars.map(\.frame)) window \(auditBars.window)"
+            )
             return true
         }
+        let resizing: XCUIAccessibilityAuditType = [.dynamicType, .textClipped]
+        try app.performAccessibilityAudit(for: XCUIAccessibilityAuditType.all.subtracting(resizing), judge)
+        try app.performAccessibilityAudit(for: resizing, judge)
     }
 
     /// Saves the screenshot once animations settle, then audits the screen. `audits: false` is for screens

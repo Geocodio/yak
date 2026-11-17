@@ -13,9 +13,9 @@ import XCTest
         XCUIDevice.shared.orientation = .portrait
     }
 
-    private func launch(scenario: String) throws {
+    private func launch(scenario: String, extraArguments: [String] = []) throws {
         try stub.play(scenario)
-        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
+        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"] + extraArguments
         app.launch()
     }
 
@@ -28,7 +28,7 @@ import XCTest
     func testColdStartWithOneThreadThatNeedsYouOpensIt() throws {
         try launch(scenario: "question-open")
         XCTAssertTrue(app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.otherElements["conversation"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 10))
         try audit()
     }
 
@@ -63,7 +63,7 @@ import XCTest
             XCTAssertFalse(app.staticTexts[text].exists, text)
         }
         rows.firstMatch.tap()
-        XCTAssertTrue(app.otherElements["conversation"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 15))
         let gone = NSPredicate(format: "exists == false")
         for identifier in ["thread.loading", "thread.slow", "thread.notFound", "thread.offline", "thread.error"] {
             let element = app.descendants(matching: .any)[identifier]
@@ -75,6 +75,143 @@ import XCTest
             XCTAssertFalse(app.staticTexts[text].exists, text)
         }
         try audit()
+    }
+
+    /// Smoke test 3: a turn streams in, and its texts end up in the order they were written with the tool group
+    /// between them. The composer's stop button belongs to the composer, so the end of the turn is the last text.
+    func testAStreamedTurnAppearsInOrderAndEnds() throws {
+        try launch(scenario: "one-thread-working")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        let first = app.staticTexts["Looking at the importer."]
+        let last = app.staticTexts["Done. Failed rows now retry three times."]
+        XCTAssertTrue(first.waitForExistence(timeout: 15))
+        XCTAssertTrue(last.waitForExistence(timeout: 15))
+        let group = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS %@", "Read 1 file, Ran 1 command")
+        ).firstMatch
+        XCTAssertTrue(group.waitForExistence(timeout: 5))
+        XCTAssertLessThan(first.frame.minY, group.frame.minY)
+        XCTAssertLessThan(group.frame.minY, last.frame.minY)
+        // No step is still running once the turn has ended.
+        let running = app.descendants(matching: .any)["step.current"]
+        wait(
+            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: running)],
+            timeout: 15)
+        try audit()
+    }
+
+    /// Guards that a reader who scrolled up stays in place while a turn streams. The conversation has 60 earlier
+    /// steps, so it is taller than two screens, and the turn plays after them.
+    func testStreamingTextDoesNotMoveAReaderWhoScrolledUp() throws {
+        try launch(scenario: "long-turn")
+        try stub.hold(after: 67)
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        XCTAssertTrue(app.staticTexts["Looking at the importer."].waitForExistence(timeout: 60))
+        let list = app.descendants(matching: .any)["conversation"].firstMatch
+        list.swipeDown()
+        func firstStep() throws -> any XCUIElementSnapshot {
+            func steps(in node: any XCUIElementSnapshot) -> [any XCUIElementSnapshot] {
+                let own = node.label.wholeMatch(of: /Step \d+\./) != nil ? [node] : []
+                return own + node.children.flatMap { steps(in: $0) }
+            }
+            let top = list.frame.minY + 60
+            return try XCTUnwrap(
+                steps(in: try app.snapshot()).filter { $0.frame.minY > top && $0.frame.maxY < list.frame.maxY }
+                    .min { $0.frame.minY < $1.frame.minY })
+        }
+        // The swipe's momentum has ended when two reads a moment apart agree.
+        var tracked = try firstStep()
+        for _ in 0..<10 {
+            Thread.sleep(forTimeInterval: 0.3)
+            let now = try firstStep()
+            if now.label == tracked.label, abs(now.frame.minY - tracked.frame.minY) < 0.5 { break }
+            tracked = now
+        }
+        try stub.hold(after: nil)
+        // The rest of the turn plays one event every 400 ms; its end is below the screen, so it cannot be waited for.
+        Thread.sleep(forTimeInterval: 8)
+        let moved = app.staticTexts[tracked.label]
+        XCTAssertTrue(moved.exists, "\(tracked.label) left the screen")
+        XCTAssertEqual(moved.frame.minY, tracked.frame.minY, accuracy: 1)
+    }
+
+    /// A long conversation opens at its end, also when its first page arrives late: here the thread opens while the
+    /// instance is unreachable, and the rows and their Markdown arrive once it is back.
+    func testALongConversationThatArrivesLateOpensAtItsEnd() throws {
+        try launch(scenario: "long-history")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        try stub.setOnline(false)
+        row.tap()
+        Thread.sleep(forTimeInterval: 4)
+        try stub.setOnline(true)
+        let last = app.staticTexts["Step 1200."]
+        XCTAssertTrue(last.waitForExistence(timeout: 60))
+        // The rows keep arriving and growing as their Markdown is parsed; the end stays in view through all of it.
+        Thread.sleep(forTimeInterval: 3)
+        let list = app.descendants(matching: .any)["conversation"].firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        XCTAssertTrue(last.waitForExistence(timeout: 10), "the end left the screen")
+        let centre = CGPoint(x: last.frame.midX, y: last.frame.midY)
+        XCTAssertTrue(list.frame.contains(centre), "\(last.frame) is outside \(list.frame)")
+        XCTAssertFalse(app.descendants(matching: .any)["chat.jumpToLatest"].exists)
+    }
+
+    /// The row at the top of the screen stays where it is when earlier messages arrive above it.
+    func testEarlierMessagesKeepTheRowInPlace() throws {
+        try launch(scenario: "long-history")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        XCTAssertTrue(app.staticTexts["Step 1200."].waitForExistence(timeout: 60))
+        let list = app.descendants(matching: .any)["conversation"].firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        let loading = app.staticTexts["Loading earlier messages"]
+        var isLoading = false
+        // The row shows for the 12 seconds the stub holds the page; on a slow machine a swipe takes long, so every
+        // fourth swipe looks for it with more time.
+        for swipe in 1...80 where !isLoading {
+            list.swipeDown(velocity: .fast)
+            isLoading = loading.waitForExistence(timeout: swipe.isMultiple(of: 4) ? 3 : 0.5)
+        }
+        XCTAssertTrue(isLoading)
+        // One snapshot of the screen, so rows that are being replaced do not vanish between two queries.
+        func steps(in node: any XCUIElementSnapshot) -> [any XCUIElementSnapshot] {
+            let own = node.label.wholeMatch(of: /Step \d+\./) != nil ? [node] : []
+            return own + node.children.flatMap { steps(in: $0) }
+        }
+        let top = list.frame.minY + 60
+        func firstStep() throws -> any XCUIElementSnapshot {
+            try XCTUnwrap(
+                steps(in: try app.snapshot()).filter { $0.frame.minY > top && $0.frame.maxY < list.frame.maxY }
+                    .min { $0.frame.minY < $1.frame.minY })
+        }
+        // The swipe's momentum has ended when two reads a moment apart agree.
+        var tracked = try firstStep()
+        for _ in 0..<10 {
+            Thread.sleep(forTimeInterval: 0.3)
+            let now = try firstStep()
+            if now.label == tracked.label, abs(now.frame.minY - tracked.frame.minY) < 0.5 { break }
+            tracked = now
+        }
+        let label = tracked.label
+        let before = tracked.frame.minY
+        let result = XCTWaiter().wait(
+            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: loading)],
+            timeout: 30)
+        XCTAssertEqual(result, .completed)
+        let moved = app.staticTexts[label]
+        XCTAssertTrue(moved.waitForExistence(timeout: 10), "\(label) left the screen when the earlier messages arrived")
+        print("earlier messages moved \(label) by \(moved.frame.minY - before) points")
+        XCTAssertEqual(moved.frame.minY, before, accuracy: 2)
     }
 
     /// Smoke test 5, the composer's half: a send while a turn runs steers, and a long press on Send queues. The

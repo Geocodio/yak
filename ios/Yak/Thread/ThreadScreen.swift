@@ -47,6 +47,10 @@ struct ThreadScreen: View {
         }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
+        // A `/clear` starts a new thread; the window follows it.
+        .onChange(of: model?.replacementThreadID) { _, replacement in
+            if let replacement { scene.open(thread: replacement, isCompactWidth: isCompactWidth) }
+        }
         .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
     }
 
@@ -77,11 +81,11 @@ struct ThreadScreen: View {
         let activity = activityLine(thread, focused: focused.wrappedValue)
         return NavigationStack {
             HStack(spacing: 0) {
+                // The bar sits below the pane, not over it, on the page color that runs to the bottom of the
+                // screen: no row scrolls behind the glass or below it, where it would be hidden yet still reachable.
                 VStack(spacing: 0) {
                     if placement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
                     PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
-                }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(spacing: 6) {
                         if let line = activity {
                             ActivityStrip(line: line) { openChat(focusComposer: $0) }
@@ -95,6 +99,8 @@ struct ThreadScreen: View {
             .background(Color(.systemBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
+            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+            .toolbarBackground(Color(.systemBackground), for: .navigationBar)
             .toolbar {
                 if !placement.hidesTitle {
                     if isCompactWidth {
