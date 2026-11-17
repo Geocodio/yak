@@ -7,6 +7,7 @@ use App\Models\CoOwnerRequest;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Support\PersonName;
+use App\Support\TaskPageUrl;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -358,7 +359,7 @@ class CoOwnerBlocks
 
         return ['type' => 'actions', 'elements' => [
             ['type' => 'button', 'style' => 'primary', 'action_id' => self::APPROVE_ACTION_ID, 'value' => $id, 'text' => self::plain('Approve & open PR')],
-            self::linkButton('Request changes', 'yak_link_request_changes', self::taskUrl($request) . '#co-owner'),
+            self::linkButton('Request changes', 'yak_link_request_changes', self::taskUrl($request, 'co-owner')),
             [
                 'type' => 'button',
                 'style' => 'danger',
@@ -479,9 +480,9 @@ class CoOwnerBlocks
         return CarbonImmutable::instance($moment)->setTimezone((string) config('app.timezone'))->format($format);
     }
 
-    private static function taskUrl(CoOwnerRequest $request): string
+    private static function taskUrl(CoOwnerRequest $request, ?string $anchor = null): string
     {
-        return rtrim((string) config('app.url'), '/') . route('tasks.show', ['task' => YakTask::publicIdForKey($request->task_id)], false);
+        return rtrim((string) config('app.url'), '/') . (TaskPageUrl::forTaskId($request->task_id, $anchor, absolute: false) ?? route('threads.log', [], false));
     }
 
     private static function taskLink(CoOwnerRequest $request): string

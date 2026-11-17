@@ -16,6 +16,7 @@ use App\Services\TaskLogger;
 use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\ThreadBuilder;
 use App\Support\AttachmentNumbering;
+use App\Support\TaskPageUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 
@@ -54,7 +55,7 @@ class TaskMessageController extends Controller
             default => ['error', 'This conversation is closed.'],
         };
 
-        return redirect()->route('tasks.show', $task)->with($flashKey, $message);
+        return redirect()->to(TaskPageUrl::forOrLog($task))->with($flashKey, $message);
     }
 
     /**

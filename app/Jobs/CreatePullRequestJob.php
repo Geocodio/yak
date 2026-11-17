@@ -11,6 +11,7 @@ use App\Models\Artifact;
 use App\Models\CoOwnerRequest;
 use App\Models\PreviewRepair;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
@@ -26,6 +27,7 @@ use App\Services\Threads\PullRequests\PullRequestOpening;
 use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Services\WalkthroughPrSection;
 use App\Support\MarkdownText;
+use App\Support\TaskPageUrl;
 use App\Support\TaskTrigger;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -432,7 +434,12 @@ class CreatePullRequestJob implements ShouldQueue
             $parts[] = "**Task:** [{$this->task->external_id}]({$taskUrl})";
         }
 
-        $parts[] = "**Yak task:** [#{$this->task->id}]({$this->yakTaskUrl()})";
+        $yakUrl = $this->yakTaskUrl();
+
+        if ($yakUrl !== null) {
+            $parts[] = "**Yak thread:** [{$this->yakThreadTitle()}]({$yakUrl})";
+        }
+
         $parts[] = "**Repository:** {$this->task->repo}";
         $parts[] = "**Attempts:** {$this->task->attempts}";
 
@@ -468,12 +475,23 @@ class CreatePullRequestJob implements ShouldQueue
     }
 
     /**
-     * Deep link back to the task's page on this Yak install, so a reviewer
+     * Deep link back to the task's thread on this Yak install, so a reviewer
      * can reach the run log, the cost, and the follow-up box from the PR.
      */
-    private function yakTaskUrl(): string
+    private function yakTaskUrl(): ?string
     {
-        return route('tasks.show', $this->task);
+        return TaskPageUrl::for($this->task);
+    }
+
+    /**
+     * The thread title for the link text, kept to one short line.
+     */
+    private function yakThreadTitle(): string
+    {
+        $thread = $this->task->thread_id === null ? null : Thread::query()->withoutGlobalScopes()->find($this->task->thread_id);
+        $title = trim(preg_replace('/\s+/', ' ', (string) ($thread?->title ?: $this->task->headline())) ?? '');
+
+        return str_replace(['[', ']'], ['(', ')'], mb_strimwidth($title !== '' ? $title : "#{$this->task->id}", 0, 80, '…'));
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Enums\TaskMode;
 use App\Jobs\SendEmailAcknowledgmentJob;
 use App\Models\TaskAttachment;
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
@@ -95,14 +96,14 @@ class TaskStartedMail extends Mailable
                 ? 'Needs one answer: which repository?'
                 : 'Task started in ' . $this->tasks->pluck('repo')->implode(', ') . ': ' . Str::limit(Str::before($instruction, "\n"), 90),
             'rows' => $this->tasks->map(fn (YakTask $task): array => [
-                'url' => route('tasks.show', $task),
+                'url' => TaskPageUrl::forOrLog($task),
                 'repo' => $task->repo,
                 'mode' => $task->mode === TaskMode::Research ? 'Research' : 'Fix',
                 'externalId' => $task->external_id,
             ])->values()->all(),
             'repoOptions' => collect($first->clarification_options ?? [])->map(fn (string $slug): array => [
                 'slug' => $slug,
-                'url' => route('tasks.show', ['task' => $first, 'repo' => $slug]),
+                'url' => TaskPageUrl::for($first, null, ['repo' => $slug]) ?? route('threads.log'),
             ])->all(),
             'instruction' => $instruction,
             'subject' => (string) ($this->email['subject'] ?? ''),

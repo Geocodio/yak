@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tasks;
 use App\Actions\RequestReReview;
 use App\Http\Controllers\Controller;
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 use Illuminate\Http\RedirectResponse;
 
 class RequestReReviewController extends Controller
@@ -13,6 +14,6 @@ class RequestReReviewController extends Controller
     {
         $outcome = $requestReReview($task);
 
-        return redirect()->route('tasks.show', $outcome->task)->with($outcome->isError ? 'error' : 'success', $outcome->sentence);
+        return redirect()->to(TaskPageUrl::forOrLog($outcome->task))->with($outcome->isError ? 'error' : 'success', $outcome->sentence);
     }
 }

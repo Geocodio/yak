@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\StoreClarificationAnswersRequest;
 use App\Models\YakTask;
 use App\Services\ClarificationAnswerSubmitter;
+use App\Support\TaskPageUrl;
 use Illuminate\Http\RedirectResponse;
 
 class TaskClarificationAnswerController extends Controller
@@ -22,10 +23,10 @@ class TaskClarificationAnswerController extends Controller
                 'dashboard',
             );
         } catch (ThreadActionRefused $refused) {
-            return redirect()->back(fallback: route('tasks.show', $task))->with('error', $refused->getMessage());
+            return redirect()->back(fallback: TaskPageUrl::forOrLog($task))->with('error', $refused->getMessage());
         }
 
-        return redirect()->back(fallback: route('tasks.show', $task))->with(
+        return redirect()->back(fallback: TaskPageUrl::forOrLog($task))->with(
             $submitted ? 'success' : 'error',
             $submitted ? 'Sent to Yak.' : 'These questions were already answered.',
         );

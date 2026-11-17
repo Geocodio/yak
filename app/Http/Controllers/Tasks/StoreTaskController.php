@@ -13,6 +13,7 @@ use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
+use App\Support\TaskPageUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 
@@ -53,6 +54,6 @@ class StoreTaskController extends Controller
 
         SendEarlyWarningJob::dispatch($task);
 
-        return redirect()->route('tasks.show', $task)->with('success', 'Task created.');
+        return redirect()->to(TaskPageUrl::forOrLog($task))->with('success', 'Task created.');
     }
 }

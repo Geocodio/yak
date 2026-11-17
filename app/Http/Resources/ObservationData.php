@@ -3,7 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Observation;
-use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 
 /**
  * Flattens an {@see Observation} into the shape the Observations page
@@ -36,9 +36,7 @@ final class ObservationData
         return [
             ...self::common($observation),
             'taskId' => $observation->yak_task_id,
-            'taskUrl' => $observation->yak_task_id !== null
-                ? route('tasks.show', ['task' => YakTask::publicIdForKey($observation->yak_task_id)])
-                : null,
+            'taskUrl' => TaskPageUrl::forTaskId($observation->yak_task_id),
         ];
     }
 

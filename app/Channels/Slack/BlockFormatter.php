@@ -33,7 +33,7 @@ class BlockFormatter
         YakTask $task,
         NotificationType $type,
         string $personalityMessage,
-        string $dashboardUrl,
+        ?string $dashboardUrl,
         bool $firstTimeIntro = false,
     ): array {
         $blocks = [];
@@ -120,7 +120,7 @@ class BlockFormatter
         NotificationType $type,
         string $headline,
         string $personalityMessage,
-        string $dashboardUrl,
+        ?string $dashboardUrl,
         ?string $previewUrl,
     ): array {
         return [
@@ -143,7 +143,7 @@ class BlockFormatter
     /**
      * @return list<array<string, mixed>>
      */
-    private static function directMessageButtons(YakTask $task, NotificationType $type, string $dashboardUrl, ?string $previewUrl): array
+    private static function directMessageButtons(YakTask $task, NotificationType $type, ?string $dashboardUrl, ?string $previewUrl): array
     {
         $buttons = [];
 
@@ -155,7 +155,9 @@ class BlockFormatter
             $buttons[] = self::linkButton('yak_open_preview', 'Open preview', $previewUrl);
         }
 
-        $buttons[] = self::linkButton('yak_view_task', 'View task', $dashboardUrl);
+        if ($dashboardUrl !== null) {
+            $buttons[] = self::linkButton('yak_view_task', 'View task', $dashboardUrl);
+        }
 
         $isQuestion = in_array($type, [NotificationType::Clarification, NotificationType::Reminder], true);
 
@@ -218,7 +220,7 @@ class BlockFormatter
     /**
      * @return list<array<string, mixed>>
      */
-    private static function actionElements(YakTask $task, NotificationType $type, string $dashboardUrl): array
+    private static function actionElements(YakTask $task, NotificationType $type, ?string $dashboardUrl): array
     {
         $elements = [];
 
@@ -241,7 +243,9 @@ class BlockFormatter
             $viewTask['style'] = 'primary';
         }
 
-        $elements[] = $viewTask;
+        if ($dashboardUrl !== null) {
+            $elements[] = $viewTask;
+        }
 
         // View PR — only when a PR has been opened. Typical after
         // Result notifications, but a retried task could post Progress

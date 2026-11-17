@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -87,12 +88,10 @@ final class WalkthroughPrSection
             return [];
         }
 
-        $taskUrl = route('tasks.show', ['task' => $task]);
-
         return array_values(array_map(fn (array $chapter): array => [
             'title' => (string) ($chapter['title'] ?? ''),
             'startSeconds' => (float) ($chapter['startSeconds'] ?? 0),
-            'url' => $taskUrl . '?t=' . (int) round((float) ($chapter['startSeconds'] ?? 0)),
+            'url' => TaskPageUrl::for($task, null, ['t' => (int) round((float) ($chapter['startSeconds'] ?? 0))]) ?? '',
         ], array_filter($decoded, is_array(...))));
     }
 

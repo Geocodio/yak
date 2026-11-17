@@ -9,6 +9,7 @@ use App\Http\Requests\Tasks\RerouteTaskRequest;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Tasks\TaskActions;
+use App\Support\TaskPageUrl;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,18 +62,18 @@ class TaskActionController extends Controller
         try {
             $outcome = $action();
         } catch (ThreadActionRefused $refused) {
-            return redirect()->route('tasks.show', $task)->with('error', $refused->getMessage());
+            return redirect()->to(TaskPageUrl::forOrLog($task))->with('error', $refused->getMessage());
         } catch (HttpException $unavailable) {
             if ($unavailable->getStatusCode() !== 503) {
                 throw $unavailable;
             }
 
-            return redirect()->route('tasks.show', $task)->with('error', $unavailable->getMessage());
+            return redirect()->to(TaskPageUrl::forOrLog($task))->with('error', $unavailable->getMessage());
         } catch (ValidationException $invalid) {
-            return redirect()->route('tasks.show', $task)->with('error', (string) collect($invalid->errors())->flatten()->first());
+            return redirect()->to(TaskPageUrl::forOrLog($task))->with('error', (string) collect($invalid->errors())->flatten()->first());
         }
 
-        $redirect = redirect()->route('tasks.show', $task);
+        $redirect = redirect()->to(TaskPageUrl::forOrLog($task));
 
         return $outcome->sentence === '' ? $redirect : $redirect->with('success', $outcome->sentence);
     }

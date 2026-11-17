@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\UpdateQueuedMessageRequest;
 use App\Models\YakTask;
 use App\Services\Threads\QueuedMessages;
+use App\Support\TaskPageUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -44,7 +45,7 @@ class QueuedMessageController extends Controller
 
     private function back(YakTask $task, ?string $error): RedirectResponse
     {
-        $redirect = redirect()->route('tasks.show', $task);
+        $redirect = redirect()->to(TaskPageUrl::forOrLog($task));
 
         return $error === null ? $redirect : $redirect->with('error', $error);
     }
