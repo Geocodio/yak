@@ -2,15 +2,19 @@
 
 namespace App\Console\Commands;
 
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
 use App\Services\ClarificationMessage;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StopNotifier;
+use Carbon\CarbonInterface;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 
 #[Signature('yak:cleanup')]
 #[Description('Expire unanswered clarifications and remind people about questions open for a working day')]
@@ -39,16 +43,31 @@ class CleanupExpiredClarificationsCommand extends Command
 
             TaskLogger::warning($task, 'Task expired');
 
-            SendNotificationJob::dispatch(
+            StopNotifier::notify(
                 $task,
+                TaskStop::unansweredQuestion($this->askedAt($task), 'Clarification expired, no response received'),
                 NotificationType::Expiry,
-                'Clarification expired, no response received',
             );
 
             $this->components->info("Expired task #{$task->id}");
         }
 
         $this->components->info("Expired {$tasks->count()} task(s).");
+    }
+
+    /**
+     * The latest round's asked_at, or the expiry minus the clarification TTL
+     * for a question that recorded no rounds.
+     */
+    private function askedAt(YakTask $task): CarbonInterface
+    {
+        $rounds = $task->clarificationRounds();
+
+        if ($rounds !== []) {
+            return Carbon::parse($rounds[array_key_last($rounds)]['asked_at']);
+        }
+
+        return $task->clarification_expires_at->subDays((int) config('yak.clarification_ttl_days', 7));
     }
 
     /**

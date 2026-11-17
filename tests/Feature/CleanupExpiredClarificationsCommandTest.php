@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
@@ -12,8 +13,13 @@ beforeEach(function () {
 });
 
 test('expires tasks past their clarification_expires_at', function () {
+    $this->travelTo(Carbon\Carbon::parse('2026-11-12 10:00:00'));
     $task = YakTask::factory()->awaitingClarification()->create([
         'clarification_expires_at' => now()->subDay(),
+        'clarification_rounds' => [
+            ['questions' => [], 'summary' => 'old', 'asked_at' => '2026-11-01T09:00:00+00:00', 'answers' => []],
+            ['questions' => [], 'summary' => 'new', 'asked_at' => '2026-11-05T09:00:00+00:00', 'answers' => null],
+        ],
     ]);
 
     $this->artisan('yak:cleanup')->assertSuccessful();
@@ -21,12 +27,29 @@ test('expires tasks past their clarification_expires_at', function () {
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Expired);
     expect($task->completed_at)->not->toBeNull();
+    expect($task->stop_kind)->toBe(StopKind::NeedsYou);
+    expect($task->error_log)->toContain('Clarification expired, no response received');
 
-    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) use ($task) {
+    $summary = "Yak asked a question on Nov 5 and didn't hear back, so it stopped.";
+    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) use ($task, $summary) {
         return $job->task->id === $task->id
             && $job->type === NotificationType::Expiry
-            && str_contains($job->message, 'Clarification expired');
+            && $job->message === $summary
+            && $job->personalize === false;
     });
+    Queue::assertPushed(SendNotificationJob::class, 1);
+});
+
+test('derives the asked date from the expiry when no rounds were recorded', function () {
+    $this->travelTo(Carbon\Carbon::parse('2026-11-12 10:00:00'));
+    config(['yak.clarification_ttl_days' => 7]);
+    $task = YakTask::factory()->awaitingClarification()->create([
+        'clarification_expires_at' => now()->subHour(),
+    ]);
+
+    $this->artisan('yak:cleanup')->assertSuccessful();
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->message === "Yak asked a question on Nov 5 and didn't hear back, so it stopped.");
 });
 
 test('leaves non-expired tasks alone', function () {
