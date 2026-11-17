@@ -23,6 +23,7 @@ struct PaneDescriptor {
 enum PaneCatalog {
     static let all: [PaneDescriptor] = [
         .chat,
+        .preview,
         .files,
         .overview,
     ]

@@ -70,7 +70,7 @@ show.head = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::stop
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:51
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:52
 * @route '/api/app/v1/threads/{thread}/stack/stop'
 */
 export const stop = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -85,7 +85,7 @@ stop.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::stop
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:51
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:52
 * @route '/api/app/v1/threads/{thread}/stack/stop'
 */
 stop.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -118,7 +118,7 @@ stop.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::stop
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:51
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:52
 * @route '/api/app/v1/threads/{thread}/stack/stop'
 */
 stop.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -128,7 +128,7 @@ stop.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::limit
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:62
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:63
 * @route '/api/app/v1/threads/{thread}/stack/limit'
 */
 export const limit = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -143,7 +143,7 @@ limit.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::limit
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:62
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:63
 * @route '/api/app/v1/threads/{thread}/stack/limit'
 */
 limit.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -176,7 +176,7 @@ limit.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::limit
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:62
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:63
 * @route '/api/app/v1/threads/{thread}/stack/limit'
 */
 limit.patch = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -186,7 +186,7 @@ limit.patch = (args: { thread: string | { public_id: string } } | [thread: strin
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::takeOver
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:69
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:70
 * @route '/api/app/v1/threads/{thread}/stack/take-over'
 */
 export const takeOver = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -201,7 +201,7 @@ takeOver.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::takeOver
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:69
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:70
 * @route '/api/app/v1/threads/{thread}/stack/take-over'
 */
 takeOver.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -234,7 +234,7 @@ takeOver.url = (args: { thread: string | { public_id: string } } | [thread: stri
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::takeOver
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:69
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:70
 * @route '/api/app/v1/threads/{thread}/stack/take-over'
 */
 takeOver.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -244,7 +244,7 @@ takeOver.post = (args: { thread: string | { public_id: string } } | [thread: str
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::split
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:77
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:78
 * @route '/api/app/v1/threads/{thread}/stack/split'
 */
 export const split = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -259,7 +259,7 @@ split.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::split
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:77
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:78
 * @route '/api/app/v1/threads/{thread}/stack/split'
 */
 split.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -292,7 +292,7 @@ split.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::split
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:77
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:78
 * @route '/api/app/v1/threads/{thread}/stack/split'
 */
 split.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -302,7 +302,7 @@ split.post = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::drop
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:85
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:86
 * @route '/api/app/v1/threads/{thread}/stack/drop'
 */
 export const drop = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -317,7 +317,7 @@ drop.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::drop
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:85
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:86
 * @route '/api/app/v1/threads/{thread}/stack/drop'
 */
 drop.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -350,7 +350,7 @@ drop.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Api\App\Threads\StackController::drop
-* @see app/Http/Controllers/Api/App/Threads/StackController.php:85
+* @see app/Http/Controllers/Api/App/Threads/StackController.php:86
 * @route '/api/app/v1/threads/{thread}/stack/drop'
 */
 drop.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

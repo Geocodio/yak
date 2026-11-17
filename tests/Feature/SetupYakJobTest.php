@@ -77,6 +77,38 @@ test('successful setup transitions task to success and repo to ready', function 
         ->and($repository->sandbox_snapshot)->not->toBeNull();
 });
 
+test('a ready setup stores the reported test command and keeps the old one when none is reported', function () {
+    Process::fake(['*' => Process::result('')]);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+
+    $repository = Repository::factory()->create([
+        'slug' => 'cmd-repo',
+        'path' => '/home/yak/repos/cmd-repo',
+        'setup_status' => 'pending',
+    ]);
+
+    $runSetup = function (string $summary) use ($repository) {
+        $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+            sessionId: 'sess_cmd',
+            resultSummary: $summary,
+            costUsd: 1.0,
+            numTurns: 5,
+            durationMs: 1000,
+            isError: false,
+            rawOutput: '{}',
+        ));
+        $this->app->instance(AgentRunner::class, $fake);
+        $task = YakTask::factory()->pending()->create(['repo' => 'cmd-repo', 'mode' => TaskMode::Setup, 'source' => 'dashboard']);
+        (new SetupYakJob($task))->handle($fake);
+
+        return $repository->fresh()->test_command;
+    };
+
+    expect($runSetup("Done.\n```setup_result\n{\"status\": \"ready\", \"test_command\": \"php artisan test --compact\"}\n```"))
+        ->toBe('php artisan test --compact')
+        ->and($runSetup('Done, no block.'))->toBe('php artisan test --compact');
+});
+
 test('a finished setup dispatches the reviews held while it ran', function () {
     Queue::fake();
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
@@ -156,6 +188,7 @@ test('first-time setup skips invalidation (no existing template)', function () {
     (new SetupYakJob($task))->handle($fake);
 
     expect($fakeSandbox->invalidatedTemplates)->toBeEmpty();
+    expect($fakeSandbox->destroyedTemplates)->toBe(['yak-tpl-fresh']);
 });
 
 test('setup promotes sandbox to repo template on success', function () {

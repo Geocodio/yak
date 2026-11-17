@@ -19,6 +19,9 @@ async function post(threadId: string, message: UnsentMessage, signal: AbortSigna
         if (message.model !== null) {
             form.append('model', message.model);
         }
+        if (message.effort !== null) {
+            form.append('effort', message.effort);
+        }
         message.files.forEach((file, index) => {
             form.append('attachments[]', file);
             form.append(`attachment_refs[${index}]`, message.refs[index] ?? '');
@@ -26,7 +29,7 @@ async function post(threadId: string, message: UnsentMessage, signal: AbortSigna
         payload = form;
     } else {
         headers['Content-Type'] = 'application/json';
-        payload = JSON.stringify({ message: message.text, model: message.model, send_key: message.key });
+        payload = JSON.stringify({ message: message.text, model: message.model, effort: message.effort, send_key: message.key });
     }
 
     const response = await fetch(storeMessage.url(threadId), {

@@ -17,10 +17,11 @@ use Illuminate\Support\Facades\DB;
 /**
  * @property SteeringMode $mode
  * @property string|null $send_key
+ * @property string|null $effort
  */
 class PendingSteeringMessage extends Model
 {
-    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'delivered_at', 'absorbed_at', 'send_key'];
+    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'effort', 'delivered_at', 'absorbed_at', 'send_key'];
 
     /**
      * @return array<string, string>

@@ -2,10 +2,12 @@
 
 namespace App\Services\Tasks;
 
+use App\Actions\DispatchRepositorySetupTask;
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Console\Commands\TimeoutAwaitingCiCommand;
 use App\DataTransferObjects\TaskActionOutcome;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -81,7 +83,7 @@ class TaskActions
                 throw ThreadActionRefused::because(ThreadActionRefused::TASK_NOT_RETRYABLE, 'This task cannot be retried right now.');
             }
 
-            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry']);
+            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry', 'stop_kind', 'stop_summary']);
 
             if ($ciResume !== null) {
                 return $this->claimCiResume($locked, $ciResume, $original, $isTimeBounded);
@@ -99,6 +101,71 @@ class TaskActions
         }
 
         return $result['outcome'];
+    }
+
+    /**
+     * Marks a failed task to continue once its repository's setup finishes, and starts
+     * that setup unless one is already pending or running.
+     */
+    public function setUpRepositoryAndContinue(YakTask $task, User $user): TaskActionOutcome
+    {
+        $repository = Repository::where('slug', $task->repo)->first();
+
+        if ($repository === null || ! empty($repository->sandbox_snapshot)) {
+            throw ThreadActionRefused::because(ThreadActionRefused::TASK_NOT_RETRYABLE, 'This repository is already set up. Retry the task instead.');
+        }
+
+        $this->locked($task, function (YakTask $locked): void {
+            if (! in_array($locked->status, [TaskStatus::Failed, TaskStatus::Expired], true)) {
+                throw ThreadActionRefused::because(ThreadActionRefused::TASK_NOT_RETRYABLE, 'This task cannot be retried right now.');
+            }
+
+            $locked->update(['resume_after_setup_at' => now()]);
+        });
+
+        if (! in_array($repository->setup_status, ['pending', 'running'], true)) {
+            app(DispatchRepositorySetupTask::class)($repository, $user);
+        }
+
+        return new TaskActionOutcome('queued', "Setting up {$repository->slug}. This task continues when setup finishes.");
+    }
+
+    /**
+     * Retries the tasks that waited on this repository's setup once it is ready. A failed
+     * setup clears the wait, so the task shows the failure and its owner chooses again.
+     * Runs inside the setup job's repository update, so a failed retry is reported, never thrown.
+     */
+    public function continueTasksAwaitingSetup(Repository $repository): void
+    {
+        if (! in_array($repository->setup_status, ['ready', 'failed'], true)) {
+            return;
+        }
+
+        YakTask::withoutGlobalScopes()
+            ->where('repo', $repository->slug)
+            ->whereNotNull('resume_after_setup_at')
+            ->get()
+            ->each(function (YakTask $task) use ($repository): void {
+                $task->update(['resume_after_setup_at' => null]);
+
+                if ($repository->setup_status !== 'ready') {
+                    if ($task->status !== TaskStatus::Failed) {
+                        return;
+                    }
+
+                    $setupTask = $repository->setup_task_id === null ? null : YakTask::withoutGlobalScopes()->find($repository->setup_task_id);
+
+                    StopNotifier::notify($task, TaskStop::setupFailed($repository->slug, $setupTask?->error_log ?: 'Setup failed'));
+
+                    return;
+                }
+
+                try {
+                    $this->retry($task);
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            });
     }
 
     public function cancel(YakTask $task, User $canceller): TaskActionOutcome

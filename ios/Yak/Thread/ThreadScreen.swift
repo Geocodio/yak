@@ -68,6 +68,10 @@ struct ThreadScreen: View {
         .onChange(of: isSidePanel) { moveOverviewBetweenPaneAndPanel() }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
+        // A `/clear` starts a new thread; the window follows it.
+        .onChange(of: model?.replacementThreadID) { _, replacement in
+            if let replacement { scene.open(thread: replacement, isCompactWidth: isCompactWidth) }
+        }
         .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
     }
 
@@ -95,14 +99,21 @@ struct ThreadScreen: View {
 
     private func content(_ thread: ThreadModel, placement: PaneControlPlacement) -> some View {
         let focused = focusedBinding(thread)
+        let activity = activityLine(thread, focused: focused.wrappedValue)
         return NavigationStack {
             HStack(spacing: 0) {
+                // The bar sits below the pane, not over it, on the page color that runs to the bottom of the
+                // screen: no row scrolls behind the glass or below it, where it would be hidden yet still reachable.
                 VStack(spacing: 0) {
                     if placement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
                     PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
-                }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
+                    VStack(spacing: 6) {
+                        if let line = activity {
+                            ActivityStrip(line: line) { openChat(focusComposer: $0) }
+                        }
+                        BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: activity)
                 }
                 if case .sidePanel(let width) = overviewPlacement, scene.state.isOverviewPanelOpen,
                     thread.panes.contains(.overview)
@@ -117,6 +128,8 @@ struct ThreadScreen: View {
             .animation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.3), value: isPanelShown)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
+            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+            .toolbarBackground(Color(.systemBackground), for: .navigationBar)
             .toolbar {
                 if !placement.hidesTitle {
                     if isCompactWidth {
@@ -142,7 +155,7 @@ struct ThreadScreen: View {
                 ShareSheet(session: session, threadID: threadID) { await model?.engine?.refreshShow() }
             }
             .overlay(alignment: .top) { copiedToast }
-            .background { shortcuts(focused) }
+            .background { shortcuts(focused, panes: thread.panes) }
         }
         .environment(scene)
         .sensoryFeedback(.success, trigger: copiedLink)
@@ -195,7 +208,11 @@ struct ThreadScreen: View {
         VStack(spacing: 8) {
             if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
             PaneMenuButton(panes: thread.panes, focused: focused)
+            PaneStripRow(slots: slots, focused: focused.wrappedValue)
             Spacer(minLength: 0)
+            if let line = activityLine(thread, focused: focused.wrappedValue) {
+                ActivityStripButton(line: line) { openChat(focusComposer: $0) }
+            }
             threadMenu(thread, shownPane: focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
         }
         .tint(.primary)
@@ -205,6 +222,17 @@ struct ThreadScreen: View {
         .padding(.vertical, 8).padding(.trailing, 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("thread.strip")
+    }
+
+    /// The line above the bar in every pane but Chat.
+    private func activityLine(_ thread: ThreadModel, focused: PaneID) -> ActivityLine? {
+        focused == .chat ? nil : ActivityLine.make(thread.snapshot)
+    }
+
+    /// Shows Chat, and puts the cursor in the composer when asked.
+    private func openChat(focusComposer: Bool) {
+        scene.focus(pane: .chat)
+        if focusComposer { scene.requestComposerFocus() }
     }
 
     // MARK: Controls
@@ -256,11 +284,14 @@ struct ThreadScreen: View {
         }
     }
 
-    /// Command 1 focuses Chat; Command I and Command 5 open the Overview.
-    private func shortcuts(_ focused: Binding<PaneID>) -> some View {
+    /// Command 1 focuses Chat, Command 2 Preview when the thread has one; Command I and Command 5 open the Overview.
+    private func shortcuts(_ focused: Binding<PaneID>, panes: [PaneID]) -> some View {
         ZStack {
             Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
-            if model?.panes.contains(.overview) == true {
+            if panes.contains(.preview) {
+                Button("pane.preview") { focused.wrappedValue = .preview }.yakShortcut(.focusPreview)
+            }
+            if panes.contains(.overview) {
                 Button("pane.overview") { toggleOverview(focused) }.yakShortcut(.overview)
                 Button("pane.overview") {
                     if focused.wrappedValue != .overview { paneBeforeOverview = focused.wrappedValue }

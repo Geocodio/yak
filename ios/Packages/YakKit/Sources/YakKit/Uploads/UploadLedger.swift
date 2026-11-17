@@ -127,8 +127,8 @@ public actor UploadLedger {
         switch item.target {
         case .thread(let threadID):
             let endpoint = Endpoint.sendMessage(
-                threadID, text: item.text, model: item.model, delivery: item.delivery, sendKey: item.id,
-                attachments: placeholders, references: references, intent: item.intent)
+                threadID, text: item.text, model: item.model, effort: item.effort, delivery: item.delivery,
+                sendKey: item.id, attachments: placeholders, references: references, intent: item.intent)
             path = endpoint.path
             multipart = endpoint.multipart
         case .newThread(let draft):

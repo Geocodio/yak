@@ -23,7 +23,7 @@ import XCTest
 
     func start(
         _ scenario: String, paired: Bool = false, keychainLocked: Bool = false, skipsWebSession: Bool = false,
-        attachments: Int = 0, cameraDenied: Bool = false
+        attachments: Int = 0, cameraDenied: Bool = false, extraArguments: [String] = []
     ) throws {
         try stub.play(scenario)
         var arguments = ["-yakTestInstance", stub.url]
@@ -37,7 +37,7 @@ import XCTest
         if environment["YAK_TEXT_SIZE"] == "largest" {
             arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
-        app.launchArguments = arguments
+        app.launchArguments = arguments + extraArguments
         app.launch()
     }
 
@@ -108,6 +108,13 @@ import XCTest
             // edge instead of its own background, though it is the primary label color on a plain surface.
             if issue.auditType == .contrast, let label = issue.element?.label,
                 label.wholeMatch(of: /\d+[mhd]/) != nil
+            {
+                return true
+            }
+            // The system caps the size of text in its bars, which holds the thread title.
+            if let element = issue.element, element.identifier == "thread.title",
+                [.dynamicType, .textClipped].contains(issue.auditType),
+                app.navigationBars.allElementsBoundByIndex.contains(where: { $0.frame.contains(element.frame) })
             {
                 return true
             }

@@ -2,7 +2,7 @@ import SwiftUI
 import YakKit
 
 /// The bar at the bottom of a thread: the pane control where the placement puts it, then the focused pane's own
-/// row. It sits in a bottom safe-area inset, so it rides on the keyboard.
+/// row. It sits below the pane, inside the safe area, so it rides on the keyboard.
 struct BottomBar: View {
     let thread: ThreadModel
     let slots: PaneSlots
@@ -12,7 +12,14 @@ struct BottomBar: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let swipeDistance: CGFloat = 60
 
+    /// The pane's controls are in the trailing strip, so the bar has nothing of its own to show.
+    private var isInStrip: Bool { placement == .trailingStrip && slots.stripRows[focused] != nil }
+
     var body: some View {
+        if !isInStrip { bar }
+    }
+
+    private var bar: some View {
         layout
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background { BarSurface() }

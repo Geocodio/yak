@@ -69,6 +69,7 @@ use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
 use App\Http\Controllers\Repositories\RepositoryClaudeAccountController;
 use App\Http\Controllers\Repositories\RepositoryController;
+use App\Http\Controllers\Repositories\RepositorySettingsController;
 use App\Http\Controllers\Repositories\RiskProfileController;
 use App\Http\Controllers\Settings\McpLoginController;
 use App\Http\Controllers\Settings\McpServerController;
@@ -159,6 +160,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('tasks/{task}/log-entries', [TaskController::class, 'logEntries'])->name('tasks.log-entries');
     Route::middleware('task.drive')->group(function (): void {
         Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');
+        Route::post('tasks/{task}/setup-and-continue', [TaskActionController::class, 'setUpRepositoryAndContinue'])->name('tasks.setup-and-continue');
         Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('tasks.cancel');
         Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('tasks.rerun-review');
         Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');
@@ -204,6 +206,17 @@ Route::middleware(['auth'])->group(function () {
     Route::put('repos/{repository}/approvals', [ApprovalSettingsController::class, 'update'])
         ->name('repos.approvals.update')
         ->where('repository', '.+');
+    Route::post('repos/{repository}/approvals/check', [ApprovalSettingsController::class, 'check'])
+        ->name('repos.approvals.check')
+        ->where('repository', '.+');
+    Route::post('repos/{repository}/approvals/review/{number}', [ApprovalSettingsController::class, 'review'])
+        ->name('repos.approvals.review')
+        ->where('repository', '.+')
+        ->whereNumber('number');
+    Route::get('repos/{repository}/settings/{section}', [RepositorySettingsController::class, 'show'])
+        ->name('repos.settings.show')
+        ->where('repository', '.+')
+        ->whereIn('section', ['review', 'previews', 'sandbox', 'accounts', 'danger']);
     Route::patch('repos/{repository}', [RepositoryController::class, 'update'])
         ->name('repos.update')
         ->where('repository', '.+');

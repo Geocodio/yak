@@ -59,7 +59,7 @@ updateMine.put = (args: { repository: string | number | { slug: string | number 
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::updateUnattended
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:31
 * @route '/repos/{repository}/unattended-claude-account'
 */
 export const updateUnattended = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -74,7 +74,7 @@ updateUnattended.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::updateUnattended
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:31
 * @route '/repos/{repository}/unattended-claude-account'
 */
 updateUnattended.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ updateUnattended.url = (args: { repository: string | number | { slug: string | n
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryClaudeAccountController::updateUnattended
-* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryClaudeAccountController.php:31
 * @route '/repos/{repository}/unattended-claude-account'
 */
 updateUnattended.put = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({

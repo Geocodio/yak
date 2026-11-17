@@ -2,7 +2,7 @@ import Foundation
 
 public enum PreviewStepStatus: Equatable, Sendable { case done, active, pending }
 
-public enum PreviewAction: Equatable, Sendable {
+public enum PreviewAction: Hashable, Sendable {
     /// Drivers only.
     case ask(MessageIntent, isPending: Bool)
     case tryAgain, restore, retryRestore, openTerminal, showConversation, openInBrowser

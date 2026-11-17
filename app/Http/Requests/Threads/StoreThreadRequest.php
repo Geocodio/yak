@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Threads;
 
+use App\Enums\EffortLevel;
 use App\Enums\RepositoryRole;
 use App\Models\TaskAttachment;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
@@ -27,6 +28,7 @@ class StoreThreadRequest extends FormRequest
             'description' => ['required', 'string', 'min:3', 'max:10000'],
             'claude_account_id' => ['nullable', 'integer'],
             'model' => ['nullable', 'string', ClaudeModelCatalog::rule()],
+            'effort' => ['nullable', Rule::enum(EffortLevel::class)],
             ...TaskAttachment::rules(),
         ];
     }

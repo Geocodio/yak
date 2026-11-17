@@ -1,0 +1,150 @@
+import { router, usePoll } from '@inertiajs/react';
+import { Button, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tr } from '@geocodio/console-ui';
+import { CircleAlert, Loader2, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Callout } from '@/components/riskProfile/RiskProfileStates';
+import { formatAgoLong } from '@/lib/format';
+import type { ApprovalLevel, ApprovalsRepository, OpenPullRequests as OpenPullRequestsData } from '@/types/approvals';
+import { outcomeAt, type PullRequestOutcome } from './levels';
+
+const TONE: Record<PullRequestOutcome['kind'], 'ok' | 'idle' | 'warn' | 'fail' | 'info'> = { approve: 'ok', human: 'idle', waiting: 'warn', reviewing: 'info', failed: 'fail', checking: 'info' };
+
+export function OpenPullRequests({ repository, data, repositoryHolds, level }: { repository: ApprovalsRepository; data: OpenPullRequestsData; repositoryHolds: string[]; level: ApprovalLevel }) {
+    const [isPosting, setIsPosting] = useState(false);
+    const [requested, setRequested] = useState<number[]>([]);
+    const fastPoll = usePoll(3000, { only: ['openPullRequests'] }, { autoStart: false, keepAlive: true });
+    const slowPoll = usePoll(10000, { only: ['openPullRequests'] }, { autoStart: false, keepAlive: true });
+    const hasChecked = data.checkedAt !== null || data.rows.length > 0;
+    const isPolling = data.pending > 0 || data.isChecking;
+    const rows = data.rows.map((row) => (requested.includes(row.number) && row.waiting ? { ...row, reviewing: true } : row));
+    const isWaitingOnReview = !isPolling && rows.some((row) => row.waiting && row.reviewing);
+
+    useEffect(() => {
+        if (!isPolling) {
+            return;
+        }
+
+        fastPoll.start();
+
+        return fastPoll.stop;
+    }, [isPolling]);
+
+    // Reviews take minutes, so a reviewing row polls slower than a pending check.
+    useEffect(() => {
+        if (!isWaitingOnReview) {
+            return;
+        }
+
+        slowPoll.start();
+
+        return slowPoll.stop;
+    }, [isWaitingOnReview]);
+
+    const requestReview = (row: { number: number; reviewNowUrl: string }) => {
+        router.post(row.reviewNowUrl, {}, {
+            preserveScroll: true,
+            onStart: () => setRequested((numbers) => [...numbers, row.number]),
+            onFinish: () => setRequested((numbers) => numbers.filter((number) => number !== row.number)),
+        });
+    };
+
+    const check = () => {
+        router.post(repository.checkUrl, {}, { preserveScroll: true, onStart: () => setIsPosting(true), onFinish: () => setIsPosting(false) });
+    };
+    const checkButton = (
+        <Button data-testid="open-prs-check" icon={<RefreshCw size={14} aria-hidden="true" />} pending={isPolling || isPosting} onClick={check}>
+            {hasChecked ? 'Check open PRs again' : 'Check open PRs'}
+        </Button>
+    );
+    const outcomes = rows.map((row) => ({ row, outcome: outcomeAt(row, level, repositoryHolds) }));
+    const count = (kind: PullRequestOutcome['kind']) => outcomes.filter((entry) => entry.outcome.kind === kind).length;
+
+    return (
+        <section data-testid="open-prs" aria-labelledby="open-prs-heading" className="flex flex-col gap-3.5 rounded-card border border-hair bg-panel p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 basis-[340px]">
+                    <h2 id="open-prs-heading" className="font-mono text-[13px] tracking-[0.18em]">OPEN PULL REQUESTS AT DEFCON {level}</h2>
+                    <p className="mt-1 text-[14px] text-muted">Checked without posting anything. Each result is for the commit checked; a new push changes it.</p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                    {checkButton}
+                    {data.checkedAt && (
+                        <span data-testid="open-prs-checked" className="text-[12px] text-muted">
+                            Checked {formatAgoLong(data.checkedAt)} against concerns on {repository.defaultBranch}
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            {data.error && (
+                <div data-testid="open-prs-error">
+                    <Callout tone="fail" icon={<CircleAlert size={16} aria-hidden="true" className="text-fail" />}>
+                        <p className="font-semibold">The last check could not finish.</p>
+                        <p className="text-muted">{data.error}</p>
+                        <Button onClick={check} pending={isPolling || isPosting}>Check again</Button>
+                    </Callout>
+                </div>
+            )}
+
+            {!hasChecked && !data.error && <p className="text-[14px] text-muted">Yak has not checked this repository's open pull requests yet. The check does not post anything.</p>}
+            {hasChecked && !data.error && data.rows.length === 0 && <p data-testid="open-prs-empty" className="text-[14px] text-muted">There are no open pull requests.</p>}
+
+            {data.rows.length > 0 && (
+                <>
+                    <div className="flex flex-wrap gap-2 text-[13px] font-semibold">
+                        <span className="rounded-full border border-hair bg-ok-soft px-2.5 py-1 text-ok">{count('approve')} would be approved</span>
+                        <span className="rounded-full border border-hair bg-panel-2 px-2.5 py-1 text-muted">{count('human')} go to a human</span>
+                        <span className="rounded-full border border-hair bg-warn-soft px-2.5 py-1 text-warn">{count('waiting') + count('reviewing')} waiting for Yak's review</span>
+                    </div>
+                    <div className="md:overflow-x-auto rounded-control border border-hair">
+                        <StackedTable className="w-full">
+                            <StackedThead>
+                                <Tr>
+                                    <Th>Pull request</Th>
+                                    <Th>Result</Th>
+                                    <Th>Why</Th>
+                                </Tr>
+                            </StackedThead>
+                            <StackedTbody>
+                                {outcomes.map(({ row, outcome }) => (
+                                    <StackedTr key={row.number} data-testid={`open-pr-row-${row.number}`}>
+                                        <StackedTd label="Pull request" className="md:min-w-[260px]">
+                                            <a href={row.url} target="_blank" rel="noopener noreferrer" className="font-semibold hover:text-accent-text hover:underline">#{row.number}</a> {row.title}
+                                            <div className="text-[12px] text-muted">
+                                                {row.author} · <span className="font-mono">{row.headSha.slice(0, 7)}</span>
+                                                {row.yakReviewUrl && <> · <a href={row.yakReviewUrl} className="hover:text-accent-text hover:underline">Yak's review</a></>}
+                                            </div>
+                                        </StackedTd>
+                                        <StackedTd label="Result" className="md:min-w-[150px] md:whitespace-nowrap">
+                                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap" aria-live="polite">
+                                                <StatusPill tone={TONE[outcome.kind]} label={outcome.label} />
+                                                {outcome.kind === 'reviewing' && <Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                                            </span>
+                                        </StackedTd>
+                                        <StackedTd label="Why" className="md:min-w-[260px] [overflow-wrap:anywhere]">
+                                            <span data-testid={`open-pr-reason-${row.number}`}>{outcome.reason}</span>
+                                            {outcome.checks.length > 1 && (
+                                                <details className="mt-1">
+                                                    <summary className="cursor-pointer text-[12px] text-muted">All checks</summary>
+                                                    <ul className="mt-1 list-disc pl-[18px] text-[12px] text-muted">
+                                                        {outcome.checks.map((hold) => <li key={hold}>{hold}</li>)}
+                                                    </ul>
+                                                </details>
+                                            )}
+                                            {outcome.kind === 'waiting' && (
+                                                <div className="mt-1.5">
+                                                    <Button data-testid={`open-pr-review-${row.number}`} onClick={() => requestReview(row)}>Review now</Button>
+                                                </div>
+                                            )}
+                                        </StackedTd>
+                                    </StackedTr>
+                                ))}
+                            </StackedTbody>
+                        </StackedTable>
+                    </div>
+                </>
+            )}
+            <p className="text-[12px] text-muted">Each pull request costs up to two model calls, and none if Yak checked it at this commit before or a hold already decides it.</p>
+        </section>
+    );
+}

@@ -23,6 +23,7 @@ final class PusherSocket: Sendable {
     private let isOnline: @Sendable () -> Bool
     private let fixtures: StubFixtures
     private let threads: StubThreads
+    private let onSubscribe: @Sendable (String) -> Void
     private let playbackMilliseconds: Locked<Int>
     private var playbackInterval: Duration { .milliseconds(playbackMilliseconds.get()) }
 
@@ -31,8 +32,10 @@ final class PusherSocket: Sendable {
 
     init(
         fixtures: StubFixtures, threads: StubThreads, playbackInterval: Duration,
-        scenario: @escaping @Sendable () -> Scenario, isOnline: @escaping @Sendable () -> Bool
+        scenario: @escaping @Sendable () -> Scenario, isOnline: @escaping @Sendable () -> Bool,
+        onSubscribe: @escaping @Sendable (String) -> Void = { _ in }
     ) throws {
+        self.onSubscribe = onSubscribe
         self.fixtures = fixtures
         self.threads = threads
         playbackMilliseconds = Locked(
@@ -141,7 +144,9 @@ final class PusherSocket: Sendable {
             state.mutate { $0.clients[identifier]?.channels.insert(channel) }
             send(["event": "pusher_internal:subscription_succeeded", "channel": channel, "data": "{}"], to: connection)
             if channel.hasPrefix("private-thread.") {
-                startPlayback(String(channel.dropFirst("private-thread.".count)))
+                let id = String(channel.dropFirst("private-thread.".count))
+                startPlayback(id)
+                onSubscribe(id)
             }
         case "pusher:ping":
             send(["event": "pusher:pong", "data": "{}"], to: connection)
@@ -157,7 +162,8 @@ final class PusherSocket: Sendable {
     private func startPlayback(_ id: String) {
         let current = scenario()
         guard current.playsLive else { return }
-        let items = current.broadcasts(id, fixtures, "http://127.0.0.1")
+        let played = current.broadcasts(id, fixtures, "http://127.0.0.1")
+        let items = current == .oneThreadHeld ? Array(played.dropLast()) : played
         state.mutate { state in
             guard state.playing.insert(id).inserted else { return }
             state.playbacks.append(
@@ -170,6 +176,9 @@ final class PusherSocket: Sendable {
                         while !isOnline() {
                             if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
                         }
+                        while let limit = threads.holdAfter, item.sequence > limit, !threads.isStopped(id) {
+                            if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
+                        }
                         if Task.isCancelled || threads.isStopped(id) { return }
                         threads.publish(id, through: item.sequence)
                         publish(item.json, thread: id)
@@ -178,7 +187,17 @@ final class PusherSocket: Sendable {
         }
     }
 
-    private func publish(_ json: String, thread id: String) {
+    /// The event with `createdAt` set to now, so a step played live has just started.
+    private func stamped(_ json: String) -> String {
+        guard var event = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any],
+            event["createdAt"] != nil
+        else { return json }
+        event["createdAt"] = ISO8601DateFormatter().string(from: Date())
+        return encode(event)
+    }
+
+    func publish(_ json: String, thread id: String) {
+        let json = stamped(json)
         let channel = "private-thread.\(id)"
         let subscribed = state.mutate { state in
             state.clients.values.filter { $0.channels.contains(channel) }.map(\.connection)

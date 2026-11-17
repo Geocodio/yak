@@ -4,6 +4,7 @@ namespace App\Jobs\Concerns;
 
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\GitOperations;
@@ -28,7 +29,7 @@ trait FinishesRetryRuns
     {
         if ($result->isError) {
             TaskMetricsAccumulator::record($this->task, $result);
-            $this->handleError($result->failureMessage());
+            $this->handleError($result->failureMessage(), stop: $result->stop());
 
             return;
         }
@@ -150,7 +151,7 @@ trait FinishesRetryRuns
         return $update;
     }
 
-    private function handleError(string $errorMessage): void
+    private function handleError(string $errorMessage, ?TaskStop $stop = null): void
     {
         // Don't overwrite a task that's already terminal -- see
         // RunYakJob::handleError() for the full reasoning.
@@ -166,6 +167,6 @@ trait FinishesRetryRuns
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
 
-        $this->notifySourceOfFailure($errorMessage);
+        $this->notifySourceOfFailure($errorMessage, $stop);
     }
 }

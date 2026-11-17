@@ -52,6 +52,8 @@ public struct ConversationItem: Equatable, Sendable {
     /// True for items made from streaming blocks.
     public var isStreaming = false
     public var model: String?
+    /// True for a `result` item of a turn that failed.
+    public var isError = false
     /// When the entry was recorded.
     public var at: String?
     public var files: [String] = []

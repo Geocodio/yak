@@ -66,6 +66,7 @@ struct LiveComposerBackend: ComposerBackend {
 final class ComposerModel {
     let key: ComposerDraftKey
     private(set) var model: String?
+    private(set) var effort: EffortLevel?
     private(set) var attachments: [OutboxAttachment] = []
     private(set) var problem: String?
     private(set) var isStopping = false
@@ -155,7 +156,10 @@ final class ComposerModel {
         }
         let known = Set(attachments.map(\.path))
         attachments = kept.filter { !known.contains($0.path) } + attachments
-        if model == nil { model = saved.model }
+        if model == nil {
+            model = saved.model
+            effort = saved.effort
+        }
         sendKey = sendKey ?? saved.sendKey
         refreshSendKey()
         if kept.count != saved.attachments.count {
@@ -179,7 +183,8 @@ final class ComposerModel {
         let taken = takeDraft()
         let draft = OutboxDraft(
             target: .thread(threadID), text: taken.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            model: taken.model, delivery: delivery, attachments: taken.attachments, sendKey: taken.sendKey)
+            model: taken.model, delivery: delivery, attachments: taken.attachments, sendKey: taken.sendKey,
+            effort: taken.effort)
         do {
             _ = try await backend.send(draft)
         } catch {
@@ -201,7 +206,7 @@ final class ComposerModel {
     /// Empties the field and hands its draft over: what is typed or added next starts a new draft.
     private func takeDraft() -> ComposerDraft {
         let taken = ComposerDraft(
-            text: typedText, model: model, sendKey: sendKey ?? UUID(), attachments: attachments)
+            text: typedText, model: model, effort: effort, sendKey: sendKey ?? UUID(), attachments: attachments)
         saveTask?.cancel()
         hasEdited = true
         inFlight = taken
@@ -210,6 +215,7 @@ final class ComposerModel {
         attachments = []
         thumbnails = [:]
         model = nil
+        effort = nil
         sendKey = nil
         problem = nil
         return taken
@@ -221,6 +227,7 @@ final class ComposerModel {
         typedText = merged.text
         attachments = merged.attachments
         model = merged.model
+        effort = merged.effort
         sendKey = merged.sendKey
         thumbnails.merge(inFlightThumbnails) { current, _ in current }
         inFlight = nil
@@ -228,7 +235,7 @@ final class ComposerModel {
     }
 
     private var field: ComposerDraft {
-        ComposerDraft(text: typedText, model: model, sendKey: sendKey, attachments: attachments)
+        ComposerDraft(text: typedText, model: model, effort: effort, sendKey: sendKey, attachments: attachments)
     }
 
     private func merge(front: ComposerDraft, with back: ComposerDraft) -> ComposerDraft {
@@ -244,8 +251,11 @@ final class ComposerModel {
         } else {
             text = front.text + "\n" + back.text
         }
+        // A model and its effort travel together: the later pick wins as a pair.
+        let backChose = back.model != nil || back.effort != nil
         return ComposerDraft(
-            text: text, model: back.model ?? front.model, sendKey: front.sendKey ?? back.sendKey,
+            text: text, model: backChose ? back.model : front.model, effort: backChose ? back.effort : front.effort,
+            sendKey: front.sendKey ?? back.sendKey,
             attachments: front.attachments + back.attachments)
     }
 
@@ -292,11 +302,14 @@ final class ComposerModel {
         }
         let ownKey = attachments.isEmpty ? taken.id : sendKey
         let merged = merge(
-            front: ComposerDraft(text: taken.text, model: taken.model, sendKey: ownKey, attachments: taken.attachments),
+            front: ComposerDraft(
+                text: taken.text, model: taken.model, effort: taken.effort, sendKey: ownKey,
+                attachments: taken.attachments),
             with: field)
         typedText = merged.text
         attachments = merged.attachments
         model = merged.model
+        effort = merged.effort
         sendKey = merged.sendKey
         hasEdited = true
         problem = nil
@@ -471,14 +484,31 @@ final class ComposerModel {
     /// nil sends with the thread's own model.
     func selectModel(_ value: String?) {
         guard value != model else { return }
+        let supported = ModelChoices.efforts(for: value ?? snapshot?.show?.composer.model, in: modelFamilies)
+        effort = effectiveEffort?.clamped(to: supported)
         model = value
         hasEdited = true
         scheduleSave()
     }
 
+    /// An effort choice is explicit: the model it applies to is sent with it, so nil means the model's default.
+    func selectEffort(_ value: EffortLevel?) {
+        guard value != effectiveEffort else { return }
+        model = effectiveModel
+        effort = value
+        hasEdited = true
+        scheduleSave()
+    }
+
+    /// The effort the next message uses: the chosen one, else the thread's own while no model was chosen.
+    var effectiveEffort: EffortLevel? { model == nil ? (effort ?? snapshot?.show?.composer.effort) : effort }
+
+    /// The levels the chosen model supports.
+    var supportedEfforts: [EffortLevel] { ModelChoices.efforts(for: effectiveModel, in: modelFamilies) }
+
     /// The label of the chosen model, or of the thread's own when none was chosen.
     var modelLabel: String? {
-        ModelChoices.label(for: model ?? snapshot?.show?.composer.model, in: modelFamilies)
+        ModelChoices.label(for: effectiveModel, effort: effectiveEffort, in: modelFamilies)
     }
 
     var modelFamilies: [ModelFamily] { snapshot?.show?.composer.models ?? [] }

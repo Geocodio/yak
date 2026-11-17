@@ -60,7 +60,7 @@
 
         @MainActor func makeModel(version: String, system: String, parts: AppParts) -> AppModel {
             let lockable = LockableTokenStore()
-            let instances = InstanceStore(defaults: MemoryDefaults(), tokens: lockable, now: { Date() })
+            let instances = InstanceStore(defaults: parts.previewData.defaults, tokens: lockable, now: { Date() })
             let seed = self
             let model = AppModel(
                 instances: instances, tokens: lockable,
@@ -124,7 +124,8 @@
         }
     }
 
-    private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
+    /// The in-memory store of test mode, shared by the instance list and the app parts.
+    final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
         private let lock = NSLock()
         private var values: [String: Data] = [:]
         func data(forKey key: String) -> Data? { lock.withLock { values[key] } }

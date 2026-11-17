@@ -3,12 +3,14 @@
 use App\Ai\Agents\TaskIntentClassifier;
 use App\Channels\Slack\NotificationDriver as SlackNotificationDriver;
 use App\Channels\Slack\SenderPolicy;
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendEarlyWarningJob;
 use App\Jobs\SendNotificationJob;
+use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
@@ -372,6 +374,7 @@ it('starts a new run when @yak is mentioned in the thread of an expired co-owner
         'slack_channel' => 'C12345678',
         'slack_thread_ts' => '1111.2222',
     ]);
+    CoOwnerRequest::factory()->create(['task_id' => $expired->id, 'repository_id' => Repository::where('slug', 'only-repo')->value('id'), 'status' => CoOwnerRequestStatus::Expired]);
 
     $body = slackMentionPayload('try this again', ['event' => ['thread_ts' => '1111.2222', 'ts' => '1111.3333']]);
     $headers = signSlackPayload($body, $secret);

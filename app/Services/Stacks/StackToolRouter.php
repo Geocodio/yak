@@ -4,6 +4,7 @@ namespace App\Services\Stacks;
 
 use App\DataTransferObjects\YakToolCall;
 use App\DataTransferObjects\YakToolResult;
+use App\Enums\EffortLevel;
 use App\Enums\StackThreadMessageKind;
 use App\Enums\ThreadKind;
 use App\Exceptions\StackRuleViolation;
@@ -58,7 +59,8 @@ class StackToolRouter implements YakToolRouter
         }
 
         $model = isset($input['model']) && is_string($input['model']) && $input['model'] !== '' ? $input['model'] : null;
-        $child = $this->spawner->spawn($thread, $name, (string) ($input['brief'] ?? ''), $kind, $model, null, isset($input['repo']) && is_string($input['repo']) ? $input['repo'] : null);
+        $effort = isset($input['effort']) && is_string($input['effort']) ? EffortLevel::tryFrom($input['effort'])?->value : null;
+        $child = $this->spawner->spawn($thread, $name, (string) ($input['brief'] ?? ''), $kind, $model, null, isset($input['repo']) && is_string($input['repo']) ? $input['repo'] : null, effort: $effort);
         $this->spawner->requestStart($child);
 
         return new YakToolResult(false, "Started sub-thread {$child->name} ({$kind->value}).");

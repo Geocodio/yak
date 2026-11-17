@@ -117,7 +117,7 @@ final readonly class AgentRunResult
         // Claude's SDK reports subtype=error_during_execution both for hard
         // SDK failures AND for budget exhaustion (the CLI wraps the cap
         // check in a throw). Distinguish by checking cost vs cap.
-        if ($this->errorSubtype === 'error_during_execution' && $this->costUsd >= $maxBudget * 0.99) {
+        if ($this->isBudgetCap()) {
             return "Hit per-task budget cap (\${$cost} / \${$budget} after {$this->numTurns} turns)";
         }
 
@@ -126,6 +126,29 @@ final readonly class AgentRunResult
             'error_during_execution' => "Agent error during execution after {$this->numTurns} turns (cost \${$cost}){$stderrSuffix}",
             default => "Agent returned an error after {$this->numTurns} turns (cost \${$cost}){$stderrSuffix}",
         };
+    }
+
+    /**
+     * The SDK reports budget exhaustion as error_during_execution, so a
+     * cost at the per-task cap tells the two apart.
+     */
+    private function isBudgetCap(): bool
+    {
+        $maxBudget = (float) config('yak.max_budget_per_task', 5);
+
+        return $this->errorSubtype === 'error_during_execution' && $this->costUsd >= $maxBudget * 0.99;
+    }
+
+    /**
+     * The plain-words stop shown to the person who started the task.
+     */
+    public function stop(): TaskStop
+    {
+        if ($this->resultSummary === '' && ($this->isBudgetCap() || $this->errorSubtype === 'error_max_turns')) {
+            return TaskStop::sizeLimit($this->failureMessage());
+        }
+
+        return TaskStop::yakSideProblem($this->failureMessage());
     }
 
     /**
@@ -139,9 +162,7 @@ final readonly class AgentRunResult
             return null;
         }
 
-        $maxBudget = (float) config('yak.max_budget_per_task', 5);
-
-        if ($this->errorSubtype === 'error_during_execution' && $this->costUsd >= $maxBudget * 0.99) {
+        if ($this->isBudgetCap()) {
             return 'budget_cap';
         }
 

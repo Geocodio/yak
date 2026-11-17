@@ -22,6 +22,14 @@ class TaskActionController extends Controller
         return $this->respond($task, fn (): TaskActionOutcome => $actions->retry($task));
     }
 
+    public function setUpRepositoryAndContinue(Request $request, YakTask $task, TaskActions $actions): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        return $this->respond($task, fn (): TaskActionOutcome => $actions->setUpRepositoryAndContinue($task, $user));
+    }
+
     public function cancel(Request $request, YakTask $task, TaskActions $actions): RedirectResponse
     {
         /** @var User $canceller */

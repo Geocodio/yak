@@ -32,6 +32,9 @@ class FakeSandboxManager extends IncusSandboxManager
     /** @var array<int, string> */
     public array $invalidatedTemplates = [];
 
+    /** @var list<string> */
+    public array $destroyedTemplates = [];
+
     /**
      * Every command passed to run(), in order, so tests can assert on the
      * git plumbing a job drives inside the sandbox.
@@ -199,6 +202,11 @@ class FakeSandboxManager extends IncusSandboxManager
     public function destroy(string $containerName): void
     {
         $this->destroyedContainers[] = $containerName;
+    }
+
+    public function destroyTemplate(Repository $repository): void
+    {
+        $this->destroyedTemplates[] = $this->templateName($repository);
     }
 
     public function invalidateTemplate(Repository $repository): void

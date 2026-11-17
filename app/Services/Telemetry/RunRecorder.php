@@ -153,6 +153,7 @@ final class RunRecorder
 
         $this->pending['agent_started_at'] = now();
         $this->pending['model'] = $request->model;
+        $this->pending['effort'] = $request->effort;
         $this->pending['resumed'] = $request->isResume();
         $this->pending['prompt_chars'] = mb_strlen($request->prompt) + mb_strlen($request->systemPrompt);
     }

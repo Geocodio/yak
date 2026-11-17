@@ -23,7 +23,7 @@ final class SetupData
      *     installCommand: string,
      *     loginCommand: string,
      *     manualInstallCommands: list<string>,
-     *     models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>,
+     *     models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>,
      *     appName: string,
      * }
      */

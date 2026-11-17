@@ -49,6 +49,13 @@ class SteeringDelivery
                 $locked->forceFill(['model' => $message->model])->save();
             }
 
+            $isExplicitChoice = $message->model !== null || $message->effort !== null;
+
+            if ($isExplicitChoice && $message->effort !== $locked->runner_effort) {
+                $this->commands->setEffort($locked, $message->effort);
+                $locked->forceFill(['effort' => $message->effort])->save();
+            }
+
             $this->commands->steer($locked, $uuid, SteeringText::for($locked, $message));
 
             ThreadTurnMessage::query()->create([

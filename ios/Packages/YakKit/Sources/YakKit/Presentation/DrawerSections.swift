@@ -185,12 +185,13 @@ public enum RelativeAge {
         }
     }
 
+    private static let plain = Date.ISO8601FormatStyle(timeZoneSeparator: .colon, timeZone: .gmt)
+    private static let fractional = Date.ISO8601FormatStyle(
+        timeZoneSeparator: .colon, includingFractionalSeconds: true, timeZone: .gmt)
+
     /// ISO 8601, with or without fractional seconds.
     public static func parse(_ text: String?) -> Date? {
         guard let text else { return nil }
-        let plain = ISO8601DateFormatter()
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return plain.date(from: text) ?? fractional.date(from: text)
+        return (try? plain.parse(text)) ?? (try? fractional.parse(text))
     }
 }

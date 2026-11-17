@@ -25,6 +25,8 @@ final class RepositorySummaryData
      *     tasks7d: int,
      *     prReviewEnabled: bool,
      *     prReviews30d: int,
+     *     approvalLevel: int,
+     *     approvalMode: 'off'|'shadow'|'enforce',
      * }
      */
     public static function from(Repository $repository, int $prReviews30d): array
@@ -42,6 +44,8 @@ final class RepositorySummaryData
             'tasks7d' => (int) $repository->tasks_recent_count,
             'prReviewEnabled' => (bool) $repository->pr_review_enabled,
             'prReviews30d' => $prReviews30d,
+            'approvalLevel' => $repository->approvalLevel(),
+            'approvalMode' => $repository->approvalMode(),
         ];
     }
 

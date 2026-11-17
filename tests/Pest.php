@@ -147,17 +147,7 @@ function fakeYakFiles(array $files, string $sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         expect($result['errors'])->toBe([]);
         $parsed[$name] = new ConfigFile($name, $result['data'], $content, $sha, null, null, null);
     }
-    $snapshot = new ConfigSnapshot('read', $sha, CarbonImmutable::now(), null, $parsed);
-
-    app()->instance(RepositoryConfig::class, new class($snapshot) extends RepositoryConfig
-    {
-        public function __construct(private ConfigSnapshot $fixedSnapshot) {}
-
-        public function snapshot(Repository $repository): ConfigSnapshot
-        {
-            return $this->fixedSnapshot;
-        }
-    });
+    bindConfigSnapshot(new ConfigSnapshot('read', $sha, CarbonImmutable::now(), null, $parsed));
 }
 
 /**
@@ -211,7 +201,7 @@ function fakeGithubConfigPullRequestApi(int $pullRequestStatus = 201, array $ove
 }
 
 /**
- * Serve a fixed snapshot to every RepositoryConfig::snapshot() call in a test.
+ * Serve a fixed snapshot to every RepositoryConfig::snapshot() and fromStorage() call in a test.
  */
 function bindConfigSnapshot(ConfigSnapshot $snapshot): void
 {
@@ -220,6 +210,11 @@ function bindConfigSnapshot(ConfigSnapshot $snapshot): void
         public function __construct(private ConfigSnapshot $fixedSnapshot) {}
 
         public function snapshot(Repository $repository): ConfigSnapshot
+        {
+            return $this->fixedSnapshot;
+        }
+
+        public function fromStorage(Repository $repository): ConfigSnapshot
         {
             return $this->fixedSnapshot;
         }

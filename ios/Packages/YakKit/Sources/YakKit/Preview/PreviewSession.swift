@@ -131,12 +131,12 @@ public actor PreviewSession {
         let isFirst = !hasRecordedThread
         var next = state
         if let canDrive = snapshot.show?.canDrive { next.canDrive = canDrive }
-        if let thread = snapshot.thread {
-            next.blockedReason = thread.blockedReason
-            next.sandboxState = thread.sandboxState
-        } else if let detail = snapshot.show?.thread {
+        if let detail = snapshot.show?.thread {
             next.blockedReason = detail.blockedReason
             next.sandboxState = detail.sandboxState
+        } else if let thread = snapshot.thread {
+            next.blockedReason = thread.blockedReason
+            next.sandboxState = thread.sandboxState
         }
         let threadDiffers = !isFirst && snapshot.thread != recordedThread
         let turnDiffers = !isFirst && snapshot.turn != recordedTurn

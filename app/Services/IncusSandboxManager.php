@@ -464,7 +464,30 @@ class IncusSandboxManager implements SandboxShell
             return false;
         }
 
-        return str_contains($result->output(), $snapshotName);
+        return in_array($snapshotName, self::snapshotNames($result->output()), true);
+    }
+
+    /**
+     * The snapshot names in `incus snapshot list --format csv` output, one per row's first
+     * column, so `ready-v3` never counts as `ready`.
+     *
+     * @return list<string>
+     */
+    private static function snapshotNames(string $csv): array
+    {
+        return array_values(array_filter(array_map(
+            fn (string $row): string => trim(explode(',', $row)[0], " \t\""),
+            explode("\n", $csv),
+        )));
+    }
+
+    /**
+     * Deletes the repository's template container, if one exists, without touching the
+     * repository row.
+     */
+    public function destroyTemplate(Repository $repository): void
+    {
+        Process::timeout(self::DELETE_TIMEOUT)->run("incus delete {$this->templateName($repository)} --force 2>/dev/null");
     }
 
     /**
@@ -600,7 +623,7 @@ class IncusSandboxManager implements SandboxShell
             'current_version' => (int) config('yak.sandbox.base_version', 1),
         ]);
 
-        Process::timeout(self::DELETE_TIMEOUT)->run("incus delete {$templateName} --force 2>/dev/null");
+        $this->destroyTemplate($repository);
 
         $repository->update([
             'sandbox_snapshot' => null,
@@ -682,7 +705,7 @@ class IncusSandboxManager implements SandboxShell
         $baseTemplate = (string) config('yak.sandbox.base_template', 'yak-base');
         $baseResult = Process::timeout(self::QUERY_TIMEOUT)->run("incus snapshot list {$baseTemplate} --format csv 2>/dev/null");
 
-        if ($baseResult->exitCode() === 0 && str_contains($baseResult->output(), $snapshotName)) {
+        if ($baseResult->exitCode() === 0 && in_array($snapshotName, self::snapshotNames($baseResult->output()), true)) {
             return "{$baseTemplate}/{$snapshotName}";
         }
 

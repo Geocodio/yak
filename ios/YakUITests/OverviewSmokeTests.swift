@@ -41,7 +41,6 @@ import XCTest
         XCTAssertEqual(tops, tops.sorted())
         XCTAssertTrue(app.staticTexts["Sandbox running"].exists)
         XCTAssertTrue(app.staticTexts["2 of 4 slots in use"].exists)
-        bringPageClearOfTheBar(by: 0.13)
         try audit()
     }
 
@@ -62,7 +61,6 @@ import XCTest
         XCTAssertTrue(
             app.staticTexts["This stack was stopped, so it cannot start sub-threads."].waitForExistence(timeout: 10))
         XCTAssertTrue(try stub.lastOverviewRequest().hasPrefix("POST threads/s7ackr00/stack/stop"))
-        bringPageClearOfTheBar()
         try audit()
     }
 
@@ -102,7 +100,6 @@ import XCTest
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         title.tap()
         XCTAssertTrue(app.descendants(matching: .any)["overview.child.n3wch11d"].waitForExistence(timeout: 15))
-        bringPageClearOfTheBar()
         try audit()
     }
 
@@ -160,15 +157,7 @@ import XCTest
         XCTAssertTrue(app.staticTexts["Shared with the team"].waitForExistence(timeout: 10))
         // The audit judges what is on screen, so the page goes back to the top where no row is cut by the bar.
         for _ in 0..<4 { app.descendants(matching: .any)["overview"].swipeDown() }
-        bringPageClearOfTheBar()
         try audit()
-    }
-
-    /// The audit judges what is on screen, so the page is brought up until no text is cut by the floating bar or the screen edge.
-    private func bringPageClearOfTheBar(by fraction: CGFloat = 0.25) {
-        let window = app.windows.firstMatch
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
-            .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7 - fraction)))
     }
 
     private func audit() throws {

@@ -30,7 +30,7 @@ struct OverviewPane: View {
                     if let onClosePanel, let content = model.content {
                         OverviewPanelHeader(content: content, close: onClosePanel)
                     }
-                    OverviewScroll(model: model, thread: thread, bottomInset: onClosePanel == nil ? 96 : 0)
+                    OverviewScroll(model: model, thread: thread)
                 }
             } else {
                 ThreadLoadView(
@@ -67,7 +67,6 @@ private struct OverviewScroll: View {
     let model: OverviewModel
     let thread: ThreadModel
     /// The height of the floating pane bar over the page; the side panel has none.
-    let bottomInset: CGFloat
 
     @Environment(SceneModel.self) private var scene
     @State private var browserTarget: BrowserTarget?
@@ -108,7 +107,6 @@ private struct OverviewScroll: View {
             Color.clear.frame(height: 0).background(Color(.systemBackground), ignoresSafeAreaEdges: .top)
         }
         // The last row ends above the floating bar, and the page runs to the screen edge so no row is cut.
-        .contentMargins(.bottom, bottomInset, for: .scrollContent)
         .paneBarRow(key: isOwner) {
             if isOwner {
                 Button {

@@ -189,6 +189,7 @@ export type ThreadMessage = {
     authorName: string | null;
     authorInitials: string;
     model: string | null;
+    effort: string | null;
     state: 'pending' | 'read' | 'cancelled';
     canEditText: boolean;
     intent: 'add_preview_manifest' | 'fix_preview' | 'record_walkthrough' | 'record_walkthrough_and_open_pr' | null;
@@ -204,6 +205,7 @@ export type ThreadMessage = {
 export type ThreadComposer = {
     state: 'idle' | 'working' | 'disabled_closed' | 'disabled_computer' | 'disabled_blocked' | 'readonly';
     model: string | null;
+    effort: string | null;
     models: ModelFamily[];
     accountName: string | null;
     nextAttachmentNumber: number;
@@ -274,7 +276,7 @@ export type NewThreadPageData = {
     repos: { slug: string; name: string; setupStatus: RepositorySetupState; setupStep: string | null }[];
     picker: {
         accounts: PickerAccount[];
-        defaultsByRepo: Record<string, { accountId: number | null; brokenDefaultAccountId: number | null; model: string | null }>;
+        defaultsByRepo: Record<string, { accountId: number | null; brokenDefaultAccountId: number | null; model: string | null; effort: string | null }>;
         models: ModelFamily[];
     };
     defaultRepo: string | null;

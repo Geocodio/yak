@@ -17,12 +17,20 @@
             "opus": 1000000,
             "sonnet": 1000000
         },
+        "effort": null,
         "model": "sonnet",
         "models": [
             {
                 "family": "opus",
                 "latest": {
                     "description": "For complex work and everyday tasks",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
                     "label": "Opus 5.5",
                     "value": "opus"
                 },
@@ -32,6 +40,13 @@
                 "family": "fable",
                 "latest": {
                     "description": "For your toughest challenges",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
                     "label": "Fable 5.2",
                     "value": "fable"
                 },
@@ -41,6 +56,13 @@
                 "family": "sonnet",
                 "latest": {
                     "description": "Most efficient for simpler tasks",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
                     "label": "Sonnet 5.5",
                     "value": "sonnet"
                 },
@@ -50,6 +72,13 @@
                 "family": "haiku",
                 "latest": {
                     "description": "Fastest for quick answers",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
                     "label": "Haiku 5.5",
                     "value": "haiku"
                 },
@@ -72,6 +101,7 @@
             "authorName": "Test person",
             "bodyHtml": "<p>Retry failed uploads with backoff</p>\n",
             "canEditText": false,
+            "effort": null,
             "id": "<volatile:string>",
             "intent": null,
             "mode": null,

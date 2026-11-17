@@ -3,6 +3,9 @@ import Foundation
 /// What the stub remembers about threads between requests: how far each event list is published, whether a
 /// question was answered, whether a turn was stopped, and the last message body. A new scenario resets it.
 final class StubThreads: @unchecked Sendable {
+    /// How long ago the seeded history of a thread happened, in seconds.
+    static let seededHistoryAge: TimeInterval = 3600
+
     private let lock = NSLock()
     private var publishedCounts: [String: Int] = [:]
     private var answeredThreads: Set<String> = []
@@ -10,6 +13,13 @@ final class StubThreads: @unchecked Sendable {
     private var clearedNotices: Set<String> = []
     private var interruptions: [String: [[String: Any]]] = [:]
     private var lastBody = ""
+    private var heldAfter: Int?
+
+    /// Playback publishes nothing past this sequence while it is set, so a screen can be looked at mid-turn.
+    var holdAfter: Int? {
+        get { lock.withLock { heldAfter } }
+        set { lock.withLock { heldAfter = newValue } }
+    }
 
     func reset() {
         lock.withLock {
@@ -19,6 +29,7 @@ final class StubThreads: @unchecked Sendable {
             clearedNotices = []
             interruptions = [:]
             lastBody = ""
+            heldAfter = nil
         }
     }
 
@@ -68,6 +79,7 @@ private let statesOfThreads: [(id: String, title: String)] = [
     ("acc07nt0", "A thread with an account problem"),
     ("cred0000", "A thread with an exposed credential"),
     ("wa17ng00", "A thread waiting for a sandbox"),
+    ("n0events", "A thread with no messages yet"),
 ]
 
 private func update(_ dictionary: inout [String: Any], _ key: String, _ change: (inout [String: Any]) -> Void) {
@@ -93,7 +105,13 @@ private func json(_ object: Any, status: Int = 200) -> StubAnswer {
 private let noContent = StubAnswer.reply(status: 204, contentType: "application/json", body: Data())
 
 extension Scenario {
-    var playsLive: Bool { self == .oneThreadWorking }
+    var playsLive: Bool { self == .oneThreadWorking || self == .longTurn || self == .oneThreadHeld }
+
+    /// The events of the history that come before the live turn of `long-turn`.
+    static let longTurnHistoryCount = 60
+
+    /// How far the live events are published before the first subscription.
+    private var initiallyPublished: Int { self == .longTurn ? Self.longTurnHistoryCount : 0 }
 
     /// The data file of the scenario, or the server's own fixture in the `server-fixtures` scenario.
     private func data(_ name: String, _ fixtures: StubFixtures, _ baseURL: String) -> [String: Any] {
@@ -117,7 +135,7 @@ extension Scenario {
             list["needsYou"] = needy.filter { $0["id"] as? String == "d0e515ef" }
             list["threads"] = [[String: Any]]()
             list["needsYouCount"] = 1
-        case .oneThreadWorking:
+        case .oneThreadWorking, .longTurn, .oneThreadHeld:
             var row = needy.first { $0["id"] as? String == "d0e515ef" } ?? [:]
             row["needsYouReason"] = NSNull()
             row["needsYouLabel"] = NSNull()
@@ -179,6 +197,7 @@ extension Scenario {
                 ]
             }
         }
+        if self == .threadStates, id == "n0events" { return [] }
         let name = self == .questionOpen ? "events/question" : "events/simple-turn"
         let source =
             self == .serverFixtures
@@ -189,19 +208,39 @@ extension Scenario {
                 pointed[sequence] = event
             }
         }
-        return (source["broadcasts"] as? [[String: Any]] ?? []).compactMap { broadcast in
+        let turn = (source["broadcasts"] as? [[String: Any]] ?? []).compactMap { broadcast in
             if broadcast["pointer"] as? Bool == true, let sequence = broadcast["sequence"] as? Int {
                 return pointed[sequence]
             }
             let type = broadcast["type"] as? String
             return type == "delta" || type == "stream.reset" ? nil : broadcast
         }
+        guard self == .longTurn, id == "d0e515ef" else { return turn }
+        let history = (1...Self.longTurnHistoryCount).map { number -> [String: Any] in
+            [
+                "sequence": number, "type": "entry",
+                "data": [
+                    "role": "assistant", "messageId": "msg_\(number)",
+                    "blocks": [["type": "text", "text": "Step \(number).", "html": "<p>Step \(number).</p>"]],
+                ] as [String: Any],
+                "createdAt": "2026-11-15T09:00:00Z",
+            ]
+        }
+        return history + turn.map { Self.shifted($0, by: Self.longTurnHistoryCount) }
+    }
+
+    private static func shifted(_ event: [String: Any], by offset: Int) -> [String: Any] {
+        var event = event
+        if let sequence = event["sequence"] as? Int { event["sequence"] = sequence + offset }
+        return event
     }
 
     /// The items the socket plays for a thread, in order, each with its sequence and its JSON text.
     func broadcasts(_ id: String, _ fixtures: StubFixtures, _ baseURL: String) -> [(sequence: Int, json: String)] {
         let source = data("events/simple-turn", fixtures, baseURL)
+        let offset = self == .longTurn ? Self.longTurnHistoryCount : 0
         return (source["broadcasts"] as? [[String: Any]] ?? []).compactMap { item in
+            let item = Self.shifted(item, by: offset)
             guard let sequence = item["sequence"] as? Int,
                 let data = try? JSONSerialization.data(withJSONObject: item, options: [.sortedKeys])
             else { return nil }
@@ -212,9 +251,14 @@ extension Scenario {
     private func events(_ id: String, _ fixtures: StubFixtures, _ baseURL: String, _ threads: StubThreads)
         -> (events: [[String: Any]], published: Int)
     {
-        let stored = storedEvents(id, fixtures, baseURL)
+        let seededAt = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-StubThreads.seededHistoryAge))
+        let stored = storedEvents(id, fixtures, baseURL).map { event -> [String: Any] in
+            var event = event
+            if event["createdAt"] != nil { event["createdAt"] = seededAt }
+            return event
+        }
         let total = stored.compactMap { $0["sequence"] as? Int }.max() ?? 0
-        let published = threads.published(id) ?? (playsLive ? 0 : total)
+        let published = threads.published(id) ?? (playsLive ? initiallyPublished : total)
         let all = (stored + threads.extraEvents(id)).filter { ($0["sequence"] as? Int ?? .max) <= published }
         return (all.sorted { ($0["sequence"] as? Int ?? 0) < ($1["sequence"] as? Int ?? 0) }, published)
     }
@@ -229,6 +273,7 @@ extension Scenario {
         let total = storedEvents(id, fixtures, baseURL).compactMap { $0["sequence"] as? Int }.max() ?? 0
         show["latestSequence"] = published
         if self == .serverFixtures { return show }
+        if self == .threadStates, id == "n0events" { show["messages"] = [[String: Any]]() }
         update(&show, "thread") {
             $0["id"] = id
             $0["title"] = row["title"]

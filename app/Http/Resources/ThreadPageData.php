@@ -58,7 +58,7 @@ final class ThreadPageData
      *     canDrive: bool,
      *     diffTotals: ?array{additions: int, deletions: int, filesCount: int},
      *     pullRequest: ?array{number: int, url: string},
-     *     brief: ?array{text: string, kind: string, model: ?string, startedAt: string, branch: ?string},
+     *     brief: ?array{text: string, kind: string, model: ?string, effort: ?string, startedAt: string, branch: ?string},
      *     publishWarning: bool,
      *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitches: list<array{from: string, to: string, at: string}>, environmentSwitch: ?array{from: string, to: string, at: string}, accountName: ?string, continuedFromThreadId: ?string, continuedFromTitle: ?string, canTeleport: bool},
      *     capacity: ?array{turns: array{used: int, limit: int}, sandboxes: array{used: int, limit: int}, share: array{used: int, limit: int}},
@@ -164,7 +164,7 @@ final class ThreadPageData
     }
 
     /**
-     * @return ?array{text: string, kind: string, model: ?string, startedAt: string, branch: ?string}
+     * @return ?array{text: string, kind: string, model: ?string, effort: ?string, startedAt: string, branch: ?string}
      */
     private static function brief(Thread $thread): ?array
     {
@@ -176,6 +176,7 @@ final class ThreadPageData
             'text' => $thread->brief,
             'kind' => $thread->kind->value,
             'model' => $thread->model,
+            'effort' => $thread->effort,
             'startedAt' => ($thread->created_at ?? now())->toIso8601String(),
             'branch' => $thread->branch,
         ];

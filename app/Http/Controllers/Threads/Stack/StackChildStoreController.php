@@ -35,6 +35,7 @@ class StackChildStoreController extends Controller
                 ThreadKind::from((string) $request->validated('kind')),
                 $request->validated('model') ?: null,
                 null,
+                $request->validated('effort'),
             );
         } catch (ThreadActionRefused $refusal) {
             return response()->json(['message' => $refusal->getMessage(), 'errors' => ['stack' => [$refusal->getMessage()]]], 422);

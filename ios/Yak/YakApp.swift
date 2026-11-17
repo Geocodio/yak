@@ -15,7 +15,7 @@ struct YakApp: App {
         let system = DeviceDescription.current().systemDescription
         #if DEBUG
             if let testMode = TestMode.current() {
-                let parts = AppParts.make(storage: nil, isTestMode: true)
+                let parts = AppParts.make(storage: nil, isTestMode: true, defaults: MemoryDefaults())
                 self.parts = parts
                 _model = State(initialValue: testMode.makeModel(version: version, system: system, parts: parts))
                 return
@@ -33,7 +33,7 @@ struct YakApp: App {
         let tokens = storage?.tokens ?? KeychainTokenStore(accessGroup: nil)
         let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
         let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() })
-        let parts = AppParts.make(storage: storage, isTestMode: false)
+        let parts = AppParts.make(storage: storage, isTestMode: false, defaults: defaults)
         self.parts = parts
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
         _model = State(
@@ -52,11 +52,22 @@ struct YakApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(model: model)
-                .appRoot(parts, model: model)
-                #if DEBUG
-                    .preferredColorScheme(TestMode.colorScheme())
-                #endif
+            #if DEBUG
+                if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
+                    MarkdownGallery()
+                } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {
+                    ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
+                } else {
+                    rootView.preferredColorScheme(TestMode.colorScheme())
+                }
+            #else
+                rootView
+            #endif
         }
+    }
+
+    private var rootView: some View {
+        RootView(model: model)
+            .appRoot(parts, model: model)
     }
 }

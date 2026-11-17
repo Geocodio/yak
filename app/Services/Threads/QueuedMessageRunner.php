@@ -106,7 +106,7 @@ class QueuedMessageRunner
         }
 
         try {
-            return $this->turns->start($head, '', null, $oldest->model, TaskRunKind::FollowUp);
+            return $this->turns->start($head, '', null, $oldest->model, TaskRunKind::FollowUp, effort: $oldest->effort);
         } catch (ThreadBusy|ThreadNotOwnedByYak) {
             return null;
         }
