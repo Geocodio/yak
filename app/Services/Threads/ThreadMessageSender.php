@@ -6,6 +6,7 @@ use App\DataTransferObjects\ThreadMessageInput;
 use App\DataTransferObjects\ThreadMessageResult;
 use App\Enums\MessageDelivery;
 use App\Enums\SteeringMode;
+use App\Enums\TaskMode;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\TurnMessageKind;
@@ -15,8 +16,11 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
+use App\Models\YakTask;
+use App\Services\FollowUpTaskFactory;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\YakPromptBuilder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -55,6 +59,10 @@ class ThreadMessageSender
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_OWNED_BY_DEVICE, self::DEVICE_SENTENCE);
         }
 
+        if ($thread->is_legacy && ! $thread->isOpen()) {
+            return $this->continueLegacy($thread, $user, $input);
+        }
+
         if (! $thread->isOpen()) {
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, 'This thread is closed.');
         }
@@ -76,6 +84,35 @@ class ThreadMessageSender
         }
 
         return $this->deliver($thread, $user, $input);
+    }
+
+    /**
+     * A message to work from before threads continues it the way a follow-up
+     * on the old task did, in a new thread that continues from this one.
+     */
+    private function continueLegacy(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
+    {
+        $continuing = Thread::query()->where('continued_from_thread_id', $thread->id)->latest('id')->first();
+
+        if ($continuing?->isOpen() === true) {
+            return new ThreadMessageResult($this->sendOnce($continuing, $user, $input)->status, null, $continuing->public_id);
+        }
+
+        $root = YakTask::query()->withoutGlobalScopes()->find($thread->legacy_root_task_id)
+            ?? throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, 'This thread is closed.');
+        $head = $root->conversation()->last() ?? $root;
+        $closedMessage = $head->mode === TaskMode::Research ? 'This conversation is closed.' : 'This PR is no longer open for changes.';
+        $stored = $input->storeAttachments === null ? null : ($input->storeAttachments)(new PendingSteeringMessage);
+        $attachments = $stored instanceof Collection ? $stored : collect();
+        $child = app(FollowUpTaskFactory::class)->create($head, $input->text, 'dashboard', authorName: $user->name, attachments: $attachments);
+
+        if ($child === null) {
+            $attachments->each->delete();
+
+            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, $closedMessage);
+        }
+
+        return new ThreadMessageResult('sent', null, app(ThreadFactory::class)->forTask($child)->public_id);
     }
 
     private function deliver(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult

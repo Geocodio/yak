@@ -10,13 +10,14 @@ return new class extends Migration
     {
         Schema::table('threads', function (Blueprint $table) {
             $table->boolean('is_legacy')->default(false);
+            $table->unsignedBigInteger('legacy_root_task_id')->nullable();
         });
     }
 
     public function down(): void
     {
         Schema::table('threads', function (Blueprint $table) {
-            $table->dropColumn('is_legacy');
+            $table->dropColumn(['is_legacy', 'legacy_root_task_id']);
         });
     }
 };

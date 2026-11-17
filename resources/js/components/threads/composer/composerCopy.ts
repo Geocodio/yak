@@ -34,6 +34,9 @@ export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer[
         case 'waiting_for_sandbox':
             return savedFor('when the sandbox is up');
     }
+    if (state === 'legacy') {
+        return { placeholder: 'Message Claude', hint: 'This work is from before threads. Send a message to continue it in a new thread.' };
+    }
     if (state === 'working') {
         return { ...DEFAULT, placeholder: 'Add a message. Claude reads it as soon as it can.' };
     }

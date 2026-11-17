@@ -106,7 +106,8 @@ final class ThreadMessagesData
 
         // The first turn writes its message row later, so until a run exists the starting request is the pending message.
         if ($rows->isEmpty() && $root !== null && filled($root->description) && ! $thread->runs()->exists()) {
-            $messages[] = self::initialMessage($root);
+            $continuesLegacy = $thread->continued_from_thread_id !== null && Thread::query()->withoutGlobalScopes()->whereKey($thread->continued_from_thread_id)->where('is_legacy', true)->exists();
+            $messages[] = self::initialMessage($continuesLegacy ? ($thread->headTask() ?? $root) : $root);
         }
 
         $delivered = array_filter(array_column($messages, 'uuid'));

@@ -1,15 +1,22 @@
 <?php
 
 use App\Enums\ThreadListFilter;
+use App\Enums\ThreadSessionKind;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
+use App\Jobs\RunFollowUpJob;
 use App\Models\TaskLog;
 use App\Models\Thread;
+use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\FollowUpTaskFactory;
+use App\Services\SessionStore\SessionSync;
 use App\Services\Threads\LegacyConversation;
 use App\Services\Threads\LegacyTaskThreads;
+use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadList;
+use Illuminate\Support\Facades\Queue;
 
 function oldConversation(?User $user = null): YakTask
 {
@@ -22,6 +29,7 @@ function oldConversation(?User $user = null): YakTask
         'started_by_user_id' => $user->id,
         'result_summary' => 'First **answer**',
         'branch_name' => 'yak/login',
+        'session_id' => 'abc-session',
         'pr_url' => 'https://github.com/acme/widgets/pull/12',
         'created_at' => '2026-01-01 10:00:00',
         'updated_at' => '2026-01-01 10:30:00',
@@ -33,7 +41,7 @@ function oldConversation(?User $user = null): YakTask
         'created_at' => '2026-01-02 10:00:00', 'updated_at' => '2026-01-02 10:30:00', 'completed_at' => '2026-01-02 10:30:00',
     ]);
     YakTask::factory()->success()->create([
-        'thread_id' => null, 'pr_url' => null, 'parent_task_id' => $first->id, 'repo' => 'acme/widgets',
+        'thread_id' => null, 'pr_url' => 'https://github.com/acme/widgets/pull/12', 'parent_task_id' => $first->id, 'repo' => 'acme/widgets',
         'description' => 'And the signup', 'result_summary' => 'Third answer',
         'created_at' => '2026-01-03 10:00:00', 'updated_at' => '2026-01-03 10:30:00', 'completed_at' => '2026-01-03 10:30:00',
     ]);
@@ -112,6 +120,72 @@ it('shows the thread page with legacy answers', function () {
             ->where('isLegacy', true)
             ->has('legacyAnswers', 3)
             ->where('legacyAnswers.0.runTaskId', fn ($id) => is_string($id))
-            ->where('composer.state', 'disabled_closed')
+            ->where('composer.state', 'legacy')
             ->has('messages', 3));
+});
+
+it('skips a conversation that already has a thread on one of its tasks', function () {
+    $root = oldConversation();
+    $private = Thread::factory()->private()->create();
+    $followUp = YakTask::query()->where('parent_task_id', $root->id)->first();
+    $followUp->forceFill(['thread_id' => $private->id])->saveQuietly();
+
+    expect(app(LegacyTaskThreads::class)->convert($root))->toBeNull();
+    (require base_path('database/migrations/2026_12_09_020004_convert_legacy_tasks_to_threads.php'))->up();
+
+    expect(Thread::query()->withoutGlobalScopes()->count())->toBe(1)
+        ->and($followUp->fresh()->thread_id)->toBe($private->id)
+        ->and($root->fresh()->thread_id)->toBeNull();
+});
+
+it('continues a converted task in a new thread with its branch and session', function () {
+    Queue::fake();
+    $this->mock(SessionSync::class)->shouldReceive('seedFromLegacyTranscript')->andReturn(true);
+    $user = User::factory()->create();
+    $root = oldConversation($user);
+    $legacy = app(LegacyTaskThreads::class)->convert($root);
+    $head = $root->conversation()->last();
+
+    $child = app(FollowUpTaskFactory::class)->create($head, 'One more thing', 'linear', authorName: 'Grace');
+    $new = app(ThreadFactory::class)->forTask($child);
+
+    expect($new->id)->not->toBe($legacy->id)
+        ->and($new->continued_from_thread_id)->toBe($legacy->id)
+        ->and($new->isOpen())->toBeTrue()
+        ->and($new->branch)->toBe('yak/login')
+        ->and($new->visibility)->toBe(ThreadVisibility::Team)
+        ->and($new->sessions()->where('session_id', 'abc-session')->where('kind', ThreadSessionKind::Main)->exists())->toBeTrue()
+        ->and($root->fresh()->thread_id)->toBe($new->id);
+
+    $this->actingAs($user)->get(route('threads.show', $legacy))->assertOk()
+        ->assertInertia(fn ($page) => $page->has('legacyAnswers', 3)->has('messages', 3));
+    $this->actingAs($user)->get(route('threads.show', $new))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('teleport.continuedFromThreadId', $legacy->public_id)->where('messages.0.text', 'One more thing'));
+});
+
+it('lets a driver send to a legacy thread and lands on a new thread', function () {
+    Queue::fake();
+    $this->mock(SessionSync::class)->shouldReceive('seedFromLegacyTranscript')->andReturn(false);
+    $user = User::factory()->create();
+    $legacy = app(LegacyTaskThreads::class)->convert(oldConversation($user));
+
+    $response = $this->actingAs($user)->post(route('threads.messages.store', $legacy), ['message' => 'Please continue']);
+
+    $new = Thread::query()->where('continued_from_thread_id', $legacy->id)->firstOrFail();
+    $response->assertRedirect(route('threads.show', $new));
+    Queue::assertPushed(RunFollowUpJob::class);
+    expect($new->isOpen())->toBeTrue();
+});
+
+it('refuses a viewer without drive rights and a closed thread that is not legacy', function () {
+    $owner = User::factory()->create();
+    $legacy = app(LegacyTaskThreads::class)->convert(oldConversation($owner));
+    $viewer = User::factory()->create();
+    $legacy->forceFill(['visibility' => ThreadVisibility::Private])->save();
+    ThreadShare::query()->create(['thread_id' => $legacy->id, 'user_id' => $viewer->id]);
+    $this->actingAs($viewer)->post(route('threads.messages.store', $legacy), ['message' => 'Hi'])->assertForbidden();
+    expect(Thread::query()->withoutGlobalScopes()->count())->toBe(1);
+
+    $closed = Thread::factory()->closed()->create();
+    $this->actingAs($owner)->post(route('threads.messages.store', $closed), ['message' => 'Hi'])->assertSessionHas('error');
 });

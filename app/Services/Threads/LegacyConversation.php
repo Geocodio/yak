@@ -6,6 +6,7 @@ use App\Http\Resources\AttachmentData;
 use App\Http\Resources\ThreadMessagesData;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
+use App\Models\YakTask;
 use App\Services\ThreadBuilder;
 use App\Support\AttachmentReferences;
 use App\Support\Markdown;
@@ -22,7 +23,9 @@ class LegacyConversation
      */
     public static function for(Thread $thread): array
     {
-        $root = $thread->tasks()->oldest()->first()?->rootTask();
+        $root = $thread->legacy_root_task_id !== null
+            ? YakTask::query()->withoutGlobalScopes()->find($thread->legacy_root_task_id)
+            : $thread->tasks()->oldest()->first()?->rootTask();
 
         if ($root === null) {
             return ['messages' => [], 'answers' => []];
@@ -33,6 +36,11 @@ class LegacyConversation
         $answers = [];
 
         foreach (app(ThreadBuilder::class)->build($root) as $index => $entry) {
+            // Work added after the thread closed continues in another thread.
+            if ($thread->closed_at !== null && $entry->run !== null && $entry->run->created_at > $thread->closed_at) {
+                continue;
+            }
+
             $at = $entry->timestamp->toIso8601String();
 
             if ($entry->kind === 'yak') {

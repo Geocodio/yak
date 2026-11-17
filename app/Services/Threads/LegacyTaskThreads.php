@@ -24,11 +24,12 @@ class LegacyTaskThreads
 
     /**
      * The root's thread, created when it has none. Running it again returns
-     * the thread it made.
+     * the thread it made. A conversation that already has a thread on any of
+     * its tasks is left alone and gives null.
      */
-    public function convert(YakTask $root): Thread
+    public function convert(YakTask $root): ?Thread
     {
-        return DB::transaction(function () use ($root): Thread {
+        return DB::transaction(function () use ($root): ?Thread {
             $locked = YakTask::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($root->id);
 
             if ($locked->thread_id !== null) {
@@ -36,6 +37,11 @@ class LegacyTaskThreads
             }
 
             $conversation = $locked->conversation();
+
+            if ($conversation->contains(fn (YakTask $task): bool => $task->thread_id !== null)) {
+                return null;
+            }
+
             $lastActivityAt = $conversation->max('updated_at');
             $title = Str::limit(AttachmentReferences::stripFromText($locked->headline()) ?: $locked->repo, 120, '');
             $pullRequestTask = $conversation->last(fn (YakTask $task): bool => $task->pr_url !== null);
@@ -50,6 +56,7 @@ class LegacyTaskThreads
                 'owner_user_id' => $locked->started_by_user_id,
                 'branch' => $locked->branch_name,
                 'is_legacy' => true,
+                'legacy_root_task_id' => $locked->id,
                 'close_reason' => self::CLOSE_REASON,
                 'closed_at' => $lastActivityAt,
                 'last_activity_at' => $lastActivityAt,
@@ -69,7 +76,7 @@ class LegacyTaskThreads
                 ]);
             }
 
-            YakTask::query()->withoutGlobalScopes()->whereIn('id', $conversation->pluck('id'))
+            YakTask::query()->withoutGlobalScopes()->whereIn('id', $conversation->pluck('id'))->whereNull('thread_id')
                 ->toBase()->update(['thread_id' => $thread->id]);
 
             return $thread;

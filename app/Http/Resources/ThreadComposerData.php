@@ -28,12 +28,13 @@ final class ThreadComposerData
     ];
 
     /**
-     * @return array{state: 'idle'|'working'|'disabled_closed'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, effort: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>}
+     * @return array{state: 'idle'|'working'|'disabled_closed'|'legacy'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, effort: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>}
      */
     public static function for(Thread $thread, ?User $viewer): array
     {
         $state = match (true) {
             ! app(ThreadAccess::class)->canDrive($viewer, $thread) => 'readonly',
+            $thread->is_legacy && ! $thread->isOpen() => 'legacy',
             ! $thread->isOpen() => 'disabled_closed',
             $thread->owner_side === ThreadOwnerSide::Device => 'disabled_computer',
             in_array($thread->blocked_reason, self::DISABLING_BLOCKS, true) => 'disabled_blocked',

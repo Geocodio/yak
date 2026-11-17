@@ -165,8 +165,18 @@ class ThreadFactory
                 return $current->id;
             }
 
-            $seedsFromRoot = $locked->thread_id === null;
-            $thread = $this->create($locked->repo, $locked, $seedsFromRoot ? $locked->branch_name : null, null);
+            $continuesLegacy = $current?->is_legacy === true;
+            $seedsFromRoot = $locked->thread_id === null || $continuesLegacy;
+            $thread = $this->create($locked->repo, $locked, $seedsFromRoot ? $locked->branch_name : null, $continuesLegacy ? $current->id : null);
+
+            if ($continuesLegacy) {
+                $thread->forceFill([
+                    'visibility' => $current->effectiveVisibility(),
+                    'owner_user_id' => $current->effectiveOwnerUserId(),
+                ])->save();
+                YakTask::query()->withoutGlobalScopes()->where('thread_id', $current->id)->whereIn('id', $locked->conversation()->pluck('id'))
+                    ->toBase()->update(['thread_id' => $thread->id]);
+            }
 
             if ($seedsFromRoot && $locked->session_id !== null) {
                 // A missing transcript means the session is gone (a review's sandbox is destroyed),

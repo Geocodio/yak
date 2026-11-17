@@ -209,7 +209,7 @@ export type ThreadMessage = {
 };
 
 export type ThreadComposer = {
-    state: 'idle' | 'working' | 'disabled_closed' | 'disabled_computer' | 'disabled_blocked' | 'readonly';
+    state: 'idle' | 'working' | 'disabled_closed' | 'legacy' | 'disabled_computer' | 'disabled_blocked' | 'readonly';
     model: string | null;
     effort: string | null;
     models: ModelFamily[];
