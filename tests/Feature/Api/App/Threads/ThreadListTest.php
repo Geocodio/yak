@@ -2,9 +2,12 @@
 
 use App\Enums\TaskStatus;
 use App\Enums\ThreadSource;
+use App\Enums\TurnState;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadList;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\ContractFixture;
@@ -129,4 +132,35 @@ it('accepts sources and starters and returns facets and origin fields', function
 
     expect(array_keys($response->json('threads.0')))->toContain('isUnread');
     $this->getJson('/api/app/v1/threads?sources=slack', phoneHeadersFor($user))->assertUnprocessable();
+});
+
+it('tells app builds about an unseen finished thread through the unseen reason', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'repo' => 'Geocodio/geocodio']);
+    $child = Thread::factory()->child($thread)->create(['created_by_user_id' => $user->id, 'repo' => 'Geocodio/geocodio']);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour()]);
+    $childTask = YakTask::factory()->create(['thread_id' => $child->id]);
+    TaskRun::factory()->create(['yak_task_id' => $childTask->id, 'thread_id' => $child->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour()]);
+
+    $response = $this->getJson('/api/app/v1/threads', phoneHeadersFor($user))->assertOk()
+        ->assertJsonCount(0, 'needsYou')
+        ->assertJsonPath('needsYouCount', 0)
+        ->assertJsonPath('threads.0.id', $thread->public_id)
+        ->assertJsonPath('threads.0.isUnread', true)
+        ->assertJsonPath('threads.0.needsYouReason', 'unseen')
+        ->assertJsonPath('threads.0.needsYouLabel', 'Finished, not seen yet')
+        ->assertJsonPath('threads.0.children.0.needsYouReason', 'unseen');
+
+    expect(ThreadList::for($user)['threads'][0]['needsYouReason'])->toBeNull();
+});
+
+it('leaves needs-you tasks out of a filtered list', function () {
+    $user = User::factory()->create();
+    Thread::factory()->create(['created_by_user_id' => $user->id, 'source' => 'slack', 'repo' => 'Geocodio/geocodio']);
+    YakTask::factory()->awaitingClarification()->create(['thread_id' => null, 'started_by_user_id' => $user->id]);
+
+    $this->getJson('/api/app/v1/threads', phoneHeadersFor($user))->assertOk()->assertJsonPath('needsYou.0.type', 'task');
+    $this->getJson('/api/app/v1/threads?sources[]=slack', phoneHeadersFor($user))->assertOk()->assertJsonCount(0, 'needsYou');
+    $this->getJson('/api/app/v1/threads?starters[]=user:' . $user->id, phoneHeadersFor($user))->assertOk()->assertJsonCount(0, 'needsYou');
 });
