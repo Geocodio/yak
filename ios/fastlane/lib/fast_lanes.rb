@@ -50,9 +50,10 @@ module FastLanes
   # True when the output of a failed xcodebuild test step shows that the test runner never connected, so no test ran:
   # one of the strings above, or every "Executed N tests" line says 0. A run in which a test executed and failed is not.
   def self.runner_never_started?(output)
-    return true if RUNNER_NEVER_CONNECTED.any? { |text| output.include?(text) }
     counts = output.scan(/Executed (\d+) tests?,/).flatten.map(&:to_i)
-    !counts.empty? && counts.all?(&:zero?)
+    return false if counts.any?(&:positive?)
+    return true if RUNNER_NEVER_CONNECTED.any? { |text| output.include?(text) }
+    !counts.empty?
   end
 
   def self.file_digest(path)

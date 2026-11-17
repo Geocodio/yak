@@ -103,5 +103,8 @@ class FastLanesTest < Minitest::Test
     refute FastLanes.runner_never_started?("Executed 0 tests, with 0 failures\nExecuted 12 tests, with 1 failure (0 unexpected) in 3.0 (3.1) seconds")
     refute FastLanes.runner_never_started?("Executed 1 test, with 1 failure (0 unexpected) in 3.0 (3.1) seconds")
     refute FastLanes.runner_never_started?("error: compile failed")
+    refute FastLanes.runner_never_started?(
+      "Executed 12 tests, with 1 failure (0 unexpected) in 3.0 (3.1) seconds\n(Underlying Error: Channel disconnected)"
+    )
   end
 end
