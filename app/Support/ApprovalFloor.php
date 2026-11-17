@@ -16,7 +16,6 @@ class ApprovalFloor
     {
         $patterns = array_merge(
             (array) config('yak.pr_review.approval_veto_paths', []),
-            (array) config('yak.pr_review.approval_blocked_paths', []),
             (array) config('yak.pr_review.config_floor_paths', []),
         );
         $held = [];
