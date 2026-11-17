@@ -88,6 +88,7 @@ final class PreviewModel {
     @ObservationIgnored private var lastCardWasPage = false
     @ObservationIgnored private var lastCrash: Date?
     @ObservationIgnored private var signInTask: Task<Void, Never>?
+    @ObservationIgnored private var signInGeneration = 0
     @ObservationIgnored private var wasOffline = false
     @ObservationIgnored private var isStarted = false
 
@@ -188,10 +189,7 @@ final class PreviewModel {
         let isPage = made.kind == .page
         if isPage, !lastCardWasPage, case .refused = page { page = .idle }
         if isPage, !hasSignedIn, !isMintingPaused, signInTask == nil {
-            signInTask = Task { [weak self] in
-                await self?.signIn(path: self?.address ?? "/", reason: .firstLoad)
-                self?.signInTask = nil
-            }
+            startSignIn(path: address, reason: .firstLoad)
         }
         lastCardWasPage = isPage
         if wasOfflineBefore, !next.isOffline, page == .problem(.offline) { Task { await reload() } }
@@ -373,16 +371,24 @@ final class PreviewModel {
             isUserInitiated: isUserInitiated, allowsLoopbackHTTP: backend.allowsLoopbackHTTP)
         switch decision {
         case .mintTicket(let path):
-            signInTask?.cancel()
-            signInTask = Task { [weak self] in
-                await self?.signIn(path: path, reason: .signInAgain)
-                self?.signInTask = nil
-            }
+            startSignIn(path: path, reason: .signInAgain)
         case .openInBrowser(let target): openURL(target)
         case .cancelUnrequestedOpen: setLine(String(localized: "preview.line.unrequestedOpen"))
         case .allow, .cancel: break
         }
         return decision
+    }
+
+    /// Replaces any signing-in task; a task that finishes clears the handle only while the handle is still its own,
+    /// so a newer task stays cancellable by stop().
+    private func startSignIn(path: String, reason: PreviewTicketReason) {
+        signInTask?.cancel()
+        signInGeneration += 1
+        let generation = signInGeneration
+        signInTask = Task { [weak self] in
+            await self?.signIn(path: path, reason: reason)
+            if self?.signInGeneration == generation { self?.signInTask = nil }
+        }
     }
 
     /// False cancels the response.
@@ -399,11 +405,7 @@ final class PreviewModel {
             Task { await backend.refresh() }
             return false
         case .mintAgain(let path):
-            signInTask?.cancel()
-            signInTask = Task { [weak self] in
-                await self?.signIn(path: path, reason: .signInAgain)
-                self?.signInTask = nil
-            }
+            startSignIn(path: path, reason: .signInAgain)
             return false
         }
     }

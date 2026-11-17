@@ -18,27 +18,17 @@ import XCTest
     /// The shot, then an audit with the narrow rules the thread screen uses; the page's own content is the page's.
     private func shootPreview(_ name: String) throws {
         try shoot(name, audits: false)
-        let keyboard = keyboardFrame()
         let auditBars = AuditRules.Bars(app)
         let page = AuditRules.Page(app)
         try app.performAccessibilityAudit { [app, auditBars, page] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
-                // The system caps the size of text in its bars, and draws its glass under the threads badge.
+                // The system caps the size of text in its bars.
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
-                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
             if AuditRules.isInsidePage(issue, page: page) { return true }
-            if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
-                return true
-            }
             if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
             if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-            if issue.auditType == .contrast, let element = issue.element, let keyboard,
-                keyboard.intersects(element.frame)
-            {
-                return true
-            }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
             return true
         }

@@ -156,7 +156,15 @@ enum PreviewWebData {
     private static func update<Element: Codable & Hashable>(
         _ key: String, in defaults: any KeyValueStore, _ change: (inout Set<Element>) -> Void
     ) {
-        var records: Set<Element> = read(key, in: defaults)
+        // A list that cannot be read stays as it is, so the ids in it are not lost.
+        var records: Set<Element> = []
+        if let data = defaults.data(forKey: key) {
+            guard let decoded = try? JSONDecoder().decode([Element].self, from: data) else {
+                log("A preview record could not be read")
+                return
+            }
+            records = Set(decoded)
+        }
         change(&records)
         do {
             defaults.set(records.isEmpty ? nil : try JSONEncoder().encode(Array(records)), forKey: key)
