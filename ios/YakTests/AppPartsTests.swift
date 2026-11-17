@@ -5,20 +5,34 @@ import YakKit
 @testable import Yak
 
 @MainActor @Suite struct AppPartsTests {
-    private func context() -> AppPartsContext {
+    private static func defaults() -> UserDefaults {
+        let suite = "tests.parts.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
+    }
+
+    private func context(defaults: any KeyValueStore = PushMemoryDefaults()) -> AppPartsContext {
         let tokens = InMemoryTokenStore()
-        let instances = InstanceStore(defaults: PushMemoryDefaults(), tokens: tokens, now: { Date() })
+        let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() })
         return AppPartsContext(
             instances: instances, tokens: tokens,
             makeEnvironment: {
                 .app(version: "0.0.0", system: "Unit test", files: InMemoryFileStore(), allowsInsecureRealtime: false)
-            })
+            }, defaults: defaults)
     }
 
-    @Test func pushIsTheOnlyObserverOfAFreshApp() {
+    @Test func thePreviewRecordsLiveInTheStoreItWasGiven() {
+        let given = Self.defaults()
+        let parts = AppParts.make(storage: nil, isTestMode: true, context: context(defaults: given))
+        #expect((parts.previewData.defaults as AnyObject) === given)
+    }
+
+    @Test func pushAndThePreviewDataAreTheObserversOfAFreshApp() {
         let parts = AppParts.make(storage: nil, isTestMode: false, context: context())
-        #expect(parts.observers.count == 1)
+        #expect(parts.observers.count == 2)
         #expect(parts.observers.first is PushController)
+        #expect(parts.observers.last is PreviewWebDataObserver)
         #expect(parts.storage == nil)
     }
 

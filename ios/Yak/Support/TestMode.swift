@@ -60,8 +60,8 @@
 
         @MainActor func make(version: String, system: String) -> (model: AppModel, parts: AppParts) {
             let lockable = LockableTokenStore()
-            let instances = InstanceStore(
-                defaults: MemoryDefaults(), tokens: lockable, now: { Date() }, build: Self.pushBuild())
+            let defaults = MemoryDefaults()
+            let instances = InstanceStore(defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
             let environment: @Sendable () -> SessionEnvironment = {
                 .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
@@ -70,7 +70,7 @@
             let parts = AppParts.make(
                 storage: nil, isTestMode: true,
                 context: AppPartsContext(
-                    instances: instances, tokens: lockable, makeEnvironment: environment,
+                    instances: instances, tokens: lockable, makeEnvironment: environment, defaults: defaults,
                     permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize))
             doubles.permission.controller = parts.push
             let push = parts.push
@@ -135,7 +135,8 @@
         }
     }
 
-    private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
+    /// The in-memory store of test mode, shared by the instance list and the app parts.
+    final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
         private let lock = NSLock()
         private var values: [String: Data] = [:]
         func data(forKey key: String) -> Data? { lock.withLock { values[key] } }

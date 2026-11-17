@@ -40,7 +40,8 @@ struct YakApp: App {
         }
         let parts = AppParts.make(
             storage: storage, isTestMode: false,
-            context: AppPartsContext(instances: instances, tokens: tokens, makeEnvironment: environment))
+            context: AppPartsContext(
+                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults))
         self.parts = parts
         BackgroundRefresh.register(identifier: BackgroundRefresh.identifier) { parts.backgroundRefreshSteps }
         _model = State(

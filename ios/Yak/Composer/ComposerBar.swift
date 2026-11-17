@@ -42,6 +42,8 @@ struct ComposerBar: View {
         #if DEBUG
             .task { await composer.addTestFixtures(count: TestMode.attachmentFixtureCount()) }
         #endif
+        .onChange(of: scene.composerFocusRequest) { if scene.takeComposerFocus() { isFocused = true } }
+        .task { if scene.takeComposerFocus() { isFocused = true } }
         .sensoryFeedback(.error, trigger: composer.refusalCount)
         .animation(.smooth(duration: 0.2), value: composer.bar)
         .animation(.smooth(duration: 0.2), value: composer.attachments.count)
