@@ -30,7 +30,7 @@ test('on a phone the task page is two tabs and the desktop aside is not mounted'
         // `$page->script()`.
         ->assertCount('[data-testid="activity-stream"]', 1)
         ->assertNotPresent('[data-testid="task-sidebar"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a tab deep link and a log deep link open the right panel on a phone', function () {
     $this->actingAs(User::factory()->create());
@@ -55,7 +55,7 @@ test('a tab deep link and a log deep link open the right panel on a phone', func
     );
 
     expect(abs($heights['sheet'] - $heights['viewport']))->toBeLessThan(4);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('desktop shows sidebar without trigger', function () {
     $this->actingAs(User::factory()->create());
@@ -64,7 +64,7 @@ test('desktop shows sidebar without trigger', function () {
     visit(route('tasks.show', $task))
         ->assertVisible('[data-testid="task-sidebar"]:visible')
         ->assertMissing('[data-testid="details-drawer-trigger"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the conversation does not run under the aside on a short viewport', function () {
     $this->actingAs(User::factory()->create());
@@ -86,7 +86,7 @@ test('the conversation does not run under the aside on a short viewport', functi
     );
 
     expect($rects['bubbleRight'])->toBeLessThanOrEqual($rects['asideLeft']);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('on a phone a long run offers its earlier steps without leaving the conversation', function () {
     $this->actingAs(User::factory()->create());
@@ -113,4 +113,4 @@ test('on a phone a long run offers its earlier steps without leaving the convers
         ->assertNoJavaScriptErrors();
 
     expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

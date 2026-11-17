@@ -41,5 +41,5 @@ it('replies for a task with a link to the task', function () {
 
     Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/issues/9/comments')
         && str_contains($request['body'], 'Done.')
-        && str_contains($request['body'], route('tasks.show', $task)));
+        && str_contains($request['body'], route('threads.show', $task->thread()->first())));
 });

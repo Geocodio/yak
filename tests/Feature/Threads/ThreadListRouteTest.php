@@ -76,7 +76,7 @@ test('the yak filter is accepted and the new thread data loads only on request',
         ->assertJsonPath('threads.0.title', 'From Sentry')
         ->assertJsonPath('hasAnyThreads', true);
 
-    $this->actingAs($user)->get(route('tasks'))
+    $this->actingAs($user)->get(route('threads.log'))
         ->assertInertia(fn ($page) => $page->missing('newThread'));
 });
 

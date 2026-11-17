@@ -64,7 +64,7 @@ it('shows approve controls to a co-owner with write access', function () {
         ->assertSee('Reject this change?')
         ->assertSee('Yak deletes the branch yak/api-headers and no PR opens.')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows the requester view with withdraw', function () {
     $requester = User::factory()->create();
@@ -81,7 +81,7 @@ it('shows the requester view with withdraw', function () {
         ->assertSee('Copy link to share')
         ->assertDontSee('Approve & open PR')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows the connect prompt to an unlinked viewer', function () {
     $this->actingAs(User::factory()->create());
@@ -94,7 +94,7 @@ it('shows the connect prompt to an unlinked viewer', function () {
         ->assertSee('Reject')
         ->assertDontSee('Approve & open PR')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows the no-access state with check again', function () {
     $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
@@ -109,7 +109,7 @@ it('shows the no-access state with check again', function () {
         ->assertSee('Linked as mhansen. Access is checked live and cached for 10 minutes.')
         ->assertDontSee('Approve & open PR')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('keeps the feedback draft when approve fails', function () {
     $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
@@ -132,7 +132,7 @@ it('keeps the feedback draft when approve fails', function () {
         ->wait(16)
         ->assertSee('Could not open the PR.')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows who Yak tried to ask when nobody resolves', function () {
     $requester = User::factory()->create();
@@ -152,7 +152,7 @@ it('shows who Yak tried to ask when nobody resolves', function () {
         ->assertSee('Copy link to share')
         ->assertSee('Open repository page')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('words the CODEOWNERS read and resolve failures plainly', function () {
     $requester = User::factory()->create();
@@ -168,7 +168,7 @@ it('words the CODEOWNERS read and resolve failures plainly', function () {
         ->assertDontSee('CODEOWNERS CODEOWNERS')
         ->assertDontSee('Yak could not check this one.')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows the expired and withdrawn final states', function () {
     $viewer = User::factory()->create(['name' => 'Dana Whitfield']);
@@ -190,4 +190,4 @@ it('shows the expired and withdrawn final states', function () {
         ->assertSee('Yak deleted the branch yak/api-headers.')
         ->assertSee('Start a new task from this')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

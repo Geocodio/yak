@@ -8,6 +8,7 @@ use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -25,7 +26,7 @@ test('a repo choice typed in the message box still resolves', function () {
     ]);
 
     $this->post(route('tasks.messages.store', $task), ['message' => 'acme/api'])
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('success', 'Reply sent. Yak is continuing the task.');
 
     expect($task->fresh()->repo)->toBe('acme/api');
@@ -37,7 +38,7 @@ test('a plain message while questions are pending points back to the form', func
     $task = YakTask::factory()->withClarificationQuestions()->create();
 
     $this->post(route('tasks.messages.store', $task), ['message' => 'Convert in place'])
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('error', 'Answer the questions in the form above.');
 
     Queue::assertNothingPushed();
@@ -77,7 +78,7 @@ test('an open-pr task creates a chained follow-up and dispatches RunFollowUpJob'
     ]);
 
     $this->post(route('tasks.messages.store', $task), ['message' => 'Also handle the empty-state'])
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('success', 'Sent to Yak. It will push changes to this PR.');
 
     expect(YakTask::where('parent_task_id', $task->id)->count())->toBe(1);
@@ -128,7 +129,7 @@ test('a message on a failed task retries it once with the message as a note', fu
     $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'pr_url' => null]);
 
     $this->post(route('tasks.messages.store', $task), ['message' => 'use the helper'])
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('success', 'Trying again with your note.');
 
     expect($task->fresh()->status)->toBe(TaskStatus::Pending)

@@ -41,7 +41,7 @@ test('the stream starts with the newest 200 rows and loads older rows on request
 
     expect($page->script('document.querySelectorAll(\'[data-testid="step-row"]\').length'))->toBe(250);
     expect($page->script('document.querySelectorAll(\'[data-testid="load-earlier"]\').length'))->toBe(0);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('new rows append on poll', function () {
     $this->actingAs(User::factory()->create());
@@ -54,7 +54,7 @@ test('new rows append on poll', function () {
 
     // The running task polls every 5 seconds.
     $page->wait(7)->assertSee('echo 31')->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a running task whose log starts empty shows its first row within one poll', function () {
     $this->actingAs(User::factory()->create());
@@ -66,7 +66,7 @@ test('a running task whose log starts empty shows its first row within one poll'
 
     // The running task polls every 5 seconds.
     $page->wait(7)->assertSee('echo 1');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('switching runs replaces the stream with the chosen run\'s log', function () {
     $this->actingAs(User::factory()->create());
@@ -87,4 +87,4 @@ test('switching runs replaces the stream with the chosen run\'s log', function (
         ->assertSeeIn('[data-testid="activity-stream"]', 'echo root')
         ->assertDontSeeIn('[data-testid="activity-stream"]', 'echo follow')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

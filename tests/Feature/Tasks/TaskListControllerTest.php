@@ -30,7 +30,7 @@ test('it shares auth, nav, and docs props', function () {
             ->where('auth.user.name', 'Ada Lovelace')
             ->has('nav.activeTaskCount')
             ->has('docs.baseUrl'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('index renders task rows', function () {
     $task = YakTask::factory()->running()->create([
@@ -54,7 +54,7 @@ test('index renders task rows', function () {
                 ->where('by', 'Ada Lovelace')
                 ->where('status', 'running')
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('it shows status for every task status', function () {
     foreach (TaskStatus::cases() as $status) {
@@ -72,7 +72,7 @@ test('it shows status for every task status', function () {
     $expected = collect(TaskStatus::cases())->map(fn (TaskStatus $status) => $status->value)->sort()->values()->all();
 
     expect($actual)->toBe($expected);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('pr fields are serialized for a task with a pull request', function () {
     $task = YakTask::factory()->success()->create([
@@ -88,7 +88,7 @@ test('pr fields are serialized for a task with a pull request', function () {
                 ->where('pr.state', 'open')
                 ->where('pr.url', 'https://github.com/org/repo/pull/42')
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('it paginates tasks', function () {
     YakTask::factory()->count(51)->create();
@@ -103,7 +103,7 @@ test('it paginates tasks', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('tasks is served as a scroll/merge prop for infinite scroll', function () {
     YakTask::factory()->count(51)->create();
@@ -126,7 +126,7 @@ test('tasks is served as a scroll/merge prop for infinite scroll', function () {
             'currentPage' => 2,
         ])
         ->and($response['props']['tasks']['data'])->toHaveCount(1);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a poll reload of page 1 is merged ahead of the rows already loaded', function () {
     YakTask::factory()->count(3)->create();
@@ -145,7 +145,7 @@ test('a poll reload of page 1 is merged ahead of the rows already loaded', funct
         ->and($response['mergeProps'] ?? [])->not->toContain('tasks.data')
         ->and($response['matchPropsOn'] ?? [])->toContain('tasks.data.id')
         ->and($response['scrollProps']['tasks']['currentPage'])->toBe(1);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('filters by status', function () {
     YakTask::factory()->running()->create(['description' => 'Running task']);
@@ -155,7 +155,7 @@ test('filters by status', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row->where('description', 'Running task')->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('filters by source and repo', function () {
     YakTask::factory()->create(['source' => 'slack', 'description' => 'Slack task']);
@@ -171,7 +171,7 @@ test('filters by source and repo', function () {
     $this->get(route('tasks', ['repo' => 'api']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row->where('description', 'API task')->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('filters by pr state', function () {
     YakTask::factory()->success()->create(['description' => 'Open PR task']);
@@ -194,14 +194,14 @@ test('filters by pr state', function () {
     $this->get(route('tasks', ['pr' => 'none']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row->where('description', 'No PR task')->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('source filter only applies on the tasks tab', function () {
     YakTask::factory()->create(['source' => 'slack', 'mode' => TaskMode::Setup]);
 
     $this->get(route('tasks', ['tab' => 'setup', 'source' => 'sentry']))
         ->assertInertia(fn (Assert $page) => $page->has('tasks.data', 1));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('sorts by created_at desc by default and flips direction', function () {
     YakTask::factory()->create(['repo' => 'zebra', 'description' => 'Zebra task', 'created_at' => now()]);
@@ -221,7 +221,7 @@ test('sorts by created_at desc by default and flips direction', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('tasks.data.0.description', 'Zebra task')
             ->where('tasks.data.1.description', 'Apple task'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('unknown sort columns are ignored and fall back to created_at', function () {
     YakTask::factory()->create(['description' => 'Only task', 'created_at' => now()]);
@@ -231,7 +231,7 @@ test('unknown sort columns are ignored and fall back to created_at', function ()
         ->assertInertia(fn (Assert $page) => $page
             ->where('filters.sort', 'password')
             ->has('tasks.data', 1));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('tabs switch between tasks, reviews and setup with counts', function () {
     YakTask::factory()->count(3)->create(['mode' => TaskMode::Fix]);
@@ -251,7 +251,7 @@ test('tabs switch between tasks, reviews and setup with counts', function () {
 
     $this->get(route('tasks', ['tab' => 'reviews']))
         ->assertInertia(fn (Assert $page) => $page->has('tasks.data', 1));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('default tab shows only fix and research tasks', function () {
     YakTask::factory()->create(['mode' => TaskMode::Fix, 'description' => 'Fix task A']);
@@ -260,7 +260,7 @@ test('default tab shows only fix and research tasks', function () {
 
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page->has('tasks.data', 2));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('follow-up tasks nest under their parent and parent status follows the latest', function () {
     $root = YakTask::factory()->success()->create([
@@ -301,7 +301,7 @@ test('follow-up tasks nest under their parent and parent status follows the late
     // Only the root is a top-level paginated row.
     $ids = collect($this->get(route('tasks'))->viewData('page')['props']['tasks']['data'])->pluck('id');
     expect($ids)->toContain($root->public_id)->not->toContain($latestChild->public_id);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a multi-level follow-up chain flattens grandchildren under the root', function () {
     $root = YakTask::factory()->success()->create(['repo' => 'web', 'external_id' => 'GC-1', 'branch_name' => 'yak/GC-1']);
@@ -317,7 +317,7 @@ test('a multi-level follow-up chain flattens grandchildren under the root', func
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1, fn (Assert $row) => $row->has('followUps', 2)->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('tab counts exclude follow-up children', function () {
     $root = YakTask::factory()->success()->create(['repo' => 'web', 'branch_name' => 'yak/TC-1']);
@@ -325,7 +325,7 @@ test('tab counts exclude follow-up children', function () {
 
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page->where('counts.tasks', 1));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('preview gif url is present when an artifact preview exists', function () {
     $task = YakTask::factory()->success()->create();
@@ -344,7 +344,7 @@ test('preview gif url is present when an artifact preview exists', function () {
                 ->whereType('previewUrl', 'string')
                 ->whereType('previewGif', 'string')
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a task with only a poster has no preview gif', function () {
     $task = YakTask::factory()->success()->create();
@@ -356,7 +356,7 @@ test('a task with only a poster has no preview gif', function () {
                 ->whereType('previewUrl', 'string')
                 ->where('previewGif', null)
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a task with no artifacts has no preview images', function () {
     YakTask::factory()->success()->create();
@@ -367,7 +367,7 @@ test('a task with no artifacts has no preview images', function () {
                 ->where('previewUrl', null)
                 ->where('previewGif', null)
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('it links to the live branch preview when one exists', function () {
     $repository = Repository::factory()->create(['slug' => 'preview-repo']);
@@ -384,7 +384,7 @@ test('it links to the live branch preview when one exists', function () {
                 ->where('id', $task->public_id)
                 ->where('deploymentUrl', 'https://preview-repo-preview-branch.yak.example.com')
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('it hides the preview link once the deployment is destroyed', function () {
     $repository = Repository::factory()->create(['slug' => 'gone-repo']);
@@ -400,7 +400,7 @@ test('it hides the preview link once the deployment is destroyed', function () {
                 ->where('id', $task->public_id)
                 ->where('deploymentUrl', null)
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('repo column links to the pr when the task has one', function () {
     Repository::factory()->create(['slug' => 'pr-project']);
@@ -415,7 +415,7 @@ test('repo column links to the pr when the task has one', function () {
                 ->where('id', $task->public_id)
                 ->where('repoUrl', 'https://github.com/org/pr-project/pull/7')
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('repo column links to repository edit page when repository exists', function () {
     Repository::factory()->create(['slug' => 'my-project']);
@@ -432,7 +432,7 @@ test('repo column links to repository edit page when repository exists', functio
                 ->where('id', $task->public_id)
                 ->where('repoUrl', route('repos.edit', 'my-project'))
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('repo column has no link when no repository record exists', function () {
     $task = YakTask::factory()->create([
@@ -448,7 +448,7 @@ test('repo column has no link when no repository record exists', function () {
                 ->where('id', $task->public_id)
                 ->where('repoUrl', null)
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the setup card dismiss route records that the user has seen it', function () {
     User::query()->delete();

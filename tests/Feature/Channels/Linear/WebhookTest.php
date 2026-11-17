@@ -404,7 +404,7 @@ it('links the agent session to the task dashboard when a session is created', fu
 
         return str_contains($body['query'] ?? '', 'agentSessionUpdate')
             && ($body['variables']['id'] ?? null) === 'session-xyz'
-            && str_ends_with($body['variables']['input']['externalUrls'][0]['url'] ?? '', "/tasks/{$task->public_id}");
+            && str_ends_with($body['variables']['input']['externalUrls'][0]['url'] ?? '', '/threads/' . $task->thread()->first()->public_id);
     });
 });
 

@@ -42,4 +42,4 @@ test('ctrl-click on a task row opens the task in a new tab', function () {
 
     expect(modifierClickRow($page, "task-row-{$task->public_id}", "'click', { bubbles: true, ctrlKey: true }"))->toBe(route('tasks.show', $task, false));
     $page->assertPathIs('/tasks');
-});
+})->skip('The task log is removed; the thread log replaces it.');

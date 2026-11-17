@@ -24,6 +24,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadSandbox;
+use App\Support\TaskPageUrl;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -37,7 +38,7 @@ test('retry re-queues a failed task and dispatches RunYakJob', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Failed, 'error_log' => 'boom']);
 
     $this->post(route('tasks.retry', $task))
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(TaskPageUrl::forOrLog($task));
 
     Queue::assertPushed(RunYakJob::class);
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
@@ -69,7 +70,7 @@ test('retry continues a task that failed CI on its existing branch', function ()
     TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
 
     $this->post(route('tasks.retry', $task))
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(TaskPageUrl::forOrLog($task));
 
     Queue::assertNotPushed(RunYakJob::class);
     Queue::assertPushed(RetryYakJob::class, fn (RetryYakJob $job) => $job->task->is($task)
@@ -182,7 +183,7 @@ test('retry does nothing for a task that cannot be retried', function () {
     Queue::fake();
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
 
-    $this->post(route('tasks.retry', $task))->assertRedirect(route('tasks.show', $task));
+    $this->post(route('tasks.retry', $task))->assertRedirect(TaskPageUrl::forOrLog($task));
 
     Queue::assertNothingPushed();
     expect($task->fresh()->status)->toBe(TaskStatus::Running);
@@ -217,7 +218,7 @@ test('cancel destroys the sandbox and marks the task cancelled', function () {
     Process::fake(['*' => Process::result(exitCode: 0)]);
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
 
-    $this->post(route('tasks.cancel', $task))->assertRedirect(route('tasks.show', $task));
+    $this->post(route('tasks.cancel', $task))->assertRedirect(TaskPageUrl::forOrLog($task));
 
     expect($task->fresh()->status)->toBe(TaskStatus::Cancelled);
     Process::assertRan(fn ($p) => str_contains($p->command, 'incus delete'));
@@ -263,7 +264,7 @@ test('rerun review dispatches RunYakReviewJob for a review task', function () {
         ]),
     ]);
 
-    $this->post(route('tasks.rerun-review', $task))->assertRedirect(route('tasks.show', $task));
+    $this->post(route('tasks.rerun-review', $task))->assertRedirect(TaskPageUrl::forOrLog($task));
 
     Queue::assertPushed(RunYakReviewJob::class);
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
@@ -285,7 +286,7 @@ test('retry render dispatches RenderVideoJob when raw footage exists', function 
     $task = YakTask::factory()->create();
     $raw = Artifact::factory()->for($task, 'task')->create(['role' => 'raw', 'type' => 'video']);
 
-    $this->post(route('tasks.retry-render', $task))->assertRedirect(route('tasks.show', $task));
+    $this->post(route('tasks.retry-render', $task))->assertRedirect(TaskPageUrl::forOrLog($task));
 
     Queue::assertPushed(RenderVideoJob::class, fn (RenderVideoJob $job) => true);
 });
@@ -313,7 +314,7 @@ test('reroute moves the task to a new repo and restarts it', function () {
     ]);
 
     $this->post(route('tasks.reroute', $task), ['repo' => 'api'])
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(TaskPageUrl::forOrLog($task->fresh()));
 
     Queue::assertPushed(RunYakJob::class);
     expect($task->fresh()->repo)->toBe('api');
@@ -336,7 +337,7 @@ test('reroute restamps dispatched_at through AgentJobDispatcher', function () {
     ]);
 
     $this->post(route('tasks.reroute', $task), ['repo' => 'api'])
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(TaskPageUrl::forOrLog($task->fresh()));
 
     $task->refresh();
     expect($task->dispatched_at)->not->toBeNull()
@@ -365,7 +366,7 @@ test('reroute to an inactive repository flashes the reason on the task page', fu
     $task = YakTask::factory()->create(['mode' => TaskMode::Fix, 'repo' => 'web', 'pr_url' => null]);
 
     $this->post(route('tasks.reroute', $task), ['repo' => 'old'])
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('error', 'Repository not found or inactive.');
 
     Queue::assertNothingPushed();
@@ -412,7 +413,7 @@ test('retry after a CI timeout uses a green result without running the agent aga
         ['id' => 1, 'head_sha' => 'old111', 'status' => 'completed', 'conclusion' => 'failure'],
     ]);
 
-    $this->post(route('tasks.retry', $task))->assertRedirect(route('tasks.show', $task));
+    $this->post(route('tasks.retry', $task))->assertRedirect(TaskPageUrl::forOrLog($task));
 
     Queue::assertNotPushed(RunYakJob::class);
     Queue::assertNotPushed(RetryYakJob::class);
@@ -527,7 +528,7 @@ test('retry shows an error flash instead of an error page when the queue refuses
     Queue::shouldReceive('connection')->andReturnSelf();
 
     $this->post(route('tasks.retry', $task))
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('error', 'Yak could not restart this task. Try again in a moment.');
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed)
@@ -541,7 +542,7 @@ test('setup and continue starts setup and marks the task to continue after it', 
     $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'error_log' => 'not set up']);
 
     $this->post(route('tasks.setup-and-continue', $task))
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('success');
 
     Queue::assertPushed(SetupYakJob::class, 1);

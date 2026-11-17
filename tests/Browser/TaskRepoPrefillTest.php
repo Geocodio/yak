@@ -19,10 +19,10 @@ it('fills the composer with the repo picked in the auto-reply', function () {
     visit(route('tasks.show', ['task' => $this->task, 'repo' => 'geocodio-website']))
         ->assertValue('[data-testid="composer-input"]', 'geocodio-website')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('ignores a repo that is not one of the task\'s options', function () {
     visit(route('tasks.show', ['task' => $this->task, 'repo' => 'evil']))
         ->assertValue('[data-testid="composer-input"]', '')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

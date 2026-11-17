@@ -52,7 +52,7 @@ test('task detail page reflects status update without manual refresh', function 
     $page->wait(7)
         ->assertSee('success')
         ->assertSee('Search feature implemented successfully');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('task detail shows running status with pulse indicator', function () {
     $user = User::factory()->create();
@@ -66,7 +66,7 @@ test('task detail shows running status with pulse indicator', function () {
 
     $page->assertSee('running')
         ->assertPresent('.activity-pulse');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a poll does not reload the open walkthrough video', function () {
     $this->actingAs(User::factory()->create());
@@ -84,7 +84,7 @@ test('a poll does not reload the open walkthrough video', function () {
 
     expect($page->script('document.querySelector("[data-testid=walkthrough-player] video").getAttribute("src")'))
         ->toBe($sourceBeforePoll);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the walkthrough dialog wraps the video with the chapters beside it', function () {
     Storage::fake('artifacts');
@@ -115,4 +115,4 @@ test('the walkthrough dialog wraps the video with the chapters beside it', funct
 
     $page->click('[data-testid="walkthrough-close"]')
         ->assertMissing('[data-testid="walkthrough-dialog"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

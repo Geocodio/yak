@@ -67,7 +67,8 @@ it('does not gate a task without a thread', function () {
 it('keeps task reads open to a share recipient', function () {
     $world = VisibilityWorld::build();
 
-    $this->actingAs($world->sharedViewer)->get("/tasks/{$world->task->public_id}")->assertOk();
+    $this->actingAs($world->sharedViewer)->get("/tasks/{$world->task->public_id}")->assertRedirect(route('threads.show', $world->thread));
+    $this->actingAs($world->sharedViewer)->get(route('threads.show', $world->thread))->assertOk();
     expect($this->actingAs($world->sharedViewer)->get("/tasks/{$world->task->public_id}/pr-images/abc123")->getStatusCode())->toBe(404);
 });
 

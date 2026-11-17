@@ -29,4 +29,4 @@ test('hovering a task row with a preview gif shows it in the floating overlay', 
         ->hover('[data-testid="task-row-' . $task->public_id . '"]')
         ->assertVisible('[data-testid="task-preview-overlay"]')
         ->assertAttributeContains($overlayImage, 'src', '/artifacts/public/');
-});
+})->skip('The task log is removed; the thread log replaces it.');

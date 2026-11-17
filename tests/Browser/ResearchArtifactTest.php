@@ -35,7 +35,7 @@ test('research findings link opens viewer with iframe and back navigation works'
         ->click('[data-testid="back-to-task"]')
         ->assertPathIs('/tasks/' . $task->public_id)
         ->assertSee('Found 3 key insights');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('artifact viewer page displays correct artifact filename', function () {
     $user = User::factory()->create();

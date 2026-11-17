@@ -170,7 +170,7 @@ it('answers within the time bound when GitHub is slow', function () {
     foreach ($recorded as $options) {
         expect($options['timeout'] ?? null)->not->toBe(3);
     }
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('bounds the collaborator permission call when only that call is slow', function () {
     taskShowSetup();

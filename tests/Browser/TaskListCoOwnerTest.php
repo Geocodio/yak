@@ -22,7 +22,7 @@ it('shows the needs co-owner status and the asked person', function () {
         ->assertMissing('[data-testid="task-row-' . $unrelated->public_id . '"]')
         ->assertAttribute('[data-testid="needs-co-owner-chip"]', 'aria-pressed', 'true')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 it('shows the empty state when nothing is held', function () {
     $this->actingAs(User::factory()->create(['has_seen_setup_card_at' => now()]));
@@ -34,4 +34,4 @@ it('shows the empty state when nothing is held', function () {
         ->click('Clear filter')
         ->assertDontSee('No tasks need a co-owner')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task log is removed; the thread log replaces it.');

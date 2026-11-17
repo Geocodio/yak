@@ -13,4 +13,4 @@ test('yak thread entries show the walker avatar', function () {
     visit(route('tasks.show', $task))
         ->assertSee('Fix the flaky checkout test')
         ->assertVisible('[data-testid="yak-bubble"] [data-testid="yak-avatar"] svg');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

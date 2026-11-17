@@ -5,7 +5,7 @@ use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
 test('unauthenticated users are redirected to the login page', function () {
-    $this->get(route('tasks'))
+    $this->get(route('threads.log'))
         ->assertRedirect(route('login'));
 });
 
@@ -153,7 +153,7 @@ test('session persists across page navigation after oauth login', function () {
     $this->get(route('auth.google.callback'));
     $this->assertAuthenticated();
 
-    $this->get(route('tasks'))->assertOk();
+    $this->get(route('threads.log'))->assertOk();
     $this->get(route('profile.edit'))->assertOk();
     $this->assertAuthenticated();
 });

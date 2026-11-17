@@ -121,7 +121,7 @@ it('leaves the web body unchanged', function () {
 
     $this->actingAs($this->user)->get(route('tasks.show', $task))
         ->assertInertia(fn ($page) => $page->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => 'k3m9p2qa', 'filename' => 'research.html'])));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('keeps the session links in the web thread', function () {
     $task = mediaTask($this->user, ['mode' => TaskMode::Review, 'context' => json_encode([
@@ -137,7 +137,7 @@ it('keeps the session links in the web thread', function () {
                 expect($json)->toContain($link)->and($json)->not->toContain('app-media/');
             });
     }
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 describe('signed pull request images', function () {
     beforeEach(function () {

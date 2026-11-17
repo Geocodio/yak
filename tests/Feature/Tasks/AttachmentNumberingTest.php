@@ -34,7 +34,7 @@ test('the composer offers the next free number', function () {
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.nextAttachmentNumber', 4));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('claim keeps free labels and moves colliding ones, rewriting the text in one pass', function () {
     $claimed = AttachmentNumbering::claim(

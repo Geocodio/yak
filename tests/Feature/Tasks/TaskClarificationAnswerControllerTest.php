@@ -4,6 +4,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Queue;
 
@@ -17,7 +18,7 @@ it('submits answers and redirects to the task', function () {
     $this->post(route('tasks.clarification-answers.store', $this->task), [
         'answers' => ['scope' => ['choices' => ['Small'], 'other' => null], 'data' => ['choices' => [], 'other' => 'Use staging']],
         'note' => 'Thanks',
-    ])->assertRedirect(route('tasks.show', $this->task))->assertSessionHas('success', 'Sent to Yak.');
+    ])->assertRedirect(TaskPageUrl::forOrLog($this->task))->assertSessionHas('success', 'Sent to Yak.');
 
     expect($this->task->fresh()->clarificationAnswersAwaitingResume()['answered_by'])->toBe('Michele');
     Queue::assertPushed(RunYakJob::class);
@@ -56,7 +57,7 @@ it('answers on the conversation head when posted to the root task', function () 
     $this->task->update(['parent_task_id' => $root->id]);
 
     $this->post(route('tasks.clarification-answers.store', $root), ['answers' => ['scope' => ['choices' => ['Small'], 'other' => null]]])
-        ->assertRedirect(route('tasks.show', $root));
+        ->assertRedirect(TaskPageUrl::forOrLog($root));
 
     expect($this->task->fresh()->clarificationAnswersAwaitingResume())->not->toBeNull();
 });
@@ -65,7 +66,7 @@ it('flashes a busy message when the lock cannot be taken in time', function () {
     YakTask::updating(fn () => throw tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']));
 
     $this->post(route('tasks.clarification-answers.store', $this->task), ['answers' => ['scope' => ['choices' => ['Small'], 'other' => null]]])
-        ->assertRedirect(route('tasks.show', $this->task))
+        ->assertRedirect(TaskPageUrl::forOrLog($this->task))
         ->assertSessionHas('error', 'Yak is busy with this conversation. Try again in a few seconds.');
     Queue::assertNotPushed(RunYakJob::class);
 });

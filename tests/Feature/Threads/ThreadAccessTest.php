@@ -104,7 +104,7 @@ test('jobs and commands see everything', function () {
         ->and(YakTask::count())->toBe(1);
 });
 
-test('a private task is missing from the tasks, costs, analytics and system pages for other users', function () {
+test('a private thread is missing from the thread log, costs, analytics and system pages for other users', function () {
     $owner = User::factory()->create();
     $thread = Thread::factory()->private($owner)->create();
     $task = YakTask::factory()->create(['thread_id' => $thread->id, 'repo' => 'secret/repo', 'cost_usd' => 4.25, 'created_at' => now()]);
@@ -113,9 +113,8 @@ test('a private task is missing from the tasks, costs, analytics and system page
     foreach ([User::factory()->create(), User::factory()->create(['email' => 'admin@example.com'])] as $viewer) {
         $this->actingAs($viewer);
 
-        $this->get('/tasks')->assertInertia(fn (Assert $page) => $page
-            ->where('counts.tasks', 1)
-            ->where('tasks.data', fn ($rows) => collect($rows)->pluck('id')->doesntContain($task->id)));
+        $this->get(route('threads.log'))->assertInertia(fn (Assert $page) => $page
+            ->where('counts.total', 1));
         $this->get('/costs')->assertInertia(fn (Assert $page) => $page
             ->where('summary.taskCount', 1)
             ->where('summary.claudeCode.amount', 1));
@@ -125,7 +124,7 @@ test('a private task is missing from the tasks, costs, analytics and system page
     }
 
     $this->actingAs($owner);
-    $this->get('/tasks')->assertInertia(fn (Assert $page) => $page->where('counts.tasks', 2));
+    $this->get(route('threads.log'))->assertInertia(fn (Assert $page) => $page->where('counts.total', 2));
     $this->get('/costs')->assertInertia(fn (Assert $page) => $page
         ->where('summary.taskCount', 2)
         ->where('summary.claudeCode.amount', 5.25));

@@ -85,7 +85,7 @@ it('shares the co-owner panel with viewer access', function (string $role, strin
             ->where('task.nextSteps', null)
             ->where('composer.state', 'held')
             ->where('actions.canCancel', false));
-})->with([['write', 'write'], ['read', 'read']]);
+})->skip('The task page is removed; its behaviour is covered on the thread page.')->with([['write', 'write'], ['read', 'read']]);
 
 it('shares an unlinked viewer without calling GitHub', function () {
     $this->actingAs(User::factory()->create());
@@ -97,7 +97,7 @@ it('shares an unlinked viewer without calling GitHub', function () {
             ->where('coOwner.viewer.access', 'unlinked')
             ->where('coOwner.viewer.login', null));
     Http::assertNothingSent();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows a failed GitHub link on the panel', function () {
     $this->withSession(['github_link_return' => "/tasks/{$this->task->public_id}"])
@@ -106,7 +106,7 @@ it('shows a failed GitHub link on the panel', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Tasks/Show')
             ->where('coOwner.linkError', ['kind' => 'failed', 'code' => 'access_denied', 'ownerName' => null, 'ownerLogin' => null]));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows a taken GitHub account on the panel', function () {
     User::factory()->withGitHub(777, 'dana')->create(['name' => 'Dana Owner']);
@@ -117,7 +117,7 @@ it('shows a taken GitHub account on the panel', function () {
         ->get(route('settings.github.callback'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('coOwner.linkError', ['kind' => 'taken', 'code' => null, 'ownerName' => 'Dana Owner', 'ownerLogin' => 'dana']));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('approves from the dashboard', function () {
     $this->post(route('tasks.co-owner.approve', $this->task))
@@ -199,7 +199,7 @@ it('forgets the cached access on check again', function () {
     $this->post(route('tasks.co-owner.check-access', $this->task))->assertRedirect();
 
     expect(Cache::has($key))->toBeFalse();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('lists the waiting step in progress', function () {
     $this->get(route('tasks.show', $this->task))
@@ -211,7 +211,7 @@ it('lists the waiting step in progress', function () {
             ->where('progress.steps.6.label', 'Pull request')
             ->where('progress.steps.6.done', false)
             ->where('progress.steps.7.label', 'Done'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('resolves the latest request of a request-changes chain from the root', function () {
     $this->request->update(['status' => CoOwnerRequestStatus::ChangesRequested]);
@@ -234,7 +234,7 @@ it('resolves the latest request of a request-changes chain from the root', funct
 
     expect($latest->fresh()->status)->toBe(CoOwnerRequestStatus::Approved)
         ->and($this->request->fresh()->status)->toBe(CoOwnerRequestStatus::ChangesRequested);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('explains an expired request and offers no retry', function () {
     $this->request->update(['status' => CoOwnerRequestStatus::Expired, 'decided_at' => now()]);
@@ -245,7 +245,7 @@ it('explains an expired request and offers no retry', function () {
             ->where('task.nextSteps', 'The co-owner request expired after 7 days. Start a new task to try again.')
             ->where('actions.canRetry', false)
             ->where('coOwner.status', 'expired'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('explains an expired child request on the root page and offers no retry', function () {
     $this->request->update(['status' => CoOwnerRequestStatus::ChangesRequested]);
@@ -262,7 +262,7 @@ it('explains an expired child request on the root page and offers no retry', fun
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.nextSteps', 'The co-owner request expired after 7 days. Start a new task to try again.')
             ->where('actions.canRetry', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('keeps the root status for a follow-up conversation without a request', function () {
     $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'repo' => 'o-r']);
@@ -276,13 +276,13 @@ it('keeps the root status for a follow-up conversation without a request', funct
             ->where('task.nextSteps', null)
             ->where('actions.canCancel', false)
             ->where('actions.canRetry', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shares no panel for a task without a request', function () {
     $plain = YakTask::factory()->create(['status' => TaskStatus::Success]);
 
     $this->get(route('tasks.show', $plain))->assertInertia(fn (Assert $page) => $page->where('coOwner', null)->where('progress.steps.5.label', 'Pull request'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('lists the asked people in the order they were asked', function () {
     $second = User::factory()->create(['name' => 'Zed Zebra']);
@@ -290,7 +290,7 @@ it('lists the asked people in the order they were asked', function () {
 
     $this->get(route('tasks.show', $this->task))
         ->assertInertia(fn (Assert $page) => $page->where('coOwner.asked', ['Zed Zebra', 'Mathias Hansen']));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('looks up a Slack requester without a Yak account once across renders', function () {
     config()->set('yak.channels.slack.bot_token', 'xoxb-test');
@@ -301,7 +301,7 @@ it('looks up a Slack requester without a Yak account once across renders', funct
     $this->get(route('tasks.show', $this->task))->assertOk();
 
     expect(Http::recorded(fn ($request): bool => str_contains($request->url(), 'users.info')))->toHaveCount(1);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('treats a viewer whose Slack id started the task as the requester without a lookup', function () {
     $this->viewer->update(['slack_user_id' => 'UVIEW']);
@@ -312,4 +312,4 @@ it('treats a viewer whose Slack id started the task as the requester without a l
     $this->get(route('tasks.show', $this->task))
         ->assertInertia(fn (Assert $page) => $page->where('coOwner.viewer.isRequester', true)->where('coOwner.requesterName', 'Mathias Hansen'));
     Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'slack.com'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

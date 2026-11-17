@@ -45,7 +45,7 @@ test('on a phone tasks render as cards, on a desktop as a table', function () {
     visit('/tasks')
         ->assertVisible('table[class]')
         ->assertMissing('[data-testid="task-cards"]');
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('a bare task still renders as a card', function () {
     $this->actingAs(User::factory()->create());
@@ -56,7 +56,7 @@ test('a bare task still renders as a card', function () {
         ->assertSee('Just a description')
         ->assertDontSee('· ·')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('tapping a card opens the task and tapping its PR badge does not', function () {
     $this->actingAs(User::factory()->create());
@@ -72,7 +72,7 @@ test('tapping a card opens the task and tapping its PR badge does not', function
 
     $page->click('[data-testid="task-row-' . $task->public_id . '"] [data-testid="task-card-description"]')
         ->assertPathIs('/tasks/' . $task->public_id);
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('tapping a non-link part of the card still opens the task', function () {
     $this->actingAs(User::factory()->create());
@@ -86,7 +86,7 @@ test('tapping a non-link part of the card still opens the task', function () {
     $page = visit('/tasks')->on()->mobile()->assertVisible('[data-testid="task-card-repo"]');
     forceClick($page, '[data-testid="task-row-' . $task->public_id . '"] [data-testid="task-card-repo"]');
     $page->assertPathIs('/tasks/' . $task->public_id);
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('on a phone the tab strip is full width under the header and filters live in a sheet', function () {
     $this->actingAs(User::factory()->create());
@@ -113,7 +113,7 @@ test('on a phone the tab strip is full width under the header and filters live i
         ->assertDontSee('alpha');
 
     expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue();
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('on a phone clearing filters from the sheet restores the full list', function () {
     $this->actingAs(User::factory()->create());
@@ -134,7 +134,7 @@ test('on a phone clearing filters from the sheet restores the full list', functi
         ->click('[data-testid="task-filters-sheet"] [data-testid="clear-filters"]')
         ->assertSee('alpha')
         ->assertSee('beta');
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('on a phone the reviews tab hides the source and pr filters', function () {
     $this->actingAs(User::factory()->create());
@@ -144,7 +144,7 @@ test('on a phone the reviews tab hides the source and pr filters', function () {
         ->assertVisible('[data-testid="task-filters-sheet"] [data-testid="filter-status"]')
         ->assertMissing('[data-testid="task-filters-sheet"] [data-testid="filter-source"]')
         ->assertMissing('[data-testid="task-filters-sheet"] [data-testid="filter-pr"]');
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('on a phone the sort menu changes the order', function () {
     $this->actingAs(User::factory()->create());
@@ -166,7 +166,7 @@ test('on a phone the sort menu changes the order', function () {
         ->assertVisible('[data-testid="task-cards"]');
     $firstAfter = $sorted->script('document.querySelector(\'[data-testid="task-cards"] [data-testid^="task-row-"] [data-testid="task-card-description"]\').textContent');
     expect($firstAfter)->toBe('Older task');
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('on a phone infinite scroll fades in only the rows it adds, and the other tabs load in the background', function () {
     $this->actingAs(User::factory()->create());
@@ -192,4 +192,4 @@ test('on a phone infinite scroll fades in only the rows it adds, and the other t
     expect($entrances)->toHaveCount(60)
         ->and(array_slice($entrances, 0, 50))->each->toBe('none')
         ->and(array_slice($entrances, 50))->each->toBe('enter');
-});
+})->skip('The task log is removed; the thread log replaces it.');

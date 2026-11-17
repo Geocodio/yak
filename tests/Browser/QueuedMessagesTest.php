@@ -25,7 +25,7 @@ test('a message sent while Yak works waits in the banner above the text box', fu
         ->assertValue('[data-testid="composer-input"]', '');
 
     expect(PendingSteeringMessage::sole()->mode)->toBe(SteeringMode::Steer);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a waiting message switches between queued and steered', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -37,7 +37,7 @@ test('a waiting message switches between queued and steered', function () {
         ->assertAttribute("[data-testid=\"queued-message-mode-{$message->id}\"]", 'data-mode', 'steer');
 
     expect($message->fresh()->mode)->toBe(SteeringMode::Steer);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the X removes a waiting message', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -49,7 +49,7 @@ test('the X removes a waiting message', function () {
         ->assertMissing('[data-testid="queued-messages"]');
 
     expect(PendingSteeringMessage::count())->toBe(0);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('editing a waiting message takes it off the queue and into the text box', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -63,7 +63,7 @@ test('editing a waiting message takes it off the queue and into the text box', f
         ->assertSeeIn('[data-testid="composer-submit"]', 'Steer');
 
     expect(PendingSteeringMessage::count())->toBe(0);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('up arrow in an empty text box edits the latest waiting message', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -78,4 +78,4 @@ test('up arrow in an empty text box edits the latest waiting message', function 
         ->assertSeeIn('[data-testid="queued-messages"]', 'older note');
 
     expect(PendingSteeringMessage::pluck('text')->all())->toBe(['older note']);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

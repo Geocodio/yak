@@ -8,6 +8,7 @@ use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadCommands;
+use App\Support\TaskPageUrl;
 use Illuminate\Support\Facades\Storage;
 
 require_once __DIR__ . '/../../Support/ThreadTurnHelpers.php';
@@ -21,7 +22,7 @@ test('a waiting message switches between queued and steered', function () {
     $message = PendingSteeringMessage::queueFor($task, 'also handle IPv6', 'dashboard');
 
     $this->patch(route('tasks.queued-messages.update', [$task, $message->id]), ['mode' => 'steer'])
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(TaskPageUrl::forOrLog($task));
 
     expect($message->fresh()->mode)->toBe(SteeringMode::Steer);
 
@@ -35,7 +36,7 @@ test('a GitHub review cannot be steered, so its reviewer is still asked to look 
     $message = PendingSteeringMessage::queueFor($task, 'please rename', 'github_review', reviewerLogin: 'alice');
 
     $this->patch(route('tasks.queued-messages.update', [$task, $message->id]), ['mode' => 'steer'])
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('error', 'A GitHub review waits for the follow-up, so the reviewer is asked to look again.');
 
     expect($message->fresh()->mode)->toBe(SteeringMode::Queue);
@@ -57,7 +58,7 @@ test('withdrawing a message deletes it and its files', function () {
     Storage::disk('artifacts')->put($attachment->disk_path, 'png');
 
     $this->delete(route('tasks.queued-messages.destroy', [$task, $message->id]))
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(TaskPageUrl::forOrLog($task));
 
     expect(PendingSteeringMessage::find($message->id))->toBeNull()
         ->and(TaskAttachment::find($attachment->id))->toBeNull();
@@ -78,7 +79,7 @@ test('a message Yak already has cannot be withdrawn or switched', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
 
     $this->delete(route('tasks.queued-messages.destroy', [$task, 999]))
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('error', 'Yak already has that message.');
 
     $this->patch(route('tasks.queued-messages.update', [$task, 999]), ['mode' => 'steer'])
@@ -104,7 +105,7 @@ test('switching to steer during a running turn hands the message to that turn', 
     $this->mock(ThreadCommands::class)->shouldReceive('steer')->once();
 
     $this->patch(route('tasks.queued-messages.update', [$task, $message->id]), ['mode' => 'steer'])
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionMissing('error');
 
     expect(ThreadTurnMessage::where('pending_steering_message_id', $message->id)->first()?->uuid)->not->toBeEmpty();

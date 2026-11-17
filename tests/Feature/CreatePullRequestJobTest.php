@@ -546,7 +546,7 @@ test('PR body includes source, repo, attempts, and result summary', function () 
             && str_contains($body, '**Attempts:** 2')
             && str_contains($body, 'Refactored authentication flow')
             && str_contains($body, '**Task:** [LIN-500](https://linear.app/team/LIN-500)')
-            && str_contains($body, "**Yak task:** [#{$task->id}](" . route('tasks.show', $task) . ')');
+            && str_contains($body, '**Yak thread:** [' . $task->thread()->first()->title . '](' . route('threads.show', $task->thread()->first()) . ')');
     });
 });
 

@@ -37,7 +37,7 @@ it('filters tasks that need a co-owner', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('tasks.data', 1)
             ->where('tasks.data.0.id', $held->public_id));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('counts held tasks for the chip', function () {
     heldFollowUpRoot();
@@ -47,7 +47,7 @@ it('counts held tasks for the chip', function () {
 
     $this->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page->where('counts.needsCoOwner', 2));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('names the first person asked on the held row', function () {
     $mathias = User::factory()->create(['name' => 'Mathias Hansen']);
@@ -58,4 +58,4 @@ it('names the first person asked on the held row', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('tasks.data.0.id', $held->public_id)
             ->where('tasks.data.0.askedFirstName', 'Mathias'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

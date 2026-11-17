@@ -48,7 +48,7 @@ it('shows the notice and deferred candidates to the requester', function () {
             ->loadDeferredProps('early-warning', fn (Assert $deferred) => $deferred
                 ->has('earlyWarningCandidates', 1)
                 ->where('earlyWarningCandidates.0', ['id' => $writer->id, 'name' => 'Wanda Writer'])));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('gives a non-requester the notice without the picker or candidates', function () {
     $writer = writeAccessCrowd($this);
@@ -59,26 +59,26 @@ it('gives a non-requester the notice without the picker or candidates', function
             ->missing('earlyWarningCandidates'));
 
     expect($response->viewData('page')['deferredProps'] ?? [])->not->toHaveKey('early-warning');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('hides the notice without a warning', function () {
     $other = YakTask::factory()->create(['repo' => 'o-r', 'started_by_user_id' => $this->requester->id]);
     $this->actingAs($this->requester)->get(route('tasks.show', $other))
         ->assertInertia(fn (Assert $page) => $page->where('earlyWarning', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('hides the notice once a co-owner request exists', function () {
     CoOwnerRequest::factory()->create(['task_id' => $this->task->id, 'repository_id' => $this->repository->id]);
     $this->actingAs($this->requester)->get(route('tasks.show', $this->task))
         ->assertInertia(fn (Assert $page) => $page->where('earlyWarning', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('reads a deleted tagged user as untagged', function () {
     $this->task->update(['early_warning' => [...$this->task->early_warning, 'state' => 'tagged'], 'tagged_co_owner_user_id' => null]);
 
     $this->actingAs($this->requester)->get(route('tasks.show', $this->task))
         ->assertInertia(fn (Assert $page) => $page->where('earlyWarning.state', 'shown')->where('earlyWarning.taggedName', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('tags a co-owner with write access', function () {
     $writer = User::factory()->withGitHub(1, 'a')->create(['name' => 'Wanda Writer']);
@@ -98,7 +98,7 @@ it('shows the tagged name afterwards', function () {
             ->where('earlyWarning.state', 'tagged')
             ->where('earlyWarning.taggedName', 'Wanda Writer')
             ->where('earlyWarning.canPick', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('refuses a tag without write access and from a non-requester', function () {
     $reader = User::factory()->withGitHub(2, 'b')->create();
@@ -134,7 +134,7 @@ it('stops polling the notice once a co-owner request exists', function () {
     $this->get(route('tasks.show', $this->task), ['X-Inertia' => 'true', 'X-Inertia-Version' => $version, 'X-Inertia-Partial-Component' => 'Tasks/Show', 'X-Inertia-Partial-Data' => 'earlyWarning'])
         ->assertOk()
         ->assertJsonPath('props.earlyWarning', null);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('scans at most 25 linked users and leaves the requester out', function () {
     $this->requester->update(['github_id' => 999, 'github_login' => 'rita']);
@@ -149,7 +149,7 @@ it('scans at most 25 linked users and leaves the requester out', function () {
             ->has('earlyWarningCandidates', 25)
             ->where('earlyWarningCandidates.0.name', 'User 01')
             ->where('earlyWarningCandidates.24.name', 'User 25')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('returns no candidates once the notice is no longer pickable', function () {
     $this->task->update(['early_warning' => [...$this->task->early_warning, 'state' => 'declined']]);
@@ -169,7 +169,7 @@ it('returns the candidates to a partial reload asking for them', function () {
     $this->get(route('tasks.show', $this->task), ['X-Inertia' => 'true', 'X-Inertia-Version' => $version, 'X-Inertia-Partial-Component' => 'Tasks/Show', 'X-Inertia-Partial-Data' => 'earlyWarningCandidates'])
         ->assertOk()
         ->assertJsonPath('props.earlyWarningCandidates.0', ['id' => $writer->id, 'name' => 'Wanda Writer']);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('rewrites the Slack message after a dashboard pick or decline', function () {
     $this->task->update(['source' => 'slack', 'early_warning' => [...$this->task->early_warning, 'slackChannel' => 'C1', 'slackTs' => '1.2']]);

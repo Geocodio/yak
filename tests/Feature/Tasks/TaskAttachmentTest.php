@@ -180,7 +180,7 @@ test('the thread shows request attachments on the request', function () {
                 'downloadUrl' => $request->downloadUrl(),
             ])
             ->where('attachmentLimits.maxFiles', 8));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a repo choice reply shows as its own message with its files, not on the original request', function () {
     Queue::fake();
@@ -205,7 +205,7 @@ test('a repo choice reply shows as its own message with its files, not on the or
             ->where('thread', fn ($thread) => collect($thread)->contains(fn (array $entry) => $entry['kind'] === 'user'
                 && str_contains($entry['bodyHtml'], 'data-attachment-ref="File #1"')
                 && ($entry['attachments'][0]['name'] ?? null) === 'trace.txt')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('previewable files are served inline, text strictly as plain text, everything else downloads', function () {
     $put = function (TaskAttachment $attachment, string $contents): TaskAttachment {
@@ -337,7 +337,7 @@ test('labels in a sent message become chips linked to its attachments', function
                 && str_contains($html, 'data-attachment-ref="Image #2"')
                 && str_contains($html, 'unknown [Image #9]')
                 && str_contains($html, '<code>[Image #1]</code>')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('files on queued replies move onto the task when a retry folds the replies in', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Failed]);

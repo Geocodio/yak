@@ -38,7 +38,7 @@ test('a log deep link opens the transcript overlay on that entry', function () {
         ->assertSee('vendor/bin/phpstan analyse')
         ->assertSee('Step 2 of 2')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the overlay is the same width whichever entry is open', function () {
     $this->actingAs(User::factory()->create());
@@ -56,7 +56,7 @@ test('the overlay is the same width whichever entry is open', function () {
     $widthOnSecond = $page->script('document.querySelector(\'[data-testid="transcript-overlay"]\').offsetWidth');
 
     expect($widthOnSecond)->toBe($widthOnFirst);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the overlay steps with the keyboard and closes with escape', function () {
     $this->actingAs(User::factory()->create());
@@ -72,7 +72,7 @@ test('the overlay steps with the keyboard and closes with escape', function () {
         ->keys('[data-testid="transcript-overlay"]', ['Escape'])
         ->assertMissing('[data-testid="transcript-overlay"]:visible')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the overlay rail scrolls the opened entry into view', function () {
     $this->actingAs(User::factory()->create());
@@ -106,7 +106,7 @@ test('the overlay rail scrolls the opened entry into view', function () {
     JS);
 
     expect($selectedIsInView)->toBeTrue();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a deep link to a late entry opens the rail scrolled to it', function () {
     $this->actingAs(User::factory()->create());
@@ -139,7 +139,7 @@ test('a deep link to a late entry opens the rail scrolled to it', function () {
     JS);
 
     expect($selectedIsInView)->toBeTrue();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('stepping back to an entry already seen does not fetch it again', function () {
     $this->actingAs(User::factory()->create());
@@ -158,7 +158,7 @@ test('stepping back to an entry already seen does not fetch it again', function 
     $requestsAfterThree = $page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("log=")).length');
 
     expect($requestsAfterThree)->toBe($requestsAfterTwo);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a running tool entry without output is refetched each time it is reopened', function () {
     $this->actingAs(User::factory()->create());
@@ -195,7 +195,7 @@ test('a running tool entry without output is refetched each time it is reopened'
         ->assertSee('Step 1 of 2')
         ->assertSee('deploy finished successfully')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 /**
  * @return array<int, int>
@@ -234,7 +234,7 @@ test('a deep link to a row older than the loaded window keeps it open with a cap
         ->assertSee('echo step-5')
         ->assertSee('This entry is older than the loaded activity')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('switching attempts while the overlay is open on the same log refetches instead of getting stuck', function () {
     $this->actingAs(User::factory()->create());
@@ -269,7 +269,7 @@ test('switching attempts while the overlay is open on the same log refetches ins
         ->assertSee('echo attempt-two')
         ->assertSee('This entry is older than the loaded activity')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a long command wraps inside the detail pane instead of widening it', function () {
     $this->actingAs(User::factory()->create());
@@ -287,7 +287,7 @@ test('a long command wraps inside the detail pane instead of widening it', funct
     $overflows = $page->script('(() => { const overlay = document.querySelector(\'[data-testid="transcript-overlay"]\'); return [...overlay.querySelectorAll("pre")].some(pre => pre.getBoundingClientRect().right > overlay.getBoundingClientRect().right); })()');
 
     expect($overflows)->toBeFalse();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the overlay shows full assistant messages, log details, and empty states', function () {
     $this->actingAs(User::factory()->create());
@@ -334,4 +334,4 @@ test('the overlay shows full assistant messages, log details, and empty states',
         ->assertSee('No details recorded for this entry.')
         ->screenshot(filename: 'transcript-empty')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

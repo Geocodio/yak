@@ -46,5 +46,5 @@ it('renders a held task detail page and a session plan stage', function () {
         ->and(json_encode($props))->toContain('"canCancel":false')
         ->and(SessionPlanStage::forTask($task))->toBe(SessionPlanStage::AwaitingCi);
 
-    $this->withoutVite()->actingAs(User::factory()->create())->get(route('tasks.show', $task))->assertOk();
+    $this->actingAs(User::factory()->create())->get(route('tasks.show', $task))->assertStatus(301)->assertRedirect(route('threads.show', $task->thread()->first()));
 });

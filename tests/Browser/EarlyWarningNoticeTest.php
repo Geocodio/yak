@@ -39,7 +39,7 @@ it('lets the requester pick a co-owner with write access', function () {
         ->assertNoJavascriptErrors();
 
     expect($task->fresh()->tagged_co_owner_user_id)->toBe($cory->id);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('says no one matches when the typed name has no write access', function () {
     $requester = User::factory()->create();
@@ -54,7 +54,7 @@ it('says no one matches when the typed name has no write access', function () {
         ->assertSee('No matches')
         ->assertSee('Showing people with write access only')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows the save failure with a retry when the pick is refused', function () {
     $requester = User::factory()->create();
@@ -76,7 +76,7 @@ it('shows the save failure with a retry when the pick is refused', function () {
         ->wait(16)
         ->assertSee('Could not save your pick.')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('loads the picker when the notice arrives through a poll', function () {
     $requester = User::factory()->create();
@@ -94,7 +94,7 @@ it('loads the picker when the notice arrives through a poll', function () {
         ->assertPresent('[data-testid="early-warning-picker"] input[role="combobox"]')
         ->assertDontSee('Checking who has write access')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows a non-requester the text without the picker', function () {
     $requester = User::factory()->create();
@@ -106,7 +106,7 @@ it('shows a non-requester the text without the picker', function () {
         ->assertDontSee('Showing people with write access only')
         ->assertNotPresent('[data-testid="early-warning-picker"]')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('shows the answer failure with a retry when the decline is refused', function () {
     $requester = User::factory()->create();
@@ -123,4 +123,4 @@ it('shows the answer failure with a retry when the decline is refused', function
         ->assertSee('Try again')
         ->assertDontSee('Could not save your pick.')
         ->assertNoJavascriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

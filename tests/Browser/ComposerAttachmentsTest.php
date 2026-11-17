@@ -82,7 +82,7 @@ test('a pasted screenshot attaches with a preview and a token, opens in the ligh
         ->click('[data-testid="attachment-remove"]')
         ->assertMissing('[data-testid="draft-attachment"]')
         ->assertValue('[data-testid="composer-input"]', '');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('tokens sit where the files were added and backspace removes a whole token and its file', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -101,7 +101,7 @@ test('tokens sit where the files were added and backspace removes a whole token 
         ->assertValue('[data-testid="composer-input"]', 'Before [Image #1] after ')
         ->assertCount('[data-testid="draft-attachment"]', 1)
         ->assertPresent('[data-testid="draft-attachment"][data-reference="Image #1"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('hovering a tile highlights its token and hovering a token highlights its tile', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -118,7 +118,7 @@ test('hovering a tile highlights its token and hovering a token highlights its t
 
     $page->assertPresent('[data-testid="draft-attachment"][data-reference="Image #1"][data-highlighted]')
         ->assertMissing('[data-testid="draft-attachment"][data-reference="Image #2"][data-highlighted]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('dropping files on the composer attaches them and the picker adds more', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -131,7 +131,7 @@ test('dropping files on the composer attaches them and the picker adds more', fu
 
     $page->assertCount('[data-testid="draft-attachment"]', 2)
         ->assertSeeIn('[data-testid="draft-attachments"]', basename($file));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('sending a message uploads its attachments and shows them in the thread', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -149,7 +149,7 @@ test('sending a message uploads its attachments and shows them in the thread', f
         ->and($message->attachments)->toHaveCount(1)
         ->and($message->attachments->first()->original_name)->toBe('chart.png')
         ->and($message->attachments->first()->reference)->toBe('Image #1');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('attachments on a request show as thumbnails linked to their labels in the thread', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now(), 'description' => 'It breaks like [Image #1]']);
@@ -164,7 +164,7 @@ test('attachments on a request show as thumbnails linked to their labels in the 
         ->assertPresent("[data-testid=\"sent-attachment-{$attachment->id}\"][data-highlighted]")
         ->click('.prose [data-attachment-ref="Image #1"]')
         ->assertVisible('[data-testid="media-lightbox"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('undoing a deleted token brings its file back', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -178,7 +178,7 @@ test('undoing a deleted token brings its file back', function () {
     $page->keys('[data-testid="composer-input"]', 'ControlOrMeta+z')
         ->assertValue('[data-testid="composer-input"]', '[Image #1]')
         ->assertPresent('[data-testid="draft-attachment"][data-reference="Image #1"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('labels carry on from the files already in the conversation', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -189,7 +189,7 @@ test('labels carry on from the files already in the conversation', function () {
     $page->script(fireFileEvent('[data-testid="composer-input"]', 'paste', 'third.png'));
 
     $page->assertValue('[data-testid="composer-input"]', '[Image #3] ');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('picking a clarification option keeps the files already placed in the reply', function () {
     $task = YakTask::factory()->create([
@@ -203,7 +203,7 @@ test('picking a clarification option keeps the files already placed in the reply
     $page->click('[data-testid="clarification-option"] >> nth=0')
         ->assertValue('[data-testid="composer-input"]', 'Convert in place [Image #1]')
         ->assertCount('[data-testid="draft-attachment"]', 1);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('text files preview in the lightbox, which closes on a click outside the content', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -220,7 +220,7 @@ test('text files preview in the lightbox, which closes on a click outside the co
     $page->script("document.querySelector('[data-testid=\"media-lightbox-stage\"]').click()");
 
     $page->assertMissing('[data-testid="media-lightbox"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 /**
  * A composer holding `Hi [Image #1] there`, where the token spans 3..13.
@@ -266,7 +266,7 @@ test('clicking a token selects the whole of it', function () {
         JS);
 
     expect(selectionOf($page))->toBe([3, 13]);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('shift and the arrow keys select and deselect a token in one step', function () {
     $page = composerWithToken();
@@ -293,7 +293,7 @@ test('shift and the arrow keys select and deselect a token in one step', functio
     expect(selectionOf($page))->toBe([3, 13]);
     $page->keys($input, 'Shift+ArrowLeft');
     expect(selectionOf($page))->toBe([3, 3]);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('pasting an image that was just removed brings back the same attachment and label', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -310,7 +310,7 @@ test('pasting an image that was just removed brings back the same attachment and
     $page->assertValue($input, '[Image #1] ')
         ->assertCount('[data-testid="draft-attachment"]', 1)
         ->assertPresent('[data-testid="draft-attachment"][data-reference="Image #1"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('pasting an image that is already attached adds another token for it, not a copy', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -323,7 +323,7 @@ test('pasting an image that is already attached adds another token for it, not a
 
     $page->assertValue($input, '[Image #1] and again [Image #1] ')
         ->assertCount('[data-testid="draft-attachment"]', 1);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('code files preview read-only with highlighting picked from the extension', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -345,4 +345,4 @@ test('code files preview read-only with highlighting picked from the extension',
     $page->click('[data-testid="media-lightbox-code"] .cm-content')
         ->keys('[data-testid="media-lightbox-code"] .cm-content', 'q')
         ->assertDontSeeIn('[data-testid="media-lightbox-code"]', 'q');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

@@ -21,7 +21,7 @@ test('on a phone the composer is one line until it is focused', function () {
     $expandedHeight = $page->script('document.querySelector(\'[data-testid="composer"]\').getBoundingClientRect().height');
     expect($expandedHeight)->toBeGreaterThan($collapsedHeight + 40);
     $page->assertVisible('[data-testid="composer-submit"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('on a phone picking a clarification option expands the composer without focusing it', function () {
     $this->actingAs(User::factory()->create());
@@ -37,4 +37,4 @@ test('on a phone picking a clarification option expands the composer without foc
     $page->assertMissing('[data-testid="composer-submit"]:visible')
         ->click('[data-testid="clarification-option"] >> nth=0')
         ->assertVisible('[data-testid="composer-submit"]');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

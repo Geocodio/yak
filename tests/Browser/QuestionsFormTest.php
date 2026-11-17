@@ -32,7 +32,7 @@ it('answers some questions, skips one, uses other and the note, and sends', func
         'scope' => ['choices' => ['Small'], 'other' => null],
         'data' => ['choices' => [], 'other' => 'Use staging'],
     ])->and($round['note'])->toBe('Thanks');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 it('works at phone width', function () {
     $this->actingAs(User::factory()->create());
@@ -41,4 +41,4 @@ it('works at phone width', function () {
     visit(route('tasks.show', $task))->resize(375, 812)
         ->assertVisible('[data-testid="questions-form"]')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

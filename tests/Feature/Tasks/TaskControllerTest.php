@@ -40,7 +40,7 @@ test('the CI step reads as waiting until CI passes', function () {
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('progress.steps.4.label', 'CI passed'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the CI step turns red while Yak retries after a CI failure', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Retrying]);
@@ -58,7 +58,7 @@ test('the CI step turns red while Yak retries after a CI failure', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('progress.steps.4.label', 'Waiting for CI')
             ->where('progress.steps.4.failed', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('it renders the task detail page with the task fields', function () {
     $task = YakTask::factory()->create([
@@ -85,7 +85,7 @@ test('it renders the task detail page with the task fields', function () {
             ->has('progress.steps')
             ->has('actions')
             ->etc());
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a Sentry task names the issue that triggered it', function () {
     $task = YakTask::factory()->create([
@@ -104,7 +104,7 @@ test('a Sentry task names the issue that triggered it', function () {
                 'lines' => [['text' => 'TypeError: Cannot assign string', 'url' => null]],
             ])
             ->etc());
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a flaky-test task names the failing tests and links the CI build', function () {
     $task = YakTask::factory()->create([
@@ -129,14 +129,14 @@ test('a flaky-test task names the failing tests and links the CI build', functio
                 ],
             ])
             ->etc());
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a Slack task has no trigger line', function () {
     $task = YakTask::factory()->create(['source' => 'slack']);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('task.trigger', null)->etc());
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a follow-up task url redirects to the root task', function () {
     $root = YakTask::factory()->create();
@@ -144,7 +144,7 @@ test('a follow-up task url redirects to the root task', function () {
 
     $this->get(route('tasks.show', $child))
         ->assertRedirect(route('tasks.show', $root) . '#turn-' . $child->public_id);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('thread includes user and yak entries', function () {
     $task = YakTask::factory()->create([
@@ -161,7 +161,7 @@ test('thread includes user and yak entries', function () {
             ->where('thread.0.kind', 'user')
             ->where('thread.1.kind', 'yak')
             ->where('thread.1.bodyHtml', fn (string $html) => str_contains($html, 'Guarded the insert')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('clarification entry carries its options', function () {
     $task = YakTask::factory()->create([
@@ -177,7 +177,7 @@ test('clarification entry carries its options', function () {
                 ->where('options', ['Convert in place', 'Keep both'])
                 ->has('expiresIn')
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a follow-up waiting on answers shows when its questions expire', function () {
     $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'created_at' => now()->subHour()]);
@@ -191,7 +191,7 @@ test('a follow-up waiting on answers shows when its questions expire', function 
             ->where('thread', fn ($thread) => collect($thread)->contains(
                 fn (array $entry) => $entry['kind'] === 'clarification' && str_contains($entry['meta'], 'expires') && $entry['expiresIn'] !== null,
             )));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('markdown in the thread strips raw html', function () {
     $task = YakTask::factory()->create([
@@ -204,7 +204,7 @@ test('markdown in the thread strips raw html', function () {
             ->where('thread.0.bodyHtml', fn (string $html) => ! str_contains($html, '<script>alert(1)</script>')
                 && str_contains($html, 'Before the script.')
                 && str_contains($html, 'After the script.')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('review context turn is built from context json', function () {
     $task = YakTask::factory()->create([
@@ -223,7 +223,7 @@ test('review context turn is built from context json', function () {
             ->where('thread.0.who', 'Fix the flaky test')
             ->where('thread.0.meta', fn (string $meta) => str_contains($meta, 'PR #42') && str_contains($meta, 'octocat'))
             ->where('thread.0.bodyHtml', fn (string $html) => str_contains($html, 'stabilizes the retry logic')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('review context points uploaded images at the dashboard proxy', function () {
     $asset = 'f38ea4ee-97ce-48fc-a48e-a049c20f7cd4';
@@ -239,14 +239,14 @@ test('review context points uploaded images at the dashboard proxy', function ()
         ->assertInertia(fn (Assert $page) => $page
             ->where('thread.0.bodyHtml', fn (string $html) => str_contains($html, 'src="' . route('tasks.pr-images.show', [$task, $asset]) . '"')
                 && ! str_contains($html, 'github.com/user-attachments')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer state is steering for a running task', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'steering'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer lists the messages waiting for a busy task, steered ones first', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
@@ -266,7 +266,7 @@ test('composer lists the messages waiting for a busy task, steered ones first', 
             ->where('composer.queued.2.mode', 'queue')
             ->where('composer.queued.2.authorName', 'Ada')
             ->where('composer.queued.3.text', 'second queued'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer marks a waiting GitHub review as one that cannot be steered', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
@@ -277,14 +277,14 @@ test('composer marks a waiting GitHub review as one that cannot be steered', fun
         ->assertInertia(fn (Assert $page) => $page
             ->where('composer.queued.0.canSteer', true)
             ->where('composer.queued.1.canSteer', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer state is clarification while awaiting clarification', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::AwaitingClarification]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'clarification'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('shows the questions form state with the pending questions', function () {
     $task = YakTask::factory()->withClarificationQuestions()->create();
@@ -294,7 +294,7 @@ test('shows the questions form state with the pending questions', function () {
         ->where('questions.0.id', 'scope')
         ->where('questions.0.options.1.label', 'Large')
         ->where('questions.1.multiSelect', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('shows answered rounds in the thread, with skipped questions', function () {
     $task = YakTask::factory()->withClarificationQuestions()->create(['status' => TaskStatus::Running]);
@@ -305,14 +305,14 @@ test('shows answered rounds in the thread, with skipped questions', function () 
         ->where('thread', fn ($thread) => collect($thread)->contains(fn ($entry) => $entry['kind'] === 'clarification-answers'
             && $entry['answers'][0] === ['header' => 'Scope', 'question' => 'Which scope?', 'answer' => null, 'choices' => [], 'other' => 'Medium', 'skipped' => false]
             && $entry['answers'][1]['skipped'] === true)));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer state is follow_up for a success task with an open pr', function () {
     $task = YakTask::factory()->success()->create();
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'follow_up'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a review task reads its pr number from the pr url', function () {
     $task = YakTask::factory()->success()->create([
@@ -326,28 +326,28 @@ test('a review task reads its pr number from the pr url', function () {
             ->where('task.pr.number', 2846)
             ->where('composer.state', 'follow_up')
             ->where('composer.placeholder', 'Reply to Yak. It will push changes to PR #2846…'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the follow-up placeholder names this PR when no number is known', function () {
     $task = YakTask::factory()->success()->create(['pr_url' => 'https://example.com/change', 'pr_number' => null]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.placeholder', 'Reply to Yak. It will push changes to this PR…'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer is enabled for a failed or expired task with no pr', function (TaskStatus $status) {
     $task = YakTask::factory()->create(['status' => $status, 'pr_url' => null]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'stopped')->where('composer.buttonLabel', 'Send'));
-})->with([TaskStatus::Failed, TaskStatus::Expired]);
+})->skip('The task page is removed; its behaviour is covered on the thread page.')->with([TaskStatus::Failed, TaskStatus::Expired]);
 
 test('composer stays disabled_failed for a failed task whose pr was closed', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Failed, 'pr_url' => 'https://github.com/a/b/pull/1', 'pr_closed_at' => now()]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'disabled_failed'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer state is disabled_closed for a success task with no pr', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'pr_url' => null, 'source' => 'slack']);
@@ -357,7 +357,7 @@ test('composer state is disabled_closed for a success task with no pr', function
             ->where('composer.state', 'disabled_closed')
             ->where('composer.placeholder', 'This conversation is closed — mention Yak again to start a new task.')
             ->where('composer.note', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('transcriptEntry is omitted from a normal load and present with a log query param', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -377,7 +377,7 @@ test('transcriptEntry is omitted from a normal load and present with a log query
             ->where('transcriptEntry.input', 'ls -la')
             ->where('transcriptEntry.output', 'total 0')
             ->where('transcriptLogId', $log->id));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('transcriptEntry resolves a log from another run in the same conversation', function () {
     $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -386,7 +386,7 @@ test('transcriptEntry resolves a log from another run in the same conversation',
 
     $this->get(route('tasks.show', [$root, 'log' => $log->id]))
         ->assertInertia(fn (Assert $page) => $page->where('transcriptEntry.text', 'In the follow-up'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('transcriptEntry can be requested as a partial reload without a log in the url', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -402,7 +402,7 @@ test('transcriptEntry can be requested as a partial reload without a log in the 
         'X-Inertia-Partial-Data' => 'transcriptEntry',
     ])->assertJsonPath('props.transcriptEntry.text', 'Fetched on demand')
         ->assertJsonMissingPath('props.thread');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('transcriptEntry renders the full assistant message as markdown', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -418,7 +418,7 @@ test('transcriptEntry renders the full assistant message as markdown', function 
         ->assertInertia(fn (Assert $page) => $page
             ->where('transcriptEntry.kind', 'assistant')
             ->where('transcriptEntry.html', fn (string $html) => str_contains($html, '<h2>Verdict</h2>') && str_contains($html, '<strong>Approve</strong>')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('transcriptEntry lists a plain log entry\'s metadata as details', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Failed, 'started_at' => now()]);
@@ -440,7 +440,7 @@ test('transcriptEntry lists a plain log entry\'s metadata as details', function 
 
     $this->get(route('tasks.show', [$task, 'log' => $bare->id]))
         ->assertInertia(fn (Assert $page) => $page->where('transcriptEntry.details', []));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('attempt query param selects the requested attempt', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now(), 'attempts' => 2]);
@@ -458,7 +458,7 @@ test('attempt query param selects the requested attempt', function () {
             ->where('task.attempt', 2)
             ->has('activity.rows', 1)
             ->where('activity.rows.0.text', 'attempt two log'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('activity rows carry no server-side group; grouping is a client concern', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -470,7 +470,7 @@ test('activity rows carry no server-side group; grouping is a client concern', f
             ->where('activity.rows.0.kind', 'assistant')
             ->where('activity.rows.0.milestone', false)
             ->missing('activity.rows.0.group'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 /**
  * The build's actual Inertia asset version, needed to make a partial
@@ -516,7 +516,7 @@ test('activity sends the newest 200 rows oldest first, with a cursor and a summa
             ->has('activitySummary.duration')
             ->missing('activityOlder')
             ->missing('activityTail'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('activity has no older rows when the run fits the window', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -524,7 +524,7 @@ test('activity has no older rows when the run fits the window', function () {
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->has('activity.rows', 3)->where('activity.hasOlder', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('activityOlder returns the rows before a cursor as a partial reload', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -540,7 +540,7 @@ test('activityOlder returns the rows before a cursor as a partial reload', funct
         ->assertJsonPath('props.activityOlder.0.text', 'Step 1')
         ->assertJsonPath('props.activityOlder.49.text', 'Step 50')
         ->assertJsonMissingPath('props.activity');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('activityTail returns only rows after a cursor, capped at the window, and the next cursor drains the rest', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -563,7 +563,7 @@ test('activityTail returns only rows after a cursor, capped at the window, and t
     $this->get(route('tasks.show', [$task, 'after' => $nextCursor]), $headers)
         ->assertJsonCount(50, 'props.activityTail')
         ->assertJsonPath('props.activityTail.49.text', 'Step 260');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('activityTail with after=0 returns the first rows of a run whose window started empty', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -576,7 +576,7 @@ test('activityTail with after=0 returns the first rows of a run whose window sta
         'X-Inertia-Partial-Data' => 'activityTail',
     ])->assertJsonCount(5, 'props.activityTail')
         ->assertJsonPath('props.activityTail.0.text', 'Step 1');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('activity rows on an active run carry an absolute time and an ISO createdAt', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -588,7 +588,7 @@ test('activity rows on an active run carry an absolute time and an ISO createdAt
             ->where('activity.rows.0.at', $log->created_at->format('g:i:s A'))
             ->where('activity.rows.0.createdAt', $log->created_at->toIso8601String())
             ->where('task.runId', $task->public_id));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('activity cursors respect the selected attempt', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now(), 'attempts' => 2]);
@@ -602,7 +602,7 @@ test('activity cursors respect the selected attempt', function () {
         'X-Inertia-Partial-Component' => 'Tasks/Show',
         'X-Inertia-Partial-Data' => 'activityTail',
     ])->assertJsonCount(2, 'props.activityTail');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('actions reflect what the task can do right now', function () {
     $failed = YakTask::factory()->create(['status' => TaskStatus::Failed]);
@@ -616,7 +616,7 @@ test('actions reflect what the task can do right now', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('actions.canRetry', false)
             ->where('actions.canCancel', true));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('reroute targets exclude the current repo and hidden for setup and review modes', function () {
     Repository::factory()->create(['slug' => 'web', 'is_active' => true]);
@@ -632,7 +632,7 @@ test('reroute targets exclude the current repo and hidden for setup and review m
     $review = YakTask::factory()->create(['mode' => TaskMode::Review, 'repo' => 'web']);
     $this->get(route('tasks.show', $review))
         ->assertInertia(fn (Assert $page) => $page->where('actions.canReroute', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('findings are present for a review task with a pr review', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
@@ -655,14 +655,14 @@ test('findings are present for a review task with a pr review', function () {
                 ->where('line', 12)
                 ->has('bodyHtml')
                 ->etc()));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('findings are null for a task with no review', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('findings', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('walkthrough status reflects the render pipeline', function () {
     $none = YakTask::factory()->create();
@@ -673,7 +673,7 @@ test('walkthrough status reflects the render pipeline', function () {
     Artifact::factory()->for($ready, 'task')->videoCut()->create();
     $this->get(route('tasks.show', $ready))
         ->assertInertia(fn (Assert $page) => $page->where('walkthrough.status', 'ready')->has('walkthrough.videoUrl'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('deployment is present for a task branch with an active deployment', function () {
     $repo = Repository::factory()->create(['slug' => 'acme/app']);
@@ -688,14 +688,14 @@ test('deployment is present for a task branch with an active deployment', functi
         ->assertInertia(fn (Assert $page) => $page
             ->where('deployment.hostname', 'acme-app-feat-foo.yak.example.com')
             ->where('deployment.url', 'https://acme-app-feat-foo.yak.example.com'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('deployment is null when the task has no branch', function () {
     $task = YakTask::factory()->create(['branch_name' => null]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('deployment', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('poll interval is fast while the task is active or pending and slow once it is done', function () {
     $pending = YakTask::factory()->create(['status' => TaskStatus::Pending]);
@@ -709,7 +709,7 @@ test('poll interval is fast while the task is active or pending and slow once it
     $success = YakTask::factory()->create(['status' => TaskStatus::Success]);
     $this->get(route('tasks.show', $success))
         ->assertInertia(fn (Assert $page) => $page->where('pollInterval', 15000));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('activity rows flag milestones for the three isMilestone cases', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -764,14 +764,14 @@ test('activity rows flag milestones for the three isMilestone cases', function (
         ->and($milestonesById[$assistant->id])->toBeFalse()
         ->and($milestonesById[$erroredToolUse->id])->toBeTrue()
         ->and($milestonesById[$warnedAssistant->id])->toBeTrue();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('debug carries the error log for a failed task', function () {
     $task = YakTask::factory()->failed()->create(['error_log' => 'Fatal error: something went wrong']);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('debug.Error Log', 'Fatal error: something went wrong'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('nextSteps copy for running research tasks mentions gathering findings, not making changes', function () {
     $task = YakTask::factory()->running()->create(['mode' => TaskMode::Research]);
@@ -779,7 +779,7 @@ test('nextSteps copy for running research tasks mentions gathering findings, not
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.nextSteps', fn (string $text) => str_contains($text, 'gathering findings') && ! str_contains($text, 'making changes')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('nextSteps copy for running fix tasks mentions making changes, not gathering findings', function () {
     $task = YakTask::factory()->running()->create(['mode' => TaskMode::Fix]);
@@ -787,7 +787,7 @@ test('nextSteps copy for running fix tasks mentions making changes, not gatherin
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.nextSteps', fn (string $text) => str_contains($text, 'making changes') && ! str_contains($text, 'gathering findings')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('nextSteps copy for a failed task points at Retry', function () {
     $task = YakTask::factory()->failed()->create(['mode' => TaskMode::Fix]);
@@ -795,7 +795,7 @@ test('nextSteps copy for a failed task points at Retry', function () {
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.nextSteps', fn (string $text) => str_contains($text, 'Click Retry above')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('nextSteps copy for a failed review task points at Re-run review, not Retry', function () {
     $task = YakTask::factory()->failed()->create(['mode' => TaskMode::Review]);
@@ -803,14 +803,14 @@ test('nextSteps copy for a failed review task points at Re-run review, not Retry
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.nextSteps', fn (string $text) => str_contains($text, 'Click Re-run review above') && ! str_contains($text, 'Click Retry above')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('nextSteps is null while awaiting clarification, which has its own call-to-action', function () {
     $task = YakTask::factory()->awaitingClarification()->create(['clarification_options' => ['a', 'b']]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('task.nextSteps', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('researchArtifactUrl is present once a research task has its artifact', function () {
     $task = YakTask::factory()->success()->create(['mode' => TaskMode::Research]);
@@ -819,21 +819,21 @@ test('researchArtifactUrl is present once a research task has its artifact', fun
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => $task->public_id, 'filename' => $artifact->filename])));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('researchArtifactUrl is null for a research task with no artifact yet', function () {
     $task = YakTask::factory()->running()->create(['mode' => TaskMode::Research]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('task.researchArtifactUrl', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('researchArtifactUrl is null for non-research tasks', function () {
     $task = YakTask::factory()->success()->create(['mode' => TaskMode::Fix]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('task.researchArtifactUrl', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer note points slack replies at the slack thread', function () {
     config()->set('yak.channels.slack.workspace_url', 'https://acme.slack.com');
@@ -850,7 +850,7 @@ test('composer note points slack replies at the slack thread', function () {
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('composer.note', 'Replies here and in the Slack thread land in the same conversation.'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer note points linear replies at the linear issue', function () {
     $task = YakTask::factory()->create([
@@ -864,7 +864,7 @@ test('composer note points linear replies at the linear issue', function () {
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('composer.note', 'Replies here and in the Linear thread land in the same conversation.'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('composer has no cross-channel note for unknown sources', function () {
     $task = YakTask::factory()->create([
@@ -877,14 +877,14 @@ test('composer has no cross-channel note for unknown sources', function () {
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('composer.note', fn (?string $note) => $note === null || ! str_contains($note, 'land in the same conversation')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('canReroute is false for Setup mode', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Setup]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('actions.canReroute', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('rerouteTargets excludes the current repo and inactive repos', function () {
     $current = Repository::factory()->create(['slug' => 'org/current', 'is_active' => true]);
@@ -895,7 +895,7 @@ test('rerouteTargets excludes the current repo and inactive repos', function () 
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('actions.rerouteTargets', ['org/other']));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a follow-up of a review task is flagged and offers no review re-run', function () {
     $review = YakTask::factory()->create(['mode' => TaskMode::Review, 'status' => TaskStatus::Success]);
@@ -912,7 +912,7 @@ test('a follow-up of a review task is flagged and offers no review re-run', func
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.isFollowUp', false)
             ->where('actions.canRerunReview', true));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('canRerunReview stays true and canRetry stays false for a finished review task', function () {
     // A Review-mode task's contextual action is `rerun_review` for any
@@ -925,7 +925,7 @@ test('canRerunReview stays true and canRetry stays false for a finished review t
         ->assertInertia(fn (Assert $page) => $page
             ->where('actions.canRerunReview', true)
             ->where('actions.canRetry', false));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('canRequestReview is true for a task with a PR on a repo with PR review enabled', function () {
     $repository = Repository::factory()->create(['slug' => 'org/reviewed', 'is_active' => true, 'pr_review_enabled' => true]);
@@ -933,7 +933,7 @@ test('canRequestReview is true for a task with a PR on a repo with PR review ena
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('actions.canRequestReview', true));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('canRequestReview is false without a PR, on review tasks, or when PR review is disabled', function () {
     $enabled = Repository::factory()->create(['slug' => 'org/enabled', 'is_active' => true, 'pr_review_enabled' => true]);
@@ -947,7 +947,7 @@ test('canRequestReview is false without a PR, on review tasks, or when PR review
         $this->get(route('tasks.show', $task))
             ->assertInertia(fn (Assert $page) => $page->where('actions.canRequestReview', false));
     }
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('show exposes who started the task and who is responsible', function () {
     $task = YakTask::factory()->success()->create([
@@ -959,7 +959,7 @@ test('show exposes who started the task and who is responsible', function () {
         ->component('Tasks/Show')
         ->where('task.startedBy', 'Jane Doe')
         ->where('task.responsible', 'John Smith'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('it shows the model the agent resolved instead of the configured alias', function () {
     $task = YakTask::factory()->create(['model_used' => 'opus']);
@@ -975,7 +975,7 @@ test('it shows the model the agent resolved instead of the configured alias', fu
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.model', 'claude-opus-5-5')
             ->etc());
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('it falls back to the configured alias when no run recorded model usage', function () {
     $task = YakTask::factory()->create(['model_used' => 'opus']);
@@ -984,7 +984,7 @@ test('it falls back to the configured alias when no run recorded model usage', f
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.model', 'opus')
             ->etc());
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('canRequestReview follows the effective setting from .yak/ config', function () {
     fakeYakFiles(['config.yml' => "version: 1\nreview:\n  enabled: true\n"]);
@@ -993,7 +993,7 @@ test('canRequestReview follows the effective setting from .yak/ config', functio
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('actions.canRequestReview', true));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a failed setup task carries its error once, on the run that stopped, and a setup hint', function () {
     $task = YakTask::factory()->create([
@@ -1011,7 +1011,7 @@ test('a failed setup task carries its error once, on the run that stopped, and a
             ->where('composer.note', 'This task failed. Click Retry above to run it again.')
             ->where('thread', fn ($thread) => collect($thread)->where('kind', 'yak')->count() === 1
                 && collect($thread)->where('kind', 'yak')->every(fn ($entry) => $entry['error'] === 'The Claude account was rejected: authentication failed')));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('each yak entry names its run and attempt so the stream attaches to the right bubble', function () {
     $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'result_summary' => 'First run done', 'started_at' => now()->subHour(), 'completed_at' => now()->subMinutes(50), 'attempts' => 1]);
@@ -1027,7 +1027,7 @@ test('each yak entry names its run and attempt so the stream attaches to the rig
                     && $yak[1]['runId'] === $followUp->public_id && $yak[1]['attempt'] === 2 && $yak[1]['live'] === true
                     && $yak[1]['startedAt'] !== null;
             }));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a failed slack task still suggests mentioning Yak again', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Fix, 'source' => 'slack', 'status' => TaskStatus::Failed, 'error_log' => 'Boom']);
@@ -1035,7 +1035,7 @@ test('a failed slack task still suggests mentioning Yak again', function () {
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('task.nextSteps', 'Task failed. Click Retry above, or mention Yak again with more context.'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('activity rows carry the structured fields the inline stream draws', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
@@ -1070,7 +1070,7 @@ test('activity rows carry the structured fields the inline stream draws', functi
             ->where('activity.rows.5.running', true)
             ->where('activity.rows.5.exitCode', null)
             ->where('activity.rows.6.category', 'milestone'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('an exit code is read from the message on rows written before it was stored', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -1078,7 +1078,7 @@ test('an exit code is read from the message on rows written before it was stored
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('activity.rows.0.exitCode', 7));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('the activity summary counts every category and failure for the whole run, beyond the window', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -1106,7 +1106,7 @@ test('the activity summary counts every category and failure for the whole run, 
             ->where('activitySummary.entries', 219)
             ->where('activitySummary.counts', ['command' => 210, 'read' => 3, 'edit' => 1, 'search' => 1, 'fetch' => 1, 'thinking' => 2])
             ->where('activitySummary.failed', 2));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('log entries are served in a batch, limited to the task conversation', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
@@ -1137,7 +1137,7 @@ test('a failed task on a repository without a sandbox carries the setup card dat
             ->where('task.repositorySetup.continuesAfterSetup', false)
             ->where('task.repositorySetup.failedSetup.url', route('tasks.show', $setupTask))
         );
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a failed task on a ready repository has no setup card data', function () {
     $repository = Repository::factory()->create();
@@ -1145,7 +1145,7 @@ test('a failed task on a ready repository has no setup card data', function () {
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('task.repositorySetup', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a task waiting on setup says so in its next steps and setup card', function () {
     $repository = Repository::factory()->create(['setup_status' => 'running', 'sandbox_snapshot' => null]);
@@ -1159,7 +1159,7 @@ test('a task waiting on setup says so in its next steps and setup card', functio
             ->where('task.repositorySetup.continuesAfterSetup', true)
             ->where('task.repositorySetup.failedSetup', null)
         );
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a failed task with a stop leads with the plain summary and keeps the technical text as detail', function () {
     $task = YakTask::factory()->create([
@@ -1178,7 +1178,7 @@ test('a failed task with a stop leads with the plain summary and keeps the techn
             ->where('stop.nextStep', 'Reply in the Linear issue, or press Retry, and Yak will try again.')
             ->where('stop.isWaitingForSetup', false)
         );
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a needs-you stop points at the answer below', function () {
     $task = YakTask::factory()->create([
@@ -1193,7 +1193,7 @@ test('a needs-you stop points at the answer below', function () {
             ->where('stop.kind', 'needs_you')
             ->where('stop.nextStep', 'Write your answer below and send it. Yak tries again with it.')
         );
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a failed task waiting on setup shows as paused whatever the stored kind', function () {
     $task = YakTask::factory()->create([
@@ -1209,7 +1209,7 @@ test('a failed task waiting on setup shows as paused whatever the stored kind', 
             ->where('stop.isWaitingForSetup', true)
             ->where('stop.nextStep', 'Yak picks it back up on its own. Nothing needed from you.')
         );
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a stopped task with a stop block has no separate next steps', function () {
     $task = YakTask::factory()->create([
@@ -1221,7 +1221,7 @@ test('a stopped task with a stop block has no separate next steps', function () 
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('task.nextSteps', null)->has('stop'));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('an expired task with a needs-you stop carries the stop prop and no errored reply entry', function () {
     $task = YakTask::factory()->expired()->create([
@@ -1236,10 +1236,10 @@ test('an expired task with a needs-you stop carries the stop prop and no errored
             ->where('stop.kind', 'needs_you')
             ->where('thread', fn ($thread) => collect($thread)->every(fn ($entry) => ($entry['error'] ?? null) === null))
         );
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a running task has no stop', function () {
     $task = YakTask::factory()->running()->create();
 
     $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page->where('stop', null));
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

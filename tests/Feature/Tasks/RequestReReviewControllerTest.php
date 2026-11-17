@@ -5,6 +5,7 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -140,7 +141,7 @@ it('redirects to the existing in-flight task when a review for the same head SHA
 
     $this->actingAs(User::factory()->create())
         ->post(route('tasks.re-request-review', $task))
-        ->assertRedirect(route('tasks.show', $existing))
+        ->assertRedirect(TaskPageUrl::forOrLog($existing))
         ->assertSessionHas('error', "A re-review for this PR is already in progress. Showing the run that's already underway.");
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(2);
@@ -152,7 +153,7 @@ it('bails to the original task page for closed PRs', function () {
 
     $this->actingAs(User::factory()->create())
         ->post(route('tasks.re-request-review', $task))
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('error', "This pull request isn't open for review (it may be closed, merged, or in draft), so there's nothing to re-review.");
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
@@ -164,7 +165,7 @@ it('bails to the original task page for draft PRs', function () {
 
     $this->actingAs(User::factory()->create())
         ->post(route('tasks.re-request-review', $task))
-        ->assertRedirect(route('tasks.show', $task))
+        ->assertRedirect(TaskPageUrl::forOrLog($task))
         ->assertSessionHas('error', "This pull request isn't open for review (it may be closed, merged, or in draft), so there's nothing to re-review.");
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);

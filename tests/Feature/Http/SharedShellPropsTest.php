@@ -15,7 +15,7 @@ test('shares the mine list and needsYouCount', function () {
     $user = User::factory()->create(['has_seen_setup_card_at' => now()]);
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
 
-    $this->actingAs($user)->get(route('tasks'))
+    $this->actingAs($user)->get(route('threads.log'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('threadList.threads.0.id', $thread->public_id)
             ->where('nav.needsYouCount', 0)
@@ -26,7 +26,7 @@ test('does not share a private thread of another user', function () {
     $user = User::factory()->create(['has_seen_setup_card_at' => now()]);
     $secret = Thread::factory()->private(User::factory()->create())->create(['title' => 'Secret plan']);
 
-    $response = $this->actingAs($user)->get(route('tasks'));
+    $response = $this->actingAs($user)->get(route('threads.log'));
 
     expect($response->getContent())->not->toContain('Secret plan');
     $response->assertInertia(fn (Assert $page) => $page->where('threadList.threads', []));
@@ -44,14 +44,14 @@ test('the header count is the shared needs-you count, threads plus tasks', funct
     needyTask($user, 'Retry failed uploads', Thread::factory()->create(['created_by_user_id' => $user->id]));
     needyTask($user, 'Pick a retry policy');
 
-    $this->actingAs($user)->get(route('tasks'))
+    $this->actingAs($user)->get(route('threads.log'))
         ->assertInertia(fn (Assert $page) => $page->where('nav.needsYouCount', 2));
 });
 
 test('a task inside an open thread is counted once in the header', function () {
     ['user' => $user] = needsYouWorld();
 
-    $this->actingAs($user)->get(route('tasks'))
+    $this->actingAs($user)->get(route('threads.log'))
         ->assertInertia(fn (Assert $page) => $page->where('nav.needsYouCount', 5));
 });
 
@@ -60,6 +60,6 @@ test('shares a needsYouCount of one for a co-owner request on a task with an ope
     $task = YakTask::factory()->awaitingCoOwner()->create(['repo' => 'Geocodio/geocodio']);
     CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$user->id], 'status' => CoOwnerRequestStatus::Pending]);
 
-    $this->actingAs($user)->get(route('tasks'))
+    $this->actingAs($user)->get(route('threads.log'))
         ->assertInertia(fn (Assert $page) => $page->where('nav.needsYouCount', 1));
 });

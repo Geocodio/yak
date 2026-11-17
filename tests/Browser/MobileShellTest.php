@@ -5,7 +5,7 @@ use App\Models\User;
 test('the phone shell opens a left drawer from the header toggle and closes it again', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/tasks')->on()->mobile();
+    $page = visit('/threads/log')->on()->mobile();
 
     $page->assertVisible('[data-testid="mobile-nav-toggle"]')
         ->assertMissing('[data-testid="mobile-nav"]')

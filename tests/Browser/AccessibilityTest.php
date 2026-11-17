@@ -17,7 +17,7 @@ test('task list page has no accessibility issues', function () {
     $page = visit(route('tasks'));
 
     $page->assertNoAccessibilityIssues();
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('task detail page has no accessibility issues', function () {
     $user = User::factory()->create();
@@ -31,7 +31,7 @@ test('task detail page has no accessibility issues', function () {
     $page = visit(route('tasks.show', $task));
 
     $page->assertNoAccessibilityIssues();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('task list page has no javascript errors', function () {
     $user = User::factory()->create();
@@ -42,7 +42,7 @@ test('task list page has no javascript errors', function () {
     $page = visit(route('tasks'));
 
     $page->assertNoJavaScriptErrors();
-});
+})->skip('The task log is removed; the thread log replaces it.');
 
 test('task detail page has no javascript errors', function () {
     $user = User::factory()->create();
@@ -53,7 +53,7 @@ test('task detail page has no javascript errors', function () {
     $page = visit(route('tasks.show', $task));
 
     $page->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('dashboard pages have no javascript errors', function () {
     $user = User::factory()->create();
@@ -62,7 +62,7 @@ test('dashboard pages have no javascript errors', function () {
     YakTask::factory()->success()->create();
 
     $pages = visit([
-        route('tasks'),
+        route('threads.log'),
         route('costs'),
         route('repos'),
         route('health'),
@@ -96,7 +96,7 @@ test('held task page has no accessibility issues', function () {
     CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$viewer->id]]);
 
     visit(route('tasks.show', $task))->assertVisible('[data-testid="co-owner-panel"]')->assertNoAccessibilityIssues(0);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('repository page with the gate status has no accessibility issues', function () {
     $repository = Repository::factory()->create(['github_full_name' => 'acme/api', 'default_branch' => 'main']);
@@ -123,4 +123,4 @@ test('task page with the early warning notice has no accessibility issues', func
     ]);
 
     visit(route('tasks.show', $task))->assertVisible('[data-testid="early-warning-picker"]')->assertNoAccessibilityIssues(0);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');

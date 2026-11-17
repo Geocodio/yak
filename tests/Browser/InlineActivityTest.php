@@ -31,7 +31,7 @@ test('a running task streams its steps inside Yak\'s reply and nothing else dupl
         ->assertPresent('[data-testid="progress-strip"]')
         ->assertDontSee('Working…')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('earlier steps fold into one line per phase, the active group keeps the last three and the current step', function () {
     $this->actingAs(User::factory()->create());
@@ -45,7 +45,7 @@ test('earlier steps fold into one line per phase, the active group keeps the las
     // The active group shows its last three finished rows plus the one running; the rest sit behind the fold.
     expect($page->script('[...document.querySelectorAll(\'[data-testid="activity-stream"] > div:last-of-type [data-testid="step-row"]\')].filter((row) => row.checkVisibility()).length'))->toBe(3);
     expect($page->script('document.querySelectorAll(\'[data-testid="step-current"]\').length'))->toBe(1);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a folded group opens and a row expands to its command and output, with a way into the full log', function () {
     $this->actingAs(User::factory()->create());
@@ -64,7 +64,7 @@ test('a folded group opens and a row expands to its command and output, with a w
         ->assertVisible('[data-testid="transcript-overlay"]:visible')
         ->assertSee('Laravel app')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('Full log opens the transcript overlay with the filters and search', function () {
     $this->actingAs(User::factory()->create());
@@ -76,7 +76,7 @@ test('Full log opens the transcript overlay with the filters and search', functi
         ->assertPresent('[data-testid="transcript-search"]')
         ->assertSee('Milestones')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a finished task folds its run into one line with the totals and leads with the answer', function () {
     $this->actingAs(User::factory()->create());
@@ -103,7 +103,7 @@ test('a finished task folds its run into one line with the totals and leads with
         ->click('[data-testid="finished-summary"] > summary')
         ->assertPresent('[data-testid="finished-summary"] [data-testid="step-group"]')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a failed task shows its error once, in the conversation, with the failing command and a retry', function () {
     $this->actingAs(User::factory()->create());
@@ -131,7 +131,7 @@ test('a failed task shows its error once, in the conversation, with the failing 
     expect($page->script('document.body.innerText.split(' . json_encode($error) . ').length - 1'))->toBe(1);
     // No red banner above the thread: the only tinted failure surface is the card.
     expect($page->script('document.querySelectorAll(\'[data-testid="task-summary"] .bg-fail-soft\').length'))->toBe(0);
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('on a phone the tabs are Conversation and Details and the page never scrolls sideways', function () {
     $this->actingAs(User::factory()->create());
@@ -156,7 +156,7 @@ test('on a phone the tabs are Conversation and Details and the page never scroll
     $page->click('[data-testid="task-tab-details"]')
         ->assertMissing('[data-testid="step-current"]:visible')
         ->assertQueryStringHas('tab', 'details');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a thread draws its tool calls with the same shared step rows', function () {
     $user = User::factory()->create();
@@ -201,7 +201,7 @@ test('a stopped task leads with the plain sentence and folds the technical text 
 
     expect($page->script('document.querySelector(\'[data-testid="task-stop"] > details\').open'))->toBeFalse();
     $page->click('[data-testid="task-stop"] > details > summary')->assertSeeIn('[data-testid="task-stop"]', 'CI timed out after 30 minutes');
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('an expired needs-you task shows exactly one stop block even without a reply entry', function () {
     $this->actingAs(User::factory()->create());
@@ -217,7 +217,7 @@ test('an expired needs-you task shows exactly one stop block even without a repl
         ->assertCount('[data-testid="task-stop"]', 1)
         ->assertSeeIn('[data-testid="task-stop"]', 'Yak needs you')
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('a failed stopped task shows exactly one stop block', function () {
     $this->actingAs(User::factory()->create());
@@ -232,4 +232,4 @@ test('a failed stopped task shows exactly one stop block', function () {
     visit(route('tasks.show', $task))
         ->assertCount('[data-testid="task-stop"]', 1)
         ->assertNoJavaScriptErrors();
-});
+})->skip('The task page is removed; its behaviour is covered on the thread page.');
