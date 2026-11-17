@@ -102,6 +102,8 @@ private func decide(_ text: String, main: Bool, user: Bool = true) -> PreviewNav
     #expect(!accepted("http://t-p7m4q2hx9z.yak.example.test/_yak/auth"))
     #expect(!accepted("https://t-p7m4q2hx9z.yak.example.test/other"))
     #expect(!accepted("https://t-p7m4q2hx9z.yak.example.test:444/_yak/auth"))
+    #expect(!accepted("https://user:pass@t-p7m4q2hx9z.yak.example.test/_yak/auth?ticket=t"))
+    #expect(!accepted("https://user@t-p7m4q2hx9z.yak.example.test/_yak/auth?ticket=t"))
     let local = URL(string: "http://127.0.0.1:50211/")!
     #expect(accepted("http://127.0.0.1:50211/_yak/auth", preview: local, loopback: true))
     #expect(!accepted("http://127.0.0.1:50211/_yak/auth", preview: local))

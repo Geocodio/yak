@@ -76,13 +76,14 @@ public enum PreviewNavigation {
         return [425, 502, 404].contains(status) ? .refetchStatus : .allow
     }
 
-    /// The ticket's scheme and authority equal `previewURL`'s, its path is /_yak/auth, and the scheme is https
+    /// The ticket's scheme and authority equal `previewURL`'s, its path is /_yak/auth, it carries no user or password, and the scheme is https
     /// (or http on 127.0.0.1 with `allowsLoopbackHTTP`).
     public static func isAcceptedTicket(_ ticket: URL, previewURL: URL, allowsLoopbackHTTP: Bool = false) -> Bool {
         guard let ticketComponents = URLComponents(url: ticket, resolvingAgainstBaseURL: false),
             let scheme = ticketComponents.scheme?.lowercased(),
             scheme == previewURL.scheme?.lowercased(),
             let ticketAuthority = authority(of: ticket), ticketAuthority == authority(of: previewURL),
+            ticketComponents.user == nil, ticketComponents.password == nil,
             ticketComponents.path == authPath
         else { return false }
         return scheme == "https" || (scheme == "http" && allowsLoopbackHTTP && ticketComponents.host == "127.0.0.1")
