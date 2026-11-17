@@ -9,7 +9,9 @@ use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
+use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\DB;
 
 function milestoneTurn(Thread $thread, YakTask $task, int $startSequence, array $attributes = []): TaskRun
 {
@@ -56,6 +58,7 @@ it('lists an opened pull request, a ready walkthrough and a research report', fu
         ->and($byKey['pull_request_opened']['label'])->toBe('Pull request #7')
         ->and($byKey['pull_request_opened']['url'])->toBe('https://github.com/acme/widgets/pull/7')
         ->and($byKey['research_report']['url'])->toContain('/viewer/report.md')
+        ->and($byKey['walkthrough_ready']['tone'])->toBe('neutral')
         ->and($byKey['walkthrough_ready']['runId'])->toBe((string) $run->id);
 });
 
@@ -76,4 +79,64 @@ it('attaches the milestones of a legacy thread to its tasks', function () {
     expect(collect($milestones)->pluck('key')->all())->toBe(['pushed', 'pull_request_opened'])
         ->and(collect($milestones)->pluck('runId')->unique()->all())->toBe([$task->public_id])
         ->and($milestones[0]['afterSequence'])->toBe(0);
+});
+
+function milestoneQueryCount(int $taskCount): int
+{
+    $thread = Thread::factory()->create();
+    $sequence = 0;
+
+    foreach (range(1, $taskCount) as $number) {
+        $task = YakTask::factory()->success()->create(['thread_id' => $thread->id, 'branch_name' => "yak/b{$number}", 'pr_url' => "https://github.com/acme/widgets/pull/{$number}", 'pr_number' => $number, 'pr_opened_at' => now()]);
+        $run = milestoneTurn($thread, $task, ++$sequence, ['commits' => 1, 'started_at' => now()->subHours(10 - $number)]);
+        ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => ++$sequence]);
+        TaskLog::create(['yak_task_id' => $task->id, 'level' => 'info', 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE, 'metadata' => ['passed' => true], 'created_at' => now()]);
+        Artifact::factory()->create(['yak_task_id' => $task->id, 'role' => 'cut', 'type' => 'video']);
+    }
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $milestones = ThreadMilestonesData::for($thread);
+    $count = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($milestones)->not->toBeEmpty();
+
+    return $count;
+}
+
+it('loads milestones in a number of queries that does not grow with the tasks', function () {
+    expect(milestoneQueryCount(8))->toBe(milestoneQueryCount(2));
+});
+
+it('ends a run before the message that starts the next one', function () {
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->running()->create(['thread_id' => $thread->id]);
+    $first = milestoneTurn($thread, $task, 1, ['commits' => 1, 'started_at' => now()->subHour()]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 2]);
+    $second = TaskRun::factory()->create(['thread_id' => $thread->id, 'yak_task_id' => $task->id, 'commits' => 1, 'started_at' => now()->subMinutes(10)]);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $second->id, 'uuid' => 'msg-b']);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 3, 'type' => 'message.state', 'payload' => ['uuid' => 'msg-b', 'state' => 'started']]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 4, 'type' => 'turn', 'payload' => ['turnId' => $second->id, 'state' => 'running']]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 5]);
+
+    $afterSequences = collect(ThreadMilestonesData::for($thread))->pluck('afterSequence', 'runId');
+
+    expect($afterSequences[(string) $first->id])->toBe(2)->and($afterSequences[(string) $second->id])->toBe(5);
+});
+
+it('ends the last and a still running run at the newest event across three runs', function () {
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->running()->create(['thread_id' => $thread->id]);
+    $runs = [
+        milestoneTurn($thread, $task, 1, ['commits' => 1, 'started_at' => now()->subHours(3)]),
+        milestoneTurn($thread, $task, 4, ['commits' => 1, 'started_at' => now()->subHours(2)]),
+        milestoneTurn($thread, $task, 8, ['commits' => 1, 'started_at' => now()->subHour(), 'finished_at' => null]),
+    ];
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 9]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 10]);
+
+    $afterSequences = collect(ThreadMilestonesData::for($thread))->pluck('afterSequence', 'runId');
+
+    expect($afterSequences[(string) $runs[0]->id])->toBe(3)->and($afterSequences[(string) $runs[1]->id])->toBe(7)->and($afterSequences[(string) $runs[2]->id])->toBe(10);
 });

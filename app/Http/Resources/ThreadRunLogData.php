@@ -25,6 +25,8 @@ final class ThreadRunLogData
 {
     public const int PAGE_SIZE = 50;
 
+    private const int FIELD_LIMIT_BYTES = 16384;
+
     /**
      * @return RunLogPage
      */
@@ -50,7 +52,7 @@ final class ThreadRunLogData
         $results = self::toolResults($thread, $bounds, $page);
 
         return [
-            'entries' => array_values($page->map(fn (ThreadEvent $event): array => self::eventEntry($event, $results))->all()),
+            'entries' => array_values($page->map(fn (ThreadEvent $event): array => self::capped(self::eventEntry($event, $results)))->all()),
             'nextCursor' => $hasMore ? $page->last()?->sequence : null,
         ];
     }
@@ -71,7 +73,7 @@ final class ThreadRunLogData
         $page = $page->take(self::PAGE_SIZE)->values();
 
         return [
-            'entries' => array_values($page->map(fn (TaskLog $log): array => TranscriptData::entry($log))->all()),
+            'entries' => array_values($page->map(fn (TaskLog $log): array => self::capped(TranscriptData::entry($log)))->all()),
             'nextCursor' => $hasMore ? $page->last()?->id : null,
         ];
     }
@@ -79,7 +81,7 @@ final class ThreadRunLogData
     /**
      * The runs that have events, each with where its answer ends, so the page can offer a full log after it.
      *
-     * @return list<array{runId: string, afterSequence: int, durationSeconds: int, stepCount: int, isRetry: bool}>
+     * @return list<array{runId: string, afterSequence: int, durationSeconds: int, stepCount: int, isRetry: bool, model: ?string}>
      */
     public static function runs(Thread $thread): array
     {
@@ -87,8 +89,7 @@ final class ThreadRunLogData
             return [];
         }
 
-        $runs = TaskRun::query()->where('thread_id', $thread->id)->orderBy('id')->get();
-        $ends = ThreadMilestonesData::endSequences($thread, $runs);
+        ['runs' => $runs, 'ends' => $ends] = ThreadMilestonesData::boundaries($thread);
         $summaries = [];
 
         foreach ($runs as $run) {
@@ -99,6 +100,7 @@ final class ThreadRunLogData
                     'durationSeconds' => intdiv((int) $run->total_ms, 1000),
                     'stepCount' => (int) $run->num_turns,
                     'isRetry' => $run->kind === TaskRunKind::Retry,
+                    'model' => $run->model,
                 ];
             }
         }
@@ -198,6 +200,24 @@ final class ThreadRunLogData
     private static function toolCalls(ThreadEvent $event): array
     {
         return array_values(array_filter((array) ($event->payload['blocks'] ?? []), fn (mixed $block): bool => is_array($block) && ($block['type'] ?? null) === 'tool_use'));
+    }
+
+    /**
+     * Cuts the long text fields of an entry at 16 KB so a page of large steps stays small.
+     *
+     * @param  array<string, mixed>  $entry
+     * @return array<string, mixed>
+     */
+    private static function capped(array $entry): array
+    {
+        foreach (['input', 'output', 'fullText', 'html'] as $field) {
+            if (isset($entry[$field]) && is_string($entry[$field]) && strlen($entry[$field]) > self::FIELD_LIMIT_BYTES) {
+                $entry[$field] = mb_strcut($entry[$field], 0, self::FIELD_LIMIT_BYTES);
+                $entry['isTruncated'] = true;
+            }
+        }
+
+        return $entry;
     }
 
     /**

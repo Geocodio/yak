@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Resources\ThreadRunLogData;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -145,7 +146,60 @@ it('gives the page the runs that have events with where each answer ends', funct
     TaskRun::factory()->create(['thread_id' => $thread->id, 'yak_task_id' => $first->yak_task_id]);
 
     $this->actingAs(User::factory()->create())->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
-        ->where('runs.0.runId', (string) $first->id)->where('runs.0.afterSequence', 2)
+        ->where('runs.0.runId', (string) $first->id)->where('runs.0.afterSequence', 2)->where('runs.0.model', $first->model)
         ->where('runs.1.runId', (string) $second->id)->where('runs.1.afterSequence', 4)
         ->missing('runs.2'));
+});
+
+it('keeps a search to the entries of the run it was asked for', function () {
+    $thread = Thread::factory()->create();
+    $first = logRun($thread, 1);
+    logEntry($thread, 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'needle in the first run']]]);
+    logRun($thread, 3);
+    logEntry($thread, 4, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'needle in the second run']]]);
+    $other = Thread::factory()->create();
+    logRun($other, 1);
+    logEntry($other, 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'needle elsewhere']]]);
+
+    $ids = array_column($this->actingAs(User::factory()->create())->getJson("/threads/{$thread->public_id}/runs/{$first->id}/log?search=needle")->json('entries'), 'id');
+
+    expect($ids)->toBe([2]);
+});
+
+it('serves the last and a still running run to its newest event', function () {
+    $thread = Thread::factory()->create();
+    $runs = [logRun($thread, 1), logRun($thread, 3), logRun($thread, 6)];
+    logEntry($thread, 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'a']]]);
+    logEntry($thread, 4, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'b']]]);
+    logEntry($thread, 5, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'c']]]);
+    logEntry($thread, 7, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'd']]]);
+    logEntry($thread, 8, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'e']]]);
+    $user = User::factory()->create();
+
+    $ids = fn (TaskRun $run): array => array_column($this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log")->json('entries'), 'id');
+
+    expect($ids($runs[0]))->toBe([2])->and($ids($runs[1]))->toBe([4, 5])->and($ids($runs[2]))->toBe([7, 8]);
+});
+
+it('cuts the long fields of an entry at 16 KB and says so', function () {
+    $thread = Thread::factory()->create();
+    $run = logRun($thread, 1);
+    logEntry($thread, 2, ['role' => 'assistant', 'blocks' => [['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'Bash', 'input' => ['command' => 'cat big']]]]);
+    logEntry($thread, 3, ['role' => 'tool_result', 'toolUseId' => 'toolu_1', 'isError' => false, 'text' => str_repeat('x', 40000)]);
+
+    $entry = $this->actingAs(User::factory()->create())->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log")->json('entries.0');
+
+    expect(strlen($entry['output']))->toBe(16384)->and($entry['isTruncated'])->toBeTrue();
+});
+
+it('still serves the log of a task of a legacy thread whose tasks moved to a continuation thread', function () {
+    $task = YakTask::factory()->success()->create();
+    $thread = Thread::factory()->create(['is_legacy' => true, 'legacy_root_task_id' => $task->id]);
+    $continuation = Thread::factory()->create();
+    $task->forceFill(['thread_id' => $continuation->id])->save();
+    $log = TaskLog::create(['yak_task_id' => $task->id, 'level' => 'info', 'message' => 'Pushed branch', 'created_at' => now()]);
+
+    $this->actingAs(User::factory()->create())->getJson("/threads/{$thread->public_id}/tasks/{$task->public_id}/log")->assertOk()->assertJsonCount(1, 'entries');
+    expect(ThreadRunLogData::locate($thread, $log->id))->toBe(['runId' => $task->public_id, 'entryId' => $log->id])
+        ->and(ThreadRunLogData::locate($thread, $log->id + 999))->toBeNull();
 });

@@ -11,6 +11,7 @@ use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
+use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadTasks;
 use Carbon\CarbonInterface;
@@ -38,21 +39,21 @@ final class ThreadMilestonesData
      */
     private static function forRuns(Thread $thread): array
     {
-        $runs = TaskRun::query()->where('thread_id', $thread->id)->orderBy('id')->get();
+        ['runs' => $runs, 'ends' => $endSequences] = self::boundaries($thread);
 
         if ($runs->isEmpty()) {
             return [];
         }
 
-        $endSequences = self::endSequences($thread, $runs);
         $tasks = $thread->tasks()->get()->keyBy('id');
+        $loaded = self::loaded($tasks);
         $found = [];
 
         foreach ($runs->groupBy('yak_task_id') as $taskId => $taskRuns) {
             $task = $tasks[$taskId] ?? null;
 
             if ($task !== null) {
-                $found = [...$found, ...self::facts($task, $taskRuns->values())];
+                $found = [...$found, ...self::facts($task, $taskRuns->values(), $loaded)];
             }
         }
 
@@ -76,11 +77,12 @@ final class ThreadMilestonesData
      */
     private static function forTasks(Thread $thread): array
     {
-        $root = ThreadTasks::request($thread);
+        $tasks = (ThreadTasks::request($thread)?->conversation() ?? collect())->keyBy('id');
+        $loaded = self::loaded($tasks);
         $milestones = [];
 
-        foreach ($root?->conversation() ?? [] as $task) {
-            foreach (self::facts($task, collect()) as [$ownerKey, $milestone]) {
+        foreach ($tasks as $task) {
+            foreach (self::facts($task, collect(), $loaded) as [$ownerKey, $milestone]) {
                 $milestones[] = [...$milestone, 'runId' => $ownerKey, 'afterSequence' => 0];
             }
         }
@@ -89,44 +91,86 @@ final class ThreadMilestonesData
     }
 
     /**
-     * The last event sequence of each run that has events: the one before the next run's first event, else the newest.
+     * The thread's runs (oldest first, only the columns the page needs) and the last event sequence of each run that
+     * has events. A run starts at the first of its `turn running` event and the `started` state of its message, so the
+     * person's message that starts the next run belongs after the previous run's last event. The result is kept on
+     * the thread instance, so a page computes it once.
      *
-     * @param  Collection<int, TaskRun>  $runs
-     * @return array<int, int>
+     * @return array{runs: Collection<int, TaskRun>, ends: array<int, int>}
      */
-    public static function endSequences(Thread $thread, Collection $runs): array
+    public static function boundaries(Thread $thread): array
     {
-        $startSequences = [];
+        if ($thread->relationLoaded('runBoundaries')) {
+            /** @var array{runs: Collection<int, TaskRun>, ends: array<int, int>} */
+            return $thread->getRelation('runBoundaries');
+        }
 
-        foreach (ThreadEvent::query()->where('thread_id', $thread->id)->where('type', 'turn')->orderBy('sequence')->get(['sequence', 'payload']) as $event) {
-            if (($event->payload['state'] ?? null) === 'running' && is_int($event->payload['turnId'] ?? null)) {
-                $startSequences[$event->payload['turnId']] ??= $event->sequence;
+        $runs = TaskRun::query()->where('thread_id', $thread->id)->orderBy('id')
+            ->get(['id', 'yak_task_id', 'thread_id', 'kind', 'model', 'started_at', 'commits', 'total_ms', 'num_turns']);
+        $starts = [];
+
+        if ($runs->isNotEmpty()) {
+            $runIdByUuid = ThreadTurnMessage::query()->whereIn('task_run_id', $runs->pluck('id'))->whereNotNull('uuid')->pluck('task_run_id', 'uuid');
+            $events = ThreadEvent::query()->where('thread_id', $thread->id)
+                ->where(fn ($query) => $query->where(fn ($turn) => $turn->where('type', 'turn')->where('payload->state', 'running'))
+                    ->orWhere(fn ($message) => $message->where('type', 'message.state')->where('payload->state', 'started')))
+                ->orderBy('sequence')->get(['sequence', 'type', 'payload']);
+
+            foreach ($events as $event) {
+                $runId = $event->type === 'turn' ? ($event->payload['turnId'] ?? null) : ($runIdByUuid[$event->payload['uuid'] ?? ''] ?? null);
+
+                if (is_int($runId)) {
+                    $starts[$runId] ??= $event->sequence;
+                }
             }
         }
 
-        $newest = (int) ThreadEvent::query()->where('thread_id', $thread->id)->max('sequence');
+        $newest = $starts === [] ? 0 : (int) ThreadEvent::query()->where('thread_id', $thread->id)->max('sequence');
         $ends = [];
         $following = null;
 
         foreach ($runs->reverse() as $run) {
-            if (! isset($startSequences[$run->id])) {
+            if (! isset($starts[$run->id])) {
                 continue;
             }
 
             $ends[$run->id] = $following === null ? $newest : $following - 1;
-            $following = $startSequences[$run->id];
+            $following = $starts[$run->id];
         }
 
-        return $ends;
+        $boundaries = ['runs' => $runs, 'ends' => $ends];
+        $thread->setRelation('runBoundaries', $boundaries);
+
+        return $boundaries;
+    }
+
+    /**
+     * The CI results, pending co-owner requests and artifacts of all the tasks, in one query each.
+     *
+     * @param  Collection<int, YakTask>  $tasks
+     * @return array{logs: Collection<int, Collection<int, TaskLog>>, held: array<int, true>, cut: Collection<int, Artifact>, reports: Collection<int, Artifact>}
+     */
+    private static function loaded(Collection $tasks): array
+    {
+        $ids = $tasks->pluck('id')->all();
+        $artifacts = Artifact::query()->whereIn('yak_task_id', $ids)->where(fn ($query) => $query->where('role', 'cut')->orWhere('type', 'research'))->orderBy('id')->get();
+
+        return [
+            'logs' => TaskLog::query()->whereIn('yak_task_id', $ids)->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->orderBy('id')->get()->groupBy('yak_task_id'),
+            'held' => array_fill_keys(CoOwnerRequest::query()->whereIn('task_id', $ids)->where('status', CoOwnerRequestStatus::Pending)->pluck('task_id')->all(), true),
+            'cut' => $artifacts->where('role', 'cut')->groupBy('yak_task_id')->map(fn (Collection $group) => $group->last())->filter(),
+            'reports' => $artifacts->where('type', 'research')->groupBy('yak_task_id')->map(fn (Collection $group) => $group->first())->filter(),
+        ];
     }
 
     /**
      * The milestones of one task, each with the key of the run (or, without runs, the task) that reached it.
      *
      * @param  Collection<int, TaskRun>  $runs  the task's runs, oldest first
+     * @param  array{logs: Collection<int, Collection<int, TaskLog>>, held: array<int, true>, cut: Collection<int, Artifact>, reports: Collection<int, Artifact>}  $loaded
      * @return list<array{0: string, 1: array{key: string, label: string, tone: string, url: ?string}}>
      */
-    private static function facts(YakTask $task, Collection $runs): array
+    private static function facts(YakTask $task, Collection $runs, array $loaded): array
     {
         $ownerOf = function (?CarbonInterface $at) use ($task, $runs): string {
             if ($runs->isEmpty()) {
@@ -145,7 +189,7 @@ final class ThreadMilestonesData
 
         $ciByOwner = [];
 
-        foreach (TaskLog::query()->where('yak_task_id', $task->id)->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->orderBy('id')->get() as $log) {
+        foreach ($loaded['logs'][$task->id] ?? [] as $log) {
             $ciByOwner[$ownerOf($log->created_at)] = ($log->metadata['passed'] ?? false) === true;
         }
 
@@ -157,17 +201,17 @@ final class ThreadMilestonesData
 
         if ($task->pr_url !== null) {
             $found[] = [$ownerOf($task->pr_opened_at), ['key' => 'pull_request_opened', 'label' => $task->pr_number ? "Pull request #{$task->pr_number}" : 'Pull request', 'tone' => 'ok', 'url' => $task->pr_url]];
-        } elseif (CoOwnerRequest::query()->where('task_id', $task->id)->where('status', CoOwnerRequestStatus::Pending)->exists()) {
+        } elseif (isset($loaded['held'][$task->id])) {
             $found[] = [$ownerOf(null), ['key' => 'pull_request_held', 'label' => 'Pull request held for a co-owner', 'tone' => 'warn', 'url' => null]];
         }
 
-        $cut = $task->artifacts()->cut()->latest('id')->first();
+        $cut = $loaded['cut'][$task->id] ?? null;
 
         if ($cut !== null) {
-            $found[] = [$ownerOf($cut->created_at), ['key' => 'walkthrough_ready', 'label' => 'Walkthrough ready', 'tone' => 'ok', 'url' => null]];
+            $found[] = [$ownerOf($cut->created_at), ['key' => 'walkthrough_ready', 'label' => 'Walkthrough ready', 'tone' => 'neutral', 'url' => null]];
         }
 
-        $report = $task->mode === TaskMode::Research ? $task->artifacts()->where('type', 'research')->first() : null;
+        $report = $task->mode === TaskMode::Research ? ($loaded['reports'][$task->id] ?? null) : null;
 
         if ($report instanceof Artifact) {
             $found[] = [$ownerOf(null), ['key' => 'research_report', 'label' => 'Research report', 'tone' => 'ok', 'url' => route('artifacts.viewer', ['task' => $task, 'filename' => $report->filename])]];
