@@ -18,6 +18,8 @@ struct InstanceShell: View {
     @State private var showsSwitcher = false
     /// The tasks area, when it is open in place of the thread screen.
     @State private var tasksRoute: TasksRoute?
+    /// The thread the tasks route opened over; a different thread closes the route.
+    @State private var tasksOverThreadID: String?
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -42,11 +44,7 @@ struct InstanceShell: View {
         .task(id: status) { await refreshStoredInstance() }
         .task {
             #if DEBUG
-                if let id = TestMode.taskToOpen() {
-                    // A cold start selects a thread, which closes the tasks route; the task opens after that settles.
-                    try? await Task.sleep(for: .seconds(2))
-                    model.taskToOpen = id
-                }
+                if let id = TestMode.taskToOpen() { model.taskToOpen = id }
             #endif
         }
         .onChange(of: showsAccount) { Task { await refreshStoredInstance() } }
@@ -58,7 +56,7 @@ struct InstanceShell: View {
             model.taskToOpen = nil
             openTasks(.task(id))
         }
-        .onChange(of: scene.state.threadID) { tasksRoute = nil }
+        .onChange(of: scene.state.threadID) { _, new in if new != tasksOverThreadID { tasksRoute = nil } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
         .sheet(isPresented: $showsAccount) {
             SignedInView(model: model, instance: instance, onClose: { showsAccount = false })
@@ -161,6 +159,7 @@ struct InstanceShell: View {
 
     private func openTasks(_ route: TasksRoute?) {
         tasksRoute = route
+        tasksOverThreadID = scene.state.threadID
         if route != nil, isCompactWidth { scene.setDrawerOpen(false) }
     }
 

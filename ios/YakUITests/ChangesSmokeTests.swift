@@ -36,6 +36,20 @@ import XCTest
         XCTAssertFalse(app.webViews.firstMatch.exists && app.otherElements["SFSafariView"].exists)
     }
 
+    /// A task link that launches the app, with no thread restored, opens the native task screen.
+    func testATaskLinkAtColdStartOpensTheTaskScreen() throws {
+        try stub.play("changes")
+        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
+        var components = URLComponents()
+        components.scheme = "yak"
+        components.host = "task"
+        components.queryItems = [
+            URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: "k3m9p2qa"),
+        ]
+        app.open(try XCTUnwrap(components.url))
+        XCTAssertTrue(element("task.screen").waitForExistence(timeout: 30))
+    }
+
     func testApprovingATaskShowsTheDecision() throws {
         try launch(scenario: "changes")
         openDrawerIfNeeded()
