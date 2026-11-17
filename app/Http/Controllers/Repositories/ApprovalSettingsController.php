@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Repositories;
 
+use App\Actions\EnqueuePrReview;
 use App\Channels\GitHub\AppService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Repositories\UpdateApprovalSettingsRequest;
 use App\Http\Resources\ApprovalSettingsPageData;
 use App\Http\Resources\RepositorySettingsData;
+use App\Jobs\CheckOpenPullRequestApprovalsJob;
 use App\Models\Repository;
 use App\Services\RepositoryConfig;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +29,8 @@ class ApprovalSettingsController extends Controller
             'approval' => ApprovalSettingsPageData::approval($repository),
             'concerns' => ApprovalSettingsPageData::concerns($repository, $snapshot),
             'shadow' => ApprovalSettingsPageData::shadow($repository),
+            'openPullRequests' => fn (): array => ApprovalSettingsPageData::openPullRequests($repository),
+            'repositoryHolds' => fn (): array => ApprovalSettingsPageData::repositoryHolds($repository),
             'github' => Inertia::defer(fn (): array => ApprovalSettingsPageData::github($repository), 'approvals-github'),
         ]);
     }
@@ -49,6 +53,38 @@ class ApprovalSettingsController extends Controller
         };
 
         return back()->with('success', "DEFCON {$level} " . ApprovalSettingsPageData::CODENAMES[$level] . ", {$label} is live.");
+    }
+
+    public function check(Repository $repository): RedirectResponse
+    {
+        CheckOpenPullRequestApprovalsJob::dispatch($repository->id);
+
+        return back()->with('success', 'Checking open pull requests.');
+    }
+
+    public function review(Repository $repository, int $number, EnqueuePrReview $enqueuePrReview): RedirectResponse
+    {
+        try {
+            $pullRequest = app(AppService::class)->getPullRequestOrFail((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $number);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'Could not load the pull request from GitHub. Try again.');
+        }
+
+        if ($pullRequest === null) {
+            return back()->with('error', 'Could not load the pull request from GitHub. Try again.');
+        }
+
+        $isReviewable = ($pullRequest['state'] ?? '') === 'open' && ! ($pullRequest['draft'] ?? true)
+            && strcasecmp((string) ($pullRequest['user']['login'] ?? ''), app(AppService::class)->appBotLogin()) !== 0;
+        if (! $isReviewable) {
+            return back()->with('error', "Pull request #{$number} is not open for review.");
+        }
+
+        $enqueuePrReview($repository, $pullRequest, 'full');
+
+        return back()->with('success', "Review of pull request #{$number} requested.");
     }
 
     private function ensureRequiredChecks(Repository $repository): void

@@ -205,6 +205,13 @@ Route::middleware(['auth'])->group(function () {
     Route::put('repos/{repository}/approvals', [ApprovalSettingsController::class, 'update'])
         ->name('repos.approvals.update')
         ->where('repository', '.+');
+    Route::post('repos/{repository}/approvals/check', [ApprovalSettingsController::class, 'check'])
+        ->name('repos.approvals.check')
+        ->where('repository', '.+');
+    Route::post('repos/{repository}/approvals/review/{number}', [ApprovalSettingsController::class, 'review'])
+        ->name('repos.approvals.review')
+        ->where('repository', '.+')
+        ->whereNumber('number');
     Route::get('repos/{repository}/settings/{section}', [RepositorySettingsController::class, 'show'])
         ->name('repos.settings.show')
         ->where('repository', '.+')

@@ -5,8 +5,11 @@ namespace App\Http\Resources;
 use App\Channels\GitHub\AppService;
 use App\DataTransferObjects\ConfigSnapshot;
 use App\DataTransferObjects\RepositorySettings;
+use App\Models\ApprovalPreview;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Services\ReviewApprovalPolicy;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Shapes the review approvals settings page. The docblocks on each method are
@@ -142,6 +145,64 @@ final class ApprovalSettingsPageData
                 ])
                 ->all()),
         ];
+    }
+
+    /**
+     * The dry-run approval check of every open pull request. `checkedAt` is when
+     * the last check finished and is null with no rows when the repository was
+     * never checked. `pending` counts rows still being checked; the page polls
+     * with `only: ['openPullRequests']` until it is 0. A row's `holds` are the
+     * reasons it needs a human at every DEFCON level, without the repository-wide
+     * ones in `repositoryHolds`. `waiting` means Yak has not reviewed the current
+     * head commit yet. `changeKind` and `hasTestChange` let the page decide per
+     * level; `changeKind` is null when it was not classified. `error` is set only
+     * when `status` is `failed`.
+     *
+     * @return array{checkedAt: ?string, pending: int, rows: list<array{number: int, title: string, author: string, url: string, headSha: string, status: 'pending'|'done'|'failed', waiting: bool, holds: list<string>, changeKind: ?string, hasTestChange: bool, error: ?string}>}
+     */
+    public static function openPullRequests(Repository $repository): array
+    {
+        $previews = ApprovalPreview::where('repository_id', $repository->id)->orderBy('pr_number')->get();
+        $checkedAt = Cache::get(self::checkedAtCacheKey($repository));
+
+        $rows = [];
+        foreach ($previews as $preview) {
+            $rows[] = [
+                'number' => $preview->pr_number,
+                'title' => $preview->title,
+                'author' => $preview->author,
+                'url' => $preview->url,
+                'headSha' => $preview->head_sha,
+                'status' => $preview->status,
+                'waiting' => (bool) ($preview->result['waiting'] ?? false),
+                'holds' => $preview->result['holds'] ?? [],
+                'changeKind' => $preview->result['changeKind'] ?? null,
+                'hasTestChange' => (bool) ($preview->result['hasTestChange'] ?? false),
+                'error' => $preview->status === 'failed' ? $preview->error : null,
+            ];
+        }
+
+        return [
+            'checkedAt' => is_string($checkedAt) ? $checkedAt : null,
+            'pending' => $previews->where('status', 'pending')->count(),
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * Holds that block every pull request of the repository, such as a missing
+     * concerns file or branch protection without required checks.
+     *
+     * @return list<string>
+     */
+    public static function repositoryHolds(Repository $repository): array
+    {
+        return app(ReviewApprovalPolicy::class)->repositoryHolds($repository);
+    }
+
+    public static function checkedAtCacheKey(Repository $repository): string
+    {
+        return "approval-check-finished-at:{$repository->id}";
     }
 
     /**

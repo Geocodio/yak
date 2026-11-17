@@ -1169,7 +1169,7 @@ GRAPHQL;
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function listOpenPullRequests(int $installationId, string $repoSlug): array
+    public function listOpenPullRequests(int $installationId, string $repoSlug, bool $orFail = false): array
     {
         $token = $this->getInstallationToken($installationId);
         $results = [];
@@ -1183,6 +1183,10 @@ GRAPHQL;
                     'per_page' => 100,
                     'page' => $page,
                 ]);
+
+            if ($orFail) {
+                $response->throw();
+            }
 
             $batch = $response->json();
             if (! is_array($batch) || $batch === []) {

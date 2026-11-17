@@ -3,8 +3,11 @@
 namespace App\Services;
 
 use App\Channels\GitHub\AppService;
+use App\DataTransferObjects\ConcernCheckResult;
 use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
+use App\DataTransferObjects\ReviewFinding;
+use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Support\ApprovalFloor;
@@ -12,6 +15,8 @@ use App\Support\PathMatcher;
 
 class ReviewApprovalPolicy
 {
+    private const CONCERNS_MISSING = 'No concerns file (risk-profile.yml version 2) on the default branch.';
+
     /**
      * Decide whether the latest review of a pull request may be approved. Checks run
      * in order and the first failing stage ends the evaluation. Fail closed.
@@ -71,9 +76,8 @@ class ReviewApprovalPolicy
         if ($isYakAuthored) {
             return ['Yak opened this pull request.'];
         }
-        $installationId = (int) config('yak.channels.github.installation_id');
         try {
-            $live = $github->getPullRequestOrFail($installationId, $repository->github_full_name, (int) ($metadata['pr_number'] ?? 0));
+            $live = $github->getPullRequestOrFail((int) config('yak.channels.github.installation_id'), $repository->github_full_name, (int) ($metadata['pr_number'] ?? 0));
         } catch (\Throwable) {
             $live = null;
         }
@@ -82,15 +86,9 @@ class ReviewApprovalPolicy
         }
 
         $liveAuthor = (string) ($live['user']['login'] ?? '');
-        if (strcasecmp($liveAuthor, $github->appBotLogin()) === 0) {
-            return ['Yak opened this pull request.'];
-        }
-        if (trim($liveAuthor) === '' || trim((string) ($metadata['author'] ?? '')) === '') {
-            return ['Pull request author is unknown.'];
-        }
-        if (($live['state'] ?? '') !== 'open' || ($live['draft'] ?? true) !== false || ($live['auto_merge'] ?? null) !== null
-            || ($live['head']['repo']['full_name'] ?? null) !== ($live['base']['repo']['full_name'] ?? '')) {
-            return ['Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'];
+        $hold = $this->authorHold($github, $liveAuthor, (string) ($metadata['author'] ?? '')) ?? $this->pullRequestStateHold($live);
+        if ($hold !== null) {
+            return [$hold];
         }
         if (($live['head']['sha'] ?? null) !== ($metadata['head_sha'] ?? '') || ($live['base']['ref'] ?? null) !== ($metadata['base_ref'] ?? '')) {
             return ['Pull request changed since the review; Yak will review again.'];
@@ -101,33 +99,171 @@ class ReviewApprovalPolicy
 
         $reviewExcludes = $repository->settings()->reviewPathExcludes() ?? (array) config('yak.pr_review.default_path_excludes', []);
         $concerns = $repository->settings()->concerns();
+        $baseRef = (string) ($metadata['base_ref'] ?? '');
         if ($concerns === null) {
-            return ['No concerns file (risk-profile.yml version 2) on the default branch.'];
+            return [self::CONCERNS_MISSING];
+        }
+        $repositoryHold = $this->requiredChecksHold($repository, $github, $baseRef, $decision['observed']['required_checks_present'])
+            ?? $this->staleDismissalHold($repository, $github, $baseRef, $decision['observed']['dismisses_stale_reviews']);
+        if ($repositoryHold !== null) {
+            return [$repositoryHold];
         }
 
-        $baseRef = (string) ($metadata['base_ref'] ?? '');
+        $floorHolds = $this->floorHolds($files, $reviewExcludes);
+        if ($floorHolds !== []) {
+            return $floorHolds;
+        }
+
+        $reasons = $this->reviewContentHolds($review, (string) ($metadata['review_scope'] ?? ''), $metadata);
+        if ($reasons !== []) {
+            return $reasons;
+        }
+
+        $result = app(ConcernCheck::class)->check($concerns, array_values($files));
+        $decision['classification'] = $this->classificationFrom($result);
+        $reasons = $this->concernHolds($concerns, $decision['classification'], $decision['observed']['has_test_change']);
+        if ($reasons !== []) {
+            return $reasons;
+        }
+
+        $allowed = $this->allowedChangeKinds($level, $decision['observed']['has_test_change']);
+
+        return in_array($result->changeKind, $allowed, true) ? [] : ["DEFCON {$level} does not cover {$result->changeKind} changes."];
+    }
+
+    /**
+     * Dry-run the hold checks against an open pull request without posting
+     * anything or writing a review. Ignores the repository's mode and level, and
+     * leaves out the repository-wide holds ({@see self::repositoryHolds()}).
+     * The per-pull-request holds keep the order and wording `evaluate()` uses.
+     * Without a review at the head commit the result is `waiting` and the
+     * review-content and concern checks are skipped. A given `$classification`
+     * replaces the model call; with none, the model runs only when nothing else
+     * already makes the pull request human-only at every level.
+     *
+     * @param  array<string, mixed>  $pullRequest  A pull request from the open-pull-request listing
+     * @param  array<int, array<string, mixed>>  $files
+     * @param  array{touched_concerns: list<array{name: string, evidence: string}>, change_kind: ?string, is_uncertain: bool, failure: ?string}|null  $classification
+     * @param  list<string>|null  $repositoryHolds  Precomputed {@see self::repositoryHolds()}
+     * @return array{holds: list<string>, changeKind: ?string, hasTestChange: bool, waiting: bool, classification: array{touched_concerns: list<array{name: string, evidence: string}>, change_kind: ?string, is_uncertain: bool, failure: ?string}|null}
+     */
+    public function preview(Repository $repository, array $pullRequest, array $files, ?PrReview $latestReview, ?array $classification, ?array $repositoryHolds = null): array
+    {
+        $hasTestChange = $this->hasTestChange($files);
+        $outcome = ['holds' => [], 'changeKind' => null, 'hasTestChange' => $hasTestChange, 'waiting' => $latestReview === null, 'classification' => null];
+        $github = app(AppService::class);
+        $author = (string) ($pullRequest['user']['login'] ?? '');
+
+        $hold = $this->authorHold($github, $author, $author)
+            ?? $this->pullRequestStateHold($pullRequest)
+            ?? (isset($pullRequest['changed_files']) && $pullRequest['changed_files'] !== count($files) ? 'Changed file list is incomplete.' : null);
+        if ($hold !== null) {
+            return [...$outcome, 'holds' => [$hold]];
+        }
+
+        $reviewExcludes = $repository->settings()->reviewPathExcludes() ?? (array) config('yak.pr_review.default_path_excludes', []);
+        $floorHolds = $this->floorHolds($files, $reviewExcludes);
+        if ($floorHolds !== [] || $latestReview === null) {
+            return [...$outcome, 'holds' => $floorHolds];
+        }
+
+        $reasons = $this->reviewContentHolds($this->parsedReviewFrom($latestReview), $latestReview->review_scope ?? '', ['pr_url' => $latestReview->pr_url]);
+        if ($reasons !== []) {
+            return [...$outcome, 'holds' => $reasons];
+        }
+
+        $concerns = $repository->settings()->concerns();
+        $repositoryHolds ??= $this->repositoryHolds($repository);
+        if ($concerns === null || $repositoryHolds !== []) {
+            return $outcome;
+        }
+
+        if ($classification === null) {
+            $classification = $this->classificationFrom(app(ConcernCheck::class)->check($concerns, array_values($files)));
+        }
+        $outcome['classification'] = $classification;
+        if ($classification['is_uncertain'] || $classification['failure'] !== null || $classification['change_kind'] === null) {
+            return [...$outcome, 'holds' => [$classification['failure'] ?? 'Concern check is uncertain.']];
+        }
+
+        return [...$outcome, 'holds' => $this->concernHolds($concerns, $classification, $hasTestChange), 'changeKind' => $classification['change_kind']];
+    }
+
+    /**
+     * Holds that apply to every pull request of the repository, read against the
+     * default branch. Unlike `evaluate()` this lists every failing check.
+     *
+     * @return list<string>
+     */
+    public function repositoryHolds(Repository $repository): array
+    {
+        $github = app(AppService::class);
+        $unused = null;
+
+        return array_values(array_filter([
+            $repository->settings()->concerns() === null ? self::CONCERNS_MISSING : null,
+            $this->requiredChecksHold($repository, $github, $repository->default_branch, $unused),
+            $this->staleDismissalHold($repository, $github, $repository->default_branch, $unused),
+        ]));
+    }
+
+    private function authorHold(AppService $github, string $author, string $reviewedAuthor): ?string
+    {
+        if (strcasecmp($author, $github->appBotLogin()) === 0) {
+            return 'Yak opened this pull request.';
+        }
+
+        return trim($author) === '' || trim($reviewedAuthor) === '' ? 'Pull request author is unknown.' : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $pullRequest
+     */
+    private function pullRequestStateHold(array $pullRequest): ?string
+    {
+        $isHeld = ($pullRequest['state'] ?? '') !== 'open' || ($pullRequest['draft'] ?? true) !== false || ($pullRequest['auto_merge'] ?? null) !== null
+            || ($pullRequest['head']['repo']['full_name'] ?? null) !== ($pullRequest['base']['repo']['full_name'] ?? '');
+
+        return $isHeld ? 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.' : null;
+    }
+
+    /**
+     * @param-out bool $observed
+     */
+    private function requiredChecksHold(Repository $repository, AppService $github, string $baseRef, ?bool &$observed): ?string
+    {
         try {
-            $hasChecks = $github->hasRequiredStatusChecks(
-                $installationId, $repository->github_full_name, $baseRef,
-            );
+            $hasChecks = $github->hasRequiredStatusChecks((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $baseRef);
         } catch (\Throwable) {
             $hasChecks = false;
         }
-        $decision['observed']['required_checks_present'] = $hasChecks;
-        if (! $hasChecks) {
-            return ["Branch protection on {$baseRef} has no required status checks."];
-        }
+        $observed = $hasChecks;
 
+        return $hasChecks ? null : "Branch protection on {$baseRef} has no required status checks.";
+    }
+
+    /**
+     * @param-out bool $observed
+     */
+    private function staleDismissalHold(Repository $repository, AppService $github, string $baseRef, ?bool &$observed): ?string
+    {
         try {
-            $dismissesStale = $github->dismissesStaleReviews($installationId, $repository->github_full_name, $baseRef);
+            $dismissesStale = $github->dismissesStaleReviews((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $baseRef);
         } catch (\Throwable) {
             $dismissesStale = false;
         }
-        $decision['observed']['dismisses_stale_reviews'] = $dismissesStale;
-        if (! $dismissesStale) {
-            return ["Branch protection on {$baseRef} must dismiss stale approvals."];
-        }
+        $observed = $dismissesStale;
 
+        return $dismissesStale ? null : "Branch protection on {$baseRef} must dismiss stale approvals.";
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $files
+     * @param  array<int, string>  $reviewExcludes
+     * @return list<string>
+     */
+    private function floorHolds(array $files, array $reviewExcludes): array
+    {
         $held = ApprovalFloor::heldPaths($files);
         $unreviewed = [];
         foreach ($files as $file) {
@@ -136,13 +272,19 @@ class ReviewApprovalPolicy
                 $unreviewed[] = $path;
             }
         }
-        if ($held !== [] || $unreviewed !== []) {
-            return [
-                ...array_map(fn (string $path): string => "Always needs a human: {$path}", $held),
-                ...array_map(fn (string $path): string => "Not reviewed by Yak: {$path}", $unreviewed),
-            ];
-        }
 
+        return [
+            ...array_map(fn (string $path): string => "Always needs a human: {$path}", $held),
+            ...array_map(fn (string $path): string => "Not reviewed by Yak: {$path}", $unreviewed),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return list<string>
+     */
+    private function reviewContentHolds(ParsedReview $review, string $reviewScope, array $metadata): array
+    {
         $reasons = [];
         if ($review->findings !== []) {
             $reasons[] = 'Review contains findings.';
@@ -150,7 +292,7 @@ class ReviewApprovalPolicy
         if ($review->verdict !== 'Approve') {
             $reasons[] = 'Review verdict is not a clean approval.';
         }
-        if (($metadata['review_scope'] ?? '') !== 'full') {
+        if ($reviewScope !== 'full') {
             $reasons[] = 'Approval requires a full review; request another review.';
         }
         foreach ($review->priorFindings as $prior) {
@@ -160,38 +302,71 @@ class ReviewApprovalPolicy
             }
         }
         array_push($reasons, ...$this->earlierFindingReasons($review, $metadata));
-        if ($reasons !== []) {
-            return $reasons;
-        }
 
-        $result = app(ConcernCheck::class)->check($concerns, array_values($files));
-        $decision['classification'] = ['touched_concerns' => $result->touchedConcerns, 'change_kind' => $result->changeKind,
+        return $reasons;
+    }
+
+    /**
+     * @return array{touched_concerns: list<array{name: string, evidence: string}>, change_kind: ?string, is_uncertain: bool, failure: ?string}
+     */
+    private function classificationFrom(ConcernCheckResult $result): array
+    {
+        return ['touched_concerns' => $result->touchedConcerns, 'change_kind' => $result->changeKind,
             'is_uncertain' => $result->isUncertain, 'failure' => $result->failure];
-        if ($result->isUncertain || $result->failure !== null || $result->changeKind === null) {
-            return [$result->failure ?? 'Concern check is uncertain.'];
+    }
+
+    /**
+     * @param  list<array{name: string, approval: 'always_human'|'when_tested', description: string}>  $concerns
+     * @param  array{touched_concerns: list<array{name: string, evidence: string}>, change_kind: ?string, is_uncertain: bool, failure: ?string}  $classification
+     * @return list<string>
+     */
+    private function concernHolds(array $concerns, array $classification, bool $hasTestChange): array
+    {
+        if ($classification['is_uncertain'] || $classification['failure'] !== null || $classification['change_kind'] === null) {
+            return [$classification['failure'] ?? 'Concern check is uncertain.'];
         }
 
+        $reasons = [];
         $approvals = array_column($concerns, 'approval', 'name');
-        $hasTestChange = $decision['observed']['has_test_change'];
-        foreach ($result->touchedConcerns as $touched) {
+        foreach ($classification['touched_concerns'] as $touched) {
             if (($approvals[$touched['name']] ?? 'always_human') !== 'when_tested') {
                 $reasons[] = "Always needs a human: {$touched['name']}";
             } elseif (! $hasTestChange) {
                 $reasons[] = "Touches {$touched['name']} without a test change.";
             }
         }
-        if ($reasons !== []) {
-            return $reasons;
-        }
 
-        $allowed = match ($level) {
+        return $reasons;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allowedChangeKinds(int $level, bool $hasTestChange): array
+    {
+        return match ($level) {
             2 => ['no_runtime_change'],
             3 => ['no_runtime_change', 'presentation_or_internal'],
             4 => $hasTestChange ? ['no_runtime_change', 'presentation_or_internal', 'behavior_change'] : ['no_runtime_change', 'presentation_or_internal'],
             default => ['no_runtime_change', 'presentation_or_internal', 'behavior_change'],
         };
+    }
 
-        return in_array($result->changeKind, $allowed, true) ? [] : ["DEFCON {$level} does not cover {$result->changeKind} changes."];
+    /**
+     * Rebuild the parts of a review the hold checks read from a stored review:
+     * its verdict and the findings stored as comment rows. A finding count above
+     * the stored rows counts as findings too.
+     */
+    private function parsedReviewFrom(PrReview $review): ParsedReview
+    {
+        $findings = $review->comments->map(fn (PrReviewComment $comment): ReviewFinding => new ReviewFinding(
+            (string) $comment->file_path, (int) $comment->line_number, (string) $comment->severity, (string) $comment->category, (string) $comment->body,
+        ))->all();
+        for ($missing = (int) ($review->risk_assessment['findings_count'] ?? 0) - count($findings); $missing > 0; $missing--) {
+            $findings[] = new ReviewFinding('', 0, 'consider', '', '');
+        }
+
+        return new ParsedReview((string) $review->summary, (string) $review->verdict, '', $findings);
     }
 
     /**
