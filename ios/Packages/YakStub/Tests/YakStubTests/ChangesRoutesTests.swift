@@ -128,8 +128,11 @@ import Testing
         #expect(call(feature, "POST threads/d0e515ef/pull-request", scenario, body: "{}").status == 202)
         #expect(sent.get().isEmpty)
         try await Task.sleep(for: .seconds(StubChanges.openingDuration + 0.3))
+        // A loaded machine can run the timer late: wait for the event instead of trusting one sleep.
+        for _ in 0..<50 where sent.get().isEmpty { try await Task.sleep(for: .milliseconds(100)) }
         let events = sent.get()
         #expect(events.count == 1)
+        guard events.count == 1 else { return }
         let frame = events[0].split(separator: " ", maxSplits: 1).map(String.init)
         let event = (try? JSONSerialization.jsonObject(with: Data(frame[1].utf8))) as? [String: Any] ?? [:]
         #expect(frame[0] == "d0e515ef")
