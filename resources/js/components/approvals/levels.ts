@@ -64,7 +64,7 @@ export function allowedKinds(level: ApprovalLevel, hasTestChange: boolean): stri
 }
 
 export type PullRequestOutcome = {
-    kind: 'approve' | 'human' | 'waiting' | 'failed' | 'checking';
+    kind: 'approve' | 'human' | 'waiting' | 'reviewing' | 'failed' | 'checking';
     label: string;
     reason: string;
     checks: string[];
@@ -83,6 +83,10 @@ export function outcomeAt(row: OpenPullRequestRow, level: ApprovalLevel, reposit
 
     if (holds.length > 0) {
         return { kind: 'human', label: 'A human reviews', reason: holds[0], checks: holds };
+    }
+
+    if (row.waiting && row.reviewing) {
+        return { kind: 'reviewing', label: 'Yak is reviewing', reason: 'Yak is reviewing this commit now.', checks: [] };
     }
 
     if (row.waiting) {

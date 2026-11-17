@@ -257,10 +257,13 @@ class ReviewApprovalPolicy
      */
     private function pullRequestStateHold(array $pullRequest): ?string
     {
-        $isHeld = ($pullRequest['state'] ?? '') !== 'open' || ($pullRequest['draft'] ?? true) !== false || ($pullRequest['auto_merge'] ?? null) !== null
-            || ($pullRequest['head']['repo']['full_name'] ?? null) !== ($pullRequest['base']['repo']['full_name'] ?? '');
-
-        return $isHeld ? 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.' : null;
+        return match (true) {
+            ($pullRequest['state'] ?? '') !== 'open' => 'Pull request is not open.',
+            ($pullRequest['draft'] ?? true) !== false => 'Pull request is a draft.',
+            ($pullRequest['auto_merge'] ?? null) !== null => 'Pull request has auto-merge on.',
+            ($pullRequest['head']['repo']['full_name'] ?? null) !== ($pullRequest['base']['repo']['full_name'] ?? '') => 'Pull request comes from a fork.',
+            default => null,
+        };
     }
 
     /**
