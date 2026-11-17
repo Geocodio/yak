@@ -50,7 +50,7 @@ it('falls back to dashboard without a request', function () {
 });
 
 it('uses the given fallback for an unknown task source', function () {
-    $task = YakTask::factory()->create(['source' => 'manual']);
+    $task = YakTask::factory()->create(['source' => 'something-else']);
 
     expect(app(ThreadOrigin::class)->forRequest($task, ThreadSource::Cli)['source'])->toBe(ThreadSource::Cli);
 });
@@ -85,3 +85,20 @@ it('marks a spawned child thread as a stack', function () {
 
     expect($child->fresh()->source)->toBe(ThreadSource::Stack);
 });
+
+it('marks a dashboard-triggered risk profile as repository research', function () {
+    Queue::fake();
+    $task = app(RepositoryRiskProfiles::class)->generate(Repository::factory()->create(), 'dashboard');
+
+    expect(app(ThreadOrigin::class)->forRequest($task)['source'])->toBe(ThreadSource::RepositoryResearch);
+});
+
+it('maps legacy task sources', function (string $taskSource, ThreadSource $expected) {
+    $task = YakTask::factory()->create(['source' => $taskSource]);
+
+    expect(app(ThreadOrigin::class)->forRequest($task)['source'])->toBe($expected);
+})->with([
+    'flaky-test' => ['flaky-test', ThreadSource::Github],
+    'manual' => ['manual', ThreadSource::Cli],
+    'system' => ['system', ThreadSource::Cli],
+]);

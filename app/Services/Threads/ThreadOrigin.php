@@ -26,7 +26,7 @@ class ThreadOrigin
 
         $source = $this->isRiskProfileResearch($request)
             ? ThreadSource::RepositoryResearch
-            : ThreadSource::tryFrom(str_replace('-', '_', (string) $request->source)) ?? $fallback;
+            : $this->sourceOf((string) $request->source, $fallback);
         $authorName = trim((string) $request->author_name);
 
         return [
@@ -50,11 +50,18 @@ class ThreadOrigin
         };
     }
 
+    private function sourceOf(string $taskSource, ThreadSource $fallback): ThreadSource
+    {
+        return match ($taskSource) {
+            'flaky-test' => ThreadSource::Github,
+            'manual', 'system' => ThreadSource::Cli,
+            default => ThreadSource::tryFrom(str_replace('-', '_', $taskSource)) ?? $fallback,
+        };
+    }
+
     private function isRiskProfileResearch(YakTask $request): bool
     {
-        return (string) $request->source === 'cli'
-            && $request->mode === TaskMode::Research
-            && $request->started_by_user_id === null
+        return $request->mode === TaskMode::Research
             && str_starts_with((string) $request->external_id, 'risk-profile-');
     }
 
