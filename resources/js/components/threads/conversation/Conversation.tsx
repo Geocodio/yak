@@ -101,7 +101,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     // New files arrive after a turn ends; the card appears without a reload.
     usePoll(10_000, { only: ['sharedFiles'] });
     const { after: filesAfter, trailing: trailingFiles } = placeSharedFiles(entries, sharedFiles);
-    const footersAfter = placeRunFooters(entries, onOpenRunLog === undefined ? [] : runs, working);
+    const footersAfter = placeRunFooters(entries, onOpenRunLog === undefined ? [] : runs);
     const retryNumbers = new Map<string, number>();
     runs.filter((run) => run.isRetry).forEach((run, position) => retryNumbers.set(run.runId, position + 1));
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);

@@ -5,6 +5,7 @@ use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
+use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -202,4 +203,33 @@ it('still serves the log of a task of a legacy thread whose tasks moved to a con
     $this->actingAs(User::factory()->create())->getJson("/threads/{$thread->public_id}/tasks/{$task->public_id}/log")->assertOk()->assertJsonCount(1, 'entries');
     expect(ThreadRunLogData::locate($thread, $log->id))->toBe(['runId' => $task->public_id, 'entryId' => $log->id])
         ->and(ThreadRunLogData::locate($thread, $log->id + 999))->toBeNull();
+});
+
+it('marks a run active only while its turn has not ended', function () {
+    $thread = Thread::factory()->create();
+    $states = ['running' => true, 'pending' => true, 'waiting_for_account' => true, 'completed' => false, 'stopped_by_guard' => false, 'failed' => false, 'interrupted' => false];
+    $expected = [];
+
+    foreach ($states as $state => $isActive) {
+        $run = logRun($thread, count($expected) * 2 + 1);
+        $run->forceFill(['turn_state' => $state])->save();
+        logEntry($thread, count($expected) * 2 + 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => $state]]]);
+        $expected[(string) $run->id] = $isActive;
+    }
+
+    $runs = collect(ThreadRunLogData::runs($thread))->pluck('isActive', 'runId')->all();
+
+    expect($runs)->toBe($expected);
+});
+
+it('shows a viewer without drive rights the active run as active', function () {
+    $thread = Thread::factory()->private()->create();
+    $run = logRun($thread, 1);
+    $run->forceFill(['turn_state' => 'running'])->save();
+    logEntry($thread, 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'live']]]);
+    $reader = User::factory()->create();
+    ThreadShare::factory()->create(['thread_id' => $thread->id, 'user_id' => $reader->id]);
+
+    $this->actingAs($reader)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('canDrive', false)->where('runs.0.isActive', true));
 });

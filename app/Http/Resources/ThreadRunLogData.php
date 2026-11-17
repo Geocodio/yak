@@ -9,6 +9,7 @@ use App\Models\Thread;
 use App\Models\ThreadEvent;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadTasks;
+use App\Services\Threads\ThreadTurns;
 use App\Support\Markdown;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -81,7 +82,7 @@ final class ThreadRunLogData
     /**
      * The runs that have events, each with where its answer ends, so the page can offer a full log after it.
      *
-     * @return list<array{runId: string, afterSequence: int, durationSeconds: int, stepCount: int, isRetry: bool, model: ?string}>
+     * @return list<array{runId: string, afterSequence: int, durationSeconds: int, stepCount: int, isRetry: bool, model: ?string, isActive: bool}>
      */
     public static function runs(Thread $thread): array
     {
@@ -101,6 +102,7 @@ final class ThreadRunLogData
                     'stepCount' => (int) $run->num_turns,
                     'isRetry' => $run->kind === TaskRunKind::Retry,
                     'model' => $run->model,
+                    'isActive' => in_array($run->turn_state, ThreadTurns::ACTIVE_STATES, true),
                 ];
             }
         }

@@ -136,6 +136,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         request,
         runDetails,
         milestones,
+        runs,
         composerState: composer.state,
         composer,
         modelLabels,

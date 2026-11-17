@@ -1,11 +1,13 @@
 <?php
 
 use App\Enums\ThreadSource;
+use App\Enums\ThreadVisibility;
 use App\Enums\TurnMessageState;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
+use App\Models\ThreadShare;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
@@ -146,4 +148,23 @@ it('shows a thread Yak started from a Sentry alert that stopped after CI failed'
         ->assertSeeIn('[data-testid="request-responsible"]', 'Nobody yet')
         ->assertSeeIn('[data-testid="environment-ci"]', 'Failed, attempt 2 of')
         ->assertNoJavaScriptErrors();
+});
+
+it('shows a viewer who cannot drive no footer for a run that is still active', function () {
+    $reader = User::factory()->create();
+    $thread = channelThread();
+    $thread->forceFill(['visibility' => ThreadVisibility::Private, 'owner_user_id' => User::factory()->create()->id])->save();
+    ThreadShare::factory()->create(['thread_id' => $thread->id, 'user_id' => $reader->id]);
+    TaskRun::query()->where('thread_id', $thread->id)->update(['turn_state' => 'running']);
+    $this->actingAs($reader);
+
+    visit("/threads/{$thread->public_id}")
+        ->assertVisible('[data-testid="thread-header"]')
+        ->assertMissing('[data-testid="run-footer"]')
+        ->assertMissing('[data-testid="run-log-button"]')
+        ->assertNoJavaScriptErrors();
+
+    TaskRun::query()->where('thread_id', $thread->id)->update(['turn_state' => 'completed']);
+
+    visit("/threads/{$thread->public_id}")->assertVisible('[data-testid="run-footer"]');
 });

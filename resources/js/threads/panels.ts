@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { FilesMode, FocusRequest } from '@/threads/panels/files/filesMode';
 import type { StackData } from '@/types/stack';
-import type { SharedFile, TeleportData, ThreadCapacity, ThreadComposer, ThreadData, ThreadMilestone, ThreadNotice, ThreadRequest, ThreadRunDetails } from '@/types/threads';
+import type { SharedFile, TeleportData, ThreadCapacity, ThreadComposer, ThreadData, ThreadMilestone, ThreadNotice, ThreadRequest, ThreadRunDetails, ThreadRunSummary } from '@/types/threads';
 import type { ThreadDiffSummary } from '@/types/thread-changes';
 
 export type PanelProps = {
@@ -14,6 +14,8 @@ export type PanelProps = {
     request?: ThreadRequest;
     /** What the runs took; undefined shows the group's skeleton. */
     runDetails?: ThreadRunDetails;
+    /** The runs of the thread; whether any is active says if the thread is still running. */
+    runs?: ThreadRunSummary[];
     /** What each run reached, in time order; the Links group reads the latest CI result from it. */
     milestones?: ThreadMilestone[];
     composerState?: ThreadComposer['state'];

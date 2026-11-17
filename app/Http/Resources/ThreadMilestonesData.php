@@ -106,7 +106,7 @@ final class ThreadMilestonesData
         }
 
         $runs = TaskRun::query()->where('thread_id', $thread->id)->orderBy('id')
-            ->get(['id', 'yak_task_id', 'thread_id', 'kind', 'model', 'started_at', 'commits', 'total_ms', 'num_turns']);
+            ->get(['id', 'yak_task_id', 'thread_id', 'kind', 'model', 'turn_state', 'started_at', 'commits', 'total_ms', 'num_turns']);
         $starts = [];
 
         if ($runs->isNotEmpty()) {

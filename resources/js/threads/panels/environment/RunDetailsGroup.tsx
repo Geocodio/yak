@@ -10,12 +10,12 @@ function shortSession(sessionId: string): string {
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-/** What the runs of the thread took: turns, attempts, time, cost, the session and the error log of a failed run. */
 function formatTime(iso: string): string {
     return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export function RunDetailsGroup({ runDetails, composerState }: PanelProps) {
+/** What the runs of the thread took: turns, attempts, time, cost, the session and the error log of a failed run. */
+export function RunDetailsGroup({ runDetails, runs = [] }: PanelProps) {
     if (runDetails === undefined) {
         return (
             <OverviewGroup title="Run details" testId="overview-run-details-loading">
@@ -49,7 +49,7 @@ export function RunDetailsGroup({ runDetails, composerState }: PanelProps) {
                         {runDetails.attempts}
                     </OverviewRow>
                 )}
- {runDetails.startedAt !== null && (
+                {runDetails.startedAt !== null && (
                     <OverviewRow label="Started" testId="run-details-started">
                         {formatTime(runDetails.startedAt)}
                     </OverviewRow>
@@ -59,7 +59,7 @@ export function RunDetailsGroup({ runDetails, composerState }: PanelProps) {
                         {formatTime(runDetails.completedAt)}
                     </OverviewRow>
                 ) : (
-                    composerState === 'working' && (
+                    runs.some((run) => run.isActive) && (
                         <OverviewRow label="Completed" testId="run-details-completed">
                             <span className="text-muted">Still running</span>
                         </OverviewRow>

@@ -44,6 +44,9 @@ class ThreadTurns
 {
     public const WAITING_STATES = [TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox];
 
+    /** The states of a turn that has not ended. */
+    public const ACTIVE_STATES = [TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox, TurnState::Running];
+
     private const MAX_ADVANCE_FAILURES = 5;
 
     public function __construct(
@@ -73,7 +76,7 @@ class ThreadTurns
     {
         return TaskRun::query()
             ->where('thread_id', $thread->id)
-            ->whereIn('turn_state', [...self::WAITING_STATES, TurnState::Running])
+            ->whereIn('turn_state', self::ACTIVE_STATES)
             ->latest('id')
             ->first();
     }

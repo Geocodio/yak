@@ -165,7 +165,7 @@ export type ThreadRunDetails = {
     errorLogTruncated: boolean;
 };
 
-export type ThreadRunSummary = { runId: string; afterSequence: number; durationSeconds: number; stepCount: number; isRetry: boolean; model: string | null };
+export type ThreadRunSummary = { runId: string; afterSequence: number; durationSeconds: number; stepCount: number; isRetry: boolean; model: string | null; /** The run's turn has not ended. */ isActive: boolean };
 
 export type ThreadMilestone = {
     key: 'pushed' | 'ci_passed' | 'ci_failed' | 'pull_request_opened' | 'pull_request_held' | 'walkthrough_ready' | 'research_report';
