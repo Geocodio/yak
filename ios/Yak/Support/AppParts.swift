@@ -111,6 +111,7 @@ extension View {
         onOpenURL { url in Task { await model.handle(url: url) } }
             .environment(parts.system)
             .appLockWindow(parts.system.appLock)
+            .modifier(ShortcutGate(controller: parts.system.appLock))
             .modifier(SpotlightRoot(system: parts.system, model: model))
             .modifier(PushRoot(push: parts.push, model: model))
             .environment(\.previewDefaults, parts.previewData.defaults)

@@ -45,4 +45,26 @@ import YakKit
         let hidden = AppLockInput.windowsToHide(in: [app, keyboardLike, lock], lock: lock)
         #expect(hidden == [app])
     }
+
+    @Test func theLockWindowTakesKeyAndEndsEditingThenGivesKeyBack() throws {
+        let app = try window()
+        let field = UITextField()
+        app.addSubview(field)
+        app.makeKeyAndVisible()
+        #expect(field.becomeFirstResponder())
+        let lock = try window(level: .alert + 1)
+        lock.isHidden = false
+        let handoff = LockKeyHandoff()
+        handoff.engage(lock: lock, covering: [app])
+        #expect(lock.isKeyWindow)
+        #expect(!field.isFirstResponder)
+        handoff.release()
+        #expect(app.isKeyWindow)
+        lock.isHidden = true
+    }
+
+    @Test func shortcutsDoNothingWhileBlocked() {
+        #expect(AppShortcutGate.keyboardShortcut(for: .send, blocked: true) == nil)
+        #expect(AppShortcutGate.keyboardShortcut(for: .send, blocked: false) != nil)
+    }
 }

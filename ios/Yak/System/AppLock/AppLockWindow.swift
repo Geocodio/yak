@@ -52,6 +52,7 @@ private struct LockWindowView: View {
         let scene: UIWindowScene
         let window: UIWindow
         let content: WindowContent
+        let keyHandoff = LockKeyHandoff()
     }
 
     private let controller: AppLockController
@@ -115,7 +116,10 @@ private struct LockWindowView: View {
         switch name {
         case UIScene.didDisconnectNotification:
             scenes.disconnected(key)
-            if let entry = entries.removeValue(forKey: key) { entry.window.isHidden = true }
+            if let entry = entries.removeValue(forKey: key) {
+                entry.keyHandoff.release()
+                entry.window.isHidden = true
+            }
         case UIScene.didActivateNotification:
             if entries[key] == nil { connect(scene) }
             scenes.phaseChanged(key, isActive: true)
@@ -163,9 +167,9 @@ private struct LockWindowView: View {
     }
 
     private func apply(_ shows: AppLockScenes<ObjectIdentifier>.Shows, to entry: Entry) {
-        for other in AppLockInput.windowsToHide(in: entry.scene.windows, lock: entry.window) {
-            other.accessibilityElementsHidden = shows == .lockScreen
-        }
+        let covered = AppLockInput.windowsToHide(in: entry.scene.windows, lock: entry.window)
+        let blocksInput = shows == .lockScreen || controller.storeUnreadable
+        for other in covered { other.accessibilityElementsHidden = shows == .lockScreen }
         if shows != .nothing {
             // At once and without animation, so the app switcher snapshot is never taken half covered.
             entry.window.layer.removeAllAnimations()
@@ -175,7 +179,13 @@ private struct LockWindowView: View {
             entry.content.shows = shows
             entry.window.rootViewController?.view.accessibilityViewIsModal = shows == .lockScreen
             entry.window.isHidden = false
+            if blocksInput {
+                entry.keyHandoff.engage(lock: entry.window, covering: covered)
+            } else {
+                entry.keyHandoff.release()
+            }
         } else if !entry.window.isHidden {
+            entry.keyHandoff.release()
             let fade = {
                 entry.window.alpha = 0
             }

@@ -28,6 +28,8 @@ final class AppLockController {
     private(set) var failureCount = 0
 
     var isLocked: Bool { policy.isLocked }
+    /// True while nothing in the app may react to the keyboard: locked, or covered because the lock is unknown.
+    var blocksInput: Bool { showsLockScreen || storeUnreadable }
     var showsLockScreen: Bool { policy.isLocked || showsPasscodeRemoved }
 
     /// The policy starts locked when the lock is on, so the first frame is already covered.
