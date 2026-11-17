@@ -100,8 +100,8 @@ private struct OverviewScroll: View {
             .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
             .frame(maxWidth: 640).frame(maxWidth: .infinity)
         }
-        // The page stops above the floating bar, so no row's text sits under its glass or on the screen edge.
-        .padding(.bottom, 96)
+        // The page scrolls past the floating bar, so the last row can rest above its glass.
+        .contentMargins(.bottom, 96, for: .scrollContent)
         .paneBarRow(key: isOwner) {
             if isOwner {
                 Button {
