@@ -65,6 +65,10 @@ jobs:
         include:
           - device: 'iPhone 18 Pro'
             core_only: false
+            part: 1
+          - device: 'iPhone 18 Pro'
+            core_only: false
+            part: 2
           - device: 'iPhone Duo'
             core_only: true
           - device: 'iPad Pro 13-inch (M5)'
@@ -78,7 +82,7 @@ jobs:
       - name: Install gems
         run: bundle install
       - name: UI smoke tests
-        run: bundle exec fastlane ui_smoke device:"${{ matrix.device }}" core_only:${{ matrix.core_only }}
+        run: bundle exec fastlane ui_smoke device:"${{ matrix.device }}" core_only:${{ matrix.core_only }} ${{ matrix.part && format('part:{0}', matrix.part) || '' }}
       - name: Keep the stub log and the test results
         if: always()
         uses: actions/upload-artifact@v7

@@ -31,16 +31,16 @@ enum PreviewWebData {
 
     /// Removes the store within `eraseLimit`; on a failure or a timeout the instance is recorded as pending.
     static func erase(instanceID: UUID, defaults: any KeyValueStore) async -> Bool {
+        await serialized { await eraseNow(instanceID: instanceID, defaults: defaults) }
+    }
+
+    private static func eraseNow(instanceID: UUID, defaults: any KeyValueStore) async -> Bool {
         let storeID = PreviewDataStoreID.for(instanceID: instanceID)
         // A store never handed out has nothing to erase.
         let isKnown = (read(knownStoresKey, in: defaults) as Set<UUID>).contains(storeID)
         let isPending = (read(pendingKey, in: defaults) as Set<UUID>).contains(instanceID)
         guard isKnown || isPending else { return true }
-        // Removing a store before WebKit has made any object crashes in WebKit; a store of a fixed id that
-        // belongs to no instance starts it, and is never removed, so it is never in use during a removal.
-        _ = WKWebsiteDataStore(
-            forIdentifier: PreviewDataStoreID.for(instanceID: UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
-        )
+        startWebKit()
         let isRemoved = await bounded { try await WKWebsiteDataStore.remove(forIdentifier: storeID) }
         if isRemoved {
             update(knownStoresKey, in: defaults) { $0.remove(storeID) }
@@ -60,6 +60,15 @@ enum PreviewWebData {
         },
         limit: Duration = eraseLimit
     ) async {
+        await serialized {
+            await sweepNow(instances: instances, defaults: defaults, listStores: listStores, limit: limit)
+        }
+    }
+
+    private static func sweepNow(
+        instances: InstanceStore, defaults: any KeyValueStore,
+        listStores: @escaping @MainActor @Sendable () async -> [UUID], limit: Duration
+    ) async {
         let all = await instances.all()
         var keep: [UUID] = []
         for instance in all {
@@ -69,11 +78,8 @@ enum PreviewWebData {
         let known = Array(read(knownStoresKey, in: defaults) as Set<UUID>)
         let pending = Array(read(pendingKey, in: defaults) as Set<UUID>)
         // Nothing handed out and nothing pending: there is nothing to erase, and WebKit stays untouched.
-        guard let firstStore = known.first ?? pending.first.map({ PreviewDataStoreID.for(instanceID: $0) }) else {
-            return
-        }
-        // Listing the stores before WebKit has made any object crashes in WebKit; making one of ours starts it.
-        _ = WKWebsiteDataStore(forIdentifier: firstStore)
+        guard !known.isEmpty || !pending.isEmpty else { return }
+        startWebKit()
         // A listing that times out says nothing about which stores exist, so both records stay as they are.
         guard let existing = await bounded(returning: nil, limit: limit, { Optional(await listStores()) }) else {
             log("The preview data stores could not be listed")
@@ -89,6 +95,31 @@ enum PreviewWebData {
         update(pendingKey, in: defaults) { ids in
             ids = ids.filter { existing.contains(PreviewDataStoreID.for(instanceID: $0)) }
         }
+    }
+
+    // MARK: Serial work
+
+    private static var lastWork: Task<Void, Never>?
+
+    /// Runs `work` after every earlier call has finished, so a sweep and an erase never overlap at a suspension point.
+    static func serialized<Value: Sendable>(_ work: @escaping @MainActor () async -> Value) async -> Value {
+        let previous = lastWork
+        let task = Task { @MainActor in
+            await previous?.value
+            return await work()
+        }
+        lastWork = Task { _ = await task.value }
+        return await task.value
+    }
+
+    private static var hasStartedWebKit = false
+
+    /// Listing or removing stores before WebKit has made a web view crashes in WebKit's run loop. One throwaway web view
+    /// on the default store starts it; it is not a preview store, so it never holds one during a removal.
+    private static func startWebKit() {
+        guard !hasStartedWebKit else { return }
+        _ = WKWebView(frame: .zero)
+        hasStartedWebKit = true
     }
 
     // MARK: Bounded waits
