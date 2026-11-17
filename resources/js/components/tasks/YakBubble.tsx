@@ -10,7 +10,7 @@ import { StepList } from '@/components/activity/StepGroup';
 import { StepRow } from '@/components/activity/StepRow';
 import { YakAvatar } from '@/components/brand/YakAvatar';
 import { Prose } from '@/components/Prose';
-import { FindingsBlock } from '@/components/tasks/FindingsBlock';
+import { FindingsBlock } from '@/components/shared/FindingsBlock';
 import { allFailuresRetried } from '@/components/tasks/groupActivity';
 import { navigateTaskQuery } from '@/lib/taskQuery';
 import { rerunReview, retry, setupAndContinue } from '@/routes/tasks';

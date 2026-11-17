@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { QuestionsForm } from '@/components/tasks/QuestionsForm';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
-import type { ThreadPageData, LocalTurnsData, SharedFile, ThreadMessage, ThreadNotice as ThreadNoticeData, ThreadWalkthrough } from '@/types/threads';
+import type { ThreadPageData, LocalTurnsData, SharedFile, ThreadMessage, ThreadMilestone, ThreadNotice as ThreadNoticeData, ThreadRunSummary, ThreadWalkthrough } from '@/types/threads';
 import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { ChildCard } from './ChildCard';
@@ -21,6 +21,8 @@ import { createReadTracker, type ConversationEntry } from './mergeConversation';
 import { mergeConversation, useConversation } from './useConversation';
 import { PersonMessage } from './PersonMessage';
 import { PullRequestChips } from './PullRequestChip';
+import { RunFooter } from './RunFooter';
+import { placeRunFooters } from './placeRunFooters';
 import { EnvironmentNoteCard } from './EnvironmentNoteCard';
 import { SideSwitchDivider } from './SideSwitchDivider';
 import { switchPosition } from './switchPosition';
@@ -82,7 +84,7 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
 }
 
-export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], onLinkChange, onEditUnsent, onOpenChanges }: { working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onEditUnsent, onOpenChanges }: { runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
     const unsent = useUnsentMessages(threadId);
     const latest = entries.at(-1);
@@ -99,6 +101,9 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     // New files arrive after a turn ends; the card appears without a reload.
     usePoll(10_000, { only: ['sharedFiles'] });
     const { after: filesAfter, trailing: trailingFiles } = placeSharedFiles(entries, sharedFiles);
+    const footersAfter = placeRunFooters(entries, onOpenRunLog === undefined ? [] : runs);
+    const retryNumbers = new Map<string, number>();
+    runs.filter((run) => run.isRetry).forEach((run, position) => retryNumbers.set(run.runId, position + 1));
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     let previousDay = '';
@@ -139,6 +144,9 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                             <Fragment key={entry.item.key}>
                                 {before}
                                 <EventRow modelLabels={modelLabels} key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} threadId={threadId} onOpenChanges={onOpenChanges} />
+                                {(footersAfter.get(index) ?? []).map((run) => (
+                                    <RunFooter key={`run-footer-${run.runId}`} summary={run} retryNumber={retryNumbers.get(run.runId) ?? null} milestones={milestones.filter((milestone) => milestone.runId === run.runId)} onOpenLog={() => onOpenRunLog?.(run.runId)} />
+                                ))}
                                 {(filesAfter.get(index) ?? []).map((group) => (
                                     <SharedFilesCard key={group[0].id} files={group} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />
                                 ))}
@@ -172,7 +180,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                 {question !== null && !readonly && (
                     <QuestionsForm key={question.taskId} taskId={question.taskId} threadId={threadId} questions={question.questions} who="Claude" footer="Answers go to Claude as the next message." />
                 )}
-                {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} />}
+                {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} startAt={walkthroughStartAt} />}
                 {trailingFiles.length > 0 && <SharedFilesCard files={trailingFiles} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />}
                 {waiting !== null && (
                     <div className="ml-9">

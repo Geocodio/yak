@@ -1,6 +1,6 @@
 import { usePoll } from '@inertiajs/react';
 import { Check, Clock } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ThreadWalkthrough } from '@/types/threads';
 
 function clock(seconds: number): string {
@@ -10,10 +10,12 @@ function clock(seconds: number): string {
 }
 
 /** The latest recording on the thread: progress while Claude records or the cut renders, then the video and screenshots. */
-export function WalkthroughCard({ walkthrough }: { walkthrough: ThreadWalkthrough }) {
+export function WalkthroughCard({ walkthrough, startAt = null }: { walkthrough: ThreadWalkthrough; startAt?: number | null }) {
     const { isRecording, isRendering, video, screenshots, isInPullRequest } = walkthrough;
 
     const isWorking = isRecording || isRendering;
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const hasVideo = video !== null;
     const poll = usePoll(4000, { only: ['walkthrough'] }, { autoStart: false });
 
     // Polls only while Claude records or the cut renders; a finished video is left alone so it can play.
@@ -25,6 +27,26 @@ export function WalkthroughCard({ walkthrough }: { walkthrough: ThreadWalkthroug
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isWorking]);
+
+    // A `?walkthrough=<seconds>` link opens the video at that time, once the video is there.
+    useEffect(() => {
+        const element = videoRef.current;
+
+        if (startAt === null || !hasVideo || element === null) {
+            return;
+        }
+        const seek = () => {
+            element.currentTime = startAt;
+            element.scrollIntoView({ block: 'center' });
+        };
+        if (element.readyState >= 1) {
+            seek();
+        } else {
+            element.addEventListener('loadedmetadata', seek, { once: true });
+        }
+
+        return () => element.removeEventListener('loadedmetadata', seek);
+    }, [startAt, hasVideo]);
 
     return (
         <div className="flex gap-3" data-testid="thread-walkthrough">
@@ -45,7 +67,7 @@ export function WalkthroughCard({ walkthrough }: { walkthrough: ThreadWalkthroug
                 )}
                 {video !== null && (
                     <div className="mt-2 overflow-hidden rounded-[10px] border border-hair bg-panel" data-testid="walkthrough-video">
-                        <video src={video.url} poster={video.thumbnailUrl ?? undefined} controls preload="metadata" className="aspect-video max-h-[320px] w-full bg-black" />
+                        <video ref={videoRef} src={video.url} poster={video.thumbnailUrl ?? undefined} controls preload="metadata" className="aspect-video max-h-[320px] w-full bg-black" />
                         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3.5 py-2.5 text-[12.5px]">
                             <span>
                                 <span className="font-medium text-body">Walkthrough</span>

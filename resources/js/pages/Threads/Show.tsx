@@ -7,6 +7,7 @@ import { threadDataActions } from '@/commandPalette/threadDataActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
 import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
+import { RunLogOverlay, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
 import { LegacyConversation } from '@/components/threads/conversation/LegacyConversation';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { ChildBriefCard } from '@/components/threads/header/ChildBriefCard';
@@ -45,7 +46,7 @@ const WIDE_RAIL_QUERY = '(min-width: 1200px)';
 /** From this width the page shows the views side by side; below it the phone tabs take over. */
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
-export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, messages, isLegacy, legacyAnswers, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question, request, progress, runDetails, milestones, openLog }: Props) {
+export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, messages, isLegacy, legacyAnswers, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question, request, progress, runDetails, milestones, runs, openLog }: Props) {
     const dockPanels = dockPanelsFor(thread);
     const dock = useDockState();
     const dockPanelIds = dockPanels.map((panel) => panel.id);
@@ -57,6 +58,13 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const [filesMode, setFilesMode] = useState<FilesMode | null>(null);
     const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
     const focusCounter = useRef(0);
+    const [logTarget, setLogTarget] = useState<RunLogTarget | null>(() => (openLog === null ? null : { kind: isLegacy ? 'task' : 'run', id: openLog.runId, entryId: openLog.entryId, headline: thread.title }));
+    const [walkthroughStartAt] = useState(() => {
+        const requested = new URLSearchParams(window.location.search).get('walkthrough');
+        const seconds = requested === null || requested.trim() === '' ? NaN : Number(requested);
+
+        return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+    });
     const [linkKind, setLinkKind] = useState<LinkState['kind']>('ok');
     const [restoredDraft, setRestoredDraft] = useState<{ text: string } | null>(null);
     const [isAddingSubThread, setIsAddingSubThread] = useState(false);
@@ -220,7 +228,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} /> : <Conversation working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />}
+                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} milestones={milestones} onOpenLog={(taskId) => setLogTarget({ kind: 'task', id: taskId, entryId: null, headline: thread.title })} /> : <Conversation runs={runs} milestones={milestones} walkthroughStartAt={walkthroughStartAt} onOpenRunLog={(runId) => setLogTarget({ kind: 'run', id: runId, entryId: null, headline: thread.title })} working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />}
                     <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} request={request} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
                 </div>
 
@@ -251,6 +259,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 </aside>
             </div>
 
+            <RunLogOverlay threadId={thread.id} target={logTarget} onClose={() => setLogTarget(null)} />
             {isAddingSubThread && stack !== null && (
                 <AddChildDialog threadId={thread.id} parentTitle={thread.title} stack={{ models: stack.models, parentAccountName: stack.parentAccountName, maxChildren: stack.maxChildren, awake: stack.limit.awake, limit: stack.limit.current, childCount: stack.children.length }} onClose={() => setIsAddingSubThread(false)} onAdded={() => { reloadStack(); openOverview(); }} />
             )}

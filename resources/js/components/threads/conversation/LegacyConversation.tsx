@@ -1,11 +1,14 @@
 import { Prose } from '@/components/Prose';
-import type { LegacyAnswer, ThreadMessage } from '@/types/threads';
+import type { LegacyAnswer, ThreadMessage, ThreadMilestone } from '@/types/threads';
 import { PersonMessage } from './PersonMessage';
+import { RunFooter } from './RunFooter';
 
 type Entry = { at: string; message: ThreadMessage } | { at: string; answer: LegacyAnswer };
 
 /** The stored history of a thread made from an old task: the person's messages and Yak's answers, in time order. */
-export function LegacyConversation({ messages, answers }: { messages: ThreadMessage[]; answers: LegacyAnswer[] }) {
+export function LegacyConversation({ messages, answers, milestones = [], onOpenLog }: { messages: ThreadMessage[]; answers: LegacyAnswer[]; milestones?: ThreadMilestone[]; onOpenLog?: (taskId: string) => void }) {
+    // A task's milestones sit after its last answer.
+    const lastAnswerOfTask = new Map(answers.map((answer) => [answer.runTaskId, answer]));
     const entries: Entry[] = [...messages.map((message) => ({ at: message.sentAt, message })), ...answers.map((answer) => ({ at: answer.at, answer }))].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
     return (
@@ -22,6 +25,12 @@ export function LegacyConversation({ messages, answers }: { messages: ThreadMess
                                 <span className="font-normal text-faint">{new Date(entry.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
                             </div>
                             <Prose html={entry.answer.html} className="mt-1" />
+                            {onOpenLog !== undefined && (
+                                <RunFooter
+                                    milestones={lastAnswerOfTask.get(entry.answer.runTaskId) === entry.answer ? milestones.filter((milestone) => milestone.runId === entry.answer.runTaskId) : []}
+                                    onOpenLog={() => onOpenLog(entry.answer.runTaskId)}
+                                />
+                            )}
                         </div>
                     </div>
                 ),
