@@ -32,8 +32,8 @@ actor StreamRecorder<Value: Sendable> {
     }
 
     /// The first value after the last one `next` returned that matches. A value that does not arrive
-    /// within ten real seconds fails the test that waits, with a throw, instead of hanging or crashing the run.
-    func next(timeout: Duration = .seconds(10), where predicate: @Sendable (Value) -> Bool) async throws -> Value {
+    /// within the default timeout (ten real seconds, scaled by TestTiming) fails the test that waits, with a throw, instead of hanging or crashing the run.
+    func next(timeout: Duration = TestTiming.defaultTimeout, where predicate: @Sendable (Value) -> Bool) async throws -> Value {
         let deadline = ContinuousClock.now + timeout
         while true {
             if let index = values[cursor...].firstIndex(where: predicate) {
