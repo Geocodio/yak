@@ -134,6 +134,9 @@ export type SharedFile = {
     createdAt: string;
 };
 
+/** One answer of Yak in a thread made from an old task; mirrors `App\Services\Threads\LegacyConversation`. */
+export type LegacyAnswer = { runTaskId: string; html: string; at: string };
+
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
@@ -145,6 +148,9 @@ export type ThreadPageData = {
     publishWarning: boolean;
     walkthrough: ThreadWalkthrough | null;
     sharedFiles: SharedFile[];
+    isLegacy: boolean;
+    /** Yak's answers of a thread made from an old task, in time order; empty for other threads. */
+    legacyAnswers: LegacyAnswer[];
     messages: ThreadMessage[];
     localTurnStints: LocalTurnsData[];
     composer: ThreadComposer;

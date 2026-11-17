@@ -93,7 +93,9 @@
         "deletions": 5,
         "filesCount": 3
     },
+    "isLegacy": false,
     "latestSequence": 12,
+    "legacyAnswers": [],
     "liveActivityChannel": null,
     "localTurnStints": [],
     "localTurns": null,

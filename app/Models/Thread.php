@@ -138,6 +138,7 @@ class Thread extends Model
             'blocked_reason' => ThreadBlockReason::class,
             'destroy_after_hours' => 'integer',
             'fresh_session_pending' => 'boolean',
+            'is_legacy' => 'boolean',
             'sandbox_state_changed_at' => 'immutable_datetime',
             'runner_started_at' => 'immutable_datetime',
             'lock_acquired_at' => 'immutable_datetime',

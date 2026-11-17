@@ -7,6 +7,7 @@ import { threadDataActions } from '@/commandPalette/threadDataActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
 import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
+import { LegacyConversation } from '@/components/threads/conversation/LegacyConversation';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { ChildBriefCard } from '@/components/threads/header/ChildBriefCard';
 import { breadcrumbParent } from '@/components/threads/header/breadcrumbParent';
@@ -43,7 +44,7 @@ const WIDE_RAIL_QUERY = '(min-width: 1200px)';
 /** From this width the page shows the views side by side; below it the phone tabs take over. */
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
-export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, messages, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question }: Props) {
+export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, messages, isLegacy, legacyAnswers, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question }: Props) {
     const dockPanels = dockPanelsFor(thread);
     const dock = useDockState();
     const dockPanelIds = dockPanels.map((panel) => panel.id);
@@ -217,8 +218,8 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />
-                    <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
+                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} /> : <Conversation working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />}
+                    <ThreadComposer isLegacy={isLegacy} thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
                 </div>
 
                 <ThreadDockPanel active={activeDock} isPhoneVisible={isPhoneDockVisible} panelProps={panelProps} />

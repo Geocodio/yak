@@ -89,7 +89,9 @@
         "state": "idle"
     },
     "diffTotals": null,
+    "isLegacy": false,
     "latestSequence": 4812,
+    "legacyAnswers": [],
     "liveActivityChannel": null,
     "localTurnStints": [],
     "localTurns": null,

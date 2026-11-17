@@ -12,6 +12,7 @@ use App\Models\ThreadEvent;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\LegacyConversation;
 use App\Support\AttachmentReferences;
 use App\Support\Markdown;
 use Illuminate\Support\Str;
@@ -27,6 +28,10 @@ final class ThreadMessagesData
      */
     public static function for(Thread $thread, ?User $viewer = null): array
     {
+        if ($thread->is_legacy) {
+            return LegacyConversation::for($thread)['messages'];
+        }
+
         $rows = ThreadTurnMessage::query()
             ->whereHas('taskRun', fn ($runs) => $runs->where('thread_id', $thread->id))
             ->with(['taskRun.task.attachments', 'taskRun.driver', 'pendingSteeringMessage.attachments', 'attachments'])

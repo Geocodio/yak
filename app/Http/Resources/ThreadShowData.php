@@ -15,6 +15,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Teleport\LocalTurns;
+use App\Services\Threads\LegacyConversation;
 
 /**
  * Props of the `Threads/Show` page, shared by the web page and the app's thread show.
@@ -52,6 +53,8 @@ use App\Services\Teleport\LocalTurns;
  *     publishWarning: bool,
  *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitches: list<array{from: string, to: string, at: string}>, environmentSwitch: ?array{from: string, to: string, at: string}, accountName: ?string, continuedFromThreadId: ?string, continuedFromTitle: ?string, canTeleport: bool},
  *     capacity: ?array{turns: array{used: int, limit: int}, sandboxes: array{used: int, limit: int}, share: array{used: int, limit: int}},
+ *     isLegacy: bool,
+ *     legacyAnswers: list<array{runTaskId: string, html: string, at: string}>,
  *     messages: list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>,
  *     localTurnStints: list<array{stintId: string, movedAt: ?string, count: int, firstPromptText: string, startedAt: string, endedAt: string, hasMore: bool, authorName: string, authorInitials: string, turns: list<array<string, mixed>>}>,
  *     localTurns: array{stintId: string, movedAt: ?string, count: int, firstPromptText: string, startedAt: string, endedAt: string, hasMore: bool, authorName: string, authorInitials: string, turns: list<array<string, mixed>>}|null,
@@ -71,8 +74,12 @@ final class ThreadShowData
      */
     public static function build(Thread $thread, User $viewer): array
     {
+        $legacy = $thread->is_legacy ? LegacyConversation::for($thread) : null;
+
         return array_merge(ThreadPageData::build($thread, $viewer), [
-            'messages' => ThreadMessagesData::for($thread, $viewer),
+            'isLegacy' => $legacy !== null,
+            'legacyAnswers' => $legacy['answers'] ?? [],
+            'messages' => $legacy['messages'] ?? ThreadMessagesData::for($thread, $viewer),
             'localTurnStints' => $stints = app(LocalTurns::class)->summaries($thread),
             // The first stint alone, kept for app API protocol 1 clients.
             'localTurns' => $stints[0] ?? null,
