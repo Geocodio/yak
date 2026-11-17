@@ -137,7 +137,7 @@ co_owner_gate:
   mode: enforce
 ```
 
-`mode` is `off` (the default) or `enforce`. The repository page shows the gate's status: whether a risk profile is present, how many CODEOWNERS owners resolve to linked users with write access, and the fallback owner. If enforce is on but nobody can be asked, the page says so, and held changes wait for anyone with write access who has linked their GitHub account, who can approve from the task page.
+`mode` is `off` (the default) or `enforce`. The **PR review** section shows the gate's status: whether a risk profile is present, how many CODEOWNERS owners resolve to linked users with write access, and the fallback owner. If enforce is on but nobody can be asked, the page says so, and held changes wait for anyone with write access who has linked their GitHub account, who can approve from the task page.
 
 **What is held.** With enforce on, a Yak PR waits for a code owner when it touches an area rated `critical`, `high` or `unknown` in the risk profile, or any of Yak's own config files (`.yak/**`, CODEOWNERS in any standard location: `CODEOWNERS`, `.github/CODEOWNERS` or `docs/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`). System tasks (setup, review and research modes, Sentry and flaky-test tasks) skip the area check, but a change to a config file still holds them. A held task shows as "Needs co-owner" on the task list and does not open its PR until someone approves.
 
@@ -202,7 +202,7 @@ Config normally comes from the default branch only, but previews are the excepti
 
 - A pull request that changes `.yak/preview.yml` previews with its own copy of the file, so a change to the recipe proves itself before it merges.
 - Every other branch uses the default branch's `preview.yml`, so a fix there reaches older branches once it merges.
-- If the pull request's copy is missing, invalid or unreadable, the preview falls back to the default branch's recipe. Without a file there, it uses the manifest stored in Yak (the **Branch deployments** section of the repository page), then the host defaults above.
+- If the pull request's copy is missing, invalid or unreadable, the preview falls back to the default branch's recipe. Without a file there, it uses the manifest stored in Yak (the **Previews** section of the repository's settings), then the host defaults above.
 
 See [Previews](previews.md#branch-deployments).
 
@@ -270,7 +270,7 @@ unknowns:
 | `areas[].evidence` | Facts from the repository that support the rationale. 1 to 100 entries, each up to 1000 characters. |
 | `unknowns` | Questions Yak could not answer and a human should check. Up to 100, each up to 2000 characters. Any entry blocks auto-approval. |
 
-Yak can write this file for you. Starting risk profile generation on the repository page opens a PR on the `yak/risk-profile` branch, or updates the open one. Merging the PR approves the profile.
+Yak can write this file for you. Starting risk profile generation in the repository's **PR review** section opens a PR on the `yak/risk-profile` branch, or updates the open one. Merging the PR approves the profile.
 
 ## AGENTS.md
 

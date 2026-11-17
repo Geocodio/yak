@@ -47,7 +47,6 @@ export default function Index({ repositories }: Props) {
                         <StackedThead>
                             <Tr>
                                 <Th>Slug</Th>
-                                <Th>Name</Th>
                                 <Th>CI system</Th>
                                 <Th>Setup</Th>
                                 <Th>Base</Th>
@@ -56,6 +55,7 @@ export default function Index({ repositories }: Props) {
                                 <Th className="text-right">Tasks (total)</Th>
                                 <Th className="text-right">Tasks (7d)</Th>
                                 <Th>PR review</Th>
+                                <Th>Auto-approval</Th>
                             </Tr>
                         </StackedThead>
                         <StackedTbody>
@@ -67,11 +67,9 @@ export default function Index({ repositories }: Props) {
                                     {...rowLinkHandlers(repos.edit.url(repo.slug))}
                                     className={repo.isActive ? undefined : 'opacity-60'}
                                 >
-                                    <StackedTd label="Slug" className="font-medium text-accent">
-                                        {repo.slug}
-                                    </StackedTd>
-                                    <StackedTd label="Name" className="text-muted">
-                                        {repo.name}
+                                    <StackedTd label="Slug">
+                                        <span className="font-medium text-accent">{repo.slug}</span>
+                                        {repo.name !== repo.slug && <span className="block text-[11px] text-muted">{repo.name}</span>}
                                     </StackedTd>
                                     <StackedTd label="CI system" className="text-muted">
                                         {repo.ciLabel}
@@ -116,6 +114,15 @@ export default function Index({ repositories }: Props) {
                                             </div>
                                         ) : (
                                             <span className="text-faint">&mdash;</span>
+                                        )}
+                                    </StackedTd>
+                                    <StackedTd label="Auto-approval">
+                                        {repo.approvalLevel === 1 ? (
+                                            <span className="text-muted">Off</span>
+                                        ) : (
+                                            <Badge tone={repo.approvalMode === 'enforce' ? 'warn' : 'neutral'} className="tnum">
+                                                DEFCON {repo.approvalLevel} · {repo.approvalMode === 'enforce' ? 'armed' : 'shadow'}
+                                            </Badge>
                                         )}
                                     </StackedTd>
                                 </StackedTr>

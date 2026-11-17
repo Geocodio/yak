@@ -37,17 +37,17 @@ class RepositoryActionController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            return redirect()->route('repos.edit', $repository)->with('error', 'Could not save the risk profile. Check the draft format and version, then retry.');
+            return back()->with('error', 'Could not save the risk profile. Check the draft format and version, then retry.');
         }
 
-        return redirect()->route('repos.edit', $repository)->with('success', $data['action'] === 'approve' ? 'Risk profile approved.' : 'Draft saved. Review it before approving.');
+        return back()->with('success', $data['action'] === 'approve' ? 'Risk profile approved.' : 'Draft saved. Review it before approving.');
     }
 
     public function toggleActive(Repository $repository): RedirectResponse
     {
         $repository->update(['is_active' => ! $repository->is_active]);
 
-        return redirect()->route('repos.edit', $repository)
+        return back()
             ->with('success', $repository->is_active ? 'Repository activated.' : 'Repository deactivated.');
     }
 
@@ -80,13 +80,13 @@ class RepositoryActionController extends Controller
     {
         $count = $applyPrReview($repository);
 
-        return redirect()->route('repos.edit', $repository)->with('success', "Enqueued review for {$count} open PRs.");
+        return back()->with('success', "Enqueued review for {$count} open PRs.");
     }
 
     public function rebuildDeployments(Repository $repository): RedirectResponse
     {
         RebuildRepositoryDeploymentsJob::dispatch($repository->id);
 
-        return redirect()->route('repos.edit', $repository)->with('success', 'Bulk rebuild queued for all active deployments.');
+        return back()->with('success', 'Bulk rebuild queued for all active deployments.');
     }
 }

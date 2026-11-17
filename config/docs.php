@@ -66,6 +66,9 @@ return [
         'repositories.rerun-setup' => 'repositories/#re-running-setup',
         'repositories.routing' => 'repositories/#routing-tasks-to-repos',
 
+        // Previews
+        'previews' => 'previews/',
+
         // Teleport
         'teleport' => 'teleport/',
         'teleport.install' => 'teleport/#install',

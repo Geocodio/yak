@@ -23,6 +23,6 @@ class ManifestController extends Controller
             ],
         ]);
 
-        return redirect()->route('repos.edit', $repository)->with('success', 'Preview manifest saved.');
+        return back()->with('success', 'Preview manifest saved.');
     }
 }

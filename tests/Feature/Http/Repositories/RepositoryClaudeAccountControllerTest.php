@@ -72,8 +72,8 @@ it('shares the repository section props on the edit page', function () {
     $system = checkedAccount();
     $this->repository->forceFill(['unattended_claude_account_id' => $system->id])->save();
 
-    $this->get(route('repos.edit', $this->repository))->assertInertia(fn (Assert $page) => $page
-        ->component('Repositories/Form')
+    $this->get(route('repos.settings.show', ['repository' => $this->repository, 'section' => 'accounts']))->assertInertia(fn (Assert $page) => $page
+        ->component('Repositories/Settings/Accounts')
         ->where('claudeAccounts.unattendedAccountId', $system->id)
         ->where('claudeAccounts.canChangeUnattended', false)
         ->has('claudeAccounts.accounts', 1)

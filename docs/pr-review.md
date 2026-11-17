@@ -4,7 +4,7 @@ Yak can review pull requests on every enabled repository. When a PR is opened or
 
 ## Enabling It
 
-Open the repository page (see [Repositories](repositories.md#the-repository-page)) and switch on **PR review** under **Automation**. When you switch it on, a second switch appears, **Review all currently open PRs on save**. Kept on, it queues a review for every open, non-draft PR when you save. Later, the **Re-review all open PRs** button does the same. You can also set `review.enabled` in `.yak/config.yml` (see [Repository config](repo-config.md#configyml)), which locks the toggle to the file value.
+Open the repository's **PR review** section (see [Repositories](repositories.md#the-repository-page)) and switch on **Review pull requests**. A dialog asks whether to review the open PRs too. Kept ticked, it queues a review for every open, non-draft PR as soon as you confirm. Later, the **Review open PRs** button does the same. You can also set `review.enabled` in `.yak/config.yml` (see [Repository config](repo-config.md#configyml)), which locks the toggle to the file value.
 
 After that:
 
@@ -33,8 +33,8 @@ Yak leaves some paths out of review by default: `vendor/**`, `node_modules/**`, 
 
 Where the repository's list comes from, in order:
 
-1. `review.exclude_paths` in `.yak/config.yml`. When the key is present it replaces everything else, and **PR review path filters** on the repository page shows the file value read-only with a **Propose a change** link.
-2. The list saved on the repository page: add patterns with **Add pattern**, remove a pattern with its x, or choose **Reset to defaults**.
+1. `review.exclude_paths` in `.yak/config.yml`. When the key is present it replaces everything else, and **PR review path filters** in the PR review section shows the file value read-only with a **Propose a change** link.
+2. The list saved in the PR review section: add patterns with **Add pattern**, remove a pattern with its x, or choose **Reset to defaults**.
 3. The host defaults above.
 
 Patterns support `*`, `**` and `?` like `.gitignore`. Yak filters the changed-file list before it builds the prompt and also drops findings on excluded paths, so a stray finding in `vendor/` never posts.
@@ -66,7 +66,7 @@ By default a review is a GitHub comment. A repository can opt in to approvals. Y
 
 ### Settings
 
-Set these under **Risk-based approval** on the repository page, or in `review.approval` in `.yak/config.yml` (a key in the file locks its field). Nothing is on by default.
+Set these under **Auto-approval** and the risk profile in the PR review section, or in `review.approval` in `.yak/config.yml` (a key in the file locks its field). Nothing is on by default.
 
 | Setting | Meaning | Default |
 |---|---|---|

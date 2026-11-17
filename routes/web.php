@@ -69,6 +69,7 @@ use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
 use App\Http\Controllers\Repositories\RepositoryClaudeAccountController;
 use App\Http\Controllers\Repositories\RepositoryController;
+use App\Http\Controllers\Repositories\RepositorySettingsController;
 use App\Http\Controllers\Repositories\RiskProfileController;
 use App\Http\Controllers\Settings\McpLoginController;
 use App\Http\Controllers\Settings\McpServerController;
@@ -205,6 +206,10 @@ Route::middleware(['auth'])->group(function () {
     Route::put('repos/{repository}/approvals', [ApprovalSettingsController::class, 'update'])
         ->name('repos.approvals.update')
         ->where('repository', '.+');
+    Route::get('repos/{repository}/settings/{section}', [RepositorySettingsController::class, 'show'])
+        ->name('repos.settings.show')
+        ->where('repository', '.+')
+        ->whereIn('section', ['review', 'previews', 'sandbox', 'accounts', 'danger']);
     Route::patch('repos/{repository}', [RepositoryController::class, 'update'])
         ->name('repos.update')
         ->where('repository', '.+');

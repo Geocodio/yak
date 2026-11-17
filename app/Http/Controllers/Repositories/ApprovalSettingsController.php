@@ -6,6 +6,7 @@ use App\Channels\GitHub\AppService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Repositories\UpdateApprovalSettingsRequest;
 use App\Http\Resources\ApprovalSettingsPageData;
+use App\Http\Resources\RepositorySettingsData;
 use App\Models\Repository;
 use App\Services\RepositoryConfig;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,8 @@ class ApprovalSettingsController extends Controller
         $snapshot = app(RepositoryConfig::class)->snapshot($repository);
 
         return Inertia::render('Repositories/Approvals', [
+            'header' => RepositorySettingsData::header($repository),
+            ...RepositorySettingsData::yakConfigProp($repository),
             'repository' => ApprovalSettingsPageData::repository($repository),
             'approval' => ApprovalSettingsPageData::approval($repository),
             'concerns' => ApprovalSettingsPageData::concerns($repository, $snapshot),
