@@ -184,6 +184,7 @@ import XCTest
         XCTAssertEqual(result, .completed)
         let moved = app.staticTexts[label]
         XCTAssertTrue(moved.exists, "\(label) left the screen when the earlier messages arrived")
+        print("earlier messages moved \(label) by \(moved.frame.minY - before) points")
         XCTAssertEqual(moved.frame.minY, before, accuracy: 2)
     }
 

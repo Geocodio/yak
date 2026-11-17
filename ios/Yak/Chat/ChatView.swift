@@ -20,6 +20,8 @@ struct ChatView: View {
     @State private var rowCountWhenRequested: Int?
     /// The top row as of the last layout before the page arrived; once the rows have changed, it is not updated.
     @State private var anchorBeforePage: PlaceAnchor?
+    /// The row put back after a page of earlier messages, held there while the page's documents arrive.
+    @State private var placeHeld: HeldPlace?
     @State private var rowFrames = RowFrames()
     @State private var viewportHeight: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -46,6 +48,12 @@ struct ChatView: View {
         var rowCount: Int
     }
 
+    private struct HeldPlace {
+        var id: String
+        var fraction: CGFloat
+        var until: Date
+    }
+
     private struct HistoryTrigger: Equatable {
         var isVisible: Bool
         var state: HistoryState
@@ -66,6 +74,9 @@ struct ChatView: View {
                         .onGeometryChange(for: CGRect.self) {
                             $0.frame(in: .scrollView)
                         } action: {
+                            // A day divider moves when older messages of its day arrive above it, so only entries
+                            // can hold the place.
+                            guard case .entry = row else { return }
                             rowFrames.frames[row.id] = ($0, CACurrentMediaTime())
                             if let requested = rowCountWhenRequested, thread.rows.count == requested {
                                 anchorBeforePage = topRow()
@@ -101,6 +112,8 @@ struct ChatView: View {
             Task { await thread.loadOlder() }
         }
         .onChange(of: thread.rows.count) { _, count in restorePlace(rowCount: count) }
+        .onChange(of: thread.documents.count) { applyHeldPlace() }
+        .onScrollPhaseChange { _, phase in if phase == .interacting { placeHeld = nil } }
         .onChange(of: thread.historyState) { old, new in
             guard old == .loading, new != .loading, let requested = rowCountWhenRequested else { return }
             // The rows can reach the screen a moment after the state does.
@@ -147,18 +160,30 @@ struct ChatView: View {
 
     /// When the asked-for page has been added, puts the row that was at the top back where it was. The rows are
     /// read before the new ones are laid out. The anchor lines the point `f * height` of the row up with the point
-    /// `f * viewport` of the viewport, which puts its top at the old place for `f = top / (viewport - height)`. The
-    /// lazy stack can correct its estimates after the first pass, so it is done once more a moment later.
+    /// `f * viewport` of the viewport, which puts its top at the old place for `f = top / (viewport - height)`.
+    /// The new rows show as plain text until their Markdown is parsed, and the rendered text can be taller, so the
+    /// same placement is applied again as their documents arrive, until the person scrolls or the time is up.
     private func restorePlace(rowCount: Int) {
         guard let requested = rowCountWhenRequested, rowCount > requested, let anchor = anchorBeforePage else { return }
         rowCountWhenRequested = nil
         let room = anchor.viewportHeight - anchor.height
         let fraction = room > 1 ? min(max(anchor.top / room, 0), 1) : 0
-        withTransaction(Self.still) { position.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0, y: fraction)) }
+        placeHeld = HeldPlace(id: anchor.id, fraction: fraction, until: .now + 3)
+        applyHeldPlace()
         Task {
+            // The lazy stack can correct its estimates after the first pass.
             try? await Task.sleep(for: .milliseconds(60))
-            withTransaction(Self.still) { position.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0, y: fraction)) }
+            applyHeldPlace()
         }
+    }
+
+    private func applyHeldPlace() {
+        guard let held = placeHeld else { return }
+        guard held.until > .now else {
+            placeHeld = nil
+            return
+        }
+        withTransaction(Self.still) { position.scrollTo(id: held.id, anchor: UnitPoint(x: 0, y: held.fraction)) }
     }
 
     private func jumpToLatest() {
