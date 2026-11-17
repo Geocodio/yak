@@ -2,6 +2,7 @@
     import Foundation
     import os
     import SwiftUI
+    import CoreSpotlight
     import UIKit
     import YakKit
 
@@ -81,7 +82,14 @@
                     faults: faults, authenticator: TestDeviceOwnerAuthenticator(options: options),
                     appLockBackgroundLimit: options.appLockLimit ?? AppLockPolicy.backgroundLimit,
                     coversWhenActive: options.coverWhenActive,
-                    buildKind: TestBuildKind(value: options.buildKind)))
+                    buildKind: TestBuildKind(value: options.buildKind),
+                    spotlightWriter: options.spotlightFailing ? FailingSpotlightWriter() : CoreSpotlightWriter()))
+            // A run starts with an empty index, so runs do not leak into each other.
+            Task {
+                do { try await CoreSpotlightWriter.makeIndex().deleteAllSearchableItems() } catch {
+                    Logger(subsystem: "Yak", category: "TestMode").error("index reset failed")
+                }
+            }
             doubles.permission.controller = parts.push
             let push = parts.push
             let model = AppModel(

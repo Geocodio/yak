@@ -1,3 +1,4 @@
+import CoreSpotlight
 import SwiftUI
 import YakKit
 
@@ -16,6 +17,7 @@ struct AppPartsContext {
     var appLockBackgroundLimit: TimeInterval = AppLockPolicy.backgroundLimit
     var coversWhenActive = false
     var buildKind: any BuildKindSource = BuildKindReader()
+    var spotlightWriter: any SpotlightWriter = CoreSpotlightWriter()
 }
 
 /// App-wide parts, built once per process, by the app and by test mode in the same way. A feature adds one stored
@@ -60,10 +62,14 @@ final class AppParts {
         let appLock = AppLockController(
             settings: settings, authenticator: context.authenticator, clock: SystemClock(),
             backgroundLimit: context.appLockBackgroundLimit, coversWhenActive: context.coversWhenActive)
+        let box = ModelBox()
+        let spotlight = SpotlightIndexer(
+            writer: context.spotlightWriter, settings: settings, appLock: appLock, store: context.defaults,
+            instances: context.instances, activeLists: { await Self.activeLists(box) }, clock: SystemClock())
         let system = SystemFeatures(
-            settings: settings, appLock: appLock, spotlight: SpotlightIndexer(),
+            settings: settings, appLock: appLock, spotlight: spotlight,
             debug: DebugMenuModel(faults: context.faults, buildKind: context.buildKind), faults: context.faults,
-            modelBox: ModelBox())
+            modelBox: box)
         let steps = [
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in
                 await push.refreshInstances(budget: budget)
@@ -71,7 +77,21 @@ final class AppParts {
         ]
         return AppParts(
             storage: storage, isTestMode: isTestMode, push: push, steps: steps,
-            previewData: previewData, system: system, observers: [push, previewData])
+            previewData: previewData, system: system, observers: [push, previewData, spotlight])
+    }
+
+    /// The active instance and its cached thread lists, read off the main actor; nil without a model, a ready
+    /// instance or an active session, so then only erasures run.
+    private static func activeLists(_ box: ModelBox) async -> (instance: SpotlightInstance, lists: [ThreadList])? {
+        guard let model = box.model, let active = await model.instances.active(),
+            await model.instances.state(of: active.id) == .ready,
+            let cache = await model.sessions.session(for: active).instanceCache()
+        else { return nil }
+        var lists: [ThreadList] = []
+        for filter in ThreadListFilter.allCases {
+            if let list = await cache.threadList(filter) { lists.append(list) }
+        }
+        return (SpotlightInstance(id: active.id, name: active.name), lists)
     }
 
     /// The type of every part this build made, so a test can compare test mode with a release build.
@@ -87,6 +107,7 @@ extension View {
         onOpenURL { url in Task { await model.handle(url: url) } }
             .environment(parts.system)
             .appLockWindow(parts.system.appLock)
+            .modifier(SpotlightRoot(system: parts.system, model: model))
             .modifier(PushRoot(push: parts.push, model: model, schedulesRefresh: !parts.isTestMode))
             .environment(\.previewDefaults, parts.previewData.defaults)
             .task { await parts.previewData.sweep(instances: model.instances) }
@@ -119,6 +140,29 @@ private struct PushRoot: ViewModifier {
             }
             .onChange(of: model.network.isOnline) { _, isOnline in
                 Task { await push.networkChanged(isOnline: isOnline) }
+            }
+    }
+}
+
+/// Spotlight's scene-root work: the index follows the launch, the background and an item the person taps.
+private struct SpotlightRoot: ViewModifier {
+    let system: SystemFeatures
+    let model: AppModel
+
+    func body(content: Content) -> some View {
+        content
+            .task(id: model.hasLoaded) {
+                guard model.hasLoaded else { return }
+                await system.spotlight.reindex()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                Task { await system.spotlight.reindexInBackground() }
+            }
+            .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                guard let identifier = SpotlightIndexer.identifier(of: activity) else { return }
+                Task {
+                    if let url = await system.spotlight.link(forIdentifier: identifier) { await model.handle(url: url) }
+                }
             }
     }
 }

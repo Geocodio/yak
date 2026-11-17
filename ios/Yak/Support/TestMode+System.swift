@@ -105,4 +105,10 @@
         let value: DebugBuildKind
         func kind() async -> DebugBuildKind { value }
     }
+
+    /// `-yakTestSpotlight failing`: every change fails.
+    struct FailingSpotlightWriter: SpotlightWriter {
+        struct Refused: Error {}
+        func apply(_ change: SpotlightChange) async throws { throw Refused() }
+    }
 #endif
