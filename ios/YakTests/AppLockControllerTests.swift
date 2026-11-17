@@ -11,11 +11,27 @@ private final class FakeAuthenticator: DeviceOwnerAuthenticator, @unchecked Send
     private(set) var asks = 0
     private(set) var cancels = 0
     var holds = false
-    var capabilityValue = LockCapability(biometry: .faceID, hasPasscode: true)
+    var capabilityValue = CapabilityReading.known(LockCapability(biometry: .faceID, hasPasscode: true))
+    var holdsCapability = false
+    private var heldCapability: CheckedContinuation<Void, Never>?
+    var isHoldingCapability: Bool { lock.withLock { heldCapability != nil } }
+
+    func releaseCapability() {
+        let continuation = lock.withLock { () -> CheckedContinuation<Void, Never>? in
+            defer { heldCapability = nil }
+            return heldCapability
+        }
+        continuation?.resume()
+    }
 
     init(_ answers: [DeviceOwnerAuthenticationResult] = [.success]) { self.answers = answers }
 
-    func capability() async -> LockCapability { lock.withLock { capabilityValue } }
+    func capability() async -> CapabilityReading {
+        if lock.withLock({ holdsCapability }) {
+            await withCheckedContinuation { continuation in lock.withLock { heldCapability = continuation } }
+        }
+        return lock.withLock { capabilityValue }
+    }
 
     func authenticate(reason: String) async -> DeviceOwnerAuthenticationResult {
         let hold = lock.withLock { () -> Bool in
@@ -175,7 +191,7 @@ private final class Store: KeyValueStore, @unchecked Sendable {
 
     @Test func noPasscodeDisablesTheSwitch() async {
         let fake = FakeAuthenticator()
-        fake.capabilityValue = LockCapability(biometry: .none, hasPasscode: false)
+        fake.capabilityValue = .known(LockCapability(biometry: .none, hasPasscode: false))
         let (controller, settings) = make(on: false, fake)
         await controller.refreshCapability()
         #expect(controller.method == nil)
@@ -185,7 +201,7 @@ private final class Store: KeyValueStore, @unchecked Sendable {
 
     @Test func aRemovedPasscodeTurnsTheLockOff() async {
         let fake = FakeAuthenticator()
-        fake.capabilityValue = LockCapability(biometry: .none, hasPasscode: false)
+        fake.capabilityValue = .known(LockCapability(biometry: .none, hasPasscode: false))
         let (controller, settings) = make(on: true, fake)
         await controller.launched()
         #expect(!controller.policy.isOn && !controller.isLocked && !settings.appLockOn)
@@ -226,5 +242,55 @@ private final class Store: KeyValueStore, @unchecked Sendable {
         #expect(on.coversContent(sceneIsActive: true))
         let (off, _) = make(on: false, coversWhenActive: true)
         #expect(!off.coversContent(sceneIsActive: true))
+    }
+
+    @Test func anUnknownReadingKeepsTheLockOnAndLocked() async {
+        let fake = FakeAuthenticator([.cancelled])
+        fake.capabilityValue = .unknown
+        let (controller, settings) = make(on: true, fake)
+        await controller.launched()
+        #expect(controller.policy.isOn && controller.isLocked && settings.appLockOn)
+        #expect(!controller.policy.turnedOffForMissingPasscode)
+        await controller.appBecameActive()
+        #expect(controller.policy.isOn && controller.isLocked && settings.appLockOn)
+    }
+
+    @Test func aConfirmedMissingPasscodeTurnsItOffEvenWhileLocked() async {
+        let fake = FakeAuthenticator([.cancelled])
+        fake.capabilityValue = .known(LockCapability(biometry: .none, hasPasscode: false))
+        let (controller, settings) = make(on: true, fake)
+        #expect(controller.isLocked)
+        await controller.refreshCapability()
+        #expect(!controller.policy.isOn && !controller.isLocked && !settings.appLockOn)
+    }
+
+    @Test func theRelockIsDecidedBeforeTheFirstSuspension() async {
+        let fake = FakeAuthenticator([.success, .success])
+        let clock = ManualClock()
+        let (controller, _) = make(on: true, fake, clock: clock)
+        await controller.launched()
+        #expect(!controller.isLocked)
+        controller.appEnteredBackground()
+        clock.advance(.seconds(300))
+        fake.holdsCapability = true
+        let task = Task { await controller.appBecameActive() }
+        while !fake.isHoldingCapability { await Task.yield() }
+        // The capability read is still pending, and the lock is already back.
+        #expect(controller.isLocked)
+        fake.holdsCapability = false
+        fake.releaseCapability()
+        await task.value
+        #expect(!controller.isLocked)
+        #expect(fake.asks == 2)
+    }
+
+    @Test func relockIfDueLocksWithoutSuspending() async {
+        let clock = ManualClock()
+        let (controller, _) = make(on: true, FakeAuthenticator([.success]), clock: clock)
+        await controller.launched()
+        controller.appEnteredBackground()
+        clock.advance(.seconds(300))
+        #expect(controller.relockIfDue())
+        #expect(controller.isLocked)
     }
 }

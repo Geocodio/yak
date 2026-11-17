@@ -73,8 +73,8 @@
 
         init(options: TestSystemOptions) { self.options = options }
 
-        func capability() async -> LockCapability {
-            LockCapability(biometry: options.biometry, hasPasscode: options.hasPasscode)
+        func capability() async -> CapabilityReading {
+            .known(LockCapability(biometry: options.biometry, hasPasscode: options.hasPasscode))
         }
 
         func authenticate(reason: String) async -> DeviceOwnerAuthenticationResult {
@@ -99,5 +99,10 @@
         }
 
         func cancel() { lock.withLock { cancelled = true } }
+    }
+
+    struct TestBuildKind: BuildKindSource {
+        let value: DebugBuildKind
+        func kind() async -> DebugBuildKind { value }
     }
 #endif

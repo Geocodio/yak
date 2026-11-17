@@ -47,8 +47,10 @@ final class AppLockController {
     }
 
     /// Reads what the device can do; a lock that is on with no passcode now turns itself off.
+    /// An unknown reading changes nothing: the lock never turns off without a confirmed missing passcode.
     func refreshCapability() async {
-        method = AppLockMethod.make(await authenticator.capability())
+        guard case .known(let capability) = await authenticator.capability() else { return }
+        method = AppLockMethod.make(capability)
         guard policy.isOn, method == nil else { return }
         policy.handle(.passcodeRemoved)
         settings.appLockOn = false
@@ -69,9 +71,18 @@ final class AppLockController {
         authenticator.cancel()
     }
 
-    func appBecameActive() async {
+    /// Decides the time-based relock at once, with no suspension, so content never shows after the limit.
+    /// Returns true when the policy just locked and the app should ask the owner by itself.
+    func relockIfDue() -> Bool { policy.handle(.becameActive(clock.now())) }
+
+    func finishBecomingActive(askIfLocked ask: Bool) async {
         await refreshCapability()
-        if policy.handle(.becameActive(clock.now())) { await requestUnlock() }
+        if ask && policy.isLocked { await requestUnlock() }
+    }
+
+    func appBecameActive() async {
+        let ask = relockIfDue()
+        await finishBecomingActive(askIfLocked: ask)
     }
 
     func requestUnlock() async {

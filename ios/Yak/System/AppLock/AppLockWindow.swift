@@ -27,7 +27,8 @@ private struct AppLockHost: ViewModifier {
                 controller.appEnteredBackground()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                Task { await controller.appBecameActive() }
+                let ask = controller.relockIfDue()
+                Task { await controller.finishBecomingActive(askIfLocked: ask) }
             }
             .sensoryFeedback(.success, trigger: controller.unlockCount)
             .sensoryFeedback(.error, trigger: controller.failureCount)

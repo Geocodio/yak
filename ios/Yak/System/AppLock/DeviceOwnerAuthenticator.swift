@@ -8,9 +8,15 @@ import YakKit
 
 enum DeviceOwnerAuthenticationResult: Equatable { case success, cancelled, failed, passcodeNotSet }
 
+/// What the device reported. `.unknown` is any failure to find out; only a confirmed missing passcode counts as one.
+enum CapabilityReading: Equatable, Sendable {
+    case known(LockCapability)
+    case unknown
+}
+
 protocol DeviceOwnerAuthenticator: Sendable {
     /// What this device can do now, from a fresh context.
-    func capability() async -> LockCapability
+    func capability() async -> CapabilityReading
     func authenticate(reason: String) async -> DeviceOwnerAuthenticationResult
     /// Invalidates the context in use; its `authenticate` then answers `.cancelled`.
     func cancel()
@@ -21,7 +27,7 @@ final class LocalDeviceOwnerAuthenticator: DeviceOwnerAuthenticator, @unchecked 
     private let lock = NSLock()
     private var current: LAContext?
 
-    func capability() async -> LockCapability {
+    func capability() async -> CapabilityReading {
         let context = LAContext()
         var biometryError: NSError?
         _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &biometryError)
@@ -34,8 +40,16 @@ final class LocalDeviceOwnerAuthenticator: DeviceOwnerAuthenticator, @unchecked 
             @unknown default: .other
             }
         var passcodeError: NSError?
-        let hasPasscode = LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &passcodeError)
-        return LockCapability(biometry: biometry, hasPasscode: hasPasscode)
+        if LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &passcodeError) {
+            return .known(LockCapability(biometry: biometry, hasPasscode: true))
+        }
+        // Only `passcodeNotSet` says there is no passcode; any other failure leaves the question open.
+        if let passcodeError, passcodeError.domain == LAError.errorDomain,
+            LAError.Code(rawValue: passcodeError.code) == .passcodeNotSet
+        {
+            return .known(LockCapability(biometry: biometry, hasPasscode: false))
+        }
+        return .unknown
     }
 
     func authenticate(reason: String) async -> DeviceOwnerAuthenticationResult {
