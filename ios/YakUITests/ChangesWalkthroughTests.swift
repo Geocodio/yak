@@ -87,7 +87,7 @@ import XCTest
     }
 
     func testFilesOffline() throws {
-        try XCTSkipIf(true, "An offline relaunch has no thread list to open the thread from.")
+        try XCTSkipIf(true, "The offline relaunch shows no thread list, so the thread and its Files pane cannot be reached.")
         try openFiles("changes")
         XCTAssertTrue(label("retry(3)").waitForExistence(timeout: 15))
         try stub.setOnline(false)
@@ -110,7 +110,7 @@ import XCTest
 
     func testFilesWorking() throws {
         try XCTSkipIf(
-            true, "The stub turn ends before the pane opens; the banner is covered by the unit and stub tests.")
+            true, "The stub turn has ended before the Files pane opens, so the working banner never shows; unit and stub tests cover the banner.")
         try openFiles("changes-working")
         XCTAssertTrue(label("Yak is still working").waitForExistence(timeout: 15))
         try shoot("files-working")
@@ -121,7 +121,7 @@ import XCTest
     }
 
     func testFilesGone() throws {
-        try XCTSkipIf(true, "The stub answers the leaving file once while the pager is still on its neighbor.")
+        try XCTSkipIf(true, "The stub answers for the leaving file while the pager is still on its neighbor, so the gone page does not show.")
         try openFiles("changes-gone")
         goToFile(3)
         XCTAssertTrue(label("no longer in the changes").waitForExistence(timeout: 15))
