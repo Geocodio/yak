@@ -18,9 +18,13 @@ enum BackgroundRefresh {
     /// The task identifier permitted in the Info.plist: the bundle identifier and `.refresh`.
     static var identifier: String { (Bundle.main.bundleIdentifier ?? "") + ".refresh" }
 
+    /// The identifiers this process registered. Submitting any other one makes `BGTaskScheduler` raise, and test
+    /// mode registers none.
+    @MainActor private static var registered: Set<String> = []
+
     /// Called once from `YakApp.init`, before the app finishes launching.
     @MainActor static func register(identifier: String, steps: @escaping @MainActor () -> [BackgroundRefreshStep]) {
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
+        let isRegistered = BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
             guard let refresh = task as? BGAppRefreshTask else {
                 task.setTaskCompleted(success: false)
                 return
@@ -39,10 +43,13 @@ enum BackgroundRefresh {
                 handle.complete(success: false)
             }
         }
+        if isRegistered { registered.insert(identifier) }
     }
 
-    /// The next refresh, no earlier than one hour from now.
-    static func schedule(identifier: String) {
+    /// The next refresh, no earlier than one hour from now. Returns whether it went to the scheduler: an identifier this
+    /// process did not register is skipped.
+    @MainActor @discardableResult static func schedule(identifier: String) -> Bool {
+        guard registered.contains(identifier) else { return false }
         let request = BGAppRefreshTaskRequest(identifier: identifier)
         request.earliestBeginDate = Date(timeIntervalSinceNow: earliestBegin)
         BGTaskScheduler.shared.submitTaskRequest(request) { error in
@@ -52,6 +59,7 @@ enum BackgroundRefresh {
                     .error("not scheduled: \(String(describing: type(of: error)), privacy: .public)")
             #endif
         }
+        return true
     }
 
     /// Hands the non-Sendable task to the work that completes it, and completes it only once: the expiration
