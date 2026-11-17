@@ -60,7 +60,7 @@ public struct ConversationProjection: Equatable, Sendable {
                 for case .text(let text, _) in blocks { lastAssistantText = text }
             case .system(_, let systemModel):
                 if let systemModel, !systemModel.isEmpty { model = systemModel }
-            case .result(_, _, let text, let html):
+            case .result(_, let isError, let text, let html):
                 // The result repeats the final assistant text; it is shown only when the turn had no such text.
                 let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 let isRepeat = !trimmed.isEmpty && lastAssistantText.contains(trimmed)
@@ -69,6 +69,7 @@ public struct ConversationProjection: Equatable, Sendable {
                     var item = ConversationItem(
                         kind: .result, key: "result:\(sequence)", sequence: sequence, text: text)
                     if let html, !html.isEmpty { item.html = html }
+                    item.isError = isError
                     items.append(item)
                 }
             case .user(let uuid, _, _):

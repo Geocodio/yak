@@ -2,7 +2,7 @@ import SwiftUI
 import YakKit
 
 /// The bar at the bottom of a thread: the pane control where the placement puts it, then the focused pane's own
-/// row. It sits in a bottom safe-area inset, so it rides on the keyboard.
+/// row. It sits below the pane, inside the safe area, so it rides on the keyboard.
 struct BottomBar: View {
     let thread: ThreadModel
     let slots: PaneSlots

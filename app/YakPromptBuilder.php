@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Agents\ClaudeCodeOutputParser;
 use App\Channels\ChannelRegistry;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Enums\TaskMode;
@@ -27,7 +28,20 @@ class YakPromptBuilder
             'devEnvironmentInstructions' => $devEnvironmentInstructions,
             'channelRules' => $channelRules,
             'repoInstructions' => $repoInstructions,
+            'testCommand' => self::resolveTestCommand($task),
         ]);
+    }
+
+    /** A stored command renders only when it is a single line without backticks or control characters. */
+    private static function resolveTestCommand(YakTask $task): string
+    {
+        if ($task->repo === '') {
+            return '';
+        }
+
+        $command = (string) Repository::where('slug', $task->repo)->value('test_command');
+
+        return ClaudeCodeOutputParser::isSafeTestCommand($command) ? $command : '';
     }
 
     /** The standing instructions of a thread's runner: the system prompt plus the thread's repository section. */

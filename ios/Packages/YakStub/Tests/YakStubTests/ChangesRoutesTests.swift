@@ -140,6 +140,20 @@ import Testing
         #expect(show["latestSequence"] as? Int == 15)
     }
 
+    /// The thread show keeps the scenario's own latest sequence when it is further along than the changes events, so
+    /// a long history opens at its newest page.
+    @Test func theShowKeepsALaterLatestSequenceOfTheScenario() throws {
+        let base = try context("long-history")
+        let core = Scenario.longHistory.reply(
+            to: StubRequest(method: "GET", path: "/api/app/v1/threads/d0e515ef", body: Data()),
+            baseURL: "http://127.0.0.1", fixtures: base.fixtures, threads: base.threads
+        ).answer
+        let scenario = StubContext(
+            scenario: "long-history", baseURL: base.baseURL, fixtures: base.fixtures, threads: base.threads,
+            core: { core })
+        #expect(call(StubChanges(), "GET threads/d0e515ef", scenario).json["latestSequence"] as? Int == 1200)
+    }
+
     @Test func aWorkingThreadPlaysItsEventsAndEndsTheTurn() async throws {
         let feature = StubChanges()
         let types = Locked<[String]>([])

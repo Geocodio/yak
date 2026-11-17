@@ -4,6 +4,52 @@ import Testing
 @testable import YakKit
 
 struct MarkdownBlocksTests {
+    @Test func tablesOverTheCellLimitStayParagraphs() {
+        let header = "|" + String(repeating: "a|", count: 200) + "\n|" + String(repeating: "-|", count: 200) + "\n"
+        let text = header + String(repeating: "|\n", count: 100_000)
+        let clock = ContinuousClock()
+        let start = clock.now
+        let blocks = MarkdownBlocks.parse(text)
+        #expect(clock.now - start < .seconds(10))
+        #expect(!blocks.contains { if case .table = $0 { true } else { false } })
+        #expect(
+            MarkdownBlocks.parse("| a | b |\n|---|---|\n| 1 | 2 |").contains {
+                if case .table = $0 { true } else { false }
+            })
+    }
+
+    @Test func theTableScanSplitsEachRowAboutOnce() {
+        for rowCount in [1_000, 200_000] {
+            let header = "|" + String(repeating: "a|", count: 200) + "\n|" + String(repeating: "-|", count: 200) + "\n"
+            let text =
+                header + String(repeating: "|\n", count: rowCount) + "\npara\n"
+                + String(repeating: "|\n", count: rowCount)
+            let result = MarkdownBlocks.parseCountingCellSplits(text)
+            #expect(result.cellSplits <= 3 * (2 * rowCount + 10), "\(result.cellSplits) splits for \(rowCount) rows")
+        }
+    }
+
+    @Test func aTableAtTheCellLimitKeepsItsRows() {
+        let rowCount = MarkdownBlocks.maximumTableCells / 2 - 1
+        let text = "a|b\n-|-\n" + String(repeating: "1|2\n", count: rowCount)
+        // The whole weight budget is the table, so the last row is cut only when the block itself costs one.
+        guard case .table(_, let rows)? = MarkdownBlocks.parse(text).first else {
+            Issue.record("expected a table")
+            return
+        }
+        #expect(rows.count >= rowCount - 2)
+    }
+
+    @Test func textPastTheWeightBudgetIsKeptWhole() {
+        let text = String(repeating: "a\n\n", count: MarkdownBlocks.maximumWeight + 500)
+        let blocks = MarkdownBlocks.parse(text)
+        guard case .unformatted(let rest)? = blocks.last else {
+            Issue.record("expected plain text at the end")
+            return
+        }
+        #expect(blocks.count - 1 + rest.split(separator: "\n").count == MarkdownBlocks.maximumWeight + 500)
+    }
+
     @Test func splitsCommonBlocks() {
         let text =
             "# Plan\n\nThe limit is in `RateLimit`.\nSecond line.\n\n- one\n- two\n\n"
@@ -103,6 +149,33 @@ struct MarkdownBlocksTests {
         case .quote(let blocks): blocks.map(flatten).joined(separator: " ")
         case .table(let header, let rows): (header + rows.flatMap { $0 }).joined(separator: " ")
         case .rule: ""
+        case .unformatted(let text): text
         }
+    }
+
+    @Test func aQuotePastTheBudgetKeepsItsRestAsPlainTextInsideTheQuote() {
+        let text = String(repeating: "> a\n>\n", count: 4_000)
+        let blocks = MarkdownBlocks.parse(text)
+        guard blocks.count == 1, case .quote(let inner) = blocks[0], case .unformatted(let rest)? = inner.last else {
+            Issue.record("expected one quote ending in plain text, got \(blocks.count) blocks")
+            return
+        }
+        #expect(inner.count - 1 + rest.split(separator: "\n").count == 4_000)
+    }
+
+    @Test func aLongCodeBlockInAQuoteIsOneBlock() {
+        let text = "> ```\n" + String(repeating: "> let a = 1\n", count: 16_000) + "> ```"
+        guard case .quote(let inner)? = MarkdownBlocks.parse(text).first, inner.count == 1, case .code = inner[0] else {
+            Issue.record("expected a quote with one code block")
+            return
+        }
+    }
+
+    @Test func tablesWithTooManyColumnsStayParagraphs() {
+        let columns = MarkdownBlocks.maximumTableColumns + 1
+        let text =
+            "|" + String(repeating: "h|", count: columns) + "\n|" + String(repeating: "-|", count: columns)
+            + "\n|" + String(repeating: "c|", count: columns) + "\n"
+        #expect(!MarkdownBlocks.parse(text).contains { if case .table = $0 { true } else { false } })
     }
 }

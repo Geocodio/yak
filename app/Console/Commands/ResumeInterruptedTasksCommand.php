@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
@@ -14,6 +15,7 @@ use App\Jobs\SetupYakJob;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StopNotifier;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -84,10 +86,11 @@ class ResumeInterruptedTasksCommand extends Command
                     'max_resumes' => $maxResumes,
                 ]);
 
-                $task->update([
-                    'interrupted_by_deploy_at' => null,
-                    'error_log' => "Deploy interrupted this task {$task->deploy_resume_count} time(s) already — it needs a manual retry.",
-                ]);
+                $task->update(['interrupted_by_deploy_at' => null]);
+
+                StopNotifier::notify($task, TaskStop::yakSideProblem(
+                    "Deploy interrupted this task {$task->deploy_resume_count} time(s) already — it needs a manual retry."
+                ));
                 $left++;
 
                 continue;

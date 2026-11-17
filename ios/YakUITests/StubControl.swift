@@ -29,6 +29,9 @@ struct StubControl {
     /// Takes the app offline or back online; the app in test mode reads this as its network state.
     func setOnline(_ isOnline: Bool) throws { try post("online", isOnline ? "yes" : "no") }
 
+    /// Holds the played events after `sequence`; nil lets them run on.
+    func hold(after sequence: Int?) throws { try post("hold-after", sequence.map(String.init) ?? "none") }
+
     /// The pause between the scripted events of a playing thread, for tests that need the turn to last.
     func setPlaybackMilliseconds(_ milliseconds: Int) throws { try post("playback", String(milliseconds)) }
 

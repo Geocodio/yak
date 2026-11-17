@@ -7,6 +7,7 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Console\Commands\TimeoutAwaitingCiCommand;
 use App\DataTransferObjects\TaskActionOutcome;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -85,7 +86,7 @@ class TaskActions
                 throw ThreadActionRefused::because(ThreadActionRefused::TASK_NOT_RETRYABLE, 'This task cannot be retried right now.');
             }
 
-            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry']);
+            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry', 'stop_kind', 'stop_summary']);
 
             if ($ciResume !== null) {
                 return $this->claimCiResume($locked, $ciResume, $original, $isTimeBounded);
@@ -151,6 +152,14 @@ class TaskActions
                 $task->update(['resume_after_setup_at' => null]);
 
                 if ($repository->setup_status !== 'ready') {
+                    if ($task->status !== TaskStatus::Failed) {
+                        return;
+                    }
+
+                    $setupTask = $repository->setup_task_id === null ? null : YakTask::withoutGlobalScopes()->find($repository->setup_task_id);
+
+                    StopNotifier::notify($task, TaskStop::setupFailed($repository->slug, $setupTask?->error_log ?: 'Setup failed'));
+
                     return;
                 }
 
@@ -252,6 +261,8 @@ class TaskActions
             DB::table('tasks')->where('id', $locked->id)->update([
                 'status' => TaskStatus::Pending->value,
                 'error_log' => null,
+                'stop_kind' => null,
+                'stop_summary' => null,
                 'result_summary' => null,
                 'pr_body_update' => null,
                 'review_replies' => null,

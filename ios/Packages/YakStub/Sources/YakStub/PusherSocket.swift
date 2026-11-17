@@ -176,6 +176,9 @@ final class PusherSocket: Sendable {
                         while !isOnline() {
                             if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
                         }
+                        while let limit = threads.holdAfter, item.sequence > limit, !threads.isStopped(id) {
+                            if (try? await Task.sleep(for: .milliseconds(25))) == nil { return }
+                        }
                         if Task.isCancelled || threads.isStopped(id) { return }
                         threads.publish(id, through: item.sequence)
                         publish(item.json, thread: id)
@@ -184,7 +187,17 @@ final class PusherSocket: Sendable {
         }
     }
 
+    /// The event with `createdAt` set to now, so a step played live has just started.
+    private func stamped(_ json: String) -> String {
+        guard var event = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any],
+            event["createdAt"] != nil
+        else { return json }
+        event["createdAt"] = ISO8601DateFormatter().string(from: Date())
+        return encode(event)
+    }
+
     func publish(_ json: String, thread id: String) {
+        let json = stamped(json)
         let channel = "private-thread.\(id)"
         let subscribed = state.mutate { state in
             state.clients.values.filter { $0.channels.contains(channel) }.map(\.connection)

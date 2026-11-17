@@ -20,6 +20,7 @@ test('it builds the child environment from scratch', () => {
   assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN, PLACEHOLDER);
   assert.equal(environment.ANTHROPIC_BASE_URL, BASE_URL);
   assert.equal(environment.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, '1');
+  assert.equal(environment.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS, '1');
 });
 
 test('it authenticates with the placeholder and never with a key', () => {

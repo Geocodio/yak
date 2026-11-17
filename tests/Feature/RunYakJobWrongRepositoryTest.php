@@ -2,9 +2,11 @@
 
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Jobs\AfterTurn\FinishRetryTurnJob;
+use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\Thread;
@@ -233,4 +235,21 @@ test('a turn whose task moved to another thread leaves the task alone', function
 
     expect($task->refresh()->status)->toBe(TaskStatus::Running)
         ->and($task->repo)->toBe('acme/atlas');
+});
+
+test('an unresolved repository stops the task and asks which repository to use', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/billing', 'is_active' => true]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'unknown', 'source' => 'slack']);
+
+    (new RunYakJob($task))->handle();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->stop_kind)->toBe(StopKind::NeedsYou)
+        ->and($task->error_log)->toContain('Could not determine which repo');
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
+        && $job->personalize === false
+        && $job->stop?->kind === StopKind::NeedsYou
+        && str_contains($job->stop->ask, 'acme/billing'));
 });

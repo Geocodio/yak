@@ -23,7 +23,7 @@ import XCTest
 
     func start(
         _ scenario: String, paired: Bool = false, keychainLocked: Bool = false, skipsWebSession: Bool = false,
-        attachments: Int = 0, cameraDenied: Bool = false
+        attachments: Int = 0, cameraDenied: Bool = false, extraArguments: [String] = []
     ) throws {
         try stub.play(scenario)
         var arguments = ["-yakTestInstance", stub.url]
@@ -37,7 +37,7 @@ import XCTest
         if environment["YAK_TEXT_SIZE"] == "largest" {
             arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
-        app.launchArguments = arguments
+        app.launchArguments = arguments + extraArguments
         app.launch()
     }
 
