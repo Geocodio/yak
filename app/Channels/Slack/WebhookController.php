@@ -23,6 +23,7 @@ use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
 use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StoppedTaskReplies;
 use App\Support\Docs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -519,6 +520,26 @@ class WebhookController extends Controller
             $this->reactToReply($channel, (string) ($event['ts'] ?? ''));
 
             return response()->json(['ok' => true, 'handled' => 'steering']);
+        }
+
+        $stoppedTask = YakTask::where('slack_channel', $channel)
+            ->where('slack_thread_ts', $threadTs)
+            ->latest('id')
+            ->first();
+
+        if ($stoppedTask !== null
+            && $stoppedTask->pr_url === null
+            && in_array($stoppedTask->status, [TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled], true)) {
+            $text = (string) ($event['text'] ?? '');
+
+            if (trim($text) === '') {
+                return response()->json(['ok' => true]);
+            }
+
+            $reply = app(StoppedTaskReplies::class)->handle($stoppedTask, $text, 'slack', UserNameResolver::resolve((string) ($event['user'] ?? '')));
+            SendNotificationJob::dispatch($stoppedTask, NotificationType::Progress, $reply, personalize: false);
+
+            return response()->json(['ok' => true, 'handled' => 'stopped_task_reply']);
         }
 
         return response()->json(['ok' => true]);
