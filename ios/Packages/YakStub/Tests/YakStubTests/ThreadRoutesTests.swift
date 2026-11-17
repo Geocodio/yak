@@ -321,7 +321,7 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
     }
 
     @Test func onlyTheOlderPageOfALongHistoryIsSlow() throws {
-        #expect(try reply(.longHistory, "GET", "threads/d0e515ef/events?after=200&limit=500").delay == .seconds(6))
+        #expect(try reply(.longHistory, "GET", "threads/d0e515ef/events?after=640&limit=60").delay == .seconds(12))
         #expect(try reply(.longHistory, "GET", "threads/d0e515ef/events?after=700&limit=500").delay == .zero)
         #expect(try reply(.paired, "GET", "threads/d0e515ef/events?after=0&limit=500").delay == .zero)
     }
