@@ -41,6 +41,7 @@ import XCTest
         XCTAssertEqual(tops, tops.sorted())
         XCTAssertTrue(app.staticTexts["Sandbox running"].exists)
         XCTAssertTrue(app.staticTexts["2 of 4 slots in use"].exists)
+        bringPageClearOfTheBar(by: 0.13)
         try audit()
     }
 
@@ -164,10 +165,10 @@ import XCTest
     }
 
     /// The audit judges what is on screen, so the page is brought up until no text is cut by the floating bar or the screen edge.
-    private func bringPageClearOfTheBar() {
+    private func bringPageClearOfTheBar(by fraction: CGFloat = 0.25) {
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
-            .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)))
+            .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7 - fraction)))
     }
 
     private func audit() throws {
