@@ -40,6 +40,7 @@ use InvalidArgumentException;
  * @property bool $deployments_enabled
  * @property string|null $public_site_url
  * @property CarbonImmutable|null $config_read_at
+ * @property CarbonImmutable|null $approval_checked_at
  * @property CarbonImmutable|null $co_owner_gate_enforced_at
  * @property int $approval_level
  * @property string $approval_mode
@@ -84,6 +85,7 @@ class Repository extends Model
     {
         return [
             'build_credentials' => 'encrypted:array',
+            'approval_checked_at' => 'immutable_datetime',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
             'sandbox_base_version' => 'integer',
