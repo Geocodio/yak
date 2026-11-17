@@ -405,6 +405,16 @@ function threadWaitingOn(string $reason, User $viewer): Thread
     return Thread::query()->findOrFail($task->fresh()->thread_id);
 }
 
+test('mine lists a thread that waits for the viewer as co-owner, and counts it', function () {
+    $user = User::factory()->create();
+    $thread = threadWaitingOn('co_owner', $user);
+
+    $list = ThreadList::for($user, ThreadListFilter::Mine);
+
+    expect(array_column($list['needsYou'], 'id'))->toBe([$thread->public_id])
+        ->and($list['needsYouCount'])->toBe(1);
+});
+
 test('a thread waiting on a person lands under needs you with the reason', function (string $reason, string $label) {
     $user = User::factory()->create();
     $thread = threadWaitingOn($reason, $user);

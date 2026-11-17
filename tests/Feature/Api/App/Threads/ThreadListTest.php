@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadSource;
 use App\Enums\TurnState;
+use App\Models\CoOwnerRequest;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
@@ -163,4 +165,17 @@ it('leaves needs-you tasks out of a filtered list', function () {
     $this->getJson('/api/app/v1/threads', phoneHeadersFor($user))->assertOk()->assertJsonPath('needsYou.0.type', 'task');
     $this->getJson('/api/app/v1/threads?sources[]=slack', phoneHeadersFor($user))->assertOk()->assertJsonCount(0, 'needsYou');
     $this->getJson('/api/app/v1/threads?starters[]=user:' . $user->id, phoneHeadersFor($user))->assertOk()->assertJsonCount(0, 'needsYou');
+});
+
+it('a pending co-owner request that asks the viewer is listed once, as its thread row', function () {
+    $user = User::factory()->create();
+    $task = YakTask::factory()->awaitingCoOwner()->create(['repo' => 'Geocodio/geocodio']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$user->id], 'status' => CoOwnerRequestStatus::Pending]);
+
+    $response = $this->getJson('/api/app/v1/threads', phoneHeadersFor($user))->assertOk()
+        ->assertJsonCount(1, 'needsYou')
+        ->assertJsonPath('needsYou.0.type', 'thread')
+        ->assertJsonPath('needsYou.0.id', Thread::query()->findOrFail($task->fresh()->thread_id)->public_id)
+        ->assertJsonPath('needsYou.0.needsYouReason', 'co_owner')
+        ->assertJsonPath('needsYouCount', 1);
 });

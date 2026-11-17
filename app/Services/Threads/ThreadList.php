@@ -2,6 +2,7 @@
 
 namespace App\Services\Threads;
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\NeedsYouReason;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
@@ -13,6 +14,7 @@ use App\Enums\ThreadVisibility;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadCardsData;
 use App\Http\Resources\ThreadOriginData;
+use App\Models\CoOwnerRequest;
 use App\Models\Scopes\VisibleThreadScope;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -288,7 +290,11 @@ class ThreadList
         $query->where(function (Builder $query) use ($user): void {
             $query->where('created_by_user_id', $user->id)
                 ->orWhereHas('runs', fn (Builder $runs) => $runs->where('driver_user_id', $user->id))
-                ->orWhereHas('tasks', fn (Builder $tasks) => $tasks->where('started_by_user_id', $user->id));
+                ->orWhereHas('tasks', fn (Builder $tasks) => $tasks->where('started_by_user_id', $user->id))
+                ->orWhereHas('tasks', fn (Builder $tasks) => $tasks->whereIn('tasks.id', CoOwnerRequest::query()
+                    ->select('task_id')
+                    ->where('status', CoOwnerRequestStatus::Pending)
+                    ->whereJsonContains('asked_user_ids', $user->id)));
         });
     }
 

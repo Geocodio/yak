@@ -11,21 +11,14 @@ use App\Services\Threads\NeedsYouTasks;
 use App\Services\Threads\ThreadList;
 use Illuminate\Support\Facades\DB;
 
-it('lists co-owner and thread-less question tasks', function () {
+it('lists a thread-less question task and leaves a co-owner request on an open thread to its thread', function () {
     ['user' => $user] = needsYouWorld();
 
     $items = NeedsYouTasks::for($user);
 
-    expect($items)->toHaveCount(2);
-    expect(collect($items)->pluck('needsYouReason')->sort()->values()->all())->toBe(['co_owner', 'question']);
-    $byTitle = collect($items)->keyBy('title');
-    expect($byTitle['Rotate the signing key'])->toMatchArray([
+    expect($items)->toHaveCount(1);
+    expect($items[0])->toMatchArray([
         'type' => 'task',
-        'needsYouReason' => 'co_owner',
-        'needsYouLabel' => 'Waiting for your co-owner decision',
-        'taskId' => YakTask::query()->where('description', 'Rotate the signing key')->value('public_id'),
-    ]);
-    expect($byTitle['Pick a retry policy'])->toMatchArray([
         'needsYouReason' => 'question',
         'needsYouLabel' => 'Asked you a question',
         'taskId' => YakTask::query()->where('description', 'Pick a retry policy')->value('public_id'),
@@ -44,9 +37,9 @@ it('never lists a task whose thread is open or hidden', function () {
 it('counts threads and tasks once', function () {
     ['user' => $user] = needsYouWorld();
 
-    expect(ThreadList::for($user)['needsYouCount'])->toBe(3);
+    expect(ThreadList::for($user)['needsYouCount'])->toBe(4);
     expect(NeedsYouCount::for($user))->toBe(5);
-    expect(NeedsYouCount::for($user, 3))->toBe(5);
+    expect(NeedsYouCount::for($user, 4))->toBe(5);
 });
 
 it('caps task items at 50', function () {
@@ -63,7 +56,7 @@ it('caps task items at 50', function () {
 it('filters task items by search', function () {
     ['user' => $user] = needsYouWorld();
 
-    expect(collect(NeedsYouTasks::for($user, 'signing'))->pluck('title')->all())->toBe(['Rotate the signing key']);
+    expect(collect(NeedsYouTasks::for($user, 'retry'))->pluck('title')->all())->toBe(['Pick a retry policy']);
     expect(NeedsYouTasks::for($user, '100%_'))->toBe([]);
 });
 
@@ -110,4 +103,32 @@ it('counts with one query', function () {
     NeedsYouTasks::count($user);
 
     expect(DB::getQueryLog())->toHaveCount(1);
+});
+
+it('lists and counts once a co-owner request on a task with no thread or a closed thread', function (bool $isClosed) {
+    $user = User::factory()->create();
+    $task = YakTask::factory()->awaitingCoOwner()->create(['repo' => 'Geocodio/geocodio']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$user->id], 'status' => CoOwnerRequestStatus::Pending]);
+
+    if ($isClosed) {
+        Thread::query()->findOrFail($task->fresh()->thread_id)->forceFill(['status' => ThreadStatus::Closed])->saveQuietly();
+    } else {
+        $task->forceFill(['thread_id' => null])->saveQuietly();
+    }
+
+    $items = NeedsYouTasks::for($user);
+
+    expect($items)->toHaveCount(1)
+        ->and(array_keys($items[0]))->toBe(['type', 'taskId', 'title', 'needsYouReason', 'needsYouLabel', 'isPrivate', 'lastActivityAt'])
+        ->and($items[0]['needsYouReason'])->toBe('co_owner')
+        ->and(NeedsYouTasks::count($user))->toBe(1);
+})->with([[false], [true]]);
+
+it('lists a co-owner request on a task with an open thread only as the thread', function () {
+    $user = User::factory()->create();
+    $task = YakTask::factory()->awaitingCoOwner()->create(['repo' => 'Geocodio/geocodio']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$user->id], 'status' => CoOwnerRequestStatus::Pending]);
+
+    expect(NeedsYouTasks::for($user))->toBe([])
+        ->and(NeedsYouCount::for($user))->toBe(1);
 });
