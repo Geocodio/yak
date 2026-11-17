@@ -55,7 +55,7 @@ struct WidgetSmallView: View {
                     WidgetRowTitleText(title: row.title).font(.footnote.weight(.medium)).widgetLines(2)
                     display.detail(of: row, isLast: true, now: now).font(.caption.weight(.medium)).foregroundStyle(
                         display.isStale ? .tertiary : .secondary
-                    ).widgetLines(1)
+                    ).widgetLines(2)
                 } else {
                     Text(display.emptySentence).font(.footnote).foregroundStyle(.secondary).widgetLines(2)
                 }
@@ -131,15 +131,9 @@ struct WidgetMediumView: View {
     }
 
     private func detailLine(row: WidgetRowContent, isLast: Bool) -> some View {
-        HStack(spacing: 0) {
-            display.detail(of: row, isLast: isLast, now: now)
-            if let date = row.lastActivityAt, !(display.isStale && isLast) {
-                Text(verbatim: ", ")
-                Text(WidgetStrings.age(from: date, to: now))
-            }
-        }
-        .font(.caption.weight(.medium)).foregroundStyle(display.isStale && isLast ? .tertiary : .secondary).widgetLines(
-            1)
+        Text(verbatim: display.detailText(of: row, isLast: isLast, now: now, withAge: true))
+            .font(.caption.weight(.medium)).foregroundStyle(display.isStale && isLast ? .tertiary : .secondary)
+            .widgetLines(1)
     }
 
     private func detailSpoken(_ row: WidgetRowContent) -> String {
@@ -216,11 +210,14 @@ struct WidgetStateView: View {
         Group {
             switch family {
             case .small, .medium:
-                VStack(spacing: 8) {
-                    Image(systemName: "bubble.left.and.text.bubble.right").font(.title2).foregroundStyle(.secondary)
-                        .accessibilityHidden(true)
-                    Text(WidgetStrings.stateText(state)).font(.footnote).multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
+                ZStack {
+                    Color.clear
+                    VStack(spacing: 8) {
+                        Image(systemName: "bubble.left.and.text.bubble.right").font(.title2).foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                        Text(WidgetStrings.stateText(state)).font(.footnote).multilineTextAlignment(.center)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .accessoryRectangular:
@@ -239,7 +236,7 @@ struct WidgetStateView: View {
                             Image(systemName: "exclamationmark.bubble")
                         }
                         if let caption = WidgetStrings.stateCircular(state) {
-                            Text(caption).font(.caption2).widgetLines(1).minimumScaleFactor(0.6)
+                            Text(caption).font(.caption).widgetLines(1).minimumScaleFactor(0.6)
                         }
                         Text(WidgetStrings.brand).font(.caption)
                     }

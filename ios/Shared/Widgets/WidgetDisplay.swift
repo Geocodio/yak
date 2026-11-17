@@ -46,10 +46,23 @@ struct WidgetDisplay: Equatable, Sendable {
     /// The line under a row's title. A running row without a step says "Working"; a needs-you row without a label
     /// says its reason's words. The last line of a stale widget says how old the data is.
     func detail(of row: WidgetRowContent, isLast: Bool, now: Date) -> Text {
+        Text(verbatim: detailText(of: row, isLast: isLast, now: now))
+    }
+
+    /// The detail with the row's age after it, as one string so no stray space precedes the comma.
+    func detailText(of row: WidgetRowContent, isLast: Bool, now: Date, withAge: Bool = false) -> String {
         if isStale, isLast, let updatedAt {
-            return Text(WidgetStrings.updated(String(localized: WidgetStrings.age(from: updatedAt, to: now))))
+            return String(
+                localized: WidgetStrings.updated(String(localized: WidgetStrings.age(from: updatedAt, to: now))))
         }
-        if let detail = row.detail, !detail.isEmpty { return Text(verbatim: detail) }
-        return Text(kind == .running ? WidgetStrings.working : WidgetStrings.reason(row.reason))
+        let base: String
+        if let detail = row.detail, !detail.isEmpty {
+            base = detail
+        } else {
+            base = String(localized: kind == .running ? WidgetStrings.working : WidgetStrings.reason(row.reason))
+        }
+        guard withAge, let date = row.lastActivityAt else { return base }
+        return String(
+            localized: WidgetStrings.detailWithAge(base, String(localized: WidgetStrings.age(from: date, to: now))))
     }
 }
