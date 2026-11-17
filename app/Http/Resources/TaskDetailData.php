@@ -636,7 +636,7 @@ final class TaskDetailData
     /**
      * @return array{status: string, hostname: string, url: string}|null
      */
-    private static function deployment(YakTask $task): ?array
+    public static function deployment(YakTask $task): ?array
     {
         if ($task->branch_name === null) {
             return null;

@@ -314,6 +314,15 @@ Route::middleware(['auth'])->group(function () {
         ->name('pr-reviews.for-pr.rerun')
         ->where('repoSlug', '.+')
         ->where('prNumber', '[0-9]+');
+    Route::get('pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/log', [PrReviewForPrController::class, 'runLog'])
+        ->name('pr-reviews.for-pr.runs.log')
+        ->where('repoSlug', '.+')
+        ->where('prNumber', '[0-9]+');
+    Route::post('pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/rerun', [PrReviewForPrController::class, 'rerunRun'])
+        ->middleware('task.drive')
+        ->name('pr-reviews.for-pr.runs.rerun')
+        ->where('repoSlug', '.+')
+        ->where('prNumber', '[0-9]+');
 
     Route::get('deployments', [DeploymentController::class, 'index'])->name('deployments');
     Route::get('deployments/{deployment}', [DeploymentController::class, 'show'])

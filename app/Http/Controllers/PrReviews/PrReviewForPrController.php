@@ -4,24 +4,64 @@ namespace App\Http\Controllers\PrReviews;
 
 use App\Actions\EnqueuePrReview;
 use App\Channels\GitHub\AppService as GitHubAppService;
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\PrReviewRunData;
+use App\Http\Resources\ThreadRunLogData;
 use App\Models\PrReview;
-use App\Models\PrReviewComment;
 use App\Models\Repository;
-use App\Support\Markdown;
-use Illuminate\Database\Eloquent\Collection;
+use App\Models\YakTask;
+use App\Services\Tasks\TaskActions;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class PrReviewForPrController extends Controller
 {
     public function show(string $repoSlug, int $prNumber): Response
     {
+        $page = fn (): array => PrReviewRunData::build(PrReviewRunData::tasks($repoSlug, $prNumber), $repoSlug, $prNumber);
+
         return Inertia::render('PrReviews/ForPr', [
             'pr' => fn () => $this->prData($repoSlug, $prNumber),
-            'reviews' => fn () => $this->reviewsData($repoSlug, $prNumber),
+            'runs' => fn () => $page()['runs'],
+            'pullRequest' => fn () => $page()['panel'],
         ]);
+    }
+
+    public function runLog(Request $request, string $repoSlug, int $prNumber, YakTask $task): JsonResponse
+    {
+        abort_unless(PrReviewRunData::belongsToPullRequest($task, $repoSlug, $prNumber), 404);
+
+        $search = $request->query('search');
+
+        return response()->json(ThreadRunLogData::forTask(
+            $task,
+            max(0, $request->integer('cursor')),
+            is_string($search) && trim($search) !== '' ? mb_substr(trim($search), 0, 200) : null,
+        ));
+    }
+
+    public function rerunRun(string $repoSlug, int $prNumber, YakTask $task, TaskActions $actions): RedirectResponse
+    {
+        abort_unless(PrReviewRunData::belongsToPullRequest($task, $repoSlug, $prNumber), 404);
+
+        $back = redirect()->route('pr-reviews.for-pr', [$repoSlug, $prNumber]);
+
+        try {
+            $outcome = $actions->rerunReview($task);
+        } catch (ThreadActionRefused|HttpException $refused) {
+            if ($refused instanceof HttpException && $refused->getStatusCode() !== 503) {
+                throw $refused;
+            }
+
+            return $back->with('error', $refused->getMessage());
+        }
+
+        return $outcome->sentence === '' ? $back : $back->with('success', $outcome->sentence);
     }
 
     public function rerun(string $repoSlug, int $prNumber, GitHubAppService $github): RedirectResponse
@@ -84,56 +124,5 @@ class PrReviewForPrController extends Controller
         }
 
         return $description !== '' ? $description : "PR #{$prNumber}";
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function reviewsData(string $repoSlug, int $prNumber): array
-    {
-        $reviews = PrReview::query()
-            ->where('repo', $repoSlug)
-            ->where('pr_number', $prNumber)
-            ->with('comments')
-            ->orderByDesc('submitted_at')
-            ->get();
-
-        return $reviews->map(fn (PrReview $review): array => [
-            'id' => $review->id,
-            'scope' => $review->review_scope,
-            'dismissed' => $review->dismissed_at !== null,
-            'createdAgo' => $review->submitted_at?->diffForHumans(),
-            'reviewer' => 'Yak',
-            'commitSha' => $review->commit_sha_reviewed,
-            'taskId' => $review->yak_task_id,
-            'findings' => $this->findings($review),
-        ])->values()->all();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function findings(PrReview $review): array
-    {
-        /** @var Collection<int, PrReviewComment> $comments */
-        $comments = $review->comments;
-
-        return [
-            'verdict' => (string) $review->verdict,
-            'riskAssessment' => $review->risk_assessment,
-            'counts' => [
-                'mustFix' => $comments->where('severity', 'must_fix')->count(),
-                'shouldFix' => $comments->where('severity', 'should_fix')->count(),
-                'consider' => $comments->where('severity', 'consider')->count(),
-            ],
-            'summaryHtml' => Markdown::toHtml($review->summary),
-            'comments' => $comments->map(fn (PrReviewComment $comment): array => [
-                'severity' => $comment->severity,
-                'path' => $comment->file_path,
-                'line' => $comment->line_number,
-                'category' => $comment->category,
-                'bodyHtml' => Markdown::toHtml($comment->body),
-            ])->values()->all(),
-        ];
     }
 }
