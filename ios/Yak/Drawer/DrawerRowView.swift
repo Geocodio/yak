@@ -24,6 +24,10 @@ struct DrawerRowView: View {
                             .padding(.top, 1)
                     }
                     VStack(alignment: .leading, spacing: 2) {
+                        if isTask {
+                            Label("drawer.taskLabel", systemImage: "checklist").font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.yakMuted).accessibilityIdentifier("drawer.taskLabel")
+                        }
                         Text(row.title).font(.body).foregroundStyle(.primary)
                             .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
                         Text(subtitle).font(.footnote).foregroundStyle(Color.yakMuted)
@@ -101,6 +105,10 @@ struct DrawerRowView: View {
 
     private var subtitle: String { DrawerRowView.subtitleText(row.subtitle) }
 
+    private var isTask: Bool {
+        if case .task = row.target { true } else { false }
+    }
+
     static func subtitleText(_ subtitle: DrawerSubtitle) -> String {
         switch subtitle {
         case .serverLabel(let label): return label
@@ -129,6 +137,7 @@ struct DrawerRowView: View {
 
     private var accessibilityLabel: String {
         var parts = [row.title.isEmpty ? String(localized: "drawer.untitled") : row.title, subtitle]
+        if isTask { parts.insert(String(localized: "drawer.taskLabel"), at: 0) }
         if let age { parts.append(age) }
         if row.isPrivate { parts.append(String(localized: "drawer.private")) }
         return parts.joined(separator: ". ")

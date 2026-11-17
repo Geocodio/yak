@@ -12,7 +12,9 @@ protocol FilesModeView: View {
 @MainActor
 enum FilesModeRegistry {
     /// One line per mode view.
-    static let views: [any FilesModeView.Type] = []
+    static let views: [any FilesModeView.Type] = [
+        ChangedFilesView.self
+    ]
 
     static func view(for mode: FilesMode) -> (any FilesModeView.Type)? { views.first { $0.mode == mode } }
 }
@@ -21,7 +23,11 @@ extension PaneDescriptor {
     static let files = PaneDescriptor(
         id: .files, name: "pane.files", symbol: "doc.text",
         content: { thread in AnyView(FilesPane(thread: thread)) },
-        barRow: { _ in AnyView(EmptyView()) })
+        barRow: { thread in AnyView(FilesBar(thread: thread)) },
+        badgeCount: { thread in
+            let count = thread.snapshot?.show?.diffTotals?.filesCount ?? 0
+            return count > 0 ? count : nil
+        })
 }
 
 /// The Files pane: the switch between the built modes and the view of the selected one. Every mode that was
