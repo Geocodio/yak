@@ -99,6 +99,8 @@ private func makeSettingsRig(isAvailable: Bool = true) async throws -> SettingsR
         await rig.rig.transport.hold("PUT notifications")
         let first = Task { await rig.model.toggle(.turnFinished, to: false) }
         #expect(await eventually { rig.model.switches.isSaving(.turnFinished) })
+        // The save marks the switch before its request reaches the backend; wait for the held request itself.
+        #expect(await eventually { await rig.rig.transport.waitingCount == 1 })
         #expect(!rig.model.switches.isOn(.turnFinished))
         await rig.model.toggle(.turnFinished, to: true)
         let puts = await rig.rig.transport.routes().filter { $0 == "PUT notifications" }
