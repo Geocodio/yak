@@ -49,7 +49,7 @@ struct ChangedFilesView: FilesModeView {
         if let snapshot = model.snapshot {
             switch snapshot.load {
             case .loading:
-                RowSkeleton(rowCount: 12, identifier: "files.loading")
+                RowSkeleton(rowCount: 6, identifier: "files.loading")
             case .slow:
                 StateMessage(
                     title: "list.slow", systemImage: "hourglass", identifier: "files.slow",
@@ -73,7 +73,7 @@ struct ChangedFilesView: FilesModeView {
                 }
             }
         } else {
-            RowSkeleton(rowCount: 12, identifier: "files.loading")
+            RowSkeleton(rowCount: 6, identifier: "files.loading")
         }
     }
 

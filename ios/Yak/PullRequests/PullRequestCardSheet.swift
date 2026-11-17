@@ -23,6 +23,7 @@ struct PullRequestCardSheet: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("common.done") { dismiss() }.accessibilityIdentifier("pullRequest.done")
                     }
+                    .sharedBackgroundVisibility(.hidden)
                 }
         }
         .presentationDetents([.large])

@@ -31,6 +31,7 @@ struct FileListSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("common.done", action: close).accessibilityIdentifier("files.list.done")
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
         }
         .presentationDetents([.medium, .large])
