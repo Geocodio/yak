@@ -239,3 +239,53 @@ private final class Access: @unchecked Sendable {
         TaskRowView.statusTitle(.awaitingCoOwner, serverLabel: "awaiting co owner") == "Waiting for the co-owner")
     #expect(TaskRowView.statusTitle(TaskStatus(rawValue: "paused"), serverLabel: "on hold") == "on hold")
 }
+
+@Test(arguments: [
+    "http://example.test/", "javascript:alert(1)", "https://user@example.test/", "file:///etc/passwd",
+])
+func aTappedConversationLinkOpensOnlyWhenItIsSafe(_ text: String) {
+    #expect(TaskBodyView.linkToOpen(URL(string: text)) == nil)
+}
+
+@Test func anHTTPSConversationLinkOpens() {
+    let url = URL(string: "https://example.test/pull/1")
+    #expect(TaskBodyView.linkToOpen(url) == url)
+    #expect(TaskBodyView.linkToOpen(nil) == nil)
+}
+
+@MainActor @Test func anUnsafeConnectURLOffersNoLinkButton() async throws {
+    let fixture = try await TasksFixture { route, _, _ in
+        switch route {
+        case "GET tasks/k3m9p2qa": return (200, try json(task()))
+        case "POST tasks/k3m9p2qa/co-owner/approve":
+            return (409, errorBody("not_linked", "Link GitHub first.", details: ["connectUrl": "javascript:alert(1)"]))
+        default: return nil
+        }
+    }
+    let (model, _) = model(fixture)
+    await model.start()
+    #expect(await fixture.eventually { model.decision == .decide })
+    _ = await model.perform(.approve)
+    #expect(model.decision == .linkGitHub(connectURL: "javascript:alert(1)"))
+    #expect(model.linkGitHubURL == nil)
+    await model.stop()
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aSafeConnectURLOffersTheLinkButton() async throws {
+    let fixture = try await TasksFixture { route, _, _ in
+        switch route {
+        case "GET tasks/k3m9p2qa": return (200, try json(task()))
+        case "POST tasks/k3m9p2qa/co-owner/approve":
+            return (409, errorBody("not_linked", "Link GitHub first.", details: ["connectUrl": "https://example.test/link"]))
+        default: return nil
+        }
+    }
+    let (model, _) = model(fixture)
+    await model.start()
+    #expect(await fixture.eventually { model.decision == .decide })
+    _ = await model.perform(.approve)
+    #expect(model.linkGitHubURL?.absoluteString == "https://example.test/link")
+    await model.stop()
+    await fixture.session.stop()
+}

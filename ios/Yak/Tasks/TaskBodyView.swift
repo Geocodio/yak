@@ -9,6 +9,9 @@ struct TaskBodyView: UIViewRepresentable {
     let openLink: (URL) -> Void
     @Binding var height: CGFloat
 
+    /// The address a tapped link opens in the in-app browser, or nil when the web link rule refuses it.
+    static func linkToOpen(_ url: URL?) -> URL? { WebLinkRule.safeURL(url?.absoluteString) }
+
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -84,9 +87,7 @@ struct TaskBodyView: UIViewRepresentable {
                 return
             }
             decisionHandler(.cancel)
-            if let url = action.request.url, ["http", "https"].contains(url.scheme?.lowercased()) {
-                parent.openLink(url)
-            }
+            if let url = TaskBodyView.linkToOpen(action.request.url) { parent.openLink(url) }
         }
     }
 }
