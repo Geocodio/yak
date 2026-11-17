@@ -15,6 +15,8 @@ final class AppLockController {
     @ObservationIgnored private var launchAskPending: Bool
 
     private(set) var policy: AppLockPolicy
+    /// True while the settings store cannot be read. The content stays covered, because the lock may be on.
+    private(set) var storeUnreadable: Bool
     private(set) var method: AppLockMethod?
     private(set) var unlock: UnlockState = .idle
     private(set) var toggle: ToggleState = .idle
@@ -36,13 +38,14 @@ final class AppLockController {
         self.authenticator = authenticator
         self.clock = clock
         self.coversWhenActive = coversWhenActive
+        storeUnreadable = !settings.isReadable
         var policy = AppLockPolicy(isOn: settings.appLockOn, backgroundLimit: backgroundLimit)
         launchAskPending = policy.handle(.launched)
         self.policy = policy
     }
 
     func coversContent(sceneIsActive: Bool) -> Bool {
-        AppLockPolicy.coversContent(
+        storeUnreadable || AppLockPolicy.coversContent(
             isOn: policy.isOn, isLocked: policy.isLocked, sceneIsActive: coversWhenActive ? false : sceneIsActive)
     }
 
@@ -58,8 +61,24 @@ final class AppLockController {
         showsPasscodeRemoved = true
     }
 
+    /// Reads the stored choice again. A store that was unreadable at launch may say the lock is on now: the policy
+    /// then locks and the app asks the owner. Returns true when it just locked.
+    @discardableResult
+    func reloadSettings() -> Bool {
+        guard settings.reload() else {
+            storeUnreadable = true
+            return false
+        }
+        storeUnreadable = false
+        guard settings.appLockOn, !policy.isOn else { return false }
+        policy.handle(.turnedOn)
+        launchAskPending = policy.handle(.launched)
+        return launchAskPending
+    }
+
     /// Once, at launch: reads the capability and asks if the lock came up locked.
     func launched() async {
+        reloadSettings()
         await refreshCapability()
         guard launchAskPending else { return }
         launchAskPending = false
@@ -73,7 +92,16 @@ final class AppLockController {
 
     /// Decides the time-based relock at once, with no suspension, so content never shows after the limit.
     /// Returns true when the policy just locked and the app should ask the owner by itself.
-    func relockIfDue() -> Bool { policy.handle(.becameActive(clock.now())) }
+    func relockIfDue() -> Bool {
+        let reloaded = reloadSettings()
+        return policy.handle(.becameActive(clock.now())) || reloaded
+    }
+
+    /// The device was unlocked for the first time since it started: the store can be read now.
+    func protectedDataBecameAvailable(isActive: Bool) async {
+        guard reloadSettings(), isActive else { return }
+        await finishBecomingActive(askIfLocked: true)
+    }
 
     func finishBecomingActive(askIfLocked ask: Bool) async {
         await refreshCapability()
