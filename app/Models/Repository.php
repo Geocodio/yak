@@ -23,6 +23,7 @@ use InvalidArgumentException;
  *
  * @property array<string, string>|null $build_credentials
  * @property string|null $setup_script_hash
+ * @property string|null $test_command
  * @property array<int, string>|null $pr_review_path_excludes
  * @property int $pr_reviews_30d_count
  * @property int $tasks_count

@@ -86,6 +86,27 @@ class ClaudeCodeOutputParser
     }
 
     /**
+     * Extract the command a ready setup used to run the tests from the last fenced setup_result block,
+     * or null when the block is missing, malformed, failed, or names no command.
+     */
+    public static function extractTestCommand(string $resultText): ?string
+    {
+        if (preg_match_all('/```setup_result\s*\n(.+?)\n```/s', $resultText, $matches) < 1) {
+            return null;
+        }
+
+        $decoded = json_decode(trim((string) end($matches[1])), true);
+
+        if (! is_array($decoded) || ($decoded['status'] ?? null) === 'failed' || ! is_string($decoded['test_command'] ?? null)) {
+            return null;
+        }
+
+        $command = trim($decoded['test_command']);
+
+        return $command !== '' ? mb_substr($command, 0, 500) : null;
+    }
+
+    /**
      * Extract a preview repair task's verdict from a fenced preview_repair code block.
      *
      * A missing block, invalid JSON, or a verdict that is not one of recipe,

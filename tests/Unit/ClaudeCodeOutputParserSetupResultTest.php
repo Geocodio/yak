@@ -21,3 +21,26 @@ it('uses the last block and a fallback reason when none is given', function () {
 
     expect(ClaudeCodeOutputParser::extractSetupFailure($text))->toBe('The setup agent reported that it could not finish.');
 });
+
+it('returns the trimmed test command from a ready setup_result block', function () {
+    $text = "```setup_result\n{\"status\": \"ready\", \"test_command\": \"  docker compose exec app php artisan test --compact  \"}\n```";
+
+    expect(ClaudeCodeOutputParser::extractTestCommand($text))->toBe('docker compose exec app php artisan test --compact');
+});
+
+it('has no test command when it is absent, empty, malformed or the setup failed', function (string $text) {
+    expect(ClaudeCodeOutputParser::extractTestCommand($text))->toBeNull();
+})->with([
+    'absent' => "```setup_result\n{\"status\": \"ready\"}\n```",
+    'empty' => "```setup_result\n{\"status\": \"ready\", \"test_command\": \"  \"}\n```",
+    'not a string' => "```setup_result\n{\"status\": \"ready\", \"test_command\": 5}\n```",
+    'malformed' => "```setup_result\nnot json\n```",
+    'no block' => 'All set up.',
+    'failed' => "```setup_result\n{\"status\": \"failed\", \"reason\": \"x\", \"test_command\": \"pest\"}\n```",
+]);
+
+it('caps the test command at 500 characters', function () {
+    $text = "```setup_result\n{\"status\": \"ready\", \"test_command\": \"" . str_repeat('a', 600) . "\"}\n```";
+
+    expect(mb_strlen((string) ClaudeCodeOutputParser::extractTestCommand($text)))->toBe(500);
+});

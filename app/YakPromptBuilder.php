@@ -27,7 +27,17 @@ class YakPromptBuilder
             'devEnvironmentInstructions' => $devEnvironmentInstructions,
             'channelRules' => $channelRules,
             'repoInstructions' => $repoInstructions,
+            'testCommand' => self::resolveTestCommand($task),
         ]);
+    }
+
+    private static function resolveTestCommand(YakTask $task): ?string
+    {
+        if ($task->repo === '') {
+            return null;
+        }
+
+        return Repository::where('slug', $task->repo)->value('test_command');
     }
 
     /** The standing instructions of a thread's runner: the system prompt plus the thread's repository section. */

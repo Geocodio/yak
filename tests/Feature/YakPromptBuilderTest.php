@@ -53,6 +53,33 @@ test('system prompt appends repo-specific agent_instructions as a notes section'
         ->toContain("Don't run the full test suite locally");
 });
 
+test('system prompt tells the agent how to run tests when the repository has a test command', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'acme/tested',
+        'agent_instructions' => null,
+        'test_command' => 'docker compose exec app php artisan test --compact',
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
+
+    expect(YakPromptBuilder::systemPrompt($task))
+        ->toContain('Repository-specific notes')
+        ->toContain('Run tests with: `docker compose exec app php artisan test --compact`');
+});
+
+test('system prompt omits the test command line when none is stored', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/untested', 'agent_instructions' => 'Be careful.', 'test_command' => null]);
+    $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
+
+    expect(YakPromptBuilder::systemPrompt($task))->not->toContain('Run tests with:');
+});
+
+test('system prompt asks for a note in the PR description when tests were not run', function () {
+    $task = YakTask::factory()->pending()->create();
+
+    expect(YakPromptBuilder::systemPrompt($task))
+        ->toContain('Tests were not run locally; CI is the check.');
+});
+
 test('system prompt omits the repo-notes section when agent_instructions is empty', function () {
     $repo = Repository::factory()->create(['slug' => 'acme/clean', 'agent_instructions' => null]);
     $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
