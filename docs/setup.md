@@ -447,7 +447,7 @@ Do not rotate `yak_app_key` or `yak_session_store_key`: both encrypt data alread
 
 ### Re-running a repository's setup
 
-If a repository's dev environment changes (new Docker services, a different database), click Re-run setup on the repository's page, or run:
+If a repository's dev environment changes (new Docker services, a different database), choose **Run setup again** in the repository's **Sandbox** section, or run:
 
 ```bash
 docker exec -u www-data yak php artisan yak:setup-repo acme-storefront

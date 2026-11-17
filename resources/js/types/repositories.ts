@@ -102,6 +102,7 @@ export type RepositoryDocsLinks = {
     prReview: string;
     refresh: string;
     rerunSetup: string;
+    previews: string;
 };
 
 export type GitHubSearchRepo = {

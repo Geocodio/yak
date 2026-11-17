@@ -1,4 +1,4 @@
-import { Select, Toggle } from '@geocodio/console-ui';
+import { Select, Toggle, toast } from '@geocodio/console-ui';
 import { router } from '@inertiajs/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { SettingRow } from '@/components/repositories/settings/SettingsCard';
@@ -9,7 +9,7 @@ type Payload = Record<string, string | number | boolean | null>;
 /**
  * Saves one setting the moment it changes. The server answers with a "Saved"
  * toast; when the request fails for any reason `onFailure` puts the control
- * back. Only the named fields are sent, so no other setting is touched.
+ * back and the user is told why. Only the named fields are sent, so no other setting is touched.
  */
 export function useInstantSave(slug: string) {
     const [isSaving, setIsSaving] = useState(false);
@@ -24,6 +24,8 @@ export function useInstantSave(slug: string) {
             onSuccess: () => {
                 hasSucceeded = true;
             },
+            // Server and network failures already toast from app.tsx; a rejected value has no other place to show.
+            onError: (errors) => toast.error(Object.values(errors)[0] ?? 'Could not save that change.'),
             onFinish: () => {
                 setIsSaving(false);
 

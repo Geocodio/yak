@@ -1,11 +1,12 @@
 import { Badge, Button } from '@geocodio/console-ui';
-import { RefreshCw } from 'lucide-react';
+import { BookOpen, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { SetupHistory } from '@/components/repositories/SetupHistory';
 import { SectionIntro, SettingRow, SettingsCard } from '@/components/repositories/settings/SettingsCard';
 import { AppLayout } from '@/layouts/AppLayout';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
 import { useRouterAction } from '@/lib/useRouterAction';
+import { useRetained } from '@/lib/useRetained';
 import repos from '@/routes/repos';
 import { tasks } from '@/routes';
 import type { PageProps } from '@/types/shared';
@@ -22,7 +23,8 @@ type Props = PageProps<{
     yakConfig?: YakConfig;
 }>;
 
-export default function Sandbox({ header, repository, sandbox, setupHistory, stats, docsLinks, yakConfig }: Props) {
+export default function Sandbox({ header, repository, sandbox, setupHistory, stats, docsLinks, yakConfig: loadedYakConfig }: Props) {
+    const yakConfig = useRetained(`yak-config:${header.slug}`, loadedYakConfig);
     const action = useRouterAction();
     const isBehind = sandbox.baseVersion !== null && sandbox.baseVersion !== sandbox.latestBaseVersion;
 
@@ -38,6 +40,11 @@ export default function Sandbox({ header, repository, sandbox, setupHistory, sta
                             Snapshot <span className="font-mono">{sandbox.snapshot ?? 'none yet'}</span>.{' '}
                             {sandbox.baseVersion === null ? 'Not provisioned.' : <>yak-base <span className="font-mono">v{sandbox.baseVersion}</span>.</>}
                         </>
+                    }
+                    below={
+                        <a href={docsLinks.rerunSetup} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12px] text-accent-text hover:underline">
+                            <BookOpen size={12} /> What re-run setup does
+                        </a>
                     }
                     badge={isBehind ? <Badge tone="warn">v{sandbox.latestBaseVersion} available</Badge> : undefined}
                 >

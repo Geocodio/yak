@@ -1,6 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
-import settings from './settings'
 import approvals from './approvals'
+import settings from './settings'
 import config from './config'
 import manifest from './manifest'
 import claudeAccount from './claude-account'
@@ -651,9 +651,9 @@ const repos = {
     githubSearch: Object.assign(githubSearch, githubSearch),
     githubDetect: Object.assign(githubDetect, githubDetect),
     edit: Object.assign(edit, edit),
-    settings: Object.assign(settings, settings),
     riskProfile: Object.assign(riskProfile, riskProfile),
     approvals: Object.assign(approvals, approvals),
+    settings: Object.assign(settings, settings),
     update: Object.assign(update, update),
     destroy: Object.assign(destroy, destroy),
     toggleActive: Object.assign(toggleActive, toggleActive),

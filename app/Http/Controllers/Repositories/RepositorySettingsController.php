@@ -13,8 +13,6 @@ class RepositorySettingsController extends Controller
 {
     public function show(Request $request, Repository $repository, string $section): Response
     {
-        abort_unless(in_array($section, RepositorySettingsData::SETTINGS_SECTIONS, true), 404);
-
         return Inertia::render('Repositories/Settings/' . ucfirst($section), RepositorySettingsData::section($repository, $section, $request->user()));
     }
 }

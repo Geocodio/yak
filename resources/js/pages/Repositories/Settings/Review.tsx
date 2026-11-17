@@ -11,6 +11,7 @@ import { SectionIntro, SettingRow, SettingsCard } from '@/components/repositorie
 import { AppLayout } from '@/layouts/AppLayout';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
 import { useLeaveGuard } from '@/lib/useLeaveGuard';
+import { useRetained } from '@/lib/useRetained';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { show as showPrompt } from '@/routes/prompts';
 import repos from '@/routes/repos';
@@ -21,13 +22,15 @@ import type { RepositorySettingsHeader, ReviewRepository } from '@/types/reposit
 type Props = PageProps<{
     header: RepositorySettingsHeader;
     repository: ReviewRepository;
-    options: RepositoryOptions;
+    options: Pick<RepositoryOptions, 'defaultPathExcludes' | 'defaultReviewPolicy'>;
     docsLinks: RepositoryDocsLinks;
     coOwnerGate?: CoOwnerGateStatusData | null;
     yakConfig?: YakConfig;
 }>;
 
-export default function Review({ header, repository, options, docsLinks, coOwnerGate, yakConfig }: Props) {
+export default function Review({ header, repository, docsLinks, coOwnerGate: loadedCoOwnerGate, yakConfig: loadedYakConfig, options }: Props) {
+    const yakConfig = useRetained(`yak-config:${header.slug}`, loadedYakConfig);
+    const coOwnerGate = useRetained(`co-owner-gate:${header.slug}`, loadedCoOwnerGate);
     const action = useRouterAction();
     const fileValues = yakConfig?.values;
     const isReadingConfig = yakConfig === undefined;
@@ -66,7 +69,7 @@ export default function Review({ header, repository, options, docsLinks, coOwner
                 title="PR review"
                 description={
                     lockedCount > 0
-                        ? `${lockedCount} of 2 settings here come from .yak files. Those change through a pull request.`
+                        ? `${lockedCount} of 2 settings here come from .yak/config.yml. Those change through a pull request.`
                         : 'Yak reviews pull requests opened by people and other bots.'
                 }
             />
@@ -123,9 +126,13 @@ export default function Review({ header, repository, options, docsLinks, coOwner
             ) : null}
 
             <div className="mb-4">
-                <Deferred data="coOwnerGate" fallback={<CoOwnerGateStatusSkeleton branch={repository.defaultBranch} />}>
-                    {coOwnerGate ? <CoOwnerGateStatus status={coOwnerGate} branch={repository.defaultBranch} /> : null}
-                </Deferred>
+                {coOwnerGate === undefined ? (
+                    <Deferred data="coOwnerGate" fallback={<CoOwnerGateStatusSkeleton branch={repository.defaultBranch} />}>
+                        {null}
+                    </Deferred>
+                ) : coOwnerGate ? (
+                    <CoOwnerGateStatus status={coOwnerGate} branch={repository.defaultBranch} />
+                ) : null}
             </div>
 
             <SettingsCard>
@@ -152,7 +159,7 @@ export default function Review({ header, repository, options, docsLinks, coOwner
                 </div>
             )}
 
-            <SectionSaveBar isDirty={form.isDirty} processing={form.processing} onSave={save} onDiscard={discard} />
+            <SectionSaveBar isDirty={form.isDirty} processing={form.processing} disabled={isReadingConfig} onSave={save} onDiscard={discard} />
             {dialog}
             <ConfirmDialog
                 open={isAskingOpenPrs}

@@ -684,7 +684,8 @@ test('edit exposes docs links for the repositories guide', function () {
                 ->where('routing', Docs::url('repositories.routing'))
                 ->where('prReview', Docs::url('repositories.pr-review'))
                 ->where('refresh', Docs::url('repositories.refresh'))
-                ->where('rerunSetup', Docs::url('repositories.rerun-setup'))));
+                ->where('rerunSetup', Docs::url('repositories.rerun-setup'))
+                ->where('previews', Docs::url('previews'))));
 });
 
 test('create exposes docs links for the repositories guide', function () {
@@ -699,7 +700,8 @@ test('create exposes docs links for the repositories guide', function () {
                 ->where('routing', Docs::url('repositories.routing'))
                 ->where('prReview', Docs::url('repositories.pr-review'))
                 ->where('refresh', Docs::url('repositories.refresh'))
-                ->where('rerunSetup', Docs::url('repositories.rerun-setup'))));
+                ->where('rerunSetup', Docs::url('repositories.rerun-setup'))
+                ->where('previews', Docs::url('previews'))));
 });
 
 test('saving the repository form persists manifest fields in the same request', function () {

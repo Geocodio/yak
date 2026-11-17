@@ -12,6 +12,7 @@ export type RepositorySettingsHeader = {
     prReviewEnabled: boolean;
     deploymentsEnabled: boolean;
     approval: { level: 1 | 2 | 3 | 4 | 5; mode: ApprovalHeaderMode };
+    configDocsUrl: string;
     sections: { slug: SettingsSectionSlug; label: string; url: string }[];
 };
 

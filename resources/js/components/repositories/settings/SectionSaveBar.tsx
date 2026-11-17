@@ -1,9 +1,11 @@
 import { Button } from '@geocodio/console-ui';
 
 /** Sticky bar for a section's text fields; renders nothing while the section is clean. */
-export function SectionSaveBar({ isDirty, processing, onSave, onDiscard, label = 'Save changes' }: {
+export function SectionSaveBar({ isDirty, processing, onSave, onDiscard, label = 'Save changes', disabled = false }: {
     isDirty: boolean;
     processing: boolean;
+    /** Holds Save back while the `.yak/` config is still loading, because locked fields are unknown until then. */
+    disabled?: boolean;
     onSave: () => void;
     onDiscard: () => void;
     label?: string;
@@ -22,7 +24,7 @@ export function SectionSaveBar({ isDirty, processing, onSave, onDiscard, label =
                 Unsaved changes in this section
             </span>
             <Button onClick={onDiscard} disabled={processing} data-testid="section-discard">Discard</Button>
-            <Button variant="primary" onClick={onSave} disabled={processing} data-testid="section-save">{processing ? 'Saving…' : label}</Button>
+            <Button variant="primary" onClick={onSave} disabled={processing || disabled} data-testid="section-save">{processing ? 'Saving…' : label}</Button>
         </div>
     );
 }

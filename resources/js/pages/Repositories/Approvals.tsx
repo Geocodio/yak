@@ -10,12 +10,14 @@ import { StandDown } from '@/components/approvals/StandDown';
 import { AppLayout } from '@/layouts/AppLayout';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
 import { useLeaveGuard } from '@/lib/useLeaveGuard';
+import { useRetained } from '@/lib/useRetained';
 import type { RepositorySettingsHeader } from '@/types/repositorySettings';
 import type { YakConfig } from '@/types/repositories';
 import type { PageProps } from '@/types/shared';
 import type { ApprovalLevel, ApprovalMode, ApprovalsPage } from '@/types/approvals';
 
-export default function Approvals({ header, yakConfig, repository, approval, concerns, shadow, github }: PageProps<ApprovalsPage & { header: RepositorySettingsHeader; yakConfig?: YakConfig }>) {
+export default function Approvals({ header, yakConfig: loadedYakConfig, repository, approval, concerns, shadow, github }: PageProps<ApprovalsPage & { header: RepositorySettingsHeader; yakConfig?: YakConfig }>) {
+    const yakConfig = useRetained(`yak-config:${header.slug}`, loadedYakConfig);
     const form = useForm<{ level: ApprovalLevel; mode: ApprovalMode }>({ level: approval.level, mode: approval.mode });
     const [isStandingDown, setIsStandingDown] = useState(false);
     const live = { level: approval.level, mode: approval.mode };
@@ -55,7 +57,7 @@ export default function Approvals({ header, yakConfig, repository, approval, con
             {dialog}
             <div className="flex flex-col gap-5">
                 <header>
-                    <h1 className="text-[20px] font-semibold">How much may Yak approve on its own?</h1>
+                    <h2 className="text-[18px] font-bold">How much may Yak approve on its own?</h2>
                     <p className="mt-1 max-w-[720px] text-[14px] text-muted">
                         Yak reviews every pull request. This lever sets which clean ones it may also approve, so people only review critical code. A human always merges.
                     </p>

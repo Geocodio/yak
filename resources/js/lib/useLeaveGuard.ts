@@ -1,12 +1,16 @@
+import type { PendingVisit } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import { createElement, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ConfirmDialog } from '@geocodio/console-ui';
 
-type PendingVisit = Parameters<typeof router.visit>;
-
 /**
  * While `isDirty`, asks before a GET visit to another page and before the tab
- * closes. Saves (non-GET) and reloads of the current page pass through.
+ * closes. Saves (non-GET), prefetches and reloads of the current page pass
+ * through. A confirmed visit is issued again with every option it had.
+ *
+ * Browser back and forward are not guarded: Inertia handles `popstate` without
+ * firing `before`, so only link clicks and `router.visit` calls reach the dialog.
+ * The tab close prompt still covers leaving the site.
  */
 export function useLeaveGuard(isDirty: boolean): { dialog: ReactNode } {
     const [pending, setPending] = useState<PendingVisit | null>(null);
@@ -20,11 +24,11 @@ export function useLeaveGuard(isDirty: boolean): { dialog: ReactNode } {
         const removeBefore = router.on('before', (event) => {
             const { visit } = event.detail;
 
-            if (isConfirmedRef.current || visit.method !== 'get' || visit.url.pathname === window.location.pathname) {
+            if (isConfirmedRef.current || visit.prefetch || visit.method !== 'get' || visit.url.pathname === window.location.pathname) {
                 return;
             }
 
-            setPending([visit.url, { method: visit.method, data: visit.data, preserveScroll: visit.preserveScroll, preserveState: visit.preserveState }]);
+            setPending(visit);
 
             return false;
         });
@@ -42,8 +46,15 @@ export function useLeaveGuard(isDirty: boolean): { dialog: ReactNode } {
             return;
         }
 
+        // `before` fires synchronously inside `visit`, so the flag only covers this one visit.
         isConfirmedRef.current = true;
-        router.visit(...pending);
+
+        try {
+            router.visit(pending.url, pending);
+        } finally {
+            isConfirmedRef.current = false;
+        }
+
         setPending(null);
     };
 

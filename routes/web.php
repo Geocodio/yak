@@ -195,9 +195,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('repos/{repository}/edit', [RepositoryController::class, 'edit'])
         ->name('repos.edit')
         ->where('repository', '.+');
-    Route::get('repos/{repository}/settings/{section}', [RepositorySettingsController::class, 'show'])
-        ->name('repos.settings.show')
-        ->where('repository', '.+');
     Route::get('repos/{repository}/risk-profile', RiskProfileController::class)
         ->name('repos.risk-profile.show')
         ->middleware('throttle:30,1')
@@ -208,6 +205,10 @@ Route::middleware(['auth'])->group(function () {
     Route::put('repos/{repository}/approvals', [ApprovalSettingsController::class, 'update'])
         ->name('repos.approvals.update')
         ->where('repository', '.+');
+    Route::get('repos/{repository}/settings/{section}', [RepositorySettingsController::class, 'show'])
+        ->name('repos.settings.show')
+        ->where('repository', '.+')
+        ->whereIn('section', ['review', 'previews', 'sandbox', 'accounts', 'danger']);
     Route::patch('repos/{repository}', [RepositoryController::class, 'update'])
         ->name('repos.update')
         ->where('repository', '.+');

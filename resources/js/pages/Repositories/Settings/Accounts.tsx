@@ -3,6 +3,7 @@ import { ClaudeAccountSection } from '@/components/repositories/ClaudeAccountSec
 import { SectionIntro } from '@/components/repositories/settings/SettingsCard';
 import { AppLayout } from '@/layouts/AppLayout';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
+import { useRetained } from '@/lib/useRetained';
 import type { PageProps } from '@/types/shared';
 import type { RepositoryClaudeAccounts, YakConfig } from '@/types/repositories';
 import type { RepositorySettingsHeader } from '@/types/repositorySettings';
@@ -14,7 +15,8 @@ type Props = PageProps<{
     yakConfig?: YakConfig;
 }>;
 
-export default function Accounts({ header, repository, claudeAccounts, yakConfig }: Props) {
+export default function Accounts({ header, repository, claudeAccounts, yakConfig: loadedYakConfig }: Props) {
+    const yakConfig = useRetained(`yak-config:${header.slug}`, loadedYakConfig);
     return (
         <RepositorySettingsLayout header={header} yakConfig={yakConfig} active="accounts">
             <SectionIntro title="Accounts" description="Which Claude account tasks here run on. Each choice saves at once." />

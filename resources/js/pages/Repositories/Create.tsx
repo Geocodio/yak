@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Button, Checkbox, Field, PageHeader, Select, TextInput, Toggle } from '@geocodio/console-ui';
+import { Button, Checkbox, Field, PageHeader, Select, Textarea, TextInput, Toggle } from '@geocodio/console-ui';
 import { Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { GitHubRepoPicker } from '@/components/repositories/GitHubRepoPicker';
@@ -75,6 +75,9 @@ export default function Create({ options, docsLinks }: Props) {
                             </Field>
                             <Field label="Default branch" error={form.errors.default_branch}>
                                 <TextInput className="font-mono text-[12px]" value={form.data.default_branch} onChange={(e) => form.setData('default_branch', e.target.value)} />
+                            </Field>
+                            <Field className="sm:col-span-2" label="Description" description="One-line description of what this repo does. Used to route natural-language tasks to the right repo." error={form.errors.description}>
+                                <Textarea rows={2} data-testid="repository-description" value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
                             </Field>
                             <Field label="Git URL" description="HTTPS clone URL. Authenticated via the GitHub App." error={form.errors.git_url}>
                                 <TextInput

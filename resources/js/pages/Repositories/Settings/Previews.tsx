@@ -9,6 +9,7 @@ import { SectionIntro, SettingRow, SettingsCard } from '@/components/repositorie
 import { AppLayout } from '@/layouts/AppLayout';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
 import { useLeaveGuard } from '@/lib/useLeaveGuard';
+import { useRetained } from '@/lib/useRetained';
 import { useRouterAction } from '@/lib/useRouterAction';
 import repos from '@/routes/repos';
 import type { PageProps } from '@/types/shared';
@@ -24,7 +25,8 @@ type Props = PageProps<{
     yakConfig?: YakConfig;
 }>;
 
-export default function Previews({ header, repository, manifest, runningPreviews, docsLinks, yakConfig }: Props) {
+export default function Previews({ header, repository, manifest, runningPreviews, docsLinks, yakConfig: loadedYakConfig }: Props) {
+    const yakConfig = useRetained(`yak-config:${header.slug}`, loadedYakConfig);
     const action = useRouterAction();
     const isReadingConfig = yakConfig === undefined;
     const isManifestLocked = yakConfig?.values.previewManifest != null;
@@ -58,7 +60,7 @@ export default function Previews({ header, repository, manifest, runningPreviews
                 description={isManifestLocked ? 'How a preview starts comes from .yak/preview.yml. Those values change through a pull request.' : 'Yak serves a preview deployment for each open PR branch. Each preview hibernates when idle and wakes on the next request.'}
             />
 
-            <SettingsCard docsHref={docsLinks.guide}>
+            <SettingsCard docsHref={docsLinks.previews}>
                 <InstantToggle
                     slug={repository.slug}
                     field="deployments_enabled"
@@ -105,7 +107,7 @@ export default function Previews({ header, repository, manifest, runningPreviews
                 </SettingsCard>
             )}
 
-            <SectionSaveBar isDirty={form.isDirty && !isManifestLocked} processing={form.processing} onSave={save} onDiscard={discard} />
+            <SectionSaveBar isDirty={form.isDirty && !isManifestLocked} processing={form.processing} disabled={isReadingConfig} onSave={save} onDiscard={discard} />
             {dialog}
         </RepositorySettingsLayout>
     );

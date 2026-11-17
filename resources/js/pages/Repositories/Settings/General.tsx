@@ -1,9 +1,9 @@
-import { Deferred, useForm } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react';
 import { Field, Textarea, TextInput } from '@geocodio/console-ui';
 import { BookOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
-import { ConfigSourceBadge, LockedField } from '@/components/repositories/ConfigSourceBadge';
+import { ConfigSourceBadge, LockedField, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
 import { InfoTip } from '@/components/repositories/settings/InfoTip';
 import { InstantSelectRow, InstantToggle } from '@/components/repositories/settings/InstantToggle';
 import { SectionSaveBar } from '@/components/repositories/settings/SectionSaveBar';
@@ -12,6 +12,7 @@ import { SetupChecklist } from '@/components/repositories/settings/SetupChecklis
 import { AppLayout } from '@/layouts/AppLayout';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
 import { useLeaveGuard } from '@/lib/useLeaveGuard';
+import { useRetained } from '@/lib/useRetained';
 import repos from '@/routes/repos';
 import type { PageProps } from '@/types/shared';
 import type { RepositoryDocsLinks, RepositoryOptions, SandboxData, YakConfig } from '@/types/repositories';
@@ -28,6 +29,9 @@ type Props = PageProps<{
     yakConfig?: YakConfig;
 }>;
 
+/** Fields on the General page that can hold a setting: name, branch, Git URL, public site URL, Sentry, description, instructions, default repository, responsible and CI. */
+const SETTING_COUNT = 10;
+
 function DocsLink({ href, children }: { href: string; children: ReactNode }) {
     return (
         <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[12px] text-accent-text hover:underline">
@@ -36,7 +40,9 @@ function DocsLink({ href, children }: { href: string; children: ReactNode }) {
     );
 }
 
-export default function General({ header, repository, options, sandbox, docsLinks, shadowDays, concernsPullRequest, yakConfig }: Props) {
+export default function General({ header, repository, options, sandbox, docsLinks, shadowDays, concernsPullRequest: loadedConcernsPullRequest, yakConfig: loadedYakConfig }: Props) {
+    const yakConfig = useRetained(`yak-config:${header.slug}`, loadedYakConfig);
+    const concernsPullRequest = useRetained(`concerns-pull-request:${header.slug}`, loadedConcernsPullRequest);
     const fileValues = yakConfig?.values;
     const isReadingConfig = yakConfig === undefined;
     const isSentryListed = options.sentryProjects.length > 0;
@@ -46,6 +52,10 @@ export default function General({ header, repository, options, sandbox, docsLink
     const isPublicSiteUrlLocked = fileValues?.publicSiteUrl != null;
     const isCiSystemLocked = fileValues?.ciSystem != null;
     const lockedCount = [isDescriptionLocked, isInstructionsLocked, isPublicSiteUrlLocked, isCiSystemLocked].filter(Boolean).length;
+    const lockedFiles = [
+        isDescriptionLocked || isPublicSiteUrlLocked || isCiSystemLocked ? '.yak/config.yml' : null,
+        isInstructionsLocked ? 'AGENTS.md' : null,
+    ].filter((name) => name !== null);
 
     const form = useForm({
         name: repository.name,
@@ -83,15 +93,17 @@ export default function General({ header, repository, options, sandbox, docsLink
             <SectionIntro
                 title="General"
                 description={
-                    lockedCount > 0
-                        ? `${lockedCount} of 4 settings here come from .yak files. Those change through a pull request.`
-                        : 'How Yak identifies this repository, what it reads before a task, and what it does on its own.'
+                    <>
+                        {lockedCount > 0
+                            ? `${lockedCount} of ${SETTING_COUNT} settings here come from ${lockedFiles.join(' and ')}. Those change through a pull request.`
+                            : 'How Yak identifies this repository, what it reads before a task, and what it does on its own.'}{' '}
+                        See the{' '}
+                        <a href={docsLinks.guide} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">repositories guide</a> for details.
+                    </>
                 }
             />
 
-            <Deferred data="yakConfig" fallback={<span />}>
-                {yakConfig ? <SetupChecklist header={header} yakConfig={yakConfig} hasSandbox={sandbox.snapshot !== null} shadowDays={shadowDays} concernsPullRequest={concernsPullRequest} /> : null}
-            </Deferred>
+            {yakConfig ? <SetupChecklist header={header} yakConfig={yakConfig} hasSandbox={sandbox.snapshot !== null} shadowDays={shadowDays} concernsPullRequest={concernsPullRequest} /> : null}
 
             <SettingsCard title="Identity" description="Saved with the save bar." docsHref={docsLinks.adding}>
                 <FieldStack>
@@ -125,7 +137,7 @@ export default function General({ header, repository, options, sandbox, docsLink
                         {isReadingConfig ? (
                             <FieldSkeleton label="Public site URL" height="h-[34px]" />
                         ) : isPublicSiteUrlLocked ? (
-                            <LockedField label="Public site URL" field="publicSiteUrl" config={yakConfig} fileName="config.yml">
+                            <LockedField label="Public site URL" field="publicSiteUrl" config={yakConfig} fileName="config.yml" propose>
                                 {fileValues.publicSiteUrl}
                             </LockedField>
                         ) : (
@@ -205,6 +217,7 @@ export default function General({ header, repository, options, sandbox, docsLink
                         label="CI system"
                         description="Where Yak reads CI results after it pushes."
                         badge={<ConfigSourceBadge field="ciSystem" config={yakConfig} fileName="config.yml" />}
+                        below={<div className="mt-1"><ProposeChangeLink config={yakConfig} fileName="config.yml" /></div>}
                     >
                         <span data-testid="locked-ciSystem" className="text-[13px] text-muted">
                             {options.ciSystems.find((system) => system.value === fileValues.ciSystem)?.label ?? fileValues.ciSystem}
@@ -232,7 +245,7 @@ export default function General({ header, repository, options, sandbox, docsLink
                 )}
             </SettingsCard>
 
-            <SectionSaveBar isDirty={form.isDirty} processing={form.processing} onSave={save} onDiscard={discard} />
+            <SectionSaveBar isDirty={form.isDirty} processing={form.processing} disabled={isReadingConfig} onSave={save} onDiscard={discard} />
             {dialog}
         </RepositorySettingsLayout>
     );

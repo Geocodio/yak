@@ -65,7 +65,7 @@ Traffic to a preview keeps its sandbox awake. A sandbox that had a preview reque
 
 ## Branch deployments
 
-A branch deployment is a container Yak runs for the branch of an open pull request, so a reviewer can click through the change. Turn it on per repository with the "Branch deployments" setting on the repository page.
+A branch deployment is a container Yak runs for the branch of an open pull request, so a reviewer can click through the change. Turn it on per repository with the "Branch deployments" switch in the repository's **Previews** section.
 
 ### What you get
 
@@ -114,7 +114,7 @@ Each deployment's page has a timestamped activity log. Every command Yak runs in
 
 **"Preview unavailable" appears.** The deployment failed to boot. Open its page in Deployments to see the failure reason and the phase that stalled (`cold_start`, `checkout_refresh` or `health_probe`). Common causes: a broken `cold_start` command, migrations that fail on the branch, or a health probe path that returns 404 on the new code.
 
-**The template is stale after a dependency update.** Use "Rebuild from latest template" on the deployment page, or "Rebuild all deployments" on the repository page. A rebuild resets the container's database and files.
+**The template is stale after a dependency update.** Use "Rebuild from latest template" on the deployment page, or "Rebuild all previews" in the repository's **Previews** section. A rebuild resets the container's database and files.
 
 ## Preview repair
 

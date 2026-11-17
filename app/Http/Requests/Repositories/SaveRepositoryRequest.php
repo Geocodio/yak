@@ -52,10 +52,12 @@ class SaveRepositoryRequest extends FormRequest
         ];
 
         if ($repository instanceof Repository) {
+            // Keys inside `manifest` and `pr_review_policy` keep their own required_with rules, so a partial block fails.
+            $isNested = fn (string $field): bool => str_starts_with($field, 'manifest.') || str_starts_with($field, 'pr_review_policy.');
             $rules = array_map(
                 fn (array $fieldRules): array => in_array('sometimes', $fieldRules, true) ? $fieldRules : ['sometimes', ...$fieldRules],
-                $rules,
-            );
+                array_filter($rules, fn (string $field): bool => ! $isNested($field), ARRAY_FILTER_USE_KEY),
+            ) + array_filter($rules, $isNested, ARRAY_FILTER_USE_KEY);
             $rules['slug'] = ['sometimes', 'required', 'string', 'max:255', Rule::unique('repositories', 'slug')->ignore($repositoryId)];
             $rules['path'] = ['sometimes', 'required', 'string', 'max:500', 'starts_with:/'];
         }

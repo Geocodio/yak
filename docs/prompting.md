@@ -10,7 +10,7 @@ Every turn in a thread is built from these layers, from the most general to the 
 |---|---|---|---|
 | Claude Code's own system prompt | The `claude_code` preset of the Claude Agent SDK | Tool use, safety, general behavior | Anthropic |
 | Yak's system prompt | Appended to the preset. Rendered from the `system` prompt, with Sentry rules when that channel is enabled and the repo's agent instructions | Operating rules for every task: scope, commits, visual capture, no remote git | Your Yak admins, at `/prompts` |
-| Repository instructions | `.yak/AGENTS.md` (or the Agent instructions field on the repository page), added to Yak's system prompt as "Repository-specific notes" | Yak-only rules for one repo | The team that owns the repo. See [Repo config](repo-config.md) |
+| Repository instructions | `.yak/AGENTS.md` (or the Agent instructions field in the repository's General section), added to Yak's system prompt as "Repository-specific notes" | Yak-only rules for one repo | The team that owns the repo. See [Repo config](repo-config.md) |
 | `CLAUDE.md` | Loaded by Claude Code from the repo (`settingSources` is `user`, `project`, `local`) | Repo conventions, test commands, do-not-touch lists | The team that owns the repo |
 | The turn message | Rendered from a task template, per source and kind of turn | The task itself: the error, the issue, the feedback | Yak, from a template you can edit at `/prompts` |
 | The environment note | Written into the sandbox when a thread is restored, shown once on resume | What a restored sandbox lost (refresh commands that ran, missing ignored files, preview, dataset) | Yak |

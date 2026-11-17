@@ -16,12 +16,25 @@ export function defconLabel({ level, mode }: RepositorySettingsHeader['approval'
     return `DEFCON ${level} · ${words}`;
 }
 
-export function SettingsHeader({ header }: { header: RepositorySettingsHeader }) {
+/** The page title and the GitHub button. The pills follow in `SettingsPills`. */
+export function SettingsTitle({ header }: { header: RepositorySettingsHeader }) {
+    return (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-testid="settings-header">
+            <h1 className="text-[20px] font-semibold tracking-tight">{header.slug}</h1>
+            {header.githubUrl && (
+                <a href={header.githubUrl} target="_blank" rel="noopener noreferrer">
+                    <Button icon={<ExternalLink size={13} />}>View on GitHub</Button>
+                </a>
+            )}
+        </div>
+    );
+}
+
+export function SettingsPills({ header }: { header: RepositorySettingsHeader }) {
     const approvalsUrl = header.sections.find((section) => section.slug === 'approvals')?.url ?? '#';
 
     return (
-        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2" data-testid="settings-header">
-            <h1 className="text-[20px] font-semibold tracking-tight">{header.slug}</h1>
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2" data-testid="settings-pills">
             <Pill className={header.isActive ? 'bg-ok-soft text-ok' : NEUTRAL_PILL}>{header.isActive ? 'Active' : 'Inactive'}</Pill>
             <Pill className={NEUTRAL_PILL}>PR review {header.prReviewEnabled ? 'on' : 'off'}</Pill>
             <Link
@@ -33,11 +46,6 @@ export function SettingsHeader({ header }: { header: RepositorySettingsHeader })
                 {defconLabel(header.approval)}
             </Link>
             <Pill className={NEUTRAL_PILL}>Previews {header.deploymentsEnabled ? 'on' : 'off'}</Pill>
-            {header.githubUrl && (
-                <a href={header.githubUrl} target="_blank" rel="noopener noreferrer" className="ml-auto">
-                    <Button icon={<ExternalLink size={13} />}>View on GitHub</Button>
-                </a>
-            )}
         </div>
     );
 }

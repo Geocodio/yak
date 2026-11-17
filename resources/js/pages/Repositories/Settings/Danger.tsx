@@ -5,6 +5,7 @@ import { SectionIntro } from '@/components/repositories/settings/SettingsCard';
 import { AppLayout } from '@/layouts/AppLayout';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
 import { useRouterAction } from '@/lib/useRouterAction';
+import { useRetained } from '@/lib/useRetained';
 import repos from '@/routes/repos';
 import type { PageProps } from '@/types/shared';
 import type { YakConfig } from '@/types/repositories';
@@ -18,7 +19,8 @@ type Props = PageProps<{
     yakConfig?: YakConfig;
 }>;
 
-export default function Danger({ header, repository, canDelete, deleteBlockedReason, yakConfig }: Props) {
+export default function Danger({ header, repository, canDelete, deleteBlockedReason, yakConfig: loadedYakConfig }: Props) {
+    const yakConfig = useRetained(`yak-config:${header.slug}`, loadedYakConfig);
     const action = useRouterAction();
     const [isConfirmingDeactivate, setIsConfirmingDeactivate] = useState(false);
     const toggleActive = () => action.run('toggle-active', 'post', repos.toggleActive.url(repository.slug));

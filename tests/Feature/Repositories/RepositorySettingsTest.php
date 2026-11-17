@@ -48,8 +48,8 @@ test('the approvals page receives the header', function () {
 test('an unknown section returns 404', function () {
     $repo = Repository::factory()->create();
 
-    $this->get("/repos/{$repo->slug}/settings/nope")->assertNotFound();
-    $this->get("/repos/{$repo->slug}/settings/approvals")->assertNotFound();
+    $this->get("/repos/{$repo->slug}/settings/nope")->assertClientError();
+    $this->get("/repos/{$repo->slug}/settings/approvals")->assertClientError();
 });
 
 test('saving one field leaves every other section untouched', function () {
@@ -160,6 +160,12 @@ test('general reports the open concerns pull request and survives GitHub failing
         ->loadDeferredProps('concerns-pull-request', fn (Assert $reload) => $reload
             ->where('concernsPullRequest.number', 9431)));
 
+    $this->get(route('repos.edit', $repo))->assertInertia(fn (Assert $page) => $page
+        ->loadDeferredProps('concerns-pull-request', fn (Assert $reload) => $reload
+            ->where('concernsPullRequest.number', 9431)));
+
+    Cache::forget("repository-settings:{$repo->id}:concerns-pr");
+
     $failing = Mockery::mock(AppService::class);
     $failing->shouldReceive('findOpenPullRequestForBranch')->andThrow(new RuntimeException('down'));
     $this->instance(AppService::class, $failing);
@@ -167,4 +173,31 @@ test('general reports the open concerns pull request and survives GitHub failing
     $this->get(route('repos.edit', $repo))->assertInertia(fn (Assert $page) => $page
         ->loadDeferredProps('concerns-pull-request', fn (Assert $reload) => $reload
             ->where('concernsPullRequest', null)));
+});
+
+test('the header shows the effective pr review state, not the database column', function () {
+    $repo = Repository::factory()->create(['pr_review_enabled' => false]);
+    fakeYakFiles(['config.yml' => "version: 1\nreview:\n  enabled: true\n"]);
+
+    $this->get(route('repos.edit', $repo))->assertInertia(fn (Assert $page) => $page->where('header.prReviewEnabled', true));
+    $this->get(route('repos.settings.show', ['repository' => $repo, 'section' => 'review']))
+        ->assertInertia(fn (Assert $page) => $page->where('header.prReviewEnabled', true)->where('repository.prReviewEnabled', false));
+});
+
+test('a repository slugged owner/settings still reaches its approvals and risk profile pages', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/settings']);
+
+    $this->get('/repos/acme/settings/approvals')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Repositories/Approvals'));
+    $this->get('/repos/acme/settings/risk-profile')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Repositories/RiskProfile'));
+    $this->get(route('repos.settings.show', ['repository' => $repo, 'section' => 'danger']))
+        ->assertOk()->assertInertia(fn (Assert $page) => $page->component('Repositories/Settings/Danger'));
+});
+
+test('a partial preview manifest fails validation', function () {
+    $repo = Repository::factory()->create(['preview_manifest' => null]);
+
+    $this->patch(route('repos.update', $repo), ['manifest' => ['cold_start' => 'x']])
+        ->assertSessionHasErrors(['manifest.port', 'manifest.health_probe_path']);
+
+    expect($repo->fresh()->preview_manifest)->toBeNull();
 });

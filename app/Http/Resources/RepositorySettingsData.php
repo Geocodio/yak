@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Channels\Sentry\Service as SentryService;
+use App\DataTransferObjects\RepositorySettings;
 use App\Enums\TaskMode;
 use App\Models\PrReview;
 use App\Models\Repository;
@@ -13,6 +14,7 @@ use App\Services\RepositoryConfig;
 use App\Services\RepositoryRiskProfiles;
 use App\Support\Docs;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
@@ -47,11 +49,8 @@ final class RepositorySettingsData
         'danger' => 'Danger zone',
     ];
 
-    /** Sections served by `repos.settings.show`. */
-    public const SETTINGS_SECTIONS = ['review', 'previews', 'sandbox', 'accounts', 'danger'];
-
     /**
-     * @return array{slug: string, name: string, githubUrl: ?string, isActive: bool, prReviewEnabled: bool, deploymentsEnabled: bool, approval: array{level: int, mode: 'off'|'shadow'|'enforce'}, sections: array<int, array{slug: string, label: string, url: string}>}
+     * @return array{slug: string, name: string, githubUrl: ?string, isActive: bool, prReviewEnabled: bool, deploymentsEnabled: bool, approval: array{level: int, mode: 'off'|'shadow'|'enforce'}, configDocsUrl: string, sections: array<int, array{slug: string, label: string, url: string}>}
      */
     public static function header(Repository $repository): array
     {
@@ -60,12 +59,13 @@ final class RepositorySettingsData
             'name' => $repository->name,
             'githubUrl' => $repository->githubUrl(),
             'isActive' => (bool) $repository->is_active,
-            'prReviewEnabled' => (bool) $repository->pr_review_enabled,
+            'prReviewEnabled' => (new RepositorySettings($repository, app(RepositoryConfig::class)->fromStorage($repository)))->reviewEnabled(),
             'deploymentsEnabled' => (bool) $repository->deployments_enabled,
             'approval' => [
                 'level' => $repository->approvalLevel(),
                 'mode' => $repository->approvalMode(),
             ],
+            'configDocsUrl' => Docs::url('repositories.config'),
             'sections' => collect(self::SECTIONS)
                 ->map(fn (string $label, string $slug): array => [
                     'slug' => $slug,
@@ -110,7 +110,7 @@ final class RepositorySettingsData
     {
         $props = match ($section) {
             'general' => [
-                'repository' => fn () => Arr::only(self::repositoryData($repository), [
+                'repository' => fn () => self::repositoryData($repository, [
                     'slug', 'name', 'description', 'agentInstructions', 'gitUrl', 'path', 'defaultBranch',
                     'publicSiteUrl', 'isActive', 'isDefault', 'defaultResponsibleUserId', 'ciSystem',
                     'sentryProject', 'prReviewEnabled', 'githubFullName', 'githubUrl', 'githubNameDiverged',
@@ -120,15 +120,19 @@ final class RepositorySettingsData
                 'docsLinks' => self::docsLinks(),
                 'shadowDays' => fn () => self::shadowDays($repository),
                 'concernsPullRequest' => Inertia::defer(
-                    fn () => ApprovalSettingsPageData::concernsPullRequest($repository),
+                    fn () => Cache::remember(
+                        "repository-settings:{$repository->id}:concerns-pr",
+                        60,
+                        fn (): array => ['pullRequest' => ApprovalSettingsPageData::concernsPullRequest($repository)],
+                    )['pullRequest'],
                     'concerns-pull-request',
                 ),
             ],
             'review' => [
-                'repository' => fn () => Arr::only(self::repositoryData($repository), [
+                'repository' => fn () => self::repositoryData($repository, [
                     'slug', 'defaultBranch', 'prReviewEnabled', 'reviewPolicy', 'riskProfiles', 'riskProfileActionUrl', 'pathExcludes',
                 ]),
-                'options' => fn () => self::options(),
+                'options' => fn () => self::options(['defaultPathExcludes', 'defaultReviewPolicy']),
                 'docsLinks' => self::docsLinks(),
                 'coOwnerGate' => Inertia::defer(
                     fn () => app(CoOwnerGateStatus::class)->for($repository),
@@ -136,26 +140,24 @@ final class RepositorySettingsData
                 ),
             ],
             'previews' => [
-                'repository' => fn () => Arr::only(self::repositoryData($repository), [
-                    'slug', 'deploymentsEnabled', 'previewRepairEnabled',
-                ]),
+                'repository' => fn () => self::repositoryData($repository, ['slug', 'deploymentsEnabled', 'previewRepairEnabled']),
                 'manifest' => fn () => self::manifestData($repository),
                 'runningPreviews' => fn () => $repository->branchDeployments()->where('status', 'running')->count(),
                 'docsLinks' => self::docsLinks(),
             ],
             'sandbox' => [
-                'repository' => fn () => Arr::only(self::repositoryData($repository), ['slug']),
+                'repository' => fn () => self::repositoryData($repository, ['slug']),
                 'sandbox' => fn () => self::sandboxData($repository),
                 'setupHistory' => fn () => self::setupHistory($repository),
                 'stats' => fn () => self::stats($repository),
                 'docsLinks' => self::docsLinks(),
             ],
             'accounts' => [
-                'repository' => fn () => Arr::only(self::repositoryData($repository), ['slug']),
+                'repository' => fn () => self::repositoryData($repository, ['slug']),
                 'claudeAccounts' => fn () => RepositoryClaudeAccountData::forRepository($repository, $user),
             ],
             'danger' => [
-                'repository' => fn () => Arr::only(self::repositoryData($repository), ['slug', 'name', 'isActive']),
+                'repository' => fn () => self::repositoryData($repository, ['slug', 'name', 'isActive']),
                 'canDelete' => fn () => self::canDelete($repository),
                 'deleteBlockedReason' => fn () => self::canDelete($repository)
                     ? null
@@ -172,7 +174,7 @@ final class RepositorySettingsData
     }
 
     /**
-     * @return array{guide: string, config: string, adding: string, setup: string, claudeMd: string, routing: string, prReview: string, refresh: string, rerunSetup: string}
+     * @return array{guide: string, config: string, adding: string, setup: string, claudeMd: string, routing: string, prReview: string, refresh: string, rerunSetup: string, previews: string}
      */
     public static function docsLinks(): array
     {
@@ -186,62 +188,72 @@ final class RepositorySettingsData
             'prReview' => Docs::url('repositories.pr-review'),
             'refresh' => Docs::url('repositories.refresh'),
             'rerunSetup' => Docs::url('repositories.rerun-setup'),
+            'previews' => Docs::url('previews'),
         ];
     }
 
     /**
+     * The requested repository fields. Each one is computed only when asked
+     * for, so a section pays for nothing it does not show.
+     *
+     * @param  array<int, string>  $keys
      * @return array<string, mixed>
      */
-    public static function repositoryData(Repository $repository): array
+    public static function repositoryData(Repository $repository, array $keys): array
     {
-        return [
-            'slug' => $repository->slug,
-            'name' => $repository->name,
-            'description' => $repository->description,
-            'agentInstructions' => $repository->agent_instructions,
-            'gitUrl' => $repository->git_url,
-            'path' => $repository->path,
-            'defaultBranch' => $repository->default_branch,
-            'publicSiteUrl' => $repository->public_site_url,
-            'isActive' => $repository->is_active,
-            'isDefault' => $repository->is_default,
-            'defaultResponsibleUserId' => $repository->default_responsible_user_id,
-            'ciSystem' => $repository->ci_system,
-            'sentryProject' => $repository->sentry_project,
-            'prReviewEnabled' => (bool) $repository->pr_review_enabled,
-            'reviewPolicy' => Arr::only($repository->reviewPolicy(), 'profile_max_age_days'),
-            'riskProfiles' => app(RepositoryRiskProfiles::class)->forSettings($repository->slug),
-            'riskProfileActionUrl' => route('repos.risk-profile', $repository),
-            'deploymentsEnabled' => (bool) $repository->deployments_enabled,
-            'previewRepairEnabled' => (bool) $repository->preview_repair_enabled,
-            'pathExcludes' => $repository->pr_review_path_excludes,
-            'githubFullName' => $repository->github_full_name,
-            'githubUrl' => $repository->githubUrl(),
-            'githubNameDiverged' => $repository->github_full_name !== $repository->slug,
+        $fields = [
+            'slug' => fn () => $repository->slug,
+            'name' => fn () => $repository->name,
+            'description' => fn () => $repository->description,
+            'agentInstructions' => fn () => $repository->agent_instructions,
+            'gitUrl' => fn () => $repository->git_url,
+            'path' => fn () => $repository->path,
+            'defaultBranch' => fn () => $repository->default_branch,
+            'publicSiteUrl' => fn () => $repository->public_site_url,
+            'isActive' => fn () => $repository->is_active,
+            'isDefault' => fn () => $repository->is_default,
+            'defaultResponsibleUserId' => fn () => $repository->default_responsible_user_id,
+            'ciSystem' => fn () => $repository->ci_system,
+            'sentryProject' => fn () => $repository->sentry_project,
+            'prReviewEnabled' => fn () => (bool) $repository->pr_review_enabled,
+            'reviewPolicy' => fn () => Arr::only($repository->reviewPolicy(), 'profile_max_age_days'),
+            'riskProfiles' => fn () => app(RepositoryRiskProfiles::class)->forSettings($repository->slug),
+            'riskProfileActionUrl' => fn () => route('repos.risk-profile', $repository),
+            'deploymentsEnabled' => fn () => (bool) $repository->deployments_enabled,
+            'previewRepairEnabled' => fn () => (bool) $repository->preview_repair_enabled,
+            'pathExcludes' => fn () => $repository->pr_review_path_excludes,
+            'githubFullName' => fn () => $repository->github_full_name,
+            'githubUrl' => fn () => $repository->githubUrl(),
+            'githubNameDiverged' => fn () => $repository->github_full_name !== $repository->slug,
         ];
+
+        return collect($keys)->mapWithKeys(fn (string $key): array => [$key => $fields[$key]()])->all();
     }
 
     /**
+     * @param  array<int, string>|null  $only  Option groups to build, all when null.
      * @return array{ciSystems: array<int, array{value: string, label: string}>, sentryProjects: array<int, array{value: string, label: string}>, defaultPathExcludes: array<int, string>, users: array<int, array{value: string, label: string}>, defaultReviewPolicy: array<string, mixed>}
      */
-    public static function options(): array
+    public static function options(?array $only = null): array
     {
-        return [
-            'ciSystems' => [
+        $options = [
+            'ciSystems' => fn () => [
                 ['value' => 'none', 'label' => 'None'],
                 ['value' => 'github_actions', 'label' => 'GitHub Actions'],
                 ['value' => 'drone', 'label' => 'Drone'],
             ],
-            'sentryProjects' => collect(self::loadSentryProjects())
+            'sentryProjects' => fn () => collect(self::loadSentryProjects())
                 ->map(fn (array $project): array => ['value' => $project['slug'], 'label' => $project['name']])
                 ->values()
                 ->all(),
-            'users' => User::query()->orderBy('name')->get(['id', 'name'])
+            'users' => fn () => User::query()->orderBy('name')->get(['id', 'name'])
                 ->map(fn (User $user): array => ['value' => (string) $user->id, 'label' => $user->name])
                 ->all(),
-            'defaultPathExcludes' => config('yak.pr_review.default_path_excludes'),
-            'defaultReviewPolicy' => Arr::only((new Repository)->reviewPolicy(), 'profile_max_age_days'),
+            'defaultPathExcludes' => fn () => config('yak.pr_review.default_path_excludes'),
+            'defaultReviewPolicy' => fn () => Arr::only((new Repository)->reviewPolicy(), 'profile_max_age_days'),
         ];
+
+        return collect($only ?? array_keys($options))->mapWithKeys(fn (string $key): array => [$key => $options[$key]()])->all();
     }
 
     /**
@@ -317,13 +329,12 @@ final class RepositorySettingsData
         $oldest = PrReview::query()
             ->where('repo', $repository->slug)
             ->where('created_at', '>=', now()->subDays(90))
-            ->whereNotNull('risk_assessment')
+            ->whereIn('risk_assessment->mode', ['shadow', 'enforce'])
+            ->where('risk_assessment->level', '>=', 2)
             ->oldest('created_at')
-            ->get(['id', 'risk_assessment', 'created_at'])
-            ->first(fn (PrReview $review): bool => in_array($review->risk_assessment['mode'] ?? null, ['shadow', 'enforce'], true)
-                && (int) ($review->risk_assessment['level'] ?? 1) >= 2);
+            ->value('created_at');
 
-        return $oldest?->created_at === null ? 0 : (int) $oldest->created_at->diffInDays(now(), true);
+        return $oldest === null ? 0 : (int) Carbon::parse($oldest)->diffInDays(now(), true);
     }
 
     public static function canDelete(Repository $repository): bool

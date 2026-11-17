@@ -38,7 +38,7 @@ function Alert({ tone, children }: { tone: 'warn' | 'fail'; children: ReactNode 
 
 /**
  * Your account and model for this repository, and the Yak account unattended work runs on.
- * Both save on their own, independent of the "Save repository" button.
+ * Both save on their own, independent of the save bar on the other sections.
  */
 export function ClaudeAccountSection({ slug, data }: { slug: string; data: RepositoryClaudeAccounts }) {
     const mine = data.accounts.filter((account) => !account.isSystem);
