@@ -1,0 +1,108 @@
+# The nightly end-to-end lane: the server's e2e tests, a real Yak started natively, and the UI journeys against it.
+# It is never part of ui_smoke or the pull request checks; ios-e2e.yml (nightly and on demand) and a developer call it.
+# Decisions (selection, secrets, log copying) live in lib/e2e_lane.rb.
+require "base64"
+require "fileutils"
+require "json"
+require_relative "lib/e2e_lane"
+
+E2E_REPOSITORY_ROOT = File.expand_path("..", IOS_ROOT)
+E2E_BUILD_DIRECTORY = File.join(IOS_ROOT, "build/e2e")
+E2E_WHOLE_LANE_SECONDS = 25 * 60
+
+platform :ios do
+  desc "Nightly journeys against a real local Yak: fastlane e2e device:\"iPhone 18 Pro\" only:testJourney1... keep_server:true skip_server_tests:true. " \
+       "No retry: a flaky journey is a bug. Keeps the server logs and the result bundle in ios/build/e2e"
+  lane :e2e do |options|
+    device = options[:device] || "iPhone 18 Pro"
+    selection = begin
+      E2eLane.selection(options[:only])
+    rescue ArgumentError => error
+      UI.user_error!(error.message)
+    end
+    keep_server = options[:keep_server].to_s == "true"
+    state_directory = (ENV["YAK_E2E_DIR"] || File.join(ENV.fetch("TMPDIR", "/tmp"), "yak-e2e")).sub(%r{/+\z}, "")
+    started_at = Time.now
+    passed = false
+    secrets = []
+    server_started = false
+
+    begin
+      generate
+      if options[:skip_server_tests].to_s == "true"
+        UI.important("skip_server_tests:true, the server's e2e tests did not run")
+      else
+        sh("cd #{E2E_REPOSITORY_ROOT.shellescape} && php artisan test --compact tests/E2e --fail-on-skipped")
+      end
+
+      FileUtils.rm_rf(E2E_BUILD_DIRECTORY)
+      FileUtils.mkdir_p(E2E_BUILD_DIRECTORY)
+      server_started = true
+      sh("cd #{E2E_REPOSITORY_ROOT.shellescape} && YAK_E2E_DIR=#{state_directory.shellescape} scripts/e2e/start.sh")
+      seed_path = File.join(state_directory, "seed.json")
+      seed_json = File.read(seed_path)
+      secrets = E2eLane.secrets(seed_json)
+      seed_base64 = secrets.last
+      secrets.each { |secret| puts("::add-mask::#{secret}") } if ENV["GITHUB_ACTIONS"]
+      FileUtils.rm_f(seed_path)
+
+      sh("xcrun simctl bootstatus #{device.shellescape} -b")
+      result_path = File.join(E2E_BUILD_DIRECTORY, "journeys.xcresult")
+      UI.message("journeys: running on #{device}")
+      command = "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+                "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} " \
+                "-derivedDataPath #{File.join(IOS_ROOT, "build/DerivedData").shellescape} #{selection} " \
+                "-resultBundlePath #{result_path.shellescape} CODE_SIGNING_ALLOWED=NO"
+      # The seed rides in the environment of this one call and never in the command string, which log:false keeps out of the output.
+      ENV["TEST_RUNNER_YAK_E2E_SEED"] = seed_base64
+      begin
+        sh(command, log: false)
+      ensure
+        ENV.delete("TEST_RUNNER_YAK_E2E_SEED")
+      end
+      passed = true
+      summary = JSON.parse(`xcrun xcresulttool get test-results summary --path #{result_path.shellescape} --compact`)
+      UI.user_error!("No journey ran for #{selection}") if summary["totalTestCount"].to_i.zero?
+      UI.message("journeys: #{summary["passedTests"] || summary["totalTestCount"]} passed in #{((Time.now - started_at) / 60.0).round(1)} min")
+      UI.important("The whole lane took over #{E2E_WHOLE_LANE_SECONDS / 60} minutes") if Time.now - started_at > E2E_WHOLE_LANE_SECONDS
+    ensure
+      if server_started
+        sh("cd #{E2E_REPOSITORY_ROOT.shellescape} && YAK_E2E_DIR=#{state_directory.shellescape} scripts/e2e/stop.sh") unless keep_server
+        e2e_keep_evidence(state_directory, secrets, passed, options[:only].to_s.empty?)
+      end
+    end
+  end
+
+  # Copies the server's logs and the result bundle's attachments to ios/build/e2e, deletes any file that holds a token,
+  # and, for a whole passing run, checks that it used the realtime connection.
+  def e2e_keep_evidence(state_directory, secrets, passed, whole_suite)
+    logs = File.join(E2E_BUILD_DIRECTORY, "logs")
+    FileUtils.mkdir_p(logs)
+    Dir.glob(File.join(state_directory, "logs", "*")).each { |path| FileUtils.cp(path, logs) }
+    offset_path = File.join(state_directory, "laravel.offset")
+    offset = File.exist?(offset_path) ? File.read(offset_path).to_i : 0
+    E2eLane.copy_log_from_offset(File.join(E2E_REPOSITORY_ROOT, "storage/logs/laravel.log"), File.join(logs, "laravel.log"), offset)
+
+    result_path = File.join(E2E_BUILD_DIRECTORY, "journeys.xcresult")
+    attachments = File.join(E2E_BUILD_DIRECTORY, "attachments")
+    if File.exist?(result_path)
+      system("xcrun", "xcresulttool", "export", "attachments", "--path", result_path, "--output-path", attachments, out: File::NULL, err: File::NULL)
+    end
+
+    leaked = secrets.empty? ? [] : E2eLane.files_with_secrets([logs, attachments, result_path], secrets)
+    leaked.each { |path| UI.error("A token reached #{path.sub("#{IOS_ROOT}/", "")}") }
+    # A match inside the bundle deletes the whole bundle; the exported attachments stay unless they matched too.
+    leaked.each do |path|
+      FileUtils.rm_rf(result_path) if path.start_with?("#{result_path}/")
+      FileUtils.rm_f(path) unless path.start_with?("#{result_path}/")
+    end
+    UI.user_error!("A token reached #{leaked.size} file(s) of the evidence; they were deleted") unless leaked.empty?
+
+    # A single journey, such as pairing, may never open a thread, so only the whole suite must have used the realtime connection.
+    return unless passed && whole_suite
+    reverb_log = File.join(logs, "reverb.log")
+    unless File.exist?(reverb_log) && E2eLane.realtime_subscribed?(File.read(reverb_log))
+      UI.user_error!("The journeys passed without a realtime subscription")
+    end
+  end
+end

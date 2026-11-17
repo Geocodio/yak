@@ -1,0 +1,93 @@
+name: iOS end-to-end
+
+# The nightly journeys: the real app against a real Yak started on the runner in its e2e mode. It runs on a schedule
+# and on demand, never on a push or a pull request, and it holds no secrets.
+on:
+  schedule:
+    - cron: '23 2 * * *'
+  workflow_dispatch: {}
+  workflow_call: {}
+
+concurrency:
+  # In a called workflow github.workflow is the caller's name, so a release run and a nightly run never cancel each other.
+  group: ios-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    # GitHub's hosted Xcode 27 image. Never register a self-hosted runner under this label.
+    runs-on: xcode-27
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_$(cat ios/.xcode-version).app"
+      - name: Install tools
+        run: brew install redis xcodegen
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          extensions: sqlite3, pdo_sqlite, redis
+          coverage: none
+          ini-values: memory_limit=2G
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+      - name: Prepare the environment file
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      # Composer first: package.json installs a package from vendor/.
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Cache built assets
+        id: assets
+        uses: actions/cache@v6
+        with:
+          path: public/build
+          key: assets-${{ hashFiles('resources/**', 'package-lock.json', 'vite.config.ts', '.github/workflows/ios-e2e.yml') }}
+      - name: Build assets
+        if: steps.assets.outputs.cache-hit != 'true'
+        run: npm run build
+      - name: Cache Swift packages and derived data
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/Library/Developer/Xcode/DerivedData
+            ios/build/DerivedData
+          key: e2e-swift-${{ hashFiles('ios/project.yml', 'ios/Packages/**/Package.swift', 'ios/**/Package.resolved') }}
+      - name: Cache gems
+        uses: actions/cache@v6
+        with:
+          path: ios/vendor/bundle
+          key: e2e-gems-${{ hashFiles('ios/Gemfile.lock') }}
+      - name: Install gems
+        working-directory: ios
+        run: |
+          bundle config set path vendor/bundle
+          bundle install
+      - name: Journeys
+        working-directory: ios
+        run: bundle exec fastlane e2e
+      - name: Keep the logs and the result bundle
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-evidence
+          retention-days: 14
+          path: |
+            ios/build/e2e/logs
+            ios/build/e2e/attachments
+            ios/build/e2e/*.xcresult
