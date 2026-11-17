@@ -20,8 +20,7 @@ struct ShareSheet: View {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .navigationTitle(Text("share.title"))
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationBackground(Color(.systemGroupedBackground))
@@ -46,57 +45,69 @@ private struct ShareSheetForm: View {
     let close: () -> Void
 
     var body: some View {
-        Form {
-            if let problem = model.problem {
-                Section {
-                    Text(problem).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakWarning)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("share.problem")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if let problem = model.problem {
+                    card {
+                        Text(problem).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakWarning)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("share.problem")
+                    }
+                }
+                switch model.load {
+                case .ready: choices
+                case .loading: skeleton
+                case .slow: slow
+                case .failed(let problem): failed(problem)
                 }
             }
-            switch model.load {
-            case .ready: choices
-            case .loading: skeleton
-            case .slow: slow
-            case .failed(let problem): failed(problem)
-            }
+            .padding(.horizontal, 16).padding(.bottom, 24)
         }
-        .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.interactively)
         .background(Color(.systemGroupedBackground))
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
+        .safeAreaInset(edge: .top, spacing: 0) {
+            SheetHeader(title: "share.title") {
                 Button("overview.cancel") { close() }.yakShortcut(.cancel).disabled(model.isSaving)
-                    .accessibilityIdentifier("share.cancel")
-            }
-            ToolbarItem(placement: .confirmationAction) {
+                    .foregroundStyle(Color.primary).accessibilityIdentifier("share.cancel")
+            } confirm: {
                 Button {
                     Task { if await model.save() { close() } }
                 } label: {
                     if model.isSaving { ProgressView() } else { Text("share.save") }
                 }
+                .fontWeight(.semibold).foregroundStyle(Color.primary)
                 .disabled(!model.canSave).accessibilityIdentifier("share.save")
             }
+            .background(Color(.systemGroupedBackground))
         }
         .sensoryFeedback(.error, trigger: model.refusalCount)
+    }
+
+    /// A rounded group of rows on the grouped background.
+    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) { content() }
+            .padding(.horizontal, 16).padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 20))
     }
 
     // MARK: Choices
 
     @ViewBuilder private var choices: some View {
         if let form = model.form {
-            Section {
+            card {
                 modeRow(.onlyMe, "only_me", "share.mode.onlyMe", "share.mode.onlyMe.detail")
+                Divider()
                 modeRow(.people, "people", "share.mode.people", "share.mode.people.detail")
+                Divider()
                 modeRow(.everyone, "everyone", "share.mode.everyone", "share.mode.everyone.detail")
             }
             if form.mode == .people { people(form) }
             if !model.secretFiles.isEmpty {
-                Section {
-                } footer: {
-                    Text("share.never \(model.secretFiles.joined(separator: ", "))")
-                        .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
-                        .accessibilityIdentifier("share.never")
-                }
+                Text("share.never \(model.secretFiles.joined(separator: ", "))")
+                    .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    .padding(.horizontal, 16)
+                    .accessibilityIdentifier("share.never")
             }
         }
     }
@@ -118,7 +129,7 @@ private struct ShareSheetForm: View {
                     Image(systemName: "checkmark").foregroundStyle(Color.accentColor).accessibilityHidden(true)
                 }
             }
-            .frame(minHeight: 44).contentShape(.rect)
+            .padding(.vertical, 8).frame(minHeight: 44).contentShape(.rect)
         }
         .buttonStyle(.plain).disabled(model.isSaving)
         .accessibilityAddTraits(isChosen ? [.isSelected] : [])
@@ -126,21 +137,25 @@ private struct ShareSheetForm: View {
     }
 
     @ViewBuilder private func people(_ form: ShareForm) -> some View {
-        Section {
+        card {
             if model.showsSearch {
                 TextField("share.search", text: $model.search).textInputAutocapitalization(.never)
-                    .autocorrectionDisabled().accessibilityIdentifier("share.search")
+                    .autocorrectionDisabled().frame(minHeight: 44).accessibilityIdentifier("share.search")
+                Divider()
             }
             if model.hasNobodyElse {
                 Text("share.nobody").font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
-                    .accessibilityIdentifier("share.nobody")
+                    .frame(minHeight: 44).accessibilityIdentifier("share.nobody")
             }
-            ForEach(model.visiblePeople) { person in personRow(person, form: form) }
-        } footer: {
-            if form.problem == .pickSomeone {
-                Text("share.pickSomeone").foregroundStyle(Color.yakWarning)
-                    .accessibilityIdentifier("share.pickSomeone")
+            let people = model.visiblePeople
+            ForEach(Array(people.enumerated()), id: \.element.id) { index, person in
+                if index > 0 { Divider() }
+                personRow(person, form: form)
             }
+        }
+        if form.problem == .pickSomeone {
+            Text("share.pickSomeone").foregroundStyle(Color.yakWarning).padding(.horizontal, 16)
+                .accessibilityIdentifier("share.pickSomeone")
         }
     }
 
@@ -177,7 +192,7 @@ private struct ShareSheetForm: View {
 
     @ViewBuilder private var skeleton: some View {
         if model.showsSkeleton {
-            Section {
+            card {
                 VStack(spacing: 12) {
                     ForEach(0..<3, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 5).fill(Color(.tertiarySystemFill)).frame(height: 32)
@@ -191,21 +206,23 @@ private struct ShareSheetForm: View {
     }
 
     private var slow: some View {
-        Section {
+        card {
             Text("share.slow").font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
-            Button("common.retry") { Task { await model.retry() } }.accessibilityIdentifier("share.retry")
+            Button("common.retry") { Task { await model.retry() } }.frame(minHeight: 44)
+                .accessibilityIdentifier("share.retry")
         }
         .accessibilityIdentifier("share.slow")
     }
 
     private func failed(_ problem: ThreadProblem) -> some View {
-        Section {
+        card {
             Text(problem == .offline ? "share.offline" : "share.loadFailed").font(.subheadline.weight(.medium))
                 .fixedSize(horizontal: false, vertical: true)
             if case .server(_, let message) = problem, !message.isEmpty {
                 Text(message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
             }
-            Button("common.retry") { Task { await model.retry() } }.accessibilityIdentifier("share.retry")
+            Button("common.retry") { Task { await model.retry() } }.frame(minHeight: 44)
+                .accessibilityIdentifier("share.retry")
         }
         .accessibilityIdentifier("share.error")
     }

@@ -20,10 +20,7 @@ struct AddSubThreadSheet: View {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .navigationTitle(Text("addSubThread.title"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color(.systemGroupedBackground), for: .navigationBar)
-            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .presentationBackground(Color(.systemGroupedBackground))
         .presentationDetents([.medium, .large])
@@ -88,8 +85,8 @@ private struct AddSubThreadForm: View {
             .listRowBackground(Color.clear)
         }
         .scrollDismissesKeyboard(.interactively)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
+        .safeAreaInset(edge: .top, spacing: 0) {
+            SheetHeader(title: "addSubThread.title") {
                 Button("addSubThread.cancel") {
                     Task {
                         await model.flush()
@@ -99,10 +96,10 @@ private struct AddSubThreadForm: View {
                 .yakShortcut(.cancel).disabled(model.isSending)
                 .foregroundStyle(Color.primary)
                 .accessibilityIdentifier("addSubThread.cancel")
+            } confirm: {
+                addButton
             }
-            .sharedBackgroundVisibility(.hidden)
-            ToolbarItem(placement: .confirmationAction) { addButton }
-                .sharedBackgroundVisibility(.hidden)
+            .background(Color(.systemGroupedBackground))
         }
         .sensoryFeedback(.error, trigger: model.refusalCount)
         .task {
