@@ -6,7 +6,7 @@ import XCTest
         try stub.play("not-yak")
         let app = XCUIApplication()
         app.launchArguments = ["-yakTestInstance", stub.url]
-        app.launch()
-        XCTAssertTrue(app.staticTexts["Connect to your Yak"].waitForExistence(timeout: 5))
+        app.launchRetryingOnce()
+        XCTAssertTrue(app.staticTexts["Connect to your Yak"].waitForExistence(timeout: Wait.firstLoad))
     }
 }
