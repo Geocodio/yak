@@ -54,7 +54,7 @@ class EnsureRepoReady
                 $job,
                 $task,
                 "Repository '{$task->repo}' not found",
-                TaskStop::repositoryUnknown(Repository::where('is_active', true)->pluck('slug')->all(), "Repository '{$task->repo}' not found"),
+                TaskStop::repositoryUnknown(array_values(Repository::where('is_active', true)->get()->map(fn (Repository $active): string => $active->slug)->all()), "Repository '{$task->repo}' not found"),
             );
 
             return;
