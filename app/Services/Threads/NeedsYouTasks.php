@@ -25,7 +25,7 @@ class NeedsYouTasks
     private const LIMIT = 50;
 
     /**
-     * @return list<array{type: 'task', taskId: string, title: string, needsYouReason: 'question'|'co_owner', needsYouLabel: string, isPrivate: bool, lastActivityAt: string}>
+     * @return list<array{type: 'task', taskId: string, threadId: ?string, title: string, needsYouReason: 'question'|'co_owner', needsYouLabel: string, isPrivate: bool, lastActivityAt: string}>
      */
     public static function for(User $user, ?string $search = null): array
     {
@@ -33,7 +33,7 @@ class NeedsYouTasks
         $query = self::matching($user)
             ->leftJoin('threads as item_thread', 'item_thread.id', '=', 'tasks.thread_id')
             ->leftJoin('threads as item_root', 'item_root.id', '=', DB::raw('coalesce(item_thread.root_thread_id, item_thread.id)'))
-            ->select('tasks.*', 'item_thread.status as item_thread_status', 'item_root.visibility as item_root_visibility')
+            ->select('tasks.*', 'item_thread.status as item_thread_status', 'item_thread.public_id as item_thread_public_id', 'item_root.visibility as item_root_visibility')
             ->orderByDesc('tasks.updated_at')
             ->orderByDesc('tasks.id');
 
@@ -52,6 +52,7 @@ class NeedsYouTasks
             $items[] = [
                 'type' => 'task',
                 'taskId' => $task->public_id,
+                'threadId' => $task->getAttribute('item_thread_public_id'),
                 'title' => Str::limit(TaskRowData::plainPreview((string) $task->description), 120),
                 'needsYouReason' => $isQuestion ? 'question' : 'co_owner',
                 'needsYouLabel' => $isQuestion ? 'Asked you a question' : 'Waiting for your co-owner decision',

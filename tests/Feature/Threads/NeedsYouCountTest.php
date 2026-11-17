@@ -119,7 +119,7 @@ it('lists and counts once a co-owner request on a task with no thread or a close
     $items = NeedsYouTasks::for($user);
 
     expect($items)->toHaveCount(1)
-        ->and(array_keys($items[0]))->toBe(['type', 'taskId', 'title', 'needsYouReason', 'needsYouLabel', 'isPrivate', 'lastActivityAt'])
+        ->and(array_keys($items[0]))->toBe(['type', 'taskId', 'threadId', 'title', 'needsYouReason', 'needsYouLabel', 'isPrivate', 'lastActivityAt'])
         ->and($items[0]['needsYouReason'])->toBe('co_owner')
         ->and(NeedsYouTasks::count($user))->toBe(1);
 })->with([[false], [true]]);

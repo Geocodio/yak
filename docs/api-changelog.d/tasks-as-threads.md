@@ -1,0 +1,9 @@
+#### Task actions on the thread routes (2026-11-17)
+
+Additions, so the protocol stays 1. No task route, task field or existing thread field changes.
+
+New routes under `threads/{thread}/`: `POST retry`, `cancel`, `move` (body `repo`), `request-review`, `retry-render`, `setup-and-continue`, `repository-answer` (body `repo`), `co-owner/approve`, `co-owner/request-changes` (body `feedback`), `co-owner/reject`, `co-owner/withdraw`, `co-owner/check-access`, `co-owner/tag` (body `user_id`), `co-owner/decline`, and `GET co-owner/candidates`. A write route needs drive rights on the thread (404 when hidden, 403 when the person can only read). Each answers `200` with the `status` word of the matching task route plus every key of `GET threads/{thread}` for the refreshed thread, so a client replaces its state without a second request. `move` answers with the thread the work is on after the move, which is a new thread when the old one had a repository. A thread with no fitting task answers `422` with `nothing_to_retry`, `nothing_to_cancel`, `nothing_to_move`, `nothing_to_review`, `nothing_to_render`, `nothing_to_answer` or `nothing_to_decide`. `no_repository` (409) and `review_not_requested` (409) are new codes too.
+
+`thread.hasRepository` (bool) is new on `GET threads/{thread}`, and every thread row has `hasRepository`. `repo` stays the string `unknown` for a thread without a repository. Each task item of `needsYou` in `GET threads` has `threadId`: the public id of the task's thread, or null for a task with no thread.
+
+The `progress.steps` of a task (and the `progress` of a thread) now show the CI step as "CI failed" with `failed: true` for a task that failed after a failed CI result; it used to read "CI passed". A step can now be `done: true` and `failed: true` together when the task has a pull request.

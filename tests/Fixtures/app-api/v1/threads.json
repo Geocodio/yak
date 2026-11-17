@@ -24,6 +24,7 @@
             "needsYouLabel": "Asked you a question",
             "needsYouReason": "question",
             "taskId": "<volatile:string>",
+            "threadId": null,
             "title": "Pick a retry policy",
             "type": "task"
         },
@@ -31,6 +32,7 @@
             "canDelete": true,
             "children": [],
             "group": "today",
+            "hasRepository": true,
             "id": "<volatile:string>",
             "isPrivate": false,
             "isShared": false,

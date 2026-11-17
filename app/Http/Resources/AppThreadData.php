@@ -33,6 +33,7 @@ final class AppThreadData
             'attachments' => array_map(fn (array $attachment): array => $links->rewriteTree($attachment), $message['attachments']),
             'bodyHtml' => $links->rewrite($message['bodyHtml']),
         ] + $message, $data['messages']);
+        $data['thread']['hasRepository'] = $thread->hasRepository();
         $hasNoSandbox = $thread->sandbox_state === ThreadSandboxState::None;
 
         return $data + [

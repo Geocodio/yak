@@ -221,6 +221,7 @@
         "blockedReason": null,
         "branch": "yak/retry-failed-uploads",
         "canShare": true,
+        "hasRepository": true,
         "id": "<volatile:string>",
         "isOwner": true,
         "isStarred": false,

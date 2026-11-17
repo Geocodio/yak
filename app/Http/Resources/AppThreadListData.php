@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\ThreadListFilter;
+use App\Models\Thread;
 use App\Models\User;
 use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\NeedsYouTasks;
@@ -46,7 +47,7 @@ final class AppThreadListData
     }
 
     /**
-     * Adds the row `type` and the unread mark app builds read: they draw the finished-and-not-seen dot from the `unseen` reason.
+     * Adds the row `type`, `hasRepository` and the unread mark app builds read: they draw the finished-and-not-seen dot from the `unseen` reason.
      *
      * @param  list<array<string, mixed>>  $rows
      * @return list<array<string, mixed>>
@@ -67,6 +68,7 @@ final class AppThreadListData
             $row['needsYouLabel'] = 'Finished, not seen yet';
         }
 
+        $row['hasRepository'] = $row['repo'] !== Thread::UNKNOWN_REPOSITORY;
         $row['children'] = array_map(fn (array $child): array => self::withUnseenReason($child), $row['children']);
 
         return $row;

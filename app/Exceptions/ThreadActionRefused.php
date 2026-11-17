@@ -76,6 +76,8 @@ final class ThreadActionRefused extends RuntimeException
 
     public const REPOSITORY_NOT_OFFERED = 'repository_not_offered';
 
+    public const REVIEW_NOT_REQUESTED = 'review_not_requested';
+
     /**
      * @param  array<string, mixed>  $details
      */

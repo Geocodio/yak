@@ -1,0 +1,329 @@
+{
+    "actions": {
+        "canCancel": true,
+        "canMove": false,
+        "canRequestReview": false,
+        "canRetry": false,
+        "canRetryRender": false,
+        "canStop": false,
+        "moveTargets": []
+    },
+    "brief": null,
+    "canDrive": true,
+    "canOpenPullRequest": false,
+    "capacity": null,
+    "card": "repository_question",
+    "coOwner": null,
+    "composer": {
+        "accountName": null,
+        "context": null,
+        "contextWindows": {
+            "claude-fable-5-2": 1000000,
+            "claude-haiku-5-5": 1000000,
+            "claude-opus-5-5": 1000000,
+            "claude-sonnet-5-5": 1000000,
+            "default": 200000,
+            "fable": 1000000,
+            "haiku": 1000000,
+            "opus": 1000000,
+            "sonnet": 1000000
+        },
+        "effort": null,
+        "model": "opus",
+        "models": [
+            {
+                "family": "opus",
+                "latest": {
+                    "description": "For complex work and everyday tasks",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
+                    "label": "Opus 5.5",
+                    "value": "opus"
+                },
+                "older": []
+            },
+            {
+                "family": "fable",
+                "latest": {
+                    "description": "For your toughest challenges",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
+                    "label": "Fable 5.2",
+                    "value": "fable"
+                },
+                "older": []
+            },
+            {
+                "family": "sonnet",
+                "latest": {
+                    "description": "Most efficient for simpler tasks",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
+                    "label": "Sonnet 5.5",
+                    "value": "sonnet"
+                },
+                "older": []
+            },
+            {
+                "family": "haiku",
+                "latest": {
+                    "description": "Fastest for quick answers",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
+                    "label": "Haiku 5.5",
+                    "value": "haiku"
+                },
+                "older": []
+            }
+        ],
+        "nextAttachmentNumber": 1,
+        "state": "idle"
+    },
+    "diffTotals": null,
+    "earlyWarning": null,
+    "isLegacy": false,
+    "latestSequence": 12,
+    "legacyAnswers": [],
+    "liveActivityChannel": null,
+    "localTurnStints": [],
+    "localTurns": null,
+    "messages": [
+        {
+            "attachmentIds": [],
+            "attachments": [],
+            "authorInitials": "TP",
+            "authorName": "Test person",
+            "bodyHtml": "<p>Retry failed uploads</p>\n",
+            "canEditText": false,
+            "effort": null,
+            "id": "<volatile:string>",
+            "intent": null,
+            "isReply": false,
+            "isRetry": false,
+            "mode": null,
+            "model": null,
+            "readAfterSequence": null,
+            "retryNumber": null,
+            "sendKey": null,
+            "sentAt": "2026-11-15T12:00:00+00:00",
+            "state": "pending",
+            "text": "Retry failed uploads",
+            "uuid": "<volatile:null>",
+            "via": {
+                "key": "slack",
+                "label": "Slack",
+                "reference": null,
+                "url": null
+            }
+        }
+    ],
+    "milestones": [],
+    "modelLabels": {
+        "claude-fable-5-2": "Fable 5.2",
+        "claude-haiku-5-5": "Haiku 5.5",
+        "claude-opus-5-5": "Opus 5.5",
+        "claude-sonnet-5-5": "Sonnet 5.5",
+        "fable": "Fable 5.2",
+        "haiku": "Haiku 5.5",
+        "opus": "Opus 5.5",
+        "sonnet": "Sonnet 5.5"
+    },
+    "notice": null,
+    "panes": {
+        "changes": true,
+        "chat": true,
+        "files": false,
+        "preview": true,
+        "terminal": false
+    },
+    "progress": {
+        "steps": [
+            {
+                "key": "received",
+                "label": "Received",
+                "state": "done",
+                "tooltip": "Task landed in the queue."
+            },
+            {
+                "key": "picked_up",
+                "label": "Picked up",
+                "state": "done",
+                "tooltip": "An agent has claimed the task and started setup."
+            },
+            {
+                "key": "working",
+                "label": "Working",
+                "state": "current",
+                "tooltip": "Agent is investigating the codebase and implementing the fix."
+            },
+            {
+                "key": "pushed",
+                "label": "Pushed",
+                "state": "upcoming",
+                "tooltip": "Changes committed and pushed to a branch."
+            },
+            {
+                "key": "c_i_passed",
+                "label": "CI passed",
+                "state": "upcoming",
+                "tooltip": "CI verifies the changes before the pull request opens."
+            },
+            {
+                "key": "pull_request",
+                "label": "Pull request",
+                "state": "upcoming",
+                "tooltip": "Pull request opened for human review."
+            },
+            {
+                "key": "done",
+                "label": "Done",
+                "state": "upcoming",
+                "tooltip": "Task complete."
+            }
+        ]
+    },
+    "publishWarning": false,
+    "pullRequest": null,
+    "question": null,
+    "repositoryQuestion": {
+        "canAnswer": true,
+        "options": [
+            "example/api",
+            "example/web"
+        ],
+        "prompt": "Which repository is this for?",
+        "selected": null
+    },
+    "request": {
+        "responsibleName": null,
+        "source": {
+            "key": "slack",
+            "label": "Slack",
+            "reference": null,
+            "url": null
+        },
+        "starter": {
+            "avatarUrl": null,
+            "key": "<volatile:string>",
+            "name": "Test person"
+        },
+        "status": {
+            "key": "needs_you",
+            "label": "Needs you",
+            "tone": "warn"
+        }
+    },
+    "runDetails": {
+        "apiSpendUsd": 0,
+        "attempts": null,
+        "completedAt": null,
+        "costUsd": 0,
+        "durationSeconds": 0,
+        "errorLog": null,
+        "errorLogTruncated": false,
+        "runCount": 0,
+        "sessionId": null,
+        "startedAt": null,
+        "stepCount": 0
+    },
+    "sharedFiles": [],
+    "stackParent": null,
+    "stopped": null,
+    "teleport": {
+        "accountName": null,
+        "canTeleport": true,
+        "command": "<volatile:string>",
+        "continuedFromThreadId": null,
+        "continuedFromTitle": null,
+        "environmentNote": null,
+        "environmentSwitch": null,
+        "environmentSwitches": [],
+        "failure": null,
+        "hasDevices": true,
+        "heldEvents": [],
+        "link": "<volatile:string>",
+        "openTeleportState": null,
+        "ownerDevice": null,
+        "ownerName": null,
+        "requestedRunningTurn": null,
+        "runningTurn": false,
+        "since": null,
+        "state": "none",
+        "viewerIsOwner": false
+    },
+    "thread": {
+        "blockedReason": null,
+        "branch": null,
+        "canShare": true,
+        "hasRepository": false,
+        "id": "<volatile:string>",
+        "isOwner": false,
+        "isStarred": false,
+        "kind": "general",
+        "lastActivityAt": null,
+        "name": "retry-failed-uploads",
+        "ownerSide": "yak",
+        "parentThreadId": null,
+        "preview": {
+            "awakeCap": 8,
+            "canRestore": false,
+            "coldStartCommand": null,
+            "host": null,
+            "personAwakeCap": 4,
+            "port": null,
+            "repoLabel": "unknown",
+            "safariFallback": true,
+            "setup": {
+                "endedWithoutManifest": false,
+                "intent": null,
+                "isRunning": false
+            },
+            "state": "destroyed",
+            "targets": [
+                {
+                    "canRestore": false,
+                    "kind": "general",
+                    "state": "destroyed",
+                    "threadId": "<volatile:string>",
+                    "title": "Retry failed uploads",
+                    "url": null
+                }
+            ],
+            "teleportCommand": null,
+            "url": null
+        },
+        "pullRequestCount": 0,
+        "pullRequestOpening": null,
+        "repo": "unknown",
+        "repositories": [],
+        "rootThreadId": "<volatile:null>",
+        "runnerState": "none",
+        "sandboxState": "none",
+        "sharedWithCount": 0,
+        "startedOnDevice": false,
+        "status": "open",
+        "title": "Retry failed uploads",
+        "visibility": "team"
+    },
+    "walkthrough": null
+}
