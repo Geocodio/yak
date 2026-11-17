@@ -13,8 +13,10 @@ import UIKit
 /// freed. `scripts/markdown-isolated.sh` runs each input in its own test process with `YAK_LAYOUT_INPUT` set;
 /// a plain run checks the time of every input and the memory of none.
 @MainActor @Suite(.serialized) struct MarkdownLayoutTests {
-    static let timeLimit = 0.5
-    static let scrollStepLimit = 0.25
+    /// The first screen's time limit, 0.5 s on a quiet Mac, scaled for the machine the tests run on.
+    static let timeLimit = 0.5 * TestTimeScale.factor
+    /// The slowest scroll step's limit, 0.25 s on a quiet Mac, scaled the same way.
+    static let scrollStepLimit = 0.25 * TestTimeScale.factor
     static let memoryLimitMegabytes = 400.0
 
     /// What holds the message: the chat's scroll view with the message alone, its rows in a lazy stack of

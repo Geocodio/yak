@@ -95,8 +95,10 @@ platform :ios do
     generate
     sh("cd #{File.join(IOS_ROOT, "Packages/YakKit").shellescape} && swift test -Xswiftc -warnings-as-errors")
     sh("cd #{File.join(IOS_ROOT, "Packages/YakStub").shellescape} && swift test -Xswiftc -warnings-as-errors")
+    # The test process sees only TEST_RUNNER_ variables; these scale the wall-clock limits on a slower machine.
+    variables = %w[CI YAK_TEST_TIMEOUT_SCALE].filter_map { |name| ENV[name] && "TEST_RUNNER_#{name}=#{ENV[name].shellescape}" }.join(" ")
     sh(
-      "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
+      "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
       "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} -only-testing:YakTests " \
       "CODE_SIGNING_ALLOWED=NO"
     )
