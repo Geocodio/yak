@@ -8,7 +8,7 @@ enum TestTimeScale {
 
     nonisolated static func factor(in environment: [String: String]) -> Double {
         if let value = environment["YAK_TEST_TIMEOUT_SCALE"].flatMap(Double.init), value > 0 { return value }
-        return environment["CI"] == nil ? 1 : 6
+        return (environment["CI"] ?? "").isEmpty ? 1 : 6
     }
 }
 
@@ -16,5 +16,5 @@ enum TestTimeScale {
     #expect(TestTimeScale.factor(in: [:]) == 1)
     #expect(TestTimeScale.factor(in: ["CI": "true"]) == 6)
     #expect(TestTimeScale.factor(in: ["CI": "true", "YAK_TEST_TIMEOUT_SCALE": "2.5"]) == 2.5)
-    #expect(TestTimeScale.factor(in: ["YAK_TEST_TIMEOUT_SCALE": "zero"]) == 1)
+    #expect(TestTimeScale.factor(in: ["YAK_TEST_TIMEOUT_SCALE": "zero", "CI": ""]) == 1)
 }

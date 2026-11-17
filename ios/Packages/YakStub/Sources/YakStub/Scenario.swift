@@ -81,12 +81,16 @@ struct StubFixtures: Sendable {
         self.files = files
         var scenarioFiles: [String: Data] = [:]
         if let scenariosDirectory {
-            for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames {
+            for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames
+                + StubFeatures.all.flatMap(\.scenarioDataNames)
+            {
                 do {
                     scenarioFiles[name] = try Data(
                         contentsOf: scenariosDirectory.appendingPathComponent("\(name).json"))
                 } catch {
-                    let owner = StubFeatures.all.first { $0.fixturePairs.contains { $0.scenario == name } }?.name
+                    let owner = StubFeatures.all.first {
+                        $0.fixturePairs.contains { $0.scenario == name } || $0.scenarioDataNames.contains(name)
+                    }?.name
                     throw StubFixtureError(scenario: name, feature: owner)
                 }
             }
@@ -199,6 +203,8 @@ enum Scenario: String, CaseIterable, Sendable {
     /// `d0e515ef` has 60 earlier steps, then the turn of `one-thread-working` plays live after them (its sequences
     /// are 60 higher).
     case longTurn = "long-turn"
+    /// Like `oneThreadWorking`, but the last event never plays, so the turn stays open.
+    case oneThreadHeld = "one-thread-held"
     /// The person has no threads of their own, the team has: `mine` is empty, `everyone` is the scenario list.
     case teamOnly = "team-only"
     /// Nobody has a thread.

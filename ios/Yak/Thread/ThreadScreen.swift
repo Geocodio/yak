@@ -78,6 +78,7 @@ struct ThreadScreen: View {
 
     private func content(_ thread: ThreadModel, placement: PaneControlPlacement) -> some View {
         let focused = focusedBinding(thread)
+        let activity = activityLine(thread, focused: focused.wrappedValue)
         return NavigationStack {
             HStack(spacing: 0) {
                 // The bar sits below the pane, not over it, on the page color that runs to the bottom of the
@@ -85,7 +86,13 @@ struct ThreadScreen: View {
                 VStack(spacing: 0) {
                     if placement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
                     PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
-                    BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
+                    VStack(spacing: 6) {
+                        if let line = activity {
+                            ActivityStrip(line: line) { openChat(focusComposer: $0) }
+                        }
+                        BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: activity)
                 }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
@@ -109,7 +116,7 @@ struct ThreadScreen: View {
                 }
             }
             .overlay(alignment: .top) { copiedToast }
-            .background { shortcuts(focused) }
+            .background { shortcuts(focused, panes: thread.panes) }
         }
         .environment(scene)
         .sensoryFeedback(.success, trigger: copiedLink)
@@ -126,7 +133,11 @@ struct ThreadScreen: View {
         VStack(spacing: 8) {
             if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
             PaneMenuButton(panes: thread.panes, focused: focused)
+            PaneStripRow(slots: slots, focused: focused.wrappedValue)
             Spacer(minLength: 0)
+            if let line = activityLine(thread, focused: focused.wrappedValue) {
+                ActivityStripButton(line: line) { openChat(focusComposer: $0) }
+            }
             threadMenu(focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
         }
         .tint(.primary)
@@ -136,6 +147,17 @@ struct ThreadScreen: View {
         .padding(.vertical, 8).padding(.trailing, 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("thread.strip")
+    }
+
+    /// The line above the bar in every pane but Chat.
+    private func activityLine(_ thread: ThreadModel, focused: PaneID) -> ActivityLine? {
+        focused == .chat ? nil : ActivityLine.make(thread.snapshot)
+    }
+
+    /// Shows Chat, and puts the cursor in the composer when asked.
+    private func openChat(focusComposer: Bool) {
+        scene.focus(pane: .chat)
+        if focusComposer { scene.requestComposerFocus() }
     }
 
     // MARK: Controls
@@ -171,10 +193,15 @@ struct ThreadScreen: View {
         }
     }
 
-    /// Command 1 focuses Chat.
-    private func shortcuts(_ focused: Binding<PaneID>) -> some View {
-        Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
-            .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
+    /// Command 1 focuses Chat, Command 2 Preview when the thread has one.
+    private func shortcuts(_ focused: Binding<PaneID>, panes: [PaneID]) -> some View {
+        ZStack {
+            Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
+            if panes.contains(.preview) {
+                Button("pane.preview") { focused.wrappedValue = .preview }.yakShortcut(.focusPreview)
+            }
+        }
+        .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }
 }
 

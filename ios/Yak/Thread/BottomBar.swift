@@ -12,7 +12,14 @@ struct BottomBar: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let swipeDistance: CGFloat = 60
 
+    /// The pane's controls are in the trailing strip, so the bar has nothing of its own to show.
+    private var isInStrip: Bool { placement == .trailingStrip && slots.stripRows[focused] != nil }
+
     var body: some View {
+        if !isInStrip { bar }
+    }
+
+    private var bar: some View {
         layout
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background { BarSurface() }

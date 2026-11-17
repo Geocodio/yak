@@ -15,7 +15,7 @@ struct YakApp: App {
         let system = DeviceDescription.current().systemDescription
         #if DEBUG
             if let testMode = TestMode.current() {
-                let parts = AppParts.make(storage: nil, isTestMode: true)
+                let parts = AppParts.make(storage: nil, isTestMode: true, defaults: MemoryDefaults())
                 self.parts = parts
                 _model = State(initialValue: testMode.makeModel(version: version, system: system, parts: parts))
                 return
@@ -33,7 +33,7 @@ struct YakApp: App {
         let tokens = storage?.tokens ?? KeychainTokenStore(accessGroup: nil)
         let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
         let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() })
-        let parts = AppParts.make(storage: storage, isTestMode: false)
+        let parts = AppParts.make(storage: storage, isTestMode: false, defaults: defaults)
         self.parts = parts
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
         _model = State(

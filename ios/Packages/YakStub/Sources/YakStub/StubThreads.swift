@@ -105,7 +105,7 @@ private func json(_ object: Any, status: Int = 200) -> StubAnswer {
 private let noContent = StubAnswer.reply(status: 204, contentType: "application/json", body: Data())
 
 extension Scenario {
-    var playsLive: Bool { self == .oneThreadWorking || self == .longTurn }
+    var playsLive: Bool { self == .oneThreadWorking || self == .longTurn || self == .oneThreadHeld }
 
     /// The events of the history that come before the live turn of `long-turn`.
     static let longTurnHistoryCount = 60
@@ -135,7 +135,7 @@ extension Scenario {
             list["needsYou"] = needy.filter { $0["id"] as? String == "d0e515ef" }
             list["threads"] = [[String: Any]]()
             list["needsYouCount"] = 1
-        case .oneThreadWorking, .longTurn:
+        case .oneThreadWorking, .longTurn, .oneThreadHeld:
             var row = needy.first { $0["id"] as? String == "d0e515ef" } ?? [:]
             row["needsYouReason"] = NSNull()
             row["needsYouLabel"] = NSNull()
