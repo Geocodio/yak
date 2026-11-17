@@ -5,7 +5,7 @@ import YakKit
 /// The share sheet's principal class: it hosts the share screen and completes or cancels the request. It never
 /// touches `UIApplication`.
 final class ShareViewController: UIViewController {
-    private var model: ShareModel?
+    private var model: ShareExtensionModel?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -22,7 +22,7 @@ final class ShareViewController: UIViewController {
                 baseURL: instance.url, token: token, transport: transport, appVersion: version,
                 systemDescription: "share extension")
         }
-        let model = ShareModel(
+        let model = ShareExtensionModel(
             instances: instances, tokens: storage.tokens, files: files,
             sender: ShareSender(
                 files: files, appBundleID: storage.appBundleID, appGroup: storage.appGroup, clock: SystemClock(),

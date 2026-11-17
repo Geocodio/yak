@@ -4,7 +4,7 @@ import YakKit
 
 /// The share sheet's state: what was shared, where it goes and whether it can be sent.
 @MainActor @Observable
-final class ShareModel {
+final class ShareExtensionModel {
     enum Phase: Equatable {
         case noInstance
         case signedOut(String)

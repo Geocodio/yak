@@ -8,7 +8,7 @@
     /// preparing-slow, no-context-offline, repository-not-ready, saving, failed.
     struct ShareTestHost: View {
         let caseName: String
-        @State private var model: ShareModel?
+        @State private var model: ShareExtensionModel?
 
         var body: some View {
             Group {
@@ -59,7 +59,7 @@
             }
             let options = (try? Self.context())?.options
             let isOffline = caseName == "no-context-offline"
-            let host = ShareModel(
+            let host = ShareExtensionModel(
                 instances: instances, tokens: tokens, files: files,
                 sender: FakeSender(fails: caseName == "failed", hangs: caseName == "saving"),
                 clock: SystemClock(),

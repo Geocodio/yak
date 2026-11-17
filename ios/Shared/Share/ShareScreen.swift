@@ -13,7 +13,7 @@ enum ShareText {
 
 /// The share sheet. Its Send follows the board's accent; it is not a thread screen.
 struct ShareScreen: View {
-    let model: ShareModel
+    let model: ShareExtensionModel
     /// Closes the sheet: true after a successful send.
     let finish: (Bool) -> Void
     @FocusState private var isTyping: Bool

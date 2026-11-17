@@ -26,7 +26,7 @@ private struct TextProvider: ShareItemProvider {
 
 @MainActor
 private struct Rig {
-    let model: ShareModel
+    let model: ShareExtensionModel
     let sender = RecordingSender()
     let files: DiskFileStore
     let instances: InstanceStore
@@ -55,7 +55,7 @@ private struct Rig {
             }
         }
         let tokens = tokens
-        model = ShareModel(
+        model = ShareExtensionModel(
             instances: instances, tokens: tokens, files: files, sender: sender, clock: SystemClock(),
             fetchOptions: { _, _ in throw APIFailure.network(.notConnectedToInternet) })
     }

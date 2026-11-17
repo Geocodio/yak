@@ -4,7 +4,7 @@ import YakKit
 /// The repository, mode and model choices under the text. Each is a menu; a warning dot marks a repository that is
 /// still being set up.
 struct ShareChips: View {
-    let model: ShareModel
+    let model: ShareExtensionModel
 
     private var options: NewThreadOptions? { model.context?.options }
 
