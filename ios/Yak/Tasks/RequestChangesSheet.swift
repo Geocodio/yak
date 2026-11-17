@@ -34,6 +34,16 @@ struct RequestChangesSheet: View {
                     if let message = model.message {
                         Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
                     }
+                    Button {
+                        Task {
+                            if await model.perform(.requestChanges(feedback: model.feedback)) { close() }
+                        }
+                    } label: {
+                        if model.isSending { ProgressView() } else { Text("task.requestChanges.send") }
+                    }
+                    .buttonStyle(PrimaryButtonStyle()).padding(.top, 8)
+                    .disabled(isEmpty || isTooLong || model.isSending)
+                    .accessibilityIdentifier("task.requestChanges.send")
                 }
                 .padding(20)
             }
@@ -43,17 +53,6 @@ struct RequestChangesSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("common.cancel", action: close).accessibilityIdentifier("task.requestChanges.cancel")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        Task {
-                            if await model.perform(.requestChanges(feedback: model.feedback)) { close() }
-                        }
-                    } label: {
-                        if model.isSending { ProgressView() } else { Text("task.requestChanges.send") }
-                    }
-                    .disabled(isEmpty || isTooLong || model.isSending)
-                    .accessibilityIdentifier("task.requestChanges.send")
                 }
             }
         }

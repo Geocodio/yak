@@ -125,8 +125,12 @@ import XCTest
 
     func testTaskRefused() throws {
         try openTask("k3m9p2qa", scenario: "task-refused")
-        element("task.decision.approve").tap()
-        XCTAssertTrue(element("task.decision.message").waitForExistence(timeout: 10))
+        element("task.decision.requestChanges").tap()
+        let field = element("task.requestChanges.field")
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.typeText("Keep the old client for one more release.")
+        element("task.requestChanges.send").tap()
+        XCTAssertTrue(element("task.requestChanges.error").waitForExistence(timeout: 10))
         try shoot("task-refused")
     }
 
