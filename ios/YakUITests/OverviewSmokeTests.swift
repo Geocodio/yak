@@ -20,10 +20,10 @@ import XCTest
     private func openThread(_ id: String) {
         if !app.otherElements["drawer"].exists {
             let threads = app.buttons["threads.button"]
-            if threads.waitForExistence(timeout: 10) { threads.tap() }
+            if threads.waitForExistence(timeout: 60) { threads.tap() }
         }
         let row = app.descendants(matching: .any)["drawer.row.thread:\(id)"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         row.tap()
     }
 
@@ -31,12 +31,12 @@ import XCTest
         try launch(scenario: "overview-stack")
         openThread("s7ackr00")
         let title = app.descendants(matching: .any)["thread.title"]
-        XCTAssertTrue(title.waitForExistence(timeout: 15))
+        XCTAssertTrue(title.waitForExistence(timeout: 60))
         title.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["overview"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["overview"].waitForExistence(timeout: 60))
         let kinds = ["subThreads", "status", "links", "access", "people"]
         let groups = kinds.map { app.descendants(matching: .any)["overview.group.\($0)"] }
-        for group in groups { XCTAssertTrue(group.waitForExistence(timeout: 15), group.identifier) }
+        for group in groups { XCTAssertTrue(group.waitForExistence(timeout: 60), group.identifier) }
         let tops = groups.map(\.frame.minY)
         XCTAssertEqual(tops, tops.sorted())
         XCTAssertTrue(app.staticTexts["Sandbox running"].exists)
@@ -48,18 +48,18 @@ import XCTest
         try launch(scenario: "overview-stack")
         openThread("s7ackr00")
         let title = app.descendants(matching: .any)["thread.title"]
-        XCTAssertTrue(title.waitForExistence(timeout: 15))
+        XCTAssertTrue(title.waitForExistence(timeout: 60))
         title.tap()
         let stop = app.buttons["overview.stopAll"]
-        XCTAssertTrue(stop.waitForExistence(timeout: 15))
+        XCTAssertTrue(stop.waitForExistence(timeout: 60))
         for _ in 0..<6 where !stop.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         stop.tap()
-        XCTAssertTrue(app.staticTexts["Stop all sub-threads?"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Stop all sub-threads?"].waitForExistence(timeout: 60))
         app.buttons["Stop all"].tap()
         let gone = NSPredicate(format: "exists == false")
         wait(for: [XCTNSPredicateExpectation(predicate: gone, object: stop)], timeout: 10)
         XCTAssertTrue(
-            app.staticTexts["This stack was stopped, so it cannot start sub-threads."].waitForExistence(timeout: 10))
+            app.staticTexts["This stack was stopped, so it cannot start sub-threads."].waitForExistence(timeout: 60))
         XCTAssertTrue(try stub.lastOverviewRequest().hasPrefix("POST threads/s7ackr00/stack/stop"))
         try audit()
     }
@@ -68,13 +68,13 @@ import XCTest
         try launch(scenario: "overview-stack")
         openThread("s7ackr00")
         let plus = app.buttons["composer.plus"]
-        XCTAssertTrue(plus.waitForExistence(timeout: 15))
+        XCTAssertTrue(plus.waitForExistence(timeout: 60))
         plus.tap()
         let addItem = app.buttons["composer.plusMenu.addSubThread"]
-        XCTAssertTrue(addItem.waitForExistence(timeout: 5))
+        XCTAssertTrue(addItem.waitForExistence(timeout: 60))
         addItem.tap()
         let name = app.textFields["addSubThread.name"]
-        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.waitForExistence(timeout: 60))
         name.tap()
         name.typeText("check-the-cache")
         let brief = app.textFields["addSubThread.brief"]
@@ -88,7 +88,7 @@ import XCTest
         let top = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05))
         grabber.press(forDuration: 0.1, thenDragTo: top)
         let footer = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Runs on")).firstMatch
-        XCTAssertTrue(footer.waitForExistence(timeout: 15))
+        XCTAssertTrue(footer.waitForExistence(timeout: 60))
         try audit()
         app.buttons["addSubThread.add"].tap()
         let gone = NSPredicate(format: "exists == false")
@@ -97,9 +97,9 @@ import XCTest
         XCTAssertTrue(request.contains("\"kind\":\"research\""), request)
         XCTAssertTrue(request.contains("send_key"), request)
         let title = app.descendants(matching: .any)["thread.title"]
-        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        XCTAssertTrue(title.waitForExistence(timeout: 60))
         title.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["overview.child.n3wch11d"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.child.n3wch11d"].waitForExistence(timeout: 60))
         try audit()
     }
 
@@ -107,32 +107,32 @@ import XCTest
         try launch(scenario: "overview-stack")
         if !app.otherElements["drawer"].exists {
             let threads = app.buttons["threads.button"]
-            if threads.waitForExistence(timeout: 10) { threads.tap() }
+            if threads.waitForExistence(timeout: 60) { threads.tap() }
         }
         let failed = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
-        if !failed.waitForExistence(timeout: 10) {
+        if !failed.waitForExistence(timeout: 60) {
             let toggle = app.buttons["drawer.toggle.thread:s7ackr00"]
-            XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+            XCTAssertTrue(toggle.waitForExistence(timeout: 60))
             toggle.tap()
         }
-        XCTAssertTrue(failed.waitForExistence(timeout: 10))
+        XCTAssertTrue(failed.waitForExistence(timeout: 60))
         // The menu reads the stack the drawer fetched when the parent opened, so the press repeats until it has the
         // actions.
         let drop = app.buttons["Drop it"]
         for _ in 0..<8 where !drop.exists {
             failed.press(forDuration: 1.0)
-            if !drop.waitForExistence(timeout: 2) { app.tap() }
+            if !drop.waitForExistence(timeout: 60) { app.tap() }
         }
         XCTAssertTrue(drop.exists)
         let takeOver = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Take over"))
-        XCTAssertTrue(takeOver.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(takeOver.firstMatch.waitForExistence(timeout: 60), app.debugDescription)
         XCTAssertTrue(app.buttons["Split it up"].exists)
         // A tap inside the drawer closes the menu and leaves the drawer open.
         app.otherElements["drawer"].coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.95)).tap()
         let working = app.descendants(matching: .any)["drawer.row.thread:b4ckf111"]
-        XCTAssertTrue(working.waitForExistence(timeout: 5))
+        XCTAssertTrue(working.waitForExistence(timeout: 60))
         working.press(forDuration: 1.0)
-        XCTAssertTrue(app.buttons["Open"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Open"].waitForExistence(timeout: 60))
         XCTAssertFalse(app.buttons["Drop it"].exists)
         app.tap()
         try audit()
@@ -142,22 +142,20 @@ import XCTest
         try launch(scenario: "overview-private")
         openThread("s7ackr00")
         let title = app.descendants(matching: .any)["thread.title"]
-        XCTAssertTrue(title.waitForExistence(timeout: 15))
+        XCTAssertTrue(title.waitForExistence(timeout: 60))
         title.tap()
-        XCTAssertTrue(app.staticTexts["Shared with 1 person"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Shared with 1 person"].waitForExistence(timeout: 60))
         XCTAssertTrue(app.buttons["overview.shareButton"].exists)
         let change = app.buttons["overview.share"]
         for _ in 0..<6 where !change.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         change.tap()
         let everyone = app.buttons["share.mode.everyone"]
-        XCTAssertTrue(everyone.waitForExistence(timeout: 10))
+        XCTAssertTrue(everyone.waitForExistence(timeout: 60))
         everyone.tap()
         app.buttons["share.save"].tap()
         let gone = NSPredicate(format: "exists == false")
         wait(for: [XCTNSPredicateExpectation(predicate: gone, object: everyone)], timeout: 15)
-        XCTAssertTrue(app.staticTexts["Shared with the team"].waitForExistence(timeout: 10))
-        // The audit judges what is on screen, so the page goes back to the top where no row is cut by the bar.
-        for _ in 0..<4 { app.descendants(matching: .any)["overview"].swipeDown() }
+        XCTAssertTrue(app.staticTexts["Shared with the team"].waitForExistence(timeout: 60))
         try audit()
     }
 

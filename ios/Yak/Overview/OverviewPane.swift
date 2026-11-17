@@ -66,7 +66,6 @@ struct OverviewPane: View {
 private struct OverviewScroll: View {
     let model: OverviewModel
     let thread: ThreadModel
-    /// The height of the floating pane bar over the page; the side panel has none.
 
     @Environment(SceneModel.self) private var scene
     @State private var browserTarget: BrowserTarget?
@@ -106,7 +105,6 @@ private struct OverviewScroll: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             Color.clear.frame(height: 0).background(Color(.systemBackground), ignoresSafeAreaEdges: .top)
         }
-        // The last row ends above the floating bar, and the page runs to the screen edge so no row is cut.
         .paneBarRow(key: isOwner) {
             if isOwner {
                 Button {

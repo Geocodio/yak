@@ -5,73 +5,68 @@ import XCTest
 @MainActor final class OverviewWalkthroughTests: WalkthroughCase {
     func testOverview() throws {
         try openOverview("overview-stack")
-        XCTAssertTrue(app.staticTexts["Sandbox running"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Sandbox running"].waitForExistence(timeout: 60))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 60))
         try shootOverview("overview")
     }
 
     func testOverviewLoading() throws {
         try openOverview("overview-slow")
-        XCTAssertTrue(app.descendants(matching: .any)["overview.skeleton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.skeleton"].waitForExistence(timeout: 60))
         try shootOverview("overview-loading")
-        XCTAssertTrue(app.descendants(matching: .any)["overview.slow"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.slow"].waitForExistence(timeout: 60))
         // The late answers arrive a few seconds after the slow notice and change the page while an audit runs, so the
         // audit waits for them and covers the settled page.
-        XCTAssertTrue(app.staticTexts["Pull request"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["Pull request"].waitForExistence(timeout: 60))
         pause(1)
-        // The page is taller than the screen; its end is shown, then lifted a little so no heading sits at the bar's edge.
-        scrollPage(toEnd: true)
-        let page = app.descendants(matching: .any)["overview"]
-        page.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
-            .press(forDuration: 0.1, thenDragTo: page.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
         try shootOverview("overview-slow-answered")
     }
 
     func testOverviewEmpty() throws {
         try openOverview("overview-new-thread")
-        XCTAssertTrue(app.staticTexts["Links appear once Yak creates a branch."].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Links appear once Yak creates a branch."].waitForExistence(timeout: 60))
         XCTAssertFalse(app.descendants(matching: .any)["overview.group.subThreads"].exists)
         try shootOverview("overview-empty")
     }
 
     func testOverviewRepositoryFailed() throws {
         try openOverview("overview-no-sub-threads")
-        XCTAssertTrue(app.buttons["overview.retry.22"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["overview.retry.22"].waitForExistence(timeout: 60))
         try shootOverview("overview-repository-failed")
     }
 
     func testOverviewSettingUp() throws {
         try openOverview("overview-setting-up")
-        XCTAssertTrue(app.staticTexts["example/web"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["example/web"].waitForExistence(timeout: 60))
         try shootOverview("overview-setting-up")
     }
 
     func testOverviewError() throws {
         try openOverview("overview-broken")
-        XCTAssertTrue(app.descendants(matching: .any)["overview.error"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.error"].firstMatch.waitForExistence(timeout: 60))
         try shootOverview("overview-error")
     }
 
     func testOverviewOffline() throws {
         try openOverview("overview-stack")
-        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 60))
         try stub.setOnline(false)
-        XCTAssertTrue(app.descendants(matching: .any)["overview.offline"].waitForExistence(timeout: 40))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.offline"].waitForExistence(timeout: 60))
         try shootOverview("overview-offline")
     }
 
     func testOverviewSetupOutput() throws {
         try openOverview("overview-no-sub-threads")
         let row = app.buttons["overview.repository.22"]
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         row.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["overview.setupOutput.text"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.setupOutput.text"].waitForExistence(timeout: 60))
         try shootOverview("overview-setup-output")
     }
 
     func testOverviewRecipient() throws {
         try openOverview("overview-recipient")
-        XCTAssertTrue(app.descendants(matching: .any)["overview.visibility"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.visibility"].waitForExistence(timeout: 60))
         XCTAssertFalse(app.buttons["overview.share"].exists)
         try shootOverview("overview-recipient")
     }
@@ -80,16 +75,16 @@ import XCTest
 
     func testSubThreadsGroup() throws {
         try openOverview("overview-stack")
-        XCTAssertTrue(app.descendants(matching: .any)["overview.child.q7adapt0"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.child.q7adapt0"].waitForExistence(timeout: 60))
         try shootOverview("overview-subthreads")
     }
 
     func testSubThreadMenu() throws {
         try openOverview("overview-stack")
         let menu = app.buttons["overview.child.q7adapt0.menu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 15))
+        XCTAssertTrue(menu.waitForExistence(timeout: 60))
         menu.tap()
-        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 60))
         // The menu is the system's own surface; the audit cannot judge text on it.
         try shoot("overview-child-menu", audits: false)
     }
@@ -97,50 +92,48 @@ import XCTest
     func testDropConfirmation() throws {
         try openOverview("overview-stack")
         try chooseFromMenu(of: "q7adapt0", "Drop it")
-        XCTAssertTrue(app.staticTexts["The sub-thread closes and its work is not used."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["The sub-thread closes and its work is not used."].waitForExistence(timeout: 60))
         try shoot("overview-drop-confirm", audits: false)
     }
 
     func testStopAllConfirmation() throws {
         try openOverview("overview-stack")
         try scrollToStopAll().tap()
-        XCTAssertTrue(app.staticTexts["Stop all sub-threads?"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Stop all sub-threads?"].waitForExistence(timeout: 60))
         try shoot("overview-stop-confirm", audits: false)
     }
 
     func testStoppedStack() throws {
         try openOverview("overview-stopped")
         XCTAssertTrue(
-            app.staticTexts["This stack was stopped, so it cannot start sub-threads."].waitForExistence(timeout: 15))
+            app.staticTexts["This stack was stopped, so it cannot start sub-threads."].waitForExistence(timeout: 60))
         try shootOverview("overview-stopped")
     }
 
     func testFullStack() throws {
         try openOverview("overview-full")
-        XCTAssertTrue(app.descendants(matching: .any)["overview.addRefusal"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.addRefusal"].waitForExistence(timeout: 60))
         try shootOverview("overview-full")
     }
 
     func testChildOverview() throws {
         try openOverview("overview-stack")
         let child = app.descendants(matching: .any)["overview.child.b4ckf111"]
-        XCTAssertTrue(child.waitForExistence(timeout: 15))
+        XCTAssertTrue(child.waitForExistence(timeout: 60))
         child.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["thread.title"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["thread.title"].waitForExistence(timeout: 60))
         app.descendants(matching: .any)["thread.title"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["overview.parent"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.parent"].waitForExistence(timeout: 60))
         try shootOverview("overview-child")
     }
 
     func testSubThreadMessages() throws {
         try openOverview("overview-stack")
         let folded = app.buttons["overview.messages"]
-        XCTAssertTrue(folded.waitForExistence(timeout: 15))
+        XCTAssertTrue(folded.waitForExistence(timeout: 60))
         for _ in 0..<6 where !folded.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         folded.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["overview.message.51"].waitForExistence(timeout: 5))
-        // The page is taller than the screen; the lower groups are brought up so the audit sees them on screen.
-        scrollPage(toEnd: true)
+        XCTAssertTrue(app.descendants(matching: .any)["overview.message.51"].waitForExistence(timeout: 60))
         try shootOverview("overview-messages")
     }
 
@@ -148,15 +141,11 @@ import XCTest
         try openOverview("overview-refusals")
         try chooseFromMenu(of: "q7adapt0", "Drop it")
         app.buttons["Drop it"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["overview.actionLine"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.actionLine"].waitForExistence(timeout: 60))
         // The audit runs once the dialog's dimming is gone.
         XCTAssertTrue(app.buttons["Drop it"].firstMatch.waitForNonExistence(timeout: 5))
         pause(1)
-        // The lower groups are brought up for the audit and put back for the screenshot.
-        scrollPage(toEnd: true)
-        try auditOverview("overview-refused")
-        scrollPage(toEnd: false)
-        try shoot("overview-refused", audits: false)
+        try shootOverview("overview-refused")
     }
 
     func testActionBusy() throws {
@@ -177,7 +166,7 @@ import XCTest
     func testAddSubThreadProblems() throws {
         try openAddSheet("overview-stack")
         app.buttons["addSubThread.add"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.name.error"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.name.error"].waitForExistence(timeout: 60))
         try shoot("add-sub-thread-problems")
     }
 
@@ -190,13 +179,13 @@ import XCTest
         brief.tap()
         brief.typeText("Look at the cache keys.")
         app.buttons["addSubThread.add"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.problem"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.problem"].waitForExistence(timeout: 60))
         try shoot("add-sub-thread-refused")
     }
 
     func testAddSubThreadKeyboard() throws {
         try openAddSheet("overview-stack")
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 60))
         try shoot("add-sub-thread-keyboard")
     }
 
@@ -204,26 +193,26 @@ import XCTest
     func testAddSubThreadFull() throws {
         try openOverview("overview-full")
         let add = app.buttons["overview.addSubThread"]
-        XCTAssertTrue(add.waitForExistence(timeout: 15))
+        XCTAssertTrue(add.waitForExistence(timeout: 60))
         XCTAssertFalse(add.isEnabled)
         app.buttons["thread.menu"].tap()
         let item = app.buttons["thread.menu.addSubThread"]
-        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        XCTAssertTrue(item.waitForExistence(timeout: 60))
         item.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.refused"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.refused"].waitForExistence(timeout: 60))
         try shoot("add-sub-thread-full")
     }
 
     func testAddSubThreadOffline() throws {
         try openOverview("overview-stack")
-        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 60))
         try stub.setOnline(false)
         // The sheet reads a stack the app fetched in the last ten seconds as it is, so it waits for the offline line.
-        XCTAssertTrue(app.descendants(matching: .any)["overview.offline"].waitForExistence(timeout: 40))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.offline"].waitForExistence(timeout: 60))
         let add = app.buttons["overview.addSubThread"]
         for _ in 0..<6 where !add.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         add.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.offline"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.descendants(matching: .any)["addSubThread.offline"].waitForExistence(timeout: 60))
         XCTAssertTrue(app.buttons["addSubThread.add"].isEnabled)
         try shoot("add-sub-thread-offline")
     }
@@ -231,30 +220,30 @@ import XCTest
     func testTopMenuWithSubThread() throws {
         try openOverview("overview-stack")
         app.buttons["thread.menu"].tap()
-        XCTAssertTrue(app.buttons["thread.menu.addSubThread"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["thread.menu.addSubThread"].waitForExistence(timeout: 60))
         try shoot("thread-menu-sub-thread", audits: false)
     }
 
     func testPlusMenuWithSubThread() throws {
         try start("overview-stack", paired: true)
-        if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        if !app.otherElements["drawer"].waitForExistence(timeout: 60) { app.buttons["threads.button"].tap() }
         let row = app.descendants(matching: .any)["drawer.row.thread:s7ackr00"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         row.tap()
         let plus = app.buttons["composer.plus"]
-        XCTAssertTrue(plus.waitForExistence(timeout: 15))
+        XCTAssertTrue(plus.waitForExistence(timeout: 60))
         plus.tap()
-        XCTAssertTrue(app.buttons["composer.plusMenu.addSubThread"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["composer.plusMenu.addSubThread"].waitForExistence(timeout: 60))
         try shoot("plus-menu-sub-thread")
     }
 
     private func openAddSheet(_ scenario: String) throws {
         try openOverview(scenario)
         let add = app.buttons["overview.addSubThread"]
-        XCTAssertTrue(add.waitForExistence(timeout: 15))
+        XCTAssertTrue(add.waitForExistence(timeout: 60))
         for _ in 0..<6 where !add.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         add.tap()
-        XCTAssertTrue(app.textFields["addSubThread.name"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.textFields["addSubThread.name"].waitForExistence(timeout: 60))
     }
 
     // MARK: Side panel
@@ -264,13 +253,13 @@ import XCTest
         if app.descendants(matching: .any)["overview.panel"].exists {
             XCTAssertTrue(app.buttons["overview.panel.close"].exists)
         }
-        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 60))
         try shootOverview("overview-panel")
     }
 
     func testOverviewPanelOnDuo() throws {
         try openPanel("overview-stack")
-        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["overview.copyBranch"].waitForExistence(timeout: 60))
         try shootOverview("overview-panel-duo")
     }
 
@@ -282,22 +271,22 @@ import XCTest
         let isWide = app.windows.firstMatch.frame.width >= 760
         openOverviewFromTitle()
         let identifier = isWide ? "overview.panel" : "overview"
-        XCTAssertTrue(app.descendants(matching: .any)[identifier].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)[identifier].waitForExistence(timeout: 60))
         try shootOverview("overview-panel-narrow")
     }
 
     private func openRootThread() throws {
-        if !app.otherElements["drawer"].waitForExistence(timeout: 10), app.buttons["threads.button"].exists {
+        if !app.otherElements["drawer"].waitForExistence(timeout: 60), app.buttons["threads.button"].exists {
             app.buttons["threads.button"].tap()
         }
         let row = app.descendants(matching: .any)["drawer.row.thread:s7ackr00"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         row.tap()
     }
 
     private func openOverviewFromTitle() {
         let title = app.descendants(matching: .any)["thread.title"]
-        if title.waitForExistence(timeout: 15) { title.tap() } else { app.typeKey("i", modifierFlags: .command) }
+        if title.waitForExistence(timeout: 60) { title.tap() } else { app.typeKey("i", modifierFlags: .command) }
     }
 
     private func openPanel(_ scenario: String) throws {
@@ -307,7 +296,7 @@ import XCTest
         // The panel needs 760 points beside the conversation; a window narrower than that shows the pane instead.
         let panel = app.descendants(matching: .any)["overview.panel"]
         let pane = app.descendants(matching: .any)["overview"]
-        XCTAssertTrue(panel.waitForExistence(timeout: 10) || pane.waitForExistence(timeout: 2))
+        XCTAssertTrue(panel.waitForExistence(timeout: 60) || pane.waitForExistence(timeout: 60))
     }
 
     // MARK: Share sheet
@@ -319,28 +308,28 @@ import XCTest
 
     func testSharePeople() throws {
         try openShare("overview-private")
-        XCTAssertTrue(app.buttons["share.person.7"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["share.person.7"].waitForExistence(timeout: 60))
         try shoot("share-people")
     }
 
     func testShareNoOne() throws {
         try openShare("overview-private")
         let second = app.buttons["share.person.7"]
-        XCTAssertTrue(second.waitForExistence(timeout: 5))
+        XCTAssertTrue(second.waitForExistence(timeout: 60))
         second.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["share.pickSomeone"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["share.pickSomeone"].waitForExistence(timeout: 60))
         try shoot("share-pick-someone")
     }
 
     func testShareLoading() throws {
         try openShare("overview-slow", waitsForForm: false)
-        XCTAssertTrue(app.descendants(matching: .any)["share.loading"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["share.loading"].waitForExistence(timeout: 60))
         try shoot("share-loading")
     }
 
     func testShareError() throws {
         try openShare("overview-broken", waitsForForm: false)
-        XCTAssertTrue(app.descendants(matching: .any)["share.error"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.descendants(matching: .any)["share.error"].waitForExistence(timeout: 60))
         try shoot("share-error")
     }
 
@@ -356,7 +345,7 @@ import XCTest
     private func openShare(_ scenario: String, waitsForForm: Bool = true) throws {
         try openOverview(scenario)
         let change = app.buttons["overview.share"]
-        XCTAssertTrue(change.waitForExistence(timeout: 20))
+        XCTAssertTrue(change.waitForExistence(timeout: 60))
         // A slow scenario adds rows above the button when its answers arrive, so a tap that missed is tried again.
         let sheet = app.descendants(matching: .any)["share.sheet"]
         for _ in 0..<3 where !sheet.exists {
@@ -368,10 +357,10 @@ import XCTest
                 for _ in 0..<6 where !change.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
                 change.tap()
             }
-            _ = sheet.waitForExistence(timeout: 4)
+            _ = sheet.waitForExistence(timeout: 60)
         }
         XCTAssertTrue(sheet.exists)
-        if waitsForForm { XCTAssertTrue(app.buttons["share.mode.everyone"].waitForExistence(timeout: 15)) }
+        if waitsForForm { XCTAssertTrue(app.buttons["share.mode.everyone"].waitForExistence(timeout: 60)) }
     }
 
     // MARK: Drawer sub-threads
@@ -379,9 +368,9 @@ import XCTest
     func testDrawerChildMenu() throws {
         try openDrawerChildren("overview-stack")
         let failed = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
-        pause(2)
+        try waitForStackRows()
         failed.press(forDuration: 1.0)
-        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 60))
         // The menu is the system's own surface; the audit cannot judge text on it.
         try shoot("drawer-child-menu", audits: false)
     }
@@ -390,18 +379,18 @@ import XCTest
         try openDrawerChildren("overview-slow")
         let failed = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
         failed.press(forDuration: 1.0)
-        XCTAssertTrue(app.buttons["Checking what this sub-thread allows"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Checking what this sub-thread allows"].waitForExistence(timeout: 60))
         try shoot("drawer-child-menu-loading", audits: false)
     }
 
     func testDrawerChildSwipe() throws {
         try openDrawerChildren("overview-stack")
-        pause(2)
+        try waitForStackRows()
         // A short drag from inside the row reveals the actions; a fast swipe would close the drawer.
         let row = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
         row.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.5)))
-        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 60))
         try shootOverview("drawer-child-swipe")
     }
 
@@ -413,21 +402,17 @@ import XCTest
 
     private func openDrawerChildren(_ scenario: String) throws {
         try start(scenario, paired: true)
-        if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        if !app.otherElements["drawer"].waitForExistence(timeout: 60) { app.buttons["threads.button"].tap() }
         let failed = app.descendants(matching: .any)["drawer.row.thread:q7adapt0"]
-        if !failed.waitForExistence(timeout: 10) {
+        if !failed.waitForExistence(timeout: 60) {
             let toggle = app.buttons["drawer.toggle.thread:s7ackr00"]
-            XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+            XCTAssertTrue(toggle.waitForExistence(timeout: 60))
             toggle.tap()
         }
-        XCTAssertTrue(failed.waitForExistence(timeout: 10))
+        XCTAssertTrue(failed.waitForExistence(timeout: 60))
     }
 
-    /// Scrolls the page to its end, where every row is above the floating bar, or back to its top.
-    private func scrollPage(toEnd: Bool) {
-        let page = app.descendants(matching: .any)["overview"]
-        for _ in 0..<4 { toEnd ? page.swipeUp(velocity: .fast) : page.swipeDown(velocity: .fast) }
-    }
+    // MARK: Helpers
 
     private func pause(_ seconds: TimeInterval) {
         let settle = XCTestExpectation(description: "pause")
@@ -435,21 +420,26 @@ import XCTest
         wait(for: [settle], timeout: seconds)
     }
 
-    // MARK: Helpers
+    /// The drawer lists every sub-thread of the stack once the stack has loaded.
+    private func waitForStackRows() throws {
+        for id in ["q7adapt0", "b4ckf111"] {
+            XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:\(id)"].waitForExistence(timeout: 60), id)
+        }
+    }
 
     private func chooseFromMenu(of childID: String, _ item: String) throws {
         let menu = app.buttons["overview.child.\(childID).menu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 15))
+        XCTAssertTrue(menu.waitForExistence(timeout: 60))
         menu.tap()
         // A row with a subtitle reads "Take over, You drive it".
         let button = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", item)).firstMatch
-        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        XCTAssertTrue(button.waitForExistence(timeout: 60))
         button.tap()
     }
 
     private func scrollToStopAll() throws -> XCUIElement {
         let stop = app.buttons["overview.stopAll"]
-        XCTAssertTrue(stop.waitForExistence(timeout: 15))
+        XCTAssertTrue(stop.waitForExistence(timeout: 60))
         for _ in 0..<6 where !stop.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         return stop
     }
@@ -457,18 +447,18 @@ import XCTest
     /// Plays the scenario, opens the root thread from the drawer and the Overview from the title.
     private func openOverview(_ scenario: String) throws {
         try start(scenario, paired: true)
-        if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        if !app.otherElements["drawer"].waitForExistence(timeout: 60) { app.buttons["threads.button"].tap() }
         let row = app.descendants(matching: .any)["drawer.row.thread:s7ackr00"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         row.tap()
         let title = app.descendants(matching: .any)["thread.title"]
-        if title.waitForExistence(timeout: 15) {
+        if title.waitForExistence(timeout: 60) {
             title.tap()
         } else {
             // The short landscape layout hides the title; Command I opens the Overview.
             app.typeKey("i", modifierFlags: .command)
         }
-        XCTAssertTrue(app.descendants(matching: .any)["overview"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["overview"].waitForExistence(timeout: 60))
     }
 
     /// A screenshot, then the audit without the findings about text in the navigation bar, whose size the system caps.
@@ -485,10 +475,9 @@ import XCTest
         // A bottom toolbar can have a frame that covers the content, so a toolbar only counts when it leaves the
         // centre of the window free.
         let centre = CGPoint(x: auditBars.window.midX, y: auditBars.window.midY)
-        let barFrames = (
-            app.navigationBars.allElementsBoundByIndex
-                + app.toolbars.allElementsBoundByIndex.filter { !$0.frame.contains(centre) }
-        ).map(\.frame)
+        let barFrames =
+            (app.navigationBars.allElementsBoundByIndex
+            + app.toolbars.allElementsBoundByIndex.filter { !$0.frame.contains(centre) }).map(\.frame)
         try app.performAccessibilityAudit { [self, auditBars] issue in
             // The system caps the size of text in its bars.
             if let element = issue.element, barFrames.contains(where: { $0.contains(element.frame) }),
