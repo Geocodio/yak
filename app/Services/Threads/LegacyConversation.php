@@ -65,7 +65,7 @@ class LegacyConversation
                     'id' => 'legacy-message-' . $index,
                     'uuid' => null,
                     'text' => $text,
-                    ...ThreadMessagesData::author($entry->run, $entry->authorName, $entry->run?->author_name),
+                    ...ThreadMessagesData::author($entry->run, $entry->authorName, $entry->run?->author?->name, $entry->run?->author_name),
                     'isRetry' => false,
                     'retryNumber' => null,
                     'model' => null,

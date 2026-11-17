@@ -235,6 +235,7 @@ class WebhookController extends Controller
                 $repoSlug,
             ),
             'started_by_user_id' => $starter?->id,
+            'author_user_id' => $starter?->id,
             'responsible_user_id' => app(ResponsiblePersonResolver::class)->resolveUser($assignee, $starter, $repoSlug)?->id,
             ...($detection->needsClarification ? [
                 'status' => TaskStatus::AwaitingClarification,

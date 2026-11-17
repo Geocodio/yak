@@ -30,10 +30,9 @@ class FollowUpTaskFactory
      * @param  string|null  $summonQuote  Conversation-tab comment the summary reply quotes, when summoned from one
      * @param  string|null  $slackFollowUpUserId  Slack user who replied in the thread, mentioned alongside the original requester
      * @param  Collection<int, TaskAttachment>|null  $attachments  Files sent with the instructions; they move onto the new run
-     * @param  User|null  $replier  The Yak user who replied; the follow-up is theirs. Without one, a named author is an outside person and the follow-up has no Yak user
-     * @param  bool  $keepsStarter  The follow-up stays with the person who started the work; the author only credits who gave the feedback
+     * @param  User|null  $replier  The Yak user who wrote the message; stored as the task's author. The requester of the conversation stays the head's starter
      */
-    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null, ?string $slackFollowUpUserId = null, ?Collection $attachments = null, ?User $replier = null, bool $keepsStarter = false): ?YakTask
+    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null, ?string $slackFollowUpUserId = null, ?Collection $attachments = null, ?User $replier = null): ?YakTask
     {
         // One conversation() walk gives us both ends of the chain: the root
         // (stable base for external_id) and the head (newest task — its branch
@@ -55,7 +54,7 @@ class FollowUpTaskFactory
 
         $isResearch = $head->mode === TaskMode::Research;
 
-        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote, $slackFollowUpUserId, $attachments, $replier, $keepsStarter): YakTask {
+        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote, $slackFollowUpUserId, $attachments, $replier): YakTask {
             $child = YakTask::create([
                 'parent_task_id' => $head->id,
                 'source' => $source,
@@ -76,7 +75,8 @@ class FollowUpTaskFactory
                 'description' => $instructions,
                 'author_name' => $authorName,
                 'responsible_name' => app(ResponsiblePersonResolver::class)->resolve($head->responsible_name, $authorName, $head->repo),
-                'started_by_user_id' => $replier !== null ? $replier->id : ($keepsStarter || blank($authorName) ? $head->started_by_user_id : null),
+                'started_by_user_id' => $head->started_by_user_id,
+                'author_user_id' => $replier?->id,
                 'responsible_user_id' => $head->responsible_user_id,
                 're_request_review_from' => $this->cleanLogins($reRequestReviewFrom),
                 'targets_external_pr' => ! $isResearch && $head->targets_external_pr,

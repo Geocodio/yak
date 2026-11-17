@@ -38,7 +38,7 @@ final class ThreadMessagesData
 
         $rows = ThreadTurnMessage::query()
             ->whereHas('taskRun', fn ($runs) => $runs->where('thread_id', $thread->id))
-            ->with(['taskRun.task.attachments', 'taskRun.driver', 'pendingSteeringMessage.attachments', 'attachments'])
+            ->with(['taskRun.task.attachments', 'taskRun.task.author', 'taskRun.task.startedBy', 'taskRun.driver', 'pendingSteeringMessage.attachments', 'attachments'])
             ->orderBy('created_at')
             ->orderBy('id')
             ->get();
@@ -86,9 +86,9 @@ final class ThreadMessagesData
 
             $author = $steer !== null
                 ? self::author(null, $steer->author_name)
-                : self::author($run->task, ...($run->task?->parent_task_id !== null
-                    ? [$run->task->author_name, $run->driver?->name, $run->task->startedBy?->name]
-                    : [$run->driver?->name, $run->task?->startedBy?->name, $run->task?->author_name]));
+                : (($run->task !== null && $firstRunIds->contains($run->id))
+                    ? self::author($run->task, $run->task->author?->name, $run->task->author_name, $run->driver?->name, $run->task->startedBy?->name)
+                    : self::author(null, $run->driver?->name));
 
             $messages[] = [
                 'id' => 'turn-message-' . $row->id,
@@ -176,7 +176,7 @@ final class ThreadMessagesData
             'id' => 'initial-message',
             'uuid' => null,
             'text' => (string) $task->description,
-            ...self::author($task, $task->startedBy?->name, $task->author_name),
+            ...self::author($task, $task->author?->name, $task->author_name, $task->startedBy?->name),
             'isRetry' => false,
             'retryNumber' => null,
             'model' => null,

@@ -60,6 +60,7 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $pr_state_checked_at
  * @property string|null $responsible_name
  * @property int|null $started_by_user_id
+ * @property int|null $author_user_id
  * @property int|null $tagged_co_owner_user_id
  * @property array<string, mixed>|null $early_warning
  * @property int|null $responsible_user_id
@@ -202,6 +203,14 @@ class YakTask extends Model
      * The Yak user who started the task. Null for sources without a Yak
      * identity (Slack, GitHub, the command line, system tasks).
      *
+     * @return BelongsTo<User, $this>
+     */
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'author_user_id');
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function startedBy(): BelongsTo

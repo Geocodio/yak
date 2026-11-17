@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\ThreadShareMode;
 use App\Enums\ThreadVisibility;
@@ -13,6 +14,8 @@ use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
+use App\Services\CoOwner\TaskRequester;
+use App\Services\DirectMessageRecipients;
 use App\Services\FollowUpTaskFactory;
 use App\Services\Threads\ThreadSharing;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -41,7 +44,7 @@ it('names a Slack requester who maps to a Yak user and credits the Slack source'
     $this->call('POST', '/webhooks/slack', content: $body, server: ['HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'], 'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'], 'CONTENT_TYPE' => 'application/json'])->assertSuccessful();
 
     $task = YakTask::query()->where('source', 'slack')->firstOrFail();
-    expect($task->started_by_user_id)->toBe($ada->id);
+    expect($task->started_by_user_id)->toBe($ada->id)->and($task->author_user_id)->toBe($ada->id);
 
     messageFor($task);
     $message = ThreadMessagesData::for(Thread::query()->findOrFail($task->thread_id))[0];
@@ -86,7 +89,8 @@ it('credits a Linear reply to the person who replied, not the starter', function
     $child = app(FollowUpTaskFactory::class)->create($root, 'one more thing', 'linear', authorName: 'Second Person', replier: $replier);
     messageFor($child, ['driver_user_id' => $replier->id]);
 
-    expect($child->started_by_user_id)->toBe($replier->id)->and($child->author_name)->toBe('Second Person');
+    expect($child->started_by_user_id)->toBe($starter->id)->and($child->author_user_id)->toBe($replier->id)->and($child->author_name)->toBe('Second Person')
+        ->and(app(TaskRequester::class)->for($child)?->id)->toBe($starter->id);
 
     $message = ThreadMessagesData::for(Thread::query()->findOrFail($child->thread_id))[0];
 
@@ -103,7 +107,10 @@ it('stores the replier name only when no Yak user matches', function () {
 
     $child = app(FollowUpTaskFactory::class)->create($root, 'hello', 'linear', authorName: 'Outside Person');
 
-    expect($child->started_by_user_id)->toBeNull()->and($child->author_name)->toBe('Outside Person');
+    expect($child->started_by_user_id)->toBe($starter->id)->and($child->author_user_id)->toBeNull()->and($child->author_name)->toBe('Outside Person')
+        ->and(app(DirectMessageRecipients::class)->for($child, NotificationType::Result))->toHaveCount(1);
+    messageFor($child);
+    expect(ThreadMessagesData::for(Thread::query()->findOrFail($child->thread_id))[0]['authorName'])->toBe('Outside Person');
     Queue::assertPushed(RunFollowUpJob::class);
 });
 
@@ -164,4 +171,49 @@ it('serves the share dialog data to the driver of an ownerless team thread but n
     $this->actingAs($user)->getJson(route('threads.share.show', $private))->assertNotFound();
     $this->actingAs($user)->putJson(route('threads.share.update', $team), ['mode' => 'everyone'])->assertOk();
     expect($team->refresh()->owner_user_id)->toBe($user->id);
+});
+
+it('keeps the requester as the fallback driver when the replier has no Yak user', function () {
+    Queue::fake();
+    $starter = User::factory()->create();
+    $replier = User::factory()->create();
+    $root = YakTask::factory()->success()->create(['source' => 'linear', 'pr_url' => 'https://github.com/acme/web/pull/9', 'branch_name' => 'yak/x', 'started_by_user_id' => $starter->id]);
+
+    $byReplier = app(FollowUpTaskFactory::class)->create($root, 'one', 'linear', authorName: 'Bob', replier: $replier);
+    $byOutsider = app(FollowUpTaskFactory::class)->create($root->fresh(), 'two', 'linear', authorName: 'Outside');
+
+    expect($byReplier->author_user_id ?? $byReplier->started_by_user_id)->toBe($replier->id)
+        ->and($byOutsider->author_user_id ?? $byOutsider->started_by_user_id)->toBe($starter->id);
+});
+
+it('does not make a co-owner who replies in Slack the requester', function () {
+    Queue::fake();
+    $requester = User::factory()->create();
+    $coOwner = User::factory()->create(['slack_user_id' => 'U_CO']);
+    $root = YakTask::factory()->success()->create(['source' => 'slack', 'pr_url' => 'https://github.com/acme/web/pull/9', 'branch_name' => 'yak/x', 'started_by_user_id' => $requester->id]);
+
+    $child = app(FollowUpTaskFactory::class)->create($root, 'tweak', 'slack', authorName: $coOwner->name, replier: $coOwner);
+
+    expect(app(TaskRequester::class)->for($child)?->id)->toBe($requester->id)->and($child->author_user_id)->toBe($coOwner->id);
+});
+
+it('credits a later dashboard message to its sender, not the head task channel', function () {
+    $bob = User::factory()->create(['name' => 'Bob Builder']);
+    $root = YakTask::factory()->success()->create(['source' => 'slack', 'author_name' => 'Alice Slack']);
+    $head = YakTask::factory()->create(['source' => 'slack', 'parent_task_id' => $root->id, 'thread_id' => $root->thread_id, 'author_name' => 'Eve Reply']);
+    messageFor($head);
+    messageFor($head, ['driver_user_id' => $bob->id]);
+
+    $messages = ThreadMessagesData::for(Thread::query()->findOrFail($root->thread_id));
+
+    expect($messages[0])->toMatchArray(['authorName' => 'Eve Reply', 'isReply' => true])
+        ->and($messages[1])->toMatchArray(['authorName' => 'Bob Builder', 'isReply' => false, 'via' => null]);
+});
+
+it('pins the full via object of a Linear-sourced first message', function () {
+    $task = YakTask::factory()->create(['source' => 'linear', 'external_id' => 'LINEAR-ENG-12', 'external_url' => 'https://linear.app/acme/issue/ENG-12']);
+    messageFor($task);
+
+    expect(ThreadMessagesData::for(Thread::query()->findOrFail($task->thread_id))[0]['via'])
+        ->toBe(['key' => 'linear', 'label' => 'Linear', 'reference' => 'ENG-12', 'url' => 'https://linear.app/acme/issue/ENG-12']);
 });

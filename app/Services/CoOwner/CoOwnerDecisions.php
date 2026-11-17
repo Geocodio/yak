@@ -90,7 +90,7 @@ class CoOwnerDecisions
         $followUp = null;
         $this->claim($request, $user, CoOwnerRequestStatus::ChangesRequested, function (YakTask $task) use ($request, $user, $feedback, &$followUp): void {
             $request->update(['feedback' => $feedback]);
-            $followUp = $this->followUps->create($task, $feedback, (string) $task->source, $user->name, keepsStarter: true);
+            $followUp = $this->followUps->create($task, $feedback, (string) $task->source, $user->name, replier: $user);
 
             if ($followUp === null) {
                 throw CoOwnerDecisionException::alreadyResolved();

@@ -185,6 +185,7 @@ class WebhookController extends Controller
                     'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
                     'author_name' => $authorName,
                     'started_by_user_id' => $starterId,
+                    'author_user_id' => $starterId,
                     'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $repo->slug),
                     'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 ]);
@@ -224,6 +225,7 @@ class WebhookController extends Controller
                 'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
                 'author_name' => $authorName,
                 'started_by_user_id' => $starterId,
+                'author_user_id' => $starterId,
                 'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, 'unknown'),
                 'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 'clarification_options' => $repoOptions,
@@ -254,6 +256,7 @@ class WebhookController extends Controller
             'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
             'author_name' => $authorName,
             'started_by_user_id' => $starterId,
+            'author_user_id' => $starterId,
             'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $repoSlug),
             'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
         ]);
