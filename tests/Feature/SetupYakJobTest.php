@@ -156,6 +156,7 @@ test('first-time setup skips invalidation (no existing template)', function () {
     (new SetupYakJob($task))->handle($fake);
 
     expect($fakeSandbox->invalidatedTemplates)->toBeEmpty();
+    expect($fakeSandbox->destroyedTemplates)->toBe(['yak-tpl-fresh']);
 });
 
 test('setup promotes sandbox to repo template on success', function () {
