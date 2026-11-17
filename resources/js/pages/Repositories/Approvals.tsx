@@ -29,8 +29,8 @@ export default function Approvals({ header, yakConfig: loadedYakConfig, reposito
     const isDirty = draft.level !== live.level || draft.mode !== live.mode;
     const { dialog } = useLeaveGuard(isDirty);
     const hasChecked = openPullRequests.checkedAt !== null || openPullRequests.rows.length > 0;
-    const countsByLevel = approvedCountsByLevel(openPullRequests.rows, repositoryHolds);
-    const openCounts = hasChecked && openPullRequests.rows.length > 0 ? { byLevel: countsByLevel, total: openPullRequests.rows.length } : undefined;
+    const countsByLevel = approvedCountsByLevel(openPullRequests.rows, repositoryHolds ?? []);
+    const openCounts = repositoryHolds !== undefined && hasChecked && openPullRequests.rows.length > 0 ? { byLevel: countsByLevel, total: openPullRequests.rows.length } : undefined;
     const isArmed = draft.level > 1 && draft.mode === 'enforce';
 
     const pickLevel = (level: ApprovalLevel) => {
@@ -70,14 +70,14 @@ export default function Approvals({ header, yakConfig: loadedYakConfig, reposito
                     </p>
                 </header>
                 <LevelHero approval={approval} draft={draft} isDirty={isDirty} />
-                {repositoryHolds.length > 0 && (
+                {repositoryHolds !== undefined && repositoryHolds.length > 0 && (
                     <div data-testid="approvals-repository-holds">
                         <Callout tone="warn" icon={<CircleAlert size={16} aria-hidden="true" className="text-warn" />}>
                             <p className="font-semibold">Blocks every PR</p>
                             <ul className="list-disc pl-[18px]">
                                 {repositoryHolds.map((hold) => <li key={hold}>{hold}</li>)}
                             </ul>
-                            {github?.concernsPullRequest && (
+                            {concerns.state !== 'ready' && github?.concernsPullRequest && (
                                 <a href={github.concernsPullRequest.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold hover:underline">
                                     Review PR #{github.concernsPullRequest.number} <ExternalLink size={13} aria-hidden="true" />
                                 </a>
@@ -91,7 +91,11 @@ export default function Approvals({ header, yakConfig: loadedYakConfig, reposito
                         <StandDown isAlreadyDown={live.level === 1} isPending={isStandingDown} isBusy={form.processing} onStandDown={standDown} />
                     </LaunchControl>
                 </div>
-                <OpenPullRequests repository={repository} data={openPullRequests} repositoryHolds={repositoryHolds} level={draft.level} />
+                {repositoryHolds === undefined ? (
+                    <p data-testid="open-prs-loading" className="text-[14px] text-muted">Reading the repository-wide rules from GitHub.</p>
+                ) : (
+                    <OpenPullRequests repository={repository} data={openPullRequests} repositoryHolds={repositoryHolds} level={draft.level} />
+                )}
                 <ShadowLog shadow={shadow} liveLevel={live.level} />
                 <ProtectedAssets repository={repository} concerns={concerns} github={github} />
                 {isDirty && (

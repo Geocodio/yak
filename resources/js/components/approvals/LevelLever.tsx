@@ -53,12 +53,12 @@ export function LevelLever({ liveLevel, draftLevel, isArmed, openCounts, onPick 
                                 </span>
                                 <span className="text-[15px] font-semibold leading-snug">{level.title}</span>
                                 <span className="text-[13px] leading-snug text-muted">{level.detail}</span>
+                                {openCounts && (
+                                    <span data-testid={`approvals-level-count-${level.n}`} className={`text-[13px] leading-snug ${checked ? '' : 'text-muted'}`}>
+                                        Would approve {openCounts.byLevel[level.n - 1]} of {openCounts.total} open {openCounts.total === 1 ? 'PR' : 'PRs'}
+                                    </span>
+                                )}
                             </span>
-                            {openCounts && (
-                                <span data-testid={`approvals-level-count-${level.n}`} className={`rounded-full border border-hair px-2.5 py-1 text-[13px] font-semibold ${openCounts.byLevel[level.n - 1] > 0 ? 'bg-ok-soft text-ok' : 'bg-panel text-muted'}`}>
-                                    {openCounts.byLevel[level.n - 1]} of {openCounts.total} open PRs
-                                </span>
-                            )}
                             <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px] font-semibold ${result.approves ? 'border-hair bg-ok-soft text-ok' : 'border-hair bg-panel text-muted'}`}>
                                 {result.approves ? <Check size={14} aria-hidden="true" /> : level.n > 1 ? <UserRound size={14} aria-hidden="true" /> : null}
                                 {result.text}

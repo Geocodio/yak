@@ -12,6 +12,7 @@ use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Support\ApprovalFloor;
 use App\Support\PathMatcher;
+use Illuminate\Support\Facades\Cache;
 
 class ReviewApprovalPolicy
 {
@@ -149,6 +150,23 @@ class ReviewApprovalPolicy
      */
     public function preview(Repository $repository, array $pullRequest, array $files, ?PrReview $latestReview, ?array $classification, ?array $repositoryHolds = null): array
     {
+        $baseRef = (string) ($pullRequest['base']['ref'] ?? $repository->default_branch);
+        $baseHolds = $baseRef === $repository->default_branch ? [] : $this->branchHolds($repository, $baseRef);
+        $outcome = $this->previewWithoutBaseHolds($repository, $pullRequest, $files, $latestReview, $classification, $repositoryHolds, $baseHolds !== []);
+        $outcome['holds'] = array_values(array_unique([...$outcome['holds'], ...$baseHolds]));
+
+        return $outcome;
+    }
+
+    /**
+     * @param  array<string, mixed>  $pullRequest
+     * @param  array<int, array<string, mixed>>  $files
+     * @param  array{touched_concerns: list<array{name: string, evidence: string}>, change_kind: ?string, is_uncertain: bool, failure: ?string}|null  $classification
+     * @param  list<string>|null  $repositoryHolds
+     * @return array{holds: list<string>, changeKind: ?string, hasTestChange: bool, waiting: bool, classification: array{touched_concerns: list<array{name: string, evidence: string}>, change_kind: ?string, is_uncertain: bool, failure: ?string}|null}
+     */
+    private function previewWithoutBaseHolds(Repository $repository, array $pullRequest, array $files, ?PrReview $latestReview, ?array $classification, ?array $repositoryHolds, bool $hasBaseHolds): array
+    {
         $hasTestChange = $this->hasTestChange($files);
         $outcome = ['holds' => [], 'changeKind' => null, 'hasTestChange' => $hasTestChange, 'waiting' => $latestReview === null, 'classification' => null];
         $github = app(AppService::class);
@@ -174,7 +192,7 @@ class ReviewApprovalPolicy
 
         $concerns = $repository->settings()->concerns();
         $repositoryHolds ??= $this->repositoryHolds($repository);
-        if ($concerns === null || $repositoryHolds !== []) {
+        if ($concerns === null || $repositoryHolds !== [] || $hasBaseHolds) {
             return $outcome;
         }
 
@@ -197,14 +215,35 @@ class ReviewApprovalPolicy
      */
     public function repositoryHolds(Repository $repository): array
     {
-        $github = app(AppService::class);
-        $unused = null;
-
         return array_values(array_filter([
             $repository->settings()->concerns() === null ? self::CONCERNS_MISSING : null,
-            $this->requiredChecksHold($repository, $github, $repository->default_branch, $unused),
-            $this->staleDismissalHold($repository, $github, $repository->default_branch, $unused),
+            ...$this->branchHolds($repository, $repository->default_branch),
         ]));
+    }
+
+    /**
+     * Branch protection holds of one base branch, remembered for a minute so
+     * the per-pull-request checks do not each ask GitHub again.
+     *
+     * @return list<string>
+     */
+    public function branchHolds(Repository $repository, string $baseRef, bool $fresh = false): array
+    {
+        $key = "approval-branch-holds:{$repository->id}:" . md5($baseRef);
+        if (! $fresh && is_array($cached = Cache::get($key))) {
+            /** @var list<string> $cached */
+            return $cached;
+        }
+
+        $github = app(AppService::class);
+        $unused = null;
+        $holds = array_values(array_filter([
+            $this->requiredChecksHold($repository, $github, $baseRef, $unused),
+            $this->staleDismissalHold($repository, $github, $baseRef, $unused),
+        ]));
+        Cache::put($key, $holds, 60);
+
+        return $holds;
     }
 
     private function authorHold(AppService $github, string $author, string $reviewedAuthor): ?string

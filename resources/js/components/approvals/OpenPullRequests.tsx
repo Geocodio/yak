@@ -9,15 +9,11 @@ import { outcomeAt, type PullRequestOutcome } from './levels';
 
 const TONE: Record<PullRequestOutcome['kind'], 'ok' | 'idle' | 'warn' | 'fail' | 'info'> = { approve: 'ok', human: 'idle', waiting: 'warn', failed: 'fail', checking: 'info' };
 
-// A check queued from here has not written any row yet, so the page polls for this long before giving up.
-const AWAIT_CHECK_MS = 60_000;
-
 export function OpenPullRequests({ repository, data, repositoryHolds, level }: { repository: ApprovalsRepository; data: OpenPullRequestsData; repositoryHolds: string[]; level: ApprovalLevel }) {
-    const [awaiting, setAwaiting] = useState<{ since: number; checkedAt: string | null; error: string | null } | null>(null);
+    const [isPosting, setIsPosting] = useState(false);
     const { start, stop } = usePoll(3000, { only: ['openPullRequests'] }, { autoStart: false, keepAlive: true });
     const hasChecked = data.checkedAt !== null || data.rows.length > 0;
-    const isAwaiting = awaiting !== null && data.checkedAt === awaiting.checkedAt && data.error === awaiting.error;
-    const isPolling = data.pending > 0 || isAwaiting;
+    const isPolling = data.pending > 0 || data.isChecking;
 
     useEffect(() => {
         if (!isPolling) {
@@ -29,22 +25,11 @@ export function OpenPullRequests({ repository, data, repositoryHolds, level }: {
         return stop;
     }, [isPolling]);
 
-    useEffect(() => {
-        if (awaiting === null) {
-            return;
-        }
-
-        const timeout = window.setTimeout(() => setAwaiting(null), AWAIT_CHECK_MS);
-
-        return () => window.clearTimeout(timeout);
-    }, [awaiting]);
-
     const check = () => {
-        setAwaiting({ since: Date.now(), checkedAt: data.checkedAt, error: data.error });
-        router.post(repository.checkUrl, {}, { preserveScroll: true, onError: () => setAwaiting(null) });
+        router.post(repository.checkUrl, {}, { preserveScroll: true, onStart: () => setIsPosting(true), onFinish: () => setIsPosting(false) });
     };
     const checkButton = (
-        <Button data-testid="open-prs-check" icon={<RefreshCw size={14} aria-hidden="true" />} pending={isPolling} onClick={check}>
+        <Button data-testid="open-prs-check" icon={<RefreshCw size={14} aria-hidden="true" />} pending={isPolling || isPosting} onClick={check}>
             {hasChecked ? 'Check open PRs again' : 'Check open PRs'}
         </Button>
     );
@@ -73,7 +58,7 @@ export function OpenPullRequests({ repository, data, repositoryHolds, level }: {
                     <Callout tone="fail" icon={<CircleAlert size={16} aria-hidden="true" className="text-fail" />}>
                         <p className="font-semibold">The last check could not finish.</p>
                         <p className="text-muted">{data.error}</p>
-                        <Button onClick={check} pending={isPolling}>Check again</Button>
+                        <Button onClick={check} pending={isPolling || isPosting}>Check again</Button>
                     </Callout>
                 </div>
             )}
@@ -108,7 +93,7 @@ export function OpenPullRequests({ repository, data, repositoryHolds, level }: {
                                             </div>
                                         </StackedTd>
                                         <StackedTd label="Result" className="md:min-w-[150px] md:whitespace-nowrap">
-                                            <StatusPill tone={TONE[outcome.kind]} label={outcome.label} />
+                                            <span className="whitespace-nowrap"><StatusPill tone={TONE[outcome.kind]} label={outcome.label} /></span>
                                         </StackedTd>
                                         <StackedTd label="Why" className="md:min-w-[260px]">
                                             <span data-testid={`open-pr-reason-${row.number}`}>{outcome.reason}</span>
@@ -133,7 +118,7 @@ export function OpenPullRequests({ repository, data, repositoryHolds, level }: {
                     </div>
                 </>
             )}
-            <p className="text-[12px] text-muted">Each pull request costs two model calls unless Yak checked it at this commit before.</p>
+            <p className="text-[12px] text-muted">Each pull request costs up to two model calls, and none if Yak checked it at this commit before or a hold already decides it.</p>
         </section>
     );
 }

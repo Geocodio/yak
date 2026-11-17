@@ -12,6 +12,7 @@ use App\Jobs\CheckOpenPullRequestApprovalsJob;
 use App\Models\Repository;
 use App\Services\RepositoryConfig;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -30,7 +31,7 @@ class ApprovalSettingsController extends Controller
             'concerns' => ApprovalSettingsPageData::concerns($repository, $snapshot),
             'shadow' => ApprovalSettingsPageData::shadow($repository),
             'openPullRequests' => fn (): array => ApprovalSettingsPageData::openPullRequests($repository),
-            'repositoryHolds' => fn (): array => ApprovalSettingsPageData::repositoryHolds($repository),
+            'repositoryHolds' => Inertia::defer(fn (): array => ApprovalSettingsPageData::repositoryHolds($repository), 'approvals-holds'),
             'github' => Inertia::defer(fn (): array => ApprovalSettingsPageData::github($repository), 'approvals-github'),
         ]);
     }
@@ -57,6 +58,10 @@ class ApprovalSettingsController extends Controller
 
     public function check(Repository $repository): RedirectResponse
     {
+        if (! Cache::add(ApprovalSettingsPageData::checkRunningCacheKey($repository->id), true, 300)) {
+            return back()->with('error', 'A check is already running.');
+        }
+
         CheckOpenPullRequestApprovalsJob::dispatch($repository->id);
 
         return back()->with('success', 'Checking open pull requests.');
@@ -82,7 +87,14 @@ class ApprovalSettingsController extends Controller
             return back()->with('error', "Pull request #{$number} is not open for review.");
         }
 
-        $enqueuePrReview($repository, $pullRequest, 'full');
+        $skipReason = $enqueuePrReview->skipReason($repository, $pullRequest);
+        if ($skipReason !== null) {
+            return back()->with('error', "Yak will not review pull request #{$number}: {$skipReason}.");
+        }
+
+        if ($enqueuePrReview->dispatch($repository, $pullRequest, 'full') === null) {
+            return back()->with('error', "A review of pull request #{$number} is already queued for this commit.");
+        }
 
         return back()->with('success', "Review of pull request #{$number} requested.");
     }

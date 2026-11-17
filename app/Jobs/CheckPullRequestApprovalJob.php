@@ -21,9 +21,17 @@ class CheckPullRequestApprovalJob implements ShouldQueue
 
     public int $tries = 1;
 
+    public bool $failOnTimeout = true;
+
     public function __construct(public readonly int $approvalPreviewId)
     {
         $this->onQueue('default');
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        ApprovalPreview::where('id', $this->approvalPreviewId)->where('status', 'pending')
+            ->update(['status' => 'failed', 'result' => null, 'error' => 'The check did not finish. Check again.']);
     }
 
     public function handle(AppService $github, ReviewApprovalPolicy $policy): void

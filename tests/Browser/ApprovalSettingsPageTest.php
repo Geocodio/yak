@@ -106,13 +106,13 @@ it('counts the open pull requests each level would approve', function () {
     openPullRequestRow($repository, 1, 'no_runtime_change');
     openPullRequestRow($repository, 2, 'presentation_or_internal');
     openPullRequestRow($repository, 3, 'behavior_change');
-    cache()->forever("approval-check-finished-at:{$repository->id}", now()->toIso8601String());
+    $repository->update(['approval_checked_at' => now()]);
     $this->actingAs(User::factory()->create());
 
     visit(route('repos.approvals.show', $repository))
-        ->assertSeeIn('[data-testid="approvals-level-count-2"]', '1 of 3 open PRs')
-        ->assertSeeIn('[data-testid="approvals-level-count-3"]', '2 of 3 open PRs')
-        ->assertSeeIn('[data-testid="approvals-level-count-5"]', '3 of 3 open PRs')
+        ->assertSeeIn('[data-testid="approvals-level-count-2"]', 'Would approve 1 of 3 open PRs')
+        ->assertSeeIn('[data-testid="approvals-level-count-3"]', 'Would approve 2 of 3 open PRs')
+        ->assertSeeIn('[data-testid="approvals-level-count-5"]', 'Would approve 3 of 3 open PRs')
         ->assertSeeIn('[data-testid="open-pr-reason-3"]', 'Needs DEFCON 5 or higher.')
         ->click('[data-testid="approvals-level-3"]')
         ->assertSeeIn('[data-testid="open-pr-reason-2"]', 'Fits DEFCON 3')

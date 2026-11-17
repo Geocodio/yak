@@ -2,15 +2,20 @@
 
 use App\Ai\Agents\ConcernClassifier;
 use App\Channels\GitHub\AppService;
+use App\Enums\TaskMode;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Resources\ApprovalSettingsPageData;
 use App\Jobs\CheckOpenPullRequestApprovalsJob;
 use App\Jobs\CheckPullRequestApprovalJob;
+use App\Jobs\RunYakReviewJob;
 use App\Models\ApprovalPreview;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Services\ReviewApprovalPolicy;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Ai\Ai;
@@ -72,9 +77,10 @@ it('queues one check per open pull request and creates pending rows', function (
 it('does not recheck a pull request at an unchanged head and concerns version', function () {
     Queue::fake();
     $version = $this->repo->settings()->concernsVersion();
-    ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 7, 'head_sha' => 'sha7', 'concerns_version' => $version]);
-    ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 8, 'head_sha' => 'old', 'concerns_version' => $version]);
-    ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 9, 'head_sha' => 'sha9', 'concerns_version' => 'older']);
+    $fingerprint = fn (int $number, string $sha): string => CheckOpenPullRequestApprovalsJob::fingerprint($this->repo, previewPullRequest($number, $sha), null, []);
+    ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 7, 'head_sha' => 'sha7', 'concerns_version' => $version, 'fingerprint' => $fingerprint(7, 'sha7')]);
+    ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 8, 'head_sha' => 'old', 'concerns_version' => $version, 'fingerprint' => $fingerprint(8, 'sha8')]);
+    ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 9, 'head_sha' => 'sha9', 'concerns_version' => 'older', 'fingerprint' => $fingerprint(9, 'sha9')]);
     $this->github->shouldReceive('listOpenPullRequests')->andReturn([previewPullRequest(7), previewPullRequest(8, 'sha8'), previewPullRequest(9, 'sha9')]);
 
     (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
@@ -95,14 +101,14 @@ it('removes the row of a pull request that is no longer open', function () {
     expect(ApprovalPreview::count())->toBe(0);
 });
 
-it('keeps the rows and marks them failed when GitHub cannot list pull requests', function () {
+it('keeps the good rows when GitHub cannot list pull requests', function () {
     Queue::fake();
     ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 5]);
     $this->github->shouldReceive('listOpenPullRequests')->andThrow(new RuntimeException('500'));
 
     (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
 
-    expect(ApprovalPreview::first()->status)->toBe('failed');
+    expect(ApprovalPreview::first()->status)->toBe('done');
 });
 
 it('exposes why the last listing failed and clears it on the next success', function () {
@@ -234,8 +240,8 @@ it('shapes the open pull request prop and reloads it alone', function () {
         + ($only === null ? [] : ['X-Inertia-Partial-Component' => 'Repositories/Approvals', 'X-Inertia-Partial-Data' => $only]);
 
     $this->actingAs($user)->get(route('repos.approvals.show', $this->repo), $inertia())
-        ->assertJsonPath('props.openPullRequests', ['checkedAt' => null, 'error' => null, 'pending' => 0, 'rows' => []])
-        ->assertJsonPath('props.repositoryHolds', []);
+        ->assertJsonPath('props.openPullRequests', ['checkedAt' => null, 'error' => null, 'isChecking' => false, 'pending' => 0, 'rows' => []])
+        ->assertJsonMissingPath('props.repositoryHolds');
 
     ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 7, 'head_sha' => 'sha7']);
     ApprovalPreview::factory()->create(['repository_id' => $this->repo->id, 'pr_number' => 8]);
@@ -246,13 +252,131 @@ it('shapes the open pull request prop and reloads it alone', function () {
         ->assertJsonMissingPath('props.repositoryHolds');
 });
 
-it('dispatches the check and requests a review from the routes', function () {
+it('dispatches the check once and reports a check that is already running', function () {
     Queue::fake();
     $user = User::factory()->create();
 
-    $this->actingAs($user)->post(route('repos.approvals.check', $this->repo))->assertRedirect();
-    Queue::assertPushed(CheckOpenPullRequestApprovalsJob::class);
+    $this->actingAs($user)->post(route('repos.approvals.check', $this->repo))->assertSessionHas('success');
+    $this->actingAs($user)->post(route('repos.approvals.check', $this->repo))->assertSessionHas('error', 'A check is already running.');
 
+    Queue::assertPushed(CheckOpenPullRequestApprovalsJob::class, 1);
+});
+
+it('clears the running flag when the listing fails', function () {
+    Cache::put("approval-check-running:{$this->repo->id}", true, 300);
+    $this->github->shouldReceive('listOpenPullRequests')->andThrow(new RuntimeException('500'));
+
+    (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
+
+    expect(Cache::has("approval-check-running:{$this->repo->id}"))->toBeFalse();
+});
+
+it('refuses to review a closed pull request', function () {
     $this->github->shouldReceive('getPullRequestOrFail')->andReturn(['state' => 'closed']);
+
+    $this->actingAs(User::factory()->create())->post(route('repos.approvals.review', [$this->repo, 7]))->assertSessionHas('error');
+});
+
+it('requests a review through the same path as the review-open-prs action and dispatches it', function () {
+    Queue::fake();
+    $this->github->shouldReceive('getPullRequestOrFail')->andReturn(previewPullRequest(7, 'sha7', ['head' => ['ref' => 'feature'], 'base' => ['sha' => 'base'], 'html_url' => 'https://github.com/acme/api/pull/7']));
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('repos.approvals.review', [$this->repo, 7]))->assertSessionHas('success');
     $this->actingAs($user)->post(route('repos.approvals.review', [$this->repo, 7]))->assertSessionHas('error');
+
+    expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
+    Queue::assertPushed(RunYakReviewJob::class, 1);
+});
+
+it('does not queue a review when the repository does not review pull requests', function () {
+    Queue::fake();
+    $this->repo->update(['pr_review_enabled' => false]);
+    $this->github->shouldReceive('getPullRequestOrFail')->andReturn(previewPullRequest());
+
+    $this->actingAs(User::factory()->create())->post(route('repos.approvals.review', [$this->repo, 7]))->assertSessionHas('error');
+
+    expect(YakTask::count())->toBe(0);
+});
+
+it('checks a waiting row again once the review has landed', function () {
+    Queue::fake();
+    $version = $this->repo->settings()->concernsVersion();
+    $fingerprint = CheckOpenPullRequestApprovalsJob::fingerprint($this->repo, previewPullRequest(), null, []);
+    ApprovalPreview::factory()->create(['repository_id' => $this->repo->id, 'pr_number' => 7, 'head_sha' => 'sha7', 'status' => 'done', 'concerns_version' => $version, 'fingerprint' => $fingerprint,
+        'result' => ['holds' => [], 'changeKind' => null, 'hasTestChange' => false, 'waiting' => true, 'classification' => null]]);
+    $this->github->shouldReceive('listOpenPullRequests')->andReturn([previewPullRequest()]);
+
+    (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
+    Queue::assertPushed(CheckPullRequestApprovalJob::class, 1);
+
+    ApprovalPreview::where('pr_number', 7)->update(['status' => 'done', 'result' => ['holds' => [], 'changeKind' => 'no_runtime_change', 'hasTestChange' => false, 'waiting' => false, 'classification' => null]]);
+    $review = previewReview();
+    ApprovalPreview::where('pr_number', 7)->update(['fingerprint' => CheckOpenPullRequestApprovalsJob::fingerprint($this->repo, previewPullRequest(), null, [])]);
+
+    (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
+
+    expect(ApprovalPreview::where('pr_number', 7)->value('fingerprint'))->toBe(CheckOpenPullRequestApprovalsJob::fingerprint($this->repo, previewPullRequest(), $review->id, []));
+    Queue::assertPushed(CheckPullRequestApprovalJob::class, 2);
+});
+
+it('checks a settled row again when the pull request is marked as a draft', function () {
+    Queue::fake();
+    $version = $this->repo->settings()->concernsVersion();
+    ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 7, 'head_sha' => 'sha7', 'concerns_version' => $version, 'fingerprint' => CheckOpenPullRequestApprovalsJob::fingerprint($this->repo, previewPullRequest(), null, [])]);
+    $this->github->shouldReceive('listOpenPullRequests')->andReturn([previewPullRequest(overrides: ['draft' => true])]);
+
+    (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
+
+    Queue::assertPushed(CheckPullRequestApprovalJob::class, 1);
+});
+
+it('does not queue another check for a row that is already being checked', function () {
+    Queue::fake();
+    $version = $this->repo->settings()->concernsVersion();
+    $fingerprint = CheckOpenPullRequestApprovalsJob::fingerprint($this->repo, previewPullRequest(), null, []);
+    $row = ApprovalPreview::factory()->create(['repository_id' => $this->repo->id, 'pr_number' => 7, 'head_sha' => 'sha7', 'status' => 'pending', 'concerns_version' => $version, 'fingerprint' => $fingerprint]);
+    $this->github->shouldReceive('listOpenPullRequests')->andReturn([previewPullRequest()]);
+
+    (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
+    Queue::assertNothingPushed();
+
+    $this->travel(6)->minutes();
+    (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
+    Queue::assertPushed(CheckPullRequestApprovalJob::class, 1);
+});
+
+it('marks a row failed when its check job dies', function () {
+    $row = ApprovalPreview::factory()->create(['repository_id' => $this->repo->id, 'pr_number' => 7]);
+
+    (new CheckPullRequestApprovalJob($row->id))->failed(new RuntimeException('killed'));
+
+    expect($row->refresh()->status)->toBe('failed')->and($row->error)->not->toBeNull();
+});
+
+it('shows a row that has been pending for too long as failed and not pending', function () {
+    $row = ApprovalPreview::factory()->create(['repository_id' => $this->repo->id, 'pr_number' => 7]);
+    $this->travel(6)->minutes();
+
+    $data = ApprovalSettingsPageData::openPullRequests($this->repo);
+
+    expect($data['pending'])->toBe(0)->and($data['rows'][0]['status'])->toBe('failed');
+});
+
+it('puts the protection holds of a non-default base branch on the row', function () {
+    Ai::fakeAgent(ConcernClassifier::class, [previewClassification()]);
+    $this->github->shouldReceive('hasRequiredStatusChecks')->with(Mockery::any(), 'acme/api', 'release/x')->andReturn(false);
+
+    $outcome = app(ReviewApprovalPolicy::class)->preview($this->repo, previewPullRequest(overrides: ['base' => ['ref' => 'release/x']]), previewFiles(), previewReview(), null);
+
+    expect($outcome['holds'])->toBe(['Branch protection on release/x has no required status checks.'])->and($outcome['changeKind'])->toBeNull();
+    ConcernClassifier::assertNeverPrompted();
+});
+
+it('serves the repository holds from a deferred group and remembers them briefly', function () {
+    $this->github->shouldReceive('hasRequiredStatusChecks')->once()->andReturn(false);
+    $policy = app(ReviewApprovalPolicy::class);
+
+    expect($policy->repositoryHolds($this->repo))->toBe(['Branch protection on main has no required status checks.'])
+        ->and($policy->repositoryHolds($this->repo))->toBe(['Branch protection on main has no required status checks.']);
 });

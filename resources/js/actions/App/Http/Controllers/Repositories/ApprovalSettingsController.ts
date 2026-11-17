@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::show
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:21
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:22
 * @route '/repos/{repository}/approvals'
 */
 export const show = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::show
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:21
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:22
 * @route '/repos/{repository}/approvals'
 */
 show.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ show.url = (args: { repository: string | number | { slug: string | number } } | 
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::show
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:21
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:22
 * @route '/repos/{repository}/approvals'
 */
 show.get = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ show.get = (args: { repository: string | number | { slug: string | number } } | 
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::show
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:21
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:22
 * @route '/repos/{repository}/approvals'
 */
 show.head = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +69,7 @@ show.head = (args: { repository: string | number | { slug: string | number } } |
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::update
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:38
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:39
 * @route '/repos/{repository}/approvals'
 */
 export const update = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -84,7 +84,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::update
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:38
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:39
 * @route '/repos/{repository}/approvals'
 */
 update.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -117,7 +117,7 @@ update.url = (args: { repository: string | number | { slug: string | number } } 
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::update
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:38
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:39
 * @route '/repos/{repository}/approvals'
 */
 update.put = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -127,7 +127,7 @@ update.put = (args: { repository: string | number | { slug: string | number } } 
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::check
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:58
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:59
 * @route '/repos/{repository}/approvals/check'
 */
 export const check = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -142,7 +142,7 @@ check.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::check
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:58
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:59
 * @route '/repos/{repository}/approvals/check'
 */
 check.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -175,7 +175,7 @@ check.url = (args: { repository: string | number | { slug: string | number } } |
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::check
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:58
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:59
 * @route '/repos/{repository}/approvals/check'
 */
 check.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -185,7 +185,7 @@ check.post = (args: { repository: string | number | { slug: string | number } } 
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::review
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:65
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:70
 * @route '/repos/{repository}/approvals/review/{number}'
 */
 export const review = (args: { repository: string | number | { slug: string | number }, number: string | number } | [repository: string | number | { slug: string | number }, number: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -200,7 +200,7 @@ review.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::review
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:65
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:70
 * @route '/repos/{repository}/approvals/review/{number}'
 */
 review.url = (args: { repository: string | number | { slug: string | number }, number: string | number } | [repository: string | number | { slug: string | number }, number: string | number ], options?: RouteQueryOptions) => {
@@ -228,7 +228,7 @@ review.url = (args: { repository: string | number | { slug: string | number }, n
 
 /**
 * @see \App\Http\Controllers\Repositories\ApprovalSettingsController::review
-* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:65
+* @see app/Http/Controllers/Repositories/ApprovalSettingsController.php:70
 * @route '/repos/{repository}/approvals/review/{number}'
 */
 review.post = (args: { repository: string | number | { slug: string | number }, number: string | number } | [repository: string | number | { slug: string | number }, number: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({

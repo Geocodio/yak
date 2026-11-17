@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $author
  * @property string $url
  * @property string|null $error
+ * @property string|null $fingerprint
+ * @property string|null $concerns_version
  * @property 'pending'|'done'|'failed' $status
  * @property CarbonImmutable|null $updated_at
  * @property array{holds: list<string>, changeKind: ?string, hasTestChange: bool, waiting: bool, classification: array<string, mixed>|null}|null $result

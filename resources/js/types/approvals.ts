@@ -61,6 +61,7 @@ export type OpenPullRequestRow = {
 export type OpenPullRequests = {
     checkedAt: string | null;
     error: string | null;
+    isChecking: boolean;
     pending: number;
     rows: OpenPullRequestRow[];
 };
@@ -72,5 +73,5 @@ export type ApprovalsPage = {
     shadow: ApprovalShadow;
     github?: ApprovalGithub;
     openPullRequests: OpenPullRequests;
-    repositoryHolds: string[];
+    repositoryHolds?: string[];
 };

@@ -79,14 +79,14 @@ export function outcomeAt(row: OpenPullRequestRow, level: ApprovalLevel, reposit
         return { kind: 'failed', label: 'Could not check', reason: row.error ?? 'The check failed.', checks: [] };
     }
 
-    if (row.waiting) {
-        return { kind: 'waiting', label: 'Waiting', reason: 'Yak has not reviewed this commit yet.', checks: [] };
-    }
-
     const holds = [...row.holds, ...repositoryHolds];
 
     if (holds.length > 0) {
         return { kind: 'human', label: 'A human reviews', reason: holds[0], checks: holds };
+    }
+
+    if (row.waiting) {
+        return { kind: 'waiting', label: 'Waiting', reason: 'Yak has not reviewed this commit yet.', checks: [] };
     }
 
     if (level === 1) {
