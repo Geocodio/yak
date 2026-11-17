@@ -12,7 +12,8 @@ struct FilePageView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
+            // The server bounds a patch, so the rows are laid out together; the audit cannot measure a lazy stack's text.
+            VStack(alignment: .leading, spacing: 0) {
                 header.padding(.horizontal, 16).padding(.bottom, 12)
                 content
             }
@@ -63,7 +64,8 @@ struct FilePageView: View {
                 Text(verbatim: "\u{2212}\(deletions)").foregroundStyle(Color.diffRemoved)
             }
             .font(.footnote.monospacedDigit().weight(.semibold)).fixedSize()
-            .accessibilityRepresentation { Text("files.counts.label \(additions) \(deletions)") }
+            .accessibilityElement(children: .combine).accessibilityLabel(
+                Text("files.counts.label \(additions) \(deletions)"))
         }
     }
 

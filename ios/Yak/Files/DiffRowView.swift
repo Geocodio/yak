@@ -23,14 +23,14 @@ struct DiffRowView: View {
     private var line: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(verbatim: row.newLine.map(String.init) ?? "").font(.caption.monospacedDigit().weight(.medium))
-                .foregroundStyle(Color.yakMuted).frame(width: 36, alignment: .trailing).accessibilityHidden(true)
-            Text(verbatim: marker).font(.footnote.monospaced().weight(.semibold)).accessibilityHidden(true)
+                .foregroundStyle(Color.yakMuted).frame(width: 36, alignment: .trailing)
+            Text(verbatim: marker).font(.footnote.monospaced().weight(.semibold))
             Text(verbatim: row.text).font(.footnote.monospaced()).fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 8).padding(.vertical, 2)
         .background(tint)
-        .accessibilityRepresentation { Text(verbatim: spoken) }
+        .accessibilityElement(children: .combine).accessibilityLabel(spoken)
     }
 
     private var marker: String {
