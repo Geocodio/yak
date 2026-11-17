@@ -15,16 +15,16 @@ struct SheetHeader<Cancel: View, Confirm: View>: View {
                 VStack(alignment: .leading, spacing: 8) {
                     titleText
                     HStack {
-                        cancel
+                        cancel.frame(minWidth: 44, minHeight: 44, alignment: .leading).contentShape(.rect)
                         Spacer(minLength: 12)
-                        confirm
+                        confirm.frame(minWidth: 44, minHeight: 44, alignment: .trailing).contentShape(.rect)
                     }
                 }
             } else {
                 HStack(spacing: 12) {
-                    cancel
+                    cancel.frame(minWidth: 44, minHeight: 44, alignment: .leading).contentShape(.rect)
                     titleText.frame(maxWidth: .infinity)
-                    confirm
+                    confirm.frame(minWidth: 44, minHeight: 44, alignment: .trailing).contentShape(.rect)
                 }
             }
         }
@@ -35,5 +35,18 @@ struct SheetHeader<Cancel: View, Confirm: View>: View {
     private var titleText: some View {
         Text(title).font(.headline).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// A rounded group of rows on the grouped background of an Overview sheet. A scroll view of cards keeps every row in
+/// the accessibility tree, which a lazy list does not.
+struct SheetCard<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) { content }
+            .padding(.horizontal, 16).padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 20))
     }
 }

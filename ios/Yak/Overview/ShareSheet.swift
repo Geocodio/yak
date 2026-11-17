@@ -83,12 +83,8 @@ private struct ShareSheetForm: View {
         .sensoryFeedback(.error, trigger: model.refusalCount)
     }
 
-    /// A rounded group of rows on the grouped background.
-    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) { content() }
-            .padding(.horizontal, 16).padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 20))
+    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> SheetCard<Content> {
+        SheetCard { content() }
     }
 
     // MARK: Choices

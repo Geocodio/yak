@@ -57,33 +57,40 @@ private struct AddSubThreadForm: View {
     private var isLocked: Bool { model.isSending || model.isUnsure }
 
     var body: some View {
-        Form {
-            if let sentence = model.refusalSentence {
-                Section {
-                    notice(sentence, identifier: "addSubThread.refused")
-                    openParentButton
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if let sentence = model.refusalSentence {
+                    SheetCard {
+                        notice(sentence, identifier: "addSubThread.refused").padding(.vertical, 8)
+                        openParentButton
+                    }
                 }
-            }
-            Section {
-                nameField
-                briefField
-            }
-            Section {
-                kindPicker
-                modelPicker
-                footer
-            }
-            Section {
-                if model.isUnsure {
-                    notice(String(localized: "addSubThread.unsure"), identifier: "addSubThread.unsure")
+                SheetCard {
+                    nameField.padding(.vertical, 8)
+                    Divider()
+                    briefField.padding(.vertical, 8)
                 }
-                if let problem = model.problem {
-                    notice(problem, identifier: "addSubThread.problem")
-                    if model.refusalSentence == nil { openParentButton }
+                SheetCard {
+                    kindPicker.padding(.vertical, 8)
+                    Divider()
+                    modelPicker
+                    Divider()
+                    footer.padding(.vertical, 8)
                 }
+                VStack(alignment: .leading, spacing: 8) {
+                    if model.isUnsure {
+                        notice(String(localized: "addSubThread.unsure"), identifier: "addSubThread.unsure")
+                    }
+                    if let problem = model.problem {
+                        notice(problem, identifier: "addSubThread.problem")
+                        if model.refusalSentence == nil { openParentButton }
+                    }
+                }
+                .padding(.horizontal, 16)
             }
-            .listRowBackground(Color.clear)
+            .padding(.horizontal, 16).padding(.bottom, 24)
         }
+        .background(Color(.systemGroupedBackground))
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
             SheetHeader(title: "addSubThread.title") {
