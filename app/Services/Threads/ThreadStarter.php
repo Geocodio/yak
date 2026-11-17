@@ -60,10 +60,11 @@ class ThreadStarter
         Collection $attachments = new Collection,
         array $extraRepositories = [],
         ?string $sendKey = null,
+        ?string $effort = null,
     ): Thread {
         $this->assertExtrasAllowed($repo, $extraRepositories);
 
-        $resolved = $this->resolver->forNewThread($starter, $repo, $accountId, $model);
+        $resolved = $this->resolver->forNewThread($starter, $repo, $accountId, $model, $effort);
 
         if ($resolved->account === null) {
             throw new ThreadAccountUnavailable('No usable Claude account. Connect one in Settings, Claude accounts, or ask an admin to set up a shared account.');
@@ -92,6 +93,7 @@ class ThreadStarter
                 'owner_user_id' => $starter->id,
                 'claude_account_id' => $resolved->account->id,
                 'model' => $resolved->model,
+                'effort' => $resolved->effort,
                 'send_key' => $sendKey,
             ]);
 

@@ -287,6 +287,7 @@ it('does not create a duplicate task for the same Linear issue', function () {
     YakTask::factory()->create([
         'source' => 'linear',
         'external_id' => 'LINEAR-ENG-42',
+        'status' => TaskStatus::Running,
     ]);
 
     postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
@@ -294,6 +295,25 @@ it('does not create a duplicate task for the same Linear issue', function () {
     expect(YakTask::where('external_id', 'LINEAR-ENG-42')->count())->toBe(1);
     Queue::assertNotPushed(RunYakJob::class);
 });
+
+it('starts a new task when an issue whose earlier task finished is delegated again', function (TaskStatus $finishedStatus) {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    Repository::factory()->default()->create();
+
+    YakTask::factory()->create([
+        'source' => 'linear',
+        'external_id' => 'LINEAR-ENG-42',
+        'status' => $finishedStatus,
+    ]);
+
+    postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
+
+    expect(YakTask::where('external_id', 'LINEAR-ENG-42')->count())->toBe(2);
+    Queue::assertPushed(RunYakJob::class);
+})->with([TaskStatus::Expired, TaskStatus::Failed, TaskStatus::Cancelled, TaskStatus::Success]);
 
 it('ignores webhooks from workspaces with no matching connection', function () {
     $secret = enableLinearChannel();

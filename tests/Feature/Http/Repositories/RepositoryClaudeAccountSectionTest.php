@@ -13,12 +13,12 @@ beforeEach(function () {
 });
 
 it('lets an admin change the unattended account and a member not', function () {
-    $this->get(route('repos.edit', $this->repository))
+    $this->get(route('repos.settings.show', ['repository' => $this->repository, 'section' => 'accounts']))
         ->assertInertia(fn (Assert $page) => $page->where('claudeAccounts.canChangeUnattended', false));
 
     config(['claude-accounts.admin_user_ids' => [$this->user->id]]);
 
-    $this->get(route('repos.edit', $this->repository))
+    $this->get(route('repos.settings.show', ['repository' => $this->repository, 'section' => 'accounts']))
         ->assertInertia(fn (Assert $page) => $page->where('claudeAccounts.canChangeUnattended', true));
 });
 
@@ -26,7 +26,7 @@ it('flags a chosen account that is no longer active', function () {
     $broken = ClaudeAccount::factory()->for($this->user, 'owner')->expired()->create(['validated_at' => now()]);
     UserRepositorySetting::query()->create(['user_id' => $this->user->id, 'repo' => $this->repository->slug, 'claude_account_id' => $broken->id]);
 
-    $this->get(route('repos.edit', $this->repository))
+    $this->get(route('repos.settings.show', ['repository' => $this->repository, 'section' => 'accounts']))
         ->assertInertia(fn (Assert $page) => $page
             ->where('claudeAccounts.mySetting.accountId', $broken->id)
             ->where('claudeAccounts.accounts.0.id', $broken->id)
@@ -38,7 +38,7 @@ it('never exposes another person account or a secret', function () {
     $mine = ClaudeAccount::factory()->for($this->user, 'owner')->create(['validated_at' => now()]);
     $theirs = ClaudeAccount::factory()->for(User::factory()->create(), 'owner')->create(['validated_at' => now()]);
 
-    $this->get(route('repos.edit', $this->repository))
+    $this->get(route('repos.settings.show', ['repository' => $this->repository, 'section' => 'accounts']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('claudeAccounts.accounts', 1)
             ->where('claudeAccounts.accounts.0.id', $mine->id)

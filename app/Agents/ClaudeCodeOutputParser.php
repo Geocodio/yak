@@ -85,6 +85,33 @@ class ClaudeCodeOutputParser
         return $reason !== '' ? mb_substr($reason, 0, 500) : 'The setup agent reported that it could not finish.';
     }
 
+    /** A test command is safe to render into a prompt when it is at most 500 characters on a single line, without backticks or control characters. */
+    public static function isSafeTestCommand(string $command): bool
+    {
+        return mb_strlen($command) <= 500 && preg_match('/[\x{0000}-\x{001F}\x{007F}\x{0085}\x{2028}\x{2029}`]/u', $command) === 0;
+    }
+
+    /**
+     * Extract the command a ready setup used to run the tests from the last fenced setup_result block,
+     * or null when the block is missing, malformed, failed, or names no command.
+     */
+    public static function extractTestCommand(string $resultText): ?string
+    {
+        if (preg_match_all('/```setup_result\s*\n(.+?)\n```/s', $resultText, $matches) < 1) {
+            return null;
+        }
+
+        $decoded = json_decode(trim((string) end($matches[1])), true);
+
+        if (! is_array($decoded) || ($decoded['status'] ?? null) === 'failed' || ! is_string($decoded['test_command'] ?? null)) {
+            return null;
+        }
+
+        $command = trim($decoded['test_command']);
+
+        return $command !== '' && self::isSafeTestCommand($command) ? $command : null;
+    }
+
     /**
      * Extract a preview repair task's verdict from a fenced preview_repair code block.
      *

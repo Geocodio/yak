@@ -14,6 +14,7 @@ struct DrawerView: View {
     let openSwitcher: () -> Void
     /// Reloads the list, or starts the session again while it is still signing in.
     let retry: () -> Void
+    let openTasksRoute: (TasksRoute?) -> Void
 
     @FocusState private var isSearchFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -27,6 +28,7 @@ struct DrawerView: View {
                 header
             }
             if let name = scene.justPairedUserName { banner(name) }
+            if !(isSearchFocused && (verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize)) { tiles }
             content.frame(maxHeight: .infinity, alignment: .top)
         }
         // Whatever sits above the bottom bar is clipped to the room left, so the bar is always fully on screen.
@@ -134,6 +136,60 @@ struct DrawerView: View {
         .background(Color.primary.opacity(0.06))
     }
 
+    // MARK: Tiles
+
+    /// Two tiles above the list: the Tasks list and the Observations list.
+    private var tiles: some View {
+        let count = drawer?.needsYouTaskCount ?? 0
+        let row = HStack(spacing: 10) {
+            tile("drawer.tile.tasks", systemImage: "checklist", badge: count, identifier: "drawer.tile.tasks") {
+                openTasksRoute(.tasks)
+            }
+            tile("drawer.tile.observations", systemImage: "eye", badge: 0, identifier: "drawer.tile.observations") {
+                openTasksRoute(.observations)
+            }
+        }
+        return Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 8) {
+                    tile("drawer.tile.tasks", systemImage: "checklist", badge: count, identifier: "drawer.tile.tasks") {
+                        openTasksRoute(.tasks)
+                    }
+                    tile(
+                        "drawer.tile.observations", systemImage: "eye", badge: 0, identifier: "drawer.tile.observations"
+                    ) {
+                        openTasksRoute(.observations)
+                    }
+                }
+            } else {
+                row
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 6)
+    }
+
+    private func tile(
+        _ title: LocalizedStringKey, systemImage: String, badge: Int, identifier: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage).font(.body.weight(.semibold)).accessibilityHidden(true)
+                Text(title).font(.subheadline.weight(.semibold))
+                if badge > 0 {
+                    Text(verbatim: "\(badge)").font(.caption.weight(.bold)).foregroundStyle(Color.yakOnBadge)
+                        .padding(.horizontal, 7).padding(.vertical, 2).background(Color.yakBadge, in: .capsule)
+                        .accessibilityLabel("drawer.tile.tasksWaiting \(badge)")
+                }
+            }
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(Color.primary.opacity(0.07), in: .rect(cornerRadius: 12))
+            .contentShape(.rect(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+    }
+
     // MARK: Content
 
     @ViewBuilder private var content: some View {
@@ -210,8 +266,9 @@ struct DrawerView: View {
         switch row.target {
         case .thread(let id):
             isSearchFocused = false
+            openTasksRoute(nil)
             scene.open(thread: id, isCompactWidth: isCompactWidth)
-        case .task(let id): model.browserURL = instance.url.appending(path: "tasks").appending(path: id)
+        case .task(let id): openTasksRoute(.task(id))
         case .unsentThread(let id):
             guard let item = drawer?.unsentItem(id), case .newThread(let draft) = item.target else {
                 scene.openNewThread(repo: nil, text: nil)
@@ -225,7 +282,7 @@ struct DrawerView: View {
 
     private func notice(_ text: Text, systemImage: String) -> some View {
         Label {
-            text.font(.footnote).fixedSize(horizontal: false, vertical: true)
+            text.font(.footnote.weight(.medium)).fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: systemImage).accessibilityHidden(true)
         }

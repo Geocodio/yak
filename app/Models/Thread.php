@@ -40,6 +40,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadVisibility $visibility
  * @property ThreadKind $kind
  * @property string|null $branch
+ * @property string|null $effort
+ * @property string|null $runner_effort
  * @property bool $fresh_session_pending
  * @property string|null $sandbox_ip
  * @property int|null $owner_user_id

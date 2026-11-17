@@ -121,3 +121,17 @@ test('message is required', function () {
     $this->post(route('tasks.messages.store', $task), [])
         ->assertSessionHasErrors(['message']);
 });
+
+test('a message on a failed task retries it once with the message as a note', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['slug' => 'Geocodio/geocodio', 'is_active' => true]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'pr_url' => null]);
+
+    $this->post(route('tasks.messages.store', $task), ['message' => 'use the helper'])
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('success', 'Trying again with your note.');
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Pending)
+        ->and($task->fresh()->description)->toContain('use the helper');
+    Queue::assertPushed(RunYakJob::class, 1);
+});

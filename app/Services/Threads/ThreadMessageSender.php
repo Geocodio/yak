@@ -113,6 +113,7 @@ class ThreadMessageSender
                     storeAttachments: $input->storeAttachments,
                     sendKey: $input->sendKey,
                     answersQuestion: $input->intent === null,
+                    effort: $input->effort,
                 );
 
                 return new ThreadMessageResult('sent', rescue(fn () => $run->prompt_uuid, null, false), null);
@@ -127,6 +128,7 @@ class ThreadMessageSender
                 'thread',
                 $input->sendKey,
                 $input->delivery === MessageDelivery::AfterTurn,
+                $input->effort,
             );
 
             return new ThreadMessageResult($message->mode === SteeringMode::Steer ? 'sent' : 'queued', $message->uuid, null);

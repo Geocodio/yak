@@ -76,6 +76,7 @@ export function AccountDialog({ mode, account, models, hasDefault, onClose, onSe
         secret: '',
         name: isRotate ? '' : defaultName(isSystem, setup?.appName),
         default_model: 'sonnet' as string | null,
+        default_effort: null as string | null,
         make_default: !hasDefault,
         icon: (isSystem ? 'building' : 'briefcase') as ClaudeAccount['icon'],
         color: (isSystem ? 'slate' : 'violet') as ClaudeAccount['color'],
@@ -229,8 +230,8 @@ export function AccountDialog({ mode, account, models, hasDefault, onClose, onSe
                         </button>
                         {isDetailsOpen && (
                             <div id="account-details" className="flex flex-col gap-4" data-testid="account-details">
-                                <Field label="Default model" description="Used when a task does not pick one.">
-                                    <ModelPicker disabled={form.processing} models={models} value={form.data.default_model} onChange={(value) => form.setData('default_model', value)} testId="account-default-model" />
+                                <Field label="Default model" description="Used when a task does not pick a model or effort.">
+                                    <ModelPicker disabled={form.processing} models={models} value={form.data.default_model} onChange={(value) => form.setData('default_model', value)} effort={form.data.default_effort} onEffortChange={(effort) => form.setData('default_effort', effort)} testId="account-default-model" />
                                 </Field>
                                 <AppearanceFields value={{ icon: form.data.icon, color: form.data.color }} onChange={(next) => form.setData((data) => ({ ...data, ...next }))} />
                                 {!isSystem && <Checkbox checked={form.data.make_default} onCheckedChange={(checked) => form.setData('make_default', checked)} label="Make this my default account" />}

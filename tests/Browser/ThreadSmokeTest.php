@@ -21,6 +21,7 @@ it('loads every new page in light and dark without console or JavaScript errors'
         route('settings.notifications'),
         route('settings.ssh-keys'),
         route('repos.edit', $repository),
+        route('repos.settings.show', ['repository' => $repository, 'section' => 'review']),
         '/device?code=' . $authorization->user_code,
     ];
 

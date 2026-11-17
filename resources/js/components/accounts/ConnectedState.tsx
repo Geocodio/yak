@@ -1,9 +1,9 @@
 import { Button } from '@geocodio/console-ui';
 import { Check } from 'lucide-react';
 import type { ModelFamily } from '@/types/claudeAccounts';
-import { formatDate, modelLabel } from './accountAppearance';
+import { formatDate, modelWithEffortLabel } from './accountAppearance';
 
-export type ConnectedAccount = { name: string; kind: string; defaultModel: string | null; expiresAt: string | null };
+export type ConnectedAccount = { name: string; kind: string; defaultModel: string | null; defaultEffort: string | null; expiresAt: string | null };
 
 type Props = {
     account: ConnectedAccount;
@@ -17,7 +17,7 @@ type Props = {
 export function ConnectedState({ account, isSystem, hasDevice, models, onSetUpTeleport }: Props) {
     const rows: [string, string][] = [
         ['Type', account.kind === 'setup_token' ? 'Setup token, Claude subscription' : 'API key, billed by Anthropic'],
-        ['Default model', modelLabel(account.defaultModel, models)],
+        ['Default model', modelWithEffortLabel(account.defaultModel, account.defaultEffort, models)],
         ['Expires', account.expiresAt === null ? 'Does not expire.' : `${formatDate(account.expiresAt)}. Yak reminds you 14 days before.`],
     ];
 

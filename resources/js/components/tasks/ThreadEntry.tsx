@@ -1,5 +1,5 @@
 import { cn } from '@geocodio/console-ui';
-import { ExternalLink } from 'lucide-react';
+import { Check, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import { MessageWithAttachments } from '@/components/attachments/Attachments';
 import { Prose } from '@/components/Prose';
@@ -115,23 +115,34 @@ export function ThreadEntry({
                     <span className="font-semibold text-body">{entry.who}</span>
                     <span>{entry.meta}</span>
                 </div>
-                <dl className="px-6 py-2">
-                    {entry.answers?.map((item, index) => (
-                        <div key={index} className={cn('grid grid-cols-[minmax(0,160px)_minmax(0,1fr)] gap-x-5 py-2', index > 0 && 'border-t border-hair')}>
-                            <dt className="text-[12px] text-muted">{item.header}</dt>
-                            <dd className="text-[13px]">
-                                {item.skipped && <span className="text-muted">Skipped</span>}
-                                {item.answer}
-                                {item.other !== null && (
-                                    <span className={cn(item.answer !== null && 'block')}>
-                                        <span className="text-muted">Other: </span>
-                                        {item.other}
-                                    </span>
-                                )}
-                            </dd>
+                {entry.answers?.map((item, index) => (
+                    <div key={index} className={cn('flex flex-col gap-2 px-6 py-3.5', index > 0 && 'border-t border-hair')} data-testid="clarification-answer">
+                        <p className="m-0 max-w-[65ch] text-[13px] leading-normal text-muted">{item.question}</p>
+                        <div className="flex items-start gap-2.5 rounded-lg bg-panel-2 px-3 py-2.5">
+                            {item.skipped ? (
+                                <span className="text-[13px] text-muted">Skipped</span>
+                            ) : (
+                                <>
+                                    <Check size={15} className="mt-0.5 shrink-0 text-ok" aria-hidden />
+                                    <div className="flex min-w-0 flex-col gap-1.5">
+                                        {item.choices.map((choice) => (
+                                            <div key={choice.label}>
+                                                <div className="text-[13.5px] font-semibold">{choice.label}</div>
+                                                {choice.description && <div className="text-[12.5px] leading-normal text-muted">{choice.description}</div>}
+                                            </div>
+                                        ))}
+                                        {item.other !== null && (
+                                            <div className="text-[13.5px] wrap-break-word">
+                                                <span className="text-muted">Other: </span>
+                                                {item.other}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                         </div>
-                    ))}
-                </dl>
+                    </div>
+                ))}
                 {entry.note && (
                     <p className="border-t border-hair px-6 py-3 text-[13px]">
                         <span className="text-muted">Note: </span>

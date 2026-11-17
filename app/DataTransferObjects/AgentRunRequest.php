@@ -24,6 +24,7 @@ final readonly class AgentRunRequest
         public ?YakTask $task = null,
         public array $attachments = [],
         public ?ClaudeAccount $account = null,
+        public ?string $effort = null,
     ) {}
 
     public function isResume(): bool
@@ -45,6 +46,7 @@ final readonly class AgentRunRequest
             maxBudgetUsd: $this->maxBudgetUsd,
             maxTurns: $this->maxTurns,
             model: $this->model,
+            effort: $this->effort,
             resumeSessionId: null,
             mcpConfigPath: $this->mcpConfigPath,
             task: $this->task,
@@ -67,6 +69,7 @@ final readonly class AgentRunRequest
             maxBudgetUsd: $this->maxBudgetUsd,
             maxTurns: $this->maxTurns,
             model: $this->model,
+            effort: $this->effort,
             resumeSessionId: $this->resumeSessionId,
             mcpConfigPath: $this->mcpConfigPath,
             task: $this->task,

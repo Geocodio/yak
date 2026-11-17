@@ -49,6 +49,7 @@ class ThreadCommands
             'start' => [
                 'type' => 'start',
                 'model' => $thread->model === null ? null : $this->models->resolve($thread->model),
+                'effort' => $this->supportedEffort($thread->model, $thread->effort),
                 'appendSystemPrompt' => $appendSystemPrompt,
                 'permissionMode' => 'bypassPermissions',
                 'cwd' => $workingDirectory,
@@ -68,6 +69,7 @@ class ThreadCommands
         $thread->forceFill([
             'runner_state' => RunnerState::Starting,
             'runner_model' => $thread->model,
+            'runner_effort' => $thread->effort,
             'append_system_prompt' => $appendSystemPrompt,
         ])->save();
     }
@@ -107,6 +109,21 @@ class ThreadCommands
         $this->send($thread, ['type' => 'set_model', 'model' => $this->models->resolve($model)]);
 
         $thread->forceFill(['runner_model' => $model])->save();
+    }
+
+    /**
+     * Switch the live runner's reasoning effort; null resets it to the model's default.
+     */
+    public function setEffort(Thread $thread, ?string $effort): void
+    {
+        $this->send($thread, ['type' => 'set_effort', 'effort' => $this->supportedEffort($thread->model, $effort)]);
+
+        $thread->forceFill(['runner_effort' => $effort])->save();
+    }
+
+    private function supportedEffort(?string $model, ?string $effort): ?string
+    {
+        return $model === null ? $effort : $this->models->clampEffort($model, $effort);
     }
 
     public function end(Thread $thread): void

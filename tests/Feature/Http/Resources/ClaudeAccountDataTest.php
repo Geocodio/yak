@@ -10,7 +10,7 @@ it('never carries the secret and has the documented keys', function () {
 
     $data = ClaudeAccountData::from($account);
 
-    expect(array_keys($data))->toBe(['id', 'name', 'kind', 'icon', 'color', 'isSystem', 'isDefault', 'defaultModel', 'maxConcurrentTurns', 'status', 'validatedAt', 'expiresAt', 'expiresSoon', 'lastUsedAt', 'lastError', 'unattendedRepos'])
+    expect(array_keys($data))->toBe(['id', 'name', 'kind', 'icon', 'color', 'isSystem', 'isDefault', 'defaultModel', 'defaultEffort', 'maxConcurrentTurns', 'status', 'validatedAt', 'expiresAt', 'expiresSoon', 'lastUsedAt', 'lastError', 'unattendedRepos'])
         ->and(json_encode($data))->not->toContain('topsecret')
         ->and($data['isSystem'])->toBeTrue()
         ->and($data['expiresSoon'])->toBeTrue()

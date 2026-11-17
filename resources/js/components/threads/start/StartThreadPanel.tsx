@@ -19,6 +19,8 @@ type Props = Omit<NewThreadPageData, 'emailToYakAddress'> & {
     reloadOnly: string[];
     onStarted?: () => void;
     autoFocus?: boolean;
+    /** Drops the composer's own card edge, for a host that already draws one. */
+    isEmbedded?: boolean;
     /** A request dropped into the composer by an example chip. */
     example?: StartExample;
     /** Text the description starts with. */

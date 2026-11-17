@@ -204,7 +204,7 @@ it('forgets the cached access on check again', function () {
 it('lists the waiting step in progress', function () {
     $this->get(route('tasks.show', $this->task))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('progress.steps.4.label', 'CI passing')
+            ->where('progress.steps.4.label', 'CI passed')
             ->where('progress.steps.5.label', 'Waiting for a co-owner')
             ->where('progress.steps.5.current', true)
             ->where('progress.steps.4.done', true)

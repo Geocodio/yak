@@ -33,6 +33,8 @@ export function buildChildEnvironment(start, processEnvironment) {
   environment.ANTHROPIC_BASE_URL = start.anthropicBaseUrl;
   environment.CLAUDE_CODE_OAUTH_TOKEN = start.placeholder;
   environment.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
+  // Documented in the SDK's backgroundTasks(): with this set nothing is backgrounded, so a timed-out command cannot keep a finished turn open.
+  environment.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS = '1';
   return environment;
 }
 

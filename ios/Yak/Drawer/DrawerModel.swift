@@ -37,6 +37,11 @@ final class DrawerModel {
     /// How many items wait for the person, for the threads button's badge.
     var needsYouCount: Int { state?.list?.needsYouCount ?? 0 }
 
+    /// How many tasks wait for the person, for the badge on the Tasks tile.
+    var needsYouTaskCount: Int {
+        state?.list?.needsYou.filter { if case .task = $0 { true } else { false } }.count ?? 0
+    }
+
     var filter: ThreadListFilter { scene.state.filter }
 
     /// Follows the feed and the outbox until the calling task is cancelled.

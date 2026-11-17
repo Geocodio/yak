@@ -36,7 +36,7 @@ public enum OutboxInbox {
     public static func item(for draft: OutboxDraft, id: UUID, now: Date) -> OutboxItem {
         OutboxItem(
             id: id, target: draft.target, text: draft.text, model: draft.model, delivery: draft.delivery,
-            attachments: draft.attachments, createdAt: now, intent: draft.intent)
+            attachments: draft.attachments, createdAt: now, intent: draft.intent, effort: draft.effort)
     }
 
     /// Where an attachment's bytes live. The file name loses any path part, so it cannot leave the folder.

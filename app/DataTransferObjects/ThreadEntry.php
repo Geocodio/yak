@@ -19,7 +19,7 @@ readonly class ThreadEntry
      * @param  array<int, string>  $options  clarification options ('clarification' kind)
      * @param  array<string, int|string|null>  $runStats  ['steps' => int, 'attempt' => int, 'duration_ms' => int|null]
      * @param  array<int, int>|null  $attachmentIds  Files sent with a clarification reply; null for messages whose files are the run's own
-     * @param  list<array{header: string, answer: string|null, other: string|null, skipped: bool}>  $answerItems  per-question answers ('clarification-answers' kind)
+     * @param  list<array{header: string, question: string, answer: string|null, choices: list<array{label: string, description: string|null}>, other: string|null, skipped: bool}>  $answerItems  per-question answers ('clarification-answers' kind)
      */
     private function __construct(
         public string $kind,
@@ -70,7 +70,7 @@ readonly class ThreadEntry
     }
 
     /**
-     * @param  list<array{header: string, answer: string|null, other: string|null, skipped: bool}>  $answerItems
+     * @param  list<array{header: string, question: string, answer: string|null, choices: list<array{label: string, description: string|null}>, other: string|null, skipped: bool}>  $answerItems
      */
     public static function clarificationAnswers(YakTask $run, array $answerItems, ?string $note, string $authorName, Carbon $at): self
     {

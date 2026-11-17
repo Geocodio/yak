@@ -2,14 +2,16 @@
 
 namespace App\Console\Commands;
 
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
-use App\Jobs\SendNotificationJob;
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StopNotifier;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -252,10 +254,11 @@ class DrainForDeployCommand extends Command
 
         $task->update([
             'status' => TaskStatus::Failed,
-            'error_log' => $reason,
             'completed_at' => now(),
             'interrupted_by_deploy_at' => now(),
         ]);
+
+        Repository::markSetupFailedFor($task);
 
         try {
             $containerName = $sandbox->containerName($task);
@@ -269,15 +272,10 @@ class DrainForDeployCommand extends Command
             ]);
         }
 
-        if ($task->source !== 'system') {
-            try {
-                SendNotificationJob::dispatch($task, NotificationType::Error, $reason);
-            } catch (\Throwable $e) {
-                Log::channel('yak')->warning('Failed to dispatch drain notification', [
-                    'task_id' => $task->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        if ($resumable) {
+            StopNotifier::notify($task, TaskStop::deployPaused($reason), NotificationType::Retry);
+        } else {
+            StopNotifier::notify($task, TaskStop::yakSideProblem($reason));
         }
     }
 }

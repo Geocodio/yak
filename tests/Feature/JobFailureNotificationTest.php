@@ -3,6 +3,7 @@
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\AfterTurn\FinishRunYakTurnJob;
@@ -39,8 +40,12 @@ test('the run finisher tells the source when the turn fails', function () {
     runFinisher($run);
 
     expect($task->refresh()->status)->toBe(TaskStatus::Failed);
+    expect($task->refresh()->stop_kind)->toBe(StopKind::YakStopped)
+        ->and($task->error_log)->toContain('without a result');
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
-        && str_contains($job->message, 'without a result'));
+        && $job->personalize === false
+        && $job->stop?->kind === StopKind::YakStopped
+        && str_contains($job->stop->detail, 'without a result'));
 });
 
 test('the run finisher tells the source when an exception fails the turn', function () {
@@ -51,7 +56,8 @@ test('the run finisher tells the source when an exception fails the turn', funct
     runFinisher($run);
 
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
-        && str_contains($job->message, 'remote rejected'));
+        && $job->personalize === false
+        && str_contains($job->stop->detail, 'remote rejected'));
 });
 
 test('a queue failure of the run finisher notifies exactly once', function () {
@@ -89,7 +95,11 @@ test('RetryYakJob tells the source when the retry fails', function () {
 
     (new RetryYakJob($task, 'ci output'))->handle($fake);
 
-    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
+    expect($task->stop_kind)->toBe(StopKind::YakStopped);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
+        && $job->personalize === false
+        && $job->stop?->kind === StopKind::YakStopped
+        && str_contains($job->stop->summary, 'problem on its side'));
 });
 
 test('ResearchYakJob tells the source when research fails', function () {
@@ -99,7 +109,11 @@ test('ResearchYakJob tells the source when research fails', function () {
 
     (new ResearchYakJob($task))->handle($fake);
 
-    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
+    expect($task->stop_kind)->toBe(StopKind::YakStopped);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
+        && $job->personalize === false
+        && $job->stop?->kind === StopKind::YakStopped
+        && str_contains($job->stop->summary, 'problem on its side'));
 });
 
 test('RunYakReviewJob tells the source exactly once when the review fails', function () {
@@ -133,5 +147,17 @@ test('ResearchYakJob fails cleanly and tells the source when the repo is unresol
     expect($task->status)->toBe(TaskStatus::Failed)
         ->and($task->error_log)->toContain('Could not determine which repo')
         ->and($task->completed_at)->not->toBeNull();
-    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
+    expect($task->stop_kind)->toBe(StopKind::NeedsYou);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
+        && $job->personalize === false
+        && $job->stop?->kind === StopKind::NeedsYou
+        && str_contains($job->stop->ask, 'fail-repo'));
+});
+
+test('a budget cap failure tells the source the task was too big', function () {
+    $result = new AgentRunResult('', '', 5.0, 80, 1000, true, '{}', 'error_during_execution');
+
+    expect($result->stop()->kind)->toBe(StopKind::NeedsYou)
+        ->and((new AgentRunResult('', '', 1.0, 300, 1000, true, '{}', 'error_max_turns'))->stop()->kind)->toBe(StopKind::NeedsYou)
+        ->and(failingAgentResult()->stop()->kind)->toBe(StopKind::YakStopped);
 });

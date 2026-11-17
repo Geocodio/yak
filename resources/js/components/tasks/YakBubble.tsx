@@ -1,7 +1,7 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { Button, cn } from '@geocodio/console-ui';
 import { useMemo } from 'react';
-import { CircleAlert, CircleCheck, ExternalLink, GitPullRequest, List, RotateCcw } from 'lucide-react';
+import { CircleAlert, CircleCheck, ExternalLink, GitPullRequest, List, Loader2, RotateCcw, Settings, Wrench } from 'lucide-react';
 import { ActivityStream, stepFromRow } from '@/components/activity/ActivityStream';
 import { Elapsed } from '@/components/activity/Elapsed';
 import { FinishedSummary } from '@/components/activity/FinishedSummary';
@@ -13,8 +13,8 @@ import { Prose } from '@/components/Prose';
 import { FindingsBlock } from '@/components/tasks/FindingsBlock';
 import { allFailuresRetried } from '@/components/tasks/groupActivity';
 import { navigateTaskQuery } from '@/lib/taskQuery';
-import { rerunReview, retry } from '@/routes/tasks';
-import type { ActionsData, ActivityRow, ActivitySummary, DeploymentData, FindingsData, ProgressStep, TaskDetail, ThreadEntryData } from '@/types/tasks';
+import { rerunReview, retry, setupAndContinue } from '@/routes/tasks';
+import type { ActionsData, ActivityRow, ActivitySummary, DeploymentData, FindingsData, ProgressStep, StopData, TaskDetail, ThreadEntryData } from '@/types/tasks';
 
 /** Where Yak's activity for the run on screen lives: the loaded rows, the run totals and the paging controls. */
 export type YakStream = {
@@ -32,10 +32,11 @@ export type YakBubbleContext = {
     progress: ProgressStep[];
     stream: YakStream;
     findings: FindingsData;
+    stop: StopData;
     onOpenFullLog: () => void;
 };
 
-const MILESTONE_LABELS = ['Pushed', 'CI passing', 'Pull request'];
+const MILESTONE_LABELS = ['Pushed', 'CI passed', 'Pull request'];
 
 function failureTitle({ mode, isFollowUp }: Pick<TaskDetail, 'mode' | 'isFollowUp'>): string {
     if (isFollowUp) {
@@ -52,10 +53,140 @@ function stoppedAt(rows: ActivityRow[]) {
     return row ? { ...stepFromRow({ ...row, retryPassed: false, retried: false }), key: `x${row.id}` } : null;
 }
 
-function ErrorCard({ entry, context, rows }: { entry: ThreadEntryData; context: YakBubbleContext; rows: ActivityRow[] }) {
+/** The failure card for a task whose repository has no ready sandbox: it explains why and starts setup in place. */
+function RepositorySetupCard({ task, setup }: { task: TaskDetail; setup: NonNullable<TaskDetail['repositorySetup']> }) {
+    const settingsButton = (
+        <Button variant="secondary" icon={<Settings size={14} />} onClick={() => router.visit(setup.settingsUrl)}>
+            Repository settings
+        </Button>
+    );
+    const continueAfterSetup = () => router.post(setupAndContinue.url(task.id), {}, { preserveScroll: true });
+
+    if (setup.isSettingUp) {
+        return (
+            <div className="flex flex-col gap-2 rounded-[10px] bg-warn-soft p-3" data-testid="repository-setup">
+                <h3 className="m-0 flex flex-wrap items-center gap-[7px] text-[14.5px] font-semibold text-warn">
+                    <Loader2 size={16} className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
+                    Setting up {setup.repo}
+                </h3>
+                <p className="m-0 max-w-[65ch] text-[13.5px] leading-[1.55] text-body">
+                    {setup.continuesAfterSetup
+                        ? 'Yak picks this task back up when setup finishes. Setup usually takes a few minutes.'
+                        : 'Setup is already running for this repository. Yak can pick this task back up when it finishes.'}
+                </p>
+                <div className="mt-0.5 flex flex-wrap gap-2">
+                    {!setup.continuesAfterSetup && (
+                        <Button variant="primary" icon={<RotateCcw size={14} />} onClick={continueAfterSetup} data-testid="setup-and-continue">
+                            Continue when setup finishes
+                        </Button>
+                    )}
+                    {settingsButton}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-2 rounded-[10px] bg-fail-soft p-3" data-testid="repository-setup">
+            <h3 className="m-0 flex flex-wrap items-center gap-[7px] text-[14.5px] font-semibold text-fail">
+                <CircleAlert size={16} className="shrink-0" aria-hidden />
+                {setup.repo} needs setup
+            </h3>
+            <p className="m-0 max-w-[65ch] text-[13.5px] leading-[1.55] text-body">
+                Yak runs every task in a sandbox that Setup builds for the repository. This repository has no ready sandbox, so Yak stopped before it could continue.
+            </p>
+            {setup.failedSetup && (
+                <p className="m-0 text-[12.5px] text-muted">
+                    The last setup failed at {setup.failedSetup.at}.{' '}
+                    <Link href={setup.failedSetup.url} className="font-medium text-accent-text hover:underline">
+                        View failed setup
+                    </Link>
+                </p>
+            )}
+            <div className="mt-0.5 flex flex-wrap gap-2">
+                <Button variant="primary" icon={<Wrench size={14} />} onClick={continueAfterSetup} data-testid="setup-and-continue">
+                    Run setup and continue
+                </Button>
+                {settingsButton}
+            </div>
+        </div>
+    );
+}
+
+const STOP_STYLES = {
+    yak_retrying: { label: 'Paused', block: 'bg-info-soft', tone: 'text-info', dot: 'bg-info' },
+    yak_stopped: { label: 'Stopped', block: 'bg-fail-soft', tone: 'text-fail', dot: 'bg-fail' },
+    needs_you: { label: 'Yak needs you', block: 'bg-warn-soft', tone: 'text-warn', dot: 'bg-warn' },
+} as const;
+
+/** What happened in plain words, what to do next, and the technical text folded under Details. */
+function StopBlock({ stop, retryAction, step }: { stop: NonNullable<StopData>; retryAction: { label: string; url: string } | null; step: ReturnType<typeof stoppedAt> }) {
+    const style = STOP_STYLES[stop.kind];
+
+    return (
+        <div className={cn('flex flex-col gap-2.5 rounded-[10px] px-4 py-3.5', style.block)} data-testid="task-stop" data-stop-kind={stop.kind}>
+            <span className={cn('inline-flex items-center gap-2 text-[13px] font-semibold', style.tone)}>
+                <span className={cn('size-2 rounded-full', style.dot)} aria-hidden />
+                {style.label}
+            </span>
+            <p className="m-0 max-w-[65ch] text-[14.5px] leading-[1.55] text-body">{stop.summary}</p>
+            <p className="m-0 max-w-[65ch] text-[13.5px] text-muted">{stop.nextStep}</p>
+            {stop.isWaitingForSetup && (
+                <span className="flex items-center gap-2 text-[13px] text-muted">
+                    <Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden />
+                    Waiting for setup to finish
+                </span>
+            )}
+            {retryAction && stop.kind !== 'yak_retrying' && (
+                <div>
+                    <Button variant="primary" icon={<RotateCcw size={14} />} onClick={() => router.post(retryAction.url, {}, { preserveScroll: true })} data-testid="retry-run">
+                        {retryAction.label}
+                    </Button>
+                </div>
+            )}
+            {(stop.detail || step) && (
+                <details className="text-[13px]">
+                    <summary className="cursor-pointer text-muted">Details</summary>
+                    {stop.detail && <pre className="mt-2 mb-0 overflow-x-auto rounded-lg bg-panel-2 px-3 py-2.5 font-mono text-[12.5px] whitespace-pre-wrap text-body">{stop.detail}</pre>}
+                    {step && (
+                        <div className="mt-2 rounded-lg bg-panel p-[3px]">
+                            <OpenKeysProvider>
+                                <StepList className="before:hidden">
+                                    <StepRow step={step} />
+                                </StepList>
+                            </OpenKeysProvider>
+                        </div>
+                    )}
+                </details>
+            )}
+        </div>
+    );
+}
+
+function retryActionFor(task: TaskDetail, actions: ActionsData) {
+    return actions.canRerunReview ? { label: 'Re-run review', url: rerunReview.url(task.id) } : actions.canRetry ? { label: task.mode === 'setup' ? 'Retry setup' : 'Retry', url: retry.url(task.id) } : null;
+}
+
+/** The stop block for a task whose final run has no bubble carrying an error (an expired clarification, for one). */
+export function StandaloneStop({ task, actions, stop }: { task: TaskDetail; actions: ActionsData; stop: NonNullable<StopData> }) {
+    return <StopBlock stop={stop} retryAction={retryActionFor(task, actions)} step={null} />;
+}
+
+function ErrorCard({ entry, context, rows, focused }: { entry: ThreadEntryData; context: YakBubbleContext; rows: ActivityRow[]; focused: boolean }) {
     const { task, actions } = context;
+
+    const { stop } = context;
+    // The setup card keeps its own buttons; a task already waiting on setup reads as the Paused block instead.
+    if (task.repositorySetup && focused && !(stop && task.repositorySetup.continuesAfterSetup)) {
+        return <RepositorySetupCard task={task} setup={task.repositorySetup} />;
+    }
+
     const step = stoppedAt(rows);
-    const retryAction = actions.canRerunReview ? { label: 'Re-run review', url: rerunReview.url(task.id) } : actions.canRetry ? { label: task.mode === 'setup' ? 'Retry setup' : 'Retry', url: retry.url(task.id) } : null;
+    const retryAction = retryActionFor(task, actions);
+
+    if (stop && focused) {
+        return <StopBlock stop={stop} retryAction={retryAction} step={step} />;
+    }
 
     return (
         <div className="flex flex-col gap-2 rounded-[10px] bg-fail-soft p-3" data-testid="run-error">
@@ -215,7 +346,7 @@ export function YakBubble({ entry, context, focused }: { entry: ThreadEntryData;
                         />
                     </FinishedSummary>
                 )}
-                {!live && failed && context && <ErrorCard entry={entry} context={context} rows={stream?.rows ?? []} />}
+                {!live && failed && context && <ErrorCard entry={entry} context={context} rows={stream?.rows ?? []} focused={Boolean(focused)} />}
                 {!live && !failed && context && focused && <Outcome entry={entry} context={context} />}
                 {!live && !failed && !focused && entry.bodyHtml && <Prose html={entry.bodyHtml} className="max-w-[65ch] px-0.5 text-[14px] leading-[1.55]" />}
             </div>

@@ -80,6 +80,14 @@ export type TaskDetail = {
     summary: string;
     repo: string | null;
     repoUrl: string | null;
+    /** Set when the task stopped and its repository has no ready sandbox. */
+    repositorySetup: {
+        repo: string;
+        settingsUrl: string;
+        isSettingUp: boolean;
+        continuesAfterSetup: boolean;
+        failedSetup: { at: string; url: string } | null;
+    } | null;
     sourceLabel: string;
     sourceUrl: string | null;
     /** The Sentry issue or flaky tests that started the task. */
@@ -100,6 +108,16 @@ export type TaskDetail = {
     /** The run the page is focused on (`?run=`, else the live or latest run). */
     runId: string;
 };
+
+/** Why a failed or expired task stopped; null for a task that has not. */
+export type StopData = {
+    kind: 'needs_you' | 'yak_retrying' | 'yak_stopped';
+    summary: string;
+    /** The technical text, shown under Details. */
+    detail: string | null;
+    nextStep: string;
+    isWaitingForSetup: boolean;
+} | null;
 
 export type MediaItem = {
     id: number;
@@ -138,7 +156,14 @@ export type QuestionData = {
     options: QuestionOptionData[];
 };
 
-export type ClarificationAnswerItem = { header: string; answer: string | null; other: string | null; skipped: boolean };
+export type ClarificationAnswerItem = {
+    header: string;
+    question: string;
+    answer: string | null;
+    choices: { label: string; description: string | null }[];
+    other: string | null;
+    skipped: boolean;
+};
 
 export type ThreadEntryData = {
     kind: 'user' | 'yak' | 'clarification' | 'clarification-answers' | 'system' | 'review-context';
@@ -176,6 +201,7 @@ export type ProgressStep = {
     tooltip: string;
     done: boolean;
     current: boolean;
+    failed: boolean;
 };
 
 export type ActivityRow = {
@@ -278,7 +304,7 @@ export type FindingsData = {
 } | null;
 
 export type ComposerData = {
-    state: 'held' | 'clarification' | 'questions' | 'steering' | 'follow_up' | 'disabled_failed' | 'disabled_closed';
+    state: 'held' | 'clarification' | 'questions' | 'steering' | 'follow_up' | 'stopped' | 'disabled_failed' | 'disabled_closed';
     placeholder: string;
     note: string | null;
     buttonLabel: string | null;

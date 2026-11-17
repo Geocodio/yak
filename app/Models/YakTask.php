@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\DataTransferObjects\TaskStop;
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Events\TaskStatusChanged;
@@ -33,6 +35,8 @@ use Illuminate\Support\Str;
  * @property string $public_id
  * @property TaskStatus $status
  * @property TaskMode $mode
+ * @property StopKind|null $stop_kind
+ * @property string|null $stop_summary
  * @property string|null $title
  * @property bool $targets_external_pr
  * @property int $attempts
@@ -63,6 +67,7 @@ use Illuminate\Support\Str;
  * @property int|null $responsible_user_id
  * @property string|null $slack_follow_up_user_id
  * @property CarbonImmutable|null $clarification_reminder_at
+ * @property CarbonImmutable|null $resume_after_setup_at set when a person asks the task to continue once its repository's setup finishes
  */
 #[ScopedBy(VisibleTaskScope::class)]
 class YakTask extends Model
@@ -107,6 +112,7 @@ class YakTask extends Model
         return [
             'status' => TaskStatus::class,
             'mode' => TaskMode::class,
+            'stop_kind' => StopKind::class,
             'targets_external_pr' => 'boolean',
             'clarification_options' => 'json',
             'clarification_rounds' => 'json',
@@ -125,6 +131,7 @@ class YakTask extends Model
             'pr_closed_at' => 'datetime',
             'pr_opened_at' => 'datetime',
             'pr_state_checked_at' => 'datetime',
+            'resume_after_setup_at' => 'datetime',
         ];
     }
 
@@ -133,8 +140,27 @@ class YakTask extends Model
         return $this->source === self::SOURCE_TELEPORT;
     }
 
+    /**
+     * Records why the task stopped: the plain-words summary for its starter
+     * and the technical detail for the error log.
+     */
+    public function recordStop(TaskStop $stop): void
+    {
+        $this->stop_kind = $stop->kind;
+        $this->stop_summary = $stop->summary;
+        $this->error_log = $stop->detail;
+        $this->save();
+    }
+
     protected static function booted(): void
     {
+        static::updating(function (YakTask $task): void {
+            if ($task->isDirty('status') && ! in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)) {
+                $task->stop_kind = null;
+                $task->stop_summary = null;
+            }
+        });
+
         static::created(function (YakTask $task): void {
             if (mb_strlen((string) $task->description) > TaskDescriptionSummary::THRESHOLD) {
                 SummarizeTaskDescriptionJob::dispatch($task);

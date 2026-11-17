@@ -722,3 +722,18 @@ func TestStartupKillsLeftoverRunnersOncePerContainer(t *testing.T) {
 		t.Fatalf("kill-all calls = %v", calls)
 	}
 }
+
+func TestSetEffortIsWrittenToRunnerStdinWithNullPassedThrough(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":`+startLine+`}`)
+	h.command("threads:1", `{"type":"set_effort","effort":"high"}`)
+	h.command("threads:1", `{"type":"set_effort","effort":null}`)
+	waitFor(t, func() bool {
+		process := h.spawner.process(0)
+		return process != nil && len(process.stdin.Lines()) == 3
+	})
+	lines := h.spawner.process(0).stdin.Lines()
+	if lines[1] != `{"effort":"high","type":"set_effort"}` || lines[2] != `{"effort":null,"type":"set_effort"}` {
+		t.Fatalf("stdin lines = %v", lines[1:])
+	}
+}

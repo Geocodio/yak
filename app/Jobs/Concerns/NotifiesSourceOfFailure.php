@@ -2,8 +2,8 @@
 
 namespace App\Jobs\Concerns;
 
-use App\Enums\NotificationType;
-use App\Jobs\SendNotificationJob;
+use App\DataTransferObjects\TaskStop;
+use App\Services\Tasks\StopNotifier;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -19,18 +19,14 @@ use Throwable;
  */
 trait NotifiesSourceOfFailure
 {
-    private function notifySourceOfFailure(string $errorMessage): void
+    private function notifySourceOfFailure(string $errorMessage, ?TaskStop $stop = null): void
     {
-        if ($this->task->source === 'system') {
-            return;
-        }
-
         try {
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $errorMessage);
-        } catch (Throwable $dispatchError) {
-            Log::channel('yak')->warning('Failed to dispatch failure notification', [
+            StopNotifier::notify($this->task, $stop ?? TaskStop::yakSideProblem($errorMessage));
+        } catch (Throwable $notifyError) {
+            Log::channel('yak')->warning('Failed to record stop and notify', [
                 'task_id' => $this->task->id,
-                'error' => $dispatchError->getMessage(),
+                'error' => $notifyError->getMessage(),
             ]);
         }
     }

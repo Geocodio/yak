@@ -6,6 +6,7 @@ use App\Agents\ClaudeCodeOutputParser;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Models\DailyCost;
@@ -19,7 +20,7 @@ trait FinishesResearchFollowUpRuns
     {
         if ($result->isError) {
             TaskMetricsAccumulator::record($this->task, $result);
-            $this->handleError($result->failureMessage());
+            $this->handleError($result->failureMessage(), stop: $result->stop());
 
             return;
         }
@@ -75,7 +76,7 @@ trait FinishesResearchFollowUpRuns
         }
     }
 
-    private function handleError(string $errorMessage): void
+    private function handleError(string $errorMessage, ?TaskStop $stop = null): void
     {
         if ($this->taskIsTerminal($this->task->fresh())) {
             return;
@@ -89,6 +90,6 @@ trait FinishesResearchFollowUpRuns
             'completed_at' => now(),
         ]);
 
-        $this->notifySourceOfFailure($errorMessage);
+        $this->notifySourceOfFailure($errorMessage, $stop);
     }
 }

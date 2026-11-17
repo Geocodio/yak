@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\SteeringMode;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ProcessCIResultJob;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
 use App\Models\PendingSteeringMessage;
@@ -24,6 +26,38 @@ test('it requires authentication', function () {
     $task = YakTask::factory()->create();
 
     $this->get(route('tasks.show', $task))->assertRedirect(route('login'));
+});
+
+test('the CI step reads as waiting until CI passes', function () {
+    $task = YakTask::factory()->awaitingCi()->create();
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('progress.steps.4.label', 'Waiting for CI')
+            ->where('progress.steps.4.current', true));
+
+    $task->update(['status' => TaskStatus::Success]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('progress.steps.4.label', 'CI passed'));
+});
+
+test('the CI step turns red while Yak retries after a CI failure', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Retrying]);
+    TaskLog::create(['yak_task_id' => $task->id, 'level' => 'info', 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE, 'metadata' => ['passed' => false]]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('progress.steps.4.label', 'CI failed, retrying')
+            ->where('progress.steps.4.failed', true)
+            ->where('progress.steps.2.current', true));
+
+    $task->update(['status' => TaskStatus::AwaitingCi]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('progress.steps.4.label', 'Waiting for CI')
+            ->where('progress.steps.4.failed', false));
 });
 
 test('it renders the task detail page with the task fields', function () {
@@ -269,7 +303,7 @@ test('shows answered rounds in the thread, with skipped questions', function () 
     $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page
         ->where('questions', null)
         ->where('thread', fn ($thread) => collect($thread)->contains(fn ($entry) => $entry['kind'] === 'clarification-answers'
-            && $entry['answers'][0] === ['header' => 'Scope', 'answer' => null, 'other' => 'Medium', 'skipped' => false]
+            && $entry['answers'][0] === ['header' => 'Scope', 'question' => 'Which scope?', 'answer' => null, 'choices' => [], 'other' => 'Medium', 'skipped' => false]
             && $entry['answers'][1]['skipped'] === true)));
 });
 
@@ -301,8 +335,15 @@ test('the follow-up placeholder names this PR when no number is known', function
         ->assertInertia(fn (Assert $page) => $page->where('composer.placeholder', 'Reply to Yak. It will push changes to this PR…'));
 });
 
-test('composer state is disabled_failed for a failed task', function () {
-    $task = YakTask::factory()->create(['status' => TaskStatus::Failed]);
+test('composer is enabled for a failed or expired task with no pr', function (TaskStatus $status) {
+    $task = YakTask::factory()->create(['status' => $status, 'pr_url' => null]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'stopped')->where('composer.buttonLabel', 'Send'));
+})->with([TaskStatus::Failed, TaskStatus::Expired]);
+
+test('composer stays disabled_failed for a failed task whose pr was closed', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed, 'pr_url' => 'https://github.com/a/b/pull/1', 'pr_closed_at' => now()]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'disabled_failed'));
@@ -1080,4 +1121,125 @@ test('log entries are served in a batch, limited to the task conversation', func
         ->assertJsonPath('entries.0.input', 'ls -la')
         ->assertJsonPath('entries.0.output', 'total 0')
         ->assertJsonPath('entries.1.fullText', 'The whole thought');
+});
+
+test('a failed task on a repository without a sandbox carries the setup card data', function () {
+    $repository = Repository::factory()->create(['setup_status' => 'failed', 'sandbox_snapshot' => null]);
+    $setupTask = YakTask::factory()->create(['repo' => $repository->slug, 'mode' => TaskMode::Setup, 'status' => TaskStatus::Failed, 'completed_at' => now()]);
+    $repository->update(['setup_task_id' => $setupTask->id]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'error_log' => 'not set up']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.repositorySetup.repo', $repository->slug)
+            ->where('task.repositorySetup.settingsUrl', route('repos.edit', $repository))
+            ->where('task.repositorySetup.isSettingUp', false)
+            ->where('task.repositorySetup.continuesAfterSetup', false)
+            ->where('task.repositorySetup.failedSetup.url', route('tasks.show', $setupTask))
+        );
+});
+
+test('a failed task on a ready repository has no setup card data', function () {
+    $repository = Repository::factory()->create();
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'error_log' => 'boom']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('task.repositorySetup', null));
+});
+
+test('a task waiting on setup says so in its next steps and setup card', function () {
+    $repository = Repository::factory()->create(['setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'status' => TaskStatus::Failed, 'resume_after_setup_at' => now()]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.nextSteps', null)
+            ->where('stop.isWaitingForSetup', true)
+            ->where('task.repositorySetup.isSettingUp', true)
+            ->where('task.repositorySetup.continuesAfterSetup', true)
+            ->where('task.repositorySetup.failedSetup', null)
+        );
+});
+
+test('a failed task with a stop leads with the plain summary and keeps the technical text as detail', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'source' => 'linear',
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'The automated checks did not report back in time.',
+        'error_log' => 'CI timed out after 30 minutes',
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stop.kind', 'yak_stopped')
+            ->where('stop.summary', 'The automated checks did not report back in time.')
+            ->where('stop.detail', 'CI timed out after 30 minutes')
+            ->where('stop.nextStep', 'Reply in the Linear issue, or press Retry, and Yak will try again.')
+            ->where('stop.isWaitingForSetup', false)
+        );
+});
+
+test('a needs-you stop points at the answer below', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'source' => 'dashboard',
+        'stop_kind' => StopKind::NeedsYou,
+        'stop_summary' => 'Yak asked a question and did not hear back.',
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stop.kind', 'needs_you')
+            ->where('stop.nextStep', 'Write your answer below and send it. Yak tries again with it.')
+        );
+});
+
+test('a failed task waiting on setup shows as paused whatever the stored kind', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'Something stopped the run.',
+        'resume_after_setup_at' => now(),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stop.kind', 'yak_retrying')
+            ->where('stop.isWaitingForSetup', true)
+            ->where('stop.nextStep', 'Yak picks it back up on its own. Nothing needed from you.')
+        );
+});
+
+test('a stopped task with a stop block has no separate next steps', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'source' => 'slack',
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'Yak ran into a problem.',
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('task.nextSteps', null)->has('stop'));
+});
+
+test('an expired task with a needs-you stop carries the stop prop and no errored reply entry', function () {
+    $task = YakTask::factory()->expired()->create([
+        'source' => 'linear',
+        'stop_kind' => StopKind::NeedsYou,
+        'stop_summary' => 'Yak asked a question and did not hear back, so it stopped.',
+        'error_log' => 'Clarification expired, no response received',
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stop.kind', 'needs_you')
+            ->where('thread', fn ($thread) => collect($thread)->every(fn ($entry) => ($entry['error'] ?? null) === null))
+        );
+});
+
+test('a running task has no stop', function () {
+    $task = YakTask::factory()->running()->create();
+
+    $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page->where('stop', null));
 });

@@ -13,6 +13,8 @@ export function RunsOnStrip({
     onAccountChange,
     model,
     onModelChange,
+    effort,
+    onEffortChange,
     disabled,
     accountsHelpUrl,
     note,
@@ -24,6 +26,8 @@ export function RunsOnStrip({
     onAccountChange: (id: string) => void;
     model: string | null;
     onModelChange: (model: string) => void;
+    effort: string | null;
+    onEffortChange: (effort: string | null) => void;
     disabled: boolean;
     accountsHelpUrl: string;
     note?: ReactNode;
@@ -36,7 +40,7 @@ export function RunsOnStrip({
                 <span className="mr-0.5">Runs on</span>
                 <AccountPicker variant="chip" label="Claude account" value={accountId} accounts={picker.accounts} onChange={onAccountChange} disabled={disabled} defaultLabel={defaultLabel} defaultAccount={defaultAccount} className="justify-self-start" />
                 <span>with</span>
-                <ModelPicker variant="chip" models={picker.models} value={model} onChange={onModelChange} disabled={disabled} testId="composer-model" className="justify-self-start" />
+                <ModelPicker variant="chip" models={picker.models} value={model} onChange={onModelChange} effort={effort} onEffortChange={onEffortChange} disabled={disabled} testId="composer-model" className="justify-self-start" />
                 <a href={accountsHelpUrl} target="_blank" rel="noreferrer" className="col-span-2 mt-0.5 inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-body sm:ml-auto sm:mt-0">
                     How accounts work <ArrowUpRight size={12} aria-hidden="true" />
                 </a>

@@ -410,7 +410,7 @@ it('Linear: updates issue state to done on result', function () {
     assertLinearStateUpdate('done-state-123');
 });
 
-it('Linear: updates issue state to cancelled on expiry', function () {
+it('Linear: leaves the issue state alone on expiry', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
     LinearOauthConnection::factory()->create();
     config()->set('yak.channels.linear.cancelled_state_id', 'cancelled-state-456');
@@ -423,7 +423,7 @@ it('Linear: updates issue state to cancelled on expiry', function () {
 
     (new LinearNotificationDriver)->send($task, NotificationType::Expiry, 'Clarification expired');
 
-    assertLinearStateUpdate('cancelled-state-456');
+    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'issueUpdate'));
 });
 
 it('Linear: does not update state when state ID is not configured', function () {

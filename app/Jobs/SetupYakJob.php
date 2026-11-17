@@ -189,10 +189,14 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             // from any existing repo template. Without this, a re-run of
             // Setup clones from the previously-promoted template whose
             // /workspace is already populated, and `git clone` fails with
-            // "destination path already exists and is not empty".
+            // "destination path already exists and is not empty". A repository
+            // with no stored snapshot can still have a leftover template (for
+            // example after it was removed and added again), so that is deleted too.
             if (! empty($repository->sandbox_snapshot)) {
                 $sandbox->invalidateTemplate($repository);
                 $repository->refresh();
+            } else {
+                $sandbox->destroyTemplate($repository);
             }
 
             $containerName = $sandbox->create($this->task, $repository);
@@ -353,6 +357,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             'setup_status' => 'ready',
             'sandbox_snapshot' => $snapshotRef,
             'setup_script_hash' => $setupScriptHash,
+            'test_command' => ClaudeCodeOutputParser::extractTestCommand($result->resultSummary) ?? $repository->test_command,
         ]);
 
         app(EnqueuePrReview::class)->releaseHeld($repository);

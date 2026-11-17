@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $repo
  * @property int|null $claude_account_id
  * @property string|null $model
+ * @property string|null $effort
  */
 class UserRepositorySetting extends Model
 {

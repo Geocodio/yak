@@ -25,7 +25,7 @@ beforeEach(function () {
 test('repository form saves the profile validity and exposes only that policy setting', function () {
     $this->patch(route('repos.update', $this->repo), $this->payload)->assertSessionHasNoErrors();
     expect($this->repo->fresh()->reviewPolicy()['profile_max_age_days'])->toBe(30);
-    $this->get(route('repos.edit', $this->repo))->assertInertia(fn (Assert $page) => $page
+    $this->get(route('repos.settings.show', ['repository' => $this->repo, 'section' => 'review']))->assertInertia(fn (Assert $page) => $page
         ->where('repository.reviewPolicy', ['profile_max_age_days' => 30])
         ->has('repository.riskProfiles.drafts', 0)
         ->where('repository.riskProfiles.active', null)
@@ -66,7 +66,7 @@ test('profile approval requires exact version confirmation and uses the signed i
     $url = route('repos.risk-profile', $this->repo);
     $this->post($url, ['action' => 'approve', 'version' => $draft['version']])->assertSessionHasErrors('reviewed');
     expect($profiles->active($this->repo->slug))->toBeNull();
-    $this->post($url, ['action' => 'approve', 'version' => $draft['version'], 'reviewed' => true, 'reviewer' => 'spoofed'])->assertSessionHas('success');
+    $this->from('/origin')->post($url, ['action' => 'approve', 'version' => $draft['version'], 'reviewed' => true, 'reviewer' => 'spoofed'])->assertRedirect('/origin')->assertSessionHas('success');
     expect($profiles->active($this->repo->slug)['approved_by'])->toBe('user:' . $this->user->id . ' (' . $this->user->name . ')');
 });
 

@@ -73,54 +73,63 @@
             {
                 "current": false,
                 "done": true,
+                "failed": false,
                 "label": "Received",
                 "tooltip": "Task landed in the queue."
             },
             {
                 "current": false,
                 "done": true,
+                "failed": false,
                 "label": "Picked up",
                 "tooltip": "An agent has claimed the task and started setup."
             },
             {
                 "current": false,
                 "done": true,
+                "failed": false,
                 "label": "Working",
                 "tooltip": "Agent is investigating the codebase and implementing the fix."
             },
             {
                 "current": false,
                 "done": true,
+                "failed": false,
                 "label": "Pushed",
                 "tooltip": "Changes committed and pushed to a branch."
             },
             {
                 "current": false,
                 "done": true,
-                "label": "CI passing",
-                "tooltip": "Waiting for CI to verify the changes."
+                "failed": false,
+                "label": "CI passed",
+                "tooltip": "CI verifies the changes before the pull request opens."
             },
             {
                 "current": true,
                 "done": true,
+                "failed": false,
                 "label": "Waiting for a co-owner",
                 "tooltip": "A co-owner with write access has to approve before Yak opens the pull request."
             },
             {
                 "current": false,
                 "done": false,
+                "failed": false,
                 "label": "Pull request",
                 "tooltip": "Pull request opened for human review."
             },
             {
                 "current": false,
                 "done": false,
+                "failed": false,
                 "label": "Done",
                 "tooltip": "Task complete."
             }
         ]
     },
     "questions": null,
+    "stop": null,
     "task": {
         "attempt": 1,
         "attemptCount": 1,
@@ -141,6 +150,7 @@
         },
         "repo": "example/api",
         "repoUrl": "https://yak.example.com/repos/example/api/edit",
+        "repositorySetup": null,
         "researchArtifactUrl": null,
         "responsible": null,
         "runId": "k3m9p2qa",

@@ -47,6 +47,16 @@ function runningThreadForApp(): array
     return [$thread, $user];
 }
 
+it('stores the effort chosen with a steering message', function () {
+    [$thread, $user] = runningThreadForApp();
+    fakeTurnCollaborators()['commands']->shouldReceive('setEffort', 'steer');
+
+    $this->post(appThreadPath($thread, '/messages'), ['message' => 'Think harder', 'model' => 'sonnet', 'effort' => 'high', 'send_key' => APP_SEND_KEY], phoneHeadersFor($user) + ['Accept' => 'application/json'])->assertOk();
+    $this->post(appThreadPath($thread, '/messages'), ['message' => 'Bad', 'effort' => 'extreme', 'send_key' => '0b9c3e0e-6d5c-4d7e-9b7a-2f5d1c6a9e12'], phoneHeadersFor($user) + ['Accept' => 'application/json'])->assertUnprocessable();
+
+    expect($thread->fresh()->effort)->toBe('high');
+});
+
 it('starts a turn and returns the message uuid', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
     [$thread, $user] = idleThreadForApp();

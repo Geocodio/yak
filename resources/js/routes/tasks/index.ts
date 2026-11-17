@@ -234,8 +234,66 @@ retry.post = (args: { task: string | { public_id: string } } | [task: string | {
 })
 
 /**
-* @see \App\Http\Controllers\Tasks\TaskActionController::cancel
+* @see \App\Http\Controllers\Tasks\TaskActionController::setupAndContinue
 * @see app/Http/Controllers/Tasks/TaskActionController.php:25
+* @route '/tasks/{task}/setup-and-continue'
+*/
+export const setupAndContinue = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: setupAndContinue.url(args, options),
+    method: 'post',
+})
+
+setupAndContinue.definition = {
+    methods: ["post"],
+    url: '/tasks/{task}/setup-and-continue',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskActionController::setupAndContinue
+* @see app/Http/Controllers/Tasks/TaskActionController.php:25
+* @route '/tasks/{task}/setup-and-continue'
+*/
+setupAndContinue.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { task: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { task: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            task: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        task: typeof args.task === 'object'
+        ? args.task.public_id
+        : args.task,
+    }
+
+    return setupAndContinue.definition.url
+            .replace('{task}', parsedArgs.task.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskActionController::setupAndContinue
+* @see app/Http/Controllers/Tasks/TaskActionController.php:25
+* @route '/tasks/{task}/setup-and-continue'
+*/
+setupAndContinue.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: setupAndContinue.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Tasks\TaskActionController::cancel
+* @see app/Http/Controllers/Tasks/TaskActionController.php:33
 * @route '/tasks/{task}/cancel'
 */
 export const cancel = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -250,7 +308,7 @@ cancel.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::cancel
-* @see app/Http/Controllers/Tasks/TaskActionController.php:25
+* @see app/Http/Controllers/Tasks/TaskActionController.php:33
 * @route '/tasks/{task}/cancel'
 */
 cancel.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -283,7 +341,7 @@ cancel.url = (args: { task: string | { public_id: string } } | [task: string | {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::cancel
-* @see app/Http/Controllers/Tasks/TaskActionController.php:25
+* @see app/Http/Controllers/Tasks/TaskActionController.php:33
 * @route '/tasks/{task}/cancel'
 */
 cancel.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -293,7 +351,7 @@ cancel.post = (args: { task: string | { public_id: string } } | [task: string | 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::rerunReview
-* @see app/Http/Controllers/Tasks/TaskActionController.php:33
+* @see app/Http/Controllers/Tasks/TaskActionController.php:41
 * @route '/tasks/{task}/rerun-review'
 */
 export const rerunReview = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -308,7 +366,7 @@ rerunReview.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::rerunReview
-* @see app/Http/Controllers/Tasks/TaskActionController.php:33
+* @see app/Http/Controllers/Tasks/TaskActionController.php:41
 * @route '/tasks/{task}/rerun-review'
 */
 rerunReview.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -341,7 +399,7 @@ rerunReview.url = (args: { task: string | { public_id: string } } | [task: strin
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::rerunReview
-* @see app/Http/Controllers/Tasks/TaskActionController.php:33
+* @see app/Http/Controllers/Tasks/TaskActionController.php:41
 * @route '/tasks/{task}/rerun-review'
 */
 rerunReview.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -351,7 +409,7 @@ rerunReview.post = (args: { task: string | { public_id: string } } | [task: stri
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retryRender
-* @see app/Http/Controllers/Tasks/TaskActionController.php:38
+* @see app/Http/Controllers/Tasks/TaskActionController.php:46
 * @route '/tasks/{task}/retry-render'
 */
 export const retryRender = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -366,7 +424,7 @@ retryRender.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retryRender
-* @see app/Http/Controllers/Tasks/TaskActionController.php:38
+* @see app/Http/Controllers/Tasks/TaskActionController.php:46
 * @route '/tasks/{task}/retry-render'
 */
 retryRender.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -399,7 +457,7 @@ retryRender.url = (args: { task: string | { public_id: string } } | [task: strin
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retryRender
-* @see app/Http/Controllers/Tasks/TaskActionController.php:38
+* @see app/Http/Controllers/Tasks/TaskActionController.php:46
 * @route '/tasks/{task}/retry-render'
 */
 retryRender.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -409,7 +467,7 @@ retryRender.post = (args: { task: string | { public_id: string } } | [task: stri
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::reroute
-* @see app/Http/Controllers/Tasks/TaskActionController.php:43
+* @see app/Http/Controllers/Tasks/TaskActionController.php:51
 * @route '/tasks/{task}/reroute'
 */
 export const reroute = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -424,7 +482,7 @@ reroute.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::reroute
-* @see app/Http/Controllers/Tasks/TaskActionController.php:43
+* @see app/Http/Controllers/Tasks/TaskActionController.php:51
 * @route '/tasks/{task}/reroute'
 */
 reroute.url = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -457,7 +515,7 @@ reroute.url = (args: { task: string | { public_id: string } } | [task: string | 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::reroute
-* @see app/Http/Controllers/Tasks/TaskActionController.php:43
+* @see app/Http/Controllers/Tasks/TaskActionController.php:51
 * @route '/tasks/{task}/reroute'
 */
 reroute.post = (args: { task: string | { public_id: string } } | [task: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -529,6 +587,7 @@ const tasks = {
     show: Object.assign(show, show),
     logEntries: Object.assign(logEntries, logEntries),
     retry: Object.assign(retry, retry),
+    setupAndContinue: Object.assign(setupAndContinue, setupAndContinue),
     cancel: Object.assign(cancel, cancel),
     rerunReview: Object.assign(rerunReview, rerunReview),
     retryRender: Object.assign(retryRender, retryRender),
