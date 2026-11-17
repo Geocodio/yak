@@ -7,18 +7,29 @@ struct DebugMenuScreen: View {
 
     var body: some View {
         List {
-            #if DEBUG
-                Section {
+            Section {
+                NavigationLink {
+                    DebugGalleryScreen()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("debug.gallery.row")
+                        Text("debug.gallery.count \(DebugGallery.entries.count)")
+                            .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    }
+                    .frame(minHeight: 44, alignment: .leading)
+                }
+                .accessibilityIdentifier("debug.gallery")
+                #if DEBUG
                     NavigationLink {
                         LiveActivityGallery(stateName: "working")
                     } label: {
                         Text("debug.liveActivities").frame(minHeight: 44, alignment: .leading)
                     }
                     .accessibilityIdentifier("debug.liveActivities")
-                } header: {
-                    Text("debug.states.header")
-                }
-            #endif
+                #endif
+            } header: {
+                Text("debug.states.header")
+            }
             Section {
                 ForEach(DebugFault.allCases, id: \.self) { fault in
                     Button {

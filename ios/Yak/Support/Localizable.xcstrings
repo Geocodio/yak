@@ -1838,6 +1838,46 @@
         }
       }
     },
+    "debug.gallery.close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        }
+      }
+    },
+    "debug.gallery.count %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld screens"
+          }
+        }
+      }
+    },
+    "debug.gallery.row" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "State gallery"
+          }
+        }
+      }
+    },
+    "debug.gallery.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "State gallery"
+          }
+        }
+      }
+    },
     "debug.liveActivities" : {
       "localizations" : {
         "en" : {

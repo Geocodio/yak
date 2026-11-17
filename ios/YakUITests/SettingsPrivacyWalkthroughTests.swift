@@ -198,4 +198,29 @@ import XCTest
         XCTAssertTrue(label("could not be read").waitForExistence(timeout: 10))
         try shoot("debug-log-failed", audits: false)
     }
+
+    // MARK: State gallery
+
+    func testStateGallery() throws {
+        try openDebug()
+        app.descendants(matching: .any)["debug.gallery"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["gallery.screen"].waitForExistence(timeout: 10))
+        let ids = [
+            "pairing.unreachable", "pairing.serverTooOld", "pairing.appTooOld", "pairing.codeExpired",
+            "pairing.codeInvalid", "pairing.denied", "threads.loading", "threads.slow", "threads.notFound",
+            "threads.offline", "threads.serverError", "tasks.loading", "tasks.offline", "settings.unreachable",
+            "settings.appTooOld", "settings.serverTooOld", "settings.tokenUnreadable", "settings.failed",
+            "appLock.locked", "appLock.cover",
+        ]
+        for id in ids {
+            let row = app.descendants(matching: .any)["gallery.\(id)"]
+            for _ in 0..<10 where !row.exists || !row.isHittable { app.swipeUp() }
+            XCTAssertTrue(row.exists, id)
+            row.tap()
+            XCTAssertTrue(app.buttons["gallery.close"].waitForExistence(timeout: 10), id)
+            try shoot("gallery-\(id)", audits: false)
+            app.buttons["gallery.close"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["gallery.screen"].waitForExistence(timeout: 10))
+        }
+    }
 }
