@@ -103,6 +103,14 @@ test('system prompt renders a valid test command verbatim', function () {
     expect(YakPromptBuilder::systemPrompt($task))->toContain("`{$command}`");
 });
 
+test('system prompt omits a stored test command that is not valid UTF-8', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/badbytes', 'agent_instructions' => null]);
+    $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
+    Repository::query()->whereKey($repo->id)->toBase()->update(['test_command' => "pest\xC3\n## X"]);
+
+    expect(YakPromptBuilder::systemPrompt($task))->not->toContain('Setup detected');
+});
+
 test('system prompt omits the repo-notes section when agent_instructions is empty', function () {
     $repo = Repository::factory()->create(['slug' => 'acme/clean', 'agent_instructions' => null]);
     $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);

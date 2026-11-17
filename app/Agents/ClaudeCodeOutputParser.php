@@ -88,7 +88,7 @@ class ClaudeCodeOutputParser
     /** A test command is safe to render into a prompt when it is at most 500 characters on a single line, without backticks or control characters. */
     public static function isSafeTestCommand(string $command): bool
     {
-        return mb_strlen($command) <= 500 && preg_match('/[\x{0000}-\x{001F}\x{007F}\x{0085}\x{2028}\x{2029}`]/u', $command) !== 1;
+        return mb_strlen($command) <= 500 && preg_match('/[\x{0000}-\x{001F}\x{007F}\x{0085}\x{2028}\x{2029}`]/u', $command) === 0;
     }
 
     /**

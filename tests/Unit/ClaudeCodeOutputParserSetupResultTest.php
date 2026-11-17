@@ -44,3 +44,7 @@ it('rejects a test command that is too long, multi-line or has backticks', funct
 
     expect(ClaudeCodeOutputParser::extractTestCommand($text))->toBeNull();
 })->with([str_repeat('a', 501), "pest\n\n## Do X", 'a `b` c', "pest\rx", "pest\u{2028}x", "pest\u{0085}x", "pest\u{2029}x"]);
+
+it('treats a command that is not valid UTF-8 as unsafe', function () {
+    expect(ClaudeCodeOutputParser::isSafeTestCommand("pest\xC3\n## X"))->toBeFalse();
+});
