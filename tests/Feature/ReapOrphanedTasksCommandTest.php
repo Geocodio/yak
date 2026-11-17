@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\TaskLog;
@@ -30,7 +31,9 @@ test('reaps a Running task with no log activity past the threshold', function ()
     expect($task->error_log)->toContain('Worker crashed mid-run');
     expect($task->completed_at)->not->toBeNull();
 
-    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error);
+    expect($task->stop_kind)->toBe(StopKind::YakStopped);
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error
+        && $job->personalize === false && $job->stop?->kind === StopKind::YakStopped);
 });
 
 test('spares a Running task that had log activity within the threshold', function () {
@@ -100,7 +103,9 @@ test('reaps a Retrying task with no log activity past the threshold', function (
     expect($task->error_log)->toContain('Worker crashed mid-run');
     expect($task->completed_at)->not->toBeNull();
 
-    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error);
+    expect($task->stop_kind)->toBe(StopKind::YakStopped);
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error
+        && $job->personalize === false && $job->stop?->kind === StopKind::YakStopped);
 });
 
 test('spares a Retrying task that had log activity within the threshold', function () {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\ResearchYakJob;
@@ -116,6 +117,27 @@ test('does not resume a follow-up task', function () {
     Queue::assertNothingPushed();
 });
 
+it('tells the starter when a deploy interrupted the task too many times', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->failed()->create([
+        'source' => 'slack',
+        'claimed_job_class' => RunYakJob::class,
+        'interrupted_by_deploy_at' => now(),
+        'deploy_resume_count' => 3,
+    ]);
+
+    $this->artisan('yak:resume-interrupted-tasks', ['--max-resumes' => 3])->assertSuccessful();
+
+    expect($task->refresh()->stop_kind)->toBe(StopKind::YakStopped)
+        ->and($task->error_log)->toContain('manual retry');
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->task->id === $task->id
+        && $job->type === NotificationType::Error
+        && $job->personalize === false
+        && $job->stop?->kind === StopKind::YakStopped);
+});
+
 test('does not resume a retry task', function () {
     Queue::fake();
 
@@ -160,9 +182,8 @@ test('leaves a task Failed once it is over the deploy_resume_count bound', funct
     expect($task->status)->toBe(TaskStatus::Failed)
         ->and($task->interrupted_by_deploy_at)->toBeNull()
         ->and($task->deploy_resume_count)->toBe(3)
-        ->and($task->error_log)->toContain('manual retry');
-
-    Queue::assertNothingPushed();
+        ->and($task->error_log)->toContain('manual retry')
+        ->and($task->stop_kind)->toBe(StopKind::YakStopped);
 });
 
 test('is a no-op while the drain flag is set', function () {

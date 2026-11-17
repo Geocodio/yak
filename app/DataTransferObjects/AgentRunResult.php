@@ -129,6 +129,21 @@ final readonly class AgentRunResult
     }
 
     /**
+     * The plain-words stop shown to the person who started the task.
+     */
+    public function stop(): TaskStop
+    {
+        $maxBudget = (float) config('yak.max_budget_per_task', 5);
+        $isBudgetCap = $this->errorSubtype === 'error_during_execution' && $this->costUsd >= $maxBudget * 0.99;
+
+        if ($this->resultSummary === '' && ($isBudgetCap || $this->errorSubtype === 'error_max_turns')) {
+            return TaskStop::sizeLimit($this->failureMessage());
+        }
+
+        return TaskStop::yakSideProblem($this->failureMessage());
+    }
+
+    /**
      * Failure category for the run row and the failure-taxonomy chart:
      * the CLI subtype when it gave one, otherwise a stable label derived
      * from the same heuristics failureMessage() uses.

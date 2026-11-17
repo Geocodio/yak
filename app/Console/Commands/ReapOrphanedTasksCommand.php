@@ -2,12 +2,12 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\NotificationType;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\TaskStatus;
-use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StopNotifier;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -78,7 +78,6 @@ class ReapOrphanedTasksCommand extends Command
 
         $task->update([
             'status' => TaskStatus::Failed,
-            'error_log' => $errorMessage,
             'completed_at' => now(),
         ]);
 
@@ -95,15 +94,6 @@ class ReapOrphanedTasksCommand extends Command
             ]);
         }
 
-        if ($task->source !== 'system') {
-            try {
-                SendNotificationJob::dispatch($task, NotificationType::Error, $errorMessage);
-            } catch (\Throwable $e) {
-                Log::channel('yak')->warning('Failed to dispatch orphan notification', [
-                    'task_id' => $task->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
+        StopNotifier::notify($task, TaskStop::yakSideProblem($errorMessage));
     }
 }

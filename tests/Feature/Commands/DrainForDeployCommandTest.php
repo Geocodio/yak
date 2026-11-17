@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\RunFollowUpJob;
@@ -58,7 +59,8 @@ test('forces stragglers to Failed after the wait budget is exhausted', function 
 
     Queue::assertPushed(
         SendNotificationJob::class,
-        fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error,
+        fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error
+            && $job->personalize === false && $job->stop?->kind === StopKind::YakStopped,
     );
 });
 
@@ -83,7 +85,14 @@ test('promises automatic resume for a task claimed by one of the four resumable 
     $this->artisan('yak:drain', ['--wait' => 0, '--poll' => 1])
         ->assertSuccessful();
 
-    expect($task->fresh()->error_log)->toContain('resume automatically');
+    expect($task->fresh()->error_log)->toContain('resume automatically')
+        ->and($task->fresh()->stop_kind)->toBe(StopKind::YakRetrying);
+
+    Queue::assertPushed(
+        SendNotificationJob::class,
+        fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Retry
+            && $job->personalize === false && $job->stop?->kind === StopKind::YakRetrying,
+    );
 });
 
 test('tells the operator to retry manually when the straggler is not resumable', function () {
@@ -96,7 +105,13 @@ test('tells the operator to retry manually when the straggler is not resumable',
     $this->artisan('yak:drain', ['--wait' => 0, '--poll' => 1])
         ->assertSuccessful();
 
-    expect($task->fresh()->error_log)->toContain('manual retry');
+    expect($task->fresh()->error_log)->toContain('manual retry')
+        ->and($task->fresh()->stop_kind)->toBe(StopKind::YakStopped);
+
+    Queue::assertPushed(
+        SendNotificationJob::class,
+        fn ($job) => $job->type === NotificationType::Error && $job->stop?->kind === StopKind::YakStopped,
+    );
 });
 
 test('a Retrying straggler always gets a manual-retry message, even with a resumable claimed_job_class', function () {

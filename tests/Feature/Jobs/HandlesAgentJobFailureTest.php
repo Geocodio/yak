@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
@@ -65,7 +66,9 @@ it('dispatches a failure notification for non-system tasks', function () {
     Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $dispatched) use ($task) {
         return $dispatched->task->id === $task->id
             && $dispatched->type === NotificationType::Error
-            && str_contains($dispatched->message, 'boom');
+            && $dispatched->personalize === false
+            && $dispatched->stop?->kind === StopKind::YakStopped
+            && str_contains($dispatched->stop->detail, 'boom');
     });
 });
 
