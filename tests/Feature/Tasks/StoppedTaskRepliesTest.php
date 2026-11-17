@@ -1,12 +1,19 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ProcessCIResultJob;
+use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
+use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\Tasks\StoppedTaskReplies;
+use App\Services\Tasks\TaskActions;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 function stoppedTask(array $attributes = []): YakTask
 {
@@ -79,4 +86,47 @@ it('says it cannot retry when the task is not retryable', function (): void {
     $task = stoppedTask(['status' => TaskStatus::Success]);
 
     expect(app(StoppedTaskReplies::class)->handle($task, 'again', 'linear'))->toBe("Yak can't retry this one. Start a new request and it'll pick it up.");
+});
+
+it('answers and leaves no note behind when the retry throws unexpectedly', function (): void {
+    Queue::fake();
+    Exceptions::fake();
+    $task = stoppedTask();
+    $this->mock(TaskActions::class)->shouldReceive('retry')->andThrow(new HttpException(503));
+
+    expect(app(StoppedTaskReplies::class)->handle($task, 'again', 'linear'))->toBe("Yak couldn't restart this right now. Reply again in a moment.");
+
+    expect(PendingSteeringMessage::count())->toBe(0);
+});
+
+it('reports an unexpected retry failure', function (): void {
+    Queue::fake();
+    Exceptions::fake();
+    $task = stoppedTask();
+    $this->mock(TaskActions::class)->shouldReceive('retry')->andThrow(new RuntimeException('boom'));
+
+    app(StoppedTaskReplies::class)->handle($task, 'again', 'linear');
+
+    Exceptions::assertReported(RuntimeException::class);
+    expect(PendingSteeringMessage::count())->toBe(0);
+});
+
+it('leaves no note behind when the retry is refused', function (): void {
+    Queue::fake();
+    $task = stoppedTask(['status' => TaskStatus::Success]);
+
+    app(StoppedTaskReplies::class)->handle($task, 'again', 'linear');
+
+    expect(PendingSteeringMessage::count())->toBe(0);
+});
+
+it('retries on the existing branch and keeps exactly one queued note', function (): void {
+    Queue::fake();
+    $task = stoppedTask(['mode' => TaskMode::Fix, 'branch_name' => 'yak/SLACK-1', 'attempts' => 2, 'error_log' => 'CI failed']);
+    TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
+
+    expect(app(StoppedTaskReplies::class)->handle($task, 'mind the cache', 'linear'))->toBe('Trying again with your note.');
+
+    Queue::assertPushed(RetryYakJob::class);
+    expect(PendingSteeringMessage::count())->toBe(1);
 });

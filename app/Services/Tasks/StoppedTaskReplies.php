@@ -8,6 +8,7 @@ use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\RepoClarificationResolver;
+use Throwable;
 
 /**
  * Answers a reply on a task that has stopped without a PR: a reply to a
@@ -15,6 +16,10 @@ use App\Services\RepoClarificationResolver;
  */
 class StoppedTaskReplies
 {
+    private const CANNOT_RETRY = "Yak can't retry this one. Start a new request and it'll pick it up.";
+
+    private const TRY_AGAIN_LATER = "Yak couldn't restart this right now. Reply again in a moment.";
+
     public function __construct(private readonly TaskActions $taskActions) {}
 
     /**
@@ -37,12 +42,19 @@ class StoppedTaskReplies
 
         $isAlreadyActive = in_array($task->status, [TaskStatus::Pending, TaskStatus::Running, TaskStatus::Retrying, TaskStatus::AwaitingCi], true);
 
-        PendingSteeringMessage::queueFor($task, $message, $source, authorName: $authorName);
+        $note = PendingSteeringMessage::queueFor($task, $message, $source, authorName: $authorName);
 
         try {
             $this->taskActions->retry($task);
         } catch (ThreadActionRefused) {
-            return "Yak can't retry this one. Start a new request and it'll pick it up.";
+            $note->delete();
+
+            return self::CANNOT_RETRY;
+        } catch (Throwable $exception) {
+            $note->delete();
+            report($exception);
+
+            return self::TRY_AGAIN_LATER;
         }
 
         return $isAlreadyActive ? 'Yak is already on it. Your note is included.' : 'Trying again with your note.';
@@ -62,7 +74,11 @@ class StoppedTaskReplies
         try {
             $this->taskActions->reroute($task, $slug);
         } catch (ThreadActionRefused) {
-            return "Yak can't retry this one. Start a new request and it'll pick it up.";
+            return self::CANNOT_RETRY;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return self::TRY_AGAIN_LATER;
         }
 
         return "Working in {$slug} now.";
