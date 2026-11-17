@@ -32,6 +32,7 @@ test('a finished unseen thread stays in its date group with an unread mark', fun
         ->assertMissing('[data-testid="thread-group-needs-you"]')
         ->assertVisible('[data-testid="thread-row-' . $thread->public_id . '"]')
         ->assertVisible('[data-testid="thread-unread-' . $thread->public_id . '"]')
+        ->assertMissing('[data-testid="rail-threads-badge"]')
         ->assertNoJavaScriptErrors();
 });
 
