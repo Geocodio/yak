@@ -24,9 +24,23 @@ struct ThreadScreen: View {
     @State private var copiedLink = 0
     @State private var slots = PaneSlots()
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(SystemFeatures.self) private var system
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     private var isVisible: Bool { scenePhase == .active && !isCoveredByDrawer }
+    /// Plain http appears only against the stub of test mode.
+    private static var allowsInsecure: Bool {
+        #if DEBUG
+            TestMode.current() != nil
+        #else
+            false
+        #endif
+    }
+
+    private var handoffURL: URL? {
+        HandoffLink.webURL(instance: instanceURL, threadID: threadID, allowsInsecure: Self.allowsInsecure)
+    }
+
     private var webURL: URL { instanceURL.appending(path: "threads").appending(path: threadID) }
 
     private struct Opening: Hashable {
@@ -47,6 +61,11 @@ struct ThreadScreen: View {
                 }
             }
         }
+        .threadHandoff(
+            webURL: handoffURL,
+            isActive: ThreadHandoff.isActive(
+                webURL: handoffURL, isVisible: isVisible, isLocked: system.appLock.isLocked)
+        )
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
         // A `/clear` starts a new thread; the window follows it.
