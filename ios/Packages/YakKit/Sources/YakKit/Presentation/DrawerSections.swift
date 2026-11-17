@@ -33,6 +33,8 @@ public enum DrawerSubtitle: Equatable, Sendable {
     case status(ThreadRowStatus)
     /// All descendants, and how many of them are running.
     case children(total: Int, working: Int)
+    /// What a sub-thread is doing, as the server words it.
+    case step(String)
     /// A task item without a label.
     case taskWaiting
     case unsent(OutboxState)
@@ -109,6 +111,8 @@ public enum DrawerSections {
         let subtitle: DrawerSubtitle =
             if let label = row.needsYouLabel {
                 .serverLabel(label)
+            } else if depth > 0, let step = row.step, !step.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                .step(step)
             } else if !row.children.isEmpty {
                 .children(total: descendants.count, working: descendants.filter { $0.status == .running }.count)
             } else {

@@ -8,6 +8,8 @@ struct DrawerRowView: View {
     let now: Date
     let open: () -> Void
     let toggle: () -> Void
+    /// True while an action runs on this sub-thread.
+    var isRunning = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var indicatorSize = 22.0
@@ -41,6 +43,7 @@ struct DrawerRowView: View {
                         }
                     }
                     Spacer(minLength: 4)
+                    if isRunning { ProgressView().frame(width: 22, height: 22) }
                     if !isLarge { trailing(isInline: false) }
                 }
                 .padding(.leading, isLarge ? 12 : (row.depth == 0 ? 20 : 8))
@@ -114,6 +117,7 @@ struct DrawerRowView: View {
         case .serverLabel(let label): return label
         case .children(let total, let working):
             return String(localized: "drawer.children \(total) \(working)")
+        case .step(let text): return text
         case .taskWaiting: return String(localized: "drawer.taskWaiting")
         case .status(let status):
             switch status {
