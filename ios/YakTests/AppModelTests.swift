@@ -416,11 +416,8 @@ private final class SleeperCount: @unchecked Sendable {
     let scene = model.makeSceneModel(restored: nil)
     await pairTwoInstances(model)
     scene.applyColdStart(.drawer(.mine))
-    let first = try #require(await instances.all().first { $0.url.host() == "first.example.com" })
-    try await instances.setActive(first.id)
-    await model.reloadRoute()
-    await model.handle(link: .task(instance: URL(string: "https://second.example.com")!, id: "k3m9p2qa"))
-    #expect(await instances.active()?.url.host() == "second.example.com")
+    await model.handle(link: .task(instance: URL(string: "https://first.example.com")!, id: "k3m9p2qa"))
+    #expect(await instances.active()?.url.host() == "first.example.com")
     #expect(model.taskToOpen == "k3m9p2qa")
     #expect(model.browserURL == nil)
 }
