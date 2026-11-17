@@ -150,7 +150,7 @@ class FakeSandboxManager extends IncusSandboxManager
             return Process::result((string) $this->branchDiffCount);
         }
 
-        if (str_contains($command, 'git rev-list --count origin/')) {
+        if (str_contains($command, 'git rev-list --count') && str_contains($command, 'origin/')) {
             return Process::result((string) $this->commitCount);
         }
 

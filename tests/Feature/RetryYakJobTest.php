@@ -69,7 +69,7 @@ test('a retry that leaves the branch unchanged reruns the failed CI jobs instead
             ['id' => 7, 'head_sha' => 'abc', 'status' => 'completed', 'conclusion' => 'failure'],
         ]]),
     ]);
-    $sandbox = (new FakeSandboxManager)->setBranchDiffCount(0);
+    $sandbox = (new FakeSandboxManager)->setBranchDiffCount(0)->setHeadSha('abc');
 
     finishTaskTurn(FinishRetryTurnJob::class, $task, $sandbox, 'Browser failures look like flakes.', TaskRunKind::Retry);
 
@@ -86,6 +86,18 @@ test('a retry that leaves the branch unchanged fails at once when no CI jobs can
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed)
         ->and($task->fresh()->error_log)->toContain('Retry made no changes');
+});
+
+test('a retry that leaves the branch unchanged never reruns CI of another commit', function () {
+    $task = unchangedRetryTask();
+    Http::fake(['api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => [
+        ['id' => 8, 'head_sha' => 'other', 'status' => 'completed', 'conclusion' => 'failure'],
+    ]])]);
+
+    finishTaskTurn(FinishRetryTurnJob::class, $task, (new FakeSandboxManager)->setBranchDiffCount(0)->setHeadSha('abc'), 'Flake.', TaskRunKind::Retry);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'rerun-failed-jobs'));
 });
 
 test('a retry runs on the yak-claude queue with the budget and repo middleware', function () {

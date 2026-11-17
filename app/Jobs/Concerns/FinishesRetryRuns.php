@@ -99,7 +99,7 @@ trait FinishesRetryRuns
             }
 
             if ($repository->settings()->ciSystem() !== 'none' && ! $this->branchDiffersFromRemote($sandbox, $containerName, $workspacePath)) {
-                $this->rerunCiOnUnchangedBranch($repository, $result);
+                $this->rerunCiOnUnchangedBranch($repository, $result, trim($sandbox->run($containerName, "cd {$workspacePath} && git rev-parse HEAD", timeout: 10)->output()));
 
                 return;
             }
@@ -136,7 +136,8 @@ trait FinishesRetryRuns
 
     private function branchDiffersFromRemote(SandboxShell $sandbox, string $containerName, string $workspacePath): bool
     {
-        $diff = $sandbox->run($containerName, "cd {$workspacePath} && git rev-list --count origin/{$this->task->branch_name}...HEAD", timeout: 15);
+        $range = escapeshellarg("origin/{$this->task->branch_name}...HEAD");
+        $diff = $sandbox->run($containerName, "cd {$workspacePath} && git rev-list --count {$range}", timeout: 15);
 
         return $diff->exitCode() !== 0 || (int) trim($diff->output()) > 0;
     }
@@ -147,11 +148,11 @@ trait FinishesRetryRuns
      * the task fails now when they cannot, so it never waits on a CI result
      * that is not coming.
      */
-    private function rerunCiOnUnchangedBranch(Repository $repository, AgentRunResult $result): void
+    private function rerunCiOnUnchangedBranch(Repository $repository, AgentRunResult $result, string $headSha): void
     {
         $this->task->update($this->postAgentUpdate($repository, $result));
 
-        if (! $this->rerunFailedCiJobs($repository)) {
+        if (! $this->rerunFailedCiJobs($repository, $headSha)) {
             $this->handleError('Retry made no changes to the branch, so CI could not run again on it.');
 
             return;
@@ -163,11 +164,15 @@ trait FinishesRetryRuns
         SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
     }
 
-    private function rerunFailedCiJobs(Repository $repository): bool
+    /**
+     * Reruns only the failed runs of the commit the sandbox has checked out, so a
+     * run from another push or a fork's branch of the same name is never touched.
+     */
+    private function rerunFailedCiJobs(Repository $repository, string $headSha): bool
     {
         $installationId = (int) config('yak.channels.github.installation_id');
 
-        if ($repository->settings()->ciSystem() !== 'github_actions' || $installationId === 0) {
+        if ($repository->settings()->ciSystem() !== 'github_actions' || $installationId === 0 || $headSha === '') {
             return false;
         }
 
@@ -176,7 +181,8 @@ trait FinishesRetryRuns
         try {
             $failedRuns = array_filter(
                 $gitHub->latestCommitWorkflowRunsForBranch($installationId, $repository->github_full_name, (string) $this->task->branch_name),
-                fn (array $run): bool => ! GitHubAppService::isUnfinishedWorkflowRun($run)
+                fn (array $run): bool => $run['head_sha'] === $headSha
+                    && ! GitHubAppService::isUnfinishedWorkflowRun($run)
                     && ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true),
             );
 
