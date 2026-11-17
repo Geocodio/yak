@@ -1,5 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import { PageHeader } from '@geocodio/console-ui';
+import { router, useForm } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
 import { LaunchControl } from '@/components/approvals/LaunchControl';
 import { LevelHero } from '@/components/approvals/LevelHero';
@@ -9,15 +8,20 @@ import { ProtectedAssets } from '@/components/approvals/ProtectedAssets';
 import { ShadowLog } from '@/components/approvals/ShadowLog';
 import { StandDown } from '@/components/approvals/StandDown';
 import { AppLayout } from '@/layouts/AppLayout';
+import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
+import { useLeaveGuard } from '@/lib/useLeaveGuard';
+import type { RepositorySettingsHeader } from '@/types/repositorySettings';
+import type { YakConfig } from '@/types/repositories';
 import type { PageProps } from '@/types/shared';
 import type { ApprovalLevel, ApprovalMode, ApprovalsPage } from '@/types/approvals';
 
-export default function Approvals({ repository, approval, concerns, shadow, github }: PageProps<ApprovalsPage>) {
+export default function Approvals({ header, yakConfig, repository, approval, concerns, shadow, github }: PageProps<ApprovalsPage & { header: RepositorySettingsHeader; yakConfig?: YakConfig }>) {
     const form = useForm<{ level: ApprovalLevel; mode: ApprovalMode }>({ level: approval.level, mode: approval.mode });
     const [isStandingDown, setIsStandingDown] = useState(false);
     const live = { level: approval.level, mode: approval.mode };
     const draft = form.data;
     const isDirty = draft.level !== live.level || draft.mode !== live.mode;
+    const { dialog } = useLeaveGuard(isDirty);
     const isArmed = draft.level > 1 && draft.mode === 'enforce';
 
     const pickLevel = (level: ApprovalLevel) => {
@@ -47,10 +51,9 @@ export default function Approvals({ repository, approval, concerns, shadow, gith
     };
 
     return (
-        <>
-            <Head title={`Review approvals, ${repository.slug}`} />
-            <PageHeader crumbs={['Repositories', repository.slug, 'Review approvals']} />
-            <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 px-6 py-6">
+        <RepositorySettingsLayout header={header} yakConfig={yakConfig} active="approvals" dirtySections={isDirty ? ['approvals'] : []} branch={repository.defaultBranch}>
+            {dialog}
+            <div className="flex flex-col gap-5">
                 <header>
                     <h1 className="text-[20px] font-semibold">How much may Yak approve on its own?</h1>
                     <p className="mt-1 max-w-[720px] text-[14px] text-muted">
@@ -70,7 +73,7 @@ export default function Approvals({ repository, approval, concerns, shadow, gith
                     <OrderBar live={live} draft={draft} slug={repository.slug} isSaving={form.processing || isStandingDown} error={form.errors.mode ?? form.errors.level} onDiscard={() => { form.setData(live); form.clearErrors(); }} onTransmit={save} />
                 )}
             </div>
-        </>
+        </RepositorySettingsLayout>
     );
 }
 
