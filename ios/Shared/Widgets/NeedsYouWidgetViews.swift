@@ -21,6 +21,11 @@ extension WidgetDisplay {
         kind == .running ? WidgetStrings.runningEmpty : WidgetStrings.needsYouEmpty
     }
 
+    /// The lock screen tile hides its title with `.privacySensitive()`, so its label leaves the title out too.
+    var lockSummaryLabel: LocalizedStringResource {
+        count == 0 || kind == .running ? summaryLabel : WidgetStrings.a11yNeedsYouLock(count: countLabel, instance: instanceName)
+    }
+
     fileprivate var summaryLabel: LocalizedStringResource {
         let first = rows.first?.title.spoken ?? ""
         if kind == .running {
@@ -53,6 +58,7 @@ struct WidgetSmallView: View {
                 Spacer(minLength: 0)
                 if let row = display.rows.first {
                     WidgetRowTitleText(title: row.title).font(.footnote.weight(.medium)).widgetLines(2)
+                        .privacySensitive()
                     display.detail(of: row, isLast: true, now: now).font(.caption.weight(.medium)).foregroundStyle(
                         display.isStale ? .tertiary : .secondary
                     ).widgetLines(2)
@@ -164,7 +170,7 @@ struct WidgetRectangularView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text(display.summaryLabel))
+            .accessibilityLabel(Text(display.lockSummaryLabel))
         }
     }
 

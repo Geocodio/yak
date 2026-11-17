@@ -64,11 +64,9 @@ enum QuickActions {
             let link = DeepLink(url: url, normalize: normalizeAddress, parsePair: { _ in nil })
         else { return false }
         if case .pair = link { return false }
-        if let continuation {
-            continuation.yield(url)
-        } else {
-            pending.append(url)
-        }
+        if let continuation, case .enqueued = continuation.yield(url) { return true }
+        continuation = nil
+        pending.append(url)
         return true
     }
 

@@ -38,8 +38,14 @@ struct InstanceEntity: AppEntity {
 }
 
 struct InstanceQuery: EntityQuery, EntityStringQuery {
+    /// Every stored instance, so a configuration for one that needs pairing keeps it and the widget says so.
     func entities(for identifiers: [UUID]) async throws -> [InstanceEntity] {
-        await readyInstances().filter { identifiers.contains($0.id) }
+        guard let store = SharedStorage.open()?.instanceStore() else { return [] }
+        return await entities(for: identifiers, in: store)
+    }
+
+    func entities(for identifiers: [UUID], in store: InstanceStore) async -> [InstanceEntity] {
+        await store.all().filter { identifiers.contains($0.id) }.map(InstanceEntity.init)
     }
 
     func suggestedEntities() async throws -> [InstanceEntity] { await readyInstances() }

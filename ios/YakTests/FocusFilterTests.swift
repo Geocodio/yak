@@ -18,6 +18,16 @@ import YakKit
         #expect(!predicate.evaluate(with: "other.example.com"))
     }
 
+    @Test func aChosenInstanceThatNeedsPairingIsStillResolved() async throws {
+        let tokens = InMemoryTokenStore()
+        let store = InstanceStore(defaults: FocusMemoryDefaults(), tokens: tokens, now: { Date() })
+        let added = try await store.add(url: home.url, name: "Example Yak", userName: "Test person", token: "t")
+        try tokens.removeToken(for: added.id)
+        #expect(await store.state(of: added.id) == .needsPairing)
+        let found = await InstanceQuery().entities(for: [added.id], in: store)
+        #expect(found.map(\.id) == [added.id])
+    }
+
     @Test func noChoiceHasNoPredicate() {
         #expect(YakFocusFilter.predicate(for: nil) == nil)
     }
@@ -34,4 +44,11 @@ import YakKit
         #expect(YakFocusFilter.summary(names: ["Example Yak", "Other Yak"]) == "Example Yak and Other Yak")
         #expect(YakFocusFilter.summary(names: ["Example Yak", "Other Yak", "Third Yak"]) == "Example Yak and 2 more")
     }
+}
+
+private final class FocusMemoryDefaults: KeyValueStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String: Data] = [:]
+    func data(forKey key: String) -> Data? { lock.withLock { values[key] } }
+    func set(_ value: Data?, forKey key: String) { lock.withLock { values[key] = value } }
 }

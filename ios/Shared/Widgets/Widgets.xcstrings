@@ -11,6 +11,16 @@
         }
       }
     },
+    "widget.a11y.needsYouLock %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ need you on %2$@."
+          }
+        }
+      }
+    },
     "widget.a11y.needsYouNone %@" : {
       "localizations" : {
         "en" : {

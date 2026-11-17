@@ -23,6 +23,12 @@ import YakKit
         #expect(text(WidgetStrings.stateCircular(.notLoaded(host: "")) ?? WidgetStrings.brand) == "No data")
     }
 
+    @Test func theLockScreenLabelLeavesTheTitleOut() {
+        let label = text(WidgetStrings.a11yNeedsYouLock(count: "2", instance: "Example Yak"))
+        #expect(label == "2 need you on Example Yak.")
+        #expect(!label.contains("First"))
+    }
+
     @Test func everyLabelAndTitleResolves() {
         let resources: [LocalizedStringResource] = [
             WidgetStrings.brand, WidgetStrings.privateThread, WidgetStrings.unknownThread, WidgetStrings.working,

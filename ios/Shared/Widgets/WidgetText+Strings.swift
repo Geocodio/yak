@@ -68,6 +68,9 @@ enum WidgetStrings {
     static func a11yNeedsYou(count: String, instance: String, first: String) -> LocalizedStringResource {
         resource("widget.a11y.needsYou \(count) \(instance) \(first)")
     }
+    static func a11yNeedsYouLock(count: String, instance: String) -> LocalizedStringResource {
+        resource("widget.a11y.needsYouLock \(count) \(instance)")
+    }
     static func a11yNeedsYouNone(instance: String) -> LocalizedStringResource {
         resource("widget.a11y.needsYouNone \(instance)")
     }

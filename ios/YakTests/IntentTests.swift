@@ -30,7 +30,7 @@ private func list(count: Int, items: [String]) -> String {
 @Suite struct IntentTests {
     private let transport = RecordingTransport()
 
-    private func make(instances count: Int = 1) async throws -> (IntentRunner, [Instance], InMemoryFileStore) {
+    private func make(instances count: Int = 1, removingTokens: Bool = false) async throws -> (IntentRunner, [Instance], InMemoryFileStore) {
         let tokens = InMemoryTokenStore()
         let store = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
         var added: [Instance] = []
@@ -41,6 +41,7 @@ private func list(count: Int, items: [String]) -> String {
                 try await store.add(
                     url: URL(string: hosts[index])!, name: names[index], userName: "Test person", token: "t\(index)"))
         }
+        if removingTokens { for instance in added { try tokens.removeToken(for: instance.id) } }
         let files = InMemoryFileStore()
         let environment = SessionEnvironment(
             http: transport, webSockets: URLSessionWebSocketConnector(), files: files, clock: SystemClock(),
@@ -164,6 +165,30 @@ private func list(count: Int, items: [String]) -> String {
         let (runner, _, _) = try await make()
         let answer = await runner.lastThread(instance: nil)
         #expect(answer.dialog == "You have not opened a thread on Example Yak yet." && answer.link == nil)
+    }
+
+    @Test func openLastThreadOpensItsLink() async throws {
+        let (runner, instances, files) = try await make()
+        let cache = Cache(instance: instances[0].id, files: files, clock: SystemClock())
+        await cache.markOpened("d0e515ef")
+        let answer = await runner.lastThread(instance: nil)
+        let link = try #require(answer.link)
+        let components = URLComponents(url: link, resolvingAgainstBaseURL: false)
+        #expect(components?.scheme == "yak" && components?.host == "thread")
+        #expect(components?.queryItems?.first { $0.name == "id" }?.value == "d0e515ef")
+        #expect(answer.thread?.link == link)
+    }
+
+    @Test func needsMeForAnInstanceThatNeedsPairingSaysPairAgain() async throws {
+        let (runner, _, _) = try await make(removingTokens: true)
+        let answer = await runner.needsMe(instance: nil)
+        #expect(answer.dialog.contains("Pair yak.example.com again in Yak."))
+        #expect(!answer.dialog.contains("could not be reached"))
+    }
+
+    @Test func needsMeForARemovedInstanceSaysSo() async throws {
+        let (runner, _, _) = try await make()
+        #expect(await runner.needsMe(instance: UUID()).dialog == "That Yak is no longer paired.")
     }
 
     @Test func entityIDsResolveWithTheirLink() async throws {

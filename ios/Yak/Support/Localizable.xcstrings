@@ -2880,6 +2880,16 @@
         }
       }
     },
+    "intent.dialog.instanceRemoved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That Yak is no longer paired."
+          }
+        }
+      }
+    },
     "intent.dialog.noInstance" : {
       "localizations" : {
         "en" : {

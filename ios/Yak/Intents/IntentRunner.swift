@@ -115,7 +115,9 @@ struct IntentRunner: Sendable {
     func needsMe(instance id: UUID?) async -> IntentAnswer {
         let all = await services.instances.all()
         let chosen = id == nil ? all : all.filter { $0.id == id }
-        guard !chosen.isEmpty else { return IntentAnswer(dialog: noInstance) }
+        if chosen.isEmpty {
+            return IntentAnswer(dialog: id == nil || all.isEmpty ? noInstance : text("intent.dialog.instanceRemoved"))
+        }
         let results = await withTaskGroup(of: (Int, WidgetRefresh).self) { group in
             for (index, instance) in chosen.enumerated() {
                 group.addTask {
@@ -130,7 +132,11 @@ struct IntentRunner: Sendable {
         let summary = NeedsYouSummary.make(rows)
         var sentences = [spokenCount(summary)]
         for (instance, result) in zip(chosen, results) where !result.isFresh {
-            sentences.append(String(localized: "intent.needsMe.unreachable \(instance.name)"))
+            if case .needsPairing = result.state {
+                sentences.append(pairAgain(instance))
+            } else {
+                sentences.append(String(localized: "intent.needsMe.unreachable \(instance.name)"))
+            }
         }
         let entities = zip(chosen, results).flatMap { instance, result in
             result.snapshot.map { ThreadEntityRows.needsYou($0, instance: instance).map(ThreadEntityValue.init) } ?? []

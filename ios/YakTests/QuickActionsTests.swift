@@ -64,6 +64,21 @@ import YakKit
         #expect(received.isEmpty)
     }
 
+    @Test func aLinkForAnEndedSubscriberWaitsForTheNextOne() async throws {
+        QuickActions.reset()
+        let first = Task { @MainActor in for await _ in QuickActions.links() {} }
+        await Task.yield()
+        first.cancel()
+        await first.value
+        let item = try #require(QuickActions.shortcutItems(instance: instance, snapshot: nil).first)
+        #expect(QuickActions.deliver(item))
+        var received: [URL] = []
+        let reader = Task { @MainActor in for await link in QuickActions.links() { received.append(link) } }
+        await Task.yield()
+        reader.cancel()
+        #expect(received.count == 1)
+    }
+
     @Test func aColdLaunchActionIsDeliveredOnce() async throws {
         QuickActions.reset()
         let item = try #require(QuickActions.shortcutItems(instance: instance, snapshot: nil).first)

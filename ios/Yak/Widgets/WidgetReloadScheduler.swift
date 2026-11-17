@@ -13,6 +13,8 @@ final class WidgetReloadScheduler {
     private let reload: @MainActor (String?) -> Void
     private var lastSnapshots: [UUID: WidgetSnapshot] = [:]
     private var lastCounts: [UUID: Int]?
+    /// True after a list load changed what the widgets show and before the next reload of every timeline.
+    private var hasUnreloadedChange = false
 
     /// `reload` takes a widget kind, or nil for every kind. A nil `instances` does nothing at all.
     init(
@@ -39,13 +41,18 @@ final class WidgetReloadScheduler {
         let snapshot = WidgetSnapshot.make(from: list, instanceName: instance.name, now: epoch)
         guard lastSnapshots[instance.id] != snapshot else { return }
         lastSnapshots[instance.id] = snapshot
+        hasUnreloadedChange = true
         reloadBothKinds()
     }
 
-    /// The app left the front: reloads everything and resumes pending registrations within 10 seconds.
+    /// The app left the front: reloads everything when a list load changed something since the last reload, and
+    /// resumes pending registrations within 10 seconds.
     func enteredBackground() async {
         guard instances != nil else { return }
-        reload(nil)
+        if hasUnreloadedChange {
+            hasUnreloadedChange = false
+            reload(nil)
+        }
         await registerPending?(.seconds(10))
     }
 
@@ -60,6 +67,11 @@ final class WidgetReloadScheduler {
         reloadBothKinds()
     }
 
+    /// The instance the quick actions fall back to after a removal: the most recently used one still stored.
+    func remainingInstance(excluding removed: UUID) async -> Instance? {
+        await instances?.all().first { $0.id != removed }
+    }
+
     /// A pairing: resumes the registration for the new instance and reloads.
     func paired() async {
         guard instances != nil else { return }
@@ -70,6 +82,7 @@ final class WidgetReloadScheduler {
     /// A removal or a revoke: the widgets stop showing the instance.
     func removed(instance: UUID) {
         guard instances != nil else { return }
+        hasUnreloadedChange = false
         lastSnapshots[instance] = nil
         lastCounts?[instance] = nil
         reload(nil)

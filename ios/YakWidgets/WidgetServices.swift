@@ -13,7 +13,9 @@ struct WidgetServices: Sendable {
         let environment = storage.environment(appVersion: version, system: "iOS widget")
         let instances = storage.instanceStore(bundle: bundle)
         return WidgetServices(
-            refresher: WidgetRefresher(instances: instances, tokens: storage.tokens, environment: environment),
+            refresher: WidgetRefresher(
+                instances: instances, tokens: storage.tokens, environment: environment,
+                isStillPaired: { id in await storage.instanceStore(bundle: bundle).all().contains { $0.id == id } }),
             registration: WidgetPushRegistration(
                 instances: instances, tokens: storage.tokens, environment: environment,
                 build: storage.pushBuild(bundle: bundle)))

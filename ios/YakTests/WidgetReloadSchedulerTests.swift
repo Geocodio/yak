@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UIKit
 import YakKit
 
 @testable import Yak
@@ -57,11 +58,28 @@ private final class Reloads {
         #expect(reloads.kinds.count == 4)
     }
 
-    @Test func backgroundReloadsAll() async throws {
-        let (scheduler, reloads, _, _) = try await make()
+    @Test func backgroundReloadsAllOnlyAfterAChange() async throws {
+        let (scheduler, reloads, _, instance) = try await make()
         await scheduler.enteredBackground()
-        #expect(reloads.kinds == [nil])
+        #expect(reloads.kinds.isEmpty, "nothing changed, so no reload")
         #expect(reloads.registrations == 1)
+        scheduler.listLoaded(instance: try #require(instance), list: list(count: 2))
+        await scheduler.enteredBackground()
+        #expect(reloads.kinds == ["NeedsYou", "RunningThreads", nil])
+        await scheduler.enteredBackground()
+        #expect(reloads.kinds.count == 3, "the change was reloaded once")
+        #expect(reloads.registrations == 3)
+    }
+
+    @Test func aRemovalClearsTheQuickActionsOfTheRemovedInstance() async throws {
+        let (scheduler, _, store, instance) = try await make()
+        let example = try #require(instance)
+        let item = try #require(QuickActions.shortcutItems(instance: example, snapshot: nil).first)
+        UIApplication.shared.shortcutItems = [item]
+        let lifecycle = WidgetLifecycle(scheduler: scheduler)
+        try await store.remove(example.id)
+        await lifecycle.instanceRemoved(example, reason: .unpaired)
+        #expect(UIApplication.shared.shortcutItems?.isEmpty == true)
     }
 
     @Test func aBackgroundRefreshReloadsOnlyWhenACountChanged() async throws {

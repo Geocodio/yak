@@ -39,7 +39,14 @@ struct YakTimelineProvider: AppIntentTimelineProvider {
             instance: configuration.instance?.id, budget: Self.refreshBudget)
         let remaining = Self.totalBudget - (ContinuousClock.now - started)
         if remaining > .zero { _ = await services.registration.registerPending(budget: remaining) }
-        return Timeline(entries: [YakEntry(date: now, refresh: refresh, isPlaceholder: false)], policy: .after(next))
+        return Timeline(entries: Self.entries(now: now, refresh: refresh), policy: .after(next))
+    }
+
+    /// The same content at later dates, so ages and "Updated" lines advance without a reload.
+    static func entries(now: Date, refresh: WidgetRefresh) -> [YakEntry] {
+        [0, 1, 2, 3, 6].map {
+            YakEntry(date: now.addingTimeInterval(TimeInterval($0) * 3600), refresh: refresh, isPlaceholder: false)
+        }
     }
 
     /// Neutral sample rows; the views redact them.
