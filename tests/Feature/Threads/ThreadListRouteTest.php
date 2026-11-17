@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ThreadSource;
 use App\Models\Thread;
 use App\Models\ThreadView;
 use App\Models\User;
@@ -77,4 +78,33 @@ test('the yak filter is accepted and the new thread data loads only on request',
 
     $this->actingAs($user)->get(route('tasks'))
         ->assertInertia(fn ($page) => $page->missing('newThread'));
+});
+
+test('the thread list endpoint narrows by sources and starters', function () {
+    $user = User::factory()->create();
+    $match = Thread::factory()->create(['source' => ThreadSource::Slack, 'created_by_user_id' => null, 'starter_name' => 'Jane: Doe']);
+    Thread::factory()->create(['source' => ThreadSource::Slack, 'created_by_user_id' => null, 'starter_name' => 'Other']);
+    Thread::factory()->create(['source' => ThreadSource::Linear, 'created_by_user_id' => null, 'starter_name' => 'Jane: Doe']);
+
+    $this->actingAs($user)->getJson(route('threads.list', ['filter' => 'everyone', 'sources' => ['slack'], 'starters' => ['name:Jane: Doe']]))
+        ->assertOk()
+        ->assertJsonCount(1, 'threads')
+        ->assertJsonPath('threads.0.id', $match->public_id)
+        ->assertJsonStructure(['facets' => ['sources', 'starters']]);
+});
+
+test('an unknown source key returns an empty list, not the full list', function () {
+    $user = User::factory()->create();
+    Thread::factory()->create(['created_by_user_id' => $user->id]);
+
+    $this->actingAs($user)->getJson(route('threads.list', ['sources' => ['nope']]))
+        ->assertOk()
+        ->assertJsonCount(0, 'threads');
+});
+
+test('sources must be an array of strings', function () {
+    $this->actingAs(User::factory()->create());
+
+    $this->getJson(route('threads.list', ['sources' => 'slack']))->assertUnprocessable();
+    $this->getJson(route('threads.list', ['starters' => 'yak']))->assertUnprocessable();
 });

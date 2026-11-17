@@ -15,11 +15,13 @@ use App\Services\Threads\ThreadList;
 final class AppThreadListData
 {
     /**
-     * @return array{starred: list<array<string, mixed>>, needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool}
+     * @param  list<string>  $sources
+     * @param  list<string>  $starters
+     * @return array{starred: list<array<string, mixed>>, needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool, facets: array{sources: list<array{key: string, label: string, count: int}>, starters: list<array{key: string, name: string, avatarUrl: ?string, count: int}>}}
      */
-    public static function for(User $user, ThreadListFilter $filter, ?string $search): array
+    public static function for(User $user, ThreadListFilter $filter, ?string $search, array $sources = [], array $starters = []): array
     {
-        $list = ThreadList::for($user, $filter, $search);
+        $list = ThreadList::for($user, $filter, $search, $sources, $starters);
         $taskItems = $filter === ThreadListFilter::Closed ? [] : NeedsYouTasks::for($user, $search);
         $needsYou = [...self::typed($list['needsYou']), ...$taskItems];
 
@@ -38,6 +40,7 @@ final class AppThreadListData
             'threads' => self::typed($list['threads']),
             'needsYouCount' => NeedsYouCount::for($user, $isUnfilteredMine ? $list['needsYouCount'] : null),
             'hasAnyThreads' => $list['hasAnyThreads'],
+            'facets' => $list['facets'],
         ];
     }
 

@@ -1,4 +1,21 @@
 {
+    "facets": {
+        "sources": [
+            {
+                "count": 1,
+                "key": "dashboard",
+                "label": "Dashboard"
+            }
+        ],
+        "starters": [
+            {
+                "avatarUrl": null,
+                "count": 1,
+                "key": "user:1",
+                "name": "Test person"
+            }
+        ]
+    },
     "hasAnyThreads": true,
     "needsYou": [
         {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TaskStatus;
+use App\Enums\ThreadSource;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
@@ -79,7 +80,7 @@ it('never lists another person\'s private thread or its task', function () {
 
 it('answers an empty list for a new user', function () {
     $this->getJson('/api/app/v1/threads', phoneHeadersFor(User::factory()->create()))->assertOk()
-        ->assertExactJson(['starred' => [], 'needsYou' => [], 'threads' => [], 'needsYouCount' => 0, 'hasAnyThreads' => false]);
+        ->assertExactJson(['starred' => [], 'needsYou' => [], 'threads' => [], 'needsYouCount' => 0, 'hasAnyThreads' => false, 'facets' => ['sources' => [], 'starters' => []]]);
 });
 
 it('refuses without a token, with a revoked phone and with a computer token', function () {
@@ -112,4 +113,20 @@ it('shows each sub-thread\'s step', function () {
         ->and($row['children'][0]['step'])->toBe('Writing the migration')
         ->and($row['children'][1]['step'])->toBeNull()
         ->and(count(DB::getQueryLog()))->toBe($withTwoChildren);
+});
+
+it('accepts sources and starters and returns facets and origin fields', function () {
+    $user = User::factory()->create();
+    $slack = Thread::factory()->create(['source' => ThreadSource::Slack, 'created_by_user_id' => $user->id]);
+    Thread::factory()->create(['source' => ThreadSource::Linear, 'created_by_user_id' => $user->id]);
+
+    $response = $this->getJson('/api/app/v1/threads?filter=everyone&sources[]=slack&starters[]=user:' . $user->id, phoneHeadersFor($user))->assertOk()
+        ->assertJsonCount(1, 'threads')
+        ->assertJsonPath('threads.0.id', $slack->public_id)
+        ->assertJsonPath('threads.0.source.key', 'slack')
+        ->assertJsonPath('threads.0.starter.key', 'user:' . $user->id)
+        ->assertJsonCount(2, 'facets.sources');
+
+    expect(array_keys($response->json('threads.0')))->toContain('isUnread');
+    $this->getJson('/api/app/v1/threads?sources=slack', phoneHeadersFor($user))->assertUnprocessable();
 });
