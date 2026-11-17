@@ -168,7 +168,7 @@ import XCTest
     private func openFiles(_ scenario: String, thread: String = "d0e515ef", arguments: [String] = []) throws {
         try start(scenario, paired: true, extraArguments: arguments)
         app.openThread(thread)
-        app.openPane("Files")
+        app.openFilesEverything()
     }
 
     private func openSource() throws {
@@ -311,7 +311,7 @@ import XCTest
         defer { try? stub.setOnline(true) }
         try start("workspace", paired: true)
         app.openThread("d0e515ef")
-        app.openPane("Files")
+        app.openFilesEverything()
         XCTAssertTrue(label("You are offline").firstMatch.waitForExistence(timeout: 20))
         try shootThread("files-offline-empty")
     }
@@ -428,7 +428,7 @@ import XCTest
         app.launchArguments = app.launchArguments.map { $0 == "fresh" ? "again" : $0 }
         app.launch()
         app.openThread("d0e515ef")
-        app.openPane("Files")
+        app.openFilesEverything()
         XCTAssertTrue(state("files.row.src").waitForExistence(timeout: 15))
         state("files.row.src").tap()
         XCTAssertTrue(state("files.row.src/Importer.php").waitForExistence(timeout: 10))

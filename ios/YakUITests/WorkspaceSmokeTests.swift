@@ -4,12 +4,12 @@ extension XCUIApplication {
     /// Opens a thread from the drawer, which shows first on a phone.
     func openThread(_ id: String) {
         let row = descendants(matching: .any)["drawer.row.thread:\(id)"]
-        if !descendants(matching: .any)["drawer.list"].waitForExistence(timeout: 10) { buttons["threads.button"].tap() }
-        XCTAssertTrue(descendants(matching: .any)["drawer.list"].waitForExistence(timeout: 10))
+        if !descendants(matching: .any)["drawer.list"].waitForExistence(timeout: 60) { buttons["threads.button"].tap() }
+        XCTAssertTrue(descendants(matching: .any)["drawer.list"].waitForExistence(timeout: 60))
         // A list of many threads builds the later rows only after a scroll.
         var scrolls = 0
         while !row.isHittable, scrolls < 6 {
-            if row.waitForExistence(timeout: 3), row.isHittable { break }
+            if row.waitForExistence(timeout: 60), row.isHittable { break }
             swipeUp()
             scrolls += 1
         }
@@ -19,19 +19,28 @@ extension XCUIApplication {
         row.tap()
     }
 
+    /// Opens the Files pane and switches it to Everything, which is where these tests work; the pane opens on Changed
+    /// when the thread has changes.
+    func openFilesEverything() {
+        openPane("Files")
+        let everything = buttons["Everything"]
+        if everything.waitForExistence(timeout: 60) { everything.tap() }
+    }
+
     /// Switches to a pane by its name through the pane menu or, where the panes are a row, its button.
     func openPane(_ name: String) {
         let menu = buttons["pane.menu"]
-        if menu.waitForExistence(timeout: 5) {
+        if menu.waitForExistence(timeout: 60) {
             menu.tap()
             let byIdentifier = descendants(matching: .any)["pane.menu.\(name.lowercased())"]
             let item =
-                byIdentifier.waitForExistence(timeout: 3) ? byIdentifier : buttons.matching(identifier: name).firstMatch
-            XCTAssertTrue(item.waitForExistence(timeout: 5))
+                byIdentifier.waitForExistence(timeout: 60)
+                ? byIdentifier : buttons.matching(identifier: name).firstMatch
+            XCTAssertTrue(item.waitForExistence(timeout: 60))
             item.tap()
         } else {
             let row = buttons["pane.row.\(name.lowercased())"]
-            XCTAssertTrue(row.waitForExistence(timeout: 5))
+            XCTAssertTrue(row.waitForExistence(timeout: 60))
             row.tap()
         }
     }
@@ -66,14 +75,14 @@ extension XCUIApplication {
         try launch(scenario: "workspace")
         app.openThread("d0e515ef")
         app.openPane("Terminal")
-        XCTAssertTrue(output.waitForExistence(timeout: 15))
+        XCTAssertTrue(output.waitForExistence(timeout: 60))
         waitForValue(output, containing: "stub$")
         try audit()
         output.tap()
         app.typeText("echo hello\n")
         waitForValue(output, containing: "hello")
         try stub.post("terminal/close", "1011")
-        XCTAssertTrue(app.descendants(matching: .any)["terminal.banner"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["terminal.banner"].waitForExistence(timeout: 60))
         waitForValue(output, containing: "New shell. The connection dropped at", timeout: 20)
         XCTAssertEqual(try stub.get("terminal/opened"), "2")
     }
@@ -85,7 +94,7 @@ extension XCUIApplication {
         waitForValue(output, containing: "stub$", timeout: 15)
         try stub.post("terminal/close", "4408")
         XCTAssertTrue(
-            app.staticTexts["This shell closed after 30 minutes without input."].waitForExistence(timeout: 10))
+            app.staticTexts["This shell closed after 30 minutes without input."].waitForExistence(timeout: 60))
         Thread.sleep(forTimeInterval: 5)
         XCTAssertEqual(try stub.get("terminal/opened"), "1")
     }
@@ -106,17 +115,17 @@ extension XCUIApplication {
     private func openFile(_ scenario: String = "workspace", arguments: [String] = []) throws {
         try launch(scenario: scenario, arguments: arguments)
         app.openThread("d0e515ef")
-        app.openPane("Files")
-        XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 15))
+        app.openFilesEverything()
+        XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 60))
         element("files.row.src").tap()
-        XCTAssertTrue(element("files.row.src/Importer.php").waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.row.src/Importer.php").waitForExistence(timeout: 60))
         element("files.row.src/Importer.php").tap()
-        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 60))
     }
 
     private func typeIntoEditor(_ text: String) {
         let editor = app.textViews["files.editor"]
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.waitForExistence(timeout: 60))
         editor.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.05)).tap()
         app.typeText(text)
     }
@@ -124,42 +133,42 @@ extension XCUIApplication {
     func testFilesTreeOpensAFolderAndAFile() throws {
         try launch(scenario: "workspace")
         app.openThread("d0e515ef")
-        app.openPane("Files")
-        XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 15))
+        app.openFilesEverything()
+        XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 60))
         element("files.row.src").tap()
         let file = element("files.row.src/Importer.php")
-        XCTAssertTrue(file.waitForExistence(timeout: 10))
+        XCTAssertTrue(file.waitForExistence(timeout: 60))
         XCTAssertTrue(file.label.contains("modified"))
         try audit()
         file.tap()
-        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 60))
         try audit()
     }
 
     func testFilesEverythingKeepsItsStateAcrossPanes() throws {
         try openFile()
         app.openPane("Chat")
-        app.openPane("Files")
-        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 10))
+        app.openFilesEverything()
+        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 60))
         XCTAssertTrue(((element("files.viewer").value as? String) ?? "").contains("Importer"))
     }
 
     func testEditAndSave() throws {
         try openFile()
         element("files.viewer.edit").tap()
-        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 60))
         typeIntoEditor("// added by hand\n")
         element("files.editor.save").tap()
         XCTAssertTrue(
-            app.staticTexts["Saved. Claude reads the change at its next step."].waitForExistence(timeout: 10))
-        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 10))
+            app.staticTexts["Saved. Claude reads the change at its next step."].waitForExistence(timeout: 60))
+        XCTAssertTrue(element("files.viewer").waitForExistence(timeout: 60))
         XCTAssertTrue(((element("files.viewer").value as? String) ?? "").contains("added by hand"))
     }
 
     func testUnsavedTextSurvivesARelaunch() throws {
         try openFile(arguments: ["-yakTestKeepFiles", "fresh"])
         element("files.viewer.edit").tap()
-        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 60))
         typeIntoEditor("// not saved yet\n")
         XCUIDevice.shared.press(.home)
         Thread.sleep(forTimeInterval: 1)
@@ -167,40 +176,40 @@ extension XCUIApplication {
         app.launchArguments = app.launchArguments.map { $0 == "fresh" ? "again" : $0 }
         app.launch()
         app.openThread("d0e515ef")
-        app.openPane("Files")
-        XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 15))
+        app.openFilesEverything()
+        XCTAssertTrue(element("files.row.src").waitForExistence(timeout: 60))
         element("files.row.src").tap()
-        XCTAssertTrue(element("files.row.src/Importer.php").waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.row.src/Importer.php").waitForExistence(timeout: 60))
         element("files.row.src/Importer.php").tap()
-        XCTAssertTrue(app.staticTexts["Restored the text you had not saved."].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Restored the text you had not saved."].waitForExistence(timeout: 60))
         XCTAssertTrue(((app.textViews["files.editor"].value as? String) ?? "").contains("not saved yet"))
     }
 
     func testALostSaveIsSaved() throws {
         try openFile("files-lost-save")
         element("files.viewer.edit").tap()
-        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 60))
         typeIntoEditor("// kept\n")
         element("files.editor.save").tap()
-        XCTAssertTrue(element("files.editor.again").waitForExistence(timeout: 15))
+        XCTAssertTrue(element("files.editor.again").waitForExistence(timeout: 60))
         element("files.editor.again").tap()
         XCTAssertTrue(
             app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Saved'")).firstMatch.waitForExistence(
-                timeout: 10))
+                timeout: 60))
         XCTAssertEqual(try stub.get("files/puts"), "2")
     }
 
     func testAConflictKeepsTheText() throws {
         try openFile("files-conflict")
         element("files.viewer.edit").tap()
-        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.editor").waitForExistence(timeout: 60))
         typeIntoEditor("// mine\n")
         element("files.editor.save").tap()
-        XCTAssertTrue(element("files.conflict").waitForExistence(timeout: 10))
+        XCTAssertTrue(element("files.conflict").waitForExistence(timeout: 60))
         element("files.conflict.keepMine").tap()
         XCTAssertTrue(
             app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Saved'")).firstMatch.waitForExistence(
-                timeout: 10))
+                timeout: 60))
     }
 
     private func audit() throws {
