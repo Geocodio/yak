@@ -228,6 +228,36 @@ private func makeSettingsRig(isAvailable: Bool = true) async throws -> SettingsR
         #expect(!rig.model.instances.contains { $0.id == other.id })
     }
 
+    @Test func removingAnInstanceEndsItsActivityNamedByTheServersAddress() async throws {
+        let rig = try await makePushRig()
+        let transport = rig.transport
+        await transport.on("DELETE push-tokens/alert")
+        await transport.on("DELETE push-tokens/live_activity_start")
+        await transport.on("DELETE device")
+        let alias = try JSONDecoder().decode(
+            Me.self,
+            from: Data(
+                meJSON.replacingOccurrences(
+                    of: "\"url\":\"https://yak.example.com\"", with: "\"url\":\"https://alias.example.com\""
+                ).utf8))
+        try await rig.store.update(rig.home.id, from: alias)
+        let home = try #require(await rig.store.all().first { $0.id == rig.home.id })
+        let environment = rig.environment
+        let app = AppModel(
+            instances: rig.store, tokens: rig.tokens,
+            makeClient: { url in
+                APIClient(
+                    baseURL: url, token: nil, transport: transport, appVersion: "1.0.0", systemDescription: "Test")
+            },
+            makeEnvironment: { environment }, observers: [rig.controller], push: rig.controller)
+        let named = rig.activities.add(instance: "https://alias.example.com", thread: "a0000001")
+        let other = rig.activities.add(instance: "https://other.example.com", thread: "a0000002")
+        await app.remove(home)
+        #expect(!(await rig.store.all()).contains { $0.id == home.id })
+        #expect(rig.activities.ended == [named])
+        #expect(!rig.activities.ended.contains(other))
+    }
+
     @Test func removingAnInstanceRunsTheCleanup() async throws {
         let rig = try await makePushRig()
         let transport = rig.transport

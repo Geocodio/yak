@@ -101,11 +101,12 @@ final class LiveActivityController {
         await report(plan.reports, among: eligible)
     }
 
-    /// Ends every activity of `instance`, whatever address its attributes name. The server drops its rows when the
-    /// device is removed, so nothing is reported.
+    /// Ends every activity of `instance`, whatever address its attributes name: its paired address or the address
+    /// the server reports. The instance may already have left the store, so it is matched in addition to the
+    /// paired list. The server drops its rows when the device is removed, so nothing is reported.
     func endAll(instance: Instance) async {
         let paired = await instances.all()
-        for activity in await runningActivities(among: paired) where activity.instance == instance.url {
+        for activity in await runningActivities(among: paired + [instance]) where activity.instance == instance.url {
             await host.end(activity.activityID)
         }
         wasActive = wasActive.filter { $0.key.instance != instance.id }
