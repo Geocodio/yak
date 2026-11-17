@@ -591,3 +591,15 @@ test('a failed setup clears the wait without retrying', function () {
         ->status->toBe(TaskStatus::Failed)
         ->resume_after_setup_at->toBeNull();
 });
+
+test('tells each waiting starter once when setup fails', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['setup_status' => 'running', 'sandbox_snapshot' => null]);
+    foreach (['slack', 'linear', 'system'] as $source) {
+        YakTask::factory()->create(['repo' => $repository->slug, 'source' => $source, 'status' => TaskStatus::Failed, 'resume_after_setup_at' => now()]);
+    }
+
+    $repository->update(['setup_status' => 'failed']);
+
+    Queue::assertPushed(SendNotificationJob::class, 2);
+});

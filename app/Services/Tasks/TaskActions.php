@@ -7,6 +7,7 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Console\Commands\TimeoutAwaitingCiCommand;
 use App\DataTransferObjects\TaskActionOutcome;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -148,6 +149,10 @@ class TaskActions
                 $task->update(['resume_after_setup_at' => null]);
 
                 if ($repository->setup_status !== 'ready') {
+                    $setupTask = $repository->setup_task_id === null ? null : YakTask::withoutGlobalScopes()->find($repository->setup_task_id);
+
+                    StopNotifier::notify($task, TaskStop::setupFailed($repository->slug, $setupTask?->error_log ?: 'Setup failed'));
+
                     return;
                 }
 

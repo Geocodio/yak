@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -211,8 +212,8 @@ test('dispatches a failure notification when a non-system task is refused', func
 
     Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $dispatched) use ($task) {
         return $dispatched->task->id === $task->id
-            && $dispatched->type === NotificationType::Error
-            && str_contains($dispatched->message, 'has not been set up');
+            && $dispatched->type === NotificationType::Retry
+            && $dispatched->message === $task->fresh()->stop_summary;
     });
 });
 
@@ -320,3 +321,68 @@ test('an unchanged or missing setup script does not', function (?string $remote)
     'unchanged' => ["composer install\n"],
     'missing' => [null],
 ]);
+
+test('waits for setup instead of failing when the base image changed', function () {
+    config()->set('yak.sandbox.base_version', 2);
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+    Repository::factory()->create([
+        'slug' => 'acme/stale',
+        'setup_status' => 'ready',
+        'sandbox_snapshot' => 'yak-tpl-acme-stale/ready',
+        'sandbox_base_version' => 1,
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/stale', 'source' => 'slack']);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Failed)
+        ->and($task->resume_after_setup_at)->not->toBeNull()
+        ->and($task->stop_kind)->toBe(StopKind::YakRetrying);
+    Queue::assertPushed(SetupYakJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $dispatched) => $dispatched->type === NotificationType::Retry);
+});
+
+test('dispatches setup for a repository that was never set up and waits', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/never', 'setup_status' => 'failed', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/never', 'source' => 'slack']);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    Queue::assertPushed(SetupYakJob::class, 1);
+    expect($task->fresh()->resume_after_setup_at)->not->toBeNull()
+        ->and($job->failed)->toBeTrue();
+    Queue::assertPushed(SendNotificationJob::class, 1);
+});
+
+test('does not dispatch a second setup when one is already running', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/busy', 'setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/busy', 'source' => 'slack']);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    Queue::assertNotPushed(SetupYakJob::class);
+    expect($task->fresh()->resume_after_setup_at)->not->toBeNull();
+});
+
+test('a parked agent job notifies the source exactly once', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/parked', 'setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/parked', 'source' => 'linear']);
+    $job = new RunYakJob($task);
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+    $job->failed(new RuntimeException('refused'));
+
+    Queue::assertPushed(SendNotificationJob::class, 1);
+});

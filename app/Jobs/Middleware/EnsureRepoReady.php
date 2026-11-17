@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Middleware;
 
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
@@ -10,6 +11,7 @@ use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use App\Services\Tasks\StopNotifier;
 use App\Services\Threads\Repos\RepositoryTemplateDrift;
 use App\Services\Threads\SetupScriptHash;
 use Closure;
@@ -48,7 +50,12 @@ class EnsureRepoReady
         $repository = Repository::where('slug', $task->repo)->first();
 
         if ($repository === null) {
-            $this->refuse($job, $task, "Repository '{$task->repo}' not found");
+            $this->refuse(
+                $job,
+                $task,
+                "Repository '{$task->repo}' not found",
+                TaskStop::repositoryUnknown(Repository::where('is_active', true)->pluck('slug')->all(), "Repository '{$task->repo}' not found"),
+            );
 
             return;
         }
@@ -58,9 +65,10 @@ class EnsureRepoReady
         }
 
         if (empty($repository->sandbox_snapshot)) {
-            $this->refuse(
+            $this->parkForSetup(
                 $job,
                 $task,
+                $repository,
                 "Repository '{$task->repo}' has not been set up yet. Run Setup from its settings, then retry: " . route('repos.edit', $repository),
             );
 
@@ -85,7 +93,7 @@ class EnsureRepoReady
                 $setupTask->id,
             );
 
-            $this->refuse($job, $task, $reason);
+            $this->parkForSetup($job, $task, $repository, $reason);
 
             return;
         }
@@ -94,9 +102,10 @@ class EnsureRepoReady
             $sandbox->invalidateTemplate($repository);
             $setupTask = app(RepositoryTemplateDrift::class)->dispatchSetupTask($repository, '.yak/setup.sh changed');
 
-            $this->refuse(
+            $this->parkForSetup(
                 $job,
                 $task,
+                $repository,
                 sprintf('.yak/setup.sh changed. A fresh Setup task (#%d) has been dispatched. Retry this task once setup completes.', $setupTask->id),
             );
 
@@ -141,7 +150,26 @@ class EnsureRepoReady
         return $current !== null && $current !== $repository->setup_script_hash;
     }
 
-    private function refuse(object $job, YakTask $task, string $reason): void
+    /**
+     * Fails the task but marks it to continue once the repository's setup finishes, starting
+     * that setup unless one is already pending or running. Thread tasks never reach this path
+     * with a stale template; they wait in place instead.
+     */
+    private function parkForSetup(object $job, YakTask $task, Repository $repository, string $detail): void
+    {
+        $this->markFailed($task, $detail);
+        $task->update(['resume_after_setup_at' => now()]);
+
+        if (! in_array($repository->setup_status, ['pending', 'running'], true)) {
+            app(RepositoryTemplateDrift::class)->dispatchSetupTask($repository, 'first task for this repository');
+        }
+
+        StopNotifier::notify($task, TaskStop::refreshingWorkspace($repository->slug, $detail), NotificationType::Retry);
+
+        $this->failJob($job, $detail);
+    }
+
+    private function refuse(object $job, YakTask $task, string $reason, ?TaskStop $stop = null): void
     {
         Log::channel('yak')->warning('Refusing task on un-ready repository', [
             'job' => $job::class,
@@ -150,6 +178,19 @@ class EnsureRepoReady
             'reason' => $reason,
         ]);
 
+        $this->markFailed($task, $reason);
+
+        if ($stop !== null) {
+            StopNotifier::notify($task, $stop);
+        } elseif ($task->source !== 'system') {
+            SendNotificationJob::dispatch($task, NotificationType::Error, $reason);
+        }
+
+        $this->failJob($job, $reason);
+    }
+
+    private function markFailed(YakTask $task, string $reason): void
+    {
         // Guard against invalid state transitions (e.g. from
         // AwaitingClarification). We still want the task marked done even
         // if the state machine refuses, so fall back to a direct set.
@@ -165,11 +206,10 @@ class EnsureRepoReady
                 'completed_at' => now(),
             ])->save();
         }
+    }
 
-        if ($task->source !== 'system') {
-            SendNotificationJob::dispatch($task, NotificationType::Error, $reason);
-        }
-
+    private function failJob(object $job, string $reason): void
+    {
         if (method_exists($job, 'fail')) {
             $job->fail(new \RuntimeException($reason));
         }
