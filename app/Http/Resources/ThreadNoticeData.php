@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\SandboxCapacity;
+use App\Services\Threads\ThreadAccess;
 use App\Support\SecretRedactor;
 use Illuminate\Support\Str;
 
@@ -26,7 +27,7 @@ use Illuminate\Support\Str;
 final class ThreadNoticeData
 {
     /**
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, repo?: ?string, threadId?: string, threadTitle?: string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, repo?: ?string, threadId?: ?string, threadTitle?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null
      */
     public static function for(Thread $thread, ?User $viewer = null): ?array
     {
@@ -37,7 +38,7 @@ final class ThreadNoticeData
         $ownerFirstName = Str::before((string) $ownerName, ' ');
 
         if ($thread->close_reason === 'moved') {
-            $moved = self::moved($thread);
+            $moved = self::moved($thread, $viewer);
 
             if ($moved !== null) {
                 return $moved;
@@ -88,12 +89,21 @@ final class ThreadNoticeData
      *
      * @return array<string, mixed>|null
      */
-    private static function moved(Thread $thread): ?array
+    private static function moved(Thread $thread, ?User $viewer): ?array
     {
         $next = Thread::query()->withoutGlobalScopes()->where('continued_from_thread_id', $thread->id)->latest('id')->first();
 
         if ($next === null) {
             return null;
+        }
+
+        if (! app(ThreadAccess::class)->canSee($viewer, $next)) {
+            $notice = self::notice('moved', 'Moved', 'This request continues in a new thread.', false, false, []);
+            $notice['repo'] = null;
+            $notice['threadId'] = null;
+            $notice['threadTitle'] = null;
+
+            return $notice;
         }
 
         $repo = $next->hasRepository() ? $next->repo : null;
@@ -143,7 +153,7 @@ final class ThreadNoticeData
     /**
      * @param  list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>  $steps
      * @param  array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}|null  $waiting
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repo?: ?string, threadId?: string, threadTitle?: string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repo?: ?string, threadId?: ?string, threadTitle?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}
      */
     private static function notice(string $kind, string $title, string $body, bool $isOwnerOfAccount, bool $canContinue, array $steps, ?string $resetsAt = null, ?array $waiting = null): array
     {

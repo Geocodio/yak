@@ -9,10 +9,15 @@ use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\RepoClarificationResolver;
+use App\Services\Threads\QueuedMessageRunner;
+use App\Services\Threads\ThreadFactory;
 use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+use Mockery\Exception\BadMethodCallException;
 use Tests\Support\FakeSandboxManager;
 
 require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
@@ -70,6 +75,7 @@ test('a wrong repository verdict asks for a repo instead of failing on a dirty t
 
     $collaborators = fakeAfterTurnCollaborators(shell: dirtySandbox());
     $collaborators['sandbox']->shouldReceive('destroy')->once();
+    Exceptions::fake();
 
     Repository::factory()->create(['slug' => 'acme/api']);
     Repository::factory()->create(['slug' => 'acme/billing']);
@@ -82,6 +88,7 @@ test('a wrong repository verdict asks for a repo instead of failing on a dirty t
     );
 
     runFinisher($run);
+    Exceptions::assertNotReported(BadMethodCallException::class);
 
     $task->refresh();
     $newThread = Thread::query()->findOrFail($task->thread_id);
@@ -194,4 +201,36 @@ test('a task that already has a pull request ignores the wrong repository verdic
 
     expect($task->refresh()->repo)->toBe('acme/atlas')
         ->and(RepoClarificationResolver::awaitingRepoChoice($task))->toBeFalse();
+});
+
+test('a failing move still settles the live activity and runs the queued message step', function () {
+    Queue::fake();
+    Exceptions::fake();
+    fakeAfterTurnCollaborators(shell: dirtySandbox());
+    Repository::factory()->create(['slug' => 'acme/api']);
+    Repository::factory()->create(['slug' => 'acme/billing']);
+    $this->mock(ThreadFactory::class)->shouldReceive('moved')->andThrow(new RuntimeException('cannot move'));
+    $this->mock(LiveActivities::class)->shouldReceive('turnSettled')->once();
+    $this->mock(QueuedMessageRunner::class)->shouldReceive('afterTurn')->once();
+
+    [, $run] = endedTurn(wrongRepositoryEvent('acme/billing'), ['repo' => 'acme/atlas', 'source' => 'linear'], ['slug' => 'acme/atlas']);
+
+    runFinisher($run);
+
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'cannot move');
+});
+
+test('a turn whose task moved to another thread leaves the task alone', function () {
+    Queue::fake();
+    fakeAfterTurnCollaborators();
+    Repository::factory()->create(['slug' => 'acme/billing']);
+
+    [$task, $run] = endedTurn(wrongRepositoryEvent('acme/billing'), ['repo' => 'acme/atlas', 'source' => 'linear'], ['slug' => 'acme/atlas']);
+    $other = Thread::factory()->create(['repo' => 'acme/atlas']);
+    YakTask::query()->whereKey($task->id)->update(['thread_id' => $other->id]);
+
+    runFinisher($run);
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Running)
+        ->and($task->repo)->toBe('acme/atlas');
 });

@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\Enums\RepositoryRole;
 use App\Enums\ThreadSessionKind;
 use App\Models\Thread;
+use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
@@ -118,12 +119,21 @@ class ThreadFactory
     public function moved(Thread $from, YakTask $task, string $repo): Thread
     {
         $thread = DB::transaction(function () use ($from, $task, $repo): Thread {
+            $lockedFrom = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($from->id);
             $root = $task->rootTask();
-            $thread = $this->create($repo, $root, null, $from->id);
-            $conversationIds = $root->conversation()->pluck('id');
+            $thread = $this->create($repo, $root, null, $lockedFrom->id);
+            $thread->forceFill([
+                'visibility' => $lockedFrom->effectiveVisibility(),
+                'owner_user_id' => $lockedFrom->effectiveOwnerUserId(),
+            ])->save();
 
-            YakTask::query()->withoutGlobalScopes()->where('thread_id', $from->id)->whereIn('id', $conversationIds)->get()
+            ThreadShare::query()->where('thread_id', $lockedFrom->root_thread_id ?? $lockedFrom->id)->pluck('user_id')
+                ->each(fn (int $userId) => ThreadShare::query()->create(['thread_id' => $thread->id, 'user_id' => $userId]));
+
+            YakTask::query()->withoutGlobalScopes()->where('thread_id', $lockedFrom->id)->whereIn('id', $root->conversation()->pluck('id'))->lockForUpdate()->get()
                 ->each(fn (YakTask $member) => $member->withoutTimestamps(fn () => $member->forceFill(['thread_id' => $thread->id])->save()));
+
+            $lockedFrom->forceFill(['close_reason' => 'moved'])->save();
 
             return $thread;
         });

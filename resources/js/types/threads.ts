@@ -259,8 +259,8 @@ export type ThreadNotice = {
     repositoryUrl?: string | null;
     /** The repository a moved request continues in; null while it waits for one. Set with `kind: 'moved'`. */
     repo?: string | null;
-    threadId?: string;
-    threadTitle?: string;
+    threadId?: string | null;
+    threadTitle?: string | null;
     waiting: ThreadWaiting | null;
     restoreSteps: {
         key: string;

@@ -76,6 +76,11 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             return;
         }
 
+        // A task that moved to another thread while the turn ran is no longer this turn's to finish.
+        if ($run->task->thread_id !== null && $run->task->thread_id !== $thread->id) {
+            return;
+        }
+
         $this->task = $run->task;
         TaskContext::set($this->task);
         $recorder = RunRecorder::forTurn($run);
@@ -140,7 +145,11 @@ abstract class FinishThreadTurnJob implements ShouldQueue
 
             // A wrong-repository verdict sends the task back to intake: its page continues in a thread that waits for a repository.
             if ($movesToUnknownRepository) {
-                app(ThreadFactory::class)->moved($thread->refresh(), $this->task, Thread::UNKNOWN_REPOSITORY);
+                try {
+                    app(ThreadFactory::class)->moved($thread->refresh(), $this->task, Thread::UNKNOWN_REPOSITORY);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
             }
 
             // A released job has not done its sandbox work yet, so its retry starts the queued turn instead.

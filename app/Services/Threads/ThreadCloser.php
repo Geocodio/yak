@@ -43,7 +43,7 @@ class ThreadCloser
         $thread->forceFill([
             'status' => ThreadStatus::Closed,
             'closed_at' => now(),
-            'close_reason' => $reason,
+            'close_reason' => $thread->close_reason === 'moved' ? 'moved' : $reason,
         ])->save();
 
         try {
