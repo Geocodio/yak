@@ -95,7 +95,7 @@ export function OpenPullRequests({ repository, data, repositoryHolds, level }: {
                                         <StackedTd label="Result" className="md:min-w-[150px] md:whitespace-nowrap">
                                             <span className="whitespace-nowrap"><StatusPill tone={TONE[outcome.kind]} label={outcome.label} /></span>
                                         </StackedTd>
-                                        <StackedTd label="Why" className="md:min-w-[260px]">
+                                        <StackedTd label="Why" className="md:min-w-[260px] [overflow-wrap:anywhere]">
                                             <span data-testid={`open-pr-reason-${row.number}`}>{outcome.reason}</span>
                                             {outcome.checks.length > 1 && (
                                                 <details className="mt-1">
