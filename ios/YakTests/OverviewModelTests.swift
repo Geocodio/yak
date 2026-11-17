@@ -332,3 +332,10 @@ private final class OverviewTransport: HTTPTransport, @unchecked Sendable {
     #expect(group.rows.allSatisfy { $0.actions == [.open] })
     await fixture.finish()
 }
+
+@Test func aLinkRowOpensOnlyAnHttpsAddressWithoutCredentials() {
+    #expect(LinksGroupView.linkTarget("https://example.test/pull/1") != nil)
+    #expect(LinksGroupView.linkTarget("https://user:pass@example.test/pull/1") == nil)
+    #expect(LinksGroupView.linkTarget("https:///pull/1") == nil)
+    #expect(LinksGroupView.linkTarget("http://example.test/pull/1") == nil)
+}

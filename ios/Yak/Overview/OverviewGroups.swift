@@ -305,9 +305,12 @@ struct LinksGroupView: View {
         }
     }
 
+    /// The address a link row opens; nil leaves the row plain.
+    static func linkTarget(_ url: String) -> URL? { WebLinkRule.safeURL(url) }
+
     @ViewBuilder
     private func linkRow(title: Text, subtitle: Text, url: String, identifier: String) -> some View {
-        if let target = URL(string: url), target.scheme?.lowercased() == "https" {
+        if let target = Self.linkTarget(url) {
             Button {
                 openURL(target)
             } label: {
