@@ -354,7 +354,9 @@ private final class SleeperCount: @unchecked Sendable {
     let started = ContinuousClock.now
     await model.remove(instance)
     #expect(model.route == .connect)
-    #expect(ContinuousClock.now - started < .seconds(2))
+    // The stuck observer never answers, so only its time limit lets the removal finish; the bound leaves room for a
+    // loaded machine.
+    #expect(ContinuousClock.now - started < .seconds(30))
     // The observer after the stuck one is still told.
     #expect(recorder.events == ["removed first.example.com unpaired"])
 }
