@@ -248,3 +248,46 @@ test('it cancels the sweep when a result arrives first', async () => {
   assert.deepEqual(sweeping.kills, []);
   await finish(run);
 });
+
+test('it does not arm the sweep for a subagent end_turn', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, { ...endTurn, parent_tool_use_id: 'toolu_sub' }], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers.length, 0);
+  await finish(run);
+});
+
+test('it cancels an armed sweep when the main agent keeps working', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn, toolUse], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].cleared, true);
+  assert.equal(sweeping.timers.length, 1);
+  await finish(run);
+});
+
+test('it cancels an armed sweep on a new user line and restarts the turn clock', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  run.send({ type: 'user', uuid: 'u2', text: 'more' });
+  await run.tick();
+  assert.equal(sweeping.timers[0].cleared, true);
+  sweeping.timers[0].callback();
+  assert.deepEqual(sweeping.kills, []);
+  await finish(run);
+});
+
+test('it skips SIGKILL for a pid whose start time changed', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn], runnerOptions: { ...sweeping.options, listProcesses: (() => { let calls = 0; return () => { calls += 1; return [{ pid: process.pid, ppid: 1, uid: 1000, startedAtMs: 0, command: 'r' }, { pid: 900, ppid: 1, uid: 1000, startedAtMs: calls === 1 ? 10_000 : 99_000, command: 'x' }]; }; })() } });
+  run.send(start());
+  await run.tick();
+  sweeping.timers[0].callback();
+  sweeping.timers[1].callback();
+  assert.deepEqual(sweeping.kills, [[900, 'SIGTERM']]);
+  await finish(run);
+});

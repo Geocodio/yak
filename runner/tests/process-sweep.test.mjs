@@ -1,4 +1,7 @@
 import { test } from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import assert from 'node:assert/strict';
 import { selectLeftovers, listProcesses } from '../lib/process-sweep.mjs';
 
@@ -38,4 +41,16 @@ test('it spares descendants of a protected pid', () => {
 
 test('it never throws when /proc is unreadable', () => {
   assert.deepEqual(listProcesses('/nonexistent-proc'), []);
+});
+
+test('it parses stat lines whose command name contains spaces and parentheses', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'proc-'));
+  fs.writeFileSync(path.join(root, 'stat'), 'cpu 1 2\nbtime 1000\n');
+  fs.mkdirSync(path.join(root, '4242'));
+  const rest = ['S', '77', ...Array(17).fill('0'), '500', '0'];
+  fs.writeFileSync(path.join(root, '4242', 'stat'), `4242 (a b) (c) ${rest.join(' ')}\n`);
+  fs.writeFileSync(path.join(root, '4242', 'status'), 'Name:\tx\nUid:\t1000\t1000\t1000\t1000\n');
+  fs.writeFileSync(path.join(root, '4242', 'cmdline'), 'node\0server\0');
+  const [entry] = listProcesses(root);
+  assert.deepEqual(entry, { pid: 4242, ppid: 77, uid: 1000, startedAtMs: 1_005_000, command: 'node server' });
 });

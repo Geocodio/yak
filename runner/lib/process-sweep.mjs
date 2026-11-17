@@ -33,7 +33,8 @@ export function listProcesses(procRoot = '/proc') {
 }
 
 // Pids owned by agentUid that started at or after turnStartedAtMs and are neither protected,
-// nor a descendant or an ancestor of a protected pid. Pid 1 is never selected.
+// nor a descendant or an ancestor of a protected pid. Pid 1 is never selected. The sweep targets
+// processes that escaped the runner's tree (orphans reparented to pid 1), never the tree itself.
 export function selectLeftovers(processes, { agentUid, turnStartedAtMs, protectedPids }) {
   const parentOf = new Map(processes.map((entry) => [entry.pid, entry.ppid]));
   const isDescendantOfProtected = (pid) => {

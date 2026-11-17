@@ -24,6 +24,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
   let hasSecrets = false;
   let turnStartedAtMs = null;
   let sweepTimer = null;
+  let killTimer = null;
 
   const wakeUp = () => { const resolve = wake; wake = null; resolve?.(); };
   const write = (object) => output.write(redactor.redactText(JSON.stringify(object)) + '\n');
@@ -53,19 +54,29 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
       const pids = selectLeftovers(processes, { agentUid, turnStartedAtMs: turnStartedAtMs - START_TIME_TOLERANCE_MS, protectedPids: new Set([process.pid]) });
       if (pids.length === 0) return;
       const commands = pids.map((pid) => processes.find((entry) => entry.pid === pid)?.command ?? '');
-      const signal = (name) => pids.forEach((pid) => { try { kill(pid, name); } catch { /* already gone */ } });
-      signal('SIGTERM');
-      setTimer(() => signal('SIGKILL'), KILL_GRACE_MS);
+      const signal = (targets, name) => targets.forEach((pid) => { try { kill(pid, name); } catch { /* already gone */ } });
+      signal(pids, 'SIGTERM');
+      const startedAt = new Map(processes.map((entry) => [entry.pid, entry.startedAtMs]));
+      killTimer = setTimer(() => {
+        killTimer = null;
+        try {
+          // Only a pid that still has the same start time is the same process, never a recycled pid.
+          const survivors = new Set(listProcesses().filter((entry) => startedAt.get(entry.pid) === entry.startedAtMs).map((entry) => entry.pid));
+          signal(pids.filter((pid) => survivors.has(pid)), 'SIGKILL');
+        } catch { /* the sweep must never disturb the message loop */ }
+      }, KILL_GRACE_MS);
       runnerLine('swept', { pids, commands });
     } catch { /* the sweep must never disturb the message loop */ }
   }
 
   function trackTurn(message) {
     if (message.type === 'result') { cancelSweep(); return; }
-    if (message.type !== 'assistant') return;
+    // Subagent messages carry parent_tool_use_id; only the main agent's answer ends the turn.
+    if (message.type !== 'assistant' || message.parent_tool_use_id) return;
     const blocks = Array.isArray(message.message?.content) ? message.message.content : [];
     if (turnStartedAtMs === null && blocks.some((block) => block?.type === 'tool_use')) turnStartedAtMs = now();
-    if (message.message?.stop_reason === 'end_turn') { cancelSweep(); sweepTimer = setTimer(sweep, SWEEP_DELAY_MS); }
+    cancelSweep();
+    if (message.message?.stop_reason === 'end_turn') sweepTimer = setTimer(sweep, SWEEP_DELAY_MS);
   }
 
   async function* promptStream() {
@@ -145,6 +156,8 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
 
   return {
     shutdown() {
+      cancelSweep();
+      if (killTimer) clearTimer(killTimer);
       ended = true;
       yak.rejectAll('The runner shut down before Yak answered');
       wakeUp();
