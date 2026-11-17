@@ -94,6 +94,7 @@
             "question": "When all retries fail, what should happen to the row?"
         }
     ],
+    "stop": null,
     "task": {
         "attempt": 1,
         "attemptCount": 1,
