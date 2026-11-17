@@ -122,6 +122,7 @@ use App\Http\Controllers\Threads\ThreadListController;
 use App\Http\Controllers\Threads\ThreadMessageController;
 use App\Http\Controllers\Threads\ThreadPullRequestController;
 use App\Http\Controllers\Threads\ThreadQueuedMessageController;
+use App\Http\Controllers\Threads\ThreadRepositoryAnswerController;
 use App\Http\Controllers\Threads\ThreadRepositoryController;
 use App\Http\Controllers\Threads\ThreadRepositoryProgressController;
 use App\Http\Controllers\Threads\ThreadRunLogController;
@@ -338,6 +339,7 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('thread.drive')
         ->name('threads.stop');
     Route::middleware('thread.drive')->group(function (): void {
+        Route::post('threads/{thread}/repository-answer', ThreadRepositoryAnswerController::class)->name('threads.repository-answer.store');
         Route::post('threads/{thread}/retry', [ThreadTaskActionController::class, 'retry'])->name('threads.retry');
         Route::post('threads/{thread}/cancel', [ThreadTaskActionController::class, 'cancel'])->name('threads.cancel');
         Route::post('threads/{thread}/move', [ThreadTaskActionController::class, 'move'])->name('threads.move');

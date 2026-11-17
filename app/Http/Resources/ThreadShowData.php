@@ -20,6 +20,7 @@ use App\Services\Threads\LegacyConversation;
 /**
  * Props of the `Threads/Show` page, shared by the web page and the app's thread show.
  *
+ * @phpstan-import-type ThreadCards from ThreadCardsData
  * @phpstan-import-type ThreadRequestInfo from ThreadRequestData
  * @phpstan-import-type ThreadProgress from ThreadRequestData
  * @phpstan-import-type ThreadRunDetails from ThreadRequestData
@@ -75,7 +76,7 @@ use App\Services\Threads\LegacyConversation;
  *     runDetails: ThreadRunDetails,
  *     milestones: list<ThreadMilestone>,
  *     question: ?array{taskId: string, expiresAt: ?string, questions: list<array{id: string, header: string, question: string, options: list<array{label: string, description: string}>, multiSelect: bool}>},
- * }
+ * }&ThreadCards
  */
 final class ThreadShowData
 {
@@ -102,6 +103,7 @@ final class ThreadShowData
             'question' => ThreadQuestionData::for($thread),
             'milestones' => ThreadMilestonesData::for($thread),
             ...ThreadRequestData::for($thread, $viewer),
+            ...ThreadCardsData::for($thread, $viewer),
         ]);
     }
 

@@ -72,6 +72,10 @@ final class ThreadActionRefused extends RuntimeException
 
     public const TASK_NOT_REROUTABLE = 'task_not_reroutable';
 
+    public const REPOSITORY_ALREADY_PICKED = 'repository_already_picked';
+
+    public const REPOSITORY_NOT_OFFERED = 'repository_not_offered';
+
     /**
      * @param  array<string, mixed>  $details
      */

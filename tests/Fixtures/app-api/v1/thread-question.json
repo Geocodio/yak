@@ -1,8 +1,19 @@
 {
+    "actions": {
+        "canCancel": true,
+        "canMove": true,
+        "canRequestReview": false,
+        "canRetry": false,
+        "canRetryRender": false,
+        "canStop": false,
+        "moveTargets": []
+    },
     "brief": null,
     "canDrive": true,
     "canOpenPullRequest": false,
     "capacity": null,
+    "card": "question",
+    "coOwner": null,
     "composer": {
         "accountName": null,
         "context": null,
@@ -89,6 +100,7 @@
         "state": "idle"
     },
     "diffTotals": null,
+    "earlyWarning": null,
     "isLegacy": false,
     "latestSequence": 4812,
     "legacyAnswers": [],
@@ -209,6 +221,7 @@
         ],
         "taskId": "<volatile:string>"
     },
+    "repositoryQuestion": null,
     "request": {
         "responsibleName": null,
         "source": {
@@ -243,6 +256,7 @@
     },
     "sharedFiles": [],
     "stackParent": null,
+    "stopped": null,
     "teleport": {
         "accountName": null,
         "canTeleport": true,

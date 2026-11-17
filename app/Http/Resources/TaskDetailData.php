@@ -5,7 +5,6 @@ namespace App\Http\Resources;
 use App\DataTransferObjects\ThreadEntry;
 use App\Enums\CoOwnerRequestStatus;
 use App\Enums\SteeringMode;
-use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\Artifact;
@@ -19,6 +18,7 @@ use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\ChainMediaResolver;
 use App\Services\Tasks\TaskProgressSteps;
+use App\Services\Tasks\TaskStopSummary;
 use App\Services\ThreadBuilder;
 use App\Services\Threads\ThreadTasks;
 use App\Support\AttachmentNumbering;
@@ -91,7 +91,7 @@ final class TaskDetailData
             'walkthrough' => self::walkthrough($task),
             'deployment' => self::deployment($task),
             'findings' => self::findings($review),
-            'stop' => self::stop($task),
+            'stop' => TaskStopSummary::for($task),
             'composer' => self::composer($task, $conversation),
             'questions' => self::questions($conversation->last() ?? $task),
             'actions' => self::actions($task, $head, $coOwnerRequest, $isFollowUp),
@@ -191,7 +191,7 @@ final class TaskDetailData
             'cost' => (float) $task->cost_usd > 0 ? '$' . number_format((float) $task->cost_usd, 2) : null,
             'branch' => $isAnsweredFix ? null : $task->branch_name,
             // The stop block already says what to do next.
-            'nextSteps' => self::stop($task) === null ? self::nextSteps($task, $head, $coOwnerRequest) : null,
+            'nextSteps' => TaskStopSummary::for($task) === null ? self::nextSteps($task, $head, $coOwnerRequest) : null,
             'externalId' => $task->external_id,
             'pr' => $prState === null ? null : [
                 'number' => $task->pullRequestNumber(),
@@ -218,43 +218,6 @@ final class TaskDetailData
         }
 
         return route('artifacts.viewer', ['task' => $artifact->taskPublicId(), 'filename' => $artifact->filename]);
-    }
-
-    /**
-     * Why the task stopped, in plain words, with the technical text kept apart.
-     * A task waiting on repository setup reads as paused whatever kind was stored.
-     *
-     * @return array{kind: string, summary: string, detail: string|null, nextStep: string, isWaitingForSetup: bool}|null
-     */
-    private static function stop(YakTask $task): ?array
-    {
-        $isWaitingForSetup = $task->resume_after_setup_at !== null;
-
-        if (! in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)
-            || ($task->stop_kind === null && ! $isWaitingForSetup)) {
-            return null;
-        }
-
-        $kind = $isWaitingForSetup ? StopKind::YakRetrying : ($task->stop_kind ?? StopKind::YakStopped);
-
-        return [
-            'kind' => $kind->value,
-            'summary' => $task->stop_summary ?: "Yak is waiting for this repository's setup to finish.",
-            'detail' => $task->error_log !== null ? Str::limit($task->error_log, 2000) : null,
-            'nextStep' => self::stopNextStep($kind, $task->source),
-            'isWaitingForSetup' => $isWaitingForSetup,
-        ];
-    }
-
-    private static function stopNextStep(StopKind $kind, ?string $source): string
-    {
-        return match (true) {
-            $kind === StopKind::YakRetrying => 'Yak picks it back up on its own. Nothing needed from you.',
-            $kind === StopKind::NeedsYou && ! in_array($source, ['linear', 'slack'], true) => 'Write your answer below and send it. Yak tries again with it.',
-            $source === 'linear' => 'Reply in the Linear issue, or press Retry, and Yak will try again.',
-            $source === 'slack' => 'Reply in the Slack thread, or press Retry, and Yak will try again.',
-            default => 'Press Retry and Yak will try again.',
-        };
     }
 
     private static function nextSteps(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): ?string
@@ -866,7 +829,7 @@ final class TaskDetailData
     /**
      * @return array{canRetry: bool, canCancel: bool, canRerunReview: bool, canRequestReview: bool, canRetryRender: bool, canReroute: bool, rerouteTargets: array<int, string>}
      */
-    private static function actions(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, bool $isFollowUp): array
+    public static function actions(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, bool $isFollowUp): array
     {
         /** @var TaskStatus $status */
         $status = $head->status;
