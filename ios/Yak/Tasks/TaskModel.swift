@@ -107,7 +107,7 @@ final class TaskModel {
         for _ in 0..<100 where applied == before {
             try? await session.clock.sleep(for: .milliseconds(20))
         }
-        guard applied != before, case .ready = load else { return nil }
+        guard applied != before, case .ready = load, problem == nil, !isOffline else { return nil }
         return task
     }
 

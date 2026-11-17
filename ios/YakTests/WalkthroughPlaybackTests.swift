@@ -264,21 +264,67 @@ import YakKit
         #expect(rig.log.calls.filter { $0 == "load" }.count == 1)
     }
 
-    @Test func aRefreshThatNeverAnswersTimesOut() async {
+    @MainActor private final class LateAnswer {
+        var continuation: CheckedContinuation<URL?, Never>?
+        var asked = 0
+    }
+
+    @Test func aRefreshThatNeverAnswersTimesOutAndALateAnswerIsIgnored() async {
         let rig = Rig()
+        let late = LateAnswer()
         rig.playback.play(
             url: rig.video, posterURL: nil, taskID: "k3m9p2qa", instance: rig.home, from: rig.sceneA,
             refresh: {
-                try? await Task.sleep(for: .seconds(3_600))
-                return nil
+                late.asked += 1
+                return await withCheckedContinuation { late.continuation = $0 }
             })
         rig.box.engines.last?.failure = .expired
         rig.playback.refreshPhase()
         let retrying = Task { await rig.playback.retry() }
         while rig.clock.sleeperCount(waking: WalkthroughPlayback.refreshTimeout) == 0 { await Task.yield() }
+        #expect(rig.playback.isRetrying)
+        await rig.playback.retry()
+        #expect(late.asked == 1)
         rig.clock.advance(WalkthroughPlayback.refreshTimeout)
         await retrying.value
+        #expect(!rig.playback.isRetrying)
         #expect(rig.playback.phase == .failed(.expired))
+        late.continuation?.resume(returning: URL(string: "https://yak.example.com/late.mp4")!)
+        await Task.yield()
+        #expect(rig.playback.current?.url == rig.video)
         #expect(rig.log.calls.filter { $0 == "load" }.count == 1)
+    }
+
+    @Test func aFailedPhasePausesTheEngineAndGivesTheAudioSessionBack() {
+        let rig = Rig()
+        rig.play()
+        rig.log.calls = []
+        rig.engine.failure = .timedOut
+        rig.playback.refreshPhase()
+        #expect(rig.log.calls == ["pause", "deactivate"])
+    }
+
+    @Test func returningToTheAppDoesNotActivateTheSessionForAPausedOrFailedVideo() {
+        let rig = Rig()
+        rig.playback.registerHost(rig.sceneA, isForeground: true)
+        rig.play()
+        rig.engine.isReady = true
+        rig.playback.refreshPhase()
+        rig.playback.registerHost(rig.sceneA, isForeground: false)
+        rig.playback.didEnterBackground()
+        rig.playback.registerHost(rig.sceneA, isForeground: true)
+        rig.engine.isReady = false
+        rig.engine.failure = .other
+        rig.playback.refreshPhase()
+        rig.playback.registerHost(rig.sceneA, isForeground: true)
+        #expect(rig.log.calls.filter { $0 == "activate" }.count == 1)
+    }
+
+    @Test func pictureInPictureAboutToStartCountsAsActive() {
+        let rig = Rig()
+        rig.play()
+        rig.playback.pictureInPictureStarted()
+        rig.playback.didEnterBackground()
+        #expect(!rig.log.calls.contains("pause"))
     }
 }

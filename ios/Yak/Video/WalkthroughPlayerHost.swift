@@ -30,7 +30,6 @@ private struct WalkthroughPlayerHost: ViewModifier {
             .onChange(of: scenePhase) { _, phase in
                 playback?.registerHost(scene, isForeground: phase == .active)
                 if phase == .background { playback?.didEnterBackground() }
-                if phase == .active { playback?.didBecomeActive() }
             }
     }
 

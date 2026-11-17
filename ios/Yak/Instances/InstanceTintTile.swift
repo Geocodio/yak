@@ -9,7 +9,7 @@ struct InstanceTintTile: View {
     @ScaledMetric(relativeTo: .headline) private var scale: CGFloat = 1
 
     var body: some View {
-        let side = min(size * scale, size * 1.4)
+        let side = size * scale
         let tint = Self.color(for: instance.tint)
         Text(InstanceInitial.make(name: instance.name, host: instance.url.host()))
             .font(.headline.bold())

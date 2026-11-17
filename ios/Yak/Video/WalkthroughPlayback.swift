@@ -50,6 +50,8 @@ final class WalkthroughPlayback: InstanceLifecycleObserver {
     private(set) var current: Item?
     private(set) var phase: WalkthroughPlaybackPhase?
     private(set) var isPictureInPictureActive = false
+    /// True while a retry waits for a fresh link; the Try again and Retry buttons are disabled meanwhile.
+    private(set) var isRetrying = false
     /// The scene whose host shows the full player; nil while only the picture in picture window shows it.
     private(set) var presentedScene: ObjectIdentifier?
     private(set) var mountedScene: ObjectIdentifier?
@@ -175,7 +177,11 @@ final class WalkthroughPlayback: InstanceLifecycleObserver {
             waited: .seconds(clock.now().timeIntervalSince(startedAt)))
         if phase != next { phase = next }
         switch next {
-        case .playing, .failed: return false
+        case .playing: return false
+        case .failed:
+            engine.pause()
+            deactivateAudio()
+            return false
         case .loading, .slow: return true
         }
     }
@@ -200,7 +206,9 @@ final class WalkthroughPlayback: InstanceLifecycleObserver {
 
     /// Asks for a new signed link (at most `refreshTimeout`), then loads it. No answer keeps the failed phase.
     func retry() async {
-        guard let item = current, let refresh else { return }
+        guard !isRetrying, let item = current, let refresh else { return }
+        isRetrying = true
+        defer { isRetrying = false }
         let gate = RefreshGate()
         let fresh: URL? = await withCheckedContinuation { continuation in
             gate.continuation = continuation
@@ -260,10 +268,6 @@ final class WalkthroughPlayback: InstanceLifecycleObserver {
         guard current != nil, !isPictureInPictureActive, !hosts.values.contains(true) else { return }
         engine?.pause()
         deactivateAudio()
-    }
-
-    func didBecomeActive() {
-        if current != nil { activateAudio() }
     }
 
     func didFinishPlaying() {

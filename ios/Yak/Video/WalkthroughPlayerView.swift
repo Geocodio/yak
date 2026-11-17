@@ -58,7 +58,7 @@ struct WalkthroughPlayerSheet: View {
                     Text("walkthrough.slow").font(.body).foregroundStyle(.white).multilineTextAlignment(.center)
                         .accessibilityIdentifier("walkthrough.slow")
                     Button("common.retry") { Task { await playback.retry() } }
-                        .buttonStyle(.bordered).controlSize(.large).tint(.white)
+                        .buttonStyle(.bordered).controlSize(.large).tint(.white).disabled(playback.isRetrying)
                         .frame(minHeight: 44).accessibilityIdentifier("walkthrough.retry")
                 }
             }
@@ -80,7 +80,7 @@ struct WalkthroughPlayerSheet: View {
             Text(Self.sentence(problem)).font(.body).foregroundStyle(.white)
             if Self.offersRetry(problem) {
                 Button("walkthrough.tryAgain") { Task { await playback.retry() } }
-                    .buttonStyle(.bordered).controlSize(.large).tint(.white)
+                    .buttonStyle(.bordered).controlSize(.large).tint(.white).disabled(playback.isRetrying)
                     .frame(minHeight: 44).accessibilityIdentifier("walkthrough.tryAgain")
             }
         }

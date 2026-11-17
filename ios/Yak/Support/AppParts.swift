@@ -78,7 +78,7 @@ extension View {
             .modifier(PushRoot(push: parts.push, model: model))
             .environment(\.previewDefaults, parts.previewData.defaults)
             .environment(\.walkthroughPlayback, parts.walkthroughPlayback)
-            .onChange(of: model.network.isOnline) { _, isOnline in
+            .onChange(of: model.network.isOnline, initial: true) { _, isOnline in
                 parts.walkthroughPlayback.networkChanged(isOnline: isOnline)
             }
             .task { await parts.previewData.sweep(instances: model.instances) }

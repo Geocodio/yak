@@ -89,9 +89,13 @@
                         // `-yakTestExtraInstances YES`: two more paired instances, added first so the seed stays active.
                         if UserDefaults.standard.bool(forKey: "yakTestExtraInstances") {
                             for (name, path) in [("Example staging", "second"), ("Side project", "third")] {
-                                _ = try? await instances.add(
-                                    url: seed.instance.appending(path: path), name: name, userName: "Test Person",
-                                    token: token)
+                                do {
+                                    _ = try await instances.add(
+                                        url: seed.instance.appending(path: path), name: name, userName: "Test Person",
+                                        token: token)
+                                } catch {
+                                    preconditionFailure("test mode could not add an extra instance")
+                                }
                             }
                         }
                         do {

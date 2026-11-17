@@ -35,23 +35,23 @@ import XCTest
         try openWalkthrough("task-walkthrough")
         element("task.walkthrough").tap()
         XCTAssertTrue(element("walkthrough.player").waitForExistence(timeout: 15))
-        try shoot("walkthrough-player", audits: false)
+        try shoot("walkthrough-player")
     }
 
     func testWalkthroughLoading() throws {
         try openWalkthrough("task-walkthrough-slow")
         element("task.walkthrough").tap()
         XCTAssertTrue(element("walkthrough.loading").waitForExistence(timeout: 5))
-        try shoot("walkthrough-loading", audits: false)
+        try shoot("walkthrough-loading")
         XCTAssertTrue(element("walkthrough.slow").waitForExistence(timeout: 15))
-        try shoot("walkthrough-slow", audits: false)
+        try shoot("walkthrough-slow")
     }
 
     func testWalkthroughExpired() throws {
         try openWalkthrough("task-walkthrough-expired")
         element("task.walkthrough").tap()
         XCTAssertTrue(element("walkthrough.failed.expired").waitForExistence(timeout: 20))
-        try shoot("walkthrough-expired", audits: false)
+        try shoot("walkthrough-expired")
     }
 
     func testWalkthroughOffline() throws {
@@ -59,7 +59,7 @@ import XCTest
         try stub.setOnline(false)
         element("task.walkthrough").tap()
         XCTAssertTrue(element("walkthrough.failed.offline").waitForExistence(timeout: 20))
-        try shoot("walkthrough-offline", audits: false)
+        try shoot("walkthrough-offline")
         try stub.setOnline(true)
         XCTAssertFalse(element("walkthrough.failed.offline").waitForExistence(timeout: 10))
     }

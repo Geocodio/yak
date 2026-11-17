@@ -26,6 +26,10 @@ final class SystemPlayerHosting: NSObject, PlayerControllerHosting, @preconcurre
         controller.removeFromParent()
     }
 
+    func playerViewControllerWillStartPictureInPicture(_ playerViewController: AVPlayerViewController) {
+        playback?.pictureInPictureStarted()
+    }
+
     func playerViewControllerDidStartPictureInPicture(_ playerViewController: AVPlayerViewController) {
         playback?.pictureInPictureStarted()
     }
