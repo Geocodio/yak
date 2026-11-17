@@ -3,6 +3,7 @@
 use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadListFilter;
+use App\Enums\ThreadSource;
 use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -28,7 +29,7 @@ function runFor(Thread $thread, TurnState $state, array $attributes = []): TaskR
     ], $attributes));
 }
 
-test('mine filter lists threads the user started and unattended threads on followed repos', function () {
+test('mine lists threads the user started or took part in, not unattended threads on repos they used', function () {
     $user = User::factory()->create();
     $other = User::factory()->create();
 
@@ -37,14 +38,13 @@ test('mine filter lists threads the user started and unattended threads on follo
     runFor($driven, TurnState::Completed, ['driver_user_id' => $user->id, 'finished_at' => now()->subDay()]);
     $started = Thread::factory()->create(['created_by_user_id' => $other->id]);
     YakTask::factory()->create(['thread_id' => $started->id, 'started_by_user_id' => $user->id]);
-    $unattendedFollowed = Thread::factory()->create(['created_by_user_id' => null, 'repo' => 'acme/widgets']);
-    $unattendedElsewhere = Thread::factory()->create(['created_by_user_id' => null, 'repo' => 'acme/other']);
+    $unattendedSameRepo = Thread::factory()->create(['created_by_user_id' => null, 'repo' => 'acme/widgets']);
     $foreign = Thread::factory()->create(['created_by_user_id' => $other->id]);
 
     $ids = listedIds(ThreadList::for($user));
 
-    expect($ids)->toContain($created->public_id, $driven->public_id, $started->public_id, $unattendedFollowed->public_id)
-        ->not->toContain($unattendedElsewhere->public_id, $foreign->public_id);
+    expect($ids)->toContain($created->public_id, $driven->public_id, $started->public_id)
+        ->not->toContain($unattendedSameRepo->public_id, $foreign->public_id);
 });
 
 test('everyone filter lists all open team threads', function () {
@@ -62,22 +62,132 @@ test('closed threads are never listed', function () {
     expect(listedIds(ThreadList::for($user, ThreadListFilter::Everyone)))->toBe([]);
 });
 
-test('a finished unseen turn asks for the viewer until a ThreadView is newer', function () {
+test('a finished unseen turn marks the row unread and stays out of needsYou', function () {
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
     runFor($thread, TurnState::Completed, ['finished_at' => now()->subHour()]);
 
-    $row = ThreadList::for($user)['needsYou'][0];
-    expect($row['id'])->toBe($thread->public_id)
-        ->and($row['needsYouReason'])->toBe('unseen')
-        ->and($row['needsYouLabel'])->toBe('Finished, not seen yet');
-
-    ThreadView::create(['user_id' => $user->id, 'thread_id' => $thread->id, 'last_seen_at' => now()]);
-
     $list = ThreadList::for($user);
     expect($list['needsYou'])->toBe([])
         ->and($list['needsYouCount'])->toBe(0)
-        ->and($list['threads'][0]['needsYouReason'])->toBeNull();
+        ->and($list['threads'][0]['isUnread'])->toBeTrue();
+
+    ThreadView::create(['user_id' => $user->id, 'thread_id' => $thread->id, 'last_seen_at' => now()]);
+
+    expect(ThreadList::for($user)['threads'][0]['isUnread'])->toBeFalse();
+});
+
+test('an unread sub-thread marks its parent unread', function () {
+    $user = User::factory()->create();
+    $parent = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $child = Thread::factory()->child($parent)->create(['created_by_user_id' => $user->id]);
+    runFor($child, TurnState::Completed, ['finished_at' => now()->subHour()]);
+
+    $row = ThreadList::for($user)['threads'][0];
+
+    expect($row['isUnread'])->toBeTrue()->and($row['children'][0]['isUnread'])->toBeTrue();
+});
+
+test('repository research threads are never listed', function () {
+    $user = User::factory()->create();
+    Thread::factory()->create(['created_by_user_id' => $user->id, 'source' => ThreadSource::RepositoryResearch]);
+
+    foreach ([ThreadListFilter::Mine, ThreadListFilter::Everyone, ThreadListFilter::Closed] as $filter) {
+        expect(listedIds(ThreadList::for($user, $filter)))->toBe([]);
+    }
+
+    expect(ThreadList::for($user)['hasAnyThreads'])->toBeFalse();
+});
+
+test('rows carry source and starter', function () {
+    $user = User::factory()->create(['avatar_url' => 'https://example.test/a.png']);
+    $outsider = Thread::factory()->create(['source' => ThreadSource::Slack, 'created_by_user_id' => null, 'starter_name' => 'Jane Doe']);
+    $own = Thread::factory()->create(['created_by_user_id' => $user->id]);
+
+    $byId = collect(ThreadList::for($user, ThreadListFilter::Everyone)['threads'])->keyBy('id');
+
+    expect($byId[$outsider->public_id]['source']['key'])->toBe('slack')
+        ->and($byId[$outsider->public_id]['source']['label'])->toBe('Slack')
+        ->and($byId[$outsider->public_id]['starter'])->toBe(['key' => 'name:Jane Doe', 'name' => 'Jane Doe', 'avatarUrl' => null])
+        ->and($byId[$own->public_id]['starter']['key'])->toBe('user:' . $user->id)
+        ->and($byId[$own->public_id]['starter']['avatarUrl'])->toBe('https://example.test/a.png');
+});
+
+function seedFacetThreads(User $viewer): void
+{
+    Thread::factory()->count(2)->create(['source' => ThreadSource::Slack, 'created_by_user_id' => null, 'starter_name' => 'Jane Doe']);
+    Thread::factory()->create(['source' => ThreadSource::Linear, 'created_by_user_id' => $viewer->id]);
+    Thread::factory()->create(['source' => ThreadSource::Sentry, 'created_by_user_id' => null]);
+}
+
+test('facets count the tab before source and starter filters, viewer first and yak last', function () {
+    $viewer = User::factory()->create();
+    seedFacetThreads($viewer);
+
+    $facets = ThreadList::for($viewer, ThreadListFilter::Everyone, null, ['slack'])['facets'];
+
+    expect($facets['sources'])->toBe([
+        ['key' => 'slack', 'label' => 'Slack', 'count' => 2],
+        ['key' => 'linear', 'label' => 'Linear', 'count' => 1],
+        ['key' => 'sentry', 'label' => 'Sentry', 'count' => 1],
+    ])->and(array_column($facets['starters'], 'key'))->toBe(['user:' . $viewer->id, 'name:Jane Doe', 'yak']);
+});
+
+test('source and starter filters narrow the rows: or inside a group, and across groups', function () {
+    $viewer = User::factory()->create();
+    seedFacetThreads($viewer);
+    $count = fn (array $sources, array $starters): int => count(ThreadList::for($viewer, ThreadListFilter::Everyone, null, $sources, $starters)['threads']);
+
+    expect($count(['slack', 'linear'], []))->toBe(3)
+        ->and($count(['slack'], ['name:Jane Doe']))->toBe(2)
+        ->and($count(['slack'], ['yak']))->toBe(0);
+});
+
+test('an unknown source or starter key gives an empty list', function () {
+    $viewer = User::factory()->create();
+    seedFacetThreads($viewer);
+
+    foreach ([[['nope'], []], [[], ['nope']]] as [$sources, $starters]) {
+        $list = ThreadList::for($viewer, ThreadListFilter::Everyone, null, $sources, $starters);
+        expect($list['starred'])->toBe([])->and($list['needsYou'])->toBe([])->and($list['threads'])->toBe([]);
+    }
+});
+
+test('needsYouCount ignores source and starter filters', function () {
+    $viewer = User::factory()->create();
+    Thread::factory()->create(['created_by_user_id' => $viewer->id, 'source' => ThreadSource::Slack, 'blocked_reason' => ThreadBlockReason::UsageLimit]);
+
+    $list = ThreadList::for($viewer, ThreadListFilter::Mine, null, ['linear']);
+
+    expect($list['needsYou'])->toBe([])->and($list['needsYouCount'])->toBe(1);
+});
+
+test('facets leave out a private thread the viewer may not see', function () {
+    $viewer = User::factory()->create();
+    $teammate = User::factory()->create();
+    Thread::factory()->private($teammate)->create(['created_by_user_id' => null, 'source' => ThreadSource::Slack, 'starter_name' => 'Secret Person']);
+    Thread::factory()->create(['created_by_user_id' => $viewer->id, 'source' => ThreadSource::Slack]);
+
+    $facets = ThreadList::for($viewer, ThreadListFilter::Everyone)['facets'];
+
+    expect(json_encode($facets))->not->toContain('Secret Person')
+        ->and($facets['sources'][0]['count'])->toBe(1);
+});
+
+test('origin fields add no query per row', function () {
+    $viewer = User::factory()->create();
+
+    foreach (User::factory()->count(5)->create() as $teammate) {
+        $parent = Thread::factory()->create(['created_by_user_id' => $teammate->id]);
+        Thread::factory()->child($parent)->create(['created_by_user_id' => $teammate->id]);
+    }
+
+    DB::enableQueryLog();
+    ThreadList::for($viewer, ThreadListFilter::Everyone);
+    $userQueries = collect(DB::getQueryLog())->filter(fn (array $entry): bool => str_contains($entry['query'], 'from `users`') || str_contains($entry['query'], 'from "users"'));
+    DB::disableQueryLog();
+
+    expect($userQueries)->toHaveCount(2);
 });
 
 test('a question and a blocked thread land in needsYou with their labels', function () {
@@ -144,7 +254,7 @@ test('status follows the latest run, then blocked, then paused', function () {
     $paused = Thread::factory()->paused()->create(['created_by_user_id' => $user->id]);
     $unattended = Thread::factory()->create(['created_by_user_id' => null, 'repo' => 'acme/widgets']);
 
-    $byId = collect(ThreadList::for($user)['threads'])->keyBy('id');
+    $byId = collect(ThreadList::for($user, ThreadListFilter::Everyone)['threads'])->keyBy('id');
 
     expect($byId[$running->public_id]['status'])->toBe('running')
         ->and($byId[$paused->public_id]['status'])->toBe('paused')

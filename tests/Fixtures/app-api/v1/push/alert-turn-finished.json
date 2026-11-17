@@ -4,7 +4,7 @@
             "body": "Done",
             "title": "Retry failed uploads"
         },
-        "badge": 1,
+        "badge": 0,
         "filter-criteria": "yak.example.com",
         "interruption-level": "active",
         "sound": "default",
@@ -15,7 +15,7 @@
         "id": "d0e515ef",
         "instance": "https://yak.example.com",
         "kind": "thread",
-        "needsYouCount": 1,
+        "needsYouCount": 0,
         "path": "/threads/d0e515ef"
     }
 }
